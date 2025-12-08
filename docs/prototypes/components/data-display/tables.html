@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Tables - Component Library</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #1d2022; }
+    ::-webkit-scrollbar-thumb { background: #3f4447; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4f52; }
+    *:focus-visible { outline: 2px solid #098ecf; outline-offset: 2px; }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #262a2d 0%, #363a3e 50%, #262a2d 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen p-8">
+
+  <div class="max-w-6xl mx-auto mb-8">
+    <h1 class="text-3xl font-bold text-text-primary mb-2">Data Tables</h1>
+    <p class="text-text-secondary">Table components for displaying structured data.</p>
+  </div>
+
+  <div class="max-w-6xl mx-auto space-y-8">
+
+    <!-- 1. BASIC TABLE -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold">Basic Table</h2>
+        <p class="text-sm text-text-secondary mt-1">Simple table with striped rows and hover states.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-bg-tertiary">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Server</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Members</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Region</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-secondary">
+            <tr class="hover:bg-bg-hover transition-colors">
+              <td class="px-6 py-4 text-sm font-medium">Gaming Hub</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">1,234</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">US East</td>
+            </tr>
+            <tr class="bg-bg-tertiary/30 hover:bg-bg-hover transition-colors">
+              <td class="px-6 py-4 text-sm font-medium">Dev Community</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">567</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">EU West</td>
+            </tr>
+            <tr class="hover:bg-bg-hover transition-colors">
+              <td class="px-6 py-4 text-sm font-medium">Music Lovers</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">890</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-text-tertiary bg-border-primary/50 rounded-full"><span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>Offline</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">US West</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 2. SORTABLE TABLE -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold">Sortable Table</h2>
+        <p class="text-sm text-text-secondary mt-1">Click headers to sort. Active sort shown in blue.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-bg-tertiary">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary group">
+                <span class="inline-flex items-center gap-1">Server
+                  <svg class="w-4 h-4 text-text-tertiary group-hover:text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
+                </span>
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-accent-blue uppercase tracking-wider cursor-pointer">
+                <span class="inline-flex items-center gap-1">Members
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </span>
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary group">
+                <span class="inline-flex items-center gap-1">Status
+                  <svg class="w-4 h-4 text-text-tertiary group-hover:text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
+                </span>
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-accent-blue uppercase tracking-wider cursor-pointer">
+                <span class="inline-flex items-center gap-1">Region
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" /></svg>
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-secondary">
+            <tr class="hover:bg-bg-hover transition-colors"><td class="px-6 py-4 text-sm font-medium">Gaming Hub</td><td class="px-6 py-4 text-sm text-text-secondary">1,234</td><td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td><td class="px-6 py-4 text-sm text-text-secondary">EU West</td></tr>
+            <tr class="hover:bg-bg-hover transition-colors"><td class="px-6 py-4 text-sm font-medium">Music Lovers</td><td class="px-6 py-4 text-sm text-text-secondary">890</td><td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-text-tertiary bg-border-primary/50 rounded-full"><span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>Offline</span></td><td class="px-6 py-4 text-sm text-text-secondary">US East</td></tr>
+            <tr class="hover:bg-bg-hover transition-colors"><td class="px-6 py-4 text-sm font-medium">Dev Community</td><td class="px-6 py-4 text-sm text-text-secondary">567</td><td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td><td class="px-6 py-4 text-sm text-text-secondary">US West</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 3. SELECTABLE TABLE -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-semibold">Selectable Table</h2>
+          <p class="text-sm text-text-secondary mt-1">Checkbox selection with row highlighting.</p>
+        </div>
+        <span id="selection-count" class="text-sm text-accent-blue font-medium">1 selected</span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full" id="selectable-table">
+          <thead class="bg-bg-tertiary">
+            <tr>
+              <th class="px-6 py-3 w-12"><input type="checkbox" id="select-all" class="w-4 h-4 rounded border-border-primary bg-bg-primary cursor-pointer" /></th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Server</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Members</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Region</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-secondary">
+            <tr class="hover:bg-bg-hover transition-colors">
+              <td class="px-6 py-4"><input type="checkbox" class="row-checkbox w-4 h-4 rounded border-border-primary bg-bg-primary cursor-pointer" /></td>
+              <td class="px-6 py-4 text-sm font-medium">Gaming Hub</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">1,234</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">US East</td>
+            </tr>
+            <tr class="bg-accent-blue-muted hover:bg-bg-hover transition-colors">
+              <td class="px-6 py-4"><input type="checkbox" class="row-checkbox w-4 h-4 rounded border-border-primary bg-bg-primary cursor-pointer" checked /></td>
+              <td class="px-6 py-4 text-sm font-medium">Dev Community</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">567</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">EU West</td>
+            </tr>
+            <tr class="hover:bg-bg-hover transition-colors">
+              <td class="px-6 py-4"><input type="checkbox" class="row-checkbox w-4 h-4 rounded border-border-primary bg-bg-primary cursor-pointer" /></td>
+              <td class="px-6 py-4 text-sm font-medium">Music Lovers</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">890</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-text-tertiary bg-border-primary/50 rounded-full"><span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>Offline</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">US West</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 4. EXPANDABLE ROWS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold">Expandable Rows</h2>
+        <p class="text-sm text-text-secondary mt-1">Click chevron to expand row details.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-bg-tertiary">
+            <tr>
+              <th class="px-4 py-3 w-10"></th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Server</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Members</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Region</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-secondary">
+            <tr class="hover:bg-bg-hover transition-colors expandable-row cursor-pointer" data-expanded="false">
+              <td class="px-4 py-4"><button class="expand-btn p-1 rounded hover:bg-bg-tertiary"><svg class="w-4 h-4 text-text-secondary transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg></button></td>
+              <td class="px-6 py-4 text-sm font-medium">Gaming Hub</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">1,234</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">US East</td>
+            </tr>
+            <tr class="expanded-content hidden bg-bg-primary">
+              <td colspan="5" class="px-6 py-4 border-l-2 border-accent-blue">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div><span class="text-text-tertiary">Owner:</span> <span class="ml-1">JohnDoe#1234</span></div>
+                  <div><span class="text-text-tertiary">Created:</span> <span class="ml-1">Jan 15, 2023</span></div>
+                  <div><span class="text-text-tertiary">Channels:</span> <span class="ml-1">45</span></div>
+                  <div><span class="text-text-tertiary">Roles:</span> <span class="ml-1">12</span></div>
+                </div>
+              </td>
+            </tr>
+            <tr class="bg-bg-hover expandable-row cursor-pointer" data-expanded="true">
+              <td class="px-4 py-4"><button class="expand-btn p-1 rounded hover:bg-bg-tertiary"><svg class="w-4 h-4 text-text-secondary transform rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg></button></td>
+              <td class="px-6 py-4 text-sm font-medium">Dev Community</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">567</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">EU West</td>
+            </tr>
+            <tr class="expanded-content bg-bg-primary">
+              <td colspan="5" class="px-6 py-4 border-l-2 border-accent-blue">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div><span class="text-text-tertiary">Owner:</span> <span class="ml-1">DevLead#5678</span></div>
+                  <div><span class="text-text-tertiary">Created:</span> <span class="ml-1">Mar 22, 2022</span></div>
+                  <div><span class="text-text-tertiary">Channels:</span> <span class="ml-1">28</span></div>
+                  <div><span class="text-text-tertiary">Roles:</span> <span class="ml-1">8</span></div>
+                </div>
+              </td>
+            </tr>
+            <tr class="hover:bg-bg-hover transition-colors expandable-row cursor-pointer" data-expanded="false">
+              <td class="px-4 py-4"><button class="expand-btn p-1 rounded hover:bg-bg-tertiary"><svg class="w-4 h-4 text-text-secondary transform transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg></button></td>
+              <td class="px-6 py-4 text-sm font-medium">Music Lovers</td>
+              <td class="px-6 py-4 text-sm text-text-secondary">890</td>
+              <td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-text-tertiary bg-border-primary/50 rounded-full"><span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>Offline</span></td>
+              <td class="px-6 py-4 text-sm text-text-secondary">US West</td>
+            </tr>
+            <tr class="expanded-content hidden bg-bg-primary">
+              <td colspan="5" class="px-6 py-4 border-l-2 border-accent-blue">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div><span class="text-text-tertiary">Owner:</span> <span class="ml-1">MusicFan#9012</span></div>
+                  <div><span class="text-text-tertiary">Created:</span> <span class="ml-1">Aug 10, 2021</span></div>
+                  <div><span class="text-text-tertiary">Channels:</span> <span class="ml-1">32</span></div>
+                  <div><span class="text-text-tertiary">Roles:</span> <span class="ml-1">15</span></div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 5. TABLE STATES -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold">Table States</h2>
+        <p class="text-sm text-text-secondary mt-1">Empty, loading skeleton, and error states.</p>
+      </div>
+      <div class="p-6 grid md:grid-cols-3 gap-6">
+        <!-- Empty State -->
+        <div>
+          <h3 class="text-sm font-medium text-text-secondary mb-2">Empty State</h3>
+          <div class="border border-border-primary rounded-lg overflow-hidden">
+            <div class="bg-bg-tertiary px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Server | Status</div>
+            <div class="py-10 text-center">
+              <svg class="w-10 h-10 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+              <p class="text-text-secondary text-sm">No servers found</p>
+              <p class="text-xs text-text-tertiary mt-1">Try adjusting filters</p>
+            </div>
+          </div>
+        </div>
+        <!-- Loading Skeleton -->
+        <div>
+          <h3 class="text-sm font-medium text-text-secondary mb-2">Loading Skeleton</h3>
+          <div class="border border-border-primary rounded-lg overflow-hidden">
+            <div class="bg-bg-tertiary px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Server | Status</div>
+            <div class="divide-y divide-border-secondary">
+              <div class="px-4 py-3 flex justify-between"><div class="h-4 skeleton rounded w-24"></div><div class="h-4 skeleton rounded w-14"></div></div>
+              <div class="px-4 py-3 flex justify-between"><div class="h-4 skeleton rounded w-28"></div><div class="h-4 skeleton rounded w-14"></div></div>
+              <div class="px-4 py-3 flex justify-between"><div class="h-4 skeleton rounded w-20"></div><div class="h-4 skeleton rounded w-14"></div></div>
+            </div>
+          </div>
+        </div>
+        <!-- Error State -->
+        <div>
+          <h3 class="text-sm font-medium text-text-secondary mb-2">Error State</h3>
+          <div class="border border-error/30 rounded-lg overflow-hidden bg-error/5">
+            <div class="bg-bg-tertiary px-4 py-2 text-xs font-semibold text-text-secondary uppercase">Server | Status</div>
+            <div class="py-10 text-center">
+              <svg class="w-10 h-10 mx-auto text-error mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <p class="text-error text-sm font-medium">Failed to load</p>
+              <button class="mt-3 px-3 py-1.5 text-xs font-medium text-white bg-error hover:bg-error/80 rounded">Retry</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. MOBILE CARD VIEW -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold">Mobile Card View</h2>
+        <p class="text-sm text-text-secondary mt-1">Responsive card layout for small screens. Resize to see effect.</p>
+      </div>
+      <!-- Desktop Table -->
+      <div class="hidden md:block overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-bg-tertiary">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Server</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Members</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Region</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-secondary">
+            <tr class="hover:bg-bg-hover"><td class="px-6 py-4 text-sm font-medium">Gaming Hub</td><td class="px-6 py-4 text-sm text-text-secondary">1,234</td><td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td><td class="px-6 py-4 text-sm text-text-secondary">US East</td></tr>
+            <tr class="hover:bg-bg-hover"><td class="px-6 py-4 text-sm font-medium">Dev Community</td><td class="px-6 py-4 text-sm text-text-secondary">567</td><td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span></td><td class="px-6 py-4 text-sm text-text-secondary">EU West</td></tr>
+            <tr class="hover:bg-bg-hover"><td class="px-6 py-4 text-sm font-medium">Music Lovers</td><td class="px-6 py-4 text-sm text-text-secondary">890</td><td class="px-6 py-4"><span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-text-tertiary bg-border-primary/50 rounded-full"><span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>Offline</span></td><td class="px-6 py-4 text-sm text-text-secondary">US West</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- Mobile Cards -->
+      <div class="md:hidden p-4 space-y-3">
+        <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-medium">Gaming Hub</span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><span class="text-text-tertiary">Members:</span> <span class="text-text-secondary">1,234</span></div>
+            <div><span class="text-text-tertiary">Region:</span> <span class="text-text-secondary">US East</span></div>
+          </div>
+        </div>
+        <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-medium">Dev Community</span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-success bg-success/10 rounded-full"><span class="w-1.5 h-1.5 bg-success rounded-full"></span>Online</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><span class="text-text-tertiary">Members:</span> <span class="text-text-secondary">567</span></div>
+            <div><span class="text-text-tertiary">Region:</span> <span class="text-text-secondary">EU West</span></div>
+          </div>
+        </div>
+        <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <span class="font-medium">Music Lovers</span>
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium text-text-tertiary bg-border-primary/50 rounded-full"><span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>Offline</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><span class="text-text-tertiary">Members:</span> <span class="text-text-secondary">890</span></div>
+            <div><span class="text-text-tertiary">Region:</span> <span class="text-text-secondary">US West</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="max-w-6xl mx-auto mt-12 py-6 border-t border-border-primary">
+    <p class="text-sm text-text-tertiary text-center">Data Tables - Component Library v1.0</p>
+  </footer>
+
+  <script>
+    // Selectable Table
+    const selectAll = document.getElementById('select-all');
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    const selectionCount = document.getElementById('selection-count');
+
+    function updateSelection() {
+      const checked = document.querySelectorAll('.row-checkbox:checked').length;
+      selectionCount.textContent = checked ? checked + ' selected' : '';
+      checkboxes.forEach(cb => cb.closest('tr').classList.toggle('bg-accent-blue-muted', cb.checked));
+      selectAll.checked = checked === checkboxes.length;
+      selectAll.indeterminate = checked > 0 && checked < checkboxes.length;
+    }
+
+    selectAll.addEventListener('change', () => {
+      checkboxes.forEach(cb => cb.checked = selectAll.checked);
+      updateSelection();
+    });
+    checkboxes.forEach(cb => cb.addEventListener('change', updateSelection));
+
+    // Expandable Rows
+    document.querySelectorAll('.expandable-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const expanded = row.dataset.expanded === 'true';
+        const content = row.nextElementSibling;
+        const icon = row.querySelector('.expand-btn svg');
+        row.dataset.expanded = !expanded;
+        content.classList.toggle('hidden', expanded);
+        icon.classList.toggle('rotate-90', !expanded);
+        row.classList.toggle('bg-bg-hover', !expanded);
+      });
+    });
+  </script>
+
+</body>
+</html>

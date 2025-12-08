@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Display Primitives - Component Library</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Status indicator pulse animation */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .status-pulse {
+      animation: pulse 2s infinite;
+    }
+
+    /* Spinner animation */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+
+    /* Skeleton shimmer animation */
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0;
+      }
+      100% {
+        background-position: 200% 0;
+      }
+    }
+    .skeleton {
+      background: linear-gradient(
+        90deg,
+        #262a2d 0%,
+        #363a3e 50%,
+        #262a2d 100%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+
+    /* Progress bar indeterminate animation */
+    @keyframes indeterminate {
+      0% {
+        transform: translateX(-100%);
+      }
+      100% {
+        transform: translateX(300%);
+      }
+    }
+    .progress-indeterminate {
+      animation: indeterminate 1.5s ease-in-out infinite;
+    }
+
+    /* Striped progress bar animation */
+    @keyframes stripe {
+      0% {
+        background-position: 0 0;
+      }
+      100% {
+        background-position: 40px 0;
+      }
+    }
+    .progress-striped {
+      background-image: linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.15) 25%,
+        transparent 25%,
+        transparent 50%,
+        rgba(255, 255, 255, 0.15) 50%,
+        rgba(255, 255, 255, 0.15) 75%,
+        transparent 75%,
+        transparent
+      );
+      background-size: 40px 40px;
+      animation: stripe 1s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen p-8">
+
+  <!-- Page Header -->
+  <div class="max-w-6xl mx-auto mb-8">
+    <h1 class="text-3xl font-bold text-text-primary mb-2">Data Display Primitives</h1>
+    <p class="text-text-secondary">Foundational components for displaying data, status, and loading states.</p>
+  </div>
+
+  <div class="max-w-6xl mx-auto space-y-8">
+
+    <!-- ============================================ -->
+    <!-- BADGE SECTION -->
+    <!-- ============================================ -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold text-text-primary">Badges</h2>
+        <p class="text-sm text-text-secondary mt-1">Labels and tags for categorization and status indication.</p>
+      </div>
+      <div class="p-6 space-y-8">
+
+        <!-- Color Variants -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Color Variants</h3>
+          <div class="flex flex-wrap gap-3">
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-accent-orange text-white">Orange</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-accent-blue text-white">Blue</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-border-primary text-text-primary">Gray</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-success text-white">Success</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-warning text-text-inverse">Warning</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-error text-white">Error</span>
+          </div>
+        </div>
+
+        <!-- Size Variants -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Size Variants</h3>
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Small -->
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-accent-orange text-white">Small (sm)</span>
+            <!-- Medium -->
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-accent-orange text-white">Medium (md)</span>
+            <!-- Large -->
+            <span class="inline-flex items-center px-4 py-1.5 text-sm font-semibold rounded-full bg-accent-orange text-white">Large (lg)</span>
+          </div>
+        </div>
+
+        <!-- With Icons -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">With Icons</h3>
+          <div class="flex flex-wrap gap-3">
+            <!-- Check icon -->
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-success text-white">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Verified
+            </span>
+            <!-- Warning icon -->
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-warning text-text-inverse">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Warning
+            </span>
+            <!-- Star icon -->
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-accent-blue text-white">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              Featured
+            </span>
+            <!-- User icon -->
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-accent-orange text-white">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Admin
+            </span>
+          </div>
+        </div>
+
+        <!-- Pill vs Rounded -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Pill vs Rounded</h3>
+          <div class="flex flex-wrap gap-3">
+            <!-- Pill (rounded-full) -->
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-accent-orange text-white">Pill Badge</span>
+            <!-- Rounded (rounded-md) -->
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md bg-accent-orange text-white">Rounded Badge</span>
+            <!-- Pill Blue -->
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-accent-blue text-white">Pill Badge</span>
+            <!-- Rounded Blue -->
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-md bg-accent-blue text-white">Rounded Badge</span>
+          </div>
+        </div>
+
+        <!-- Outline Variants -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Outline Variants</h3>
+          <div class="flex flex-wrap gap-3">
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border border-accent-orange text-accent-orange bg-transparent">Orange</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border border-accent-blue text-accent-blue bg-transparent">Blue</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border border-border-primary text-text-primary bg-transparent">Gray</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border border-success text-success bg-transparent">Success</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border border-warning text-warning bg-transparent">Warning</span>
+            <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full border border-error text-error bg-transparent">Error</span>
+          </div>
+        </div>
+
+        <!-- Removable Badges -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Removable Badges</h3>
+          <div class="flex flex-wrap gap-3">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-accent-orange text-white">
+              Tag One
+              <button type="button" class="ml-0.5 p-0.5 rounded-full hover:bg-white/20 transition-colors" aria-label="Remove tag">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-accent-blue text-white">
+              Tag Two
+              <button type="button" class="ml-0.5 p-0.5 rounded-full hover:bg-white/20 transition-colors" aria-label="Remove tag">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-success text-white">
+              Tag Three
+              <button type="button" class="ml-0.5 p-0.5 rounded-full hover:bg-white/20 transition-colors" aria-label="Remove tag">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border border-accent-orange text-accent-orange">
+              Outline Tag
+              <button type="button" class="ml-0.5 p-0.5 rounded-full hover:bg-accent-orange/20 transition-colors" aria-label="Remove tag">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- STATUS INDICATOR SECTION -->
+    <!-- ============================================ -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold text-text-primary">Status Indicators</h2>
+        <p class="text-sm text-text-secondary mt-1">Visual indicators for online/offline states and activity status.</p>
+      </div>
+      <div class="p-6 space-y-8">
+
+        <!-- Status Types with Text -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">With Text Label</h3>
+          <div class="flex flex-wrap gap-6">
+            <!-- Online -->
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-success">
+              <span class="w-2 h-2 bg-success rounded-full"></span>
+              Online
+            </span>
+            <!-- Idle -->
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-warning">
+              <span class="w-2 h-2 bg-warning rounded-full"></span>
+              Idle
+            </span>
+            <!-- Busy -->
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-error">
+              <span class="w-2 h-2 bg-error rounded-full"></span>
+              Busy
+            </span>
+            <!-- Offline -->
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-text-tertiary">
+              <span class="w-2 h-2 bg-text-tertiary rounded-full"></span>
+              Offline
+            </span>
+          </div>
+        </div>
+
+        <!-- Dot-Only Variant -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Dot-Only Variant</h3>
+          <div class="flex flex-wrap items-center gap-4">
+            <span class="w-2 h-2 bg-success rounded-full" title="Online"></span>
+            <span class="w-2 h-2 bg-warning rounded-full" title="Idle"></span>
+            <span class="w-2 h-2 bg-error rounded-full" title="Busy"></span>
+            <span class="w-2 h-2 bg-text-tertiary rounded-full" title="Offline"></span>
+            <!-- Larger dots -->
+            <span class="w-3 h-3 bg-success rounded-full" title="Online (large)"></span>
+            <span class="w-3 h-3 bg-warning rounded-full" title="Idle (large)"></span>
+            <span class="w-3 h-3 bg-error rounded-full" title="Busy (large)"></span>
+            <span class="w-3 h-3 bg-text-tertiary rounded-full" title="Offline (large)"></span>
+          </div>
+        </div>
+
+        <!-- Pulsing Animation -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Pulsing Animation</h3>
+          <div class="flex flex-wrap gap-6">
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-success">
+              <span class="w-2 h-2 bg-success rounded-full status-pulse"></span>
+              Online (pulsing)
+            </span>
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-warning">
+              <span class="w-2 h-2 bg-warning rounded-full status-pulse"></span>
+              Idle (pulsing)
+            </span>
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-error">
+              <span class="w-2 h-2 bg-error rounded-full status-pulse"></span>
+              Busy (pulsing)
+            </span>
+            <!-- Larger pulsing dots -->
+            <span class="w-3 h-3 bg-success rounded-full status-pulse" title="Online (pulsing)"></span>
+            <span class="w-3 h-3 bg-accent-orange rounded-full status-pulse" title="Alert (pulsing)"></span>
+          </div>
+        </div>
+
+        <!-- Icon Variant -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Icon Variant</h3>
+          <div class="flex flex-wrap gap-6">
+            <!-- Online - Checkmark -->
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-success">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Online
+            </span>
+            <!-- Idle - Moon -->
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-warning">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+              Idle
+            </span>
+            <!-- Busy - Minus -->
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-error">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 12H6" />
+              </svg>
+              Busy
+            </span>
+            <!-- Offline - X -->
+            <span class="inline-flex items-center gap-2 text-sm font-medium text-text-tertiary">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Offline
+            </span>
+          </div>
+        </div>
+
+        <!-- Badge Style Status -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Badge Style Status</h3>
+          <div class="flex flex-wrap gap-3">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+              <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+              Online
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-warning bg-warning/10 rounded-full">
+              <span class="w-1.5 h-1.5 bg-warning rounded-full"></span>
+              Idle
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-error bg-error/10 rounded-full">
+              <span class="w-1.5 h-1.5 bg-error rounded-full"></span>
+              Busy
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-text-tertiary bg-border-primary/50 rounded-full">
+              <span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>
+              Offline
+            </span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- AVATAR SECTION -->
+    <!-- ============================================ -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold text-text-primary">Avatars</h2>
+        <p class="text-sm text-text-secondary mt-1">User profile images and placeholder representations.</p>
+      </div>
+      <div class="p-6 space-y-8">
+
+        <!-- Image Avatars - Size Variants -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Size Variants (Image)</h3>
+          <div class="flex flex-wrap items-end gap-4">
+            <!-- XS - 24px / w-6 -->
+            <div class="text-center">
+              <img src="https://i.pravatar.cc/150?img=1" alt="User avatar" class="w-6 h-6 rounded-full object-cover" />
+              <p class="text-xs text-text-tertiary mt-2">xs (24px)</p>
+            </div>
+            <!-- SM - 32px / w-8 -->
+            <div class="text-center">
+              <img src="https://i.pravatar.cc/150?img=2" alt="User avatar" class="w-8 h-8 rounded-full object-cover" />
+              <p class="text-xs text-text-tertiary mt-2">sm (32px)</p>
+            </div>
+            <!-- MD - 40px / w-10 -->
+            <div class="text-center">
+              <img src="https://i.pravatar.cc/150?img=3" alt="User avatar" class="w-10 h-10 rounded-full object-cover" />
+              <p class="text-xs text-text-tertiary mt-2">md (40px)</p>
+            </div>
+            <!-- LG - 48px / w-12 -->
+            <div class="text-center">
+              <img src="https://i.pravatar.cc/150?img=4" alt="User avatar" class="w-12 h-12 rounded-full object-cover" />
+              <p class="text-xs text-text-tertiary mt-2">lg (48px)</p>
+            </div>
+            <!-- XL - 64px / w-16 -->
+            <div class="text-center">
+              <img src="https://i.pravatar.cc/150?img=5" alt="User avatar" class="w-16 h-16 rounded-full object-cover" />
+              <p class="text-xs text-text-tertiary mt-2">xl (64px)</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Initials Avatars -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Initials Avatars</h3>
+          <div class="flex flex-wrap items-end gap-4">
+            <!-- XS -->
+            <div class="text-center">
+              <div class="w-6 h-6 rounded-full bg-accent-orange flex items-center justify-center text-white font-semibold text-[8px]">JD</div>
+              <p class="text-xs text-text-tertiary mt-2">xs</p>
+            </div>
+            <!-- SM -->
+            <div class="text-center">
+              <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-xs">AB</div>
+              <p class="text-xs text-text-tertiary mt-2">sm</p>
+            </div>
+            <!-- MD -->
+            <div class="text-center">
+              <div class="w-10 h-10 rounded-full bg-success flex items-center justify-center text-white font-semibold text-sm">MK</div>
+              <p class="text-xs text-text-tertiary mt-2">md</p>
+            </div>
+            <!-- LG -->
+            <div class="text-center">
+              <div class="w-12 h-12 rounded-full bg-warning flex items-center justify-center text-text-inverse font-semibold text-base">RS</div>
+              <p class="text-xs text-text-tertiary mt-2">lg</p>
+            </div>
+            <!-- XL -->
+            <div class="text-center">
+              <div class="w-16 h-16 rounded-full bg-error flex items-center justify-center text-white font-semibold text-lg">KW</div>
+              <p class="text-xs text-text-tertiary mt-2">xl</p>
+            </div>
+            <!-- Single letter -->
+            <div class="text-center">
+              <div class="w-10 h-10 rounded-full bg-info flex items-center justify-center text-white font-semibold text-sm">A</div>
+              <p class="text-xs text-text-tertiary mt-2">Single</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- With Status Overlay -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">With Status Overlay</h3>
+          <div class="flex flex-wrap items-end gap-6">
+            <!-- Online -->
+            <div class="text-center">
+              <div class="relative inline-block">
+                <img src="https://i.pravatar.cc/150?img=6" alt="User avatar" class="w-10 h-10 rounded-full object-cover" />
+                <span class="absolute bottom-0 right-0 w-3 h-3 bg-success border-2 border-bg-secondary rounded-full"></span>
+              </div>
+              <p class="text-xs text-text-tertiary mt-2">Online</p>
+            </div>
+            <!-- Idle -->
+            <div class="text-center">
+              <div class="relative inline-block">
+                <img src="https://i.pravatar.cc/150?img=7" alt="User avatar" class="w-10 h-10 rounded-full object-cover" />
+                <span class="absolute bottom-0 right-0 w-3 h-3 bg-warning border-2 border-bg-secondary rounded-full"></span>
+              </div>
+              <p class="text-xs text-text-tertiary mt-2">Idle</p>
+            </div>
+            <!-- Busy -->
+            <div class="text-center">
+              <div class="relative inline-block">
+                <img src="https://i.pravatar.cc/150?img=8" alt="User avatar" class="w-10 h-10 rounded-full object-cover" />
+                <span class="absolute bottom-0 right-0 w-3 h-3 bg-error border-2 border-bg-secondary rounded-full"></span>
+              </div>
+              <p class="text-xs text-text-tertiary mt-2">Busy</p>
+            </div>
+            <!-- Offline -->
+            <div class="text-center">
+              <div class="relative inline-block">
+                <img src="https://i.pravatar.cc/150?img=9" alt="User avatar" class="w-10 h-10 rounded-full object-cover" />
+                <span class="absolute bottom-0 right-0 w-3 h-3 bg-text-tertiary border-2 border-bg-secondary rounded-full"></span>
+              </div>
+              <p class="text-xs text-text-tertiary mt-2">Offline</p>
+            </div>
+            <!-- Larger with status -->
+            <div class="text-center">
+              <div class="relative inline-block">
+                <img src="https://i.pravatar.cc/150?img=10" alt="User avatar" class="w-16 h-16 rounded-full object-cover" />
+                <span class="absolute bottom-0 right-0 w-4 h-4 bg-success border-2 border-bg-secondary rounded-full status-pulse"></span>
+              </div>
+              <p class="text-xs text-text-tertiary mt-2">XL + Pulse</p>
+            </div>
+            <!-- Initials with status -->
+            <div class="text-center">
+              <div class="relative inline-block">
+                <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-base">TM</div>
+                <span class="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success border-2 border-bg-secondary rounded-full"></span>
+              </div>
+              <p class="text-xs text-text-tertiary mt-2">Initials</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Avatar Group/Stack -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Avatar Group/Stack</h3>
+          <div class="space-y-4">
+            <!-- Basic stack -->
+            <div class="flex items-center">
+              <div class="flex -space-x-3">
+                <img src="https://i.pravatar.cc/150?img=11" alt="User 1" class="w-10 h-10 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=12" alt="User 2" class="w-10 h-10 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=13" alt="User 3" class="w-10 h-10 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=14" alt="User 4" class="w-10 h-10 rounded-full border-2 border-bg-secondary object-cover" />
+              </div>
+              <span class="ml-3 text-sm text-text-secondary">4 members</span>
+            </div>
+            <!-- Stack with +N indicator -->
+            <div class="flex items-center">
+              <div class="flex -space-x-3">
+                <img src="https://i.pravatar.cc/150?img=15" alt="User 1" class="w-10 h-10 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=16" alt="User 2" class="w-10 h-10 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=17" alt="User 3" class="w-10 h-10 rounded-full border-2 border-bg-secondary object-cover" />
+                <div class="w-10 h-10 rounded-full border-2 border-bg-secondary bg-border-primary flex items-center justify-center text-xs font-semibold text-text-primary">+5</div>
+              </div>
+              <span class="ml-3 text-sm text-text-secondary">8 members total</span>
+            </div>
+            <!-- Smaller stack -->
+            <div class="flex items-center">
+              <div class="flex -space-x-2">
+                <img src="https://i.pravatar.cc/150?img=18" alt="User 1" class="w-8 h-8 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=19" alt="User 2" class="w-8 h-8 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=20" alt="User 3" class="w-8 h-8 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=21" alt="User 4" class="w-8 h-8 rounded-full border-2 border-bg-secondary object-cover" />
+                <img src="https://i.pravatar.cc/150?img=22" alt="User 5" class="w-8 h-8 rounded-full border-2 border-bg-secondary object-cover" />
+                <div class="w-8 h-8 rounded-full border-2 border-bg-secondary bg-border-primary flex items-center justify-center text-[10px] font-semibold text-text-primary">+12</div>
+              </div>
+              <span class="ml-3 text-sm text-text-secondary">17 members total</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Placeholder/Loading State -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Placeholder/Loading State</h3>
+          <div class="flex flex-wrap items-end gap-4">
+            <!-- XS -->
+            <div class="text-center">
+              <div class="w-6 h-6 rounded-full skeleton"></div>
+              <p class="text-xs text-text-tertiary mt-2">xs</p>
+            </div>
+            <!-- SM -->
+            <div class="text-center">
+              <div class="w-8 h-8 rounded-full skeleton"></div>
+              <p class="text-xs text-text-tertiary mt-2">sm</p>
+            </div>
+            <!-- MD -->
+            <div class="text-center">
+              <div class="w-10 h-10 rounded-full skeleton"></div>
+              <p class="text-xs text-text-tertiary mt-2">md</p>
+            </div>
+            <!-- LG -->
+            <div class="text-center">
+              <div class="w-12 h-12 rounded-full skeleton"></div>
+              <p class="text-xs text-text-tertiary mt-2">lg</p>
+            </div>
+            <!-- XL -->
+            <div class="text-center">
+              <div class="w-16 h-16 rounded-full skeleton"></div>
+              <p class="text-xs text-text-tertiary mt-2">xl</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ============================================ -->
+    <!-- LOADING STATES SECTION -->
+    <!-- ============================================ -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold text-text-primary">Loading States</h2>
+        <p class="text-sm text-text-secondary mt-1">Spinners, skeletons, and progress indicators for async operations.</p>
+      </div>
+      <div class="p-6 space-y-8">
+
+        <!-- Spinners -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Spinners</h3>
+          <div class="flex flex-wrap items-center gap-8">
+            <!-- SM - w-4 -->
+            <div class="text-center">
+              <svg class="w-4 h-4 text-accent-orange animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-xs text-text-tertiary mt-2">sm (16px)</p>
+            </div>
+            <!-- MD - w-6 -->
+            <div class="text-center">
+              <svg class="w-6 h-6 text-accent-orange animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-xs text-text-tertiary mt-2">md (24px)</p>
+            </div>
+            <!-- LG - w-8 -->
+            <div class="text-center">
+              <svg class="w-8 h-8 text-accent-orange animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-xs text-text-tertiary mt-2">lg (32px)</p>
+            </div>
+            <!-- Color variants -->
+            <div class="text-center">
+              <svg class="w-6 h-6 text-accent-blue animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-xs text-text-tertiary mt-2">Blue</p>
+            </div>
+            <div class="text-center">
+              <svg class="w-6 h-6 text-success animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-xs text-text-tertiary mt-2">Success</p>
+            </div>
+            <div class="text-center">
+              <svg class="w-6 h-6 text-text-secondary animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <p class="text-xs text-text-tertiary mt-2">Neutral</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skeleton Loaders -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Skeleton Loaders</h3>
+          <div class="space-y-6">
+            <!-- Text Line Skeletons -->
+            <div>
+              <p class="text-xs text-text-tertiary mb-2">Text Line Skeletons</p>
+              <div class="space-y-2 max-w-md">
+                <div class="h-4 skeleton rounded w-full"></div>
+                <div class="h-4 skeleton rounded w-5/6"></div>
+                <div class="h-4 skeleton rounded w-4/6"></div>
+                <div class="h-4 skeleton rounded w-3/6"></div>
+              </div>
+            </div>
+            <!-- Avatar Skeleton -->
+            <div>
+              <p class="text-xs text-text-tertiary mb-2">Avatar Skeleton (Circular)</p>
+              <div class="flex gap-4">
+                <div class="w-8 h-8 skeleton rounded-full"></div>
+                <div class="w-10 h-10 skeleton rounded-full"></div>
+                <div class="w-12 h-12 skeleton rounded-full"></div>
+              </div>
+            </div>
+            <!-- Card Skeleton -->
+            <div>
+              <p class="text-xs text-text-tertiary mb-2">Card Skeleton</p>
+              <div class="bg-bg-primary border border-border-primary rounded-lg p-4 max-w-sm">
+                <div class="flex items-center gap-3 mb-4">
+                  <div class="w-10 h-10 skeleton rounded-full"></div>
+                  <div class="flex-1 space-y-2">
+                    <div class="h-4 skeleton rounded w-3/4"></div>
+                    <div class="h-3 skeleton rounded w-1/2"></div>
+                  </div>
+                </div>
+                <div class="space-y-2">
+                  <div class="h-4 skeleton rounded w-full"></div>
+                  <div class="h-4 skeleton rounded w-full"></div>
+                  <div class="h-4 skeleton rounded w-2/3"></div>
+                </div>
+              </div>
+            </div>
+            <!-- Table Row Skeleton -->
+            <div>
+              <p class="text-xs text-text-tertiary mb-2">Table Row Skeleton</p>
+              <div class="bg-bg-primary border border-border-primary rounded-lg overflow-hidden max-w-2xl">
+                <div class="divide-y divide-border-primary">
+                  <!-- Row 1 -->
+                  <div class="flex items-center gap-4 p-4">
+                    <div class="w-10 h-10 skeleton rounded-full flex-shrink-0"></div>
+                    <div class="flex-1 space-y-2">
+                      <div class="h-4 skeleton rounded w-1/3"></div>
+                      <div class="h-3 skeleton rounded w-1/4"></div>
+                    </div>
+                    <div class="h-6 skeleton rounded w-16"></div>
+                    <div class="h-4 skeleton rounded w-20"></div>
+                    <div class="h-8 skeleton rounded w-8"></div>
+                  </div>
+                  <!-- Row 2 -->
+                  <div class="flex items-center gap-4 p-4">
+                    <div class="w-10 h-10 skeleton rounded-full flex-shrink-0"></div>
+                    <div class="flex-1 space-y-2">
+                      <div class="h-4 skeleton rounded w-2/5"></div>
+                      <div class="h-3 skeleton rounded w-1/5"></div>
+                    </div>
+                    <div class="h-6 skeleton rounded w-16"></div>
+                    <div class="h-4 skeleton rounded w-20"></div>
+                    <div class="h-8 skeleton rounded w-8"></div>
+                  </div>
+                  <!-- Row 3 -->
+                  <div class="flex items-center gap-4 p-4">
+                    <div class="w-10 h-10 skeleton rounded-full flex-shrink-0"></div>
+                    <div class="flex-1 space-y-2">
+                      <div class="h-4 skeleton rounded w-1/4"></div>
+                      <div class="h-3 skeleton rounded w-1/6"></div>
+                    </div>
+                    <div class="h-6 skeleton rounded w-16"></div>
+                    <div class="h-4 skeleton rounded w-20"></div>
+                    <div class="h-8 skeleton rounded w-8"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress Bars -->
+        <div>
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Progress Bars</h3>
+          <div class="space-y-6 max-w-lg">
+            <!-- Determinate Progress -->
+            <div>
+              <p class="text-xs text-text-tertiary mb-2">Determinate (with percentage)</p>
+              <div class="space-y-3">
+                <!-- 25% -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Progress</span>
+                    <span>25%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 25%"></div>
+                  </div>
+                </div>
+                <!-- 50% -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Progress</span>
+                    <span>50%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 50%"></div>
+                  </div>
+                </div>
+                <!-- 75% -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Progress</span>
+                    <span>75%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 75%"></div>
+                  </div>
+                </div>
+                <!-- 100% -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Complete</span>
+                    <span>100%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 100%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Indeterminate Progress -->
+            <div>
+              <p class="text-xs text-text-tertiary mb-2">Indeterminate (animated stripe)</p>
+              <div class="space-y-3">
+                <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                  <div class="h-full w-1/3 bg-accent-orange rounded-full progress-indeterminate"></div>
+                </div>
+                <div class="h-3 bg-bg-primary rounded-full overflow-hidden">
+                  <div class="h-full bg-accent-orange progress-striped" style="width: 60%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Color Variants -->
+            <div>
+              <p class="text-xs text-text-tertiary mb-2">Color Variants</p>
+              <div class="space-y-3">
+                <!-- Default Orange -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Default (Orange)</span>
+                    <span>60%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 60%"></div>
+                  </div>
+                </div>
+                <!-- Success Green -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Success (Green)</span>
+                    <span>80%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-success rounded-full" style="width: 80%"></div>
+                  </div>
+                </div>
+                <!-- Error Red -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Error (Red)</span>
+                    <span>35%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-error rounded-full" style="width: 35%"></div>
+                  </div>
+                </div>
+                <!-- Blue -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Info (Blue)</span>
+                    <span>45%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-accent-blue rounded-full" style="width: 45%"></div>
+                  </div>
+                </div>
+                <!-- Warning -->
+                <div>
+                  <div class="flex justify-between text-xs text-text-secondary mb-1">
+                    <span>Warning (Amber)</span>
+                    <span>70%</span>
+                  </div>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full bg-warning rounded-full" style="width: 70%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Size Variants -->
+            <div>
+              <p class="text-xs text-text-tertiary mb-2">Size Variants</p>
+              <div class="space-y-3">
+                <!-- Thin -->
+                <div>
+                  <span class="text-xs text-text-secondary">Thin (h-1)</span>
+                  <div class="h-1 bg-bg-primary rounded-full overflow-hidden mt-1">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 65%"></div>
+                  </div>
+                </div>
+                <!-- Default -->
+                <div>
+                  <span class="text-xs text-text-secondary">Default (h-2)</span>
+                  <div class="h-2 bg-bg-primary rounded-full overflow-hidden mt-1">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 65%"></div>
+                  </div>
+                </div>
+                <!-- Medium -->
+                <div>
+                  <span class="text-xs text-text-secondary">Medium (h-3)</span>
+                  <div class="h-3 bg-bg-primary rounded-full overflow-hidden mt-1">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 65%"></div>
+                  </div>
+                </div>
+                <!-- Large -->
+                <div>
+                  <span class="text-xs text-text-secondary">Large (h-4)</span>
+                  <div class="h-4 bg-bg-primary rounded-full overflow-hidden mt-1">
+                    <div class="h-full bg-accent-orange rounded-full" style="width: 65%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="max-w-6xl mx-auto mt-12 py-6 border-t border-border-primary">
+    <p class="text-sm text-text-tertiary text-center">Data Display Primitives - Component Library v1.0</p>
+  </footer>
+
+</body>
+</html>
