@@ -1,0 +1,2032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Bot Admin - Commands Management</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* ========================================
+       PAGE-SPECIFIC STYLES
+       ======================================== */
+
+    /* Toggle Switch Component */
+    .form-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+    }
+
+    .form-toggle-input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .form-toggle-track {
+      position: relative;
+      display: inline-block;
+      width: 2.75rem;
+      height: 1.5rem;
+      background-color: #3f4447;
+      border-radius: 9999px;
+      flex-shrink: 0;
+      transition: background-color 0.2s ease-in-out;
+    }
+
+    .form-toggle-thumb {
+      position: absolute;
+      top: 0.125rem;
+      left: 0.125rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      background-color: #d7d3d0;
+      border-radius: 50%;
+      transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    }
+
+    .form-toggle:hover .form-toggle-track {
+      background-color: #4a4f52;
+    }
+
+    .form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
+      background-color: #e5591f;
+    }
+
+    .form-toggle-input:focus-visible + .form-toggle-track {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    .form-toggle-input:checked + .form-toggle-track {
+      background-color: #cb4e1b;
+    }
+
+    .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+      transform: translateX(1.25rem);
+      background-color: white;
+    }
+
+    /* Small toggle variant */
+    .form-toggle-sm .form-toggle-track {
+      width: 2.25rem;
+      height: 1.25rem;
+    }
+
+    .form-toggle-sm .form-toggle-thumb {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .form-toggle-sm .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+      transform: translateX(1rem);
+    }
+
+    /* Expandable row styles */
+    .expand-icon {
+      transition: transform 0.15s ease-out;
+    }
+
+    .expand-icon.rotated {
+      transform: rotate(90deg);
+    }
+
+    .table-row-expanded {
+      background-color: #1d2022;
+      border-left: 2px solid #098ecf;
+    }
+
+    /* Purple color for Fun category */
+    .text-purple-400 { color: #c084fc; }
+    .bg-purple-400\/10 { background-color: rgba(192, 132, 252, 0.1); }
+
+    /* Form styles */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .form-help {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      font-size: 0.875rem;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      color: #d7d3d0;
+      transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 1px #098ecf;
+    }
+
+    .form-input::placeholder {
+      color: #7a7876;
+    }
+
+    .form-select {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      font-size: 0.875rem;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      color: #d7d3d0;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%237a7876' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      padding-right: 2.5rem;
+    }
+
+    .form-select:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 1px #098ecf;
+    }
+
+    .form-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+    }
+
+    .form-checkbox input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      border-radius: 0.25rem;
+      border: 1px solid #3f4447;
+      background-color: #1d2022;
+      cursor: pointer;
+    }
+
+    .form-checkbox input[type="checkbox"]:checked {
+      background-color: #cb4e1b;
+      border-color: #cb4e1b;
+    }
+
+    /* Button styles */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.15s ease-out;
+    }
+
+    .btn-primary {
+      background-color: #cb4e1b;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #e5591f;
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      border: 1px solid #3f4447;
+      color: #a8a5a3;
+    }
+
+    .btn-secondary:hover {
+      background-color: #363a3e;
+      color: #d7d3d0;
+    }
+
+    /* Toast notification */
+    .toast-container {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background-color: #2f3336;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+      color: #d7d3d0;
+      font-size: 0.875rem;
+      animation: slideInRight 0.3s ease-out;
+    }
+
+    .toast.toast-success {
+      border-left: 3px solid #10b981;
+    }
+
+    .toast.toast-error {
+      border-left: 3px solid #ef4444;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+      }
+      to {
+        opacity: 0;
+      }
+    }
+
+    /* Custom select styling for filter dropdowns */
+    select {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%237a7876' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 lg:hidden hidden" style="z-index: var(--z-fixed);" onclick="toggleSidebar()"></div>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar fixed top-0 left-0 right-0 flex items-center justify-between h-16 px-4 lg:px-6 bg-bg-secondary border-b border-border-primary">
+    <!-- Left Section: Menu Toggle & Logo -->
+    <div class="flex items-center gap-4">
+      <!-- Mobile Menu Toggle -->
+      <button
+        id="sidebarToggle"
+        onclick="toggleSidebar()"
+        class="lg:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle sidebar menu"
+        aria-expanded="false"
+        aria-controls="sidebar"
+      >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <!-- Logo & App Name -->
+      <a href="../dashboard.html" class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-accent-orange flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+      </a>
+    </div>
+
+    <!-- Center Section: Search -->
+    <div class="hidden md:flex flex-1 max-w-md mx-8">
+      <div class="relative w-full">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search servers, commands, logs..."
+          class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+        />
+      </div>
+    </div>
+
+    <!-- Right Section: Actions & User Menu -->
+    <div class="flex items-center gap-2">
+      <!-- Mobile Search Toggle -->
+      <button class="md:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Search">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </button>
+
+      <!-- Notifications -->
+      <button class="relative p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span class="absolute top-1 right-1 w-2 h-2 bg-accent-orange rounded-full"></span>
+      </button>
+
+      <!-- User Menu Dropdown -->
+      <div class="relative">
+        <button
+          onclick="toggleUserMenu()"
+          class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
+          aria-label="User menu"
+          aria-expanded="false"
+        >
+          <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">
+            AD
+          </div>
+          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="userMenu" class="dropdown-menu absolute right-0 mt-2 w-48 py-1 bg-bg-tertiary border border-border-primary rounded-lg shadow-xl">
+          <div class="px-4 py-2 border-b border-border-primary">
+            <p class="text-sm font-medium text-text-primary">Admin User</p>
+            <p class="text-xs text-text-secondary">admin@example.com</p>
+          </div>
+          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Profile
+          </a>
+          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </a>
+          <div class="border-t border-border-primary mt-1 pt-1">
+            <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Sidebar Navigation -->
+  <aside
+    id="sidebar"
+    class="sidebar fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-bg-secondary border-r border-border-primary transform -translate-x-full lg:translate-x-0"
+  >
+    <nav class="flex flex-col h-full p-4">
+      <!-- Main Navigation -->
+      <div class="space-y-1">
+        <a href="../dashboard.html" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Dashboard
+        </a>
+
+        <a href="servers-list.html" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          Servers
+          <span class="sidebar-badge">12</span>
+        </a>
+
+        <a href="commands-management.html" class="sidebar-link active">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Commands
+        </a>
+
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          Logs
+          <span class="sidebar-badge-dot status-pulse"></span>
+        </a>
+
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Settings
+        </a>
+      </div>
+
+      <!-- Divider -->
+      <div class="my-4 border-t border-border-secondary"></div>
+
+      <!-- Secondary Navigation -->
+      <div class="space-y-1">
+        <p class="sidebar-section">Support</p>
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          Documentation
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Help & Support
+        </a>
+      </div>
+
+      <!-- Bot Status Footer -->
+      <div class="mt-auto pt-4 border-t border-border-secondary">
+        <div class="sidebar-status">
+          <span class="sidebar-status-dot online status-pulse"></span>
+          <span class="text-success font-medium">Bot Online</span>
+          <span class="ml-auto text-xs text-text-tertiary">v2.1.0</span>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="lg:ml-64 pt-16 min-h-screen">
+    <div class="p-4 lg:p-8">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="breadcrumb mb-6">
+        <ol class="breadcrumb-list flex items-center gap-2 text-sm">
+          <li class="breadcrumb-item">
+            <a href="../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+          </li>
+          <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li class="breadcrumb-item">
+            <span class="text-text-primary font-medium" aria-current="page">Commands</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+          <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Commands Management</h1>
+          <span class="inline-flex items-center px-2.5 py-0.5 text-sm font-semibold text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded-full" aria-label="Total commands" id="commandCountBadge">
+            18
+          </span>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="bulkEditBtn" class="hidden items-center gap-2 px-4 py-2 text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Bulk Edit
+          </button>
+          <button id="addCommandBtn" onclick="openCommandModal()" class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Custom Command
+          </button>
+        </div>
+      </div>
+
+      <!-- Search and Filter Bar -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center gap-4">
+
+          <!-- Search Input -->
+          <div class="flex-1">
+            <div class="relative">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="search"
+                id="commandSearch"
+                placeholder="Search by command name or description..."
+                class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                aria-label="Search commands"
+              />
+            </div>
+          </div>
+
+          <!-- Category Filter -->
+          <div class="w-full lg:w-48">
+            <select
+              id="categoryFilter"
+              class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer appearance-none"
+              aria-label="Filter by category"
+            >
+              <option value="">All Categories</option>
+              <option value="moderation">Moderation</option>
+              <option value="utility">Utility</option>
+              <option value="fun">Fun</option>
+              <option value="admin">Admin</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+
+          <!-- Status Filter -->
+          <div class="w-full lg:w-40">
+            <select
+              id="statusFilter"
+              class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer appearance-none"
+              aria-label="Filter by status"
+            >
+              <option value="">All Statuses</option>
+              <option value="enabled">Enabled</option>
+              <option value="disabled">Disabled</option>
+            </select>
+          </div>
+
+          <!-- Sort Dropdown -->
+          <div class="w-full lg:w-48">
+            <select
+              id="sortBy"
+              class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer appearance-none"
+              aria-label="Sort by"
+            >
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="category-asc">Category (A-Z)</option>
+              <option value="usage-desc">Usage (High-Low)</option>
+            </select>
+          </div>
+
+          <!-- Clear Filters Button -->
+          <button
+            id="clearFilters"
+            class="hidden lg:inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors"
+            aria-label="Clear all filters"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear
+          </button>
+
+        </div>
+      </div>
+
+      <!-- Commands Table (Desktop/Tablet) -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block" id="tableContainer">
+        <div class="overflow-x-auto">
+          <table class="w-full" id="commandsTable" role="grid">
+            <thead class="bg-bg-tertiary">
+              <tr>
+                <!-- Bulk Selection Checkbox -->
+                <th scope="col" class="px-4 py-3 w-12">
+                  <label class="flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      id="selectAll"
+                      class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-border-focus cursor-pointer"
+                      aria-label="Select all commands"
+                    />
+                  </label>
+                </th>
+                <!-- Expand Toggle -->
+                <th scope="col" class="px-2 py-3 w-10"></th>
+                <!-- Command Name -->
+                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary group" data-sort="name">
+                  <span class="inline-flex items-center gap-1">
+                    Command
+                    <svg class="w-4 h-4 text-text-tertiary sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </span>
+                </th>
+                <!-- Description -->
+                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider hidden xl:table-cell">
+                  Description
+                </th>
+                <!-- Category -->
+                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary group" data-sort="category">
+                  <span class="inline-flex items-center gap-1">
+                    Category
+                    <svg class="w-4 h-4 text-text-tertiary sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </span>
+                </th>
+                <!-- Status Toggle -->
+                <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  Status
+                </th>
+                <!-- Permissions (hidden on tablet) -->
+                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider hidden lg:table-cell">
+                  Permissions
+                </th>
+                <!-- Cooldown (hidden on tablet) -->
+                <th scope="col" class="px-4 py-3 text-center text-xs font-semibold text-text-secondary uppercase tracking-wider hidden lg:table-cell">
+                  Cooldown
+                </th>
+                <!-- Actions -->
+                <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-primary" id="commandsTableBody">
+              <!-- Table rows generated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Mobile Card Layout -->
+      <div class="md:hidden space-y-4" id="commandCards">
+        <!-- Cards generated by JavaScript -->
+      </div>
+
+      <!-- Empty State (hidden by default) -->
+      <div id="emptyState" class="hidden bg-bg-secondary border border-border-primary rounded-lg py-16 text-center">
+        <svg class="w-16 h-16 mx-auto text-text-tertiary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        <h3 class="text-lg font-semibold text-text-primary mb-2">No commands found</h3>
+        <p class="text-text-secondary mb-4">Try adjusting your search or filter criteria.</p>
+        <button onclick="clearAllFilters()" class="px-4 py-2 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+          Clear all filters
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Bulk Actions Bar (Floating) -->
+  <div id="bulkActionsBar" class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden bg-bg-tertiary border border-border-primary rounded-lg shadow-xl px-4 py-3 z-50">
+    <div class="flex items-center gap-4">
+      <!-- Selection Count -->
+      <span class="text-sm text-text-primary font-medium">
+        <span id="selectedCount">0</span> commands selected
+      </span>
+
+      <!-- Divider -->
+      <div class="w-px h-6 bg-border-primary"></div>
+
+      <!-- Bulk Enable -->
+      <button onclick="bulkEnable()" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-success hover:bg-success/10 rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        Enable
+      </button>
+
+      <!-- Bulk Disable -->
+      <button onclick="bulkDisable()" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-warning hover:bg-warning/10 rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+        </svg>
+        Disable
+      </button>
+
+      <!-- Bulk Permissions -->
+      <button class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-accent-blue hover:bg-accent-blue/10 rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+        Permissions
+      </button>
+
+      <!-- Bulk Delete -->
+      <button onclick="bulkDelete()" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-error hover:bg-error/10 rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+        Delete
+      </button>
+
+      <!-- Divider -->
+      <div class="w-px h-6 bg-border-primary"></div>
+
+      <!-- Clear Selection -->
+      <button id="clearSelection" onclick="clearSelection()" class="p-1.5 text-text-tertiary hover:text-text-primary transition-colors" aria-label="Clear selection">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Add/Edit Command Modal Backdrop -->
+  <div id="commandModalBackdrop" class="modal-backdrop" onclick="closeCommandModal()"></div>
+
+  <!-- Add/Edit Command Modal -->
+  <div id="commandModal" class="modal modal-centered modal-lg bg-bg-secondary border border-border-primary rounded-lg shadow-xl">
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <h3 class="text-lg font-semibold text-text-primary" id="modalTitle">Add Custom Command</h3>
+      <button class="modal-close" aria-label="Close modal" onclick="closeCommandModal()">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body modal-body-scroll">
+      <form id="commandForm" class="space-y-4">
+
+        <!-- Command Name -->
+        <div class="form-group">
+          <label for="commandName" class="form-label">Command Name <span class="text-error">*</span></label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">/</span>
+            <input
+              type="text"
+              id="commandName"
+              class="form-input pl-7"
+              placeholder="mycommand"
+              required
+              pattern="[a-z0-9-]+"
+            />
+          </div>
+          <span class="form-help">Lowercase letters, numbers, and hyphens only</span>
+        </div>
+
+        <!-- Description -->
+        <div class="form-group">
+          <label for="commandDescription" class="form-label">Description <span class="text-error">*</span></label>
+          <textarea
+            id="commandDescription"
+            class="form-input resize-none"
+            rows="2"
+            placeholder="Describe what this command does..."
+            required
+          ></textarea>
+        </div>
+
+        <!-- Category -->
+        <div class="form-group">
+          <label for="commandCategory" class="form-label">Category <span class="text-error">*</span></label>
+          <select id="commandCategory" class="form-select" required>
+            <option value="">Select a category</option>
+            <option value="moderation">Moderation</option>
+            <option value="utility">Utility</option>
+            <option value="fun">Fun</option>
+            <option value="admin">Admin</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        <!-- Cooldown -->
+        <div class="form-group">
+          <label for="commandCooldown" class="form-label">Cooldown (seconds)</label>
+          <input
+            type="number"
+            id="commandCooldown"
+            class="form-input"
+            value="0"
+            min="0"
+            max="3600"
+          />
+        </div>
+
+        <!-- Permissions -->
+        <div class="form-group">
+          <label class="form-label">Required Permissions</label>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="form-checkbox">
+              <input type="checkbox" name="permissions" value="ADMINISTRATOR" />
+              <span>Administrator</span>
+            </label>
+            <label class="form-checkbox">
+              <input type="checkbox" name="permissions" value="MANAGE_SERVER" />
+              <span>Manage Server</span>
+            </label>
+            <label class="form-checkbox">
+              <input type="checkbox" name="permissions" value="MANAGE_MESSAGES" />
+              <span>Manage Messages</span>
+            </label>
+            <label class="form-checkbox">
+              <input type="checkbox" name="permissions" value="BAN_MEMBERS" />
+              <span>Ban Members</span>
+            </label>
+            <label class="form-checkbox">
+              <input type="checkbox" name="permissions" value="KICK_MEMBERS" />
+              <span>Kick Members</span>
+            </label>
+            <label class="form-checkbox">
+              <input type="checkbox" name="permissions" value="MODERATE_MEMBERS" />
+              <span>Moderate Members</span>
+            </label>
+          </div>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeCommandModal()">
+        Cancel
+      </button>
+      <button type="submit" form="commandForm" class="btn btn-primary" onclick="handleCommandSubmit(event)">
+        Save Command
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- JavaScript for Interactivity -->
+  <script>
+    // ========================================
+    // SAMPLE DATA
+    // ========================================
+    const sampleCommands = [
+      {
+        id: 'cmd_001',
+        name: 'ban',
+        syntax: '/ban [user] [reason]',
+        description: 'Ban a user from the server',
+        category: 'moderation',
+        enabled: true,
+        permissions: ['ADMINISTRATOR', 'BAN_MEMBERS'],
+        cooldown: 5,
+        usageCount: 342,
+        allowedRoles: ['Admin', 'Moderator'],
+        allowedChannels: ['#mod-commands'],
+        customResponse: 'User {user} has been banned for: {reason}',
+        documentation: 'The /ban command permanently removes a user from the server. The user will not be able to rejoin unless unbanned. All messages from the user in the past 7 days can optionally be deleted.',
+        examples: ['/ban @user Breaking server rules', '/ban @user Spam - delete messages']
+      },
+      {
+        id: 'cmd_002',
+        name: 'kick',
+        syntax: '/kick [user] [reason]',
+        description: 'Kick a user from the server',
+        category: 'moderation',
+        enabled: true,
+        permissions: ['KICK_MEMBERS'],
+        cooldown: 5,
+        usageCount: 287,
+        allowedRoles: ['Admin', 'Moderator'],
+        allowedChannels: ['#mod-commands'],
+        customResponse: 'User {user} has been kicked for: {reason}',
+        documentation: 'The /kick command removes a user from the server. Unlike banning, the user can rejoin with a new invite.',
+        examples: ['/kick @user First warning', '/kick @user Inappropriate behavior']
+      },
+      {
+        id: 'cmd_003',
+        name: 'mute',
+        syntax: '/mute [user] [duration] [reason]',
+        description: 'Temporarily mute a user',
+        category: 'moderation',
+        enabled: true,
+        permissions: ['MODERATE_MEMBERS'],
+        cooldown: 3,
+        usageCount: 456,
+        allowedRoles: ['Admin', 'Moderator'],
+        allowedChannels: [],
+        customResponse: 'User {user} has been muted for {duration}',
+        documentation: 'Temporarily prevents a user from sending messages in any channel.',
+        examples: ['/mute @user 1h Spamming', '/mute @user 30m Cool down']
+      },
+      {
+        id: 'cmd_004',
+        name: 'warn',
+        syntax: '/warn [user] [reason]',
+        description: 'Issue a warning to a user',
+        category: 'moderation',
+        enabled: true,
+        permissions: ['MODERATE_MEMBERS'],
+        cooldown: 2,
+        usageCount: 623,
+        allowedRoles: ['Admin', 'Moderator'],
+        allowedChannels: [],
+        customResponse: 'User {user} has been warned: {reason}',
+        documentation: 'Issues a formal warning to a user that is logged for future reference.',
+        examples: ['/warn @user Please follow the rules', '/warn @user No self-promotion']
+      },
+      {
+        id: 'cmd_005',
+        name: 'help',
+        syntax: '/help [command]',
+        description: 'Display help information for commands',
+        category: 'utility',
+        enabled: true,
+        permissions: [],
+        cooldown: 5,
+        usageCount: 1234,
+        allowedRoles: [],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Shows a list of all available commands or detailed help for a specific command.',
+        examples: ['/help', '/help ban']
+      },
+      {
+        id: 'cmd_006',
+        name: 'ping',
+        syntax: '/ping',
+        description: 'Check bot latency and response time',
+        category: 'utility',
+        enabled: true,
+        permissions: [],
+        cooldown: 10,
+        usageCount: 892,
+        allowedRoles: [],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Returns the current latency between the bot and Discord servers.',
+        examples: ['/ping']
+      },
+      {
+        id: 'cmd_007',
+        name: 'userinfo',
+        syntax: '/userinfo [user]',
+        description: 'Display information about a user',
+        category: 'utility',
+        enabled: true,
+        permissions: [],
+        cooldown: 5,
+        usageCount: 567,
+        allowedRoles: [],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Shows detailed information about a user including join date, roles, and account age.',
+        examples: ['/userinfo', '/userinfo @user']
+      },
+      {
+        id: 'cmd_008',
+        name: 'serverinfo',
+        syntax: '/serverinfo',
+        description: 'Display server statistics and information',
+        category: 'utility',
+        enabled: true,
+        permissions: [],
+        cooldown: 10,
+        usageCount: 234,
+        allowedRoles: [],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Shows comprehensive server statistics including member count, channels, and boost level.',
+        examples: ['/serverinfo']
+      },
+      {
+        id: 'cmd_009',
+        name: '8ball',
+        syntax: '/8ball [question]',
+        description: 'Ask the magic 8-ball a question',
+        category: 'fun',
+        enabled: true,
+        permissions: [],
+        cooldown: 3,
+        usageCount: 1567,
+        allowedRoles: [],
+        allowedChannels: ['#bot-commands', '#general'],
+        customResponse: null,
+        documentation: 'The magic 8-ball will answer any yes/no question with a mystical response.',
+        examples: ['/8ball Will I win today?', '/8ball Should I take the day off?']
+      },
+      {
+        id: 'cmd_010',
+        name: 'roll',
+        syntax: '/roll [dice]',
+        description: 'Roll dice (e.g., 2d6, d20)',
+        category: 'fun',
+        enabled: true,
+        permissions: [],
+        cooldown: 2,
+        usageCount: 2341,
+        allowedRoles: [],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Roll one or more dice with specified sides. Supports standard dice notation.',
+        examples: ['/roll d20', '/roll 2d6', '/roll 4d8+2']
+      },
+      {
+        id: 'cmd_011',
+        name: 'meme',
+        syntax: '/meme',
+        description: 'Get a random meme from Reddit',
+        category: 'fun',
+        enabled: false,
+        permissions: [],
+        cooldown: 15,
+        usageCount: 876,
+        allowedRoles: [],
+        allowedChannels: ['#memes'],
+        customResponse: null,
+        documentation: 'Fetches a random meme from popular meme subreddits.',
+        examples: ['/meme']
+      },
+      {
+        id: 'cmd_012',
+        name: 'config',
+        syntax: '/config [setting] [value]',
+        description: 'Configure bot settings for this server',
+        category: 'admin',
+        enabled: true,
+        permissions: ['ADMINISTRATOR'],
+        cooldown: 0,
+        usageCount: 123,
+        allowedRoles: ['Admin'],
+        allowedChannels: ['#admin'],
+        customResponse: null,
+        documentation: 'Change bot configuration settings for the current server.',
+        examples: ['/config prefix !', '/config logging true']
+      },
+      {
+        id: 'cmd_013',
+        name: 'prefix',
+        syntax: '/prefix [new_prefix]',
+        description: 'Change the bot command prefix',
+        category: 'admin',
+        enabled: true,
+        permissions: ['ADMINISTRATOR', 'MANAGE_SERVER'],
+        cooldown: 0,
+        usageCount: 45,
+        allowedRoles: ['Admin'],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Changes the command prefix for the bot on this server.',
+        examples: ['/prefix !', '/prefix ?']
+      },
+      {
+        id: 'cmd_014',
+        name: 'welcome',
+        syntax: '/welcome [message]',
+        description: 'Custom welcome message for server',
+        category: 'custom',
+        enabled: true,
+        permissions: ['MANAGE_SERVER'],
+        cooldown: 0,
+        usageCount: 234,
+        allowedRoles: ['Admin', 'Moderator'],
+        allowedChannels: [],
+        customResponse: 'Welcome {user} to {server}!',
+        documentation: 'Set up a custom welcome message for new members joining the server.',
+        examples: ['/welcome Welcome {user}!', '/welcome Hello {user}, read the rules!']
+      },
+      {
+        id: 'cmd_015',
+        name: 'announce',
+        syntax: '/announce [channel] [message]',
+        description: 'Send an announcement to a channel',
+        category: 'custom',
+        enabled: true,
+        permissions: ['MANAGE_MESSAGES'],
+        cooldown: 60,
+        usageCount: 89,
+        allowedRoles: ['Admin', 'Moderator'],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Sends a formatted announcement message to the specified channel.',
+        examples: ['/announce #general Server maintenance at 5PM', '/announce #news New features released!']
+      },
+      {
+        id: 'cmd_016',
+        name: 'poll',
+        syntax: '/poll [question] [options...]',
+        description: 'Create a poll with multiple options',
+        category: 'utility',
+        enabled: true,
+        permissions: [],
+        cooldown: 30,
+        usageCount: 456,
+        allowedRoles: [],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Creates an interactive poll that members can vote on using reactions.',
+        examples: ['/poll "Favorite color?" Red Blue Green', '/poll "Meeting time?" Morning Afternoon Evening']
+      },
+      {
+        id: 'cmd_017',
+        name: 'clear',
+        syntax: '/clear [amount] [user]',
+        description: 'Delete messages from a channel',
+        category: 'moderation',
+        enabled: true,
+        permissions: ['MANAGE_MESSAGES'],
+        cooldown: 10,
+        usageCount: 789,
+        allowedRoles: ['Admin', 'Moderator'],
+        allowedChannels: [],
+        customResponse: 'Deleted {count} messages',
+        documentation: 'Bulk delete messages from the current channel. Can filter by user.',
+        examples: ['/clear 50', '/clear 100 @user']
+      },
+      {
+        id: 'cmd_018',
+        name: 'role',
+        syntax: '/role [add|remove] [user] [role]',
+        description: 'Manage user roles',
+        category: 'admin',
+        enabled: true,
+        permissions: ['MANAGE_ROLES'],
+        cooldown: 5,
+        usageCount: 345,
+        allowedRoles: ['Admin'],
+        allowedChannels: [],
+        customResponse: null,
+        documentation: 'Add or remove roles from users in the server.',
+        examples: ['/role add @user Member', '/role remove @user VIP']
+      }
+    ];
+
+    // ========================================
+    // APPLICATION STATE
+    // ========================================
+    let searchQuery = '';
+    let categoryFilter = '';
+    let statusFilter = '';
+    let sortField = 'name';
+    let sortDirection = 'asc';
+    let selectedCommands = new Set();
+    let expandedRows = new Set();
+    let searchTimeout = null;
+    let editingCommandId = null;
+
+    // ========================================
+    // INITIALIZATION
+    // ========================================
+    document.addEventListener('DOMContentLoaded', function() {
+      init();
+    });
+
+    function init() {
+      loadCommands();
+      attachEventListeners();
+    }
+
+    function attachEventListeners() {
+      // Search input with debounce
+      document.getElementById('commandSearch').addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          searchQuery = e.target.value.trim().toLowerCase();
+          loadCommands();
+          updateClearFiltersVisibility();
+        }, 300);
+      });
+
+      // Category filter
+      document.getElementById('categoryFilter').addEventListener('change', function(e) {
+        categoryFilter = e.target.value;
+        loadCommands();
+        updateClearFiltersVisibility();
+      });
+
+      // Status filter
+      document.getElementById('statusFilter').addEventListener('change', function(e) {
+        statusFilter = e.target.value;
+        loadCommands();
+        updateClearFiltersVisibility();
+      });
+
+      // Sort dropdown
+      document.getElementById('sortBy').addEventListener('change', function(e) {
+        const value = e.target.value;
+        if (value === 'name-asc') { sortField = 'name'; sortDirection = 'asc'; }
+        else if (value === 'name-desc') { sortField = 'name'; sortDirection = 'desc'; }
+        else if (value === 'category-asc') { sortField = 'category'; sortDirection = 'asc'; }
+        else if (value === 'usage-desc') { sortField = 'usage'; sortDirection = 'desc'; }
+        loadCommands();
+      });
+
+      // Clear filters
+      document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
+
+      // Select all checkbox
+      document.getElementById('selectAll').addEventListener('change', toggleSelectAll);
+
+      // Keyboard navigation
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          closeCommandModal();
+          document.getElementById('userMenu').classList.remove('active');
+          closeSidebar();
+        }
+      });
+
+      // Form submission
+      document.getElementById('commandForm').addEventListener('submit', handleCommandSubmit);
+    }
+
+    // ========================================
+    // DATA LOADING AND RENDERING
+    // ========================================
+    function loadCommands() {
+      const filtered = filterCommands();
+      const sorted = sortCommands(filtered);
+
+      renderTable(sorted);
+      renderCards(sorted);
+      updateCommandCountBadge(filtered.length);
+      toggleEmptyState(filtered.length === 0);
+      updateBulkActionsBar();
+    }
+
+    function filterCommands() {
+      return sampleCommands.filter(cmd => {
+        const matchesSearch = searchQuery === '' ||
+          cmd.name.toLowerCase().includes(searchQuery) ||
+          cmd.description.toLowerCase().includes(searchQuery);
+        const matchesCategory = categoryFilter === '' || cmd.category === categoryFilter;
+        const matchesStatus = statusFilter === '' ||
+          (statusFilter === 'enabled' && cmd.enabled) ||
+          (statusFilter === 'disabled' && !cmd.enabled);
+        return matchesSearch && matchesCategory && matchesStatus;
+      });
+    }
+
+    function sortCommands(commands) {
+      return [...commands].sort((a, b) => {
+        let aVal, bVal;
+
+        if (sortField === 'usage') {
+          aVal = a.usageCount;
+          bVal = b.usageCount;
+        } else {
+          aVal = a[sortField].toLowerCase();
+          bVal = b[sortField].toLowerCase();
+        }
+
+        if (sortDirection === 'asc') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+    }
+
+    function renderTable(commands) {
+      const tbody = document.getElementById('commandsTableBody');
+      tbody.innerHTML = '';
+
+      commands.forEach(cmd => {
+        // Main row
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-bg-hover/50 transition-colors';
+        row.setAttribute('data-command-id', cmd.id);
+        row.innerHTML = `
+          <td class="px-4 py-4">
+            <label class="flex items-center justify-center">
+              <input
+                type="checkbox"
+                class="command-checkbox w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-border-focus cursor-pointer"
+                aria-label="Select ${cmd.name} command"
+                ${selectedCommands.has(cmd.id) ? 'checked' : ''}
+                onchange="toggleCommandSelection('${cmd.id}')"
+              />
+            </label>
+          </td>
+          <td class="px-2 py-4">
+            <button class="expand-toggle p-1 text-text-tertiary hover:text-text-primary transition-colors" aria-expanded="${expandedRows.has(cmd.id)}" aria-label="Expand command details" onclick="toggleRowExpansion('${cmd.id}')">
+              <svg class="w-5 h-5 expand-icon transition-transform ${expandedRows.has(cmd.id) ? 'rotated' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </td>
+          <td class="px-4 py-4">
+            <div class="flex flex-col">
+              <span class="font-medium text-text-primary">/${cmd.name}</span>
+              <code class="text-xs text-text-tertiary font-mono mt-0.5">${escapeHtml(cmd.syntax)}</code>
+            </div>
+          </td>
+          <td class="px-4 py-4 text-sm text-text-secondary hidden xl:table-cell max-w-xs truncate">
+            ${escapeHtml(cmd.description)}
+          </td>
+          <td class="px-4 py-4">
+            ${getCategoryBadge(cmd.category)}
+          </td>
+          <td class="px-4 py-4 text-center">
+            <label class="form-toggle form-toggle-sm inline-flex">
+              <input
+                type="checkbox"
+                class="form-toggle-input status-toggle"
+                role="switch"
+                aria-checked="${cmd.enabled}"
+                ${cmd.enabled ? 'checked' : ''}
+                data-command-id="${cmd.id}"
+                onchange="toggleCommandStatus('${cmd.id}')"
+              />
+              <span class="form-toggle-track" aria-hidden="true">
+                <span class="form-toggle-thumb"></span>
+              </span>
+              <span class="sr-only">${cmd.enabled ? 'Disable' : 'Enable'} ${cmd.name} command</span>
+            </label>
+          </td>
+          <td class="px-4 py-4 text-sm text-text-secondary hidden lg:table-cell">
+            ${cmd.permissions.length > 0 ? cmd.permissions[0] : '-'}
+          </td>
+          <td class="px-4 py-4 text-center text-sm text-text-secondary hidden lg:table-cell">
+            ${cmd.cooldown > 0 ? cmd.cooldown + 's' : '-'}
+          </td>
+          <td class="px-4 py-4 text-right">
+            <div class="flex items-center justify-end gap-1">
+              <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" aria-label="Edit command" title="Edit" onclick="openCommandModal('${cmd.id}')">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button class="p-1.5 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors" aria-label="Delete command" title="Delete" onclick="deleteCommand('${cmd.id}')">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(row);
+
+        // Expanded detail row
+        const detailRow = document.createElement('tr');
+        detailRow.id = `detail-${cmd.id}`;
+        detailRow.className = `table-row-expanded bg-bg-primary ${expandedRows.has(cmd.id) ? '' : 'hidden'}`;
+        detailRow.innerHTML = `
+          <td colspan="9" class="px-6 py-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- Left Column: Documentation & Examples -->
+              <div class="space-y-4">
+                <div>
+                  <h4 class="text-sm font-semibold text-text-primary mb-2">Full Documentation</h4>
+                  <p class="text-sm text-text-secondary">${escapeHtml(cmd.documentation)}</p>
+                </div>
+
+                <div>
+                  <h4 class="text-sm font-semibold text-text-primary mb-2">Usage Examples</h4>
+                  <div class="space-y-2">
+                    ${cmd.examples.map(ex => `<code class="block text-xs text-accent-blue bg-bg-tertiary px-3 py-2 rounded font-mono">${escapeHtml(ex)}</code>`).join('')}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-sm font-semibold text-text-primary mb-2">Permission Requirements</h4>
+                  <div class="flex flex-wrap gap-2">
+                    ${cmd.permissions.length > 0
+                      ? cmd.permissions.map(p => `<span class="inline-flex items-center px-2 py-1 text-xs font-medium text-text-primary bg-bg-tertiary rounded">${p}</span>`).join('')
+                      : '<span class="text-sm text-text-tertiary">No special permissions required</span>'}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Column: Configuration Form -->
+              <div class="space-y-4 bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <h4 class="text-sm font-semibold text-text-primary mb-4">Command Configuration</h4>
+
+                <!-- Cooldown Setting -->
+                <div class="form-group">
+                  <label for="cooldown-${cmd.id}" class="form-label">Cooldown (seconds)</label>
+                  <input
+                    type="number"
+                    id="cooldown-${cmd.id}"
+                    class="form-input w-full"
+                    value="${cmd.cooldown}"
+                    min="0"
+                    max="3600"
+                  />
+                  <span class="form-help">Time users must wait between uses (0 = no cooldown)</span>
+                </div>
+
+                <!-- Allowed Roles Multi-select -->
+                <div class="form-group">
+                  <label class="form-label">Allowed Roles</label>
+                  <div class="flex flex-wrap gap-2 p-3 bg-bg-primary border border-border-primary rounded-lg min-h-[42px]">
+                    ${cmd.allowedRoles.map(role => `
+                      <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-text-primary bg-bg-tertiary rounded">
+                        ${escapeHtml(role)}
+                        <button class="hover:text-error" aria-label="Remove ${role} role">&times;</button>
+                      </span>
+                    `).join('')}
+                    <button class="text-xs text-accent-blue hover:text-accent-blue-hover">+ Add role</button>
+                  </div>
+                </div>
+
+                <!-- Allowed Channels Multi-select -->
+                <div class="form-group">
+                  <label class="form-label">Allowed Channels</label>
+                  <div class="flex flex-wrap gap-2 p-3 bg-bg-primary border border-border-primary rounded-lg min-h-[42px]">
+                    ${cmd.allowedChannels.map(ch => `
+                      <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-text-primary bg-bg-tertiary rounded">
+                        ${escapeHtml(ch)}
+                        <button class="hover:text-error" aria-label="Remove ${ch} channel">&times;</button>
+                      </span>
+                    `).join('')}
+                    ${cmd.allowedChannels.length === 0 ? '<span class="text-xs text-text-tertiary">All channels</span>' : ''}
+                    <button class="text-xs text-accent-blue hover:text-accent-blue-hover">+ Add channel</button>
+                  </div>
+                  <span class="form-help">Leave empty to allow in all channels</span>
+                </div>
+
+                <!-- Custom Response -->
+                <div class="form-group">
+                  <label for="response-${cmd.id}" class="form-label">Custom Response Message</label>
+                  <textarea
+                    id="response-${cmd.id}"
+                    class="form-input w-full resize-none"
+                    rows="2"
+                    placeholder="Use {user}, {reason} as placeholders"
+                  >${cmd.customResponse || ''}</textarea>
+                  <span class="form-help">Use {user}, {reason} as placeholders</span>
+                </div>
+
+                <!-- Save/Cancel Buttons -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-border-secondary">
+                  <button onclick="toggleRowExpansion('${cmd.id}')" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+                    Cancel
+                  </button>
+                  <button onclick="saveCommandConfig('${cmd.id}')" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange hover:bg-accent-orange-hover rounded-lg transition-colors">
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(detailRow);
+      });
+
+      updateSelectAllCheckbox();
+    }
+
+    function renderCards(commands) {
+      const container = document.getElementById('commandCards');
+      container.innerHTML = '';
+
+      commands.forEach(cmd => {
+        const card = document.createElement('div');
+        card.className = 'bg-bg-secondary border border-border-primary rounded-lg overflow-hidden';
+        card.innerHTML = `
+          <div class="p-4">
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex-1 min-w-0 mr-3">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium text-text-primary">/${cmd.name}</span>
+                  ${getCategoryBadge(cmd.category)}
+                </div>
+                <code class="text-xs text-text-tertiary font-mono">${escapeHtml(cmd.syntax)}</code>
+              </div>
+              <label class="form-toggle form-toggle-sm">
+                <input
+                  type="checkbox"
+                  class="form-toggle-input"
+                  role="switch"
+                  ${cmd.enabled ? 'checked' : ''}
+                  onchange="toggleCommandStatus('${cmd.id}')"
+                />
+                <span class="form-toggle-track" aria-hidden="true">
+                  <span class="form-toggle-thumb"></span>
+                </span>
+              </label>
+            </div>
+
+            <p class="text-sm text-text-secondary mb-3">${escapeHtml(cmd.description)}</p>
+
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span class="text-text-tertiary">Permissions:</span>
+                <span class="text-text-primary ml-1">${cmd.permissions.length > 0 ? cmd.permissions[0] : 'None'}</span>
+              </div>
+              <div>
+                <span class="text-text-tertiary">Cooldown:</span>
+                <span class="text-text-primary ml-1">${cmd.cooldown > 0 ? cmd.cooldown + 's' : 'None'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center border-t border-border-secondary">
+            <button onclick="openCommandModal('${cmd.id}')" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium text-text-secondary hover:text-accent-blue hover:bg-bg-hover transition-colors border-r border-border-secondary">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit
+            </button>
+            <button class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors border-r border-border-secondary">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+              Details
+            </button>
+            <button onclick="deleteCommand('${cmd.id}')" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium text-text-secondary hover:text-error hover:bg-bg-hover transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // ========================================
+    // CATEGORY BADGE HELPER
+    // ========================================
+    function getCategoryBadge(category) {
+      const badges = {
+        moderation: '<span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-error bg-error/10 rounded-full">Moderation</span>',
+        utility: '<span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-accent-blue bg-accent-blue/10 rounded-full">Utility</span>',
+        fun: '<span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-purple-400 bg-purple-400/10 rounded-full">Fun</span>',
+        admin: '<span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-accent-orange bg-accent-orange/10 rounded-full">Admin</span>',
+        custom: '<span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold text-text-secondary bg-bg-tertiary rounded-full">Custom</span>'
+      };
+      return badges[category] || badges.custom;
+    }
+
+    // ========================================
+    // SELECTION FUNCTIONS
+    // ========================================
+    function toggleCommandSelection(commandId) {
+      if (selectedCommands.has(commandId)) {
+        selectedCommands.delete(commandId);
+      } else {
+        selectedCommands.add(commandId);
+      }
+      updateBulkActionsBar();
+      updateSelectAllCheckbox();
+    }
+
+    function toggleSelectAll() {
+      const selectAllCheckbox = document.getElementById('selectAll');
+      const visibleCommands = filterCommands();
+
+      if (selectAllCheckbox.checked) {
+        visibleCommands.forEach(cmd => selectedCommands.add(cmd.id));
+      } else {
+        visibleCommands.forEach(cmd => selectedCommands.delete(cmd.id));
+      }
+
+      updateBulkActionsBar();
+      updateCheckboxStates();
+    }
+
+    function updateSelectAllCheckbox() {
+      const selectAllCheckbox = document.getElementById('selectAll');
+      const visibleCommands = filterCommands();
+      const visibleSelected = visibleCommands.filter(cmd => selectedCommands.has(cmd.id)).length;
+
+      if (visibleSelected === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+      } else if (visibleSelected === visibleCommands.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+      } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+      }
+    }
+
+    function updateCheckboxStates() {
+      document.querySelectorAll('.command-checkbox').forEach(cb => {
+        const row = cb.closest('tr');
+        if (row) {
+          const cmdId = row.getAttribute('data-command-id');
+          cb.checked = selectedCommands.has(cmdId);
+        }
+      });
+    }
+
+    function updateBulkActionsBar() {
+      const bar = document.getElementById('bulkActionsBar');
+      const count = selectedCommands.size;
+
+      if (count > 0) {
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+        document.getElementById('selectedCount').textContent = count;
+      } else {
+        bar.classList.add('hidden');
+        bar.classList.remove('flex');
+      }
+    }
+
+    function clearSelection() {
+      selectedCommands.clear();
+      updateBulkActionsBar();
+      updateCheckboxStates();
+      document.getElementById('selectAll').checked = false;
+      document.getElementById('selectAll').indeterminate = false;
+    }
+
+    // ========================================
+    // BULK ACTIONS
+    // ========================================
+    function bulkEnable() {
+      const count = selectedCommands.size;
+      selectedCommands.forEach(id => {
+        const cmd = sampleCommands.find(c => c.id === id);
+        if (cmd) cmd.enabled = true;
+      });
+      loadCommands();
+      showToast(`${count} commands enabled`, 'success');
+      clearSelection();
+    }
+
+    function bulkDisable() {
+      const count = selectedCommands.size;
+      selectedCommands.forEach(id => {
+        const cmd = sampleCommands.find(c => c.id === id);
+        if (cmd) cmd.enabled = false;
+      });
+      loadCommands();
+      showToast(`${count} commands disabled`, 'success');
+      clearSelection();
+    }
+
+    function bulkDelete() {
+      const count = selectedCommands.size;
+      if (confirm(`Are you sure you want to delete ${count} commands?`)) {
+        selectedCommands.forEach(id => {
+          const index = sampleCommands.findIndex(c => c.id === id);
+          if (index > -1) sampleCommands.splice(index, 1);
+        });
+        loadCommands();
+        showToast(`${count} commands deleted`, 'success');
+        clearSelection();
+      }
+    }
+
+    // ========================================
+    // ROW EXPANSION
+    // ========================================
+    function toggleRowExpansion(commandId) {
+      const detailRow = document.getElementById(`detail-${commandId}`);
+      const row = document.querySelector(`tr[data-command-id="${commandId}"]`);
+      const expandIcon = row ? row.querySelector('.expand-icon') : null;
+      const expandToggle = row ? row.querySelector('.expand-toggle') : null;
+
+      if (expandedRows.has(commandId)) {
+        expandedRows.delete(commandId);
+        if (detailRow) detailRow.classList.add('hidden');
+        if (expandIcon) expandIcon.classList.remove('rotated');
+        if (expandToggle) expandToggle.setAttribute('aria-expanded', 'false');
+      } else {
+        expandedRows.add(commandId);
+        if (detailRow) detailRow.classList.remove('hidden');
+        if (expandIcon) expandIcon.classList.add('rotated');
+        if (expandToggle) expandToggle.setAttribute('aria-expanded', 'true');
+      }
+    }
+
+    // ========================================
+    // COMMAND STATUS TOGGLE
+    // ========================================
+    function toggleCommandStatus(commandId) {
+      const cmd = sampleCommands.find(c => c.id === commandId);
+      if (cmd) {
+        cmd.enabled = !cmd.enabled;
+        showToast(`Command /${cmd.name} ${cmd.enabled ? 'enabled' : 'disabled'}`, 'success');
+      }
+    }
+
+    // ========================================
+    // COMMAND CRUD OPERATIONS
+    // ========================================
+    function deleteCommand(commandId) {
+      const cmd = sampleCommands.find(c => c.id === commandId);
+      if (cmd && confirm(`Are you sure you want to delete the /${cmd.name} command?`)) {
+        const index = sampleCommands.findIndex(c => c.id === commandId);
+        if (index > -1) {
+          sampleCommands.splice(index, 1);
+          loadCommands();
+          showToast(`Command /${cmd.name} deleted`, 'success');
+        }
+      }
+    }
+
+    function saveCommandConfig(commandId) {
+      const cmd = sampleCommands.find(c => c.id === commandId);
+      if (cmd) {
+        const cooldownInput = document.getElementById(`cooldown-${commandId}`);
+        const responseInput = document.getElementById(`response-${commandId}`);
+
+        if (cooldownInput) cmd.cooldown = parseInt(cooldownInput.value) || 0;
+        if (responseInput) cmd.customResponse = responseInput.value || null;
+
+        toggleRowExpansion(commandId);
+        showToast(`Configuration saved for /${cmd.name}`, 'success');
+      }
+    }
+
+    // ========================================
+    // MODAL FUNCTIONS
+    // ========================================
+    function openCommandModal(commandId = null) {
+      const modal = document.getElementById('commandModal');
+      const backdrop = document.getElementById('commandModalBackdrop');
+      const title = document.getElementById('modalTitle');
+      const form = document.getElementById('commandForm');
+
+      form.reset();
+      editingCommandId = commandId;
+
+      if (commandId) {
+        const cmd = sampleCommands.find(c => c.id === commandId);
+        if (cmd) {
+          title.textContent = 'Edit Command';
+          document.getElementById('commandName').value = cmd.name;
+          document.getElementById('commandDescription').value = cmd.description;
+          document.getElementById('commandCategory').value = cmd.category;
+          document.getElementById('commandCooldown').value = cmd.cooldown;
+
+          // Set permissions checkboxes
+          document.querySelectorAll('input[name="permissions"]').forEach(cb => {
+            cb.checked = cmd.permissions.includes(cb.value);
+          });
+        }
+      } else {
+        title.textContent = 'Add Custom Command';
+      }
+
+      backdrop.classList.add('active');
+      modal.classList.add('active');
+      document.body.classList.add('modal-open');
+
+      document.getElementById('commandName').focus();
+
+      // Focus trap setup
+      trapFocusInModal();
+    }
+
+    function closeCommandModal() {
+      const modal = document.getElementById('commandModal');
+      const backdrop = document.getElementById('commandModalBackdrop');
+
+      backdrop.classList.remove('active');
+      modal.classList.remove('active');
+      document.body.classList.remove('modal-open');
+      editingCommandId = null;
+    }
+
+    function handleCommandSubmit(event) {
+      event.preventDefault();
+
+      const name = document.getElementById('commandName').value.trim();
+      const description = document.getElementById('commandDescription').value.trim();
+      const category = document.getElementById('commandCategory').value;
+      const cooldown = parseInt(document.getElementById('commandCooldown').value) || 0;
+
+      const permissions = [];
+      document.querySelectorAll('input[name="permissions"]:checked').forEach(cb => {
+        permissions.push(cb.value);
+      });
+
+      if (editingCommandId) {
+        // Update existing command
+        const cmd = sampleCommands.find(c => c.id === editingCommandId);
+        if (cmd) {
+          cmd.name = name;
+          cmd.syntax = `/${name}`;
+          cmd.description = description;
+          cmd.category = category;
+          cmd.cooldown = cooldown;
+          cmd.permissions = permissions;
+          showToast(`Command /${name} updated`, 'success');
+        }
+      } else {
+        // Create new command
+        const newCmd = {
+          id: 'cmd_' + Date.now(),
+          name: name,
+          syntax: `/${name}`,
+          description: description,
+          category: category,
+          enabled: true,
+          permissions: permissions,
+          cooldown: cooldown,
+          usageCount: 0,
+          allowedRoles: [],
+          allowedChannels: [],
+          customResponse: null,
+          documentation: description,
+          examples: [`/${name}`]
+        };
+        sampleCommands.push(newCmd);
+        showToast(`Command /${name} created`, 'success');
+      }
+
+      closeCommandModal();
+      loadCommands();
+    }
+
+    function trapFocusInModal() {
+      const modal = document.getElementById('commandModal');
+      const focusableElements = modal.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstFocusable = focusableElements[0];
+      const lastFocusable = focusableElements[focusableElements.length - 1];
+
+      modal.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+          if (e.shiftKey) {
+            if (document.activeElement === firstFocusable) {
+              e.preventDefault();
+              lastFocusable.focus();
+            }
+          } else {
+            if (document.activeElement === lastFocusable) {
+              e.preventDefault();
+              firstFocusable.focus();
+            }
+          }
+        }
+      });
+    }
+
+    // ========================================
+    // UI HELPERS
+    // ========================================
+    function updateCommandCountBadge(count) {
+      document.getElementById('commandCountBadge').textContent = count;
+    }
+
+    function toggleEmptyState(show) {
+      const emptyState = document.getElementById('emptyState');
+      const tableContainer = document.getElementById('tableContainer');
+      const cardsContainer = document.getElementById('commandCards');
+
+      if (show) {
+        emptyState.classList.remove('hidden');
+        tableContainer.classList.add('hidden');
+        cardsContainer.classList.add('hidden');
+      } else {
+        emptyState.classList.add('hidden');
+        tableContainer.classList.remove('hidden');
+        tableContainer.classList.add('md:block');
+        cardsContainer.classList.remove('hidden');
+      }
+    }
+
+    function updateClearFiltersVisibility() {
+      const clearBtn = document.getElementById('clearFilters');
+      const hasFilters = searchQuery !== '' || categoryFilter !== '' || statusFilter !== '';
+
+      if (hasFilters) {
+        clearBtn.classList.remove('hidden');
+        clearBtn.classList.add('lg:inline-flex');
+      } else {
+        clearBtn.classList.add('hidden');
+        clearBtn.classList.remove('lg:inline-flex');
+      }
+    }
+
+    function clearAllFilters() {
+      searchQuery = '';
+      categoryFilter = '';
+      statusFilter = '';
+
+      document.getElementById('commandSearch').value = '';
+      document.getElementById('categoryFilter').value = '';
+      document.getElementById('statusFilter').value = '';
+
+      loadCommands();
+      updateClearFiltersVisibility();
+    }
+
+    // ========================================
+    // TOAST NOTIFICATIONS
+    // ========================================
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.innerHTML = `
+        <svg class="w-5 h-5 ${type === 'success' ? 'text-success' : 'text-error'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          ${type === 'success'
+            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />'
+            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />'}
+        </svg>
+        <span>${escapeHtml(message)}</span>
+      `;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    // ========================================
+    // UTILITY FUNCTIONS
+    // ========================================
+    function escapeHtml(text) {
+      if (!text) return '';
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ========================================
+    // SIDEBAR FUNCTIONS
+    // ========================================
+    let sidebarOpen = false;
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const toggleButton = document.getElementById('sidebarToggle');
+
+      sidebarOpen = !sidebarOpen;
+
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+
+      toggleButton.setAttribute('aria-expanded', sidebarOpen.toString());
+
+      if (sidebarOpen) {
+        const focusableElements = sidebar.querySelectorAll(
+          'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements.length > 0) {
+          focusableElements[0].focus();
+        }
+      } else {
+        toggleButton.focus();
+      }
+    }
+
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const toggleButton = document.getElementById('sidebarToggle');
+
+      if (sidebarOpen && window.innerWidth < 1024) {
+        sidebarOpen = false;
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
+        toggleButton.focus();
+      }
+    }
+
+    // ========================================
+    // USER MENU FUNCTIONS
+    // ========================================
+    function toggleUserMenu() {
+      const menu = document.getElementById('userMenu');
+      menu.classList.toggle('active');
+    }
+
+    document.addEventListener('click', function(event) {
+      const userMenu = document.getElementById('userMenu');
+      const userButton = event.target.closest('[aria-label="User menu"]');
+
+      if (!userButton && !event.target.closest('#userMenu')) {
+        userMenu.classList.remove('active');
+      }
+    });
+
+    window.addEventListener('resize', function() {
+      if (window.innerWidth >= 1024) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggleButton = document.getElementById('sidebarToggle');
+
+        sidebarOpen = false;
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+  </script>
+
+</body>
+</html>
