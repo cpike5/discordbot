@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Bot Admin - Servers</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Page-specific styles */
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 lg:hidden hidden" style="z-index: var(--z-fixed);" onclick="toggleSidebar()"></div>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar fixed top-0 left-0 right-0 flex items-center justify-between h-16 px-4 lg:px-6 bg-bg-secondary border-b border-border-primary">
+    <!-- Left Section: Menu Toggle & Logo -->
+    <div class="flex items-center gap-4">
+      <!-- Mobile Menu Toggle -->
+      <button
+        id="sidebarToggle"
+        onclick="toggleSidebar()"
+        class="lg:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle sidebar menu"
+        aria-expanded="false"
+        aria-controls="sidebar"
+      >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <!-- Logo & App Name -->
+      <a href="../dashboard.html" class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-accent-orange flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+      </a>
+    </div>
+
+    <!-- Center Section: Search -->
+    <div class="hidden md:flex flex-1 max-w-md mx-8">
+      <div class="relative w-full">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search servers, commands, logs..."
+          class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+        />
+      </div>
+    </div>
+
+    <!-- Right Section: Actions & User Menu -->
+    <div class="flex items-center gap-2">
+      <!-- Mobile Search Toggle -->
+      <button class="md:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Search">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </button>
+
+      <!-- Notifications -->
+      <button class="relative p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span class="absolute top-1 right-1 w-2 h-2 bg-accent-orange rounded-full"></span>
+      </button>
+
+      <!-- User Menu Dropdown -->
+      <div class="relative">
+        <button
+          onclick="toggleUserMenu()"
+          class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
+          aria-label="User menu"
+          aria-expanded="false"
+        >
+          <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">
+            AD
+          </div>
+          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="userMenu" class="dropdown-menu absolute right-0 mt-2 w-48 py-1 bg-bg-tertiary border border-border-primary rounded-lg shadow-xl">
+          <div class="px-4 py-2 border-b border-border-primary">
+            <p class="text-sm font-medium text-text-primary">Admin User</p>
+            <p class="text-xs text-text-secondary">admin@example.com</p>
+          </div>
+          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Profile
+          </a>
+          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </a>
+          <div class="border-t border-border-primary mt-1 pt-1">
+            <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Sidebar Navigation -->
+  <aside
+    id="sidebar"
+    class="sidebar fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-bg-secondary border-r border-border-primary transform -translate-x-full lg:translate-x-0"
+  >
+    <nav class="flex flex-col h-full p-4">
+      <!-- Main Navigation -->
+      <div class="space-y-1">
+        <a href="../dashboard.html" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Dashboard
+        </a>
+
+        <a href="#" class="sidebar-link active">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          Servers
+          <span class="sidebar-badge" id="sidebarServerCount">15</span>
+        </a>
+
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Commands
+        </a>
+
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          Logs
+          <span class="sidebar-badge-dot status-pulse"></span>
+        </a>
+
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Settings
+        </a>
+      </div>
+
+      <!-- Divider -->
+      <div class="my-4 border-t border-border-secondary"></div>
+
+      <!-- Secondary Navigation -->
+      <div class="space-y-1">
+        <p class="sidebar-section">Support</p>
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          Documentation
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Help & Support
+        </a>
+      </div>
+
+      <!-- Bot Status Footer -->
+      <div class="mt-auto pt-4 border-t border-border-secondary">
+        <div class="sidebar-status">
+          <span class="sidebar-status-dot online status-pulse"></span>
+          <span class="text-success font-medium">Bot Online</span>
+          <span class="ml-auto text-xs text-text-tertiary">v2.1.0</span>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="lg:ml-64 pt-16 min-h-screen">
+    <div class="p-4 lg:p-8">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="breadcrumb mb-6">
+        <ol class="breadcrumb-list flex items-center gap-2 text-sm">
+          <li class="breadcrumb-item">
+            <a href="../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+          </li>
+          <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li class="breadcrumb-item">
+            <span class="text-text-primary font-medium" aria-current="page">Servers</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+          <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Servers</h1>
+          <span class="inline-flex items-center px-2.5 py-0.5 text-sm font-semibold text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded-full" aria-label="Total servers" id="serverCountBadge">
+            15
+          </span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-text-tertiary hidden sm:block">
+            Last updated: <time datetime="2024-12-08T10:30:00">Today at 10:30 AM</time>
+          </span>
+          <button class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 focus:ring-offset-bg-primary">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Add Server
+          </button>
+        </div>
+      </div>
+
+      <!-- Search & Filter Bar -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <div class="flex flex-col md:flex-row md:items-center gap-4">
+
+          <!-- Search Input -->
+          <div class="flex-1">
+            <div class="relative">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="search"
+                id="serverSearch"
+                placeholder="Search servers by name or ID..."
+                class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                aria-label="Search servers"
+              />
+            </div>
+          </div>
+
+          <!-- Status Filter Dropdown -->
+          <div class="w-full md:w-48">
+            <select
+              id="statusFilter"
+              class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer appearance-none"
+              style="background-image: url('data:image/svg+xml,%3csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 20 20%22%3e%3cpath stroke=%22%23a8a5a3%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 stroke-width=%221.5%22 d=%22M6 8l4 4 4-4%22/%3e%3c/svg%3e'); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;"
+              aria-label="Filter by status"
+            >
+              <option value="">All Statuses</option>
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+              <option value="error">Error</option>
+            </select>
+          </div>
+
+          <!-- Sort Dropdown -->
+          <div class="w-full md:w-48">
+            <select
+              id="sortBy"
+              class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer appearance-none"
+              style="background-image: url('data:image/svg+xml,%3csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 20 20%22%3e%3cpath stroke=%22%23a8a5a3%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 stroke-width=%221.5%22 d=%22M6 8l4 4 4-4%22/%3e%3c/svg%3e'); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;"
+              aria-label="Sort by"
+            >
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="members-desc">Members (High-Low)</option>
+              <option value="members-asc">Members (Low-High)</option>
+              <option value="joinDate-desc">Newest First</option>
+              <option value="joinDate-asc">Oldest First</option>
+            </select>
+          </div>
+
+          <!-- Clear Filters Button -->
+          <button
+            id="clearFilters"
+            class="hidden md:inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus"
+            aria-label="Clear all filters"
+            style="display: none;"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear
+          </button>
+
+        </div>
+
+        <!-- Active Filters Display (shown when filters are active) -->
+        <div id="activeFilters" class="hidden mt-3 pt-3 border-t border-border-secondary">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs text-text-tertiary">Active filters:</span>
+            <!-- Filter tags will be inserted here dynamically -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Data Table (Desktop/Tablet View) -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block" id="tableContainer">
+        <div class="overflow-x-auto">
+          <table class="w-full" id="serversTable" role="grid">
+            <thead class="bg-bg-tertiary">
+              <tr>
+                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider cursor-pointer hover:text-accent-blue group" data-sort="name" tabindex="0" role="columnheader" aria-sort="ascending">
+                  <span class="inline-flex items-center gap-1">
+                    Server Name
+                    <svg class="w-4 h-4 text-text-tertiary group-hover:text-text-secondary transition-colors sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                    </svg>
+                  </span>
+                </th>
+                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell font-mono">
+                  Server ID
+                </th>
+                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider cursor-pointer hover:text-accent-blue group" data-sort="members" tabindex="0" role="columnheader" aria-sort="none">
+                  <span class="inline-flex items-center gap-1">
+                    Members
+                    <svg class="w-4 h-4 text-text-tertiary group-hover:text-text-secondary transition-colors sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </span>
+                </th>
+                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell cursor-pointer hover:text-accent-blue group" data-sort="joinDate" tabindex="0" role="columnheader" aria-sort="none">
+                  <span class="inline-flex items-center gap-1">
+                    Join Date
+                    <svg class="w-4 h-4 text-text-tertiary group-hover:text-text-secondary transition-colors sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                    </svg>
+                  </span>
+                </th>
+                <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-primary" id="serversTableBody">
+              <!-- Table rows will be generated by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Mobile Card Layout -->
+      <div class="md:hidden space-y-4" id="serverCards">
+        <!-- Cards will be generated by JavaScript -->
+      </div>
+
+      <!-- Empty State -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-12" id="emptyState" style="display: none;">
+        <div class="flex flex-col items-center text-center max-w-md mx-auto">
+          <div class="p-4 bg-bg-tertiary rounded-full mb-4">
+            <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+            </svg>
+          </div>
+          <h3 class="text-lg font-semibold text-text-primary mb-2" id="emptyStateTitle">No Servers Found</h3>
+          <p class="text-sm text-text-secondary mb-6" id="emptyStateDescription">
+            Your search didn't match any servers. Try adjusting your filters or search terms.
+          </p>
+          <div class="flex items-center gap-3">
+            <button id="clearFiltersEmpty" class="inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover text-white font-semibold text-sm rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2 focus:ring-offset-bg-primary">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Filters
+            </button>
+            <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+              Add Server
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pagination Controls -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-6 px-1" id="paginationContainer">
+        <!-- Results Count -->
+        <div class="text-sm text-text-secondary">
+          Showing <span id="showingStart">1</span> to <span id="showingEnd">10</span> of <span id="totalResults">15</span> servers
+        </div>
+
+        <!-- Pagination Navigation -->
+        <div class="flex items-center gap-2">
+          <!-- Items Per Page Selector -->
+          <div class="flex items-center gap-2 mr-4">
+            <label for="perPage" class="text-sm text-text-secondary hidden sm:inline">Per page:</label>
+            <select
+              id="perPage"
+              class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer appearance-none"
+              style="background-image: url('data:image/svg+xml,%3csvg xmlns=%22http://www.w3.org/2000/svg%22 fill=%22none%22 viewBox=%220 0 20 20%22%3e%3cpath stroke=%22%23a8a5a3%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22 stroke-width=%221.5%22 d=%22M6 8l4 4 4-4%22/%3e%3c/svg%3e'); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.25em 1.25em; padding-right: 2rem;"
+              aria-label="Items per page"
+            >
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+
+          <!-- Previous Button -->
+          <button
+            id="prevPage"
+            class="p-2 text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-border-focus"
+            aria-label="Previous page"
+            disabled
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <!-- Page Numbers -->
+          <div class="flex items-center gap-1" id="pageNumbers" role="navigation" aria-label="Pagination">
+            <!-- Page buttons will be generated by JavaScript -->
+          </div>
+
+          <!-- Next Button -->
+          <button
+            id="nextPage"
+            class="p-2 text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-border-focus"
+            aria-label="Next page"
+          >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript for Interactivity -->
+  <script>
+    // ============================================
+    // Sample Data
+    // ============================================
+    const sampleServers = [
+      { id: '123456789012345678', name: 'Gaming Community', initials: 'GC', members: 1234, status: 'online', joinDate: '2024-01-15', gradient: 'from-purple-500 to-pink-500' },
+      { id: '234567890123456789', name: 'Dev Community', initials: 'DC', members: 567, status: 'online', joinDate: '2024-02-20', gradient: 'from-blue-500 to-cyan-500' },
+      { id: '345678901234567890', name: 'Music Lovers', initials: 'ML', members: 2891, status: 'offline', joinDate: '2023-11-08', gradient: 'from-orange-500 to-red-500' },
+      { id: '456789012345678901', name: 'Art Studio', initials: 'AS', members: 342, status: 'error', joinDate: '2024-03-01', gradient: 'from-green-500 to-emerald-500' },
+      { id: '567890123456789012', name: 'Tech Talk', initials: 'TT', members: 1567, status: 'online', joinDate: '2023-12-10', gradient: 'from-indigo-500 to-purple-500' },
+      { id: '678901234567890123', name: 'Book Club', initials: 'BC', members: 234, status: 'online', joinDate: '2024-01-25', gradient: 'from-amber-500 to-yellow-500' },
+      { id: '789012345678901234', name: 'Sports Fans', initials: 'SF', members: 4521, status: 'online', joinDate: '2023-10-15', gradient: 'from-red-500 to-pink-500' },
+      { id: '890123456789012345', name: 'Movie Nights', initials: 'MN', members: 876, status: 'offline', joinDate: '2024-02-05', gradient: 'from-teal-500 to-cyan-500' },
+      { id: '901234567890123456', name: 'Foodies Unite', initials: 'FU', members: 1123, status: 'online', joinDate: '2023-11-20', gradient: 'from-lime-500 to-green-500' },
+      { id: '012345678901234567', name: 'Photography Club', initials: 'PC', members: 456, status: 'online', joinDate: '2024-01-08', gradient: 'from-violet-500 to-purple-500' },
+      { id: '112345678901234567', name: 'Fitness Goals', initials: 'FG', members: 789, status: 'online', joinDate: '2024-02-15', gradient: 'from-rose-500 to-pink-500' },
+      { id: '212345678901234567', name: 'Language Learning', initials: 'LL', members: 2345, status: 'offline', joinDate: '2023-09-01', gradient: 'from-sky-500 to-blue-500' },
+      { id: '312345678901234567', name: 'Pet Lovers', initials: 'PL', members: 1678, status: 'online', joinDate: '2023-12-25', gradient: 'from-fuchsia-500 to-pink-500' },
+      { id: '412345678901234567', name: 'Travel Adventures', initials: 'TA', members: 923, status: 'error', joinDate: '2024-01-30', gradient: 'from-cyan-500 to-teal-500' },
+      { id: '512345678901234567', name: 'DIY Crafts', initials: 'DY', members: 567, status: 'online', joinDate: '2024-03-10', gradient: 'from-orange-500 to-amber-500' },
+      { id: '612345678901234567', name: 'Anime Enthusiasts', initials: 'AE', members: 3421, status: 'online', joinDate: '2023-08-15', gradient: 'from-pink-500 to-rose-500' },
+      { id: '712345678901234567', name: 'Science Club', initials: 'SC', members: 678, status: 'online', joinDate: '2024-04-01', gradient: 'from-emerald-500 to-teal-500' },
+      { id: '812345678901234567', name: 'Writers Workshop', initials: 'WW', members: 445, status: 'offline', joinDate: '2023-07-22', gradient: 'from-slate-500 to-gray-500' }
+    ];
+
+    // ============================================
+    // State Management
+    // ============================================
+    let currentPage = 1;
+    let perPage = 10;
+    let sortField = 'name';
+    let sortDirection = 'asc';
+    let searchQuery = '';
+    let statusFilter = '';
+
+    // ============================================
+    // Initialize the Page
+    // ============================================
+    function init() {
+      loadServers();
+      attachEventListeners();
+    }
+
+    // ============================================
+    // Load and Render Servers
+    // ============================================
+    function loadServers() {
+      let filtered = filterServers();
+      let sorted = sortServers(filtered);
+      let paginated = paginateServers(sorted);
+
+      renderTable(paginated);
+      renderCards(paginated);
+      renderPagination(filtered.length);
+      updateResultsCount(filtered.length);
+      toggleEmptyState(filtered.length === 0);
+      updateServerCountBadges(filtered.length);
+    }
+
+    // ============================================
+    // Filter Servers
+    // ============================================
+    function filterServers() {
+      return sampleServers.filter(server => {
+        const matchesSearch = searchQuery === '' ||
+          server.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          server.id.includes(searchQuery);
+        const matchesStatus = statusFilter === '' || server.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      });
+    }
+
+    // ============================================
+    // Sort Servers
+    // ============================================
+    function sortServers(servers) {
+      return [...servers].sort((a, b) => {
+        let aVal = a[sortField];
+        let bVal = b[sortField];
+
+        if (sortField === 'members') {
+          aVal = parseInt(aVal);
+          bVal = parseInt(bVal);
+        } else if (sortField === 'joinDate') {
+          aVal = new Date(aVal);
+          bVal = new Date(bVal);
+        } else {
+          aVal = aVal.toLowerCase();
+          bVal = bVal.toLowerCase();
+        }
+
+        if (sortDirection === 'asc') {
+          return aVal > bVal ? 1 : -1;
+        } else {
+          return aVal < bVal ? 1 : -1;
+        }
+      });
+    }
+
+    // ============================================
+    // Paginate Servers
+    // ============================================
+    function paginateServers(servers) {
+      const start = (currentPage - 1) * perPage;
+      const end = start + perPage;
+      return servers.slice(start, end);
+    }
+
+    // ============================================
+    // Event Listeners
+    // ============================================
+    function attachEventListeners() {
+      // Search input with debounce
+      const searchInput = document.getElementById('serverSearch');
+      let debounceTimer;
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          searchQuery = e.target.value;
+          currentPage = 1;
+          loadServers();
+          updateActiveFilters();
+        }, 300);
+      });
+
+      // Status filter
+      document.getElementById('statusFilter').addEventListener('change', (e) => {
+        statusFilter = e.target.value;
+        currentPage = 1;
+        loadServers();
+        updateActiveFilters();
+      });
+
+      // Sort dropdown
+      document.getElementById('sortBy').addEventListener('change', (e) => {
+        const [field, direction] = e.target.value.split('-');
+        sortField = field;
+        sortDirection = direction;
+        loadServers();
+        updateSortIndicators();
+      });
+
+      // Clear filters buttons
+      document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
+      document.getElementById('clearFiltersEmpty').addEventListener('click', clearAllFilters);
+
+      // Per page selector
+      document.getElementById('perPage').addEventListener('change', (e) => {
+        perPage = parseInt(e.target.value);
+        currentPage = 1;
+        loadServers();
+      });
+
+      // Pagination buttons
+      document.getElementById('prevPage').addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          loadServers();
+        }
+      });
+
+      document.getElementById('nextPage').addEventListener('click', () => {
+        const totalPages = Math.ceil(filterServers().length / perPage);
+        if (currentPage < totalPages) {
+          currentPage++;
+          loadServers();
+        }
+      });
+
+      // Column header sorting
+      document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.addEventListener('click', () => handleColumnSort(th));
+        th.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleColumnSort(th);
+          }
+        });
+      });
+    }
+
+    // ============================================
+    // Handle Column Sort
+    // ============================================
+    function handleColumnSort(th) {
+      const field = th.dataset.sort;
+      if (sortField === field) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortField = field;
+        sortDirection = 'asc';
+      }
+      updateSortDropdown();
+      loadServers();
+      updateSortIndicators();
+    }
+
+    // ============================================
+    // Render Table
+    // ============================================
+    function renderTable(servers) {
+      const tbody = document.getElementById('serversTableBody');
+      tbody.innerHTML = servers.map(server => `
+        <tr class="hover:bg-bg-hover/50 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-border-focus" tabindex="0" role="row">
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br ${server.gradient} flex items-center justify-center text-white font-bold text-sm flex-shrink-0" aria-hidden="true">
+                ${server.initials}
+              </div>
+              <div class="min-w-0">
+                <p class="font-medium text-text-primary truncate">${escapeHtml(server.name)}</p>
+                <p class="text-xs text-text-tertiary lg:hidden font-mono">ID: ${server.id}</p>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4 text-text-secondary font-mono text-sm hidden lg:table-cell">${server.id}</td>
+          <td class="px-6 py-4 text-text-secondary">${server.members.toLocaleString()}</td>
+          <td class="px-6 py-4">${getStatusBadge(server.status)}</td>
+          <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+            <time datetime="${server.joinDate}">${formatDate(server.joinDate)}</time>
+          </td>
+          <td class="px-6 py-4 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus" aria-label="View server details" title="View Details">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </button>
+              <button class="p-2 text-text-secondary hover:text-accent-orange hover:bg-bg-hover rounded transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus" aria-label="Configure server settings" title="Configure">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+              <button class="p-2 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus" aria-label="Leave server" title="Leave Server">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // ============================================
+    // Render Cards (Mobile)
+    // ============================================
+    function renderCards(servers) {
+      const container = document.getElementById('serverCards');
+      container.innerHTML = servers.map(server => `
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br ${server.gradient} flex items-center justify-center text-white font-bold text-sm flex-shrink-0" aria-hidden="true">
+                ${server.initials}
+              </div>
+              <div class="min-w-0">
+                <p class="font-medium text-text-primary truncate">${escapeHtml(server.name)}</p>
+                <p class="text-xs text-text-tertiary font-mono">${server.id}</p>
+              </div>
+            </div>
+            ${getStatusBadge(server.status)}
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+            <div>
+              <span class="text-text-tertiary">Members:</span>
+              <span class="text-text-primary ml-1">${server.members.toLocaleString()}</span>
+            </div>
+            <div>
+              <span class="text-text-tertiary">Joined:</span>
+              <span class="text-text-primary ml-1">${formatDate(server.joinDate)}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 pt-3 border-t border-border-secondary">
+            <button class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              View
+            </button>
+            <button class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Configure
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ============================================
+    // Render Pagination
+    // ============================================
+    function renderPagination(totalItems) {
+      const totalPages = Math.ceil(totalItems / perPage);
+      const pageNumbersContainer = document.getElementById('pageNumbers');
+      const prevBtn = document.getElementById('prevPage');
+      const nextBtn = document.getElementById('nextPage');
+
+      // Update prev/next button states
+      prevBtn.disabled = currentPage === 1;
+      nextBtn.disabled = currentPage === totalPages || totalPages === 0;
+
+      // Generate page numbers
+      let pageNumbersHtml = '';
+
+      if (totalPages <= 7) {
+        // Show all pages
+        for (let i = 1; i <= totalPages; i++) {
+          pageNumbersHtml += getPageButton(i);
+        }
+      } else {
+        // Show truncated pagination
+        if (currentPage <= 3) {
+          for (let i = 1; i <= 4; i++) {
+            pageNumbersHtml += getPageButton(i);
+          }
+          pageNumbersHtml += '<span class="px-2 text-text-tertiary">...</span>';
+          pageNumbersHtml += getPageButton(totalPages);
+        } else if (currentPage >= totalPages - 2) {
+          pageNumbersHtml += getPageButton(1);
+          pageNumbersHtml += '<span class="px-2 text-text-tertiary">...</span>';
+          for (let i = totalPages - 3; i <= totalPages; i++) {
+            pageNumbersHtml += getPageButton(i);
+          }
+        } else {
+          pageNumbersHtml += getPageButton(1);
+          pageNumbersHtml += '<span class="px-2 text-text-tertiary">...</span>';
+          for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+            pageNumbersHtml += getPageButton(i);
+          }
+          pageNumbersHtml += '<span class="px-2 text-text-tertiary">...</span>';
+          pageNumbersHtml += getPageButton(totalPages);
+        }
+      }
+
+      pageNumbersContainer.innerHTML = pageNumbersHtml;
+
+      // Attach click handlers to page buttons
+      pageNumbersContainer.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          currentPage = parseInt(btn.dataset.page);
+          loadServers();
+        });
+      });
+    }
+
+    function getPageButton(page) {
+      const isActive = page === currentPage;
+      return `<button
+        data-page="${page}"
+        class="px-3 py-1.5 text-sm font-medium ${isActive ? 'text-white bg-accent-orange' : 'text-text-secondary hover:text-text-primary hover:bg-bg-hover'} rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus"
+        ${isActive ? 'aria-current="page"' : ''}
+      >${page}</button>`;
+    }
+
+    // ============================================
+    // Update Results Count
+    // ============================================
+    function updateResultsCount(totalItems) {
+      const start = totalItems === 0 ? 0 : (currentPage - 1) * perPage + 1;
+      const end = Math.min(currentPage * perPage, totalItems);
+
+      document.getElementById('showingStart').textContent = start;
+      document.getElementById('showingEnd').textContent = end;
+      document.getElementById('totalResults').textContent = totalItems;
+    }
+
+    // ============================================
+    // Update Server Count Badges
+    // ============================================
+    function updateServerCountBadges(count) {
+      document.getElementById('serverCountBadge').textContent = count;
+      document.getElementById('sidebarServerCount').textContent = count;
+    }
+
+    // ============================================
+    // Toggle Empty State
+    // ============================================
+    function toggleEmptyState(isEmpty) {
+      const emptyState = document.getElementById('emptyState');
+      const tableContainer = document.getElementById('tableContainer');
+      const cardContainer = document.getElementById('serverCards');
+      const pagination = document.getElementById('paginationContainer');
+
+      if (isEmpty) {
+        emptyState.style.display = 'block';
+        tableContainer.style.display = 'none';
+        cardContainer.style.display = 'none';
+        pagination.style.display = 'none';
+      } else {
+        emptyState.style.display = 'none';
+        tableContainer.classList.remove('hidden');
+        tableContainer.classList.add('hidden', 'md:block');
+        tableContainer.style.display = '';
+        cardContainer.style.display = '';
+        pagination.style.display = '';
+      }
+    }
+
+    // ============================================
+    // Update Active Filters Display
+    // ============================================
+    function updateActiveFilters() {
+      const container = document.getElementById('activeFilters');
+      const clearBtn = document.getElementById('clearFilters');
+      const hasFilters = searchQuery !== '' || statusFilter !== '';
+
+      container.classList.toggle('hidden', !hasFilters);
+      clearBtn.style.display = hasFilters ? 'inline-flex' : 'none';
+
+      if (hasFilters) {
+        let tags = '<span class="text-xs text-text-tertiary">Active filters:</span>';
+        if (searchQuery) {
+          tags += `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-text-primary bg-bg-tertiary rounded-full">
+            Search: "${escapeHtml(searchQuery)}"
+            <button onclick="clearSearch()" class="ml-1 hover:text-error focus:outline-none" aria-label="Remove search filter">&times;</button>
+          </span>`;
+        }
+        if (statusFilter) {
+          tags += `<span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-text-primary bg-bg-tertiary rounded-full">
+            Status: ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}
+            <button onclick="clearStatus()" class="ml-1 hover:text-error focus:outline-none" aria-label="Remove status filter">&times;</button>
+          </span>`;
+        }
+        container.querySelector('.flex').innerHTML = tags;
+      }
+    }
+
+    // ============================================
+    // Clear Filters
+    // ============================================
+    function clearAllFilters() {
+      searchQuery = '';
+      statusFilter = '';
+      currentPage = 1;
+      document.getElementById('serverSearch').value = '';
+      document.getElementById('statusFilter').value = '';
+      loadServers();
+      updateActiveFilters();
+    }
+
+    function clearSearch() {
+      searchQuery = '';
+      currentPage = 1;
+      document.getElementById('serverSearch').value = '';
+      loadServers();
+      updateActiveFilters();
+    }
+
+    function clearStatus() {
+      statusFilter = '';
+      currentPage = 1;
+      document.getElementById('statusFilter').value = '';
+      loadServers();
+      updateActiveFilters();
+    }
+
+    // ============================================
+    // Update Sort Dropdown
+    // ============================================
+    function updateSortDropdown() {
+      const sortDropdown = document.getElementById('sortBy');
+      sortDropdown.value = `${sortField}-${sortDirection}`;
+    }
+
+    // ============================================
+    // Update Sort Indicators
+    // ============================================
+    function updateSortIndicators() {
+      document.querySelectorAll('th[data-sort]').forEach(th => {
+        const field = th.dataset.sort;
+        const icon = th.querySelector('.sort-icon');
+
+        if (field === sortField) {
+          th.setAttribute('aria-sort', sortDirection === 'asc' ? 'ascending' : 'descending');
+          if (sortDirection === 'asc') {
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />';
+          } else {
+            icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />';
+          }
+          icon.classList.remove('text-text-tertiary');
+          icon.classList.add('text-accent-blue');
+        } else {
+          th.setAttribute('aria-sort', 'none');
+          icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />';
+          icon.classList.remove('text-accent-blue');
+          icon.classList.add('text-text-tertiary');
+        }
+      });
+    }
+
+    // ============================================
+    // Utility Functions
+    // ============================================
+    function getStatusBadge(status) {
+      const badges = {
+        online: '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full"><span class="w-2 h-2 bg-success rounded-full" aria-hidden="true"></span>Online</span>',
+        offline: '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-text-tertiary bg-border-primary/50 rounded-full"><span class="w-2 h-2 bg-text-tertiary rounded-full" aria-hidden="true"></span>Offline</span>',
+        error: '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-error bg-error/10 rounded-full"><span class="w-2 h-2 bg-error rounded-full" aria-hidden="true"></span>Error</span>'
+      };
+      return badges[status] || badges.offline;
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ============================================
+    // Sidebar Toggle (Mobile)
+    // ============================================
+    let sidebarOpen = false;
+
+    function getSidebarFocusableElements() {
+      const sidebar = document.getElementById('sidebar');
+      return sidebar.querySelectorAll(
+        'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+    }
+
+    function trapFocus(event) {
+      if (!sidebarOpen || window.innerWidth >= 1024) return;
+
+      const focusableElements = getSidebarFocusableElements();
+      const firstFocusable = focusableElements[0];
+      const lastFocusable = focusableElements[focusableElements.length - 1];
+
+      if (event.key === 'Tab') {
+        if (event.shiftKey) {
+          if (document.activeElement === firstFocusable) {
+            event.preventDefault();
+            lastFocusable.focus();
+          }
+        } else {
+          if (document.activeElement === lastFocusable) {
+            event.preventDefault();
+            firstFocusable.focus();
+          }
+        }
+      }
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const toggleButton = document.getElementById('sidebarToggle');
+
+      sidebarOpen = !sidebarOpen;
+
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+
+      toggleButton.setAttribute('aria-expanded', sidebarOpen.toString());
+
+      if (sidebarOpen) {
+        const focusableElements = getSidebarFocusableElements();
+        if (focusableElements.length > 0) {
+          focusableElements[0].focus();
+        }
+      } else {
+        toggleButton.focus();
+      }
+    }
+
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const toggleButton = document.getElementById('sidebarToggle');
+
+      if (sidebarOpen && window.innerWidth < 1024) {
+        sidebarOpen = false;
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
+        toggleButton.focus();
+      }
+    }
+
+    // ============================================
+    // User Menu Toggle
+    // ============================================
+    function toggleUserMenu() {
+      const menu = document.getElementById('userMenu');
+      menu.classList.toggle('active');
+    }
+
+    // ============================================
+    // Event Listeners for Menu/Sidebar
+    // ============================================
+    document.addEventListener('click', function(event) {
+      const userMenu = document.getElementById('userMenu');
+      const userButton = event.target.closest('[aria-label="User menu"]');
+
+      if (!userButton && !event.target.closest('#userMenu')) {
+        userMenu.classList.remove('active');
+      }
+    });
+
+    window.addEventListener('resize', function() {
+      if (window.innerWidth >= 1024) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggleButton = document.getElementById('sidebarToggle');
+
+        sidebarOpen = false;
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', function(event) {
+      trapFocus(event);
+
+      if (event.key === 'Escape') {
+        document.getElementById('userMenu').classList.remove('active');
+        closeSidebar();
+      }
+    });
+
+    // ============================================
+    // Initialize on DOM Ready
+    // ============================================
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+
+</body>
+</html>
