@@ -1,0 +1,1792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gaming Community - Server Detail - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* ========================================
+       PAGE-SPECIFIC STYLES
+       ======================================== */
+
+    /* Tab Navigation Styles */
+    .tab-btn {
+      position: relative;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #a8a5a3;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: color 0.15s ease-in-out;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: #d7d3d0;
+    }
+
+    .tab-btn.active {
+      color: #cb4e1b;
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #cb4e1b;
+    }
+
+    .tab-btn:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    /* Tab Panel */
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      width: 2.75rem;
+      height: 1.5rem;
+      background-color: #3f4447;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 1.25rem;
+      height: 1.25rem;
+      background-color: #d7d3d0;
+      border-radius: 50%;
+      transition: transform 0.2s ease;
+    }
+
+    .toggle-switch.active {
+      background-color: #cb4e1b;
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(1.25rem);
+    }
+
+    .toggle-switch:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Collapsible Category */
+    .category-header {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .category-header .chevron {
+      transition: transform 0.2s ease;
+    }
+
+    .category-header.expanded .chevron {
+      transform: rotate(90deg);
+    }
+
+    .category-content {
+      display: none;
+    }
+
+    .category-content.expanded {
+      display: block;
+    }
+
+    /* Modal Styles */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background-color: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 150ms ease-out, visibility 150ms ease-out;
+    }
+
+    .modal-backdrop.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      z-index: 1001;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms ease-out;
+      max-width: 500px;
+      width: calc(100% - 2rem);
+    }
+
+    .modal.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .modal-lg {
+      max-width: 700px;
+    }
+
+    /* Copy button animation */
+    .copy-btn.copied {
+      color: #10b981;
+    }
+
+    /* Skeleton loading */
+    .skeleton {
+      background: linear-gradient(90deg, #2f3336 25%, #3f4447 50%, #2f3336 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Prevent body scroll when modal is open */
+    body.modal-open {
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 lg:hidden hidden" style="z-index: 50;" onclick="toggleSidebar()"></div>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar fixed top-0 left-0 right-0 flex items-center justify-between h-16 px-4 lg:px-6 bg-bg-secondary border-b border-border-primary" style="z-index: 40;">
+    <!-- Left Section: Menu Toggle & Logo -->
+    <div class="flex items-center gap-4">
+      <!-- Mobile Menu Toggle -->
+      <button
+        id="sidebarToggle"
+        onclick="toggleSidebar()"
+        class="lg:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle sidebar menu"
+        aria-expanded="false"
+        aria-controls="sidebar"
+      >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <!-- Logo & App Name -->
+      <a href="../dashboard.html" class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-accent-orange flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+      </a>
+    </div>
+
+    <!-- Center Section: Search -->
+    <div class="hidden md:flex flex-1 max-w-md mx-8">
+      <div class="relative w-full">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search servers, commands, logs..."
+          class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+        />
+      </div>
+    </div>
+
+    <!-- Right Section: Actions & User Menu -->
+    <div class="flex items-center gap-2">
+      <!-- Notifications -->
+      <button class="relative p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span class="absolute top-1 right-1 w-2 h-2 bg-accent-orange rounded-full"></span>
+      </button>
+
+      <!-- User Menu -->
+      <div class="relative">
+        <button
+          onclick="toggleUserMenu()"
+          class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
+          aria-label="User menu"
+        >
+          <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">
+            AD
+          </div>
+          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="userMenu" class="dropdown-menu absolute right-0 mt-2 w-48 py-1 bg-bg-tertiary border border-border-primary rounded-lg shadow-xl hidden">
+          <div class="px-4 py-2 border-b border-border-primary">
+            <p class="text-sm font-medium text-text-primary">Admin User</p>
+            <p class="text-xs text-text-secondary">admin@example.com</p>
+          </div>
+          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Profile
+          </a>
+          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </a>
+          <div class="border-t border-border-primary mt-1 pt-1">
+            <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Sidebar Navigation -->
+  <aside
+    id="sidebar"
+    class="sidebar fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-bg-secondary border-r border-border-primary transform -translate-x-full lg:translate-x-0 transition-transform"
+    style="z-index: 45;"
+  >
+    <nav class="flex flex-col h-full p-4">
+      <!-- Main Navigation -->
+      <div class="space-y-1">
+        <a href="../dashboard.html" class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Dashboard
+        </a>
+
+        <a href="#" class="sidebar-link active flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-primary bg-accent-orange/10 border-l-3 border-accent-orange rounded-lg">
+          <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          Servers
+          <span class="ml-auto px-2 py-0.5 text-xs font-semibold text-text-primary bg-border-primary rounded-full">12</span>
+        </a>
+
+        <a href="#" class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Commands
+        </a>
+
+        <a href="#" class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          Logs
+        </a>
+
+        <a href="#" class="sidebar-link flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Settings
+        </a>
+      </div>
+
+      <!-- Bot Status Footer -->
+      <div class="mt-auto pt-4 border-t border-border-secondary">
+        <div class="flex items-center gap-2 px-3 py-2 text-sm">
+          <span class="w-2 h-2 bg-success rounded-full animate-pulse"></span>
+          <span class="text-success font-medium">Bot Online</span>
+          <span class="ml-auto text-xs text-text-tertiary">v2.1.0</span>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="lg:ml-64 pt-16 min-h-screen">
+    <div class="p-4 lg:p-8">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+          <li>
+            <a href="../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Gaming Community</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-8">
+        <div class="flex items-start gap-4">
+          <!-- Server Avatar -->
+          <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
+            GC
+          </div>
+          <div>
+            <div class="flex items-center gap-3 flex-wrap">
+              <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Gaming Community</h1>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+                <span class="w-1.5 h-1.5 bg-success rounded-full animate-pulse"></span>
+                Online
+              </span>
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="text-sm text-text-secondary font-mono">ID: 123456789012345678</span>
+              <button
+                onclick="copyServerId()"
+                class="copy-btn p-1 text-text-tertiary hover:text-text-primary transition-colors"
+                aria-label="Copy server ID"
+                title="Copy server ID"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <button
+            onclick="syncServer()"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Sync Server
+          </button>
+          <button
+            onclick="openModal('modal-remove-bot')"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-error bg-error/10 border border-error/30 hover:bg-error/20 rounded-lg transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Remove Bot
+          </button>
+        </div>
+      </div>
+
+      <!-- Server Information Card -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-8">
+        <h2 class="sr-only">Server Information</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
+          <!-- Owner -->
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Owner</p>
+            <p class="text-sm font-medium text-text-primary">ServerOwner#1234</p>
+          </div>
+          <!-- Members -->
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Members</p>
+            <p class="text-sm font-medium text-text-primary">1,234</p>
+          </div>
+          <!-- Bot Joined -->
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Bot Joined</p>
+            <p class="text-sm font-medium text-text-primary">Jan 15, 2024</p>
+          </div>
+          <!-- Region -->
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Region</p>
+            <p class="text-sm font-medium text-text-primary">US East</p>
+          </div>
+          <!-- Verification Level -->
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Verification</p>
+            <p class="text-sm font-medium text-text-primary">High</p>
+          </div>
+          <!-- Bot Role -->
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Bot Role</p>
+            <p class="text-sm font-medium text-accent-orange">Bot Admin</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabbed Interface -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <!-- Tab Navigation -->
+        <div class="border-b border-border-primary overflow-x-auto" role="tablist" aria-label="Server detail tabs">
+          <div class="flex min-w-max">
+            <button
+              class="tab-btn active"
+              role="tab"
+              aria-selected="true"
+              aria-controls="panel-overview"
+              id="tab-overview"
+              data-tab="overview"
+              onclick="switchTab('overview')"
+            >
+              Overview
+            </button>
+            <button
+              class="tab-btn"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-members"
+              id="tab-members"
+              data-tab="members"
+              onclick="switchTab('members')"
+            >
+              Members
+            </button>
+            <button
+              class="tab-btn"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-commands"
+              id="tab-commands"
+              data-tab="commands"
+              onclick="switchTab('commands')"
+            >
+              Commands
+            </button>
+            <button
+              class="tab-btn"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-activity"
+              id="tab-activity"
+              data-tab="activity"
+              onclick="switchTab('activity')"
+            >
+              Activity
+            </button>
+            <button
+              class="tab-btn"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-settings"
+              id="tab-settings"
+              data-tab="settings"
+              onclick="switchTab('settings')"
+            >
+              Settings
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab Panels -->
+
+        <!-- Overview Tab -->
+        <div id="panel-overview" class="tab-panel active p-6" role="tabpanel" aria-labelledby="tab-overview">
+          <!-- Quick Stats Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <!-- Commands Today -->
+            <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide">Commands Today</p>
+                  <p class="text-2xl font-bold text-text-primary mt-1">892</p>
+                </div>
+                <div class="p-2 bg-accent-orange/10 rounded-lg">
+                  <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+              <p class="text-xs text-success mt-2 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                +12% from yesterday
+              </p>
+            </div>
+
+            <!-- Active Members -->
+            <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide">Active Members</p>
+                  <p class="text-2xl font-bold text-text-primary mt-1">347</p>
+                </div>
+                <div class="p-2 bg-success/10 rounded-lg">
+                  <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+              </div>
+              <p class="text-xs text-text-tertiary mt-2">Online in last 24h</p>
+            </div>
+
+            <!-- Warnings Issued -->
+            <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide">Warnings (7d)</p>
+                  <p class="text-2xl font-bold text-text-primary mt-1">23</p>
+                </div>
+                <div class="p-2 bg-warning/10 rounded-lg">
+                  <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+              </div>
+              <p class="text-xs text-error mt-2 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+                +5 from last week
+              </p>
+            </div>
+
+            <!-- Bot Uptime -->
+            <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide">Bot Uptime</p>
+                  <p class="text-2xl font-bold text-text-primary mt-1">99.9%</p>
+                </div>
+                <div class="p-2 bg-info/10 rounded-lg">
+                  <svg class="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+              </div>
+              <p class="text-xs text-success mt-2 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                14 days stable
+              </p>
+            </div>
+          </div>
+
+          <!-- Recent Activity Feed -->
+          <div class="mb-8">
+            <h3 class="text-lg font-semibold text-text-primary mb-4">Recent Activity</h3>
+            <div class="bg-bg-primary border border-border-secondary rounded-lg divide-y divide-border-secondary">
+              <!-- Activity Item 1 -->
+              <div class="p-4 hover:bg-bg-hover/30 transition-colors cursor-pointer" onclick="openModal('modal-log-detail')">
+                <div class="flex items-start gap-3">
+                  <div class="p-1.5 bg-success/10 rounded">
+                    <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm text-text-primary">Command executed: <span class="font-mono text-accent-blue">/help</span></p>
+                    <p class="text-xs text-text-tertiary mt-0.5">User: GamerPro#5678 - 2 min ago</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Activity Item 2 -->
+              <div class="p-4 hover:bg-bg-hover/30 transition-colors cursor-pointer" onclick="openModal('modal-log-detail')">
+                <div class="flex items-start gap-3">
+                  <div class="p-1.5 bg-warning/10 rounded">
+                    <svg class="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm text-text-primary">Warning issued to <span class="font-medium">ToxicUser#9999</span></p>
+                    <p class="text-xs text-text-tertiary mt-0.5">By: ModeratorOne#1111 - 15 min ago</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Activity Item 3 -->
+              <div class="p-4 hover:bg-bg-hover/30 transition-colors cursor-pointer" onclick="openModal('modal-log-detail')">
+                <div class="flex items-start gap-3">
+                  <div class="p-1.5 bg-accent-blue/10 rounded">
+                    <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm text-text-primary">New member joined: <span class="font-medium">NewPlayer#2468</span></p>
+                    <p class="text-xs text-text-tertiary mt-0.5">32 min ago</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Activity Item 4 -->
+              <div class="p-4 hover:bg-bg-hover/30 transition-colors cursor-pointer" onclick="openModal('modal-log-detail')">
+                <div class="flex items-start gap-3">
+                  <div class="p-1.5 bg-accent-orange/10 rounded">
+                    <svg class="w-4 h-4 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm text-text-primary">Settings updated: Welcome message changed</p>
+                    <p class="text-xs text-text-tertiary mt-0.5">By: ServerOwner#1234 - 1 hour ago</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Activity Item 5 -->
+              <div class="p-4 hover:bg-bg-hover/30 transition-colors cursor-pointer" onclick="openModal('modal-log-detail')">
+                <div class="flex items-start gap-3">
+                  <div class="p-1.5 bg-error/10 rounded">
+                    <svg class="w-4 h-4 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm text-text-primary">User banned: <span class="font-medium">Spammer#0000</span></p>
+                    <p class="text-xs text-text-tertiary mt-0.5">By: ModeratorTwo#2222 - 2 hours ago</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions Grid -->
+          <div>
+            <h3 class="text-lg font-semibold text-text-primary mb-4">Quick Actions</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <button class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-secondary rounded-lg hover:border-accent-orange/50 hover:bg-bg-hover transition-colors group">
+                <div class="p-3 bg-accent-orange/10 rounded-lg group-hover:bg-accent-orange/20 transition-colors">
+                  <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-text-primary">Send Announcement</span>
+              </button>
+
+              <button class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-secondary rounded-lg hover:border-accent-blue/50 hover:bg-bg-hover transition-colors group">
+                <div class="p-3 bg-accent-blue/10 rounded-lg group-hover:bg-accent-blue/20 transition-colors">
+                  <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-text-primary">View Full Logs</span>
+              </button>
+
+              <button class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-secondary rounded-lg hover:border-success/50 hover:bg-bg-hover transition-colors group">
+                <div class="p-3 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors">
+                  <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-text-primary">Export Data</span>
+              </button>
+
+              <button class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-secondary rounded-lg hover:border-warning/50 hover:bg-bg-hover transition-colors group">
+                <div class="p-3 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
+                  <svg class="w-6 h-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-text-primary">Restart Bot</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Members Tab -->
+        <div id="panel-members" class="tab-panel p-6" role="tabpanel" aria-labelledby="tab-members">
+          <!-- Search and Filter Bar -->
+          <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <div class="relative flex-1">
+              <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="search"
+                id="memberSearch"
+                placeholder="Search members by name or ID..."
+                class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                oninput="filterMembers()"
+              />
+            </div>
+            <select
+              id="roleFilter"
+              class="px-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+              onchange="filterMembers()"
+            >
+              <option value="">All Roles</option>
+              <option value="owner">Owner</option>
+              <option value="admin">Admin</option>
+              <option value="moderator">Moderator</option>
+              <option value="member">Member</option>
+            </select>
+          </div>
+
+          <!-- Members Table (Desktop) -->
+          <div class="hidden md:block overflow-x-auto">
+            <table class="w-full" id="membersTable">
+              <thead class="bg-bg-primary/50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary" onclick="sortMembers('name')">
+                    <span class="inline-flex items-center gap-1">
+                      Member
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
+                    </span>
+                  </th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Role</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary" onclick="sortMembers('joined')">
+                    <span class="inline-flex items-center gap-1">
+                      Joined
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
+                    </span>
+                  </th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary" onclick="sortMembers('commands')">
+                    <span class="inline-flex items-center gap-1">
+                      Commands
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" /></svg>
+                    </span>
+                  </th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-secondary" id="membersTableBody">
+                <!-- Members will be populated by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Members Cards (Mobile) -->
+          <div class="md:hidden space-y-3" id="membersCards">
+            <!-- Cards will be populated by JavaScript -->
+          </div>
+
+          <!-- Pagination -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border-secondary">
+            <p class="text-sm text-text-secondary">Showing <span id="memberStartCount">1</span>-<span id="memberEndCount">10</span> of <span id="memberTotalCount">15</span> members</p>
+            <div class="flex items-center gap-2">
+              <button id="memberPrevBtn" onclick="changeMemberPage(-1)" class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-primary border border-border-primary rounded hover:bg-bg-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
+                Previous
+              </button>
+              <span class="px-3 py-1.5 text-sm font-medium text-text-primary bg-accent-orange rounded">1</span>
+              <span class="px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded cursor-pointer" onclick="setMemberPage(2)">2</span>
+              <button id="memberNextBtn" onclick="changeMemberPage(1)" class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-primary border border-border-primary rounded hover:bg-bg-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Commands Tab -->
+        <div id="panel-commands" class="tab-panel p-6" role="tabpanel" aria-labelledby="tab-commands">
+          <div class="flex items-center justify-between mb-6">
+            <p class="text-sm text-text-secondary">Manage command permissions and settings for this server.</p>
+            <button id="saveCommandsBtn" onclick="saveCommandSettings()" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange hover:bg-accent-orange-hover rounded-lg transition-colors hidden">
+              Save Changes
+            </button>
+          </div>
+
+          <!-- Command Categories -->
+          <div class="space-y-4" id="commandCategories">
+            <!-- Categories will be populated by JavaScript -->
+          </div>
+        </div>
+
+        <!-- Activity Tab -->
+        <div id="panel-activity" class="tab-panel p-6" role="tabpanel" aria-labelledby="tab-activity">
+          <!-- Filters -->
+          <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <div class="flex items-center gap-2">
+              <label for="activityStartDate" class="text-sm text-text-secondary">From:</label>
+              <input
+                type="date"
+                id="activityStartDate"
+                class="px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              <label for="activityEndDate" class="text-sm text-text-secondary">To:</label>
+              <input
+                type="date"
+                id="activityEndDate"
+                class="px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+              />
+            </div>
+            <select
+              id="activityTypeFilter"
+              class="px-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+              onchange="filterActivity()"
+            >
+              <option value="">All Event Types</option>
+              <option value="command">Commands</option>
+              <option value="moderation">Moderation</option>
+              <option value="member">Member Events</option>
+              <option value="settings">Settings Changes</option>
+            </select>
+            <button
+              onclick="exportActivityCSV()"
+              class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors ml-auto"
+            >
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export CSV
+            </button>
+          </div>
+
+          <!-- Activity Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-bg-primary/50">
+                <tr>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Timestamp</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Event Type</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Description</th>
+                  <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                  <th class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Details</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-secondary" id="activityTableBody">
+                <!-- Activity will be populated by JavaScript -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Activity Pagination -->
+          <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-6 border-t border-border-secondary">
+            <p class="text-sm text-text-secondary">Showing 1-10 of 25 events</p>
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-primary border border-border-primary rounded hover:bg-bg-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors" disabled>
+                Previous
+              </button>
+              <span class="px-3 py-1.5 text-sm font-medium text-text-primary bg-accent-orange rounded">1</span>
+              <span class="px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded cursor-pointer">2</span>
+              <span class="px-3 py-1.5 text-sm font-medium text-text-secondary hover:bg-bg-hover rounded cursor-pointer">3</span>
+              <button class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-primary border border-border-primary rounded hover:bg-bg-hover transition-colors">
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="panel-settings" class="tab-panel p-6" role="tabpanel" aria-labelledby="tab-settings">
+          <form id="serverSettingsForm" onsubmit="saveServerSettings(event)">
+            <!-- General Settings Section -->
+            <div class="mb-8">
+              <h3 class="text-lg font-semibold text-text-primary mb-4">General Settings</h3>
+              <div class="bg-bg-primary border border-border-secondary rounded-lg p-6 space-y-6">
+                <!-- Command Prefix -->
+                <div>
+                  <label for="commandPrefix" class="block text-sm font-medium text-text-primary mb-2">Command Prefix</label>
+                  <input
+                    type="text"
+                    id="commandPrefix"
+                    value="!"
+                    maxlength="3"
+                    class="w-full max-w-xs px-4 py-2 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+                  />
+                  <p class="text-xs text-text-tertiary mt-1">Prefix for text commands (1-3 characters)</p>
+                </div>
+
+                <!-- Bot Nickname -->
+                <div>
+                  <label for="botNickname" class="block text-sm font-medium text-text-primary mb-2">Bot Nickname</label>
+                  <input
+                    type="text"
+                    id="botNickname"
+                    value="GameBot"
+                    maxlength="32"
+                    class="w-full max-w-md px-4 py-2 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+                  />
+                  <p class="text-xs text-text-tertiary mt-1">Bot's display name in this server</p>
+                </div>
+
+                <!-- Language -->
+                <div>
+                  <label for="language" class="block text-sm font-medium text-text-primary mb-2">Language</label>
+                  <select
+                    id="language"
+                    class="w-full max-w-xs px-4 py-2 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+                  >
+                    <option value="en" selected>English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="ja">Japanese</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Notification Settings Section -->
+            <div class="mb-8">
+              <h3 class="text-lg font-semibold text-text-primary mb-4">Notifications</h3>
+              <div class="bg-bg-primary border border-border-secondary rounded-lg divide-y divide-border-secondary">
+                <!-- Welcome Messages -->
+                <div class="p-4 flex items-center justify-between">
+                  <div class="flex-1 pr-4">
+                    <p class="text-sm font-medium text-text-primary">Welcome Messages</p>
+                    <p class="text-xs text-text-tertiary mt-0.5">Send a message when new members join</p>
+                  </div>
+                  <button type="button" class="toggle-switch active" onclick="toggleSwitch(this)" data-setting="welcomeMessages" aria-label="Toggle welcome messages"></button>
+                </div>
+
+                <!-- Leave Messages -->
+                <div class="p-4 flex items-center justify-between">
+                  <div class="flex-1 pr-4">
+                    <p class="text-sm font-medium text-text-primary">Leave Messages</p>
+                    <p class="text-xs text-text-tertiary mt-0.5">Announce when members leave the server</p>
+                  </div>
+                  <button type="button" class="toggle-switch" onclick="toggleSwitch(this)" data-setting="leaveMessages" aria-label="Toggle leave messages"></button>
+                </div>
+
+                <!-- Moderation Alerts -->
+                <div class="p-4 flex items-center justify-between">
+                  <div class="flex-1 pr-4">
+                    <p class="text-sm font-medium text-text-primary">Moderation Alerts</p>
+                    <p class="text-xs text-text-tertiary mt-0.5">Send alerts for moderation actions</p>
+                  </div>
+                  <button type="button" class="toggle-switch active" onclick="toggleSwitch(this)" data-setting="modAlerts" aria-label="Toggle moderation alerts"></button>
+                </div>
+
+                <!-- Command Logging -->
+                <div class="p-4 flex items-center justify-between">
+                  <div class="flex-1 pr-4">
+                    <p class="text-sm font-medium text-text-primary">Command Logging</p>
+                    <p class="text-xs text-text-tertiary mt-0.5">Log all command usage to a designated channel</p>
+                  </div>
+                  <button type="button" class="toggle-switch active" onclick="toggleSwitch(this)" data-setting="commandLogging" aria-label="Toggle command logging"></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Advanced Settings Section -->
+            <div class="mb-8">
+              <h3 class="text-lg font-semibold text-text-primary mb-4">Advanced Settings</h3>
+              <div class="bg-bg-primary border border-border-secondary rounded-lg p-6 space-y-6">
+                <!-- Log Channel -->
+                <div>
+                  <label for="logChannel" class="block text-sm font-medium text-text-primary mb-2">Log Channel</label>
+                  <select
+                    id="logChannel"
+                    class="w-full max-w-md px-4 py-2 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+                  >
+                    <option value="">Select a channel</option>
+                    <option value="123" selected>#bot-logs</option>
+                    <option value="456">#moderation</option>
+                    <option value="789">#admin-chat</option>
+                  </select>
+                </div>
+
+                <!-- Welcome Channel -->
+                <div>
+                  <label for="welcomeChannel" class="block text-sm font-medium text-text-primary mb-2">Welcome Channel</label>
+                  <select
+                    id="welcomeChannel"
+                    class="w-full max-w-md px-4 py-2 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+                  >
+                    <option value="">Select a channel</option>
+                    <option value="111" selected>#welcome</option>
+                    <option value="222">#general</option>
+                    <option value="333">#lobby</option>
+                  </select>
+                </div>
+
+                <!-- Auto-Mod Level -->
+                <div>
+                  <label for="autoModLevel" class="block text-sm font-medium text-text-primary mb-2">Auto-Moderation Level</label>
+                  <select
+                    id="autoModLevel"
+                    class="w-full max-w-xs px-4 py-2 text-sm bg-bg-secondary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus"
+                  >
+                    <option value="off">Off</option>
+                    <option value="low">Low - Spam detection only</option>
+                    <option value="medium" selected>Medium - Spam + inappropriate content</option>
+                    <option value="high">High - Strict filtering</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex items-center gap-4">
+              <button
+                type="submit"
+                class="px-6 py-2.5 text-sm font-semibold text-white bg-accent-orange hover:bg-accent-orange-hover rounded-lg transition-colors"
+              >
+                Save Settings
+              </button>
+              <button
+                type="button"
+                onclick="resetServerSettings()"
+                class="px-6 py-2.5 text-sm font-medium text-text-primary bg-transparent border border-border-primary hover:bg-bg-hover rounded-lg transition-colors"
+              >
+                Reset to Defaults
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Modal Backdrop -->
+  <div id="modal-backdrop" class="modal-backdrop" onclick="closeAllModals()"></div>
+
+  <!-- Log Detail Modal -->
+  <div id="modal-log-detail" class="modal modal-lg bg-bg-secondary rounded-lg border border-border-primary shadow-xl" role="dialog" aria-modal="true" aria-labelledby="modal-log-title">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+      <h3 id="modal-log-title" class="text-lg font-semibold text-text-primary">Activity Log Details</h3>
+      <button onclick="closeModal('modal-log-detail')" class="p-1 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="Close modal">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="px-6 py-6">
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Event Type</p>
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+              Command Executed
+            </span>
+          </div>
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Timestamp</p>
+            <p class="text-sm text-text-primary">Dec 8, 2025 at 10:30:45 AM</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">User</p>
+            <p class="text-sm text-text-primary">GamerPro#5678</p>
+          </div>
+          <div>
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">User ID</p>
+            <p class="text-sm text-text-primary font-mono">987654321098765432</p>
+          </div>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Channel</p>
+          <p class="text-sm text-text-primary">#general-chat</p>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Details</p>
+          <div class="mt-2 p-4 bg-bg-primary border border-border-secondary rounded-lg">
+            <p class="text-sm text-text-primary font-mono">/help category:moderation</p>
+          </div>
+        </div>
+        <div>
+          <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Response</p>
+          <p class="text-sm text-text-secondary">Command executed successfully. Help information displayed to user.</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-border-primary">
+      <button onclick="closeModal('modal-log-detail')" class="px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary hover:bg-bg-hover rounded-md transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- Remove Bot Confirmation Modal -->
+  <div id="modal-remove-bot" class="modal bg-bg-secondary rounded-lg border border-border-primary shadow-xl" role="dialog" aria-modal="true" aria-labelledby="modal-remove-title">
+    <div class="px-6 py-6">
+      <div class="flex items-start gap-4">
+        <div class="flex-shrink-0 w-10 h-10 bg-error/10 rounded-full flex items-center justify-center">
+          <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 id="modal-remove-title" class="text-lg font-semibold text-text-primary mb-2">Remove Bot from Server</h3>
+          <p class="text-sm text-text-secondary mb-4">Are you sure you want to remove the bot from <span class="font-semibold text-text-primary">Gaming Community</span>? This will:</p>
+          <ul class="text-sm text-text-secondary space-y-1 mb-4 list-disc list-inside">
+            <li>Stop all bot functionality in this server</li>
+            <li>Clear all server-specific settings</li>
+            <li>Remove command permissions</li>
+          </ul>
+          <p class="text-sm text-error font-medium">This action cannot be undone.</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-primary/30">
+      <button onclick="closeModal('modal-remove-bot')" class="px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary hover:bg-bg-hover rounded-md transition-colors">
+        Cancel
+      </button>
+      <button onclick="confirmRemoveBot()" class="px-4 py-2 text-sm font-medium text-white bg-error hover:bg-red-600 rounded-md transition-colors">
+        Remove Bot
+      </button>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // ========================================
+    // SAMPLE DATA
+    // ========================================
+
+    const membersData = [
+      { id: '111111111111111111', name: 'ServerOwner', discriminator: '1234', role: 'owner', joined: '2023-01-15', status: 'online', commands: 1523, avatar: 'SO' },
+      { id: '222222222222222222', name: 'ModeratorOne', discriminator: '1111', role: 'admin', joined: '2023-02-20', status: 'online', commands: 892, avatar: 'M1' },
+      { id: '333333333333333333', name: 'ModeratorTwo', discriminator: '2222', role: 'admin', joined: '2023-03-10', status: 'idle', commands: 654, avatar: 'M2' },
+      { id: '444444444444444444', name: 'HelperBot', discriminator: '3333', role: 'moderator', joined: '2023-04-05', status: 'online', commands: 445, avatar: 'HB' },
+      { id: '555555555555555555', name: 'GamerPro', discriminator: '5678', role: 'member', joined: '2023-05-12', status: 'online', commands: 328, avatar: 'GP' },
+      { id: '666666666666666666', name: 'StreamerFan', discriminator: '6789', role: 'member', joined: '2023-06-18', status: 'offline', commands: 256, avatar: 'SF' },
+      { id: '777777777777777777', name: 'CasualPlayer', discriminator: '7890', role: 'member', joined: '2023-07-22', status: 'online', commands: 189, avatar: 'CP' },
+      { id: '888888888888888888', name: 'NewcomerAlex', discriminator: '8901', role: 'member', joined: '2024-01-05', status: 'idle', commands: 45, avatar: 'NA' },
+      { id: '999999999999999999', name: 'ArtistMike', discriminator: '9012', role: 'member', joined: '2024-02-14', status: 'dnd', commands: 78, avatar: 'AM' },
+      { id: '101010101010101010', name: 'MusicLover', discriminator: '0123', role: 'member', joined: '2024-03-20', status: 'online', commands: 112, avatar: 'ML' },
+      { id: '121212121212121212', name: 'NightOwl', discriminator: '1234', role: 'moderator', joined: '2023-08-30', status: 'online', commands: 567, avatar: 'NO' },
+      { id: '131313131313131313', name: 'DayWalker', discriminator: '2345', role: 'member', joined: '2023-09-15', status: 'offline', commands: 134, avatar: 'DW' },
+      { id: '141414141414141414', name: 'ProGamer99', discriminator: '3456', role: 'member', joined: '2023-10-01', status: 'online', commands: 445, avatar: 'PG' },
+      { id: '151515151515151515', name: 'ChillVibes', discriminator: '4567', role: 'member', joined: '2023-11-11', status: 'idle', commands: 67, avatar: 'CV' },
+      { id: '161616161616161616', name: 'NewPlayer', discriminator: '2468', role: 'member', joined: '2024-12-08', status: 'online', commands: 3, avatar: 'NP' }
+    ];
+
+    const commandsData = {
+      moderation: {
+        name: 'Moderation',
+        icon: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>',
+        commands: [
+          { name: '/ban', description: 'Ban a user from the server', enabled: true, permission: 'admin', cooldown: 0 },
+          { name: '/kick', description: 'Kick a user from the server', enabled: true, permission: 'moderator', cooldown: 0 },
+          { name: '/mute', description: 'Mute a user temporarily', enabled: true, permission: 'moderator', cooldown: 0 },
+          { name: '/warn', description: 'Issue a warning to a user', enabled: true, permission: 'moderator', cooldown: 5 },
+          { name: '/clear', description: 'Clear messages in a channel', enabled: true, permission: 'moderator', cooldown: 10 },
+          { name: '/slowmode', description: 'Set channel slowmode', enabled: true, permission: 'moderator', cooldown: 0 }
+        ]
+      },
+      fun: {
+        name: 'Fun',
+        icon: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+        commands: [
+          { name: '/8ball', description: 'Ask the magic 8-ball a question', enabled: true, permission: 'everyone', cooldown: 5 },
+          { name: '/roll', description: 'Roll dice', enabled: true, permission: 'everyone', cooldown: 3 },
+          { name: '/meme', description: 'Get a random meme', enabled: true, permission: 'everyone', cooldown: 10 },
+          { name: '/joke', description: 'Get a random joke', enabled: true, permission: 'everyone', cooldown: 5 },
+          { name: '/coinflip', description: 'Flip a coin', enabled: true, permission: 'everyone', cooldown: 3 }
+        ]
+      },
+      utility: {
+        name: 'Utility',
+        icon: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>',
+        commands: [
+          { name: '/help', description: 'Show help information', enabled: true, permission: 'everyone', cooldown: 5 },
+          { name: '/serverinfo', description: 'Display server information', enabled: true, permission: 'everyone', cooldown: 10 },
+          { name: '/userinfo', description: 'Display user information', enabled: true, permission: 'everyone', cooldown: 5 },
+          { name: '/avatar', description: 'Get user avatar', enabled: true, permission: 'everyone', cooldown: 3 },
+          { name: '/poll', description: 'Create a poll', enabled: true, permission: 'member', cooldown: 30 },
+          { name: '/reminder', description: 'Set a reminder', enabled: false, permission: 'member', cooldown: 0 }
+        ]
+      }
+    };
+
+    const activityData = [
+      { timestamp: '2024-12-08 10:30:45', type: 'command', description: 'Command /help executed', user: 'GamerPro#5678' },
+      { timestamp: '2024-12-08 10:15:22', type: 'moderation', description: 'Warning issued to ToxicUser#9999', user: 'ModeratorOne#1111' },
+      { timestamp: '2024-12-08 09:58:11', type: 'member', description: 'NewPlayer#2468 joined the server', user: 'System' },
+      { timestamp: '2024-12-08 09:45:30', type: 'settings', description: 'Welcome message updated', user: 'ServerOwner#1234' },
+      { timestamp: '2024-12-08 09:30:15', type: 'moderation', description: 'User Spammer#0000 banned', user: 'ModeratorTwo#2222' },
+      { timestamp: '2024-12-08 09:12:44', type: 'command', description: 'Command /meme executed', user: 'CasualPlayer#7890' },
+      { timestamp: '2024-12-08 08:55:33', type: 'command', description: 'Command /poll created', user: 'StreamerFan#6789' },
+      { timestamp: '2024-12-08 08:40:21', type: 'member', description: 'ChillVibes#4567 left the server', user: 'System' },
+      { timestamp: '2024-12-08 08:22:10', type: 'moderation', description: 'Slowmode set to 5s in #general', user: 'NightOwl#1234' },
+      { timestamp: '2024-12-08 08:05:55', type: 'command', description: 'Command /serverinfo executed', user: 'ProGamer99#3456' },
+      { timestamp: '2024-12-07 23:45:12', type: 'settings', description: 'Auto-mod level changed to Medium', user: 'ServerOwner#1234' },
+      { timestamp: '2024-12-07 22:30:45', type: 'command', description: 'Command /8ball executed', user: 'MusicLover#0123' },
+      { timestamp: '2024-12-07 21:15:33', type: 'moderation', description: '50 messages cleared in #spam', user: 'HelperBot#3333' },
+      { timestamp: '2024-12-07 20:00:22', type: 'member', description: 'Role "VIP" assigned to ArtistMike#9012', user: 'ModeratorOne#1111' },
+      { timestamp: '2024-12-07 19:45:11', type: 'command', description: 'Command /remind set for 1 hour', user: 'NewcomerAlex#8901' },
+      { timestamp: '2024-12-07 18:30:00', type: 'settings', description: 'Log channel changed to #bot-logs', user: 'ServerOwner#1234' },
+      { timestamp: '2024-12-07 17:15:45', type: 'moderation', description: 'User TempBan#1234 temporarily muted', user: 'ModeratorTwo#2222' },
+      { timestamp: '2024-12-07 16:00:30', type: 'command', description: 'Command /roll 2d20 executed', user: 'DayWalker#2345' },
+      { timestamp: '2024-12-07 15:45:15', type: 'member', description: 'NewMember#5555 joined the server', user: 'System' },
+      { timestamp: '2024-12-07 14:30:00', type: 'command', description: 'Command /coinflip executed', user: 'GamerPro#5678' }
+    ];
+
+    // ========================================
+    // STATE MANAGEMENT
+    // ========================================
+
+    let currentTab = 'overview';
+    let memberPage = 1;
+    const membersPerPage = 10;
+    let commandsModified = false;
+
+    // ========================================
+    // TAB NAVIGATION
+    // ========================================
+
+    function switchTab(tabName) {
+      // Update URL hash
+      window.location.hash = tabName;
+
+      // Update tab buttons
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+      });
+      const activeBtn = document.querySelector(`[data-tab="${tabName}"]`);
+      activeBtn.classList.add('active');
+      activeBtn.setAttribute('aria-selected', 'true');
+
+      // Update tab panels
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+      });
+      document.getElementById(`panel-${tabName}`).classList.add('active');
+
+      currentTab = tabName;
+    }
+
+    // Handle URL hash on page load
+    function handleHashChange() {
+      const hash = window.location.hash.substring(1);
+      if (hash && ['overview', 'members', 'commands', 'activity', 'settings'].includes(hash)) {
+        switchTab(hash);
+      }
+    }
+
+    // Keyboard navigation for tabs
+    document.querySelector('[role="tablist"]').addEventListener('keydown', function(e) {
+      const tabs = Array.from(document.querySelectorAll('.tab-btn'));
+      const currentIndex = tabs.findIndex(tab => tab.classList.contains('active'));
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const nextIndex = (currentIndex + 1) % tabs.length;
+        tabs[nextIndex].click();
+        tabs[nextIndex].focus();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        tabs[prevIndex].click();
+        tabs[prevIndex].focus();
+      }
+    });
+
+    // ========================================
+    // MEMBERS TAB
+    // ========================================
+
+    function renderMembers() {
+      const searchTerm = document.getElementById('memberSearch').value.toLowerCase();
+      const roleFilter = document.getElementById('roleFilter').value;
+
+      let filteredMembers = membersData.filter(member => {
+        const matchesSearch = member.name.toLowerCase().includes(searchTerm) ||
+                              member.id.includes(searchTerm) ||
+                              member.discriminator.includes(searchTerm);
+        const matchesRole = !roleFilter || member.role === roleFilter;
+        return matchesSearch && matchesRole;
+      });
+
+      const totalMembers = filteredMembers.length;
+      const totalPages = Math.ceil(totalMembers / membersPerPage);
+      memberPage = Math.min(memberPage, totalPages) || 1;
+
+      const startIndex = (memberPage - 1) * membersPerPage;
+      const endIndex = Math.min(startIndex + membersPerPage, totalMembers);
+      const pageMembers = filteredMembers.slice(startIndex, endIndex);
+
+      // Update table
+      const tbody = document.getElementById('membersTableBody');
+      tbody.innerHTML = pageMembers.map(member => `
+        <tr class="hover:bg-bg-hover transition-colors">
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-${getGradientColor(member.role)} flex items-center justify-center text-white font-bold text-xs">${member.avatar}</div>
+              <div>
+                <p class="text-sm font-medium text-text-primary">${member.name}#${member.discriminator}</p>
+                <p class="text-xs text-text-tertiary font-mono">${member.id}</p>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${getRoleBadgeClass(member.role)}">${capitalizeFirst(member.role)}</span>
+          </td>
+          <td class="px-4 py-3 text-sm text-text-secondary">${formatDate(member.joined)}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center gap-1.5 text-xs font-medium ${getStatusClass(member.status)}">
+              <span class="w-1.5 h-1.5 rounded-full ${getStatusDotClass(member.status)}"></span>
+              ${capitalizeFirst(member.status)}
+            </span>
+          </td>
+          <td class="px-4 py-3 text-sm text-text-secondary">${member.commands.toLocaleString()}</td>
+          <td class="px-4 py-3 text-right">
+            <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="View member details">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      // Update mobile cards
+      const cardsContainer = document.getElementById('membersCards');
+      cardsContainer.innerHTML = pageMembers.map(member => `
+        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-${getGradientColor(member.role)} flex items-center justify-center text-white font-bold text-sm">${member.avatar}</div>
+              <div>
+                <p class="font-medium text-text-primary">${member.name}#${member.discriminator}</p>
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${getRoleBadgeClass(member.role)}">${capitalizeFirst(member.role)}</span>
+              </div>
+            </div>
+            <span class="inline-flex items-center gap-1.5 text-xs font-medium ${getStatusClass(member.status)}">
+              <span class="w-1.5 h-1.5 rounded-full ${getStatusDotClass(member.status)}"></span>
+              ${capitalizeFirst(member.status)}
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><span class="text-text-tertiary">Joined:</span> <span class="text-text-secondary">${formatDate(member.joined)}</span></div>
+            <div><span class="text-text-tertiary">Commands:</span> <span class="text-text-secondary">${member.commands.toLocaleString()}</span></div>
+          </div>
+        </div>
+      `).join('');
+
+      // Update pagination info
+      document.getElementById('memberStartCount').textContent = totalMembers > 0 ? startIndex + 1 : 0;
+      document.getElementById('memberEndCount').textContent = endIndex;
+      document.getElementById('memberTotalCount').textContent = totalMembers;
+
+      // Update pagination buttons
+      document.getElementById('memberPrevBtn').disabled = memberPage <= 1;
+      document.getElementById('memberNextBtn').disabled = memberPage >= totalPages;
+    }
+
+    function filterMembers() {
+      memberPage = 1;
+      renderMembers();
+    }
+
+    function changeMemberPage(delta) {
+      memberPage += delta;
+      renderMembers();
+    }
+
+    function setMemberPage(page) {
+      memberPage = page;
+      renderMembers();
+    }
+
+    function sortMembers(column) {
+      // Implement sorting logic
+      console.log('Sort by:', column);
+    }
+
+    // Helper functions
+    function getGradientColor(role) {
+      const colors = {
+        owner: 'yellow-500 to-amber-500',
+        admin: 'red-500 to-pink-500',
+        moderator: 'blue-500 to-cyan-500',
+        member: 'green-500 to-emerald-500'
+      };
+      return colors[role] || 'gray-500 to-gray-600';
+    }
+
+    function getRoleBadgeClass(role) {
+      const classes = {
+        owner: 'text-yellow-400 bg-yellow-500/10',
+        admin: 'text-error bg-error/10',
+        moderator: 'text-accent-blue bg-accent-blue/10',
+        member: 'text-text-secondary bg-border-primary/50'
+      };
+      return classes[role] || 'text-text-secondary bg-border-primary/50';
+    }
+
+    function getStatusClass(status) {
+      const classes = {
+        online: 'text-success',
+        idle: 'text-warning',
+        dnd: 'text-error',
+        offline: 'text-text-tertiary'
+      };
+      return classes[status] || 'text-text-tertiary';
+    }
+
+    function getStatusDotClass(status) {
+      const classes = {
+        online: 'bg-success',
+        idle: 'bg-warning',
+        dnd: 'bg-error',
+        offline: 'bg-text-tertiary'
+      };
+      return classes[status] || 'bg-text-tertiary';
+    }
+
+    function capitalizeFirst(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    // ========================================
+    // COMMANDS TAB
+    // ========================================
+
+    function renderCommands() {
+      const container = document.getElementById('commandCategories');
+      container.innerHTML = Object.entries(commandsData).map(([key, category]) => `
+        <div class="bg-bg-primary border border-border-secondary rounded-lg overflow-hidden">
+          <div class="category-header expanded flex items-center justify-between p-4 hover:bg-bg-hover/50 transition-colors" onclick="toggleCategory(this)">
+            <div class="flex items-center gap-3">
+              <span class="text-accent-orange">${category.icon}</span>
+              <div>
+                <h4 class="text-sm font-semibold text-text-primary">${category.name}</h4>
+                <p class="text-xs text-text-tertiary">${category.commands.length} commands</p>
+              </div>
+            </div>
+            <svg class="chevron w-5 h-5 text-text-secondary transform rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div class="category-content expanded border-t border-border-secondary">
+            ${category.commands.map(cmd => `
+              <div class="flex flex-col md:flex-row md:items-center justify-between p-4 border-b border-border-secondary last:border-b-0 gap-4">
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <code class="text-sm font-mono text-accent-blue">${cmd.name}</code>
+                    <button type="button" class="toggle-switch ${cmd.enabled ? 'active' : ''}" onclick="toggleCommand(this, '${key}', '${cmd.name}')" aria-label="Toggle ${cmd.name}"></button>
+                  </div>
+                  <p class="text-xs text-text-tertiary mt-1">${cmd.description}</p>
+                </div>
+                <div class="flex items-center gap-4">
+                  <div>
+                    <label class="text-xs text-text-tertiary">Permission</label>
+                    <select class="block mt-1 px-2 py-1 text-xs bg-bg-secondary border border-border-primary rounded text-text-primary" onchange="markCommandsModified()">
+                      <option value="everyone" ${cmd.permission === 'everyone' ? 'selected' : ''}>Everyone</option>
+                      <option value="member" ${cmd.permission === 'member' ? 'selected' : ''}>Member</option>
+                      <option value="moderator" ${cmd.permission === 'moderator' ? 'selected' : ''}>Moderator</option>
+                      <option value="admin" ${cmd.permission === 'admin' ? 'selected' : ''}>Admin</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs text-text-tertiary">Cooldown (s)</label>
+                    <input type="number" min="0" max="300" value="${cmd.cooldown}" class="block mt-1 w-16 px-2 py-1 text-xs bg-bg-secondary border border-border-primary rounded text-text-primary" onchange="markCommandsModified()" />
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleCategory(header) {
+      header.classList.toggle('expanded');
+      header.nextElementSibling.classList.toggle('expanded');
+    }
+
+    function toggleCommand(switchEl, category, cmdName) {
+      switchEl.classList.toggle('active');
+      markCommandsModified();
+    }
+
+    function markCommandsModified() {
+      commandsModified = true;
+      document.getElementById('saveCommandsBtn').classList.remove('hidden');
+    }
+
+    function saveCommandSettings() {
+      // Simulate save
+      showToast('Command settings saved successfully!', 'success');
+      commandsModified = false;
+      document.getElementById('saveCommandsBtn').classList.add('hidden');
+    }
+
+    // ========================================
+    // ACTIVITY TAB
+    // ========================================
+
+    function renderActivity() {
+      const tbody = document.getElementById('activityTableBody');
+      tbody.innerHTML = activityData.slice(0, 10).map(activity => `
+        <tr class="hover:bg-bg-hover transition-colors cursor-pointer" onclick="openModal('modal-log-detail')">
+          <td class="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">${activity.timestamp}</td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${getActivityTypeBadge(activity.type)}">${capitalizeFirst(activity.type)}</span>
+          </td>
+          <td class="px-4 py-3 text-sm text-text-primary">${activity.description}</td>
+          <td class="px-4 py-3 text-sm text-text-secondary">${activity.user}</td>
+          <td class="px-4 py-3 text-right">
+            <button class="p-1 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="View details">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function getActivityTypeBadge(type) {
+      const badges = {
+        command: 'text-success bg-success/10',
+        moderation: 'text-warning bg-warning/10',
+        member: 'text-accent-blue bg-accent-blue/10',
+        settings: 'text-accent-orange bg-accent-orange/10'
+      };
+      return badges[type] || 'text-text-secondary bg-border-primary/50';
+    }
+
+    function filterActivity() {
+      // Implement activity filtering
+      console.log('Filter activity');
+    }
+
+    function exportActivityCSV() {
+      showToast('Activity log exported to CSV!', 'success');
+    }
+
+    // ========================================
+    // SETTINGS TAB
+    // ========================================
+
+    function toggleSwitch(switchEl) {
+      switchEl.classList.toggle('active');
+    }
+
+    function saveServerSettings(e) {
+      e.preventDefault();
+      showToast('Server settings saved successfully!', 'success');
+    }
+
+    function resetServerSettings() {
+      if (confirm('Are you sure you want to reset all settings to defaults?')) {
+        showToast('Settings reset to defaults.', 'info');
+      }
+    }
+
+    // ========================================
+    // MODAL MANAGEMENT
+    // ========================================
+
+    let currentModal = null;
+
+    function openModal(modalId) {
+      const modal = document.getElementById(modalId);
+      const backdrop = document.getElementById('modal-backdrop');
+
+      if (!modal || !backdrop) return;
+
+      document.body.classList.add('modal-open');
+      backdrop.classList.add('active');
+      modal.classList.add('active');
+      currentModal = modalId;
+
+      // Focus first focusable element
+      setTimeout(() => {
+        const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusable.length > 0) focusable[0].focus();
+      }, 150);
+    }
+
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      const backdrop = document.getElementById('modal-backdrop');
+
+      if (!modal || !backdrop) return;
+
+      modal.classList.remove('active');
+      backdrop.classList.remove('active');
+      document.body.classList.remove('modal-open');
+      currentModal = null;
+    }
+
+    function closeAllModals() {
+      if (currentModal) {
+        closeModal(currentModal);
+      }
+    }
+
+    function confirmRemoveBot() {
+      showToast('Bot has been removed from the server.', 'error');
+      closeModal('modal-remove-bot');
+      // In real app, redirect to servers list
+    }
+
+    // ========================================
+    // UTILITY FUNCTIONS
+    // ========================================
+
+    function copyServerId() {
+      navigator.clipboard.writeText('123456789012345678').then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>';
+        }, 2000);
+      });
+    }
+
+    function syncServer() {
+      showToast('Server data synced successfully!', 'success');
+    }
+
+    function showToast(message, type = 'info') {
+      // Create toast element
+      const toast = document.createElement('div');
+      toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50 animate-slide-in ${
+        type === 'success' ? 'bg-success text-white' :
+        type === 'error' ? 'bg-error text-white' :
+        type === 'warning' ? 'bg-warning text-white' :
+        'bg-info text-white'
+      }`;
+      toast.innerHTML = `
+        <span class="text-sm font-medium">${message}</span>
+        <button onclick="this.parentElement.remove()" class="p-0.5 hover:bg-white/20 rounded">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      `;
+      document.body.appendChild(toast);
+
+      // Auto remove after 3 seconds
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // ========================================
+    // SIDEBAR TOGGLE (Mobile)
+    // ========================================
+
+    let sidebarOpen = false;
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const toggleBtn = document.getElementById('sidebarToggle');
+
+      sidebarOpen = !sidebarOpen;
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+      toggleBtn.setAttribute('aria-expanded', sidebarOpen.toString());
+    }
+
+    function toggleUserMenu() {
+      const menu = document.getElementById('userMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    // Close dropdowns on outside click
+    document.addEventListener('click', function(e) {
+      const userMenu = document.getElementById('userMenu');
+      if (!e.target.closest('[aria-label="User menu"]') && !e.target.closest('#userMenu')) {
+        userMenu.classList.add('hidden');
+      }
+    });
+
+    // Handle escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (currentModal) {
+          closeModal(currentModal);
+        }
+        document.getElementById('userMenu').classList.add('hidden');
+      }
+    });
+
+    // ========================================
+    // INITIALIZATION
+    // ========================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set default dates for activity filter
+      const today = new Date();
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      document.getElementById('activityStartDate').value = weekAgo.toISOString().split('T')[0];
+      document.getElementById('activityEndDate').value = today.toISOString().split('T')[0];
+
+      // Handle initial URL hash
+      handleHashChange();
+
+      // Render initial data
+      renderMembers();
+      renderCommands();
+      renderActivity();
+    });
+
+    // Handle hash changes
+    window.addEventListener('hashchange', handleHashChange);
+  </script>
+
+</body>
+</html>
