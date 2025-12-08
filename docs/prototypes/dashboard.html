@@ -14,30 +14,26 @@
   <script>tailwind.config = window.tailwindConfig;</script>
 
   <style>
-    /* Page-specific styles */
-    /* Sidebar transition for mobile */
-    .sidebar-overlay {
-      transition: opacity 0.3s ease-in-out;
-    }
-    .sidebar-panel {
-      transition: transform 0.3s ease-in-out;
-    }
+    /* Page-specific styles - keeping minimal to demonstrate CSS component usage */
   </style>
 </head>
 <body class="bg-bg-primary text-text-primary font-sans antialiased">
 
   <!-- Mobile Sidebar Overlay -->
-  <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+  <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 lg:hidden hidden" style="z-index: var(--z-fixed);" onclick="toggleSidebar()"></div>
 
   <!-- Top Navigation Bar -->
-  <nav class="fixed top-0 left-0 right-0 z-30 flex items-center justify-between h-16 px-4 lg:px-6 bg-bg-secondary border-b border-border-primary">
+  <nav class="navbar fixed top-0 left-0 right-0 flex items-center justify-between h-16 px-4 lg:px-6 bg-bg-secondary border-b border-border-primary">
     <!-- Left Section: Menu Toggle & Logo -->
     <div class="flex items-center gap-4">
       <!-- Mobile Menu Toggle -->
       <button
+        id="sidebarToggle"
         onclick="toggleSidebar()"
         class="lg:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
         aria-label="Toggle sidebar menu"
+        aria-expanded="false"
+        aria-controls="sidebar"
       >
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -137,42 +133,42 @@
   <!-- Sidebar Navigation -->
   <aside
     id="sidebar"
-    class="sidebar-panel fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] bg-bg-secondary border-r border-border-primary transform -translate-x-full lg:translate-x-0 transition-transform"
+    class="sidebar fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-bg-secondary border-r border-border-primary transform -translate-x-full lg:translate-x-0"
   >
     <nav class="flex flex-col h-full p-4">
       <!-- Main Navigation -->
       <div class="space-y-1">
-        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg bg-accent-orange/15 text-text-primary border-l-[3px] border-accent-orange">
+        <a href="#" class="sidebar-link active">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
           Dashboard
         </a>
 
-        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+        <a href="#" class="sidebar-link">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
           </svg>
           Servers
-          <span class="ml-auto px-2 py-0.5 text-xs font-semibold bg-border-primary text-text-primary rounded-full">12</span>
+          <span class="sidebar-badge">12</span>
         </a>
 
-        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+        <a href="#" class="sidebar-link">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
           Commands
         </a>
 
-        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+        <a href="#" class="sidebar-link">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
           </svg>
           Logs
-          <span class="ml-auto w-2 h-2 bg-accent-orange rounded-full status-pulse"></span>
+          <span class="sidebar-badge-dot status-pulse"></span>
         </a>
 
-        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+        <a href="#" class="sidebar-link">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -186,14 +182,14 @@
 
       <!-- Secondary Navigation -->
       <div class="space-y-1">
-        <p class="px-3 mb-2 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Support</p>
-        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+        <p class="sidebar-section">Support</p>
+        <a href="#" class="sidebar-link">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
           Documentation
         </a>
-        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+        <a href="#" class="sidebar-link">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -203,11 +199,9 @@
 
       <!-- Bot Status Footer -->
       <div class="mt-auto pt-4 border-t border-border-secondary">
-        <div class="flex items-center gap-3 px-3 py-2">
-          <span class="flex items-center gap-2 text-sm">
-            <span class="w-2 h-2 bg-success rounded-full status-pulse"></span>
-            <span class="text-success font-medium">Bot Online</span>
-          </span>
+        <div class="sidebar-status">
+          <span class="sidebar-status-dot online status-pulse"></span>
+          <span class="text-success font-medium">Bot Online</span>
           <span class="ml-auto text-xs text-text-tertiary">v2.1.0</span>
         </div>
       </div>
@@ -217,6 +211,23 @@
   <!-- Main Content Area -->
   <main class="lg:ml-64 pt-16 min-h-screen">
     <div class="p-4 lg:p-8">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="breadcrumb mb-6">
+        <ol class="breadcrumb-list flex items-center gap-2 text-sm">
+          <li class="breadcrumb-item">
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+          </li>
+          <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li class="breadcrumb-item">
+            <span class="text-text-primary font-medium" aria-current="page">Dashboard</span>
+          </li>
+        </ol>
+      </nav>
 
       <!-- Page Header -->
       <div class="mb-8">
@@ -600,13 +611,83 @@
 
   <!-- JavaScript for Interactivity -->
   <script>
+    // Track sidebar state
+    let sidebarOpen = false;
+
+    // Get all focusable elements within the sidebar
+    function getSidebarFocusableElements() {
+      const sidebar = document.getElementById('sidebar');
+      return sidebar.querySelectorAll(
+        'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+    }
+
+    // Focus trap for mobile sidebar
+    function trapFocus(event) {
+      if (!sidebarOpen || window.innerWidth >= 1024) return;
+
+      const focusableElements = getSidebarFocusableElements();
+      const firstFocusable = focusableElements[0];
+      const lastFocusable = focusableElements[focusableElements.length - 1];
+
+      // Handle Tab key
+      if (event.key === 'Tab') {
+        if (event.shiftKey) {
+          // Shift + Tab: if on first element, go to last
+          if (document.activeElement === firstFocusable) {
+            event.preventDefault();
+            lastFocusable.focus();
+          }
+        } else {
+          // Tab: if on last element, go to first
+          if (document.activeElement === lastFocusable) {
+            event.preventDefault();
+            firstFocusable.focus();
+          }
+        }
+      }
+    }
+
     // Sidebar Toggle (Mobile)
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       const overlay = document.getElementById('sidebarOverlay');
+      const toggleButton = document.getElementById('sidebarToggle');
+
+      sidebarOpen = !sidebarOpen;
 
       sidebar.classList.toggle('-translate-x-full');
       overlay.classList.toggle('hidden');
+
+      // Update aria-expanded state
+      toggleButton.setAttribute('aria-expanded', sidebarOpen.toString());
+
+      // Focus management
+      if (sidebarOpen) {
+        // Focus the first focusable element in sidebar
+        const focusableElements = getSidebarFocusableElements();
+        if (focusableElements.length > 0) {
+          focusableElements[0].focus();
+        }
+      } else {
+        // Return focus to the toggle button
+        toggleButton.focus();
+      }
+    }
+
+    // Close sidebar and return focus to toggle button
+    function closeSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const toggleButton = document.getElementById('sidebarToggle');
+
+      if (sidebarOpen && window.innerWidth < 1024) {
+        sidebarOpen = false;
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
+        toggleButton.focus();
+      }
     }
 
     // User Menu Toggle
@@ -630,23 +711,26 @@
       if (window.innerWidth >= 1024) {
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('sidebarOverlay');
+        const toggleButton = document.getElementById('sidebarToggle');
 
+        sidebarOpen = false;
         sidebar.classList.remove('-translate-x-full');
         overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
       }
     });
 
     // Keyboard navigation for accessibility
     document.addEventListener('keydown', function(event) {
+      // Handle focus trap in sidebar
+      trapFocus(event);
+
       // Close menus on Escape
       if (event.key === 'Escape') {
         document.getElementById('userMenu').classList.remove('active');
 
-        // Close mobile sidebar
-        if (window.innerWidth < 1024) {
-          document.getElementById('sidebar').classList.add('-translate-x-full');
-          document.getElementById('sidebarOverlay').classList.add('hidden');
-        }
+        // Close mobile sidebar and return focus to toggle button
+        closeSidebar();
       }
     });
   </script>
