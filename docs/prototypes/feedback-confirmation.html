@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmation Dialogs - Feedback Prototype</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Modal backdrop */
+    .modal-backdrop {
+      z-index: 1000;
+      background-color: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(2px);
+    }
+
+    /* Modal dialog */
+    .modal-dialog {
+      z-index: 1001;
+    }
+
+    /* Modal animation */
+    .modal-enter {
+      opacity: 0;
+      transform: scale(0.95) translateY(-10px);
+    }
+    .modal-enter-active {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    }
+    .modal-exit {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    .modal-exit-active {
+      opacity: 0;
+      transform: scale(0.95) translateY(-10px);
+      transition: opacity 0.15s ease-in, transform 0.15s ease-in;
+    }
+
+    /* Backdrop animation */
+    .backdrop-enter {
+      opacity: 0;
+    }
+    .backdrop-enter-active {
+      opacity: 1;
+      transition: opacity 0.2s ease-out;
+    }
+    .backdrop-exit {
+      opacity: 1;
+    }
+    .backdrop-exit-active {
+      opacity: 0;
+      transition: opacity 0.15s ease-in;
+    }
+
+    /* Loading spinner */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      animation: spin 1s linear infinite;
+    }
+
+    /* Button disabled state with proper styling */
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    /* Custom checkbox styling */
+    .custom-checkbox {
+      appearance: none;
+      width: 1.125rem;
+      height: 1.125rem;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      position: relative;
+    }
+    .custom-checkbox:checked {
+      background-color: #cb4e1b;
+      border-color: #cb4e1b;
+    }
+    .custom-checkbox:checked::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 5px;
+      width: 5px;
+      height: 9px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    .custom-checkbox:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Page Header -->
+  <header class="bg-bg-secondary border-b border-border-primary px-6 py-4">
+    <div class="max-w-6xl mx-auto">
+      <h1 class="text-2xl font-bold text-text-primary">Confirmation Dialogs - Feedback Prototype</h1>
+      <p class="mt-1 text-text-secondary">Interactive confirmation dialog components for the Discord Bot Admin UI</p>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto p-6 space-y-12">
+
+    <!-- Section 1: Simple Confirmation -->
+    <section>
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-text-primary">1. Simple Confirmation</h2>
+        <p class="text-sm text-text-secondary mt-1">Standard confirm/cancel dialog for basic actions</p>
+      </div>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-4">
+          <button
+            onclick="openDialog('simpleConfirmDialog')"
+            class="px-4 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Reset Settings
+          </button>
+          <button
+            onclick="openDialog('logoutConfirmDialog')"
+            class="px-4 py-2.5 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-semibold text-sm rounded-md transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Destructive Confirmation -->
+    <section>
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-text-primary">2. Destructive Confirmation</h2>
+        <p class="text-sm text-text-secondary mt-1">Red confirm button with warning icon for dangerous actions</p>
+      </div>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-4">
+          <button
+            onclick="openDialog('deleteServerDialog')"
+            class="px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Delete Server
+          </button>
+          <button
+            onclick="openDialog('banUserDialog')"
+            class="px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Ban User
+          </button>
+          <button
+            onclick="openDialog('revokeAccessDialog')"
+            class="px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Revoke All Access
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Typed Confirmation -->
+    <section>
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-text-primary">3. Typed Confirmation</h2>
+        <p class="text-sm text-text-secondary mt-1">User must type specific text to enable the confirm button</p>
+      </div>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-4">
+          <button
+            onclick="openDialog('typedDeleteDialog')"
+            class="px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Delete "Gaming Community"
+          </button>
+          <button
+            onclick="openDialog('typedResetDialog')"
+            class="px-4 py-2.5 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-md transition-colors"
+          >
+            Factory Reset Bot
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Checkbox Confirmation -->
+    <section>
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-text-primary">4. Checkbox Confirmation</h2>
+        <p class="text-sm text-text-secondary mt-1">User must check an acknowledgment box to enable confirm</p>
+      </div>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-4">
+          <button
+            onclick="openDialog('disconnectBotDialog')"
+            class="px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Disconnect Bot
+          </button>
+          <button
+            onclick="openDialog('clearDataDialog')"
+            class="px-4 py-2.5 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-md transition-colors"
+          >
+            Clear All Data
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: With Loading State -->
+    <section>
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-text-primary">5. With Loading State</h2>
+        <p class="text-sm text-text-secondary mt-1">Confirmation dialogs that show loading state during async actions</p>
+      </div>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-4">
+          <button
+            onclick="openDialog('loadingDeleteDialog')"
+            class="px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Delete with Loading (2s)
+          </button>
+          <button
+            onclick="openDialog('loadingSaveDialog')"
+            class="px-4 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Save Changes with Loading (2s)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Various Content Examples -->
+    <section>
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-text-primary">6. Various Content Examples</h2>
+        <p class="text-sm text-text-secondary mt-1">Different dialog content variations and use cases</p>
+      </div>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-4">
+          <button
+            onclick="openDialog('regenerateTokenDialog')"
+            class="px-4 py-2.5 bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active text-white font-semibold text-sm rounded-md transition-colors"
+          >
+            Regenerate Token
+          </button>
+          <button
+            onclick="openDialog('transferOwnershipDialog')"
+            class="px-4 py-2.5 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-md transition-colors"
+          >
+            Transfer Ownership
+          </button>
+          <button
+            onclick="openDialog('enableMaintenanceDialog')"
+            class="px-4 py-2.5 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-semibold text-sm rounded-md transition-colors"
+          >
+            Enable Maintenance Mode
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Component Anatomy Reference -->
+    <section class="border-t border-border-primary pt-8">
+      <div class="mb-4">
+        <h2 class="text-xl font-semibold text-text-primary">Component Anatomy</h2>
+        <p class="text-sm text-text-secondary mt-1">Structural breakdown of confirmation dialog components</p>
+      </div>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- Standard Dialog Anatomy -->
+          <div>
+            <h3 class="text-sm font-semibold text-text-primary mb-3">Standard Dialog Structure</h3>
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <span class="text-xs text-text-tertiary">Optional Icon</span>
+              </div>
+              <div class="border-l-2 border-border-primary pl-3 py-1">
+                <span class="text-sm font-semibold text-text-primary">Title</span>
+                <span class="text-xs text-text-tertiary ml-2">Required</span>
+              </div>
+              <div class="border-l-2 border-border-primary pl-3 py-1">
+                <span class="text-sm text-text-secondary">Message explaining the action and consequences</span>
+                <span class="text-xs text-text-tertiary ml-2">Required</span>
+              </div>
+              <div class="border-l-2 border-accent-orange/50 pl-3 py-1 bg-accent-orange/5 rounded">
+                <span class="text-sm text-text-secondary">Input field or checkbox (optional)</span>
+              </div>
+              <div class="flex gap-3 pt-2">
+                <div class="px-3 py-1.5 bg-bg-hover border border-border-primary rounded text-xs text-text-secondary">Cancel</div>
+                <div class="px-3 py-1.5 bg-accent-orange rounded text-xs text-white">Confirm</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Button Variants -->
+          <div>
+            <h3 class="text-sm font-semibold text-text-primary mb-3">Button Variants</h3>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between p-3 bg-bg-tertiary border border-border-primary rounded-lg">
+                <span class="text-sm text-text-secondary">Standard Action</span>
+                <div class="flex gap-2">
+                  <span class="px-3 py-1 bg-bg-hover border border-border-primary rounded text-xs text-text-primary">Cancel</span>
+                  <span class="px-3 py-1 bg-accent-orange rounded text-xs text-white">Confirm</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-3 bg-bg-tertiary border border-border-primary rounded-lg">
+                <span class="text-sm text-text-secondary">Destructive Action</span>
+                <div class="flex gap-2">
+                  <span class="px-3 py-1 bg-bg-hover border border-border-primary rounded text-xs text-text-primary">Cancel</span>
+                  <span class="px-3 py-1 bg-error rounded text-xs text-white">Delete</span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between p-3 bg-bg-tertiary border border-border-primary rounded-lg">
+                <span class="text-sm text-text-secondary">Info Action</span>
+                <div class="flex gap-2">
+                  <span class="px-3 py-1 bg-bg-hover border border-border-primary rounded text-xs text-text-primary">Cancel</span>
+                  <span class="px-3 py-1 bg-accent-blue rounded text-xs text-white">Continue</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===== DIALOG MODALS ===== -->
+
+  <!-- Simple Confirm: Reset Settings -->
+  <div id="simpleConfirmDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="simpleConfirmTitle" aria-describedby="simpleConfirmDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('simpleConfirmDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="simpleConfirmTitle" class="text-lg font-semibold text-text-primary">Reset to Defaults</h3>
+              <p id="simpleConfirmDesc" class="mt-2 text-sm text-text-secondary">
+                This will reset all settings to their default values. Your custom configurations will be lost.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('simpleConfirmDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="handleConfirm('simpleConfirmDialog', 'Settings reset!')"
+            class="px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-medium text-sm rounded-md transition-colors"
+          >
+            Reset Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simple Confirm: Logout -->
+  <div id="logoutConfirmDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="logoutConfirmTitle" aria-describedby="logoutConfirmDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('logoutConfirmDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-info/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="logoutConfirmTitle" class="text-lg font-semibold text-text-primary">Sign Out</h3>
+              <p id="logoutConfirmDesc" class="mt-2 text-sm text-text-secondary">
+                Are you sure you want to sign out? You will need to log in again to access the admin panel.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('logoutConfirmDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="handleConfirm('logoutConfirmDialog', 'Signed out successfully!')"
+            class="px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-medium text-sm rounded-md transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Destructive: Delete Server -->
+  <div id="deleteServerDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="deleteServerTitle" aria-describedby="deleteServerDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('deleteServerDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="deleteServerTitle" class="text-lg font-semibold text-text-primary">Delete Server</h3>
+              <p id="deleteServerDesc" class="mt-2 text-sm text-text-secondary">
+                Are you sure you want to delete <span class="font-semibold text-text-primary">"Gaming Community"</span>? This will remove all associated data, including logs, configurations, and member records. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('deleteServerDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="handleConfirm('deleteServerDialog', 'Server deleted!')"
+            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors"
+          >
+            Delete Server
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Destructive: Ban User -->
+  <div id="banUserDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="banUserTitle" aria-describedby="banUserDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('banUserDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="banUserTitle" class="text-lg font-semibold text-text-primary">Ban User</h3>
+              <p id="banUserDesc" class="mt-2 text-sm text-text-secondary">
+                Are you sure you want to ban <span class="font-semibold text-text-primary">@TroubleMaker#1234</span>? They will be permanently removed from all servers managed by this bot.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('banUserDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="handleConfirm('banUserDialog', 'User banned!')"
+            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors"
+          >
+            Ban User
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Destructive: Revoke Access -->
+  <div id="revokeAccessDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="revokeAccessTitle" aria-describedby="revokeAccessDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('revokeAccessDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="revokeAccessTitle" class="text-lg font-semibold text-text-primary">Revoke All Access</h3>
+              <p id="revokeAccessDesc" class="mt-2 text-sm text-text-secondary">
+                This will revoke access for all API tokens and connected applications. All integrations will stop working immediately.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('revokeAccessDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="handleConfirm('revokeAccessDialog', 'All access revoked!')"
+            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors"
+          >
+            Revoke All Access
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Typed Confirmation: Delete Server -->
+  <div id="typedDeleteDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="typedDeleteTitle" aria-describedby="typedDeleteDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('typedDeleteDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="typedDeleteTitle" class="text-lg font-semibold text-text-primary">Delete Server</h3>
+              <p id="typedDeleteDesc" class="mt-2 text-sm text-text-secondary">
+                This action <span class="font-semibold text-error">cannot be undone</span>. This will permanently delete the <span class="font-semibold text-text-primary">"Gaming Community"</span> server and all associated data.
+              </p>
+              <div class="mt-4">
+                <label for="typedDeleteInput" class="block text-sm font-medium text-text-primary mb-2">
+                  Type <span class="font-mono bg-bg-primary px-1.5 py-0.5 rounded text-error">Gaming Community</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  id="typedDeleteInput"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                  placeholder="Gaming Community"
+                  oninput="validateTypedInput('typedDeleteInput', 'Gaming Community', 'typedDeleteConfirmBtn')"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('typedDeleteDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            id="typedDeleteConfirmBtn"
+            disabled
+            onclick="handleConfirm('typedDeleteDialog', 'Server deleted!')"
+            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-error"
+          >
+            Delete Server
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Typed Confirmation: Factory Reset -->
+  <div id="typedResetDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="typedResetTitle" aria-describedby="typedResetDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('typedResetDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="typedResetTitle" class="text-lg font-semibold text-text-primary">Factory Reset Bot</h3>
+              <p id="typedResetDesc" class="mt-2 text-sm text-text-secondary">
+                This will reset the bot to its initial state. All servers, configurations, commands, and data will be permanently erased.
+              </p>
+              <div class="mt-4">
+                <label for="typedResetInput" class="block text-sm font-medium text-text-primary mb-2">
+                  Type <span class="font-mono bg-bg-primary px-1.5 py-0.5 rounded text-warning">RESET</span> to confirm
+                </label>
+                <input
+                  type="text"
+                  id="typedResetInput"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                  placeholder="RESET"
+                  oninput="validateTypedInput('typedResetInput', 'RESET', 'typedResetConfirmBtn')"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('typedResetDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            id="typedResetConfirmBtn"
+            disabled
+            onclick="handleConfirm('typedResetDialog', 'Bot reset to factory defaults!')"
+            class="px-4 py-2 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-medium text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-warning"
+          >
+            Factory Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Checkbox Confirmation: Disconnect Bot -->
+  <div id="disconnectBotDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="disconnectBotTitle" aria-describedby="disconnectBotDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('disconnectBotDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="disconnectBotTitle" class="text-lg font-semibold text-text-primary">Disconnect Bot</h3>
+              <p id="disconnectBotDesc" class="mt-2 text-sm text-text-secondary">
+                The bot will be disconnected from this server. All bot functionality will stop immediately.
+              </p>
+              <div class="mt-4">
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="disconnectBotCheckbox"
+                    class="custom-checkbox mt-0.5"
+                    onchange="validateCheckbox('disconnectBotCheckbox', 'disconnectBotConfirmBtn')"
+                  />
+                  <span class="text-sm text-text-secondary">
+                    I understand this will stop all bot functionality including auto-moderation, scheduled messages, and event logging
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('disconnectBotDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            id="disconnectBotConfirmBtn"
+            disabled
+            onclick="handleConfirm('disconnectBotDialog', 'Bot disconnected!')"
+            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-error"
+          >
+            Disconnect
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Checkbox Confirmation: Clear Data -->
+  <div id="clearDataDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="clearDataTitle" aria-describedby="clearDataDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('clearDataDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="clearDataTitle" class="text-lg font-semibold text-text-primary">Clear All Data</h3>
+              <p id="clearDataDesc" class="mt-2 text-sm text-text-secondary">
+                This will permanently delete all stored data including logs, analytics, user preferences, and cached content.
+              </p>
+              <div class="mt-4 space-y-3">
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="clearDataCheckbox1"
+                    class="custom-checkbox mt-0.5"
+                    onchange="validateMultiCheckbox(['clearDataCheckbox1', 'clearDataCheckbox2'], 'clearDataConfirmBtn')"
+                  />
+                  <span class="text-sm text-text-secondary">
+                    I understand this action is irreversible
+                  </span>
+                </label>
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="clearDataCheckbox2"
+                    class="custom-checkbox mt-0.5"
+                    onchange="validateMultiCheckbox(['clearDataCheckbox1', 'clearDataCheckbox2'], 'clearDataConfirmBtn')"
+                  />
+                  <span class="text-sm text-text-secondary">
+                    I have exported any data I need to keep
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('clearDataDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            id="clearDataConfirmBtn"
+            disabled
+            onclick="handleConfirm('clearDataDialog', 'All data cleared!')"
+            class="px-4 py-2 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-medium text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-warning"
+          >
+            Clear All Data
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State: Delete -->
+  <div id="loadingDeleteDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="loadingDeleteTitle" aria-describedby="loadingDeleteDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('loadingDeleteDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="loadingDeleteTitle" class="text-lg font-semibold text-text-primary">Delete Item</h3>
+              <p id="loadingDeleteDesc" class="mt-2 text-sm text-text-secondary">
+                Are you sure you want to delete this item? This action cannot be undone.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            id="loadingDeleteCancelBtn"
+            onclick="closeDialog('loadingDeleteDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            id="loadingDeleteConfirmBtn"
+            onclick="handleLoadingConfirm('loadingDeleteDialog', 'loadingDeleteConfirmBtn', 'loadingDeleteCancelBtn', 'Item deleted!', 2000)"
+            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors min-w-[100px] flex items-center justify-center gap-2"
+          >
+            <span id="loadingDeleteBtnText">Delete</span>
+            <svg id="loadingDeleteSpinner" class="hidden w-4 h-4 spinner" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State: Save -->
+  <div id="loadingSaveDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="loadingSaveTitle" aria-describedby="loadingSaveDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('loadingSaveDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-accent-orange/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="loadingSaveTitle" class="text-lg font-semibold text-text-primary">Save Changes</h3>
+              <p id="loadingSaveDesc" class="mt-2 text-sm text-text-secondary">
+                You have unsaved changes. Do you want to save them before leaving?
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            id="loadingSaveCancelBtn"
+            onclick="closeDialog('loadingSaveDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Discard
+          </button>
+          <button
+            id="loadingSaveConfirmBtn"
+            onclick="handleLoadingConfirm('loadingSaveDialog', 'loadingSaveConfirmBtn', 'loadingSaveCancelBtn', 'Changes saved!', 2000)"
+            class="px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-medium text-sm rounded-md transition-colors min-w-[120px] flex items-center justify-center gap-2"
+          >
+            <span id="loadingSaveBtnText">Save Changes</span>
+            <svg id="loadingSaveSpinner" class="hidden w-4 h-4 spinner" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regenerate Token Dialog -->
+  <div id="regenerateTokenDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="regenerateTokenTitle" aria-describedby="regenerateTokenDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('regenerateTokenDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-accent-blue/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="regenerateTokenTitle" class="text-lg font-semibold text-text-primary">Regenerate API Token</h3>
+              <p id="regenerateTokenDesc" class="mt-2 text-sm text-text-secondary">
+                This will invalidate your current API token and generate a new one. All applications using the current token will need to be updated.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('regenerateTokenDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="handleConfirm('regenerateTokenDialog', 'New token generated!')"
+            class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active text-white font-medium text-sm rounded-md transition-colors"
+          >
+            Regenerate Token
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transfer Ownership Dialog -->
+  <div id="transferOwnershipDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="transferOwnershipTitle" aria-describedby="transferOwnershipDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('transferOwnershipDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="transferOwnershipTitle" class="text-lg font-semibold text-text-primary">Transfer Ownership</h3>
+              <p id="transferOwnershipDesc" class="mt-2 text-sm text-text-secondary">
+                You are about to transfer ownership of <span class="font-semibold text-text-primary">"Gaming Community"</span> to <span class="font-semibold text-text-primary">@NewOwner#5678</span>. You will lose all owner privileges.
+              </p>
+              <div class="mt-4">
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="transferOwnershipCheckbox"
+                    class="custom-checkbox mt-0.5"
+                    onchange="validateCheckbox('transferOwnershipCheckbox', 'transferOwnershipConfirmBtn')"
+                  />
+                  <span class="text-sm text-text-secondary">
+                    I understand I will no longer be the owner of this server
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('transferOwnershipDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            id="transferOwnershipConfirmBtn"
+            disabled
+            onclick="handleConfirm('transferOwnershipDialog', 'Ownership transferred!')"
+            class="px-4 py-2 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-medium text-sm rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-warning"
+          >
+            Transfer Ownership
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enable Maintenance Mode Dialog -->
+  <div id="enableMaintenanceDialog" class="hidden fixed inset-0" role="alertdialog" aria-modal="true" aria-labelledby="enableMaintenanceTitle" aria-describedby="enableMaintenanceDesc">
+    <div class="modal-backdrop fixed inset-0" onclick="closeDialog('enableMaintenanceDialog')"></div>
+    <div class="modal-dialog fixed inset-0 flex items-center justify-center p-4">
+      <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+        <div class="p-6">
+          <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-info/20 flex items-center justify-center">
+              <svg class="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 id="enableMaintenanceTitle" class="text-lg font-semibold text-text-primary">Enable Maintenance Mode</h3>
+              <p id="enableMaintenanceDesc" class="mt-2 text-sm text-text-secondary">
+                Enabling maintenance mode will temporarily disable all bot commands and show a maintenance message to users. Only admins will be able to use the bot.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+          <button
+            onclick="closeDialog('enableMaintenanceDialog')"
+            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="handleConfirm('enableMaintenanceDialog', 'Maintenance mode enabled!')"
+            class="px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-medium text-sm rounded-md transition-colors"
+          >
+            Enable Maintenance
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+  <!-- JavaScript -->
+  <script>
+    // Track the element that triggered the dialog for focus return
+    let triggerElement = null;
+    // Track focusable elements for focus trap
+    let focusableElements = [];
+    let firstFocusableElement = null;
+    let lastFocusableElement = null;
+
+    // Open dialog
+    function openDialog(dialogId) {
+      const dialog = document.getElementById(dialogId);
+      if (!dialog) return;
+
+      // Store trigger element for focus return
+      triggerElement = document.activeElement;
+
+      // Show dialog
+      dialog.classList.remove('hidden');
+
+      // Reset any inputs/checkboxes in the dialog
+      resetDialogState(dialogId);
+
+      // Setup focus trap
+      setupFocusTrap(dialog);
+
+      // Focus the first focusable element (or the dialog itself)
+      requestAnimationFrame(() => {
+        if (firstFocusableElement) {
+          firstFocusableElement.focus();
+        }
+      });
+
+      // Add escape key listener
+      document.addEventListener('keydown', handleEscapeKey);
+    }
+
+    // Close dialog
+    function closeDialog(dialogId) {
+      const dialog = document.getElementById(dialogId);
+      if (!dialog) return;
+
+      // Hide dialog
+      dialog.classList.add('hidden');
+
+      // Reset dialog state
+      resetDialogState(dialogId);
+
+      // Remove escape key listener
+      document.removeEventListener('keydown', handleEscapeKey);
+
+      // Return focus to trigger element
+      if (triggerElement) {
+        triggerElement.focus();
+        triggerElement = null;
+      }
+    }
+
+    // Reset dialog state (inputs, checkboxes, buttons)
+    function resetDialogState(dialogId) {
+      const dialog = document.getElementById(dialogId);
+      if (!dialog) return;
+
+      // Reset text inputs
+      const inputs = dialog.querySelectorAll('input[type="text"]');
+      inputs.forEach(input => {
+        input.value = '';
+      });
+
+      // Reset checkboxes
+      const checkboxes = dialog.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+      });
+
+      // Disable confirm buttons that require validation
+      const confirmButtons = dialog.querySelectorAll('button[id$="ConfirmBtn"]');
+      confirmButtons.forEach(btn => {
+        if (btn.id !== 'loadingDeleteConfirmBtn' && btn.id !== 'loadingSaveConfirmBtn') {
+          // Check if this dialog has validation requirements
+          const hasInput = dialog.querySelector('input[type="text"]');
+          const hasCheckbox = dialog.querySelector('input[type="checkbox"]');
+          if (hasInput || hasCheckbox) {
+            btn.disabled = true;
+          }
+        }
+      });
+
+      // Reset loading state buttons
+      const loadingBtnText = dialog.querySelector('[id$="BtnText"]');
+      const loadingSpinner = dialog.querySelector('[id$="Spinner"]');
+      if (loadingBtnText && loadingSpinner) {
+        loadingSpinner.classList.add('hidden');
+        // Restore original text based on dialog type
+        if (dialogId === 'loadingDeleteDialog') {
+          loadingBtnText.textContent = 'Delete';
+        } else if (dialogId === 'loadingSaveDialog') {
+          loadingBtnText.textContent = 'Save Changes';
+        }
+      }
+
+      // Re-enable buttons
+      const allButtons = dialog.querySelectorAll('button');
+      allButtons.forEach(btn => {
+        if (!btn.id.includes('ConfirmBtn') || (!dialog.querySelector('input[type="text"]') && !dialog.querySelector('input[type="checkbox"]'))) {
+          btn.disabled = false;
+        }
+      });
+    }
+
+    // Setup focus trap within dialog
+    function setupFocusTrap(dialog) {
+      focusableElements = dialog.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+
+      if (focusableElements.length > 0) {
+        firstFocusableElement = focusableElements[0];
+        lastFocusableElement = focusableElements[focusableElements.length - 1];
+
+        // Add tab trap
+        dialog.addEventListener('keydown', handleTabKey);
+      }
+    }
+
+    // Handle tab key for focus trap
+    function handleTabKey(e) {
+      if (e.key !== 'Tab') return;
+
+      if (e.shiftKey) {
+        // Shift + Tab
+        if (document.activeElement === firstFocusableElement) {
+          e.preventDefault();
+          lastFocusableElement.focus();
+        }
+      } else {
+        // Tab
+        if (document.activeElement === lastFocusableElement) {
+          e.preventDefault();
+          firstFocusableElement.focus();
+        }
+      }
+    }
+
+    // Handle escape key
+    function handleEscapeKey(e) {
+      if (e.key === 'Escape') {
+        // Find the visible dialog and close it
+        const visibleDialog = document.querySelector('[role="alertdialog"]:not(.hidden)');
+        if (visibleDialog) {
+          closeDialog(visibleDialog.id);
+        }
+      }
+    }
+
+    // Validate typed input
+    function validateTypedInput(inputId, requiredText, buttonId) {
+      const input = document.getElementById(inputId);
+      const button = document.getElementById(buttonId);
+
+      if (input && button) {
+        button.disabled = input.value !== requiredText;
+      }
+    }
+
+    // Validate single checkbox
+    function validateCheckbox(checkboxId, buttonId) {
+      const checkbox = document.getElementById(checkboxId);
+      const button = document.getElementById(buttonId);
+
+      if (checkbox && button) {
+        button.disabled = !checkbox.checked;
+      }
+    }
+
+    // Validate multiple checkboxes
+    function validateMultiCheckbox(checkboxIds, buttonId) {
+      const button = document.getElementById(buttonId);
+      if (!button) return;
+
+      const allChecked = checkboxIds.every(id => {
+        const checkbox = document.getElementById(id);
+        return checkbox && checkbox.checked;
+      });
+
+      button.disabled = !allChecked;
+    }
+
+    // Handle confirm action
+    function handleConfirm(dialogId, message) {
+      closeDialog(dialogId);
+      showToast(message, 'success');
+    }
+
+    // Handle loading confirm action
+    function handleLoadingConfirm(dialogId, confirmBtnId, cancelBtnId, message, duration) {
+      const confirmBtn = document.getElementById(confirmBtnId);
+      const cancelBtn = document.getElementById(cancelBtnId);
+      const btnText = confirmBtn.querySelector('[id$="BtnText"]');
+      const spinner = confirmBtn.querySelector('[id$="Spinner"]');
+
+      // Disable buttons and show loading state
+      confirmBtn.disabled = true;
+      cancelBtn.disabled = true;
+
+      if (btnText) btnText.textContent = 'Processing...';
+      if (spinner) spinner.classList.remove('hidden');
+
+      // Simulate async action
+      setTimeout(() => {
+        closeDialog(dialogId);
+        showToast(message, 'success');
+      }, duration);
+    }
+
+    // Show toast notification
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+
+      const toast = document.createElement('div');
+      toast.className = `flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg transform translate-x-0 transition-all duration-300 ${
+        type === 'success' ? 'bg-success text-white' :
+        type === 'error' ? 'bg-error text-white' :
+        type === 'warning' ? 'bg-warning text-text-inverse' :
+        'bg-accent-blue text-white'
+      }`;
+
+      const icon = type === 'success'
+        ? '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>'
+        : type === 'error'
+        ? '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>'
+        : '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+
+      toast.innerHTML = `
+        ${icon}
+        <span class="text-sm font-medium">${message}</span>
+      `;
+
+      container.appendChild(toast);
+
+      // Animate in
+      requestAnimationFrame(() => {
+        toast.classList.add('translate-x-0');
+      });
+
+      // Remove after delay
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-x-full');
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 3000);
+    }
+
+    // Handle Enter key to confirm (when valid)
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') {
+        const visibleDialog = document.querySelector('[role="alertdialog"]:not(.hidden)');
+        if (visibleDialog) {
+          // Find the confirm button
+          const confirmBtn = visibleDialog.querySelector('button[class*="bg-accent-orange"], button[class*="bg-error"], button[class*="bg-accent-blue"], button[class*="bg-warning"]');
+          if (confirmBtn && !confirmBtn.disabled) {
+            // Don't trigger if focus is on a text input
+            if (document.activeElement.tagName !== 'INPUT' || document.activeElement.type !== 'text') {
+              confirmBtn.click();
+            } else if (document.activeElement.type === 'text') {
+              // Allow Enter on text input only if validation passes
+              const btn = visibleDialog.querySelector('button[id$="ConfirmBtn"]');
+              if (btn && !btn.disabled) {
+                btn.click();
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>

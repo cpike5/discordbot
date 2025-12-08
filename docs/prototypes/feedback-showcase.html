@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feedback Components Showcase - Discord Bot Admin</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Card hover effect */
+    .component-card {
+      transition: all 0.2s ease-in-out;
+    }
+    .component-card:hover {
+      border-color: #098ecf;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(9, 142, 207, 0.15);
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-bg-secondary border-b border-border-primary sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 rounded-lg bg-accent-orange flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-text-primary">Feedback Components</h1>
+            <p class="text-sm text-text-secondary">UI Component Library Showcase</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-text-tertiary">Issue #39</span>
+          <a href="dashboard.html" class="px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+            View Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Introduction -->
+    <section class="mb-12">
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-2">About This Showcase</h2>
+        <p class="text-text-secondary mb-4">
+          This showcase presents the feedback UI components designed for the Discord Bot Admin interface.
+          Each component follows the design system defined in <code class="px-1.5 py-0.5 bg-bg-tertiary rounded text-accent-blue font-mono text-sm">docs/design-system.md</code>.
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-success-bg text-success border border-success-border rounded-full">
+            <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+            10 Components
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-info-bg text-info border border-info-border rounded-full">
+            <span class="w-1.5 h-1.5 bg-info rounded-full"></span>
+            Tailwind CSS
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-accent-orange-muted text-accent-orange border border-accent-orange/30 rounded-full">
+            <span class="w-1.5 h-1.5 bg-accent-orange rounded-full"></span>
+            Accessible
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Component Grid -->
+    <section>
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Components</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Alert Component -->
+        <a href="feedback-alerts.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-info-bg rounded-lg">
+                <svg class="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Alerts</h3>
+                <p class="text-xs text-text-tertiary">Inline notification banners</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-2">
+            <div class="flex items-center gap-2 px-3 py-2 text-xs rounded border bg-info-bg border-info-border text-info">
+              <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+              Info alert example
+            </div>
+            <div class="flex items-center gap-2 px-3 py-2 text-xs rounded border bg-success-bg border-success-border text-success">
+              <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              Success alert example
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            4 variants, dismissible, auto-dismiss
+          </div>
+        </a>
+
+        <!-- Toast Component -->
+        <a href="feedback-toasts.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-success-bg rounded-lg">
+                <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Toasts</h3>
+                <p class="text-xs text-text-tertiary">Stacking notifications</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="space-y-2">
+              <div class="flex items-center gap-2 px-3 py-2 text-xs rounded-lg bg-bg-tertiary border border-border-primary shadow-lg">
+                <svg class="w-4 h-4 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span class="text-text-primary">Changes saved!</span>
+                <button class="ml-auto text-text-tertiary hover:text-text-primary">&times;</button>
+              </div>
+              <div class="h-1 bg-bg-tertiary rounded overflow-hidden">
+                <div class="h-full w-3/4 bg-success rounded"></div>
+              </div>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            6 positions, progress bar, stacking
+          </div>
+        </a>
+
+        <!-- Modal Component -->
+        <a href="feedback-modals.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-blue-muted rounded-lg">
+                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Modals</h3>
+                <p class="text-xs text-text-tertiary">Dialog overlays</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl">
+              <div class="px-3 py-2 border-b border-border-primary flex items-center justify-between">
+                <span class="text-xs font-medium text-text-primary">Modal Title</span>
+                <span class="text-text-tertiary text-xs">&times;</span>
+              </div>
+              <div class="px-3 py-3 text-xs text-text-secondary">
+                Modal content area...
+              </div>
+              <div class="px-3 py-2 border-t border-border-primary flex justify-end gap-2">
+                <span class="px-2 py-1 text-xs bg-bg-hover rounded">Cancel</span>
+                <span class="px-2 py-1 text-xs bg-accent-orange text-white rounded">Confirm</span>
+              </div>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            5 sizes, focus trap, ESC close
+          </div>
+        </a>
+
+        <!-- Confirmation Dialog -->
+        <a href="feedback-confirmation.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-error-bg rounded-lg">
+                <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Confirmation</h3>
+                <p class="text-xs text-text-tertiary">Action confirmations</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="text-center space-y-2">
+              <div class="w-10 h-10 mx-auto bg-error-bg rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-error" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              </div>
+              <p class="text-xs text-text-primary font-medium">Delete this item?</p>
+              <p class="text-xs text-text-tertiary">This cannot be undone.</p>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Typed confirm, checkbox, loading
+          </div>
+        </a>
+
+        <!-- Drawer Component -->
+        <a href="feedback-drawers.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-orange-muted rounded-lg">
+                <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Drawers</h3>
+                <p class="text-xs text-text-tertiary">Slide-out panels</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="flex gap-2">
+              <div class="w-1/3 bg-bg-tertiary border border-border-primary rounded h-20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </div>
+              <div class="flex-1 bg-bg-primary border border-border-secondary rounded h-20"></div>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            4 edges, overlay/push modes
+          </div>
+        </a>
+
+        <!-- Tooltip Component -->
+        <a href="feedback-tooltips.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-warning-bg rounded-lg">
+                <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Tooltips & Popovers</h3>
+                <p class="text-xs text-text-tertiary">Hover/click hints</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 flex items-center justify-center">
+            <div class="relative">
+              <div class="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-bg-tertiary text-xs text-text-primary rounded shadow-lg whitespace-nowrap">
+                Helpful tooltip
+                <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-bg-tertiary"></div>
+              </div>
+              <button class="px-3 py-1.5 text-xs bg-bg-tertiary border border-border-primary rounded text-text-secondary">
+                Hover me
+              </button>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            4 positions, arrows, delays
+          </div>
+        </a>
+
+        <!-- Loading Component -->
+        <a href="feedback-loading.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-blue-muted rounded-lg">
+                <svg class="w-5 h-5 text-accent-blue animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Loading States</h3>
+                <p class="text-xs text-text-tertiary">Spinners & progress</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-3">
+            <div class="flex items-center justify-center gap-4">
+              <div class="w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+              <div class="w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div class="h-2 bg-bg-tertiary rounded overflow-hidden">
+              <div class="h-full w-2/3 bg-accent-blue rounded animate-pulse"></div>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Overlay, inline, progress bars
+          </div>
+        </a>
+
+        <!-- Skeleton Component -->
+        <a href="feedback-skeletons.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-bg-tertiary rounded-lg">
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Skeletons</h3>
+                <p class="text-xs text-text-tertiary">Loading placeholders</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-bg-tertiary rounded-full animate-pulse"></div>
+              <div class="flex-1 space-y-2">
+                <div class="h-3 bg-bg-tertiary rounded w-3/4 animate-pulse"></div>
+                <div class="h-2 bg-bg-tertiary rounded w-1/2 animate-pulse"></div>
+              </div>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Text, avatar, card, table
+          </div>
+        </a>
+
+        <!-- Empty State Component -->
+        <a href="feedback-empty-states.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-bg-tertiary rounded-lg">
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Empty States</h3>
+                <p class="text-xs text-text-tertiary">No data displays</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="text-center py-2">
+              <div class="w-12 h-12 mx-auto mb-2 bg-bg-tertiary rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+              </div>
+              <p class="text-xs text-text-secondary">No items yet</p>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            6 variants, CTAs, compact mode
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- Quick Reference -->
+    <section class="mt-12">
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Quick Reference</h2>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-bg-primary/50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Component</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Variants</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Key Features</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Z-Index</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-primary">
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Alert</td>
+              <td class="px-4 py-3 text-text-secondary">info, success, warning, error</td>
+              <td class="px-4 py-3 text-text-secondary">Dismissible, auto-dismiss, slide animation</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">-</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Toast</td>
+              <td class="px-4 py-3 text-text-secondary">info, success, warning, error</td>
+              <td class="px-4 py-3 text-text-secondary">Stacking, progress bar, 6 positions</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">1100</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Modal</td>
+              <td class="px-4 py-3 text-text-secondary">sm, md, lg, xl, full</td>
+              <td class="px-4 py-3 text-text-secondary">Focus trap, ESC close, backdrop click</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">1000/1001</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Confirmation</td>
+              <td class="px-4 py-3 text-text-secondary">simple, destructive, typed, checkbox</td>
+              <td class="px-4 py-3 text-text-secondary">Input validation, loading state</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">1000/1001</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Drawer</td>
+              <td class="px-4 py-3 text-text-secondary">left, right, top, bottom</td>
+              <td class="px-4 py-3 text-text-secondary">Overlay/push modes, size variants</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">500</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Tooltip</td>
+              <td class="px-4 py-3 text-text-secondary">top, right, bottom, left</td>
+              <td class="px-4 py-3 text-text-secondary">Hover trigger, delay, arrows</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">900</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Popover</td>
+              <td class="px-4 py-3 text-text-secondary">top, right, bottom, left</td>
+              <td class="px-4 py-3 text-text-secondary">Click trigger, rich content</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">900</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Loading</td>
+              <td class="px-4 py-3 text-text-secondary">spinner, dots, pulse, progress</td>
+              <td class="px-4 py-3 text-text-secondary">Full-screen, container, inline</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">1200</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Skeleton</td>
+              <td class="px-4 py-3 text-text-secondary">text, circle, rectangle, table</td>
+              <td class="px-4 py-3 text-text-secondary">Pulse animation, composable</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">-</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Empty State</td>
+              <td class="px-4 py-3 text-text-secondary">no-data, no-results, error, first-time</td>
+              <td class="px-4 py-3 text-text-secondary">Icon, title, description, CTA</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="mt-12 pt-8 border-t border-border-primary">
+      <div class="flex items-center justify-between text-sm text-text-tertiary">
+        <p>Discord Bot Admin UI - Feedback Components</p>
+        <p>Part of Issue #39</p>
+      </div>
+    </footer>
+
+  </main>
+
+</body>
+</html>
