@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drawer/Sidebar Components - Feedback Prototype</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+          zIndex: {
+            'drawer': '500',
+            'drawer-backdrop': '499',
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Drawer backdrop */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 499;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 300ms cubic-bezier(0.4, 0, 0.2, 1), visibility 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .drawer-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Base drawer styles */
+    .drawer {
+      position: fixed;
+      background-color: #262a2d;
+      z-index: 500;
+      display: flex;
+      flex-direction: column;
+      transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Left drawer */
+    .drawer-left {
+      top: 0;
+      left: 0;
+      height: 100vh;
+      transform: translateX(-100%);
+    }
+    .drawer-left.open {
+      transform: translateX(0);
+    }
+
+    /* Right drawer */
+    .drawer-right {
+      top: 0;
+      right: 0;
+      height: 100vh;
+      transform: translateX(100%);
+    }
+    .drawer-right.open {
+      transform: translateX(0);
+    }
+
+    /* Top drawer */
+    .drawer-top {
+      top: 0;
+      left: 0;
+      width: 100vw;
+      transform: translateY(-100%);
+    }
+    .drawer-top.open {
+      transform: translateY(0);
+    }
+
+    /* Bottom drawer */
+    .drawer-bottom {
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      transform: translateY(100%);
+    }
+    .drawer-bottom.open {
+      transform: translateY(0);
+    }
+
+    /* Drawer sizes for left/right */
+    .drawer-left.drawer-sm, .drawer-right.drawer-sm {
+      width: 280px;
+    }
+    .drawer-left.drawer-md, .drawer-right.drawer-md {
+      width: 380px;
+    }
+    .drawer-left.drawer-lg, .drawer-right.drawer-lg {
+      width: 480px;
+    }
+    .drawer-left.drawer-full, .drawer-right.drawer-full {
+      width: calc(100vw - 64px);
+    }
+
+    /* Drawer sizes for top/bottom */
+    .drawer-top.drawer-sm, .drawer-bottom.drawer-sm {
+      height: 200px;
+    }
+    .drawer-top.drawer-md, .drawer-bottom.drawer-md {
+      height: 380px;
+    }
+    .drawer-top.drawer-lg, .drawer-bottom.drawer-lg {
+      height: 480px;
+    }
+    .drawer-top.drawer-full, .drawer-bottom.drawer-full {
+      height: calc(100vh - 64px);
+    }
+
+    /* Push mode styles */
+    .main-content {
+      transition: margin 300ms cubic-bezier(0.4, 0, 0.2, 1), transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .main-content.push-left {
+      margin-left: var(--drawer-width, 380px);
+    }
+    .main-content.push-right {
+      margin-right: var(--drawer-width, 380px);
+    }
+    .main-content.push-top {
+      margin-top: var(--drawer-height, 380px);
+    }
+    .main-content.push-bottom {
+      margin-bottom: var(--drawer-height, 380px);
+    }
+
+    /* Range slider styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #3f4447;
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #098ecf;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #0ba3ea;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: #098ecf;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Page Header -->
+  <header class="sticky top-0 z-40 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div>
+          <h1 class="text-xl font-bold text-text-primary">Drawer/Sidebar Components - Feedback Prototype</h1>
+          <p class="text-sm text-text-secondary">Interactive drawer demonstrations with multiple configurations</p>
+        </div>
+        <a href="dashboard.html" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+          Back to Dashboard
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="mainContent" class="main-content max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Section 1: Left Drawer Demo -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold text-text-primary mb-2">Section 1: Left Drawer Demo</h2>
+      <p class="text-text-secondary mb-6">Navigation-style drawer that slides in from the left edge.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-3">
+          <button onclick="openDrawer('left-drawer', 'left')" class="px-4 py-2 bg-accent-orange text-white font-medium rounded-lg hover:bg-accent-orange-hover active:bg-accent-orange-active transition-colors">
+            Open Left Drawer
+          </button>
+          <button onclick="openDrawer('left-nav-drawer', 'left')" class="px-4 py-2 bg-accent-blue text-white font-medium rounded-lg hover:bg-accent-blue-hover active:bg-accent-blue-active transition-colors">
+            Open Navigation Drawer
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Right Drawer Demo -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold text-text-primary mb-2">Section 2: Right Drawer Demo</h2>
+      <p class="text-text-secondary mb-6">Detail panel drawer that slides in from the right edge.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-3">
+          <button onclick="openDrawer('right-drawer', 'right')" class="px-4 py-2 bg-accent-orange text-white font-medium rounded-lg hover:bg-accent-orange-hover active:bg-accent-orange-active transition-colors">
+            Open Right Drawer
+          </button>
+          <button onclick="openDrawer('right-detail-drawer', 'right')" class="px-4 py-2 bg-accent-blue text-white font-medium rounded-lg hover:bg-accent-blue-hover active:bg-accent-blue-active transition-colors">
+            Open Detail Drawer
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Top Drawer Demo -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold text-text-primary mb-2">Section 3: Top Drawer Demo</h2>
+      <p class="text-text-secondary mb-6">Notification or announcement drawer that slides down from the top.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-3">
+          <button onclick="openDrawer('top-drawer', 'top')" class="px-4 py-2 bg-accent-orange text-white font-medium rounded-lg hover:bg-accent-orange-hover active:bg-accent-orange-active transition-colors">
+            Open Top Drawer
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Bottom Drawer Demo -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold text-text-primary mb-2">Section 4: Bottom Drawer Demo</h2>
+      <p class="text-text-secondary mb-6">Action sheet or mobile-style drawer that slides up from the bottom.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap gap-3">
+          <button onclick="openDrawer('bottom-drawer', 'bottom')" class="px-4 py-2 bg-accent-orange text-white font-medium rounded-lg hover:bg-accent-orange-hover active:bg-accent-orange-active transition-colors">
+            Open Bottom Drawer
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: Size Variants -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold text-text-primary mb-2">Section 5: Size Variants</h2>
+      <p class="text-text-secondary mb-6">Drawers come in different sizes: sm (280px), md (380px), lg (480px), and full.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button onclick="openSizedDrawer('sm')" class="px-4 py-2 bg-bg-tertiary text-text-primary font-medium rounded-lg border border-border-primary hover:bg-bg-hover transition-colors">
+            Small (280px)
+          </button>
+          <button onclick="openSizedDrawer('md')" class="px-4 py-2 bg-bg-tertiary text-text-primary font-medium rounded-lg border border-border-primary hover:bg-bg-hover transition-colors">
+            Medium (380px)
+          </button>
+          <button onclick="openSizedDrawer('lg')" class="px-4 py-2 bg-bg-tertiary text-text-primary font-medium rounded-lg border border-border-primary hover:bg-bg-hover transition-colors">
+            Large (480px)
+          </button>
+          <button onclick="openSizedDrawer('full')" class="px-4 py-2 bg-bg-tertiary text-text-primary font-medium rounded-lg border border-border-primary hover:bg-bg-hover transition-colors">
+            Full Width
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Overlay vs Push Mode Demo -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold text-text-primary mb-2">Section 6: Overlay vs Push Mode Demo</h2>
+      <p class="text-text-secondary mb-6">Toggle between overlay mode (drawer overlays content) and push mode (content shifts).</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="flex flex-wrap items-center gap-6 mb-6">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-text-secondary">Mode:</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="modeToggle" class="sr-only peer" onchange="toggleMode()">
+              <div class="w-11 h-6 bg-border-primary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-blue"></div>
+              <span class="ml-3 text-sm font-medium text-text-primary" id="modeLabel">Overlay</span>
+            </label>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-text-secondary">Position:</span>
+            <select id="positionSelect" class="px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-text-primary text-sm focus:border-border-focus focus:ring-1 focus:ring-border-focus">
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+              <option value="top">Top</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </div>
+        </div>
+
+        <button onclick="openModeDrawer()" class="px-4 py-2 bg-accent-orange text-white font-medium rounded-lg hover:bg-accent-orange-hover active:bg-accent-orange-active transition-colors">
+          Open Drawer with Selected Mode
+        </button>
+      </div>
+    </section>
+
+    <!-- Section 7: With Content Examples -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold text-text-primary mb-2">Section 7: Content Examples</h2>
+      <p class="text-text-secondary mb-6">Common use cases: navigation, filters, details, and forms.</p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Navigation Drawer -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="p-2 bg-accent-orange/10 rounded-lg">
+              <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-text-primary">Navigation</h3>
+          </div>
+          <p class="text-sm text-text-secondary mb-4">Menu items and navigation links for app sections.</p>
+          <button onclick="openDrawer('left-nav-drawer', 'left')" class="w-full px-4 py-2 text-sm font-medium text-accent-blue border border-accent-blue rounded-lg hover:bg-accent-blue/10 transition-colors">
+            View Example
+          </button>
+        </div>
+
+        <!-- Filter Drawer -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="p-2 bg-accent-blue/10 rounded-lg">
+              <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-text-primary">Filters</h3>
+          </div>
+          <p class="text-sm text-text-secondary mb-4">Checkboxes, sliders, and filter options for data.</p>
+          <button onclick="openDrawer('right-filter-drawer', 'right')" class="w-full px-4 py-2 text-sm font-medium text-accent-blue border border-accent-blue rounded-lg hover:bg-accent-blue/10 transition-colors">
+            View Example
+          </button>
+        </div>
+
+        <!-- Detail Drawer -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="p-2 bg-success/10 rounded-lg">
+              <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-text-primary">Details</h3>
+          </div>
+          <p class="text-sm text-text-secondary mb-4">Item details, properties, and related actions.</p>
+          <button onclick="openDrawer('right-detail-drawer', 'right')" class="w-full px-4 py-2 text-sm font-medium text-accent-blue border border-accent-blue rounded-lg hover:bg-accent-blue/10 transition-colors">
+            View Example
+          </button>
+        </div>
+
+        <!-- Form Drawer -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="p-2 bg-warning/10 rounded-lg">
+              <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-text-primary">Form</h3>
+          </div>
+          <p class="text-sm text-text-secondary mb-4">Create or edit forms for data entry.</p>
+          <button onclick="openDrawer('right-form-drawer', 'right')" class="w-full px-4 py-2 text-sm font-medium text-accent-blue border border-accent-blue rounded-lg hover:bg-accent-blue/10 transition-colors">
+            View Example
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Controls Summary -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold text-text-primary mb-2">Interactive Controls</h2>
+      <p class="text-text-secondary mb-6">Quick reference for drawer interaction behaviors.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-bg-primary/50">
+            <tr>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Interaction</th>
+              <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Behavior</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-primary">
+            <tr>
+              <td class="px-5 py-4 text-text-primary font-medium">Click backdrop</td>
+              <td class="px-5 py-4 text-text-secondary">Closes the drawer</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-4 text-text-primary font-medium">Press Escape key</td>
+              <td class="px-5 py-4 text-text-secondary">Closes the drawer</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-4 text-text-primary font-medium">Tab key</td>
+              <td class="px-5 py-4 text-text-secondary">Focus trap cycles through drawer elements</td>
+            </tr>
+            <tr>
+              <td class="px-5 py-4 text-text-primary font-medium">Close button</td>
+              <td class="px-5 py-4 text-text-secondary">Closes the drawer and returns focus</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Backdrop for all drawers -->
+  <div id="drawerBackdrop" class="drawer-backdrop" onclick="closeAllDrawers()"></div>
+
+  <!-- Left Drawer (Basic) -->
+  <div id="left-drawer" class="drawer drawer-left drawer-md border-r border-border-primary" role="dialog" aria-modal="true" aria-labelledby="left-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="left-drawer-title" class="text-lg font-semibold text-text-primary">Left Drawer</h2>
+      <button onclick="closeDrawer('left-drawer', 'left')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <p class="text-text-secondary mb-4">This is a basic left drawer. It slides in from the left edge of the screen.</p>
+      <p class="text-text-secondary mb-4">Use left drawers for primary navigation, app menus, or settings panels.</p>
+      <div class="p-4 bg-bg-primary rounded-lg border border-border-primary">
+        <p class="text-sm text-text-tertiary">Drawer Position: Left</p>
+        <p class="text-sm text-text-tertiary">Size: Medium (380px)</p>
+        <p class="text-sm text-text-tertiary">Animation: slide 300ms</p>
+      </div>
+    </div>
+    <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/50">
+      <div class="flex gap-3">
+        <button onclick="closeDrawer('left-drawer', 'left')" class="flex-1 px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+          Cancel
+        </button>
+        <button class="flex-1 px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Left Navigation Drawer -->
+  <div id="left-nav-drawer" class="drawer drawer-left drawer-sm border-r border-border-primary" role="dialog" aria-modal="true" aria-labelledby="left-nav-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-accent-orange flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <h2 id="left-nav-drawer-title" class="text-lg font-bold text-text-primary">Bot Admin</h2>
+      </div>
+      <button onclick="closeDrawer('left-nav-drawer', 'left')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <nav class="flex-1 overflow-y-auto p-4">
+      <div class="space-y-1">
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg bg-accent-orange/15 text-text-primary border-l-[3px] border-accent-orange">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Dashboard
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          Servers
+          <span class="ml-auto px-2 py-0.5 text-xs font-semibold bg-border-primary text-text-primary rounded-full">12</span>
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Commands
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Members
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          Logs
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Settings
+        </a>
+      </div>
+
+      <div class="my-4 border-t border-border-secondary"></div>
+
+      <div class="space-y-1">
+        <p class="px-3 mb-2 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Support</p>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          Documentation
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Help & Support
+        </a>
+      </div>
+    </nav>
+    <div class="px-4 py-3 border-t border-border-secondary bg-bg-primary/50">
+      <div class="flex items-center gap-3">
+        <span class="flex items-center gap-2 text-sm">
+          <span class="w-2 h-2 bg-success rounded-full animate-pulse"></span>
+          <span class="text-success font-medium">Bot Online</span>
+        </span>
+        <span class="ml-auto text-xs text-text-tertiary">v2.1.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Drawer (Basic) -->
+  <div id="right-drawer" class="drawer drawer-right drawer-md border-l border-border-primary" role="dialog" aria-modal="true" aria-labelledby="right-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="right-drawer-title" class="text-lg font-semibold text-text-primary">Right Drawer</h2>
+      <button onclick="closeDrawer('right-drawer', 'right')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <p class="text-text-secondary mb-4">This is a basic right drawer. It slides in from the right edge of the screen.</p>
+      <p class="text-text-secondary mb-4">Use right drawers for detail panels, property inspectors, or secondary content.</p>
+      <div class="p-4 bg-bg-primary rounded-lg border border-border-primary">
+        <p class="text-sm text-text-tertiary">Drawer Position: Right</p>
+        <p class="text-sm text-text-tertiary">Size: Medium (380px)</p>
+        <p class="text-sm text-text-tertiary">Animation: slide 300ms</p>
+      </div>
+    </div>
+    <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/50">
+      <div class="flex gap-3">
+        <button onclick="closeDrawer('right-drawer', 'right')" class="flex-1 px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+          Cancel
+        </button>
+        <button class="flex-1 px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Detail Drawer -->
+  <div id="right-detail-drawer" class="drawer drawer-right drawer-lg border-l border-border-primary" role="dialog" aria-modal="true" aria-labelledby="right-detail-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="right-detail-drawer-title" class="text-lg font-semibold text-text-primary">Server Details</h2>
+      <button onclick="closeDrawer('right-detail-drawer', 'right')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto">
+      <!-- Server Header -->
+      <div class="p-5 border-b border-border-primary">
+        <div class="flex items-center gap-4">
+          <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xl">GC</div>
+          <div>
+            <h3 class="text-xl font-semibold text-text-primary">Gaming Community</h3>
+            <p class="text-sm text-text-secondary font-mono">ID: 123456789012345678</p>
+            <span class="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+              <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+              Online
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="p-5 border-b border-border-primary">
+        <h4 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Statistics</h4>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="p-4 bg-bg-primary rounded-lg">
+            <p class="text-2xl font-bold text-text-primary">1,234</p>
+            <p class="text-sm text-text-secondary">Members</p>
+          </div>
+          <div class="p-4 bg-bg-primary rounded-lg">
+            <p class="text-2xl font-bold text-text-primary">892</p>
+            <p class="text-sm text-text-secondary">Commands</p>
+          </div>
+          <div class="p-4 bg-bg-primary rounded-lg">
+            <p class="text-2xl font-bold text-text-primary">24</p>
+            <p class="text-sm text-text-secondary">Channels</p>
+          </div>
+          <div class="p-4 bg-bg-primary rounded-lg">
+            <p class="text-2xl font-bold text-text-primary">8</p>
+            <p class="text-sm text-text-secondary">Roles</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Server Info -->
+      <div class="p-5 border-b border-border-primary">
+        <h4 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Information</h4>
+        <div class="space-y-3">
+          <div class="flex justify-between">
+            <span class="text-text-secondary">Owner</span>
+            <span class="text-text-primary font-medium">JohnDoe#1234</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary">Created</span>
+            <span class="text-text-primary font-medium">Jan 15, 2024</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary">Bot Joined</span>
+            <span class="text-text-primary font-medium">Mar 22, 2024</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary">Region</span>
+            <span class="text-text-primary font-medium">US East</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="p-5">
+        <h4 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Recent Activity</h4>
+        <div class="space-y-3">
+          <div class="flex items-start gap-3">
+            <div class="p-1.5 bg-success/10 rounded">
+              <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm text-text-primary">/help command executed</p>
+              <p class="text-xs text-text-tertiary">2 minutes ago</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="p-1.5 bg-accent-blue/10 rounded">
+              <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm text-text-primary">New member joined</p>
+              <p class="text-xs text-text-tertiary">15 minutes ago</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="p-1.5 bg-accent-orange/10 rounded">
+              <svg class="w-4 h-4 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm text-text-primary">Settings updated</p>
+              <p class="text-xs text-text-tertiary">1 hour ago</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/50">
+      <div class="flex gap-3">
+        <button class="flex-1 px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+          <span class="flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </span>
+        </button>
+        <button class="flex-1 px-4 py-2 text-sm font-medium text-white bg-accent-blue rounded-lg hover:bg-accent-blue-hover transition-colors">
+          <span class="flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            View Server
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Filter Drawer -->
+  <div id="right-filter-drawer" class="drawer drawer-right drawer-md border-l border-border-primary" role="dialog" aria-modal="true" aria-labelledby="right-filter-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="right-filter-drawer-title" class="text-lg font-semibold text-text-primary">Filters</h2>
+      <button onclick="closeDrawer('right-filter-drawer', 'right')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <!-- Status Filter -->
+      <div class="mb-6">
+        <h4 class="text-sm font-semibold text-text-primary mb-3">Status</h4>
+        <div class="space-y-2">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+            <span class="text-sm text-text-primary">Online</span>
+            <span class="ml-auto text-xs text-text-tertiary">8</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+            <span class="text-sm text-text-primary">Idle</span>
+            <span class="ml-auto text-xs text-text-tertiary">2</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+            <span class="text-sm text-text-primary">Offline</span>
+            <span class="ml-auto text-xs text-text-tertiary">2</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Member Count Range -->
+      <div class="mb-6">
+        <h4 class="text-sm font-semibold text-text-primary mb-3">Member Count</h4>
+        <div class="space-y-3">
+          <input type="range" min="0" max="5000" value="2500" class="w-full">
+          <div class="flex justify-between text-xs text-text-tertiary">
+            <span>0</span>
+            <span>2,500+</span>
+            <span>5,000+</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Server Type -->
+      <div class="mb-6">
+        <h4 class="text-sm font-semibold text-text-primary mb-3">Server Type</h4>
+        <div class="space-y-2">
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="server-type" checked class="w-4 h-4 border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+            <span class="text-sm text-text-primary">All</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="server-type" class="w-4 h-4 border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+            <span class="text-sm text-text-primary">Gaming</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="server-type" class="w-4 h-4 border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+            <span class="text-sm text-text-primary">Community</span>
+          </label>
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="server-type" class="w-4 h-4 border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+            <span class="text-sm text-text-primary">Development</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Date Range -->
+      <div class="mb-6">
+        <h4 class="text-sm font-semibold text-text-primary mb-3">Joined Date</h4>
+        <div class="space-y-3">
+          <div>
+            <label class="text-xs text-text-secondary mb-1 block">From</label>
+            <input type="date" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-text-primary text-sm focus:border-border-focus focus:ring-1 focus:ring-border-focus">
+          </div>
+          <div>
+            <label class="text-xs text-text-secondary mb-1 block">To</label>
+            <input type="date" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-text-primary text-sm focus:border-border-focus focus:ring-1 focus:ring-border-focus">
+          </div>
+        </div>
+      </div>
+
+      <!-- Tags -->
+      <div class="mb-6">
+        <h4 class="text-sm font-semibold text-text-primary mb-3">Tags</h4>
+        <div class="flex flex-wrap gap-2">
+          <button class="px-3 py-1.5 text-sm font-medium text-accent-blue bg-accent-blue/10 rounded-full hover:bg-accent-blue/20 transition-colors">Active</button>
+          <button class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-primary border border-border-primary rounded-full hover:bg-bg-hover transition-colors">Premium</button>
+          <button class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-primary border border-border-primary rounded-full hover:bg-bg-hover transition-colors">Verified</button>
+          <button class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-primary border border-border-primary rounded-full hover:bg-bg-hover transition-colors">New</button>
+        </div>
+      </div>
+    </div>
+    <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/50">
+      <div class="flex gap-3">
+        <button class="flex-1 px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+          Clear All
+        </button>
+        <button onclick="closeDrawer('right-filter-drawer', 'right')" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+          Apply Filters
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Form Drawer -->
+  <div id="right-form-drawer" class="drawer drawer-right drawer-lg border-l border-border-primary" role="dialog" aria-modal="true" aria-labelledby="right-form-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="right-form-drawer-title" class="text-lg font-semibold text-text-primary">Create New Command</h2>
+      <button onclick="closeDrawer('right-form-drawer', 'right')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <form class="space-y-5">
+        <!-- Command Name -->
+        <div>
+          <label for="command-name" class="block text-sm font-semibold text-text-primary mb-2">Command Name</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary">/</span>
+            <input type="text" id="command-name" placeholder="mycommand" class="w-full pl-7 pr-3 py-2.5 bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus">
+          </div>
+          <p class="mt-1 text-xs text-text-tertiary">Lowercase letters, numbers, and underscores only.</p>
+        </div>
+
+        <!-- Description -->
+        <div>
+          <label for="command-desc" class="block text-sm font-semibold text-text-primary mb-2">Description</label>
+          <textarea id="command-desc" rows="3" placeholder="What does this command do?" class="w-full px-3 py-2.5 bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus resize-none"></textarea>
+        </div>
+
+        <!-- Response Type -->
+        <div>
+          <label class="block text-sm font-semibold text-text-primary mb-2">Response Type</label>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex items-center gap-3 p-3 bg-bg-primary border border-accent-blue rounded-lg cursor-pointer">
+              <input type="radio" name="response-type" value="text" checked class="w-4 h-4 border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue focus:ring-offset-0">
+              <div>
+                <p class="text-sm font-medium text-text-primary">Text</p>
+                <p class="text-xs text-text-tertiary">Simple text response</p>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-3 bg-bg-primary border border-border-primary rounded-lg cursor-pointer hover:border-border-focus">
+              <input type="radio" name="response-type" value="embed" class="w-4 h-4 border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue focus:ring-offset-0">
+              <div>
+                <p class="text-sm font-medium text-text-primary">Embed</p>
+                <p class="text-xs text-text-tertiary">Rich embed message</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Response Content -->
+        <div>
+          <label for="command-response" class="block text-sm font-semibold text-text-primary mb-2">Response Content</label>
+          <textarea id="command-response" rows="4" placeholder="Enter the response message..." class="w-full px-3 py-2.5 bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus resize-none font-mono text-sm"></textarea>
+          <p class="mt-1 text-xs text-text-tertiary">Variables: {user}, {server}, {channel}, {time}</p>
+        </div>
+
+        <!-- Permissions -->
+        <div>
+          <label class="block text-sm font-semibold text-text-primary mb-2">Required Permissions</label>
+          <select class="w-full px-3 py-2.5 bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus">
+            <option>Everyone</option>
+            <option>Moderators</option>
+            <option>Administrators</option>
+            <option>Server Owner</option>
+          </select>
+        </div>
+
+        <!-- Cooldown -->
+        <div>
+          <label for="command-cooldown" class="block text-sm font-semibold text-text-primary mb-2">Cooldown (seconds)</label>
+          <input type="number" id="command-cooldown" value="0" min="0" max="3600" class="w-full px-3 py-2.5 bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus">
+        </div>
+
+        <!-- Options -->
+        <div>
+          <label class="block text-sm font-semibold text-text-primary mb-2">Options</label>
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+              <span class="text-sm text-text-primary">Enable in DMs</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+              <span class="text-sm text-text-primary">Delete trigger message</span>
+            </label>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue focus:ring-offset-0">
+              <span class="text-sm text-text-primary">Ephemeral response</span>
+            </label>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/50">
+      <div class="flex gap-3">
+        <button onclick="closeDrawer('right-form-drawer', 'right')" class="flex-1 px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+          Cancel
+        </button>
+        <button class="flex-1 px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+          Create Command
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Drawer -->
+  <div id="top-drawer" class="drawer drawer-top drawer-sm border-b border-border-primary" role="dialog" aria-modal="true" aria-labelledby="top-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="top-drawer-title" class="text-lg font-semibold text-text-primary">Notifications</h2>
+      <button onclick="closeDrawer('top-drawer', 'top')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <div class="max-w-4xl mx-auto">
+        <div class="flex items-center gap-4 p-4 bg-info/10 border border-info/30 rounded-lg mb-3">
+          <svg class="w-6 h-6 text-info flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div class="flex-1">
+            <p class="font-medium text-text-primary">New feature available</p>
+            <p class="text-sm text-text-secondary">Custom slash commands are now available for all servers.</p>
+          </div>
+          <button class="px-3 py-1.5 text-sm font-medium text-info hover:bg-info/10 rounded transition-colors">Learn more</button>
+        </div>
+        <div class="flex items-center gap-4 p-4 bg-warning/10 border border-warning/30 rounded-lg">
+          <svg class="w-6 h-6 text-warning flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div class="flex-1">
+            <p class="font-medium text-text-primary">Scheduled maintenance</p>
+            <p class="text-sm text-text-secondary">The bot will be offline for maintenance on Sunday at 3:00 AM UTC.</p>
+          </div>
+          <button class="px-3 py-1.5 text-sm font-medium text-warning hover:bg-warning/10 rounded transition-colors">Dismiss</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Drawer -->
+  <div id="bottom-drawer" class="drawer drawer-bottom drawer-md border-t border-border-primary" role="dialog" aria-modal="true" aria-labelledby="bottom-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="bottom-drawer-title" class="text-lg font-semibold text-text-primary">Quick Actions</h2>
+      <button onclick="closeDrawer('bottom-drawer', 'bottom')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <div class="max-w-4xl mx-auto">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <button class="flex flex-col items-center gap-3 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-accent-orange/50 hover:bg-bg-hover transition-colors group">
+            <div class="p-3 bg-accent-orange/10 rounded-lg group-hover:bg-accent-orange/20 transition-colors">
+              <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            <span class="text-sm font-medium text-text-primary">Add Server</span>
+          </button>
+          <button class="flex flex-col items-center gap-3 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-accent-blue/50 hover:bg-bg-hover transition-colors group">
+            <div class="p-3 bg-accent-blue/10 rounded-lg group-hover:bg-accent-blue/20 transition-colors">
+              <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <span class="text-sm font-medium text-text-primary">New Command</span>
+          </button>
+          <button class="flex flex-col items-center gap-3 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-success/50 hover:bg-bg-hover transition-colors group">
+            <div class="p-3 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors">
+              <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </div>
+            <span class="text-sm font-medium text-text-primary">Export Data</span>
+          </button>
+          <button class="flex flex-col items-center gap-3 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-warning/50 hover:bg-bg-hover transition-colors group">
+            <div class="p-3 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors">
+              <svg class="w-6 h-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <span class="text-sm font-medium text-text-primary">Restart Bot</span>
+          </button>
+        </div>
+
+        <div class="mt-6 pt-6 border-t border-border-primary">
+          <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Recent Servers</h3>
+          <div class="flex flex-wrap gap-3">
+            <button class="flex items-center gap-2 px-3 py-2 bg-bg-primary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+              <div class="w-6 h-6 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">G</div>
+              <span class="text-sm text-text-primary">Gaming Community</span>
+            </button>
+            <button class="flex items-center gap-2 px-3 py-2 bg-bg-primary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+              <div class="w-6 h-6 rounded bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold">D</div>
+              <span class="text-sm text-text-primary">Dev Community</span>
+            </button>
+            <button class="flex items-center gap-2 px-3 py-2 bg-bg-primary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+              <div class="w-6 h-6 rounded bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-xs font-bold">M</div>
+              <span class="text-sm text-text-primary">Music Lovers</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Size Demo Drawer -->
+  <div id="size-drawer" class="drawer drawer-right drawer-md border-l border-border-primary" role="dialog" aria-modal="true" aria-labelledby="size-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="size-drawer-title" class="text-lg font-semibold text-text-primary">Size Demo</h2>
+      <button onclick="closeDrawer('size-drawer', 'right')" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <p class="text-text-secondary mb-4">This drawer demonstrates different size options.</p>
+      <div id="size-info" class="p-4 bg-bg-primary rounded-lg border border-border-primary">
+        <p class="text-sm text-text-tertiary">Current Size: <span id="current-size" class="text-accent-blue font-medium">Medium (380px)</span></p>
+      </div>
+    </div>
+    <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/50">
+      <button onclick="closeDrawer('size-drawer', 'right')" class="w-full px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- Mode Demo Drawer -->
+  <div id="mode-drawer" class="drawer drawer-md border-l border-border-primary" role="dialog" aria-modal="true" aria-labelledby="mode-drawer-title">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+      <h2 id="mode-drawer-title" class="text-lg font-semibold text-text-primary">Mode Demo</h2>
+      <button onclick="closeModeDrawer()" class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors" aria-label="Close drawer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <p class="text-text-secondary mb-4">This drawer demonstrates overlay vs push mode.</p>
+      <div class="p-4 bg-bg-primary rounded-lg border border-border-primary mb-4">
+        <p class="text-sm text-text-tertiary">Current Mode: <span id="current-mode" class="text-accent-blue font-medium">Overlay</span></p>
+        <p class="text-sm text-text-tertiary">Position: <span id="current-position" class="text-accent-blue font-medium">Right</span></p>
+      </div>
+      <div class="p-4 bg-info/10 border border-info/30 rounded-lg">
+        <p class="text-sm text-info"><strong>Overlay mode:</strong> Drawer overlays content with backdrop</p>
+        <p class="text-sm text-info mt-2"><strong>Push mode:</strong> Content shifts to make room (no backdrop)</p>
+      </div>
+    </div>
+    <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/50">
+      <button onclick="closeModeDrawer()" class="w-full px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // Track current drawer state
+    let currentDrawer = null;
+    let currentPosition = null;
+    let isPushMode = false;
+    let focusTrapElements = [];
+    let lastFocusedElement = null;
+
+    // Drawer size map
+    const sizeMap = {
+      'sm': { width: '280px', height: '200px', label: 'Small (280px)' },
+      'md': { width: '380px', height: '380px', label: 'Medium (380px)' },
+      'lg': { width: '480px', height: '480px', label: 'Large (480px)' },
+      'full': { width: 'calc(100vw - 64px)', height: 'calc(100vh - 64px)', label: 'Full' }
+    };
+
+    // Open drawer
+    function openDrawer(drawerId, position) {
+      lastFocusedElement = document.activeElement;
+      const drawer = document.getElementById(drawerId);
+      const backdrop = document.getElementById('drawerBackdrop');
+
+      // Close any existing drawer
+      if (currentDrawer) {
+        closeDrawer(currentDrawer, currentPosition);
+      }
+
+      currentDrawer = drawerId;
+      currentPosition = position;
+
+      drawer.classList.add('open');
+      backdrop.classList.add('open');
+      document.body.style.overflow = 'hidden';
+
+      // Set up focus trap
+      setupFocusTrap(drawer);
+
+      // Focus first focusable element
+      setTimeout(() => {
+        const firstFocusable = drawer.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (firstFocusable) firstFocusable.focus();
+      }, 100);
+    }
+
+    // Close drawer
+    function closeDrawer(drawerId, position) {
+      const drawer = document.getElementById(drawerId);
+      const backdrop = document.getElementById('drawerBackdrop');
+
+      drawer.classList.remove('open');
+      backdrop.classList.remove('open');
+      document.body.style.overflow = '';
+
+      currentDrawer = null;
+      currentPosition = null;
+
+      // Remove focus trap
+      removeFocusTrap();
+
+      // Return focus
+      if (lastFocusedElement) {
+        lastFocusedElement.focus();
+      }
+    }
+
+    // Close all drawers
+    function closeAllDrawers() {
+      if (currentDrawer) {
+        closeDrawer(currentDrawer, currentPosition);
+      }
+      closeModeDrawer();
+    }
+
+    // Open sized drawer
+    function openSizedDrawer(size) {
+      const drawer = document.getElementById('size-drawer');
+      const sizeInfo = sizeMap[size];
+
+      // Remove all size classes
+      drawer.classList.remove('drawer-sm', 'drawer-md', 'drawer-lg', 'drawer-full');
+      drawer.classList.add(`drawer-${size}`);
+
+      // Update size label
+      document.getElementById('current-size').textContent = sizeInfo.label;
+
+      openDrawer('size-drawer', 'right');
+    }
+
+    // Toggle mode
+    function toggleMode() {
+      const toggle = document.getElementById('modeToggle');
+      const label = document.getElementById('modeLabel');
+      isPushMode = toggle.checked;
+      label.textContent = isPushMode ? 'Push' : 'Overlay';
+    }
+
+    // Open mode drawer
+    function openModeDrawer() {
+      const drawer = document.getElementById('mode-drawer');
+      const backdrop = document.getElementById('drawerBackdrop');
+      const mainContent = document.getElementById('mainContent');
+      const position = document.getElementById('positionSelect').value;
+
+      lastFocusedElement = document.activeElement;
+
+      // Close any existing drawer
+      if (currentDrawer) {
+        closeDrawer(currentDrawer, currentPosition);
+      }
+
+      // Reset drawer classes
+      drawer.classList.remove('drawer-left', 'drawer-right', 'drawer-top', 'drawer-bottom');
+      drawer.style.removeProperty('border-left');
+      drawer.style.removeProperty('border-right');
+      drawer.style.removeProperty('border-top');
+      drawer.style.removeProperty('border-bottom');
+
+      // Set position class and border
+      drawer.classList.add(`drawer-${position}`);
+      if (position === 'left') {
+        drawer.style.borderRight = '1px solid #3f4447';
+      } else if (position === 'right') {
+        drawer.style.borderLeft = '1px solid #3f4447';
+      } else if (position === 'top') {
+        drawer.style.borderBottom = '1px solid #3f4447';
+      } else if (position === 'bottom') {
+        drawer.style.borderTop = '1px solid #3f4447';
+      }
+
+      // Update info
+      document.getElementById('current-mode').textContent = isPushMode ? 'Push' : 'Overlay';
+      document.getElementById('current-position').textContent = position.charAt(0).toUpperCase() + position.slice(1);
+
+      // Open drawer
+      drawer.classList.add('open');
+      document.body.style.overflow = isPushMode ? '' : 'hidden';
+
+      if (isPushMode) {
+        // Push mode - shift content
+        const drawerWidth = 380;
+        const drawerHeight = 380;
+
+        if (position === 'left') {
+          mainContent.style.setProperty('--drawer-width', `${drawerWidth}px`);
+          mainContent.classList.add('push-left');
+        } else if (position === 'right') {
+          mainContent.style.setProperty('--drawer-width', `${drawerWidth}px`);
+          mainContent.classList.add('push-right');
+        } else if (position === 'top') {
+          mainContent.style.setProperty('--drawer-height', `${drawerHeight}px`);
+          mainContent.classList.add('push-top');
+        } else if (position === 'bottom') {
+          mainContent.style.setProperty('--drawer-height', `${drawerHeight}px`);
+          mainContent.classList.add('push-bottom');
+        }
+      } else {
+        // Overlay mode - show backdrop
+        backdrop.classList.add('open');
+      }
+
+      currentDrawer = 'mode-drawer';
+      currentPosition = position;
+
+      // Set up focus trap
+      setupFocusTrap(drawer);
+
+      setTimeout(() => {
+        const firstFocusable = drawer.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (firstFocusable) firstFocusable.focus();
+      }, 100);
+    }
+
+    // Close mode drawer
+    function closeModeDrawer() {
+      const drawer = document.getElementById('mode-drawer');
+      const backdrop = document.getElementById('drawerBackdrop');
+      const mainContent = document.getElementById('mainContent');
+
+      drawer.classList.remove('open');
+      backdrop.classList.remove('open');
+      mainContent.classList.remove('push-left', 'push-right', 'push-top', 'push-bottom');
+      document.body.style.overflow = '';
+
+      currentDrawer = null;
+      currentPosition = null;
+
+      removeFocusTrap();
+
+      if (lastFocusedElement) {
+        lastFocusedElement.focus();
+      }
+    }
+
+    // Focus trap setup
+    function setupFocusTrap(drawer) {
+      focusTrapElements = drawer.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      document.addEventListener('keydown', handleFocusTrap);
+    }
+
+    // Remove focus trap
+    function removeFocusTrap() {
+      document.removeEventListener('keydown', handleFocusTrap);
+      focusTrapElements = [];
+    }
+
+    // Handle focus trap
+    function handleFocusTrap(e) {
+      if (e.key !== 'Tab' || focusTrapElements.length === 0) return;
+
+      const firstElement = focusTrapElements[0];
+      const lastElement = focusTrapElements[focusTrapElements.length - 1];
+
+      if (e.shiftKey) {
+        // Shift + Tab
+        if (document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        // Tab
+        if (document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    }
+
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (currentDrawer === 'mode-drawer') {
+          closeModeDrawer();
+        } else if (currentDrawer) {
+          closeDrawer(currentDrawer, currentPosition);
+        }
+      }
+    });
+
+    // Update backdrop click handler to check for push mode
+    document.getElementById('drawerBackdrop').addEventListener('click', function() {
+      if (currentDrawer === 'mode-drawer') {
+        closeModeDrawer();
+      } else if (currentDrawer) {
+        closeDrawer(currentDrawer, currentPosition);
+      }
+    });
+  </script>
+
+</body>
+</html>

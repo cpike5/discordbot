@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>File Upload - Form Components Library</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config (Design System) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* ========================================
+       FORM COMPONENT STYLES
+       ======================================== */
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Screen reader only */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ----------------------------------------
+       Form Group
+       ---------------------------------------- */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .form-required {
+      color: #ef4444;
+      margin-left: 0.25rem;
+    }
+
+    .form-help {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .form-error {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #ef4444;
+    }
+
+    .form-success {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #10b981;
+    }
+
+    /* ----------------------------------------
+       File Upload Base
+       ---------------------------------------- */
+    .form-file-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Simple file button */
+    .form-file-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #d7d3d0;
+      background-color: #2f3336;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+    }
+
+    .form-file-button:hover {
+      background-color: #363a3e;
+      border-color: #098ecf;
+    }
+
+    .form-file-button:focus-within {
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+    }
+
+    .form-file-button svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    .form-file-name {
+      font-size: 0.875rem;
+      color: #a8a5a3;
+      margin-left: 0.75rem;
+    }
+
+    /* ----------------------------------------
+       Dropzone
+       ---------------------------------------- */
+    .form-dropzone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background-color: #1d2022;
+      border: 2px dashed #3f4447;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+    }
+
+    .form-dropzone:hover {
+      border-color: #098ecf;
+      background-color: rgba(9, 142, 207, 0.05);
+    }
+
+    .form-dropzone:focus-within {
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+    }
+
+    .form-dropzone.drag-over {
+      border-color: #cb4e1b;
+      background-color: rgba(203, 78, 27, 0.1);
+    }
+
+    .form-dropzone-icon {
+      width: 3rem;
+      height: 3rem;
+      color: #7a7876;
+      margin-bottom: 1rem;
+    }
+
+    .form-dropzone.drag-over .form-dropzone-icon {
+      color: #cb4e1b;
+    }
+
+    .form-dropzone-text {
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-dropzone-text span {
+      color: #098ecf;
+      text-decoration: underline;
+    }
+
+    .form-dropzone-hint {
+      font-size: 0.75rem;
+      color: #7a7876;
+    }
+
+    /* Disabled state */
+    .form-dropzone-disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .form-dropzone-disabled:hover {
+      border-color: #3f4447;
+      background-color: #1d2022;
+    }
+
+    /* Error state */
+    .form-dropzone-error {
+      border-color: #ef4444;
+    }
+
+    .form-dropzone-error:hover {
+      border-color: #ef4444;
+    }
+
+    /* ----------------------------------------
+       File List
+       ---------------------------------------- */
+    .form-file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .form-file-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+    }
+
+    .form-file-item-icon {
+      width: 2rem;
+      height: 2rem;
+      color: #a8a5a3;
+      flex-shrink: 0;
+    }
+
+    .form-file-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .form-file-item-name {
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .form-file-item-size {
+      font-size: 0.75rem;
+      color: #7a7876;
+    }
+
+    .form-file-item-remove {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      color: #7a7876;
+      background: transparent;
+      border: none;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: color 0.15s, background-color 0.15s;
+    }
+
+    .form-file-item-remove:hover {
+      color: #ef4444;
+      background-color: rgba(239, 68, 68, 0.1);
+    }
+
+    .form-file-item-remove svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    /* Progress state */
+    .form-file-item-uploading {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .form-file-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      background-color: #cb4e1b;
+      transition: width 0.2s ease-in-out;
+    }
+
+    .form-file-item-status {
+      font-size: 0.75rem;
+      color: #cb4e1b;
+    }
+
+    .form-file-item-success .form-file-item-status {
+      color: #10b981;
+    }
+
+    .form-file-item-error .form-file-item-status {
+      color: #ef4444;
+    }
+
+    /* ----------------------------------------
+       Image Preview
+       ---------------------------------------- */
+    .form-file-preview {
+      width: 3rem;
+      height: 3rem;
+      object-fit: cover;
+      border-radius: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    /* Image upload grid */
+    .form-image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .form-image-preview {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 0.375rem;
+      overflow: hidden;
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+    }
+
+    .form-image-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .form-image-preview-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      transition: opacity 0.15s ease-in-out;
+    }
+
+    .form-image-preview:hover .form-image-preview-overlay {
+      opacity: 1;
+    }
+
+    .form-image-preview-remove {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2rem;
+      height: 2rem;
+      color: white;
+      background-color: #ef4444;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.15s ease-in-out;
+    }
+
+    .form-image-preview-remove:hover {
+      transform: scale(1.1);
+    }
+
+    .form-image-preview-remove svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    /* ----------------------------------------
+       Avatar Upload
+       ---------------------------------------- */
+    .form-avatar-upload {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .form-avatar-preview {
+      position: relative;
+      width: 5rem;
+      height: 5rem;
+      border-radius: 50%;
+      overflow: hidden;
+      background-color: #262a2d;
+      border: 2px solid #3f4447;
+    }
+
+    .form-avatar-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .form-avatar-placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      color: #7a7876;
+    }
+
+    .form-avatar-placeholder svg {
+      width: 2.5rem;
+      height: 2.5rem;
+    }
+
+    .form-avatar-edit {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.75rem;
+      height: 1.75rem;
+      color: white;
+      background-color: #cb4e1b;
+      border: 2px solid #1d2022;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .form-avatar-edit svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    .form-avatar-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-avatar-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease-in-out;
+    }
+
+    .form-avatar-btn-primary {
+      color: white;
+      background-color: #cb4e1b;
+      border: none;
+    }
+
+    .form-avatar-btn-primary:hover {
+      background-color: #e5591f;
+    }
+
+    .form-avatar-btn-secondary {
+      color: #d7d3d0;
+      background-color: transparent;
+      border: 1px solid #3f4447;
+    }
+
+    .form-avatar-btn-secondary:hover {
+      background-color: #2f3336;
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="../index.html" class="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium">Back to Components</span>
+          </a>
+        </div>
+        <h1 class="text-lg font-semibold text-text-primary">File Upload</h1>
+        <div class="w-32"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-text-primary">File Upload Component</h2>
+      <p class="mt-2 text-text-secondary">
+        File upload components allow users to upload files from their device.
+        These include simple buttons, dropzones with drag-and-drop support, and specialized image uploaders.
+      </p>
+    </div>
+
+    <!-- Simple File Button -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Simple File Button</h3>
+      <p class="text-sm text-text-secondary mb-6">Basic file upload button with file name display.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="simple-file" class="form-label">Configuration File</label>
+          <div class="flex items-center">
+            <label class="form-file-button">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Choose File
+              <input type="file" id="simple-file" class="form-file-input" onchange="updateFileName(this, 'simple-file-name')" />
+            </label>
+            <span id="simple-file-name" class="form-file-name">No file selected</span>
+          </div>
+          <span class="form-help">Upload a JSON or YAML configuration file.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- File Types -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With File Type Restrictions</h3>
+      <p class="text-sm text-text-secondary mb-6">File upload restricted to specific file types.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <div class="form-group">
+          <label for="image-file" class="form-label">Image File</label>
+          <div class="flex items-center">
+            <label class="form-file-button">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Upload Image
+              <input type="file" id="image-file" class="form-file-input" accept="image/*" onchange="updateFileName(this, 'image-file-name')" />
+            </label>
+            <span id="image-file-name" class="form-file-name">No file selected</span>
+          </div>
+          <span class="form-help">Accepts: JPG, PNG, GIF, WebP</span>
+        </div>
+
+        <div class="form-group">
+          <label for="doc-file" class="form-label">Document File</label>
+          <div class="flex items-center">
+            <label class="form-file-button">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Upload Document
+              <input type="file" id="doc-file" class="form-file-input" accept=".pdf,.doc,.docx,.txt" onchange="updateFileName(this, 'doc-file-name')" />
+            </label>
+            <span id="doc-file-name" class="form-file-name">No file selected</span>
+          </div>
+          <span class="form-help">Accepts: PDF, DOC, DOCX, TXT</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dropzone -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Dropzone</h3>
+      <p class="text-sm text-text-secondary mb-6">Drag and drop area for file uploads.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-label">Upload Files</label>
+          <label
+            class="form-dropzone"
+            id="dropzone-1"
+            ondragover="handleDragOver(event, 'dropzone-1')"
+            ondragleave="handleDragLeave(event, 'dropzone-1')"
+            ondrop="handleDrop(event, 'dropzone-1')"
+          >
+            <input
+              type="file"
+              class="form-file-input"
+              multiple
+              onchange="handleFileSelect(this, 'dropzone-1-list')"
+            />
+            <svg class="form-dropzone-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p class="form-dropzone-text">
+              Drag and drop files here, or <span>browse</span>
+            </p>
+            <p class="form-dropzone-hint">Maximum file size: 10MB</p>
+          </label>
+          <div id="dropzone-1-list" class="form-file-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Dropzone with Error -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Dropzone with Error</h3>
+      <p class="text-sm text-text-secondary mb-6">Dropzone showing validation error state.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-label">
+            Required Attachment
+            <span class="form-required">*</span>
+          </label>
+          <label class="form-dropzone form-dropzone-error" aria-describedby="dropzone-error-msg">
+            <input type="file" class="form-file-input" required />
+            <svg class="form-dropzone-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p class="form-dropzone-text">
+              Drag and drop files here, or <span>browse</span>
+            </p>
+            <p class="form-dropzone-hint">Maximum file size: 10MB</p>
+          </label>
+          <span id="dropzone-error-msg" class="form-error" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Please upload at least one file.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Disabled Dropzone -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Disabled Dropzone</h3>
+      <p class="text-sm text-text-secondary mb-6">Non-interactive dropzone state.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-label">Upload Disabled</label>
+          <div class="form-dropzone form-dropzone-disabled">
+            <svg class="form-dropzone-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <p class="form-dropzone-text">File upload is currently disabled</p>
+            <p class="form-dropzone-hint">Contact an administrator for access</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- File List with Progress -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">File List with Upload Progress</h3>
+      <p class="text-sm text-text-secondary mb-6">Uploaded files showing various states.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-label">Uploaded Files</label>
+          <div class="form-file-list">
+            <!-- Uploading -->
+            <div class="form-file-item form-file-item-uploading">
+              <div class="form-file-progress" style="width: 65%;"></div>
+              <svg class="form-file-item-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div class="form-file-item-info">
+                <div class="form-file-item-name">document.pdf</div>
+                <div class="form-file-item-status">Uploading... 65%</div>
+              </div>
+            </div>
+
+            <!-- Success -->
+            <div class="form-file-item form-file-item-success">
+              <svg class="form-file-item-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <div class="form-file-item-info">
+                <div class="form-file-item-name">banner-image.png</div>
+                <div class="form-file-item-size">2.4 MB</div>
+              </div>
+              <button type="button" class="form-file-item-remove" aria-label="Remove file">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Error -->
+            <div class="form-file-item form-file-item-error">
+              <svg class="form-file-item-icon text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div class="form-file-item-info">
+                <div class="form-file-item-name">large-video.mp4</div>
+                <div class="form-file-item-status">File too large (max 10MB)</div>
+              </div>
+              <button type="button" class="form-file-item-remove" aria-label="Remove file">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Completed -->
+            <div class="form-file-item">
+              <svg class="form-file-item-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <div class="form-file-item-info">
+                <div class="form-file-item-name">config.json</div>
+                <div class="form-file-item-size">12 KB</div>
+              </div>
+              <button type="button" class="form-file-item-remove" aria-label="Remove file">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Image Upload with Preview -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Image Upload with Preview</h3>
+      <p class="text-sm text-text-secondary mb-6">Image dropzone with thumbnail preview grid.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-label">Gallery Images</label>
+          <label
+            class="form-dropzone"
+            id="image-dropzone"
+            ondragover="handleDragOver(event, 'image-dropzone')"
+            ondragleave="handleDragLeave(event, 'image-dropzone')"
+            ondrop="handleImageDrop(event)"
+          >
+            <input
+              type="file"
+              class="form-file-input"
+              accept="image/*"
+              multiple
+              onchange="handleImageSelect(this)"
+            />
+            <svg class="form-dropzone-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <p class="form-dropzone-text">
+              Drag and drop images here, or <span>browse</span>
+            </p>
+            <p class="form-dropzone-hint">JPG, PNG, GIF up to 5MB each</p>
+          </label>
+
+          <!-- Preview grid -->
+          <div id="image-preview-grid" class="form-image-grid">
+            <!-- Sample previews -->
+            <div class="form-image-preview">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%232f3336' width='100' height='100'/%3E%3Ctext fill='%237a7876' font-family='sans-serif' font-size='12' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3EImage%3C/text%3E%3C/svg%3E" alt="Preview" />
+              <div class="form-image-preview-overlay">
+                <button type="button" class="form-image-preview-remove" aria-label="Remove image">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="form-image-preview">
+              <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%232f3336' width='100' height='100'/%3E%3Ctext fill='%237a7876' font-family='sans-serif' font-size='12' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3EImage%3C/text%3E%3C/svg%3E" alt="Preview" />
+              <div class="form-image-preview-overlay">
+                <button type="button" class="form-image-preview-remove" aria-label="Remove image">
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Avatar Upload -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Avatar Upload</h3>
+      <p class="text-sm text-text-secondary mb-6">Circular image upload for profile pictures.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-label">Profile Picture</label>
+          <div class="form-avatar-upload">
+            <div class="form-avatar-preview">
+              <div class="form-avatar-placeholder" id="avatar-placeholder">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <img id="avatar-image" src="" alt="Avatar" style="display: none;" />
+              <label class="form-avatar-edit">
+                <input type="file" class="form-file-input" accept="image/*" onchange="updateAvatar(this)" />
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </label>
+            </div>
+            <div class="form-avatar-actions">
+              <label class="form-avatar-btn form-avatar-btn-primary">
+                Upload new photo
+                <input type="file" class="form-file-input" accept="image/*" onchange="updateAvatar(this)" />
+              </label>
+              <button type="button" class="form-avatar-btn form-avatar-btn-secondary" onclick="removeAvatar()">
+                Remove
+              </button>
+            </div>
+          </div>
+          <span class="form-help">Recommended: Square image, at least 200x200 pixels.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Multiple File Types -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Multiple File Types</h3>
+      <p class="text-sm text-text-secondary mb-6">Allow multiple selections with file type filtering.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-label">Attachments</label>
+          <label
+            class="form-dropzone"
+            id="multi-dropzone"
+            ondragover="handleDragOver(event, 'multi-dropzone')"
+            ondragleave="handleDragLeave(event, 'multi-dropzone')"
+            ondrop="handleDrop(event, 'multi-dropzone')"
+          >
+            <input
+              type="file"
+              class="form-file-input"
+              multiple
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+              onchange="handleFileSelect(this, 'multi-dropzone-list')"
+            />
+            <svg class="form-dropzone-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p class="form-dropzone-text">
+              Drag and drop files here, or <span>browse</span>
+            </p>
+            <p class="form-dropzone-hint">PDF, DOC, DOCX, JPG, PNG, GIF - Max 10MB each</p>
+          </label>
+          <div id="multi-dropzone-list" class="form-file-list"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-text-tertiary text-center">
+        Form Components Library - Discord Bot Admin
+      </p>
+    </div>
+  </footer>
+
+  <!-- JavaScript -->
+  <script>
+    // Update file name display
+    function updateFileName(input, displayId) {
+      const display = document.getElementById(displayId);
+      if (input.files && input.files.length > 0) {
+        if (input.files.length === 1) {
+          display.textContent = input.files[0].name;
+        } else {
+          display.textContent = `${input.files.length} files selected`;
+        }
+      } else {
+        display.textContent = 'No file selected';
+      }
+    }
+
+    // Drag and drop handlers
+    function handleDragOver(event, dropzoneId) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = document.getElementById(dropzoneId);
+      dropzone.classList.add('drag-over');
+    }
+
+    function handleDragLeave(event, dropzoneId) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = document.getElementById(dropzoneId);
+      dropzone.classList.remove('drag-over');
+    }
+
+    function handleDrop(event, dropzoneId) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = document.getElementById(dropzoneId);
+      dropzone.classList.remove('drag-over');
+
+      const files = event.dataTransfer.files;
+      const listId = dropzoneId + '-list';
+      displayFiles(files, listId);
+    }
+
+    // File selection handler
+    function handleFileSelect(input, listId) {
+      displayFiles(input.files, listId);
+    }
+
+    // Display files in list
+    function displayFiles(files, listId) {
+      const list = document.getElementById(listId);
+      if (!list) return;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const size = formatFileSize(file.size);
+        const icon = getFileIcon(file.type);
+
+        const item = document.createElement('div');
+        item.className = 'form-file-item';
+        item.innerHTML = `
+          ${icon}
+          <div class="form-file-item-info">
+            <div class="form-file-item-name">${escapeHtml(file.name)}</div>
+            <div class="form-file-item-size">${size}</div>
+          </div>
+          <button type="button" class="form-file-item-remove" onclick="this.parentElement.remove()" aria-label="Remove file">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        `;
+        list.appendChild(item);
+      }
+    }
+
+    // Format file size
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    // Get file icon based on type
+    function getFileIcon(mimeType) {
+      if (mimeType.startsWith('image/')) {
+        return '<svg class="form-file-item-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
+      }
+      return '<svg class="form-file-item-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>';
+    }
+
+    // Escape HTML
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Image upload handlers
+    function handleImageDrop(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const dropzone = document.getElementById('image-dropzone');
+      dropzone.classList.remove('drag-over');
+
+      const files = event.dataTransfer.files;
+      addImagePreviews(files);
+    }
+
+    function handleImageSelect(input) {
+      addImagePreviews(input.files);
+    }
+
+    function addImagePreviews(files) {
+      const grid = document.getElementById('image-preview-grid');
+      if (!grid) return;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.startsWith('image/')) continue;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const preview = document.createElement('div');
+          preview.className = 'form-image-preview';
+          preview.innerHTML = `
+            <img src="${e.target.result}" alt="Preview" />
+            <div class="form-image-preview-overlay">
+              <button type="button" class="form-image-preview-remove" onclick="this.closest('.form-image-preview').remove()" aria-label="Remove image">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          `;
+          grid.appendChild(preview);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // Avatar handlers
+    function updateAvatar(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const placeholder = document.getElementById('avatar-placeholder');
+          const image = document.getElementById('avatar-image');
+          placeholder.style.display = 'none';
+          image.src = e.target.result;
+          image.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    function removeAvatar() {
+      const placeholder = document.getElementById('avatar-placeholder');
+      const image = document.getElementById('avatar-image');
+      placeholder.style.display = 'flex';
+      image.src = '';
+      image.style.display = 'none';
+    }
+  </script>
+
+</body>
+</html>

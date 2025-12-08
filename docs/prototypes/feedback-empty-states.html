@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Empty State Components - Feedback Prototype</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Button hover transitions */
+    .btn {
+      transition: all 0.15s ease-in-out;
+    }
+
+    /* Smooth transitions for interactive elements */
+    .transition-smooth {
+      transition: all 0.2s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Page Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold text-text-primary">Empty State Components</h1>
+          <p class="mt-1 text-sm text-text-secondary">Feedback Prototype - Discord Bot Admin UI</p>
+        </div>
+        <a href="dashboard.html" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+          Back to Dashboard
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Section 1: Basic Empty States -->
+    <section class="mb-12">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-text-primary">Section 1: Basic Empty States</h2>
+        <p class="mt-1 text-sm text-text-secondary">All variants with icon, title, and description only.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- No Data Empty State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto">
+            <div class="p-4 bg-bg-tertiary rounded-full mb-4">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">No Data Available</h3>
+            <p class="text-sm text-text-secondary">There are no items to display. Data will appear here once it becomes available.</p>
+          </div>
+        </div>
+
+        <!-- No Search Results Empty State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto">
+            <div class="p-4 bg-bg-tertiary rounded-full mb-4">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 9l-6 6m0-6l6 6" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">No Results Found</h3>
+            <p class="text-sm text-text-secondary">We couldn't find any matches for your search. Try adjusting your search terms or filters.</p>
+          </div>
+        </div>
+
+        <!-- First-Time Use Empty State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto">
+            <div class="p-4 bg-bg-tertiary rounded-full mb-4">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">Welcome! Let's Get Started</h3>
+            <p class="text-sm text-text-secondary">This is your first time here. Set up your bot and connect your first server to begin.</p>
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto">
+            <div class="p-4 bg-bg-tertiary rounded-full mb-4">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">Failed to Load Data</h3>
+            <p class="text-sm text-text-secondary">Something went wrong while loading the content. Please check your connection and try again.</p>
+          </div>
+        </div>
+
+        <!-- No Permissions State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto">
+            <div class="p-4 bg-bg-tertiary rounded-full mb-4">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">Access Restricted</h3>
+            <p class="text-sm text-text-secondary">You don't have permission to view this content. Contact an administrator for access.</p>
+          </div>
+        </div>
+
+        <!-- Offline State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto">
+            <div class="p-4 bg-bg-tertiary rounded-full mb-4">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4l16 16" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">You're Offline</h3>
+            <p class="text-sm text-text-secondary">No internet connection detected. Please check your network settings and reconnect.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 2: With Call-to-Action -->
+    <section class="mb-12">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-text-primary">Section 2: With Call-to-Action</h2>
+        <p class="mt-1 text-sm text-text-secondary">Empty states with a primary action button.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- No Data with CTA -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">No Servers Connected</h3>
+              <p class="text-sm text-text-secondary">You haven't connected any Discord servers yet. Add your first server to get started.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Server
+            </button>
+          </div>
+        </div>
+
+        <!-- No Search Results with CTA -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 9l-6 6m0-6l6 6" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">No Results Found</h3>
+              <p class="text-sm text-text-secondary">Your search didn't match any records. Try different keywords or clear filters.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Search
+            </button>
+          </div>
+        </div>
+
+        <!-- First-Time Use with CTA -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">Create Your First Command</h3>
+              <p class="text-sm text-text-secondary">Set up custom commands to enhance your bot's functionality and engage your community.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+              </svg>
+              Start Setup
+            </button>
+          </div>
+        </div>
+
+        <!-- Error State with CTA -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">Something Went Wrong</h3>
+              <p class="text-sm text-text-secondary">We encountered an error while loading your data. Please try refreshing the page.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Try Again
+            </button>
+          </div>
+        </div>
+
+        <!-- No Permissions with CTA -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">Permission Required</h3>
+              <p class="text-sm text-text-secondary">You need additional permissions to access this area. Request access from your administrator.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+              </svg>
+              Request Access
+            </button>
+          </div>
+        </div>
+
+        <!-- Offline State with CTA -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4l16 16" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">No Connection</h3>
+              <p class="text-sm text-text-secondary">You appear to be offline. Check your internet connection and try reconnecting.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Reconnect
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 3: With Secondary Actions -->
+    <section class="mb-12">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-text-primary">Section 3: With Secondary Actions</h2>
+        <p class="mt-1 text-sm text-text-secondary">Empty states with primary button and secondary link.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- No Data with Secondary Action -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">No Commands Created</h3>
+              <p class="text-sm text-text-secondary">Create custom commands to automate tasks and enhance your server's functionality.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center gap-3">
+              <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Create Command
+              </button>
+              <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+                Learn more
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- First-Time Use with Secondary Action -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">Welcome to Bot Admin</h3>
+              <p class="text-sm text-text-secondary">Get started by connecting your Discord bot and configuring your first server.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center gap-3">
+              <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                </svg>
+                Start Setup Wizard
+              </button>
+              <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+                Skip for now
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error State with Secondary Action -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">Unable to Load Logs</h3>
+              <p class="text-sm text-text-secondary">There was a problem fetching your activity logs. This might be a temporary issue.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center gap-3">
+              <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Retry
+              </button>
+              <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+                Report issue
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- No Permissions with Secondary Action -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+          <div class="flex flex-col items-center text-center max-w-[400px] mx-auto space-y-4">
+            <div class="p-4 bg-bg-tertiary rounded-full">
+              <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-text-primary mb-2">Admin Access Required</h3>
+              <p class="text-sm text-text-secondary">This section is restricted to administrators. Contact your team lead for elevated permissions.</p>
+            </div>
+            <div class="flex flex-col sm:flex-row items-center gap-3">
+              <button class="btn inline-flex items-center gap-2 px-5 py-2.5 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                </svg>
+                Request Access
+              </button>
+              <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+                Go back
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 4: Compact Variants -->
+    <section class="mb-12">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-text-primary">Section 4: Compact Variants</h2>
+        <p class="mt-1 text-sm text-text-secondary">Smaller empty states with reduced icon size and tighter spacing.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Compact No Data -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex flex-col items-center text-center max-w-[320px] mx-auto space-y-3">
+            <div class="p-3 bg-bg-tertiary rounded-full">
+              <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-base font-semibold text-text-primary mb-1">No Data</h3>
+              <p class="text-xs text-text-secondary">Nothing to display yet.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-1.5 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-xs rounded-md">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Item
+            </button>
+          </div>
+        </div>
+
+        <!-- Compact No Results -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex flex-col items-center text-center max-w-[320px] mx-auto space-y-3">
+            <div class="p-3 bg-bg-tertiary rounded-full">
+              <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 9l-6 6m0-6l6 6" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-base font-semibold text-text-primary mb-1">No Results</h3>
+              <p class="text-xs text-text-secondary">Try different search terms.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-1.5 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-xs rounded-md">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Compact Error -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex flex-col items-center text-center max-w-[320px] mx-auto space-y-3">
+            <div class="p-3 bg-bg-tertiary rounded-full">
+              <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-base font-semibold text-text-primary mb-1">Load Error</h3>
+              <p class="text-xs text-text-secondary">Something went wrong.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-1.5 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-xs rounded-md">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Retry
+            </button>
+          </div>
+        </div>
+
+        <!-- Compact Offline -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex flex-col items-center text-center max-w-[320px] mx-auto space-y-3">
+            <div class="p-3 bg-bg-tertiary rounded-full">
+              <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4l16 16" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-base font-semibold text-text-primary mb-1">Offline</h3>
+              <p class="text-xs text-text-secondary">Check your connection.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compact Locked -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex flex-col items-center text-center max-w-[320px] mx-auto space-y-3">
+            <div class="p-3 bg-bg-tertiary rounded-full">
+              <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-base font-semibold text-text-primary mb-1">Locked</h3>
+              <p class="text-xs text-text-secondary">Access restricted.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compact First-Time -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <div class="flex flex-col items-center text-center max-w-[320px] mx-auto space-y-3">
+            <div class="p-3 bg-bg-tertiary rounded-full">
+              <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-base font-semibold text-text-primary mb-1">Get Started</h3>
+              <p class="text-xs text-text-secondary">Begin your setup.</p>
+            </div>
+            <button class="btn inline-flex items-center gap-1.5 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-xs rounded-md">
+              Start
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 5: In Context (Inside Cards/Tables) -->
+    <section class="mb-12">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-text-primary">Section 5: In Context</h2>
+        <p class="mt-1 text-sm text-text-secondary">Empty states as they would appear inside cards and tables.</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Empty Table -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h3 class="text-base font-semibold text-text-primary">Activity Logs</h3>
+            <button class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">Export</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-bg-primary/50">
+                <tr>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Event</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="3" class="px-5 py-12">
+                    <div class="flex flex-col items-center text-center">
+                      <div class="p-3 bg-bg-tertiary rounded-full mb-3">
+                        <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                      </div>
+                      <h4 class="text-base font-semibold text-text-primary mb-1">No Logs Yet</h4>
+                      <p class="text-sm text-text-secondary max-w-xs">Activity logs will appear here once your bot starts processing commands.</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Empty Card with List -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h3 class="text-base font-semibold text-text-primary">Recent Commands</h3>
+            <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="Refresh">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+          <div class="p-8">
+            <div class="flex flex-col items-center text-center">
+              <div class="p-3 bg-bg-tertiary rounded-full mb-3">
+                <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h4 class="text-base font-semibold text-text-primary mb-1">No Commands Used</h4>
+              <p class="text-sm text-text-secondary max-w-xs mb-4">Commands executed by users will show up in this list.</p>
+              <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">View command documentation</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty Search Results in Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h3 class="text-base font-semibold text-text-primary">Search Results</h3>
+            <span class="text-xs text-text-tertiary">Searching for "xyz123"</span>
+          </div>
+          <div class="p-8">
+            <div class="flex flex-col items-center text-center">
+              <div class="p-3 bg-bg-tertiary rounded-full mb-3">
+                <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 9l-6 6m0-6l6 6" />
+                </svg>
+              </div>
+              <h4 class="text-base font-semibold text-text-primary mb-1">No Matches Found</h4>
+              <p class="text-sm text-text-secondary max-w-xs mb-4">We couldn't find anything matching "xyz123". Check for typos or try a different search.</p>
+              <button class="btn inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+                Clear Search
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty Members List -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h3 class="text-base font-semibold text-text-primary">Server Members</h3>
+            <button class="btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-text-primary bg-transparent border border-border-primary hover:bg-bg-hover rounded-md transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Invite
+            </button>
+          </div>
+          <div class="p-8">
+            <div class="flex flex-col items-center text-center">
+              <div class="p-3 bg-bg-tertiary rounded-full mb-3">
+                <svg class="w-10 h-10 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                </svg>
+              </div>
+              <h4 class="text-base font-semibold text-text-primary mb-1">No Members Found</h4>
+              <p class="text-sm text-text-secondary max-w-xs mb-4">This server doesn't have any members yet. Invite users to get started.</p>
+              <button class="btn inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold text-sm rounded-md">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Invite Members
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Section 6: Interactive Playground -->
+    <section class="mb-12">
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-text-primary">Section 6: Interactive Playground</h2>
+        <p class="mt-1 text-sm text-text-secondary">Customize and preview different empty state configurations.</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Controls Panel -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+          <h3 class="text-base font-semibold text-text-primary mb-4">Configuration</h3>
+
+          <!-- State Type Selector -->
+          <div class="mb-5">
+            <label class="block text-sm font-medium text-text-primary mb-2">Empty State Type</label>
+            <select id="stateType" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus" onchange="updatePlayground()">
+              <option value="no-data">No Data</option>
+              <option value="no-results">No Search Results</option>
+              <option value="first-time">First-Time Use</option>
+              <option value="error">Error State</option>
+              <option value="no-permission">No Permissions</option>
+              <option value="offline">Offline</option>
+            </select>
+          </div>
+
+          <!-- CTA Toggle -->
+          <div class="mb-5">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="showCta" class="w-4 h-4 text-accent-orange bg-bg-primary border-border-primary rounded focus:ring-accent-orange" checked onchange="updatePlayground()" />
+              <span class="text-sm text-text-primary">Show CTA Button</span>
+            </label>
+          </div>
+
+          <!-- Secondary Link Toggle -->
+          <div class="mb-5">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="showSecondary" class="w-4 h-4 text-accent-orange bg-bg-primary border-border-primary rounded focus:ring-accent-orange" onchange="updatePlayground()" />
+              <span class="text-sm text-text-primary">Show Secondary Link</span>
+            </label>
+          </div>
+
+          <!-- Compact Mode Toggle -->
+          <div class="mb-5">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="compactMode" class="w-4 h-4 text-accent-orange bg-bg-primary border-border-primary rounded focus:ring-accent-orange" onchange="updatePlayground()" />
+              <span class="text-sm text-text-primary">Compact Mode</span>
+            </label>
+          </div>
+
+          <!-- In Card Toggle -->
+          <div class="mb-5">
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="inCard" class="w-4 h-4 text-accent-orange bg-bg-primary border-border-primary rounded focus:ring-accent-orange" checked onchange="updatePlayground()" />
+              <span class="text-sm text-text-primary">Show in Card Container</span>
+            </label>
+          </div>
+
+        </div>
+
+        <!-- Preview Panel -->
+        <div class="lg:col-span-2">
+          <div id="previewContainer" class="bg-bg-secondary border border-border-primary rounded-lg p-8 min-h-[400px] flex items-center justify-center">
+            <!-- Dynamic Preview Content -->
+            <div id="playgroundPreview" class="w-full max-w-md">
+              <!-- Content will be injected by JavaScript -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-text-tertiary text-center">
+        Empty State Components Prototype - Discord Bot Admin UI Design System
+      </p>
+    </div>
+  </footer>
+
+  <!-- JavaScript for Interactive Playground -->
+  <script>
+    // Empty state configurations
+    const stateConfigs = {
+      'no-data': {
+        icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />`,
+        title: 'No Data Available',
+        description: 'There are no items to display. Data will appear here once it becomes available.',
+        ctaText: 'Add Item',
+        ctaIcon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />`,
+        secondaryText: 'Learn more'
+      },
+      'no-results': {
+        icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 9l-6 6m0-6l6 6" />`,
+        title: 'No Results Found',
+        description: 'We couldn\'t find any matches for your search. Try adjusting your search terms.',
+        ctaText: 'Clear Search',
+        ctaIcon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />`,
+        secondaryText: 'Search tips'
+      },
+      'first-time': {
+        icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />`,
+        title: 'Welcome! Let\'s Get Started',
+        description: 'This is your first time here. Set up your bot and connect your first server.',
+        ctaText: 'Start Setup',
+        ctaIcon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58" />`,
+        secondaryText: 'Skip for now'
+      },
+      'error': {
+        icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />`,
+        title: 'Failed to Load Data',
+        description: 'Something went wrong while loading the content. Please try again.',
+        ctaText: 'Try Again',
+        ctaIcon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />`,
+        secondaryText: 'Report issue'
+      },
+      'no-permission': {
+        icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />`,
+        title: 'Access Restricted',
+        description: 'You don\'t have permission to view this content. Contact an administrator.',
+        ctaText: 'Request Access',
+        ctaIcon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />`,
+        secondaryText: 'Go back'
+      },
+      'offline': {
+        icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4l16 16" />`,
+        title: 'You\'re Offline',
+        description: 'No internet connection detected. Check your network and reconnect.',
+        ctaText: 'Reconnect',
+        ctaIcon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />`,
+        secondaryText: 'Work offline'
+      }
+    };
+
+    function updatePlayground() {
+      const stateType = document.getElementById('stateType').value;
+      const showCta = document.getElementById('showCta').checked;
+      const showSecondary = document.getElementById('showSecondary').checked;
+      const compactMode = document.getElementById('compactMode').checked;
+      const inCard = document.getElementById('inCard').checked;
+
+      const config = stateConfigs[stateType];
+      const preview = document.getElementById('playgroundPreview');
+      const container = document.getElementById('previewContainer');
+
+      // Update container styling
+      if (inCard) {
+        container.className = 'bg-bg-secondary border border-border-primary rounded-lg p-8 min-h-[400px] flex items-center justify-center';
+      } else {
+        container.className = 'bg-bg-primary min-h-[400px] flex items-center justify-center';
+      }
+
+      // Build the empty state HTML
+      const iconSize = compactMode ? 'w-10 h-10' : 'w-16 h-16';
+      const iconPadding = compactMode ? 'p-3' : 'p-4';
+      const titleSize = compactMode ? 'text-base' : 'text-lg';
+      const descSize = compactMode ? 'text-xs' : 'text-sm';
+      const spacing = compactMode ? 'space-y-3' : 'space-y-4';
+      const maxWidth = compactMode ? 'max-w-[320px]' : 'max-w-[400px]';
+      const btnPadding = compactMode ? 'px-4 py-2' : 'px-5 py-2.5';
+      const btnText = compactMode ? 'text-xs' : 'text-sm';
+      const btnIconSize = compactMode ? 'w-3.5 h-3.5' : 'w-4 h-4';
+
+      let html = `
+        <div class="flex flex-col items-center text-center ${maxWidth} mx-auto ${spacing}">
+          <div class="${iconPadding} bg-bg-tertiary rounded-full">
+            <svg class="${iconSize} text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              ${config.icon}
+            </svg>
+          </div>
+          <div>
+            <h3 class="${titleSize} font-semibold text-text-primary mb-${compactMode ? '1' : '2'}">${config.title}</h3>
+            <p class="${descSize} text-text-secondary">${config.description}</p>
+          </div>
+      `;
+
+      if (showCta || showSecondary) {
+        html += `<div class="flex flex-col sm:flex-row items-center gap-3">`;
+
+        if (showCta) {
+          html += `
+            <button class="btn inline-flex items-center gap-${compactMode ? '1.5' : '2'} ${btnPadding} bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active text-white font-semibold ${btnText} rounded-md">
+              <svg class="${btnIconSize}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                ${config.ctaIcon}
+              </svg>
+              ${config.ctaText}
+            </button>
+          `;
+        }
+
+        if (showSecondary) {
+          html += `
+            <a href="#" class="${btnText} text-accent-blue hover:text-accent-blue-hover transition-colors">
+              ${config.secondaryText}
+            </a>
+          `;
+        }
+
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+
+      preview.innerHTML = html;
+    }
+
+    // Initialize playground on page load
+    document.addEventListener('DOMContentLoaded', updatePlayground);
+  </script>
+
+</body>
+</html>

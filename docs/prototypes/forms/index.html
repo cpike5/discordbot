@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form Components Library - Discord Bot Admin</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config (Design System) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* ========================================
+       INDEX PAGE STYLES
+       ======================================== */
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Component Card */
+    .component-card {
+      display: flex;
+      flex-direction: column;
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      transition: border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+    }
+
+    .component-card:hover {
+      border-color: #098ecf;
+      transform: translateY(-2px);
+    }
+
+    .component-card-preview {
+      padding: 1.5rem;
+      background-color: #1d2022;
+      border-bottom: 1px solid #3f4447;
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .component-card-content {
+      padding: 1rem 1.25rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .component-card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #d7d3d0;
+      margin-bottom: 0.375rem;
+    }
+
+    .component-card-description {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+      line-height: 1.5;
+      flex: 1;
+    }
+
+    .component-card-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      margin-top: 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #098ecf;
+      text-decoration: none;
+    }
+
+    .component-card-link:hover {
+      color: #0ba3ea;
+      text-decoration: underline;
+    }
+
+    .component-card-link svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    /* Preview component styles (simplified versions) */
+    .preview-input {
+      width: 100%;
+      max-width: 200px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      color: #7a7876;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.25rem;
+    }
+
+    .preview-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .preview-checkbox-box {
+      width: 1rem;
+      height: 1rem;
+      background-color: #cb4e1b;
+      border-radius: 0.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-checkbox-box svg {
+      width: 0.625rem;
+      height: 0.625rem;
+      color: white;
+    }
+
+    .preview-radio {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .preview-radio-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .preview-radio-circle {
+      width: 1rem;
+      height: 1rem;
+      border: 1px solid #3f4447;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-radio-circle.selected {
+      border-color: #cb4e1b;
+      background-color: #cb4e1b;
+    }
+
+    .preview-radio-circle.selected::after {
+      content: '';
+      width: 0.375rem;
+      height: 0.375rem;
+      background-color: white;
+      border-radius: 50%;
+    }
+
+    .preview-toggle {
+      width: 2.5rem;
+      height: 1.25rem;
+      background-color: #cb4e1b;
+      border-radius: 9999px;
+      position: relative;
+    }
+
+    .preview-toggle::after {
+      content: '';
+      position: absolute;
+      top: 0.125rem;
+      right: 0.125rem;
+      width: 1rem;
+      height: 1rem;
+      background-color: white;
+      border-radius: 50%;
+    }
+
+    .preview-select {
+      width: 100%;
+      max-width: 180px;
+      padding: 0.5rem 2rem 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.25em 1.25em;
+      border: 1px solid #3f4447;
+      border-radius: 0.25rem;
+      appearance: none;
+    }
+
+    .preview-number {
+      display: flex;
+      align-items: center;
+    }
+
+    .preview-number-btn {
+      width: 1.75rem;
+      height: 1.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #2f3336;
+      border: 1px solid #3f4447;
+      color: #d7d3d0;
+    }
+
+    .preview-number-btn:first-child {
+      border-radius: 0.25rem 0 0 0.25rem;
+      border-right: none;
+    }
+
+    .preview-number-btn:last-child {
+      border-radius: 0 0.25rem 0.25rem 0;
+      border-left: none;
+    }
+
+    .preview-number-input {
+      width: 3rem;
+      padding: 0.375rem;
+      font-size: 0.75rem;
+      text-align: center;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+    }
+
+    .preview-datetime {
+      width: 100%;
+      max-width: 180px;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.25rem;
+    }
+
+    .preview-file {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+      border: 2px dashed #3f4447;
+      border-radius: 0.375rem;
+    }
+
+    .preview-file svg {
+      width: 1.5rem;
+      height: 1.5rem;
+      color: #7a7876;
+      margin-bottom: 0.5rem;
+    }
+
+    .preview-file-text {
+      font-size: 0.625rem;
+      color: #7a7876;
+    }
+
+    .preview-validation {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 180px;
+    }
+
+    .preview-validation-input {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #ef4444;
+      border-radius: 0.25rem;
+    }
+
+    .preview-validation-msg {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.625rem;
+      color: #ef4444;
+    }
+
+    .preview-validation-msg svg {
+      width: 0.75rem;
+      height: 0.75rem;
+    }
+
+    .preview-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      width: 100%;
+      max-width: 180px;
+    }
+
+    .preview-label {
+      font-size: 0.625rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .preview-help {
+      font-size: 0.5rem;
+      color: #a8a5a3;
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="../dashboard.html" class="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium">Back to Prototypes</span>
+          </a>
+        </div>
+        <h1 class="text-lg font-semibold text-text-primary">Form Components Library</h1>
+        <div class="w-32"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-text-primary">Form Components</h2>
+      <p class="mt-2 text-text-secondary max-w-3xl">
+        A comprehensive library of form components for the Discord Bot Admin application.
+        Each component follows the design system guidelines and includes multiple variants,
+        states, and accessibility features.
+      </p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-accent-orange">10</div>
+        <div class="text-xs text-text-tertiary">Components</div>
+      </div>
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-accent-blue">50+</div>
+        <div class="text-xs text-text-tertiary">Variants</div>
+      </div>
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-success">WCAG</div>
+        <div class="text-xs text-text-tertiary">Accessible</div>
+      </div>
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 text-center">
+        <div class="text-2xl font-bold text-text-primary">Dark</div>
+        <div class="text-xs text-text-tertiary">Theme</div>
+      </div>
+    </div>
+
+    <!-- Component Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+
+      <!-- 01. Text Input -->
+      <a href="components/01-text-input.html" class="component-card">
+        <div class="component-card-preview">
+          <input type="text" class="preview-input" placeholder="Enter text..." readonly />
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Text Input</h3>
+          <p class="component-card-description">
+            Text inputs, textareas, password fields, search inputs with icons, and character counters.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 02. Validation States -->
+      <a href="components/02-validation-states.html" class="component-card">
+        <div class="component-card-preview">
+          <div class="preview-validation">
+            <input type="text" class="preview-validation-input" value="Invalid" readonly />
+            <span class="preview-validation-msg">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Error message
+            </span>
+          </div>
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Validation States</h3>
+          <p class="component-card-description">
+            Error, success, warning, and info validation states with accessible messaging.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 03. Select Dropdown -->
+      <a href="components/03-select-dropdown.html" class="component-card">
+        <div class="component-card-preview">
+          <select class="preview-select" disabled>
+            <option>Select option...</option>
+          </select>
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Select Dropdown</h3>
+          <p class="component-card-description">
+            Native selects, custom dropdowns, searchable, multi-select, and grouped options.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 04. Checkbox -->
+      <a href="components/04-checkbox.html" class="component-card">
+        <div class="component-card-preview">
+          <div class="preview-checkbox">
+            <div class="preview-checkbox-box">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <span class="text-xs text-text-primary">Checkbox label</span>
+          </div>
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Checkbox</h3>
+          <p class="component-card-description">
+            Single checkboxes, groups, indeterminate state, and select-all patterns.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 05. Radio Button -->
+      <a href="components/05-radio-button.html" class="component-card">
+        <div class="component-card-preview">
+          <div class="preview-radio">
+            <div class="preview-radio-item">
+              <div class="preview-radio-circle selected"></div>
+              <span class="text-xs text-text-primary">Option A</span>
+            </div>
+            <div class="preview-radio-item">
+              <div class="preview-radio-circle"></div>
+              <span class="text-xs text-text-primary">Option B</span>
+            </div>
+          </div>
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Radio Button</h3>
+          <p class="component-card-description">
+            Radio buttons, groups, card-style selection, and horizontal/vertical layouts.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 06. Toggle Switch -->
+      <a href="components/06-toggle-switch.html" class="component-card">
+        <div class="component-card-preview">
+          <div class="flex items-center gap-2">
+            <div class="preview-toggle"></div>
+            <span class="text-xs text-text-primary">Enabled</span>
+          </div>
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Toggle Switch</h3>
+          <p class="component-card-description">
+            On/off toggles with labels, icons, settings list patterns, and size variants.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 07. Form Group -->
+      <a href="components/07-form-group.html" class="component-card">
+        <div class="component-card-preview">
+          <div class="preview-form-group">
+            <span class="preview-label">Label <span class="text-error">*</span></span>
+            <input type="text" class="preview-input" style="max-width: none;" placeholder="Input..." readonly />
+            <span class="preview-help">Helper text goes here</span>
+          </div>
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Form Group</h3>
+          <p class="component-card-description">
+            Container patterns with labels, help text, error messages, and layout options.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 08. Date & Time -->
+      <a href="components/08-date-time.html" class="component-card">
+        <div class="component-card-preview">
+          <input type="date" class="preview-datetime" value="2024-12-25" readonly />
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Date &amp; Time</h3>
+          <p class="component-card-description">
+            Date pickers, time inputs, datetime, date ranges, duration, and timezone selection.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 09. Number Input -->
+      <a href="components/09-number-input.html" class="component-card">
+        <div class="component-card-preview">
+          <div class="preview-number">
+            <button type="button" class="preview-number-btn">-</button>
+            <input type="text" class="preview-number-input" value="10" readonly />
+            <button type="button" class="preview-number-btn">+</button>
+          </div>
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">Number Input</h3>
+          <p class="component-card-description">
+            Number inputs with steppers, prefix/suffix, min/max constraints, and range sliders.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- 10. File Upload -->
+      <a href="components/10-file-upload.html" class="component-card">
+        <div class="component-card-preview">
+          <div class="preview-file">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <span class="preview-file-text">Drop files here</span>
+          </div>
+        </div>
+        <div class="component-card-content">
+          <h3 class="component-card-title">File Upload</h3>
+          <p class="component-card-description">
+            File buttons, dropzones with drag-and-drop, image previews, and avatar uploaders.
+          </p>
+          <span class="component-card-link">
+            View Component
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </div>
+      </a>
+
+    </div>
+
+    <!-- Usage Guidelines -->
+    <section class="mt-12 bg-bg-secondary border border-border-primary rounded-lg p-6">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Usage Guidelines</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h4 class="text-sm font-medium text-text-primary mb-2">Design Tokens</h4>
+          <ul class="text-sm text-text-secondary space-y-1">
+            <li><span class="text-accent-blue">Border Default:</span> #3f4447</li>
+            <li><span class="text-accent-blue">Border Focus:</span> #098ecf</li>
+            <li><span class="text-accent-blue">Border Error:</span> #ef4444</li>
+            <li><span class="text-accent-blue">Border Success:</span> #10b981</li>
+            <li><span class="text-accent-blue">Background:</span> #1d2022</li>
+            <li><span class="text-accent-blue">Primary Accent:</span> #cb4e1b</li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="text-sm font-medium text-text-primary mb-2">Accessibility</h4>
+          <ul class="text-sm text-text-secondary space-y-1">
+            <li>All form controls have associated labels</li>
+            <li>Error states include icons (not color alone)</li>
+            <li>Focus indicators are clearly visible</li>
+            <li>Keyboard navigation supported</li>
+            <li>ARIA attributes for screen readers</li>
+            <li>Meets WCAG 2.1 AA standards</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary mt-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex flex-col md:flex-row justify-between items-center gap-2">
+        <p class="text-sm text-text-tertiary">
+          Form Components Library - Discord Bot Admin
+        </p>
+        <p class="text-sm text-text-tertiary">
+          GitHub Issue #37
+        </p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

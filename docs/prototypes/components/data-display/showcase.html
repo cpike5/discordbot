@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Display Showcase - Admin Dashboard</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #1d2022; }
+    ::-webkit-scrollbar-thumb { background: #3f4447; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4a4f52; }
+    *:focus-visible { outline: 2px solid #098ecf; outline-offset: 2px; }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #262a2d 0%, #363a3e 50%, #262a2d 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .status-pulse { animation: pulse 2s infinite; }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Dashboard Header -->
+  <header class="bg-bg-secondary border-b border-border-primary px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-text-primary">Discord Bot Dashboard</h1>
+        <p class="text-sm text-text-secondary">Data Display Components Showcase</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+          <span class="w-1.5 h-1.5 bg-success rounded-full status-pulse"></span>
+          System Online
+        </span>
+        <div class="relative">
+          <img src="https://i.pravatar.cc/150?img=3" alt="Admin" class="w-9 h-9 rounded-full object-cover border-2 border-border-primary" />
+          <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success border-2 border-bg-secondary rounded-full"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-6 space-y-6">
+
+    <!-- Stat Cards Row -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- Total Servers -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-text-secondary">Total Servers</span>
+          <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+          </svg>
+        </div>
+        <div class="text-3xl font-bold text-text-primary">12</div>
+        <div class="flex items-center gap-1 mt-1 text-xs text-success">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+          +8% from last month
+        </div>
+      </div>
+
+      <!-- Total Members -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-text-secondary">Total Members</span>
+          <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <div class="text-3xl font-bold text-text-primary">5,432</div>
+        <div class="flex items-center gap-1 mt-1 text-xs text-success">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+          </svg>
+          +12% from last month
+        </div>
+      </div>
+
+      <!-- Active Commands -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-text-secondary">Active Commands</span>
+          <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div class="text-3xl font-bold text-text-primary">156</div>
+        <div class="flex items-center gap-1 mt-1 text-xs text-text-tertiary">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+          </svg>
+          No change
+        </div>
+      </div>
+
+      <!-- Uptime - Loading Skeleton Demo -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-5" id="uptimeCard">
+        <div class="flex items-center justify-between mb-2">
+          <div class="h-4 skeleton rounded w-16"></div>
+          <div class="w-5 h-5 skeleton rounded"></div>
+        </div>
+        <div class="h-9 skeleton rounded w-20 mb-2"></div>
+        <div class="h-3 skeleton rounded w-28"></div>
+      </div>
+    </section>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Server List Table (2 columns wide) -->
+      <section class="lg:col-span-2 bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-border-primary flex items-center justify-between">
+          <h2 class="text-base font-semibold text-text-primary">Server List</h2>
+          <button class="px-3 py-1.5 text-xs font-medium bg-accent-orange hover:bg-accent-orange-hover text-white rounded transition-colors">
+            Add Server
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-bg-tertiary text-left">
+              <tr>
+                <th class="px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Server</th>
+                <th class="px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Members</th>
+                <th class="px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                <th class="px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Region</th>
+                <th class="px-5 py-3 text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-secondary">
+              <tr class="hover:bg-bg-hover transition-colors">
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">GS</div>
+                    <div>
+                      <div class="font-medium text-text-primary">Gaming Squad</div>
+                      <div class="text-xs text-text-tertiary">ID: 8734921</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">1,245</td>
+                <td class="px-5 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+                    Online
+                  </span>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">US East</td>
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-2">
+                    <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded transition-colors" title="Edit">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button class="p-1.5 text-text-secondary hover:text-error hover:bg-error/10 rounded transition-colors" title="Delete">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr class="hover:bg-bg-hover transition-colors">
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-3">
+                    <img src="https://i.pravatar.cc/150?img=10" alt="Server" class="w-10 h-10 rounded-full object-cover" />
+                    <div>
+                      <div class="font-medium text-text-primary">Dev Community</div>
+                      <div class="text-xs text-text-tertiary">ID: 2938475</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">892</td>
+                <td class="px-5 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+                    Online
+                  </span>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">EU West</td>
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-2">
+                    <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded transition-colors" title="Edit">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button class="p-1.5 text-text-secondary hover:text-error hover:bg-error/10 rounded transition-colors" title="Delete">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr class="hover:bg-bg-hover transition-colors">
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-accent-orange flex items-center justify-center text-white font-semibold text-sm">MC</div>
+                    <div>
+                      <div class="font-medium text-text-primary">Music Club</div>
+                      <div class="text-xs text-text-tertiary">ID: 5829103</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">2,108</td>
+                <td class="px-5 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-text-tertiary bg-border-primary/50 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>
+                    Offline
+                  </span>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">Asia</td>
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-2">
+                    <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded transition-colors" title="Edit">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button class="p-1.5 text-text-secondary hover:text-error hover:bg-error/10 rounded transition-colors" title="Delete">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr class="hover:bg-bg-hover transition-colors">
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-3">
+                    <img src="https://i.pravatar.cc/150?img=15" alt="Server" class="w-10 h-10 rounded-full object-cover" />
+                    <div>
+                      <div class="font-medium text-text-primary">Art Studio</div>
+                      <div class="text-xs text-text-tertiary">ID: 1029384</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">567</td>
+                <td class="px-5 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+                    Online
+                  </span>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">US West</td>
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-2">
+                    <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded transition-colors" title="Edit">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button class="p-1.5 text-text-secondary hover:text-error hover:bg-error/10 rounded transition-colors" title="Delete">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr class="hover:bg-bg-hover transition-colors">
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-success flex items-center justify-center text-white font-semibold text-sm">TH</div>
+                    <div>
+                      <div class="font-medium text-text-primary">Tech Hub</div>
+                      <div class="text-xs text-text-tertiary">ID: 6758392</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">620</td>
+                <td class="px-5 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+                    Online
+                  </span>
+                </td>
+                <td class="px-5 py-4 text-sm text-text-secondary">EU Central</td>
+                <td class="px-5 py-4">
+                  <div class="flex items-center gap-2">
+                    <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded transition-colors" title="Edit">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    </button>
+                    <button class="p-1.5 text-text-secondary hover:text-error hover:bg-error/10 rounded transition-colors" title="Delete">
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-5 py-3 border-t border-border-primary flex items-center justify-between">
+          <span class="text-sm text-text-secondary">Showing 1-5 of 12 servers</span>
+          <div class="flex items-center gap-1">
+            <button class="px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-hover rounded transition-colors disabled:opacity-50" disabled>Previous</button>
+            <button class="px-3 py-1.5 text-sm bg-accent-orange text-white rounded">1</button>
+            <button class="px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-hover rounded transition-colors">2</button>
+            <button class="px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-hover rounded transition-colors">3</button>
+            <button class="px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-hover rounded transition-colors">Next</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Activity Log Sidebar -->
+      <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-border-primary">
+          <h2 class="text-base font-semibold text-text-primary">Recent Activity</h2>
+        </div>
+
+        <ul class="divide-y divide-border-secondary">
+          <li class="px-5 py-4 hover:bg-bg-hover transition-colors">
+            <div class="flex items-start gap-3">
+              <div class="relative flex-shrink-0">
+                <img src="https://i.pravatar.cc/150?img=5" alt="User" class="w-9 h-9 rounded-full object-cover" />
+                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success border-2 border-bg-secondary rounded-full"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-medium text-sm text-text-primary">Alex Chen</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-success text-white">Created</span>
+                </div>
+                <p class="text-sm text-text-secondary truncate">Added new server "Tech Hub"</p>
+                <span class="text-xs text-text-tertiary">2 minutes ago</span>
+              </div>
+            </div>
+          </li>
+          <li class="px-5 py-4 hover:bg-bg-hover transition-colors">
+            <div class="flex items-start gap-3">
+              <div class="relative flex-shrink-0">
+                <div class="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-xs">MJ</div>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-medium text-sm text-text-primary">Maria Johnson</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-accent-blue text-white">Updated</span>
+                </div>
+                <p class="text-sm text-text-secondary truncate">Modified permissions for "Gaming Squad"</p>
+                <span class="text-xs text-text-tertiary">15 minutes ago</span>
+              </div>
+            </div>
+          </li>
+          <li class="px-5 py-4 hover:bg-bg-hover transition-colors">
+            <div class="flex items-start gap-3">
+              <div class="relative flex-shrink-0">
+                <img src="https://i.pravatar.cc/150?img=8" alt="User" class="w-9 h-9 rounded-full object-cover" />
+                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-warning border-2 border-bg-secondary rounded-full"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-medium text-sm text-text-primary">Sam Wilson</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-error text-white">Deleted</span>
+                </div>
+                <p class="text-sm text-text-secondary truncate">Removed command "!oldhelp"</p>
+                <span class="text-xs text-text-tertiary">1 hour ago</span>
+              </div>
+            </div>
+          </li>
+          <li class="px-5 py-4 hover:bg-bg-hover transition-colors">
+            <div class="flex items-start gap-3">
+              <div class="relative flex-shrink-0">
+                <div class="w-9 h-9 rounded-full bg-accent-orange flex items-center justify-center text-white font-semibold text-xs">KL</div>
+                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-text-tertiary border-2 border-bg-secondary rounded-full"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-medium text-sm text-text-primary">Kim Lee</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-accent-blue text-white">Updated</span>
+                </div>
+                <p class="text-sm text-text-secondary truncate">Changed bot nickname in "Dev Community"</p>
+                <span class="text-xs text-text-tertiary">3 hours ago</span>
+              </div>
+            </div>
+          </li>
+          <li class="px-5 py-4 hover:bg-bg-hover transition-colors">
+            <div class="flex items-start gap-3">
+              <div class="relative flex-shrink-0">
+                <img src="https://i.pravatar.cc/150?img=12" alt="User" class="w-9 h-9 rounded-full object-cover" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="font-medium text-sm text-text-primary">Jordan Blake</span>
+                  <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-success text-white">Created</span>
+                </div>
+                <p class="text-sm text-text-secondary truncate">Added 5 new slash commands</p>
+                <span class="text-xs text-text-tertiary">Yesterday</span>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    // Simulate loading the uptime card after 2 seconds
+    setTimeout(() => {
+      const uptimeCard = document.getElementById('uptimeCard');
+      uptimeCard.innerHTML = `
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-medium text-text-secondary">Uptime</span>
+          <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div class="text-3xl font-bold text-text-primary">99.9%</div>
+        <div class="flex items-center gap-1 mt-1 text-xs text-success">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          Excellent performance
+        </div>
+      `;
+    }, 2000);
+  </script>
+</body>
+</html>

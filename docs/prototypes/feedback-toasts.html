@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Bot Admin - Toast Notifications</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Toast Container Positions */
+    .toast-container {
+      position: fixed;
+      z-index: 1100;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      max-height: calc(100vh - 32px);
+      overflow: hidden;
+    }
+
+    .toast-container.top-right {
+      top: 16px;
+      right: 16px;
+    }
+
+    .toast-container.top-left {
+      top: 16px;
+      left: 16px;
+    }
+
+    .toast-container.top-center {
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .toast-container.bottom-right {
+      bottom: 16px;
+      right: 16px;
+    }
+
+    .toast-container.bottom-left {
+      bottom: 16px;
+      left: 16px;
+    }
+
+    .toast-container.bottom-center {
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Toast Base Styles */
+    .toast {
+      pointer-events: auto;
+      min-width: 300px;
+      max-width: 420px;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      border: 1px solid;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+
+    /* Toast Slide-in Animations */
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideInLeft {
+      from {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideInTop {
+      from {
+        transform: translateY(-100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideInBottom {
+      from {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOutRight {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+
+    @keyframes slideOutLeft {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(-100%);
+        opacity: 0;
+      }
+    }
+
+    /* Animation classes for positions */
+    .toast-container.top-right .toast,
+    .toast-container.bottom-right .toast {
+      animation: slideInRight 200ms ease-in-out forwards;
+    }
+
+    .toast-container.top-left .toast,
+    .toast-container.bottom-left .toast {
+      animation: slideInLeft 200ms ease-in-out forwards;
+    }
+
+    .toast-container.top-center .toast {
+      animation: slideInTop 200ms ease-in-out forwards;
+    }
+
+    .toast-container.bottom-center .toast {
+      animation: slideInBottom 200ms ease-in-out forwards;
+    }
+
+    .toast.dismissing {
+      animation: slideOutRight 200ms ease-in-out forwards;
+    }
+
+    .toast-container.top-left .toast.dismissing,
+    .toast-container.bottom-left .toast.dismissing {
+      animation: slideOutLeft 200ms ease-in-out forwards;
+    }
+
+    /* Toast Variants */
+    .toast-info {
+      background-color: rgba(6, 182, 212, 0.1);
+      border-color: rgba(6, 182, 212, 0.3);
+    }
+
+    .toast-info .toast-icon {
+      color: #06b6d4;
+    }
+
+    .toast-success {
+      background-color: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .toast-success .toast-icon {
+      color: #10b981;
+    }
+
+    .toast-warning {
+      background-color: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .toast-warning .toast-icon {
+      color: #f59e0b;
+    }
+
+    .toast-error {
+      background-color: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .toast-error .toast-icon {
+      color: #ef4444;
+    }
+
+    /* Progress Bar */
+    .toast-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 3px;
+      width: 100%;
+      transform-origin: left;
+    }
+
+    .toast-info .toast-progress {
+      background-color: #06b6d4;
+    }
+
+    .toast-success .toast-progress {
+      background-color: #10b981;
+    }
+
+    .toast-warning .toast-progress {
+      background-color: #f59e0b;
+    }
+
+    .toast-error .toast-progress {
+      background-color: #ef4444;
+    }
+
+    @keyframes progressShrink {
+      from {
+        transform: scaleX(1);
+      }
+      to {
+        transform: scaleX(0);
+      }
+    }
+
+    .toast-progress.animating {
+      animation: progressShrink linear forwards;
+    }
+
+    .toast-progress.paused {
+      animation-play-state: paused;
+    }
+
+    /* Toast Close Button */
+    .toast-close {
+      flex-shrink: 0;
+      padding: 0.25rem;
+      border-radius: 0.25rem;
+      color: #a8a5a3;
+      transition: color 0.15s ease, background-color 0.15s ease;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+
+    .toast-close:hover {
+      color: #d7d3d0;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Toast Container (will be positioned dynamically) -->
+  <div id="toastContainer" class="toast-container top-right"></div>
+
+  <!-- Main Content -->
+  <div class="max-w-4xl mx-auto p-6 lg:p-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Toast Notification Components</h1>
+      <p class="mt-2 text-text-secondary">Interactive prototype demonstrating toast notifications with various configurations.</p>
+    </div>
+
+    <!-- Controls Section -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-8">
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Toast Controls</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Position Selector -->
+        <div class="space-y-2">
+          <label for="positionSelect" class="block text-sm font-medium text-text-primary">Position</label>
+          <select
+            id="positionSelect"
+            class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
+            style="background-image: url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e&quot;); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem;"
+          >
+            <option value="top-right" selected>Top Right</option>
+            <option value="top-left">Top Left</option>
+            <option value="top-center">Top Center</option>
+            <option value="bottom-right">Bottom Right</option>
+            <option value="bottom-left">Bottom Left</option>
+            <option value="bottom-center">Bottom Center</option>
+          </select>
+        </div>
+
+        <!-- Duration Selector -->
+        <div class="space-y-2">
+          <label for="durationSelect" class="block text-sm font-medium text-text-primary">Auto-dismiss Duration</label>
+          <select
+            id="durationSelect"
+            class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
+            style="background-image: url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e&quot;); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem;"
+          >
+            <option value="3000">3 seconds</option>
+            <option value="5000" selected>5 seconds</option>
+            <option value="10000">10 seconds</option>
+          </select>
+        </div>
+
+        <!-- Include Title Toggle -->
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-text-primary">Options</label>
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" id="includeTitleToggle" checked class="w-4 h-4 text-accent-orange bg-bg-primary border-border-primary rounded focus:ring-accent-blue focus:ring-2">
+            <span class="text-sm text-text-secondary">Include title</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Trigger Buttons -->
+      <div class="mt-8">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Trigger Toast</h3>
+        <div class="flex flex-wrap gap-3">
+          <button
+            onclick="showToast('info')"
+            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-info/10 border border-info/30 text-info hover:bg-info/20"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Info Toast
+          </button>
+
+          <button
+            onclick="showToast('success')"
+            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-success/10 border border-success/30 text-success hover:bg-success/20"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Success Toast
+          </button>
+
+          <button
+            onclick="showToast('warning')"
+            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-warning/10 border border-warning/30 text-warning hover:bg-warning/20"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            Warning Toast
+          </button>
+
+          <button
+            onclick="showToast('error')"
+            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg transition-colors bg-error/10 border border-error/30 text-error hover:bg-error/20"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Error Toast
+          </button>
+        </div>
+      </div>
+
+      <!-- Clear All Button -->
+      <div class="mt-6 pt-6 border-t border-border-secondary">
+        <button
+          onclick="clearAllToasts()"
+          class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-transparent border border-border-primary text-text-secondary hover:text-text-primary hover:bg-bg-hover"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          Clear All Toasts
+        </button>
+      </div>
+    </div>
+
+    <!-- Toast Anatomy Section -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-8">
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Toast Anatomy</h2>
+
+      <!-- Static Example Toast -->
+      <div class="relative max-w-md">
+        <div class="toast toast-info static" style="animation: none;">
+          <!-- Icon -->
+          <div class="toast-icon flex-shrink-0 mt-0.5">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+
+          <!-- Content -->
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-text-primary">Information</p>
+            <p class="text-sm text-text-secondary mt-0.5">This is an example toast message.</p>
+          </div>
+
+          <!-- Close Button -->
+          <button class="toast-close" aria-label="Dismiss notification">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <!-- Progress Bar -->
+          <div class="toast-progress" style="transform: scaleX(0.6);"></div>
+        </div>
+
+        <!-- Anatomy Labels -->
+        <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-info"></span>
+            <span class="text-text-secondary">Icon (variant-specific)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-accent-orange"></span>
+            <span class="text-text-secondary">Title (optional)</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-accent-blue"></span>
+            <span class="text-text-secondary">Message content</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full bg-text-tertiary"></span>
+            <span class="text-text-secondary">Close button</span>
+          </div>
+          <div class="flex items-center gap-2 col-span-2">
+            <span class="w-3 h-3 rounded-full bg-success"></span>
+            <span class="text-text-secondary">Progress bar (auto-dismiss countdown)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- All Variants Preview -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-8">
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Toast Variants</h2>
+
+      <div class="space-y-4">
+        <!-- Info Variant -->
+        <div class="toast toast-info static" style="animation: none;">
+          <div class="toast-icon flex-shrink-0 mt-0.5">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-text-primary">Information</p>
+            <p class="text-sm text-text-secondary mt-0.5">Your session will expire in 5 minutes.</p>
+          </div>
+          <button class="toast-close" aria-label="Dismiss notification">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div class="toast-progress" style="transform: scaleX(0.75);"></div>
+        </div>
+
+        <!-- Success Variant -->
+        <div class="toast toast-success static" style="animation: none;">
+          <div class="toast-icon flex-shrink-0 mt-0.5">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-text-primary">Success</p>
+            <p class="text-sm text-text-secondary mt-0.5">Bot settings have been saved successfully.</p>
+          </div>
+          <button class="toast-close" aria-label="Dismiss notification">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div class="toast-progress" style="transform: scaleX(0.5);"></div>
+        </div>
+
+        <!-- Warning Variant -->
+        <div class="toast toast-warning static" style="animation: none;">
+          <div class="toast-icon flex-shrink-0 mt-0.5">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-text-primary">Warning</p>
+            <p class="text-sm text-text-secondary mt-0.5">Rate limit approaching. Please slow down requests.</p>
+          </div>
+          <button class="toast-close" aria-label="Dismiss notification">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div class="toast-progress" style="transform: scaleX(0.25);"></div>
+        </div>
+
+        <!-- Error Variant -->
+        <div class="toast toast-error static" style="animation: none;">
+          <div class="toast-icon flex-shrink-0 mt-0.5">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-text-primary">Error</p>
+            <p class="text-sm text-text-secondary mt-0.5">Failed to connect to Discord API. Please try again.</p>
+          </div>
+          <button class="toast-close" aria-label="Dismiss notification">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div class="toast-progress" style="transform: scaleX(0.1);"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Behavior Documentation -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Toast Behavior</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="text-sm font-semibold text-accent-orange mb-3">Stacking</h3>
+          <ul class="space-y-2 text-sm text-text-secondary">
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Maximum 5 toasts visible at once
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              8px gap between stacked toasts
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              New toasts appear at top of stack
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-accent-orange mb-3">Auto-dismiss</h3>
+          <ul class="space-y-2 text-sm text-text-secondary">
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Configurable duration (3s, 5s, 10s)
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Progress bar shows time remaining
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Hover pauses the countdown timer
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-accent-orange mb-3">Animations</h3>
+          <ul class="space-y-2 text-sm text-text-secondary">
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Slide-in animation: 200ms ease-in-out
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Direction based on position
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Smooth dismiss animation
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 class="text-sm font-semibold text-accent-orange mb-3">Technical Specs</h3>
+          <ul class="space-y-2 text-sm text-text-secondary">
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-info mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Min width: 300px, Max width: 420px
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-info mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Z-index: 1100
+            </li>
+            <li class="flex items-start gap-2">
+              <svg class="w-4 h-4 text-info mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Progress bar height: 3px
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JavaScript for Toast Functionality -->
+  <script>
+    // Toast Manager
+    const ToastManager = {
+      container: null,
+      toasts: [],
+      maxToasts: 5,
+
+      // Toast content templates
+      templates: {
+        info: {
+          title: 'Information',
+          messages: [
+            'Your session will expire in 5 minutes.',
+            'New features are available in the latest update.',
+            'Bot is processing your request.',
+            'Check out the documentation for more details.'
+          ]
+        },
+        success: {
+          title: 'Success',
+          messages: [
+            'Bot settings have been saved successfully.',
+            'Server connection established.',
+            'Command deployed to all servers.',
+            'Configuration exported successfully.'
+          ]
+        },
+        warning: {
+          title: 'Warning',
+          messages: [
+            'Rate limit approaching. Please slow down requests.',
+            'Some servers are experiencing high latency.',
+            'API token will expire in 7 days.',
+            'Memory usage is above 80%.'
+          ]
+        },
+        error: {
+          title: 'Error',
+          messages: [
+            'Failed to connect to Discord API. Please try again.',
+            'Permission denied. Check your bot token.',
+            'Server not found. It may have been deleted.',
+            'Command execution failed. Check logs for details.'
+          ]
+        }
+      },
+
+      // Icon SVG templates
+      icons: {
+        info: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+        success: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+        warning: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>',
+        error: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+      },
+
+      init() {
+        this.container = document.getElementById('toastContainer');
+      },
+
+      getRandomMessage(variant) {
+        const messages = this.templates[variant].messages;
+        return messages[Math.floor(Math.random() * messages.length)];
+      },
+
+      updatePosition(position) {
+        // Remove all position classes
+        const positions = ['top-right', 'top-left', 'top-center', 'bottom-right', 'bottom-left', 'bottom-center'];
+        positions.forEach(pos => this.container.classList.remove(pos));
+
+        // Add new position class
+        this.container.classList.add(position);
+      },
+
+      createToast(variant, options = {}) {
+        const {
+          title = this.templates[variant].title,
+          message = this.getRandomMessage(variant),
+          duration = 5000,
+          includeTitle = true
+        } = options;
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${variant}`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'polite');
+
+        // Build toast HTML
+        let contentHTML = '';
+        if (includeTitle) {
+          contentHTML = `
+            <p class="text-sm font-semibold text-text-primary">${title}</p>
+            <p class="text-sm text-text-secondary mt-0.5">${message}</p>
+          `;
+        } else {
+          contentHTML = `<p class="text-sm text-text-primary">${message}</p>`;
+        }
+
+        toast.innerHTML = `
+          <div class="toast-icon flex-shrink-0 mt-0.5">
+            ${this.icons[variant]}
+          </div>
+          <div class="flex-1 min-w-0">
+            ${contentHTML}
+          </div>
+          <button class="toast-close" aria-label="Dismiss notification">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div class="toast-progress animating" style="animation-duration: ${duration}ms;"></div>
+        `;
+
+        // Store timer reference
+        const toastData = {
+          element: toast,
+          timeoutId: null,
+          remainingTime: duration,
+          startTime: Date.now()
+        };
+
+        // Set up auto-dismiss
+        toastData.timeoutId = setTimeout(() => {
+          this.dismissToast(toastData);
+        }, duration);
+
+        // Pause on hover
+        toast.addEventListener('mouseenter', () => {
+          // Calculate remaining time
+          const elapsed = Date.now() - toastData.startTime;
+          toastData.remainingTime = Math.max(0, toastData.remainingTime - elapsed);
+
+          // Clear timeout
+          clearTimeout(toastData.timeoutId);
+
+          // Pause progress bar animation
+          const progressBar = toast.querySelector('.toast-progress');
+          if (progressBar) {
+            progressBar.classList.add('paused');
+          }
+        });
+
+        toast.addEventListener('mouseleave', () => {
+          // Resume timeout with remaining time
+          toastData.startTime = Date.now();
+          toastData.timeoutId = setTimeout(() => {
+            this.dismissToast(toastData);
+          }, toastData.remainingTime);
+
+          // Resume progress bar animation
+          const progressBar = toast.querySelector('.toast-progress');
+          if (progressBar) {
+            progressBar.classList.remove('paused');
+          }
+        });
+
+        // Close button handler
+        const closeBtn = toast.querySelector('.toast-close');
+        closeBtn.addEventListener('click', () => {
+          clearTimeout(toastData.timeoutId);
+          this.dismissToast(toastData);
+        });
+
+        return toastData;
+      },
+
+      show(variant, options = {}) {
+        // Enforce max toasts limit
+        while (this.toasts.length >= this.maxToasts) {
+          const oldestToast = this.toasts.shift();
+          clearTimeout(oldestToast.timeoutId);
+          oldestToast.element.remove();
+        }
+
+        // Create and add new toast
+        const toastData = this.createToast(variant, options);
+        this.toasts.push(toastData);
+
+        // Insert at beginning for top positions, at end for bottom
+        const position = document.getElementById('positionSelect').value;
+        if (position.startsWith('bottom')) {
+          this.container.appendChild(toastData.element);
+        } else {
+          this.container.insertBefore(toastData.element, this.container.firstChild);
+        }
+      },
+
+      dismissToast(toastData) {
+        const toast = toastData.element;
+
+        // Add dismissing animation class
+        toast.classList.add('dismissing');
+
+        // Remove after animation
+        setTimeout(() => {
+          toast.remove();
+
+          // Remove from toasts array
+          const index = this.toasts.indexOf(toastData);
+          if (index > -1) {
+            this.toasts.splice(index, 1);
+          }
+        }, 200);
+      },
+
+      clearAll() {
+        // Create a copy of the array since we'll be modifying it
+        const toastsCopy = [...this.toasts];
+
+        toastsCopy.forEach(toastData => {
+          clearTimeout(toastData.timeoutId);
+          this.dismissToast(toastData);
+        });
+      }
+    };
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      ToastManager.init();
+
+      // Position change handler
+      document.getElementById('positionSelect').addEventListener('change', (e) => {
+        ToastManager.updatePosition(e.target.value);
+      });
+    });
+
+    // Global functions for button handlers
+    function showToast(variant) {
+      const duration = parseInt(document.getElementById('durationSelect').value);
+      const includeTitle = document.getElementById('includeTitleToggle').checked;
+
+      ToastManager.show(variant, { duration, includeTitle });
+    }
+
+    function clearAllToasts() {
+      ToastManager.clearAll();
+    }
+  </script>
+
+</body>
+</html>

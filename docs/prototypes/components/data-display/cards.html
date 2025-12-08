@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Card Components - Discord Bot Admin UI</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Interactive card transition */
+    .card-interactive {
+      transition: all 0.2s ease-in-out;
+    }
+    .card-interactive:hover {
+      border-color: #098ecf;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(9, 142, 207, 0.15);
+    }
+
+    /* Collapsible card animation */
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .collapsible-content.expanded {
+      max-height: 500px;
+    }
+    .chevron-icon {
+      transition: transform 0.3s ease;
+    }
+    .chevron-icon.rotated {
+      transform: rotate(180deg);
+    }
+
+    /* Tab active states */
+    .tab-button {
+      position: relative;
+    }
+    .tab-button.active::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: #cb4e1b;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Page Container -->
+  <div class="min-h-screen p-4 lg:p-8">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Page Header -->
+      <div class="mb-8">
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Card Components</h1>
+        <p class="mt-1 text-text-secondary">A comprehensive collection of card components for the Discord Bot Admin UI.</p>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- SECTION 1: BASE CARD STRUCTURES -->
+      <!-- ========================================== -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">1. Base Card Structures</h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Standard Card with Header, Body, Footer -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Standard Card (Header + Body + Footer)</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Card Title</h3>
+              </div>
+              <div class="p-6">
+                <p class="text-text-secondary">This is the card body content. Cards are versatile containers that can hold various types of content including text, forms, tables, and more.</p>
+              </div>
+              <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+                <span class="text-xs text-text-tertiary">Last updated: 2 minutes ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Header-Only Card -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Header-Only Card</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4">
+                <h3 class="text-lg font-semibold text-text-primary">Header-Only Card</h3>
+                <span class="text-sm text-text-secondary">No body or footer</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Body-Only Card -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Body-Only Card (No Header/Footer)</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+              <p class="text-text-secondary">This card contains only body content without a header or footer. Useful for simple content blocks or informational panels.</p>
+            </div>
+          </div>
+
+          <!-- Card with Header Actions -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card with Header Actions</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Server Statistics</h3>
+                <button class="px-3 py-1.5 text-sm font-medium bg-accent-orange hover:bg-accent-orange-hover text-white rounded-md transition-colors">
+                  Refresh
+                </button>
+              </div>
+              <div class="p-6">
+                <p class="text-text-secondary">Card body content with an action button in the header.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Flat Card (No Border) -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Flat Card Variant (No Border)</p>
+            <div class="bg-bg-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4">
+                <h3 class="text-lg font-semibold text-text-primary">Flat Card</h3>
+              </div>
+              <div class="px-6 pb-6">
+                <p class="text-text-secondary">This card has no border and uses the same background as the page. Useful for subtle content grouping.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Elevated Card -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Elevated Card Variant (with Shadow)</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Elevated Card</h3>
+              </div>
+              <div class="p-6">
+                <p class="text-text-secondary">This card has an elevated appearance with shadow-lg. Use for modals, popovers, or emphasized content.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Card -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Interactive Card (Hover State)</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden cursor-pointer card-interactive">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Interactive Card</h3>
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+              <div class="p-6">
+                <p class="text-text-secondary">Hover over this card to see the interactive effect. Border changes to accent-blue with translateY and shadow.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Collapsible Card -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Collapsible Card</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <button onclick="toggleCollapse('collapsible-1')" class="w-full flex items-center justify-between px-6 py-4 border-b border-border-primary hover:bg-bg-hover transition-colors">
+                <h3 class="text-lg font-semibold text-text-primary">Collapsible Card</h3>
+                <svg id="chevron-collapsible-1" class="w-5 h-5 text-text-secondary chevron-icon rotated" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div id="collapsible-1" class="collapsible-content expanded">
+                <div class="p-6">
+                  <p class="text-text-secondary">This content can be collapsed or expanded by clicking the header. The chevron icon rotates to indicate the current state.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- SECTION 2: CARD CONTENT VARIANTS -->
+      <!-- ========================================== -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">2. Card Content Variants</h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Card with Image Header -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card with Image Header</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="h-40 bg-gradient-to-br from-accent-orange/30 to-accent-blue/30 flex items-center justify-center">
+                <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div class="p-6">
+                <h3 class="text-lg font-semibold text-text-primary mb-2">Image Header Card</h3>
+                <p class="text-text-secondary">Full-width image or media at the top of the card.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card with Icon Header -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card with Icon Header</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center gap-3 px-6 py-4 border-b border-border-primary">
+                <div class="w-10 h-10 rounded-lg bg-accent-orange/20 flex items-center justify-center">
+                  <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-text-primary">Settings</h3>
+              </div>
+              <div class="p-6">
+                <p class="text-text-secondary">Card with an icon alongside the title in the header.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card with Tabs in Header -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card with Tabs in Header</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="px-6 pt-4 border-b border-border-primary">
+                <div class="flex gap-6">
+                  <button class="tab-button active pb-3 text-sm font-medium text-text-primary">Overview</button>
+                  <button class="tab-button pb-3 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">Members</button>
+                  <button class="tab-button pb-3 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">Settings</button>
+                </div>
+              </div>
+              <div class="p-6">
+                <p class="text-text-secondary">Tab content area. The active tab is highlighted with an orange underline indicator.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card with List Content -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card with List Content</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Recent Commands</h3>
+              </div>
+              <ul class="divide-y divide-border-primary">
+                <li class="px-6 py-3 hover:bg-bg-hover/50 transition-colors">
+                  <span class="font-mono text-accent-blue text-sm">/help</span>
+                  <span class="text-text-tertiary text-sm ml-2">- 2 min ago</span>
+                </li>
+                <li class="px-6 py-3 hover:bg-bg-hover/50 transition-colors">
+                  <span class="font-mono text-accent-blue text-sm">/play</span>
+                  <span class="text-text-tertiary text-sm ml-2">- 5 min ago</span>
+                </li>
+                <li class="px-6 py-3 hover:bg-bg-hover/50 transition-colors">
+                  <span class="font-mono text-accent-blue text-sm">/status</span>
+                  <span class="text-text-tertiary text-sm ml-2">- 12 min ago</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Card with Form Content -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card with Form Content</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Bot Configuration</h3>
+              </div>
+              <div class="p-6 space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-text-secondary mb-1.5">Bot Name</label>
+                  <input type="text" value="DiscordBot" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-text-secondary mb-1.5">Status Message</label>
+                  <input type="text" placeholder="Enter status message..." class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+              </div>
+              <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+                <button class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Cancel</button>
+                <button class="px-4 py-2 text-sm font-medium bg-accent-orange hover:bg-accent-orange-hover text-white rounded-md transition-colors">Save Changes</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card with Footer Actions -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card with Footer Actions</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Confirm Action</h3>
+              </div>
+              <div class="p-6">
+                <p class="text-text-secondary">Are you sure you want to proceed with this action? This cannot be undone.</p>
+              </div>
+              <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+                <button class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Cancel</button>
+                <button class="px-4 py-2 text-sm font-medium bg-error hover:bg-error/80 text-white rounded-md transition-colors">Delete</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card with Metadata Footer -->
+          <div class="lg:col-span-2">
+            <p class="text-sm text-text-secondary mb-3">Card with Metadata Footer</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Server Update Log</h3>
+              </div>
+              <div class="p-6">
+                <p class="text-text-secondary">Updated server configuration with new moderation settings and role permissions.</p>
+              </div>
+              <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+                <div class="flex items-center gap-4">
+                  <div class="flex items-center gap-2">
+                    <div class="w-6 h-6 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-semibold">AD</div>
+                    <span class="text-sm text-text-secondary">Admin User</span>
+                  </div>
+                </div>
+                <span class="text-xs text-text-tertiary">Dec 7, 2025 at 3:45 PM</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- SECTION 3: STAT CARDS -->
+      <!-- ========================================== -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">3. Stat Cards</h2>
+
+        <div class="space-y-8">
+
+          <!-- Basic Stat Cards -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Basic Stat Card</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-accent-orange/20 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-2xl font-bold text-text-primary">1,234</div>
+                    <div class="text-sm text-text-secondary">Total Members</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stat with Trend Indicator -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Stat Cards with Trend Indicators</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Positive Trend -->
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-accent-orange/20 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-2xl font-bold text-text-primary">1,234</div>
+                    <div class="text-sm text-text-secondary">Total Members</div>
+                  </div>
+                  <div class="ml-auto flex items-center gap-1 text-success">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                    <span class="text-sm font-medium">+12.5%</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Negative Trend -->
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-accent-blue/20 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-2xl font-bold text-text-primary">12</div>
+                    <div class="text-sm text-text-secondary">Active Servers</div>
+                  </div>
+                  <div class="ml-auto flex items-center gap-1 text-error">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                    <span class="text-sm font-medium">-2.3%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stat with Sparkline Placeholder -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Stat Card with Sparkline Placeholder</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-center justify-between mb-4">
+                  <div class="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div class="flex items-center gap-1 text-success">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                    <span class="text-sm font-medium">+8.2%</span>
+                  </div>
+                </div>
+                <div class="text-2xl font-bold text-text-primary">3,291</div>
+                <div class="text-sm text-text-secondary mb-3">Commands Today</div>
+                <!-- Sparkline Placeholder -->
+                <div class="h-12 bg-bg-primary/50 rounded flex items-end justify-between gap-1 p-2">
+                  <div class="w-full h-3 bg-success/30 rounded-sm"></div>
+                  <div class="w-full h-5 bg-success/30 rounded-sm"></div>
+                  <div class="w-full h-4 bg-success/30 rounded-sm"></div>
+                  <div class="w-full h-7 bg-success/30 rounded-sm"></div>
+                  <div class="w-full h-6 bg-success/30 rounded-sm"></div>
+                  <div class="w-full h-9 bg-success/30 rounded-sm"></div>
+                  <div class="w-full h-8 bg-success/40 rounded-sm"></div>
+                  <div class="w-full h-10 bg-success/50 rounded-sm"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Compact Stat Card -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Compact Stat Cards</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div class="bg-bg-secondary border border-border-primary rounded-lg px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded bg-accent-orange/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-lg font-bold text-text-primary">1,234</div>
+                    <div class="text-xs text-text-tertiary">Members</div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-bg-secondary border border-border-primary rounded-lg px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded bg-accent-blue/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-lg font-bold text-text-primary">12</div>
+                    <div class="text-xs text-text-tertiary">Servers</div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-bg-secondary border border-border-primary rounded-lg px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded bg-success/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-lg font-bold text-text-primary">3.2K</div>
+                    <div class="text-xs text-text-tertiary">Commands</div>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-bg-secondary border border-border-primary rounded-lg px-4 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded bg-info/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-lg font-bold text-text-primary">14d</div>
+                    <div class="text-xs text-text-tertiary">Uptime</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stat Card Color Variants -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Stat Card Color Variants</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <!-- Default (Orange) -->
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-10 h-10 rounded-lg bg-accent-orange/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <span class="text-xs font-medium text-accent-orange uppercase tracking-wide">Default</span>
+                </div>
+                <div class="text-2xl font-bold text-text-primary">42</div>
+                <div class="text-sm text-text-secondary">Configurations</div>
+              </div>
+
+              <!-- Info (Blue) -->
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-10 h-10 rounded-lg bg-info/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span class="text-xs font-medium text-info uppercase tracking-wide">Info</span>
+                </div>
+                <div class="text-2xl font-bold text-text-primary">156</div>
+                <div class="text-sm text-text-secondary">Notifications</div>
+              </div>
+
+              <!-- Success (Green) -->
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span class="text-xs font-medium text-success uppercase tracking-wide">Success</span>
+                </div>
+                <div class="text-2xl font-bold text-text-primary">99.9%</div>
+                <div class="text-sm text-text-secondary">Uptime</div>
+              </div>
+
+              <!-- Warning (Amber) -->
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-10 h-10 rounded-lg bg-warning/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <span class="text-xs font-medium text-warning uppercase tracking-wide">Warning</span>
+                </div>
+                <div class="text-2xl font-bold text-text-primary">7</div>
+                <div class="text-sm text-text-secondary">Pending Issues</div>
+              </div>
+
+              <!-- Error (Red) -->
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-10 h-10 rounded-lg bg-error/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span class="text-xs font-medium text-error uppercase tracking-wide">Error</span>
+                </div>
+                <div class="text-2xl font-bold text-text-primary">3</div>
+                <div class="text-sm text-text-secondary">Critical Errors</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Responsive Grid of 4 Stat Cards -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Responsive Stat Card Grid (1 col mobile / 2 col tablet / 4 col desktop)</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-accent-blue/20 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-2xl font-bold text-text-primary">12</div>
+                    <div class="text-sm text-text-secondary">Total Servers</div>
+                  </div>
+                  <div class="ml-auto flex items-center gap-1 text-success">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                    <span class="text-sm font-medium">+2</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-success/20 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-2xl font-bold text-text-primary">1,847</div>
+                    <div class="text-sm text-text-secondary">Active Users</div>
+                  </div>
+                  <div class="ml-auto flex items-center gap-1 text-success">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                    <span class="text-sm font-medium">+124</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-accent-orange/20 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-2xl font-bold text-text-primary">3,291</div>
+                    <div class="text-sm text-text-secondary">Commands Today</div>
+                  </div>
+                  <div class="ml-auto flex items-center gap-1 text-text-tertiary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                    </svg>
+                    <span class="text-sm font-medium">0%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-center gap-4">
+                  <div class="w-12 h-12 rounded-lg bg-info/20 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div class="text-2xl font-bold text-text-primary">99.9%</div>
+                    <div class="text-sm text-text-secondary">Uptime</div>
+                  </div>
+                  <div class="ml-auto flex items-center gap-1 text-success">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- SECTION 4: CARD LAYOUTS -->
+      <!-- ========================================== -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">4. Card Layouts</h2>
+
+        <div class="space-y-8">
+
+          <!-- Card Grid (Responsive 1/2/3 columns) -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card Grid (1 col mobile / 2 col tablet / 3 col desktop)</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-border-primary">
+                  <h3 class="text-lg font-semibold text-text-primary">Card One</h3>
+                </div>
+                <div class="p-6">
+                  <p class="text-text-secondary">First card in the responsive grid layout.</p>
+                </div>
+              </div>
+              <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-border-primary">
+                  <h3 class="text-lg font-semibold text-text-primary">Card Two</h3>
+                </div>
+                <div class="p-6">
+                  <p class="text-text-secondary">Second card in the responsive grid layout.</p>
+                </div>
+              </div>
+              <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-border-primary">
+                  <h3 class="text-lg font-semibold text-text-primary">Card Three</h3>
+                </div>
+                <div class="p-6">
+                  <p class="text-text-secondary">Third card in the responsive grid layout.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card List (Full-width stacked) -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card List (Full-width Stacked Cards)</p>
+            <div class="space-y-4">
+              <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4">
+                  <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">GC</div>
+                    <div>
+                      <h3 class="font-semibold text-text-primary">Gaming Community</h3>
+                      <p class="text-sm text-text-secondary">1,234 members - 892 commands today</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+                      <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+                      Online
+                    </span>
+                    <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="More options">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4">
+                  <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">DC</div>
+                    <div>
+                      <h3 class="font-semibold text-text-primary">Dev Community</h3>
+                      <p class="text-sm text-text-secondary">567 members - 445 commands today</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-success bg-success/10 rounded-full">
+                      <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+                      Online
+                    </span>
+                    <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="More options">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4">
+                  <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm">ML</div>
+                    <div>
+                      <h3 class="font-semibold text-text-primary">Music Lovers</h3>
+                      <p class="text-sm text-text-secondary">2,891 members - 1,203 commands today</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-warning bg-warning/10 rounded-full">
+                      <span class="w-1.5 h-1.5 bg-warning rounded-full"></span>
+                      Idle
+                    </span>
+                    <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="More options">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card with Sidebar (70/30 split) -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Card with Sidebar (70/30 Split)</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Server Details</h3>
+              </div>
+              <div class="flex flex-col lg:flex-row">
+                <!-- Main Content (70%) -->
+                <div class="flex-1 p-6 lg:border-r border-border-primary">
+                  <h4 class="font-medium text-text-primary mb-2">Description</h4>
+                  <p class="text-text-secondary mb-4">This is the main content area of the card. It takes up approximately 70% of the width on desktop screens and stacks vertically on mobile.</p>
+                  <h4 class="font-medium text-text-primary mb-2">Recent Activity</h4>
+                  <ul class="space-y-2">
+                    <li class="text-sm text-text-secondary">Command executed: /help - 2 min ago</li>
+                    <li class="text-sm text-text-secondary">New member joined - 5 min ago</li>
+                    <li class="text-sm text-text-secondary">Settings updated - 12 min ago</li>
+                  </ul>
+                </div>
+                <!-- Sidebar (30%) -->
+                <div class="lg:w-72 p-6 bg-bg-primary/30">
+                  <h4 class="font-medium text-text-primary mb-3">Quick Stats</h4>
+                  <div class="space-y-3">
+                    <div class="flex justify-between">
+                      <span class="text-sm text-text-secondary">Members</span>
+                      <span class="text-sm font-medium text-text-primary">1,234</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-sm text-text-secondary">Commands Today</span>
+                      <span class="text-sm font-medium text-text-primary">892</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-sm text-text-secondary">Status</span>
+                      <span class="text-sm font-medium text-success">Online</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span class="text-sm text-text-secondary">Uptime</span>
+                      <span class="text-sm font-medium text-text-primary">14 days</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nested Cards -->
+          <div>
+            <p class="text-sm text-text-secondary mb-3">Nested Cards (Card inside Card)</p>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Server Configuration</h3>
+              </div>
+              <div class="p-6 space-y-4">
+                <!-- Nested Card 1 -->
+                <div class="bg-bg-primary border border-border-secondary rounded-lg overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-3 border-b border-border-secondary">
+                    <h4 class="font-medium text-text-primary">Moderation Settings</h4>
+                    <button class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">Edit</button>
+                  </div>
+                  <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm text-text-secondary">Auto-moderation</span>
+                      <span class="text-sm font-medium text-success">Enabled</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-text-secondary">Spam filter</span>
+                      <span class="text-sm font-medium text-success">Active</span>
+                    </div>
+                  </div>
+                </div>
+                <!-- Nested Card 2 -->
+                <div class="bg-bg-primary border border-border-secondary rounded-lg overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-3 border-b border-border-secondary">
+                    <h4 class="font-medium text-text-primary">Welcome Settings</h4>
+                    <button class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">Edit</button>
+                  </div>
+                  <div class="p-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm text-text-secondary">Welcome message</span>
+                      <span class="text-sm font-medium text-success">Enabled</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-text-secondary">Auto-role assignment</span>
+                      <span class="text-sm font-medium text-text-tertiary">Disabled</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- JavaScript for Interactivity -->
+  <script>
+    // Toggle collapsible card
+    function toggleCollapse(id) {
+      const content = document.getElementById(id);
+      const chevron = document.getElementById('chevron-' + id);
+
+      content.classList.toggle('expanded');
+      chevron.classList.toggle('rotated');
+    }
+
+    // Tab switching (for demonstration)
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', function() {
+        // Remove active from siblings
+        this.parentElement.querySelectorAll('.tab-button').forEach(tab => {
+          tab.classList.remove('active');
+          tab.classList.add('text-text-secondary');
+          tab.classList.remove('text-text-primary');
+        });
+        // Add active to clicked
+        this.classList.add('active');
+        this.classList.remove('text-text-secondary');
+        this.classList.add('text-text-primary');
+      });
+    });
+  </script>
+
+</body>
+</html>

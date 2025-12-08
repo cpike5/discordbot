@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkbox - Form Components Library</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config (Design System) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* ========================================
+       FORM COMPONENT STYLES
+       ======================================== */
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Screen reader only */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ----------------------------------------
+       Form Group
+       ---------------------------------------- */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .form-help {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .form-error {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #ef4444;
+    }
+
+    /* ----------------------------------------
+       Checkbox Base
+       ---------------------------------------- */
+    .form-checkbox {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .form-checkbox-input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .form-checkbox-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.125rem;
+      height: 1.125rem;
+      flex-shrink: 0;
+      margin-top: 0.125rem;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.25rem;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .form-checkbox-icon {
+      width: 0.75rem;
+      height: 0.75rem;
+      color: white;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.15s ease-in-out;
+    }
+
+    /* Hover state */
+    .form-checkbox:hover .form-checkbox-box {
+      border-color: #098ecf;
+    }
+
+    /* Focus state */
+    .form-checkbox-input:focus-visible + .form-checkbox-box {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Checked state */
+    .form-checkbox-input:checked + .form-checkbox-box {
+      background-color: #cb4e1b;
+      border-color: #cb4e1b;
+    }
+
+    .form-checkbox-input:checked + .form-checkbox-box .form-checkbox-icon {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Indeterminate state */
+    .form-checkbox-input:indeterminate + .form-checkbox-box {
+      background-color: #cb4e1b;
+      border-color: #cb4e1b;
+    }
+
+    .form-checkbox-input:indeterminate + .form-checkbox-box .form-checkbox-icon-check {
+      opacity: 0;
+    }
+
+    .form-checkbox-input:indeterminate + .form-checkbox-box .form-checkbox-icon-minus {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    /* Disabled state */
+    .form-checkbox-input:disabled + .form-checkbox-box {
+      background-color: #262a2d;
+      border-color: #3f4447;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .form-checkbox-input:disabled ~ .form-checkbox-content {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .form-checkbox-input:disabled:checked + .form-checkbox-box {
+      background-color: #7a7876;
+      border-color: #7a7876;
+    }
+
+    /* Error state */
+    .form-checkbox-box-error {
+      border-color: #ef4444;
+    }
+
+    .form-checkbox:hover .form-checkbox-box-error {
+      border-color: #ef4444;
+    }
+
+    /* Label and description */
+    .form-checkbox-content {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .form-checkbox-label {
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      line-height: 1.4;
+    }
+
+    .form-checkbox-description {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+      line-height: 1.4;
+    }
+
+    /* ----------------------------------------
+       Checkbox Size Variants
+       ---------------------------------------- */
+    .form-checkbox-sm .form-checkbox-box {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    .form-checkbox-sm .form-checkbox-icon {
+      width: 0.625rem;
+      height: 0.625rem;
+    }
+
+    .form-checkbox-sm .form-checkbox-label {
+      font-size: 0.75rem;
+    }
+
+    .form-checkbox-lg .form-checkbox-box {
+      width: 1.375rem;
+      height: 1.375rem;
+    }
+
+    .form-checkbox-lg .form-checkbox-icon {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .form-checkbox-lg .form-checkbox-label {
+      font-size: 1rem;
+    }
+
+    /* ----------------------------------------
+       Checkbox Group
+       ---------------------------------------- */
+    .form-checkbox-group {
+      border: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .form-checkbox-group-legend {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+      margin-bottom: 0.75rem;
+    }
+
+    .form-checkbox-group-items {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .form-checkbox-group-horizontal .form-checkbox-group-items {
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="../index.html" class="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium">Back to Components</span>
+          </a>
+        </div>
+        <h1 class="text-lg font-semibold text-text-primary">Checkbox</h1>
+        <div class="w-32"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-text-primary">Checkbox Component</h2>
+      <p class="mt-2 text-text-secondary">
+        Checkboxes allow users to select one or more items from a set of options.
+        They support single selection, groups, indeterminate states, and various styling options.
+      </p>
+    </div>
+
+    <!-- Standard Checkbox -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Standard Checkbox</h3>
+      <p class="text-sm text-text-secondary mb-6">Basic checkbox with label. Click to toggle.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <label class="form-checkbox">
+          <input type="checkbox" class="form-checkbox-input" />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-label">Enable notifications</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Checked State -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Checked State</h3>
+      <p class="text-sm text-text-secondary mb-6">Pre-selected checkbox showing the checked state.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <label class="form-checkbox">
+          <input type="checkbox" class="form-checkbox-input" checked />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-label">Auto-moderation enabled</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Indeterminate State -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Indeterminate State</h3>
+      <p class="text-sm text-text-secondary mb-6">
+        Partial selection state, typically used when some but not all child options are selected.
+        Set via JavaScript: <code class="text-accent-blue">checkbox.indeterminate = true</code>
+      </p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <label class="form-checkbox">
+          <input type="checkbox" id="indeterminate-checkbox" class="form-checkbox-input" />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon form-checkbox-icon-check" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+            <svg class="form-checkbox-icon form-checkbox-icon-minus absolute" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" style="opacity: 0;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+            </svg>
+          </span>
+          <span class="form-checkbox-label">Select all permissions (some selected)</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Disabled States -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Disabled States</h3>
+      <p class="text-sm text-text-secondary mb-6">Non-interactive checkboxes in both unchecked and checked states.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-4">
+        <label class="form-checkbox">
+          <input type="checkbox" class="form-checkbox-input" disabled />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-content">
+            <span class="form-checkbox-label">Disabled unchecked</span>
+          </span>
+        </label>
+
+        <label class="form-checkbox">
+          <input type="checkbox" class="form-checkbox-input" checked disabled />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-content">
+            <span class="form-checkbox-label">Disabled checked</span>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Error State -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Error State</h3>
+      <p class="text-sm text-text-secondary mb-6">Checkbox with validation error for required fields.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-checkbox">
+            <input
+              type="checkbox"
+              class="form-checkbox-input"
+              aria-invalid="true"
+              aria-describedby="checkbox-error-msg"
+            />
+            <span class="form-checkbox-box form-checkbox-box-error" aria-hidden="true">
+              <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <span class="form-checkbox-content">
+              <span class="form-checkbox-label">
+                I agree to the Terms of Service
+                <span class="text-error">*</span>
+              </span>
+            </span>
+          </label>
+          <span id="checkbox-error-msg" class="form-error ml-7" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            You must accept the Terms of Service to continue.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- With Description -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Description</h3>
+      <p class="text-sm text-text-secondary mb-6">Checkbox with additional description text below the label.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-4">
+        <label class="form-checkbox">
+          <input type="checkbox" class="form-checkbox-input" checked />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-content">
+            <span class="form-checkbox-label">Enable email notifications</span>
+            <span class="form-checkbox-description">Receive alerts about new members, moderation actions, and bot updates.</span>
+          </span>
+        </label>
+
+        <label class="form-checkbox">
+          <input type="checkbox" class="form-checkbox-input" />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-content">
+            <span class="form-checkbox-label">Push notifications</span>
+            <span class="form-checkbox-description">Get instant push notifications on your mobile device.</span>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Size Variants -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Size Variants</h3>
+      <p class="text-sm text-text-secondary mb-6">Small, base, and large checkbox sizes.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <label class="form-checkbox form-checkbox-sm">
+          <input type="checkbox" class="form-checkbox-input" checked />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-label">Small checkbox</span>
+        </label>
+
+        <label class="form-checkbox">
+          <input type="checkbox" class="form-checkbox-input" checked />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-label">Base checkbox (default)</span>
+        </label>
+
+        <label class="form-checkbox form-checkbox-lg">
+          <input type="checkbox" class="form-checkbox-input" checked />
+          <span class="form-checkbox-box" aria-hidden="true">
+            <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </span>
+          <span class="form-checkbox-label">Large checkbox</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Checkbox Group (Vertical) -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Checkbox Group (Vertical)</h3>
+      <p class="text-sm text-text-secondary mb-6">Multiple related checkboxes in a vertical layout using fieldset.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <fieldset class="form-checkbox-group">
+          <legend class="form-checkbox-group-legend">Notification Preferences</legend>
+          <div class="form-checkbox-group-items">
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" name="notifications" value="email" checked />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-content">
+                <span class="form-checkbox-label">Email notifications</span>
+                <span class="form-checkbox-description">Receive updates via email</span>
+              </span>
+            </label>
+
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" name="notifications" value="push" checked />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-content">
+                <span class="form-checkbox-label">Push notifications</span>
+                <span class="form-checkbox-description">Receive instant mobile alerts</span>
+              </span>
+            </label>
+
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" name="notifications" value="sms" />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-content">
+                <span class="form-checkbox-label">SMS notifications</span>
+                <span class="form-checkbox-description">Receive text message alerts</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+      </div>
+    </section>
+
+    <!-- Checkbox Group (Horizontal) -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Checkbox Group (Horizontal)</h3>
+      <p class="text-sm text-text-secondary mb-6">Checkboxes displayed in a horizontal row.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <fieldset class="form-checkbox-group form-checkbox-group-horizontal">
+          <legend class="form-checkbox-group-legend">Quick Filters</legend>
+          <div class="form-checkbox-group-items">
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" name="filters" value="online" checked />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Online</span>
+            </label>
+
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" name="filters" value="offline" />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Offline</span>
+            </label>
+
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" name="filters" value="idle" checked />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Idle</span>
+            </label>
+
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" name="filters" value="dnd" />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Do Not Disturb</span>
+            </label>
+          </div>
+        </fieldset>
+      </div>
+    </section>
+
+    <!-- Select All Pattern -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Select All Pattern</h3>
+      <p class="text-sm text-text-secondary mb-6">
+        Parent checkbox that controls child selections. Shows indeterminate state when partially selected.
+      </p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <fieldset class="form-checkbox-group">
+          <legend class="form-checkbox-group-legend">Server Permissions</legend>
+          <div class="form-checkbox-group-items">
+            <!-- Select All -->
+            <label class="form-checkbox border-b border-border-primary pb-3 mb-2">
+              <input
+                type="checkbox"
+                id="select-all-parent"
+                class="form-checkbox-input"
+                onchange="toggleSelectAll(this)"
+              />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon form-checkbox-icon-check" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg class="form-checkbox-icon form-checkbox-icon-minus absolute" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" style="opacity: 0;">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+                </svg>
+              </span>
+              <span class="form-checkbox-content">
+                <span class="form-checkbox-label font-semibold">Select All</span>
+                <span class="form-checkbox-description" id="select-all-count">0 of 4 selected</span>
+              </span>
+            </label>
+
+            <!-- Child checkboxes -->
+            <label class="form-checkbox ml-6">
+              <input
+                type="checkbox"
+                class="form-checkbox-input select-all-child"
+                name="permissions"
+                value="read"
+                onchange="updateSelectAll()"
+              />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Read Messages</span>
+            </label>
+
+            <label class="form-checkbox ml-6">
+              <input
+                type="checkbox"
+                class="form-checkbox-input select-all-child"
+                name="permissions"
+                value="send"
+                onchange="updateSelectAll()"
+              />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Send Messages</span>
+            </label>
+
+            <label class="form-checkbox ml-6">
+              <input
+                type="checkbox"
+                class="form-checkbox-input select-all-child"
+                name="permissions"
+                value="manage"
+                onchange="updateSelectAll()"
+              />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Manage Channels</span>
+            </label>
+
+            <label class="form-checkbox ml-6">
+              <input
+                type="checkbox"
+                class="form-checkbox-input select-all-child"
+                name="permissions"
+                value="admin"
+                onchange="updateSelectAll()"
+              />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Administrator</span>
+            </label>
+          </div>
+        </fieldset>
+      </div>
+    </section>
+
+    <!-- All States Demo -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Interactive States Demo</h3>
+      <p class="text-sm text-text-secondary mb-6">Visual demonstration of all checkbox states.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-3">Default</p>
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Unchecked</span>
+            </label>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-3">Checked</p>
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" checked />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Checked</span>
+            </label>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-3">Indeterminate</p>
+            <label class="form-checkbox">
+              <input type="checkbox" id="demo-indeterminate" class="form-checkbox-input" />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon form-checkbox-icon-check" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <svg class="form-checkbox-icon form-checkbox-icon-minus absolute" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" style="opacity: 0;">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Indeterminate</span>
+            </label>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-3">Disabled</p>
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" disabled />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-content">
+                <span class="form-checkbox-label">Disabled</span>
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-3">Disabled Checked</p>
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" checked disabled />
+              <span class="form-checkbox-box" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-content">
+                <span class="form-checkbox-label">Disabled Checked</span>
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-3">Error</p>
+            <label class="form-checkbox">
+              <input type="checkbox" class="form-checkbox-input" aria-invalid="true" />
+              <span class="form-checkbox-box form-checkbox-box-error" aria-hidden="true">
+                <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </span>
+              <span class="form-checkbox-label">Error state</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-text-tertiary text-center">
+        Form Components Library - Discord Bot Admin
+      </p>
+    </div>
+  </footer>
+
+  <!-- JavaScript -->
+  <script>
+    // Set indeterminate state for demo
+    document.addEventListener('DOMContentLoaded', function() {
+      const indeterminateCheckbox = document.getElementById('indeterminate-checkbox');
+      if (indeterminateCheckbox) {
+        indeterminateCheckbox.indeterminate = true;
+      }
+
+      const demoIndeterminate = document.getElementById('demo-indeterminate');
+      if (demoIndeterminate) {
+        demoIndeterminate.indeterminate = true;
+      }
+    });
+
+    // Select All functionality
+    function toggleSelectAll(parent) {
+      const children = document.querySelectorAll('.select-all-child');
+      children.forEach(child => {
+        child.checked = parent.checked;
+      });
+      updateSelectAll();
+    }
+
+    function updateSelectAll() {
+      const parent = document.getElementById('select-all-parent');
+      const children = document.querySelectorAll('.select-all-child');
+      const countEl = document.getElementById('select-all-count');
+
+      let checkedCount = 0;
+      children.forEach(child => {
+        if (child.checked) checkedCount++;
+      });
+
+      const total = children.length;
+      countEl.textContent = `${checkedCount} of ${total} selected`;
+
+      if (checkedCount === 0) {
+        parent.checked = false;
+        parent.indeterminate = false;
+      } else if (checkedCount === total) {
+        parent.checked = true;
+        parent.indeterminate = false;
+      } else {
+        parent.checked = false;
+        parent.indeterminate = true;
+      }
+    }
+  </script>
+
+</body>
+</html>

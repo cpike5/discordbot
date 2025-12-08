@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alert Components - Feedback Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#0f0f23',
+                            800: '#1a1a2e',
+                            700: '#25253a',
+                            600: '#2d2d44'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Alert variant styles */
+        .alert-info {
+            background: rgba(6, 182, 212, 0.1);
+            border-color: rgba(6, 182, 212, 0.3);
+            color: #06b6d4;
+        }
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #10b981;
+        }
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #f59e0b;
+        }
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        /* Slide-in animation */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-1rem);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-1rem);
+            }
+        }
+
+        .alert-slide-in {
+            animation: slideIn 300ms ease-out forwards;
+        }
+
+        .alert-slide-out {
+            animation: slideOut 300ms ease-out forwards;
+        }
+
+        /* Alert base styles */
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-width: 1px;
+            border-style: solid;
+        }
+
+        .alert-icon {
+            width: 1.25rem;
+            height: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .alert-content {
+            gap: 0.75rem;
+        }
+    </style>
+</head>
+<body class="bg-dark-900 text-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-dark-800 border-b border-dark-600 px-6 py-4">
+        <h1 class="text-2xl font-bold text-white">Alert Components - Feedback Prototype</h1>
+        <p class="text-gray-400 mt-1">Interactive alert component demonstration with multiple variants and behaviors</p>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-8 space-y-12">
+
+        <!-- Section 1: Static Alerts -->
+        <section>
+            <h2 class="text-xl font-semibold text-white mb-4">Section 1: Static Alerts (Basic Message Only)</h2>
+            <p class="text-gray-400 mb-6">All four alert variants displayed with just a message.</p>
+
+            <div class="space-y-4">
+                <!-- Info Alert -->
+                <div class="alert alert-info flex items-start alert-content" role="alert" aria-live="polite">
+                    <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="ml-3 text-sm">This is an informational alert message for general updates.</p>
+                </div>
+
+                <!-- Success Alert -->
+                <div class="alert alert-success flex items-start alert-content" role="alert" aria-live="polite">
+                    <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="ml-3 text-sm">Operation completed successfully. Your changes have been saved.</p>
+                </div>
+
+                <!-- Warning Alert -->
+                <div class="alert alert-warning flex items-start alert-content" role="alert" aria-live="polite">
+                    <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <p class="ml-3 text-sm">Warning: Your session will expire in 5 minutes. Please save your work.</p>
+                </div>
+
+                <!-- Error Alert -->
+                <div class="alert alert-error flex items-start alert-content" role="alert">
+                    <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="ml-3 text-sm">Error: Unable to connect to the server. Please try again later.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Alerts with Title + Message -->
+        <section>
+            <h2 class="text-xl font-semibold text-white mb-4">Section 2: Alerts with Title + Message</h2>
+            <p class="text-gray-400 mb-6">Alerts featuring both a bold title and descriptive message content.</p>
+
+            <div class="space-y-4">
+                <!-- Info Alert with Title -->
+                <div class="alert alert-info flex items-start alert-content" role="alert" aria-live="polite">
+                    <svg class="alert-icon mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-semibold">System Update Available</h3>
+                        <p class="text-sm opacity-90 mt-1">A new version of the application is available. Refresh to update to the latest features and improvements.</p>
+                    </div>
+                </div>
+
+                <!-- Success Alert with Title -->
+                <div class="alert alert-success flex items-start alert-content" role="alert" aria-live="polite">
+                    <svg class="alert-icon mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-semibold">Payment Successful</h3>
+                        <p class="text-sm opacity-90 mt-1">Your payment of $49.99 has been processed. A confirmation email has been sent to your inbox.</p>
+                    </div>
+                </div>
+
+                <!-- Warning Alert with Title -->
+                <div class="alert alert-warning flex items-start alert-content" role="alert" aria-live="polite">
+                    <svg class="alert-icon mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-semibold">Storage Almost Full</h3>
+                        <p class="text-sm opacity-90 mt-1">You have used 90% of your available storage. Consider upgrading your plan or removing unused files.</p>
+                    </div>
+                </div>
+
+                <!-- Error Alert with Title -->
+                <div class="alert alert-error flex items-start alert-content" role="alert">
+                    <svg class="alert-icon mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-semibold">Authentication Failed</h3>
+                        <p class="text-sm opacity-90 mt-1">Invalid credentials provided. Please check your username and password and try again.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Dismissible Alerts -->
+        <section>
+            <h2 class="text-xl font-semibold text-white mb-4">Section 3: Dismissible Alerts</h2>
+            <p class="text-gray-400 mb-6">Alerts with close buttons that can be dismissed by the user.</p>
+
+            <div id="dismissible-alerts" class="space-y-4">
+                <!-- Dismissible Info Alert -->
+                <div class="alert alert-info flex items-start justify-between alert-slide-in" role="alert" aria-live="polite" data-dismissible="true">
+                    <div class="flex items-start alert-content">
+                        <svg class="alert-icon mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-semibold">New Feature Available</h3>
+                            <p class="text-sm opacity-90 mt-1">Check out our new dashboard analytics feature in the settings panel.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="ml-4 p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss alert" onclick="dismissAlert(this)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Dismissible Success Alert -->
+                <div class="alert alert-success flex items-start justify-between alert-slide-in" role="alert" aria-live="polite" data-dismissible="true">
+                    <div class="flex items-start alert-content">
+                        <svg class="alert-icon mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-semibold">Profile Updated</h3>
+                            <p class="text-sm opacity-90 mt-1">Your profile information has been successfully updated.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="ml-4 p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss alert" onclick="dismissAlert(this)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Dismissible Warning Alert -->
+                <div class="alert alert-warning flex items-start justify-between alert-slide-in" role="alert" aria-live="polite" data-dismissible="true">
+                    <div class="flex items-start alert-content">
+                        <svg class="alert-icon mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-semibold">Unsaved Changes</h3>
+                            <p class="text-sm opacity-90 mt-1">You have unsaved changes. Don't forget to save before leaving.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="ml-4 p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss alert" onclick="dismissAlert(this)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Dismissible Error Alert -->
+                <div class="alert alert-error flex items-start justify-between alert-slide-in" role="alert" data-dismissible="true">
+                    <div class="flex items-start alert-content">
+                        <svg class="alert-icon mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-semibold">Connection Lost</h3>
+                            <p class="text-sm opacity-90 mt-1">Unable to reach the server. Please check your internet connection.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="ml-4 p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss alert" onclick="dismissAlert(this)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <button type="button" class="mt-4 px-4 py-2 bg-dark-700 hover:bg-dark-600 text-white rounded-lg transition-colors text-sm" onclick="resetDismissibleAlerts()">
+                Reset Dismissed Alerts
+            </button>
+        </section>
+
+        <!-- Section 4: Auto-Dismiss Demo -->
+        <section>
+            <h2 class="text-xl font-semibold text-white mb-4">Section 4: Auto-Dismiss Demo</h2>
+            <p class="text-gray-400 mb-6">Alerts that automatically dismiss after a configurable timeout.</p>
+
+            <div class="flex flex-wrap items-center gap-4 mb-6">
+                <div class="flex items-center gap-2">
+                    <label for="auto-dismiss-duration" class="text-sm text-gray-300">Auto-dismiss after:</label>
+                    <select id="auto-dismiss-duration" class="bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                        <option value="2000">2 seconds</option>
+                        <option value="3000" selected>3 seconds</option>
+                        <option value="5000">5 seconds</option>
+                        <option value="10000">10 seconds</option>
+                    </select>
+                </div>
+                <button type="button" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm" onclick="showAutoDismissAlert()">
+                    Show Auto-Dismiss Alert
+                </button>
+            </div>
+
+            <div id="auto-dismiss-container" class="space-y-4">
+                <!-- Auto-dismiss alerts will appear here -->
+            </div>
+        </section>
+
+        <!-- Section 5: Interactive Playground -->
+        <section>
+            <h2 class="text-xl font-semibold text-white mb-4">Section 5: Interactive Playground</h2>
+            <p class="text-gray-400 mb-6">Trigger alerts dynamically with customizable options.</p>
+
+            <!-- Controls -->
+            <div class="bg-dark-800 rounded-lg p-6 border border-dark-600 mb-6">
+                <h3 class="text-lg font-medium text-white mb-4">Alert Configuration</h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="alert-variant" class="block text-sm font-medium text-gray-300 mb-2">Variant</label>
+                        <select id="alert-variant" class="w-full bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                            <option value="info">Info</option>
+                            <option value="success">Success</option>
+                            <option value="warning">Warning</option>
+                            <option value="error">Error</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="alert-title" class="block text-sm font-medium text-gray-300 mb-2">Title (optional)</label>
+                        <input type="text" id="alert-title" placeholder="Enter alert title" class="w-full bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent placeholder-gray-500">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="alert-message" class="block text-sm font-medium text-gray-300 mb-2">Message</label>
+                        <textarea id="alert-message" rows="2" placeholder="Enter alert message" class="w-full bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent placeholder-gray-500 resize-none">This is a custom alert message.</textarea>
+                    </div>
+
+                    <div class="flex items-center gap-6">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="alert-dismissible" checked class="w-4 h-4 text-cyan-600 bg-dark-700 border-dark-600 rounded focus:ring-cyan-500">
+                            <span class="text-sm text-gray-300">Dismissible</span>
+                        </label>
+
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="alert-auto-dismiss" class="w-4 h-4 text-cyan-600 bg-dark-700 border-dark-600 rounded focus:ring-cyan-500">
+                            <span class="text-sm text-gray-300">Auto-dismiss</span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <label for="alert-auto-duration" class="block text-sm font-medium text-gray-300 mb-2">Auto-dismiss Duration</label>
+                        <select id="alert-auto-duration" class="w-full bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                            <option value="2000">2 seconds</option>
+                            <option value="3000" selected>3 seconds</option>
+                            <option value="5000">5 seconds</option>
+                            <option value="10000">10 seconds</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-3 mt-6">
+                    <button type="button" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm font-medium" onclick="triggerCustomAlert()">
+                        Show Alert
+                    </button>
+                    <button type="button" class="px-4 py-2 bg-dark-700 hover:bg-dark-600 text-white rounded-lg transition-colors text-sm" onclick="clearPlaygroundAlerts()">
+                        Clear All Alerts
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Trigger Buttons -->
+            <div class="bg-dark-800 rounded-lg p-6 border border-dark-600 mb-6">
+                <h3 class="text-lg font-medium text-white mb-4">Quick Trigger</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('info')">
+                        Info Alert
+                    </button>
+                    <button type="button" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('success')">
+                        Success Alert
+                    </button>
+                    <button type="button" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('warning')">
+                        Warning Alert
+                    </button>
+                    <button type="button" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('error')">
+                        Error Alert
+                    </button>
+                </div>
+            </div>
+
+            <!-- Playground Alert Container -->
+            <div id="playground-container" class="space-y-4">
+                <!-- Dynamic alerts will appear here -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark-800 border-t border-dark-600 px-6 py-4 mt-12">
+        <p class="text-gray-400 text-sm text-center">Alert Components Prototype - Part of Discord Bot Design System</p>
+    </footer>
+
+    <script>
+        // Icon SVG templates for each variant
+        const icons = {
+            info: `<svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>`,
+            success: `<svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>`,
+            warning: `<svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>`,
+            error: `<svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>`
+        };
+
+        // Default messages for quick trigger
+        const defaultMessages = {
+            info: { title: 'Information', message: 'This is an informational message for your reference.' },
+            success: { title: 'Success', message: 'The operation was completed successfully.' },
+            warning: { title: 'Warning', message: 'Please review this important notice before proceeding.' },
+            error: { title: 'Error', message: 'An error occurred. Please try again or contact support.' }
+        };
+
+        // Store for dismissed alerts in section 3
+        let dismissedAlerts = [];
+
+        /**
+         * Dismiss an alert with animation
+         * @param {HTMLElement} button - The dismiss button element
+         */
+        function dismissAlert(button) {
+            const alert = button.closest('.alert');
+            if (alert) {
+                alert.classList.remove('alert-slide-in');
+                alert.classList.add('alert-slide-out');
+
+                // Store reference for reset functionality
+                if (alert.dataset.dismissible) {
+                    dismissedAlerts.push(alert.cloneNode(true));
+                }
+
+                setTimeout(() => {
+                    alert.remove();
+                }, 300);
+            }
+        }
+
+        /**
+         * Reset dismissible alerts in section 3
+         */
+        function resetDismissibleAlerts() {
+            const container = document.getElementById('dismissible-alerts');
+
+            // Clear current alerts
+            container.innerHTML = '';
+
+            // Recreate all dismissible alerts
+            const alertsData = [
+                { variant: 'info', title: 'New Feature Available', message: 'Check out our new dashboard analytics feature in the settings panel.' },
+                { variant: 'success', title: 'Profile Updated', message: 'Your profile information has been successfully updated.' },
+                { variant: 'warning', title: 'Unsaved Changes', message: 'You have unsaved changes. Don\'t forget to save before leaving.' },
+                { variant: 'error', title: 'Connection Lost', message: 'Unable to reach the server. Please check your internet connection.' }
+            ];
+
+            alertsData.forEach((data, index) => {
+                setTimeout(() => {
+                    const alert = createAlertElement(data.variant, data.title, data.message, true, false);
+                    alert.dataset.dismissible = 'true';
+                    container.appendChild(alert);
+                }, index * 100);
+            });
+
+            dismissedAlerts = [];
+        }
+
+        /**
+         * Show auto-dismiss alert demo
+         */
+        function showAutoDismissAlert() {
+            const duration = parseInt(document.getElementById('auto-dismiss-duration').value);
+            const container = document.getElementById('auto-dismiss-container');
+
+            const alert = createAlertElement(
+                'info',
+                'Auto-Dismiss Alert',
+                `This alert will automatically dismiss in ${duration / 1000} seconds.`,
+                true,
+                true,
+                duration
+            );
+
+            container.appendChild(alert);
+        }
+
+        /**
+         * Trigger a custom alert from the playground
+         */
+        function triggerCustomAlert() {
+            const variant = document.getElementById('alert-variant').value;
+            const title = document.getElementById('alert-title').value;
+            const message = document.getElementById('alert-message').value;
+            const dismissible = document.getElementById('alert-dismissible').checked;
+            const autoDismiss = document.getElementById('alert-auto-dismiss').checked;
+            const duration = parseInt(document.getElementById('alert-auto-duration').value);
+
+            const container = document.getElementById('playground-container');
+            const alert = createAlertElement(variant, title, message, dismissible, autoDismiss, duration);
+
+            container.insertBefore(alert, container.firstChild);
+        }
+
+        /**
+         * Trigger a quick alert with default content
+         * @param {string} variant - Alert variant (info, success, warning, error)
+         */
+        function triggerQuickAlert(variant) {
+            const container = document.getElementById('playground-container');
+            const data = defaultMessages[variant];
+            const alert = createAlertElement(variant, data.title, data.message, true, false);
+
+            container.insertBefore(alert, container.firstChild);
+        }
+
+        /**
+         * Clear all alerts in the playground
+         */
+        function clearPlaygroundAlerts() {
+            const container = document.getElementById('playground-container');
+            const alerts = container.querySelectorAll('.alert');
+
+            alerts.forEach((alert, index) => {
+                setTimeout(() => {
+                    alert.classList.remove('alert-slide-in');
+                    alert.classList.add('alert-slide-out');
+                    setTimeout(() => alert.remove(), 300);
+                }, index * 50);
+            });
+        }
+
+        /**
+         * Create an alert element
+         * @param {string} variant - Alert variant (info, success, warning, error)
+         * @param {string} title - Alert title (optional)
+         * @param {string} message - Alert message
+         * @param {boolean} dismissible - Whether the alert can be dismissed
+         * @param {boolean} autoDismiss - Whether the alert should auto-dismiss
+         * @param {number} duration - Auto-dismiss duration in ms
+         * @returns {HTMLElement} The alert element
+         */
+        function createAlertElement(variant, title, message, dismissible = false, autoDismiss = false, duration = 3000) {
+            const alert = document.createElement('div');
+            const ariaLive = variant === 'error' ? '' : 'aria-live="polite"';
+
+            alert.className = `alert alert-${variant} flex items-start justify-between alert-slide-in`;
+            alert.setAttribute('role', 'alert');
+            if (variant !== 'error') {
+                alert.setAttribute('aria-live', 'polite');
+            }
+
+            let contentHTML = `
+                <div class="flex items-start alert-content">
+                    <div class="mt-0.5">${icons[variant]}</div>
+                    <div class="ml-3">
+            `;
+
+            if (title) {
+                contentHTML += `<h3 class="text-sm font-semibold">${escapeHTML(title)}</h3>`;
+                contentHTML += `<p class="text-sm opacity-90 mt-1">${escapeHTML(message)}</p>`;
+            } else {
+                contentHTML += `<p class="text-sm">${escapeHTML(message)}</p>`;
+            }
+
+            contentHTML += `</div></div>`;
+
+            if (dismissible) {
+                contentHTML += `
+                    <button type="button" class="ml-4 p-1 hover:opacity-70 transition-opacity flex-shrink-0" aria-label="Dismiss alert" onclick="dismissAlert(this)">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                `;
+            }
+
+            alert.innerHTML = contentHTML;
+
+            // Auto-dismiss functionality
+            if (autoDismiss) {
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.classList.remove('alert-slide-in');
+                        alert.classList.add('alert-slide-out');
+                        setTimeout(() => alert.remove(), 300);
+                    }
+                }, duration);
+            }
+
+            return alert;
+        }
+
+        /**
+         * Escape HTML to prevent XSS
+         * @param {string} text - Text to escape
+         * @returns {string} Escaped text
+         */
+        function escapeHTML(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

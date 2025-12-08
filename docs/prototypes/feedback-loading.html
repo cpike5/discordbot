@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading States - Feedback Prototype</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* ==========================================
+       SPINNER ANIMATIONS
+       ========================================== */
+
+    /* Simple spinner - rotating circle */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #098ecf;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .spinner-sm {
+      width: 24px;
+      height: 24px;
+      border-width: 2px;
+    }
+    .spinner-md {
+      width: 40px;
+      height: 40px;
+      border-width: 3px;
+    }
+    .spinner-lg {
+      width: 64px;
+      height: 64px;
+      border-width: 4px;
+    }
+
+    /* Dots spinner - bouncing dots */
+    @keyframes bounce-dot {
+      0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+    .dots-spinner {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .dots-spinner .dot {
+      background-color: #098ecf;
+      border-radius: 50%;
+      animation: bounce-dot 1.4s ease-in-out infinite both;
+    }
+    .dots-spinner .dot:nth-child(1) { animation-delay: -0.32s; }
+    .dots-spinner .dot:nth-child(2) { animation-delay: -0.16s; }
+    .dots-spinner .dot:nth-child(3) { animation-delay: 0s; }
+    .dots-spinner-sm .dot { width: 6px; height: 6px; }
+    .dots-spinner-md .dot { width: 10px; height: 10px; }
+    .dots-spinner-lg .dot { width: 16px; height: 16px; }
+
+    /* Pulse spinner - pulsing circle */
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+    @keyframes pulse-core {
+      0%, 100% { transform: scale(0.9); }
+      50% { transform: scale(1); }
+    }
+    .pulse-spinner {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pulse-spinner .ring {
+      position: absolute;
+      border: 3px solid #098ecf;
+      border-radius: 50%;
+      animation: pulse-ring 1.5s ease-out infinite;
+    }
+    .pulse-spinner .core {
+      background-color: #098ecf;
+      border-radius: 50%;
+      animation: pulse-core 1.5s ease-in-out infinite;
+    }
+    .pulse-spinner-sm .ring { width: 24px; height: 24px; border-width: 2px; }
+    .pulse-spinner-sm .core { width: 12px; height: 12px; }
+    .pulse-spinner-md .ring { width: 40px; height: 40px; border-width: 3px; }
+    .pulse-spinner-md .core { width: 20px; height: 20px; }
+    .pulse-spinner-lg .ring { width: 64px; height: 64px; border-width: 4px; }
+    .pulse-spinner-lg .core { width: 32px; height: 32px; }
+
+    /* ==========================================
+       PROGRESS BAR ANIMATIONS
+       ========================================== */
+
+    /* Indeterminate progress bar - animated stripe */
+    @keyframes indeterminate-progress {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(200%); }
+    }
+    .progress-bar {
+      height: 4px;
+      background-color: #3f4447;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background-color: #098ecf;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .progress-bar-indeterminate .progress-bar-fill {
+      width: 50%;
+      animation: indeterminate-progress 1.5s ease-in-out infinite;
+    }
+    .progress-bar-success .progress-bar-fill {
+      background-color: #10b981;
+    }
+
+    /* ==========================================
+       LOADING OVERLAY
+       ========================================== */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(29, 32, 34, 0.8);
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .loading-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Container-scoped overlay */
+    .loading-container {
+      position: relative;
+    }
+    .loading-container-overlay {
+      position: absolute;
+      inset: 0;
+      background-color: rgba(29, 32, 34, 0.8);
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      border-radius: inherit;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .loading-container-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Circular progress */
+    @keyframes circular-progress-rotate {
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes circular-progress-dash {
+      0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
+      50% { stroke-dasharray: 89, 200; stroke-dashoffset: -35; }
+      100% { stroke-dasharray: 89, 200; stroke-dashoffset: -124; }
+    }
+    .circular-progress {
+      animation: circular-progress-rotate 2s linear infinite;
+    }
+    .circular-progress-path {
+      stroke: #098ecf;
+      stroke-linecap: round;
+      animation: circular-progress-dash 1.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Full-Screen Loading Overlay (hidden by default) -->
+  <div id="fullScreenOverlay" class="loading-overlay" role="alert" aria-live="polite" aria-busy="true">
+    <div class="spinner spinner-lg"></div>
+    <p class="text-text-primary text-lg font-medium" id="fullScreenMessage">Loading...</p>
+    <button
+      onclick="hideFullScreenLoading()"
+      class="mt-4 px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors"
+    >
+      Cancel
+    </button>
+  </div>
+
+  <!-- Main Content -->
+  <div class="min-h-screen p-4 lg:p-8">
+    <div class="max-w-6xl mx-auto">
+
+      <!-- Page Header -->
+      <div class="mb-8">
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Loading States - Feedback Prototype</h1>
+        <p class="mt-2 text-text-secondary">Comprehensive loading overlay and spinner components for the Discord Bot Admin UI.</p>
+      </div>
+
+      <!-- Section 1: Spinner Variants -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">1. Spinner Variants</h2>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
+
+            <!-- Simple Spinner -->
+            <div class="text-center">
+              <div class="flex items-center justify-center h-24 bg-bg-primary rounded-lg mb-3">
+                <div class="spinner spinner-md"></div>
+              </div>
+              <p class="text-sm font-medium text-text-primary">Simple Spinner</p>
+              <p class="text-xs text-text-tertiary mt-1">Rotating circle animation</p>
+            </div>
+
+            <!-- Dots Spinner -->
+            <div class="text-center">
+              <div class="flex items-center justify-center h-24 bg-bg-primary rounded-lg mb-3">
+                <div class="dots-spinner dots-spinner-md">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                </div>
+              </div>
+              <p class="text-sm font-medium text-text-primary">Dots Spinner</p>
+              <p class="text-xs text-text-tertiary mt-1">Bouncing dots animation</p>
+            </div>
+
+            <!-- Pulse Spinner -->
+            <div class="text-center">
+              <div class="flex items-center justify-center h-24 bg-bg-primary rounded-lg mb-3">
+                <div class="pulse-spinner pulse-spinner-md">
+                  <div class="ring"></div>
+                  <div class="core"></div>
+                </div>
+              </div>
+              <p class="text-sm font-medium text-text-primary">Pulse Spinner</p>
+              <p class="text-xs text-text-tertiary mt-1">Pulsing circle animation</p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Spinner Sizes -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">2. Spinner Sizes</h2>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
+
+            <!-- Small (24px) -->
+            <div class="text-center">
+              <div class="flex items-center justify-center h-24 bg-bg-primary rounded-lg mb-3 gap-6">
+                <div class="spinner spinner-sm"></div>
+                <div class="dots-spinner dots-spinner-sm">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                </div>
+                <div class="pulse-spinner pulse-spinner-sm">
+                  <div class="ring"></div>
+                  <div class="core"></div>
+                </div>
+              </div>
+              <p class="text-sm font-medium text-text-primary">Small (24px)</p>
+              <p class="text-xs text-text-tertiary mt-1">For inline use, buttons</p>
+            </div>
+
+            <!-- Medium (40px) -->
+            <div class="text-center">
+              <div class="flex items-center justify-center h-24 bg-bg-primary rounded-lg mb-3 gap-6">
+                <div class="spinner spinner-md"></div>
+                <div class="dots-spinner dots-spinner-md">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                </div>
+                <div class="pulse-spinner pulse-spinner-md">
+                  <div class="ring"></div>
+                  <div class="core"></div>
+                </div>
+              </div>
+              <p class="text-sm font-medium text-text-primary">Medium (40px) - Default</p>
+              <p class="text-xs text-text-tertiary mt-1">For cards, containers</p>
+            </div>
+
+            <!-- Large (64px) -->
+            <div class="text-center">
+              <div class="flex items-center justify-center h-24 bg-bg-primary rounded-lg mb-3 gap-6">
+                <div class="spinner spinner-lg"></div>
+                <div class="dots-spinner dots-spinner-lg">
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                  <div class="dot"></div>
+                </div>
+                <div class="pulse-spinner pulse-spinner-lg">
+                  <div class="ring"></div>
+                  <div class="core"></div>
+                </div>
+              </div>
+              <p class="text-sm font-medium text-text-primary">Large (64px)</p>
+              <p class="text-xs text-text-tertiary mt-1">For full-screen overlays</p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Full-Screen Overlay Demo -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">3. Full-Screen Overlay Demo</h2>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+          <p class="text-text-secondary mb-4">Full-screen overlay blocks the entire page and prevents user interaction. Auto-dismisses after 3 seconds.</p>
+          <div class="flex flex-wrap gap-3">
+            <button
+              onclick="showFullScreenLoading('simple', 'Loading data...')"
+              class="px-4 py-2 text-sm font-medium bg-accent-blue text-white rounded-md hover:bg-accent-blue-hover transition-colors"
+            >
+              Show with Simple Spinner
+            </button>
+            <button
+              onclick="showFullScreenLoading('dots', 'Processing request...')"
+              class="px-4 py-2 text-sm font-medium bg-accent-blue text-white rounded-md hover:bg-accent-blue-hover transition-colors"
+            >
+              Show with Dots Spinner
+            </button>
+            <button
+              onclick="showFullScreenLoading('pulse', 'Please wait...')"
+              class="px-4 py-2 text-sm font-medium bg-accent-blue text-white rounded-md hover:bg-accent-blue-hover transition-colors"
+            >
+              Show with Pulse Spinner
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Container-Scoped Overlay Demo -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">4. Container-Scoped Overlay Demo</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <!-- Container 1 -->
+          <div class="loading-container bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="loading-container-overlay" id="container1Overlay">
+              <div class="spinner spinner-md"></div>
+              <p class="text-sm text-text-primary">Loading servers...</p>
+            </div>
+            <div class="p-5 border-b border-border-primary">
+              <h3 class="font-semibold text-text-primary">Server List</h3>
+            </div>
+            <div class="p-5 space-y-3">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500"></div>
+                <span class="text-text-primary">Gaming Community</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500"></div>
+                <span class="text-text-primary">Dev Community</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-red-500"></div>
+                <span class="text-text-primary">Music Lovers</span>
+              </div>
+            </div>
+            <div class="p-4 border-t border-border-primary bg-bg-primary/30">
+              <button
+                onclick="toggleContainerLoading('container1Overlay')"
+                class="w-full px-4 py-2 text-sm font-medium bg-accent-orange text-white rounded-md hover:bg-accent-orange-hover transition-colors"
+              >
+                Toggle Loading
+              </button>
+            </div>
+          </div>
+
+          <!-- Container 2 -->
+          <div class="loading-container bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="loading-container-overlay" id="container2Overlay">
+              <div class="dots-spinner dots-spinner-md">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+              </div>
+              <p class="text-sm text-text-primary">Fetching statistics...</p>
+            </div>
+            <div class="p-5 border-b border-border-primary">
+              <h3 class="font-semibold text-text-primary">Statistics</h3>
+            </div>
+            <div class="p-5 space-y-4">
+              <div class="flex justify-between">
+                <span class="text-text-secondary">Total Users</span>
+                <span class="font-semibold text-text-primary">1,847</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-text-secondary">Commands Today</span>
+                <span class="font-semibold text-text-primary">3,291</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-text-secondary">Uptime</span>
+                <span class="font-semibold text-success">99.9%</span>
+              </div>
+            </div>
+            <div class="p-4 border-t border-border-primary bg-bg-primary/30">
+              <button
+                onclick="toggleContainerLoading('container2Overlay')"
+                class="w-full px-4 py-2 text-sm font-medium bg-accent-orange text-white rounded-md hover:bg-accent-orange-hover transition-colors"
+              >
+                Toggle Loading
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section 5: Indeterminate Progress Bar -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">5. Progress Bar (Indeterminate)</h2>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+          <p class="text-text-secondary mb-4">Indeterminate progress bar for operations with unknown duration.</p>
+
+          <div class="space-y-6">
+            <!-- Default Blue -->
+            <div>
+              <p class="text-sm text-text-primary mb-2">Default (Blue)</p>
+              <div class="progress-bar progress-bar-indeterminate">
+                <div class="progress-bar-fill"></div>
+              </div>
+            </div>
+
+            <!-- Success Green -->
+            <div>
+              <p class="text-sm text-text-primary mb-2">Success (Green)</p>
+              <div class="progress-bar progress-bar-indeterminate progress-bar-success">
+                <div class="progress-bar-fill"></div>
+              </div>
+            </div>
+
+            <!-- With Message -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <p class="text-sm text-text-primary">Syncing data...</p>
+                <span class="text-xs text-text-tertiary">Please wait</span>
+              </div>
+              <div class="progress-bar progress-bar-indeterminate">
+                <div class="progress-bar-fill"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 6: Determinate Progress Bar -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">6. Progress Bar (Determinate with Simulation)</h2>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+          <p class="text-text-secondary mb-4">Determinate progress bar showing exact completion percentage.</p>
+
+          <div class="space-y-6">
+            <!-- Static Examples -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <p class="text-sm text-text-primary">25% Complete</p>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-bar-fill" style="width: 25%;"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <p class="text-sm text-text-primary">50% Complete</p>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-bar-fill" style="width: 50%;"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <p class="text-sm text-text-primary">75% Complete</p>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-bar-fill" style="width: 75%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Interactive Progress Simulation -->
+            <div class="p-5 bg-bg-primary rounded-lg border border-border-primary">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-medium text-text-primary">File Upload Progress</p>
+                <span class="text-sm font-mono text-accent-blue" id="progressPercentage">0%</span>
+              </div>
+              <div class="progress-bar mb-4">
+                <div class="progress-bar-fill" id="simulatedProgress" style="width: 0%;"></div>
+              </div>
+              <div class="flex gap-3">
+                <button
+                  onclick="startProgressSimulation()"
+                  id="startProgressBtn"
+                  class="px-4 py-2 text-sm font-medium bg-accent-blue text-white rounded-md hover:bg-accent-blue-hover transition-colors"
+                >
+                  Start Simulation (5s)
+                </button>
+                <button
+                  onclick="resetProgress()"
+                  class="px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors"
+                >
+                  Reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 7: With Loading Message -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">7. Spinners with Loading Messages</h2>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            <!-- Spinner with message below -->
+            <div class="flex flex-col items-center justify-center p-6 bg-bg-primary rounded-lg">
+              <div class="spinner spinner-md mb-3"></div>
+              <p class="text-sm text-text-primary">Loading servers...</p>
+            </div>
+
+            <!-- Spinner with message and subtext -->
+            <div class="flex flex-col items-center justify-center p-6 bg-bg-primary rounded-lg">
+              <div class="dots-spinner dots-spinner-md mb-3">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+              </div>
+              <p class="text-sm text-text-primary">Processing request</p>
+              <p class="text-xs text-text-tertiary mt-1">This may take a moment</p>
+            </div>
+
+            <!-- Spinner with progress indicator -->
+            <div class="flex flex-col items-center justify-center p-6 bg-bg-primary rounded-lg">
+              <div class="pulse-spinner pulse-spinner-md mb-3">
+                <div class="ring"></div>
+                <div class="core"></div>
+              </div>
+              <p class="text-sm text-text-primary">Uploading file</p>
+              <p class="text-xs text-accent-blue mt-1 font-mono">2.4 MB / 5.0 MB</p>
+            </div>
+
+            <!-- Inline spinner with text -->
+            <div class="flex items-center gap-3 p-6 bg-bg-primary rounded-lg">
+              <div class="spinner spinner-sm"></div>
+              <span class="text-sm text-text-primary">Saving changes...</span>
+            </div>
+
+            <!-- Button with spinner -->
+            <div class="flex items-center justify-center p-6 bg-bg-primary rounded-lg">
+              <button class="flex items-center gap-2 px-4 py-2 bg-accent-orange text-white rounded-md opacity-75 cursor-not-allowed" disabled>
+                <div class="spinner spinner-sm" style="border-top-color: white; border-color: rgba(255,255,255,0.3);"></div>
+                <span class="text-sm font-medium">Saving...</span>
+              </button>
+            </div>
+
+            <!-- Circular Progress -->
+            <div class="flex flex-col items-center justify-center p-6 bg-bg-primary rounded-lg">
+              <svg class="circular-progress w-10 h-10 mb-3" viewBox="25 25 50 50">
+                <circle class="circular-progress-path" cx="50" cy="50" r="20" fill="none" stroke-width="4"></circle>
+              </svg>
+              <p class="text-sm text-text-primary">Synchronizing...</p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 8: Interactive Controls -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">8. Interactive Controls</h2>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+
+          <!-- Spinner Style Toggle -->
+          <div class="mb-6">
+            <p class="text-sm font-medium text-text-primary mb-3">Toggle Spinner Styles</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                onclick="setActiveSpinnerStyle('simple')"
+                id="btn-simple"
+                class="px-4 py-2 text-sm font-medium bg-accent-blue text-white rounded-md"
+              >
+                Simple
+              </button>
+              <button
+                onclick="setActiveSpinnerStyle('dots')"
+                id="btn-dots"
+                class="px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors"
+              >
+                Dots
+              </button>
+              <button
+                onclick="setActiveSpinnerStyle('pulse')"
+                id="btn-pulse"
+                class="px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors"
+              >
+                Pulse
+              </button>
+            </div>
+          </div>
+
+          <!-- Preview Area -->
+          <div class="p-8 bg-bg-primary rounded-lg border border-border-primary flex flex-col items-center justify-center" id="spinnerPreview">
+            <div class="spinner spinner-lg" id="previewSpinner"></div>
+            <p class="text-text-primary mt-4" id="previewLabel">Simple Spinner</p>
+          </div>
+
+          <!-- Size Controls -->
+          <div class="mt-6">
+            <p class="text-sm font-medium text-text-primary mb-3">Adjust Size</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                onclick="setSpinnerSize('sm')"
+                id="size-sm"
+                class="px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors"
+              >
+                Small (24px)
+              </button>
+              <button
+                onclick="setSpinnerSize('md')"
+                id="size-md"
+                class="px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors"
+              >
+                Medium (40px)
+              </button>
+              <button
+                onclick="setSpinnerSize('lg')"
+                id="size-lg"
+                class="px-4 py-2 text-sm font-medium bg-accent-blue text-white rounded-md"
+              >
+                Large (64px)
+              </button>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="mt-6 pt-6 border-t border-border-primary">
+            <p class="text-sm font-medium text-text-primary mb-3">Quick Actions</p>
+            <div class="flex flex-wrap gap-3">
+              <button
+                onclick="showFullScreenLoading(currentSpinnerStyle, 'Loading...')"
+                class="px-4 py-2 text-sm font-medium bg-accent-orange text-white rounded-md hover:bg-accent-orange-hover transition-colors"
+              >
+                Show Full-Screen Overlay (3s)
+              </button>
+              <button
+                onclick="startProgressSimulation()"
+                class="px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors"
+              >
+                Run Progress Simulation
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Usage Notes -->
+      <section class="mb-10">
+        <h2 class="text-xl font-semibold text-text-primary mb-4">Usage Notes</h2>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+          <div class="prose prose-invert max-w-none">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              <div>
+                <h3 class="text-lg font-semibold text-text-primary mb-2">Overlay Z-Index</h3>
+                <p class="text-sm text-text-secondary mb-3">Full-screen overlays use <code class="px-1.5 py-0.5 bg-bg-primary rounded text-accent-blue font-mono text-xs">z-index: 1200</code> to ensure they appear above all other content including modals and dropdowns.</p>
+
+                <h3 class="text-lg font-semibold text-text-primary mb-2 mt-4">Backdrop Color</h3>
+                <p class="text-sm text-text-secondary">The overlay backdrop uses <code class="px-1.5 py-0.5 bg-bg-primary rounded text-accent-blue font-mono text-xs">rgba(29, 32, 34, 0.8)</code> - a semi-transparent dark color matching the design system.</p>
+              </div>
+
+              <div>
+                <h3 class="text-lg font-semibold text-text-primary mb-2">Accessibility</h3>
+                <p class="text-sm text-text-secondary mb-3">Loading overlays include <code class="px-1.5 py-0.5 bg-bg-primary rounded text-accent-blue font-mono text-xs">role="alert"</code> and <code class="px-1.5 py-0.5 bg-bg-primary rounded text-accent-blue font-mono text-xs">aria-busy="true"</code> for screen reader support.</p>
+
+                <h3 class="text-lg font-semibold text-text-primary mb-2 mt-4">Animation Performance</h3>
+                <p class="text-sm text-text-secondary">All animations use CSS transforms and opacity for smooth 60fps performance.</p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- JavaScript for Interactivity -->
+  <script>
+    // State
+    let currentSpinnerStyle = 'simple';
+    let currentSpinnerSize = 'lg';
+    let progressInterval = null;
+
+    // Full-screen loading functions
+    function showFullScreenLoading(style = 'simple', message = 'Loading...') {
+      const overlay = document.getElementById('fullScreenOverlay');
+      const messageEl = document.getElementById('fullScreenMessage');
+
+      // Update message
+      messageEl.textContent = message;
+
+      // Update spinner based on style
+      let spinnerHTML = '';
+      switch(style) {
+        case 'dots':
+          spinnerHTML = `
+            <div class="dots-spinner dots-spinner-lg">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+            </div>
+          `;
+          break;
+        case 'pulse':
+          spinnerHTML = `
+            <div class="pulse-spinner pulse-spinner-lg">
+              <div class="ring"></div>
+              <div class="core"></div>
+            </div>
+          `;
+          break;
+        default:
+          spinnerHTML = '<div class="spinner spinner-lg"></div>';
+      }
+
+      // Replace spinner element
+      const existingSpinner = overlay.querySelector('.spinner, .dots-spinner, .pulse-spinner');
+      if (existingSpinner) {
+        existingSpinner.outerHTML = spinnerHTML;
+      }
+
+      // Show overlay
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+
+      // Auto-dismiss after 3 seconds
+      setTimeout(() => {
+        hideFullScreenLoading();
+      }, 3000);
+    }
+
+    function hideFullScreenLoading() {
+      const overlay = document.getElementById('fullScreenOverlay');
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    // Container loading toggle
+    function toggleContainerLoading(overlayId) {
+      const overlay = document.getElementById(overlayId);
+      overlay.classList.toggle('active');
+    }
+
+    // Progress simulation
+    function startProgressSimulation() {
+      const progressBar = document.getElementById('simulatedProgress');
+      const percentageEl = document.getElementById('progressPercentage');
+      const startBtn = document.getElementById('startProgressBtn');
+
+      // Disable button during simulation
+      startBtn.disabled = true;
+      startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+      let progress = 0;
+      const duration = 5000; // 5 seconds
+      const intervalTime = 50; // Update every 50ms
+      const increment = 100 / (duration / intervalTime);
+
+      // Clear any existing interval
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+
+      progressInterval = setInterval(() => {
+        progress += increment;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(progressInterval);
+          startBtn.disabled = false;
+          startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        progressBar.style.width = progress + '%';
+        percentageEl.textContent = Math.round(progress) + '%';
+      }, intervalTime);
+    }
+
+    function resetProgress() {
+      const progressBar = document.getElementById('simulatedProgress');
+      const percentageEl = document.getElementById('progressPercentage');
+      const startBtn = document.getElementById('startProgressBtn');
+
+      // Clear interval if running
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+
+      // Reset UI
+      progressBar.style.width = '0%';
+      percentageEl.textContent = '0%';
+      startBtn.disabled = false;
+      startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    // Spinner style toggle
+    function setActiveSpinnerStyle(style) {
+      currentSpinnerStyle = style;
+
+      // Update button states
+      const buttons = ['simple', 'dots', 'pulse'];
+      buttons.forEach(btn => {
+        const el = document.getElementById('btn-' + btn);
+        if (btn === style) {
+          el.className = 'px-4 py-2 text-sm font-medium bg-accent-blue text-white rounded-md';
+        } else {
+          el.className = 'px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors';
+        }
+      });
+
+      // Update preview
+      updateSpinnerPreview();
+    }
+
+    // Spinner size toggle
+    function setSpinnerSize(size) {
+      currentSpinnerSize = size;
+
+      // Update button states
+      const sizes = ['sm', 'md', 'lg'];
+      sizes.forEach(s => {
+        const el = document.getElementById('size-' + s);
+        if (s === size) {
+          el.className = 'px-4 py-2 text-sm font-medium bg-accent-blue text-white rounded-md';
+        } else {
+          el.className = 'px-4 py-2 text-sm font-medium text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors';
+        }
+      });
+
+      // Update preview
+      updateSpinnerPreview();
+    }
+
+    // Update spinner preview
+    function updateSpinnerPreview() {
+      const preview = document.getElementById('spinnerPreview');
+      const label = document.getElementById('previewLabel');
+
+      let spinnerHTML = '';
+      let labelText = '';
+
+      switch(currentSpinnerStyle) {
+        case 'dots':
+          spinnerHTML = `
+            <div class="dots-spinner dots-spinner-${currentSpinnerSize}">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+            </div>
+          `;
+          labelText = 'Dots Spinner';
+          break;
+        case 'pulse':
+          spinnerHTML = `
+            <div class="pulse-spinner pulse-spinner-${currentSpinnerSize}">
+              <div class="ring"></div>
+              <div class="core"></div>
+            </div>
+          `;
+          labelText = 'Pulse Spinner';
+          break;
+        default:
+          spinnerHTML = `<div class="spinner spinner-${currentSpinnerSize}"></div>`;
+          labelText = 'Simple Spinner';
+      }
+
+      // Update the preview area
+      const spinnerContainer = preview.querySelector('.spinner, .dots-spinner, .pulse-spinner');
+      if (spinnerContainer) {
+        spinnerContainer.outerHTML = spinnerHTML;
+      }
+
+      label.textContent = labelText;
+    }
+
+    // Keyboard handling for accessibility
+    document.addEventListener('keydown', function(event) {
+      // Close overlay on Escape
+      if (event.key === 'Escape') {
+        hideFullScreenLoading();
+      }
+    });
+  </script>
+
+</body>
+</html>

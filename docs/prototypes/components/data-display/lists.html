@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lists & Pagination - Component Library</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Collapsible list animation */
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .collapsible-content.expanded {
+      max-height: 500px;
+    }
+
+    /* Chevron rotation */
+    .chevron-icon {
+      transition: transform 0.2s ease;
+    }
+    .chevron-icon.rotated {
+      transform: rotate(90deg);
+    }
+
+    /* Tree view lines */
+    .tree-line::before {
+      content: "";
+      position: absolute;
+      left: 0.75rem;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background-color: #3f4447;
+    }
+    .tree-line::after {
+      content: "";
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      width: 0.75rem;
+      height: 1px;
+      background-color: #3f4447;
+    }
+
+    /* Loading spinner */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .spinner {
+      animation: spin 1s linear infinite;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <div class="min-h-screen p-6 lg:p-8">
+    <!-- Page Header -->
+    <div class="max-w-6xl mx-auto mb-12">
+      <h1 class="text-3xl font-bold text-text-primary mb-2">Lists & Pagination</h1>
+      <p class="text-text-secondary">Component library showcasing list groups, list item variants, and pagination styles.</p>
+    </div>
+
+    <div class="max-w-6xl mx-auto space-y-16">
+
+      <!-- ============================================ -->
+      <!-- SECTION 1: LIST GROUP VARIATIONS -->
+      <!-- ============================================ -->
+      <section>
+        <h2 class="text-2xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">1. List Group Variations</h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+          <!-- Simple Text List (No Borders) -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Simple Text List</h3>
+            <ul class="space-y-1">
+              <li class="px-4 py-2 text-text-primary">Dashboard Overview</li>
+              <li class="px-4 py-2 text-text-primary">Server Management</li>
+              <li class="px-4 py-2 text-text-primary">User Analytics</li>
+              <li class="px-4 py-2 text-text-primary">Bot Configuration</li>
+              <li class="px-4 py-2 text-text-primary">System Settings</li>
+            </ul>
+          </div>
+
+          <!-- Bordered List -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Bordered List</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary">Dashboard Overview</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary">Server Management</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary">User Analytics</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary">Bot Configuration</li>
+              <li class="px-4 py-3 text-text-primary">System Settings</li>
+            </ul>
+          </div>
+
+          <!-- List with Dividers -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">List with Dividers</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 text-text-primary">Dashboard Overview</li>
+              <hr class="border-border-primary mx-4">
+              <li class="px-4 py-3 text-text-primary">Server Management</li>
+              <hr class="border-border-primary mx-4">
+              <li class="px-4 py-3 text-text-primary">User Analytics</li>
+              <hr class="border-border-primary mx-4">
+              <li class="px-4 py-3 text-text-primary">Bot Configuration</li>
+              <hr class="border-border-primary mx-4">
+              <li class="px-4 py-3 text-text-primary">System Settings</li>
+            </ul>
+          </div>
+
+          <!-- Flush List -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Flush List</h3>
+            <ul class="divide-y divide-border-primary">
+              <li class="px-4 py-3 text-text-primary">Dashboard Overview</li>
+              <li class="px-4 py-3 text-text-primary">Server Management</li>
+              <li class="px-4 py-3 text-text-primary">User Analytics</li>
+              <li class="px-4 py-3 text-text-primary">Bot Configuration</li>
+              <li class="px-4 py-3 text-text-primary">System Settings</li>
+            </ul>
+          </div>
+
+          <!-- Numbered/Ordered List -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Numbered List</h3>
+            <ol class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary flex items-center gap-3">
+                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-accent-orange text-white text-sm font-semibold flex items-center justify-center">1</span>
+                Connect your Discord account
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary flex items-center gap-3">
+                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-accent-orange text-white text-sm font-semibold flex items-center justify-center">2</span>
+                Select your server
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary flex items-center gap-3">
+                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-accent-orange text-white text-sm font-semibold flex items-center justify-center">3</span>
+                Configure bot permissions
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary flex items-center gap-3">
+                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-accent-orange text-white text-sm font-semibold flex items-center justify-center">4</span>
+                Customize bot settings
+              </li>
+              <li class="px-4 py-3 text-text-primary flex items-center gap-3">
+                <span class="flex-shrink-0 w-6 h-6 rounded-full bg-accent-orange text-white text-sm font-semibold flex items-center justify-center">5</span>
+                Launch your bot
+              </li>
+            </ol>
+          </div>
+
+          <!-- Horizontal List -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Horizontal List</h3>
+            <ul class="flex flex-wrap items-center gap-2">
+              <li class="px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary">Dashboard</li>
+              <li class="px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary">Servers</li>
+              <li class="px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary">Users</li>
+              <li class="px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary">Commands</li>
+              <li class="px-4 py-2 bg-bg-secondary border border-border-primary rounded-lg text-text-primary">Settings</li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SECTION 2: LIST ITEM VARIANTS -->
+      <!-- ============================================ -->
+      <section>
+        <h2 class="text-2xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">2. List Item Variants</h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+          <!-- Basic Text Item -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Basic Text Item</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary">Basic list item text</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary">Another basic item</li>
+              <li class="px-4 py-3 text-text-primary">Third item in the list</li>
+            </ul>
+          </div>
+
+          <!-- Item with Leading Icon -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">With Leading Icon</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                </svg>
+                <span class="text-text-primary">Documents Folder</span>
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span class="text-text-primary">Configuration File</span>
+              </li>
+              <li class="px-4 py-3 flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span class="text-text-primary">System Settings</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item with Leading Avatar -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">With Leading Avatar</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">JD</div>
+                <span class="text-text-primary">John Doe</span>
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">AS</div>
+                <span class="text-text-primary">Alice Smith</span>
+              </li>
+              <li class="px-4 py-3 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">BJ</div>
+                <span class="text-text-primary">Bob Johnson</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item with Leading Checkbox -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">With Leading Checkbox</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+                <input type="checkbox" class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue flex-shrink-0" checked>
+                <span class="text-text-primary">Enable auto-moderation</span>
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+                <input type="checkbox" class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue flex-shrink-0">
+                <span class="text-text-primary">Send welcome messages</span>
+              </li>
+              <li class="px-4 py-3 flex items-center gap-3">
+                <input type="checkbox" class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-orange focus:ring-accent-blue flex-shrink-0" checked>
+                <span class="text-text-primary">Log all commands</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item with Trailing Text -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">With Trailing Text</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+                <span class="text-text-primary">Gaming Server</span>
+                <span class="text-text-tertiary text-sm">1,234 members</span>
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+                <span class="text-text-primary">Developer Hub</span>
+                <span class="text-text-tertiary text-sm">567 members</span>
+              </li>
+              <li class="px-4 py-3 flex items-center justify-between">
+                <span class="text-text-primary">Music Lounge</span>
+                <span class="text-text-tertiary text-sm">2,891 members</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item with Trailing Badge -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">With Trailing Badge</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+                <span class="text-text-primary">Production Server</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">Online</span>
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+                <span class="text-text-primary">Staging Server</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning/20 text-warning">Idle</span>
+              </li>
+              <li class="px-4 py-3 flex items-center justify-between">
+                <span class="text-text-primary">Test Server</span>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">Offline</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item with Trailing Action Button -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">With Trailing Actions</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+                <span class="text-text-primary">Custom Command #1</span>
+                <div class="flex items-center gap-1">
+                  <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" aria-label="Edit">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button class="p-1.5 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors" aria-label="Delete">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+                <span class="text-text-primary">Custom Command #2</span>
+                <div class="flex items-center gap-1">
+                  <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" aria-label="Edit">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button class="p-1.5 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors" aria-label="Delete">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </li>
+              <li class="px-4 py-3 flex items-center justify-between">
+                <span class="text-text-primary">Custom Command #3</span>
+                <div class="flex items-center gap-1">
+                  <button class="p-1.5 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" aria-label="Edit">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button class="p-1.5 text-text-secondary hover:text-error hover:bg-bg-hover rounded transition-colors" aria-label="Delete">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item with Leading Icon AND Trailing Action -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Leading Icon + Trailing Action</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+                <svg class="w-5 h-5 text-accent-blue flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span class="flex-1 text-text-primary">Notifications</span>
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary flex items-center gap-3">
+                <svg class="w-5 h-5 text-accent-blue flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+                <span class="flex-1 text-text-primary">User Profile</span>
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </li>
+              <li class="px-4 py-3 flex items-center gap-3">
+                <svg class="w-5 h-5 text-accent-blue flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span class="flex-1 text-text-primary">Settings</span>
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item with Description (Title + Subtitle) -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">With Description</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary">
+                <p class="text-text-primary font-medium">Auto-Moderation</p>
+                <p class="text-text-secondary text-sm mt-0.5">Automatically filter spam and inappropriate content</p>
+              </li>
+              <li class="px-4 py-3 border-b border-border-primary">
+                <p class="text-text-primary font-medium">Welcome Messages</p>
+                <p class="text-text-secondary text-sm mt-0.5">Send customized greetings to new members</p>
+              </li>
+              <li class="px-4 py-3">
+                <p class="text-text-primary font-medium">Role Management</p>
+                <p class="text-text-secondary text-sm mt-0.5">Assign and manage user roles automatically</p>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Item with Avatar + Name + Description (3-line item) -->
+          <div class="lg:col-span-2">
+            <h3 class="text-lg font-medium text-text-primary mb-4">Avatar + Name + Description (3-Line)</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-4 border-b border-border-primary flex items-start gap-3">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">JD</div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-text-primary font-medium">John Doe</p>
+                  <p class="text-text-secondary text-sm">Server Administrator</p>
+                  <p class="text-text-tertiary text-xs mt-1">Last active 2 hours ago</p>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">Online</span>
+              </li>
+              <li class="px-4 py-4 border-b border-border-primary flex items-start gap-3">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">AS</div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-text-primary font-medium">Alice Smith</p>
+                  <p class="text-text-secondary text-sm">Moderator</p>
+                  <p class="text-text-tertiary text-xs mt-1">Last active 30 minutes ago</p>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-warning/20 text-warning">Idle</span>
+              </li>
+              <li class="px-4 py-4 flex items-start gap-3">
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">BJ</div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-text-primary font-medium">Bob Johnson</p>
+                  <p class="text-text-secondary text-sm">Community Member</p>
+                  <p class="text-text-tertiary text-xs mt-1">Last active 3 days ago</p>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-border-primary text-text-tertiary">Offline</span>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SECTION 3: INTERACTIVE LIST ITEMS -->
+      <!-- ============================================ -->
+      <section>
+        <h2 class="text-2xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">3. Interactive List Items</h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+          <!-- Hover State -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Hover State</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary hover:bg-bg-hover transition-colors">Hover over this item</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary hover:bg-bg-hover transition-colors">Another hoverable item</li>
+              <li class="px-4 py-3 text-text-primary hover:bg-bg-hover transition-colors">Third hoverable item</li>
+            </ul>
+          </div>
+
+          <!-- Selected State -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Selected State</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary hover:bg-bg-hover transition-colors cursor-pointer">Unselected item</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary bg-accent-orange/10 border-l-2 border-l-accent-orange">Selected item</li>
+              <li class="px-4 py-3 text-text-primary hover:bg-bg-hover transition-colors cursor-pointer">Unselected item</li>
+            </ul>
+          </div>
+
+          <!-- Active/Pressed State -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Active/Pressed State</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary hover:bg-bg-hover active:bg-bg-tertiary transition-colors cursor-pointer">Click and hold to see active state</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary hover:bg-bg-hover active:bg-bg-tertiary transition-colors cursor-pointer">Another clickable item</li>
+              <li class="px-4 py-3 text-text-primary hover:bg-bg-hover active:bg-bg-tertiary transition-colors cursor-pointer">Third clickable item</li>
+            </ul>
+          </div>
+
+          <!-- Disabled State -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Disabled State</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary">Normal item</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-tertiary opacity-50 cursor-not-allowed">Disabled item</li>
+              <li class="px-4 py-3 text-text-primary">Normal item</li>
+            </ul>
+          </div>
+
+          <!-- Clickable Items (Full Row) -->
+          <div class="lg:col-span-2">
+            <h3 class="text-lg font-medium text-text-primary mb-4">Clickable Items (Full Row)</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li>
+                <button class="w-full px-4 py-3 border-b border-border-primary text-left text-text-primary hover:bg-bg-hover active:bg-bg-tertiary transition-colors flex items-center gap-3">
+                  <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <span class="flex-1">Click anywhere on this row</span>
+                  <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </li>
+              <li>
+                <button class="w-full px-4 py-3 border-b border-border-primary text-left text-text-primary hover:bg-bg-hover active:bg-bg-tertiary transition-colors flex items-center gap-3">
+                  <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <span class="flex-1">Full row is clickable</span>
+                  <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </li>
+              <li>
+                <button class="w-full px-4 py-3 text-left text-text-primary hover:bg-bg-hover active:bg-bg-tertiary transition-colors flex items-center gap-3">
+                  <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span class="flex-1">Another clickable row</span>
+                  <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SECTION 4: NESTED LISTS -->
+      <!-- ============================================ -->
+      <section>
+        <h2 class="text-2xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">4. Nested Lists</h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+          <!-- Collapsible/Expandable List -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Collapsible List</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <!-- Expandable Item 1 -->
+              <li class="border-b border-border-primary">
+                <button onclick="toggleCollapsible(this)" class="w-full px-4 py-3 text-left text-text-primary hover:bg-bg-hover transition-colors flex items-center gap-3">
+                  <svg class="w-4 h-4 text-text-tertiary chevron-icon rotated" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                  <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <span class="flex-1 font-medium">Server Settings</span>
+                </button>
+                <div class="collapsible-content expanded bg-bg-primary">
+                  <ul class="pl-12 py-2">
+                    <li class="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer">General Settings</li>
+                    <li class="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer">Permissions</li>
+                    <li class="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer">Integrations</li>
+                  </ul>
+                </div>
+              </li>
+              <!-- Expandable Item 2 -->
+              <li class="border-b border-border-primary">
+                <button onclick="toggleCollapsible(this)" class="w-full px-4 py-3 text-left text-text-primary hover:bg-bg-hover transition-colors flex items-center gap-3">
+                  <svg class="w-4 h-4 text-text-tertiary chevron-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                  <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  <span class="flex-1 font-medium">User Management</span>
+                </button>
+                <div class="collapsible-content bg-bg-primary">
+                  <ul class="pl-12 py-2">
+                    <li class="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer">View Members</li>
+                    <li class="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer">Roles</li>
+                    <li class="px-4 py-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer">Bans</li>
+                  </ul>
+                </div>
+              </li>
+              <!-- Non-expandable Item -->
+              <li>
+                <button class="w-full px-4 py-3 text-left text-text-primary hover:bg-bg-hover transition-colors flex items-center gap-3">
+                  <span class="w-4"></span>
+                  <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                  <span class="flex-1 font-medium">Activity Logs</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Tree View Style -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Tree View</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden p-4">
+              <!-- Parent Item -->
+              <li class="mb-2">
+                <div class="flex items-center gap-2 text-text-primary font-medium">
+                  <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  Bot Configuration
+                </div>
+                <!-- Child Items with Tree Lines -->
+                <ul class="mt-2 ml-2 relative">
+                  <li class="relative pl-6 py-1.5 tree-line">
+                    <span class="text-text-secondary">config.json</span>
+                  </li>
+                  <li class="relative pl-6 py-1.5 tree-line">
+                    <span class="text-text-secondary">commands.json</span>
+                  </li>
+                  <li class="relative pl-6 py-1.5 tree-line">
+                    <span class="text-text-secondary">permissions.json</span>
+                  </li>
+                </ul>
+              </li>
+              <!-- Another Parent -->
+              <li class="mb-2">
+                <div class="flex items-center gap-2 text-text-primary font-medium">
+                  <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  Plugins
+                </div>
+                <ul class="mt-2 ml-2 relative">
+                  <li class="relative pl-6 py-1.5 tree-line">
+                    <span class="text-text-secondary">moderation.js</span>
+                  </li>
+                  <li class="relative pl-6 py-1.5 tree-line">
+                    <span class="text-text-secondary">music.js</span>
+                  </li>
+                </ul>
+              </li>
+              <!-- Single Item -->
+              <li>
+                <div class="flex items-center gap-2 text-text-primary font-medium">
+                  <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  README.md
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Indented Child Items -->
+          <div class="lg:col-span-2">
+            <h3 class="text-lg font-medium text-text-primary mb-4">Indented Child Items</h3>
+            <ul class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary font-medium">Parent Category: Moderation</li>
+              <li class="pl-8 pr-4 py-2.5 border-b border-border-primary text-text-secondary hover:bg-bg-hover transition-colors">Auto-mod settings</li>
+              <li class="pl-8 pr-4 py-2.5 border-b border-border-primary text-text-secondary hover:bg-bg-hover transition-colors">Word filter</li>
+              <li class="pl-8 pr-4 py-2.5 border-b border-border-primary text-text-secondary hover:bg-bg-hover transition-colors">Spam detection</li>
+              <li class="px-4 py-3 border-b border-border-primary text-text-primary font-medium">Parent Category: Logging</li>
+              <li class="pl-8 pr-4 py-2.5 border-b border-border-primary text-text-secondary hover:bg-bg-hover transition-colors">Message logs</li>
+              <li class="pl-8 pr-4 py-2.5 border-b border-border-primary text-text-secondary hover:bg-bg-hover transition-colors">Join/Leave logs</li>
+              <li class="px-4 py-3 text-text-primary font-medium">Parent Category: Welcome</li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SECTION 5: PAGINATION -->
+      <!-- ============================================ -->
+      <section>
+        <h2 class="text-2xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">5. Pagination</h2>
+
+        <div class="space-y-12">
+
+          <!-- Full Pagination -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Full Pagination</h3>
+            <nav aria-label="Pagination" class="flex items-center gap-1">
+              <!-- First Page -->
+              <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="First page">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                </svg>
+              </button>
+              <!-- Previous -->
+              <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Previous page">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <!-- Page Numbers -->
+              <button class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md">1</button>
+              <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</button>
+              <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</button>
+              <span class="px-2 py-2 text-text-tertiary">...</span>
+              <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">10</button>
+              <!-- Next -->
+              <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Next page">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <!-- Last Page -->
+              <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Last page">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+              </button>
+            </nav>
+          </div>
+
+          <!-- Simple Pagination -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Simple Pagination</h3>
+            <nav aria-label="Simple pagination" class="flex items-center gap-3">
+              <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+              </button>
+              <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                Next
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </nav>
+          </div>
+
+          <!-- Pagination with Info -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Pagination with Info</h3>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <p class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">1-10</span> of <span class="font-medium text-text-primary">100</span> results
+              </p>
+              <nav aria-label="Pagination" class="flex items-center gap-1">
+                <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Previous page">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md">1</button>
+                <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</button>
+                <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</button>
+                <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Next page">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
+
+          <!-- Pagination with Page Size -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Pagination with Page Size</h3>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <label for="pageSize" class="text-sm text-text-secondary">Show:</label>
+                <select id="pageSize" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus">
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+                <span class="text-sm text-text-secondary">
+                  Showing <span class="font-medium text-text-primary">1-10</span> of <span class="font-medium text-text-primary">100</span>
+                </span>
+              </div>
+              <nav aria-label="Pagination" class="flex items-center gap-1">
+                <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Previous page">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <button class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md">1</button>
+                <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</button>
+                <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Next page">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </nav>
+            </div>
+          </div>
+
+          <!-- Compact/Mobile Pagination -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Compact / Mobile Pagination</h3>
+            <nav aria-label="Compact pagination" class="flex items-center justify-between gap-4">
+              <button class="px-3 py-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Previous page">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span class="text-sm text-text-secondary">
+                Page <span class="font-medium text-text-primary">1</span> of <span class="font-medium text-text-primary">10</span>
+              </span>
+              <button class="px-3 py-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Next page">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </nav>
+          </div>
+
+          <!-- Pagination States -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Pagination States</h3>
+
+            <div class="space-y-6">
+              <!-- Normal State -->
+              <div>
+                <p class="text-sm text-text-secondary mb-2">Normal State (Middle Page)</p>
+                <nav aria-label="Normal pagination" class="flex items-center gap-1">
+                  <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">1</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</button>
+                  <button class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md">3</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">4</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">5</button>
+                  <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+
+              <!-- Disabled State (First Page) -->
+              <div>
+                <p class="text-sm text-text-secondary mb-2">Disabled State (First Page)</p>
+                <nav aria-label="First page pagination" class="flex items-center gap-1">
+                  <button class="px-2 py-2 text-sm text-text-tertiary opacity-50 cursor-not-allowed rounded-md" disabled>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md">1</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">4</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">5</button>
+                  <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+
+              <!-- Disabled State (Last Page) -->
+              <div>
+                <p class="text-sm text-text-secondary mb-2">Disabled State (Last Page)</p>
+                <nav aria-label="Last page pagination" class="flex items-center gap-1">
+                  <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">1</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</button>
+                  <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">4</button>
+                  <button class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md">5</button>
+                  <button class="px-2 py-2 text-sm text-text-tertiary opacity-50 cursor-not-allowed rounded-md" disabled>
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+
+              <!-- Loading State -->
+              <div>
+                <p class="text-sm text-text-secondary mb-2">Loading State</p>
+                <nav aria-label="Loading pagination" class="flex items-center gap-1">
+                  <button class="px-2 py-2 text-sm text-text-tertiary opacity-50 cursor-not-allowed rounded-md" disabled>
+                    <svg class="w-4 h-4 spinner" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                  <button class="px-3 py-2 text-sm text-text-tertiary opacity-50 rounded-md cursor-not-allowed" disabled>1</button>
+                  <button class="px-3 py-2 text-sm font-medium text-white bg-accent-orange/50 rounded-md cursor-not-allowed" disabled>2</button>
+                  <button class="px-3 py-2 text-sm text-text-tertiary opacity-50 rounded-md cursor-not-allowed" disabled>3</button>
+                  <button class="px-2 py-2 text-sm text-text-tertiary opacity-50 cursor-not-allowed rounded-md" disabled>
+                    <svg class="w-4 h-4 spinner" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </nav>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pagination with Border/Card Style -->
+          <div>
+            <h3 class="text-lg font-medium text-text-primary mb-4">Bordered Pagination</h3>
+            <nav aria-label="Bordered pagination" class="inline-flex items-center bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+              <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border-r border-border-primary">1</button>
+              <button class="px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary transition-colors">2</button>
+              <button class="px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary transition-colors">3</button>
+              <button class="px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary transition-colors">4</button>
+              <button class="px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary transition-colors">5</button>
+              <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </nav>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================ -->
+      <!-- SECTION 6: COMBINED EXAMPLE -->
+      <!-- ============================================ -->
+      <section>
+        <h2 class="text-2xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">6. Combined Example: Data List with Pagination</h2>
+
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <!-- List Header -->
+          <div class="px-5 py-4 border-b border-border-primary flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-text-primary">Server Members</h3>
+            <div class="flex items-center gap-3">
+              <label for="filterRole" class="text-sm text-text-secondary">Filter:</label>
+              <select id="filterRole" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus">
+                <option value="">All Roles</option>
+                <option value="admin">Admin</option>
+                <option value="mod">Moderator</option>
+                <option value="member">Member</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- List Items -->
+          <ul class="divide-y divide-border-primary">
+            <li class="px-5 py-4 flex items-center gap-4 hover:bg-bg-hover/50 transition-colors cursor-pointer">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">JD</div>
+              <div class="flex-1 min-w-0">
+                <p class="text-text-primary font-medium truncate">John Doe</p>
+                <p class="text-text-secondary text-sm">Admin</p>
+              </div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">Online</span>
+              <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </li>
+            <li class="px-5 py-4 flex items-center gap-4 hover:bg-bg-hover/50 transition-colors cursor-pointer">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">AS</div>
+              <div class="flex-1 min-w-0">
+                <p class="text-text-primary font-medium truncate">Alice Smith</p>
+                <p class="text-text-secondary text-sm">Moderator</p>
+              </div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning/20 text-warning">Idle</span>
+              <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </li>
+            <li class="px-5 py-4 flex items-center gap-4 hover:bg-bg-hover/50 transition-colors cursor-pointer">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">BJ</div>
+              <div class="flex-1 min-w-0">
+                <p class="text-text-primary font-medium truncate">Bob Johnson</p>
+                <p class="text-text-secondary text-sm">Member</p>
+              </div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">Online</span>
+              <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </li>
+            <li class="px-5 py-4 flex items-center gap-4 hover:bg-bg-hover/50 transition-colors cursor-pointer">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">CW</div>
+              <div class="flex-1 min-w-0">
+                <p class="text-text-primary font-medium truncate">Carol Williams</p>
+                <p class="text-text-secondary text-sm">Member</p>
+              </div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-border-primary text-text-tertiary">Offline</span>
+              <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </li>
+            <li class="px-5 py-4 flex items-center gap-4 hover:bg-bg-hover/50 transition-colors cursor-pointer">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">DM</div>
+              <div class="flex-1 min-w-0">
+                <p class="text-text-primary font-medium truncate">David Miller</p>
+                <p class="text-text-secondary text-sm">Member</p>
+              </div>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">Online</span>
+              <button class="p-1.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </li>
+          </ul>
+
+          <!-- List Footer with Pagination -->
+          <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-3">
+              <label for="pageSizeExample" class="text-sm text-text-secondary">Show:</label>
+              <select id="pageSizeExample" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus">
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="25">25</option>
+              </select>
+              <span class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">1-5</span> of <span class="font-medium text-text-primary">47</span> members
+              </span>
+            </div>
+            <nav aria-label="Member list pagination" class="flex items-center gap-1">
+              <button class="px-2 py-2 text-sm text-text-tertiary opacity-50 cursor-not-allowed rounded-md" disabled aria-label="Previous page">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md">1</button>
+              <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</button>
+              <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</button>
+              <span class="px-2 py-2 text-text-tertiary">...</span>
+              <button class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">10</button>
+              <button class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Next page">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="max-w-6xl mx-auto mt-16 pt-8 border-t border-border-primary">
+      <p class="text-text-tertiary text-sm text-center">
+        Discord Bot Admin UI - Component Library | Lists & Pagination
+      </p>
+    </footer>
+  </div>
+
+  <!-- JavaScript for Interactivity -->
+  <script>
+    // Toggle collapsible list items
+    function toggleCollapsible(button) {
+      const content = button.nextElementSibling;
+      const chevron = button.querySelector('.chevron-icon');
+
+      if (content.classList.contains('expanded')) {
+        content.classList.remove('expanded');
+        chevron.classList.remove('rotated');
+      } else {
+        content.classList.add('expanded');
+        chevron.classList.add('rotated');
+      }
+    }
+
+    // Add click handlers for interactive list items
+    document.querySelectorAll('[data-selectable]').forEach(item => {
+      item.addEventListener('click', function() {
+        // Remove selected state from siblings
+        this.parentElement.querySelectorAll('[data-selectable]').forEach(sibling => {
+          sibling.classList.remove('bg-accent-orange/10', 'border-l-2', 'border-l-accent-orange');
+        });
+        // Add selected state to clicked item
+        this.classList.add('bg-accent-orange/10', 'border-l-2', 'border-l-accent-orange');
+      });
+    });
+  </script>
+
+</body>
+</html>

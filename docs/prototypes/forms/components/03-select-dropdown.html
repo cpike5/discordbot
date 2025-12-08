@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Select Dropdown - Form Components Library</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config (Design System) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* ========================================
+       FORM COMPONENT STYLES
+       ======================================== */
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Screen reader only */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ----------------------------------------
+       Form Group
+       ---------------------------------------- */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .form-required {
+      color: #ef4444;
+      margin-left: 0.25rem;
+    }
+
+    .form-help {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .form-error {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #ef4444;
+    }
+
+    .form-success {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #10b981;
+    }
+
+    /* ----------------------------------------
+       Native Select
+       ---------------------------------------- */
+    .form-select {
+      width: 100%;
+      padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      appearance: none;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-select:hover:not(:disabled) {
+      border-color: #098ecf;
+    }
+
+    .form-select:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+    }
+
+    .form-select:disabled {
+      background-color: #262a2d;
+      color: #7a7876;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    /* Size variants */
+    .form-select-sm {
+      padding: 0.375rem 2rem 0.375rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .form-select-lg {
+      padding: 0.75rem 2.5rem 0.75rem 1rem;
+      font-size: 1rem;
+    }
+
+    /* Validation states */
+    .form-select-error {
+      border-color: #ef4444;
+    }
+
+    .form-select-error:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+    }
+
+    .form-select-success {
+      border-color: #10b981;
+    }
+
+    .form-select-success:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    /* ----------------------------------------
+       Custom Dropdown
+       ---------------------------------------- */
+    .form-dropdown {
+      position: relative;
+    }
+
+    .form-dropdown-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-dropdown-trigger:hover:not(:disabled) {
+      border-color: #098ecf;
+    }
+
+    .form-dropdown-trigger:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+    }
+
+    .form-dropdown-trigger:disabled {
+      background-color: #262a2d;
+      color: #7a7876;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .form-dropdown-value {
+      flex: 1;
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .form-dropdown-placeholder {
+      color: #7a7876;
+    }
+
+    .form-dropdown-arrow {
+      width: 1.25rem;
+      height: 1.25rem;
+      color: #a8a5a3;
+      flex-shrink: 0;
+      transition: transform 0.2s ease-in-out;
+    }
+
+    .form-dropdown.open .form-dropdown-arrow {
+      transform: rotate(180deg);
+    }
+
+    .form-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      z-index: 50;
+      max-height: 240px;
+      overflow-y: auto;
+      background-color: #2f3336;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+      display: none;
+    }
+
+    .form-dropdown.open .form-dropdown-menu {
+      display: block;
+    }
+
+    .form-dropdown-option {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      cursor: pointer;
+      transition: background-color 0.1s ease-in-out;
+    }
+
+    .form-dropdown-option:hover {
+      background-color: #363a3e;
+    }
+
+    .form-dropdown-option:focus {
+      outline: none;
+      background-color: #363a3e;
+    }
+
+    .form-dropdown-option[aria-selected="true"] {
+      background-color: rgba(203, 78, 27, 0.2);
+      color: #cb4e1b;
+    }
+
+    .form-dropdown-option-check {
+      width: 1rem;
+      height: 1rem;
+      color: #cb4e1b;
+      opacity: 0;
+    }
+
+    .form-dropdown-option[aria-selected="true"] .form-dropdown-option-check {
+      opacity: 1;
+    }
+
+    .form-dropdown-option-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      flex-shrink: 0;
+      color: #a8a5a3;
+    }
+
+    .form-dropdown-option[aria-selected="true"] .form-dropdown-option-icon {
+      color: #cb4e1b;
+    }
+
+    /* Option Groups */
+    .form-dropdown-group {
+      padding: 0;
+    }
+
+    .form-dropdown-group-label {
+      padding: 0.5rem 0.875rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #7a7876;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-dropdown-divider {
+      height: 1px;
+      background-color: #3f4447;
+      margin: 0.25rem 0;
+    }
+
+    /* ----------------------------------------
+       Searchable Dropdown
+       ---------------------------------------- */
+    .form-dropdown-search {
+      padding: 0.5rem;
+      border-bottom: 1px solid #3f4447;
+    }
+
+    .form-dropdown-search-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.25rem;
+    }
+
+    .form-dropdown-search-input::placeholder {
+      color: #7a7876;
+    }
+
+    .form-dropdown-search-input:focus {
+      outline: none;
+      border-color: #098ecf;
+    }
+
+    .form-dropdown-no-results {
+      padding: 1rem;
+      font-size: 0.875rem;
+      color: #7a7876;
+      text-align: center;
+    }
+
+    /* ----------------------------------------
+       Multi-Select
+       ---------------------------------------- */
+    .form-multiselect-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+      flex: 1;
+    }
+
+    .form-multiselect-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.125rem 0.5rem;
+      font-size: 0.75rem;
+      color: #d7d3d0;
+      background-color: #3f4447;
+      border-radius: 0.25rem;
+    }
+
+    .form-multiselect-tag-remove {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 0.875rem;
+      height: 0.875rem;
+      color: #a8a5a3;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.1s, background-color 0.1s;
+    }
+
+    .form-multiselect-tag-remove:hover {
+      color: #ef4444;
+      background-color: rgba(239, 68, 68, 0.2);
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="../index.html" class="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium">Back to Components</span>
+          </a>
+        </div>
+        <h1 class="text-lg font-semibold text-text-primary">Select Dropdown</h1>
+        <div class="w-32"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-text-primary">Select Dropdown Component</h2>
+      <p class="mt-2 text-text-secondary">
+        Select dropdowns allow users to choose one or more options from a list.
+        This includes both native HTML selects and custom dropdown implementations.
+      </p>
+    </div>
+
+    <!-- Native Select -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Native Select</h3>
+      <p class="text-sm text-text-secondary mb-6">Standard HTML select element with custom styling.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="native-select" class="form-label">Server Region</label>
+          <select id="native-select" class="form-select">
+            <option value="us-east">US East (Virginia)</option>
+            <option value="us-west">US West (Oregon)</option>
+            <option value="eu-west">EU West (Ireland)</option>
+            <option value="ap-southeast">Asia Pacific (Singapore)</option>
+          </select>
+          <span class="form-help">Select the region closest to your server location.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- With Placeholder -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Placeholder</h3>
+      <p class="text-sm text-text-secondary mb-6">Select with a placeholder/disabled default option.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="placeholder-select" class="form-label">
+            Bot Status
+            <span class="form-required">*</span>
+          </label>
+          <select id="placeholder-select" class="form-select" required>
+            <option value="" disabled selected>Choose a status</option>
+            <option value="online">Online</option>
+            <option value="idle">Idle</option>
+            <option value="dnd">Do Not Disturb</option>
+            <option value="invisible">Invisible</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Size Variants -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Size Variants</h3>
+      <p class="text-sm text-text-secondary mb-6">Small, base, and large select sizes.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <div class="form-group">
+          <label for="select-sm" class="form-label">Small Select</label>
+          <select id="select-sm" class="form-select form-select-sm">
+            <option value="1">Option 1</option>
+            <option value="2">Option 2</option>
+            <option value="3">Option 3</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="select-base" class="form-label">Base Select (Default)</label>
+          <select id="select-base" class="form-select">
+            <option value="1">Option 1</option>
+            <option value="2">Option 2</option>
+            <option value="3">Option 3</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="select-lg" class="form-label">Large Select</label>
+          <select id="select-lg" class="form-select form-select-lg">
+            <option value="1">Option 1</option>
+            <option value="2">Option 2</option>
+            <option value="3">Option 3</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Disabled State -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Disabled State</h3>
+      <p class="text-sm text-text-secondary mb-6">Non-interactive select that cannot be changed.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="disabled-select" class="form-label">Server Type</label>
+          <select id="disabled-select" class="form-select" disabled>
+            <option value="community" selected>Community Server</option>
+            <option value="gaming">Gaming Server</option>
+            <option value="education">Education Server</option>
+          </select>
+          <span class="form-help">Server type cannot be changed after creation.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Validation States -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Validation States</h3>
+      <p class="text-sm text-text-secondary mb-6">Error and success states for select validation.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <!-- Error State -->
+        <div class="form-group">
+          <label for="error-select" class="form-label">
+            Category
+            <span class="form-required">*</span>
+          </label>
+          <select id="error-select" class="form-select form-select-error" aria-invalid="true" aria-describedby="error-select-msg">
+            <option value="" disabled selected>Select a category</option>
+            <option value="general">General</option>
+            <option value="support">Support</option>
+            <option value="feedback">Feedback</option>
+          </select>
+          <span id="error-select-msg" class="form-error" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Please select a category.
+          </span>
+        </div>
+
+        <!-- Success State -->
+        <div class="form-group">
+          <label for="success-select" class="form-label">
+            Timezone
+            <span class="form-required">*</span>
+          </label>
+          <select id="success-select" class="form-select form-select-success" aria-describedby="success-select-msg">
+            <option value="" disabled>Select a timezone</option>
+            <option value="utc" selected>UTC (Coordinated Universal Time)</option>
+            <option value="est">EST (Eastern Standard Time)</option>
+            <option value="pst">PST (Pacific Standard Time)</option>
+          </select>
+          <span id="success-select-msg" class="form-success">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Timezone selected.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- With Option Groups -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Option Groups</h3>
+      <p class="text-sm text-text-secondary mb-6">Select with grouped options using optgroup.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="optgroup-select" class="form-label">Select Channel</label>
+          <select id="optgroup-select" class="form-select">
+            <option value="" disabled selected>Choose a channel</option>
+            <optgroup label="Text Channels">
+              <option value="general">general</option>
+              <option value="announcements">announcements</option>
+              <option value="off-topic">off-topic</option>
+            </optgroup>
+            <optgroup label="Voice Channels">
+              <option value="general-voice">General</option>
+              <option value="gaming">Gaming</option>
+              <option value="music">Music</option>
+            </optgroup>
+            <optgroup label="Categories">
+              <option value="info">Information</option>
+              <option value="community">Community</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Custom Dropdown -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Custom Dropdown</h3>
+      <p class="text-sm text-text-secondary mb-6">Custom styled dropdown with enhanced features.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label id="custom-dropdown-label" class="form-label">Select Server</label>
+          <div class="form-dropdown" id="custom-dropdown-1">
+            <button
+              type="button"
+              class="form-dropdown-trigger"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-labelledby="custom-dropdown-label"
+              onclick="toggleDropdown('custom-dropdown-1')"
+            >
+              <span class="form-dropdown-value form-dropdown-placeholder">Select a server</span>
+              <svg class="form-dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <ul class="form-dropdown-menu" role="listbox" aria-labelledby="custom-dropdown-label">
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="gaming-community"
+                onclick="selectOption('custom-dropdown-1', this, 'Gaming Community')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Gaming Community
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="dev-community"
+                onclick="selectOption('custom-dropdown-1', this, 'Dev Community')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Dev Community
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="music-lovers"
+                onclick="selectOption('custom-dropdown-1', this, 'Music Lovers')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Music Lovers
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="art-studio"
+                onclick="selectOption('custom-dropdown-1', this, 'Art Studio')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Art Studio
+              </li>
+            </ul>
+          </div>
+          <span class="form-help">Choose the server to manage.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Custom Dropdown with Icons -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Icons</h3>
+      <p class="text-sm text-text-secondary mb-6">Custom dropdown with icons in options.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label id="icon-dropdown-label" class="form-label">Bot Activity</label>
+          <div class="form-dropdown" id="icon-dropdown">
+            <button
+              type="button"
+              class="form-dropdown-trigger"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-labelledby="icon-dropdown-label"
+              onclick="toggleDropdown('icon-dropdown')"
+            >
+              <span class="form-dropdown-value form-dropdown-placeholder">Select activity type</span>
+              <svg class="form-dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <ul class="form-dropdown-menu" role="listbox" aria-labelledby="icon-dropdown-label">
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="playing"
+                onclick="selectOption('icon-dropdown', this, 'Playing')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Playing
+                <svg class="form-dropdown-option-check ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="streaming"
+                onclick="selectOption('icon-dropdown', this, 'Streaming')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Streaming
+                <svg class="form-dropdown-option-check ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="listening"
+                onclick="selectOption('icon-dropdown', this, 'Listening to')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                Listening to
+                <svg class="form-dropdown-option-check ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="watching"
+                onclick="selectOption('icon-dropdown', this, 'Watching')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Watching
+                <svg class="form-dropdown-option-check ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="competing"
+                onclick="selectOption('icon-dropdown', this, 'Competing in')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                </svg>
+                Competing in
+                <svg class="form-dropdown-option-check ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Custom Dropdown with Groups -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Option Groups</h3>
+      <p class="text-sm text-text-secondary mb-6">Custom dropdown with grouped options and dividers.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label id="grouped-dropdown-label" class="form-label">Notification Channel</label>
+          <div class="form-dropdown" id="grouped-dropdown">
+            <button
+              type="button"
+              class="form-dropdown-trigger"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-labelledby="grouped-dropdown-label"
+              onclick="toggleDropdown('grouped-dropdown')"
+            >
+              <span class="form-dropdown-value form-dropdown-placeholder">Select a channel</span>
+              <svg class="form-dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <ul class="form-dropdown-menu" role="listbox" aria-labelledby="grouped-dropdown-label">
+              <li class="form-dropdown-group-label">Text Channels</li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="general"
+                onclick="selectOption('grouped-dropdown', this, '#general')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                #general
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="announcements"
+                onclick="selectOption('grouped-dropdown', this, '#announcements')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                #announcements
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="bot-commands"
+                onclick="selectOption('grouped-dropdown', this, '#bot-commands')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                #bot-commands
+              </li>
+              <li class="form-dropdown-divider"></li>
+              <li class="form-dropdown-group-label">Moderation</li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="mod-logs"
+                onclick="selectOption('grouped-dropdown', this, '#mod-logs')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                #mod-logs
+              </li>
+              <li
+                class="form-dropdown-option"
+                role="option"
+                aria-selected="false"
+                data-value="audit-log"
+                onclick="selectOption('grouped-dropdown', this, '#audit-log')"
+                tabindex="0"
+              >
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                #audit-log
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Searchable Dropdown -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Searchable Dropdown</h3>
+      <p class="text-sm text-text-secondary mb-6">Custom dropdown with search/filter functionality.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label id="searchable-dropdown-label" class="form-label">Select Role</label>
+          <div class="form-dropdown" id="searchable-dropdown">
+            <button
+              type="button"
+              class="form-dropdown-trigger"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-labelledby="searchable-dropdown-label"
+              onclick="toggleDropdown('searchable-dropdown')"
+            >
+              <span class="form-dropdown-value form-dropdown-placeholder">Search and select a role</span>
+              <svg class="form-dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div class="form-dropdown-menu" role="listbox" aria-labelledby="searchable-dropdown-label">
+              <div class="form-dropdown-search">
+                <input
+                  type="text"
+                  class="form-dropdown-search-input"
+                  placeholder="Type to search..."
+                  oninput="filterOptions('searchable-dropdown', this.value)"
+                />
+              </div>
+              <ul id="searchable-dropdown-options">
+                <li class="form-dropdown-option" role="option" aria-selected="false" data-value="admin" onclick="selectOption('searchable-dropdown', this, 'Administrator')" tabindex="0">
+                  <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Administrator
+                </li>
+                <li class="form-dropdown-option" role="option" aria-selected="false" data-value="moderator" onclick="selectOption('searchable-dropdown', this, 'Moderator')" tabindex="0">
+                  <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Moderator
+                </li>
+                <li class="form-dropdown-option" role="option" aria-selected="false" data-value="member" onclick="selectOption('searchable-dropdown', this, 'Member')" tabindex="0">
+                  <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Member
+                </li>
+                <li class="form-dropdown-option" role="option" aria-selected="false" data-value="vip" onclick="selectOption('searchable-dropdown', this, 'VIP')" tabindex="0">
+                  <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  VIP
+                </li>
+                <li class="form-dropdown-option" role="option" aria-selected="false" data-value="bot" onclick="selectOption('searchable-dropdown', this, 'Bot')" tabindex="0">
+                  <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Bot
+                </li>
+                <li class="form-dropdown-option" role="option" aria-selected="false" data-value="verified" onclick="selectOption('searchable-dropdown', this, 'Verified')" tabindex="0">
+                  <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Verified
+                </li>
+              </ul>
+              <div class="form-dropdown-no-results" style="display: none;">No results found</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Multi-Select -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Multi-Select</h3>
+      <p class="text-sm text-text-secondary mb-6">Dropdown allowing multiple selections displayed as tags.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label id="multiselect-label" class="form-label">Assign Roles</label>
+          <div class="form-dropdown" id="multiselect-dropdown">
+            <button
+              type="button"
+              class="form-dropdown-trigger"
+              aria-haspopup="listbox"
+              aria-expanded="false"
+              aria-labelledby="multiselect-label"
+              onclick="toggleDropdown('multiselect-dropdown')"
+              style="height: auto; min-height: 42px; padding-top: 0.375rem; padding-bottom: 0.375rem;"
+            >
+              <div class="form-multiselect-tags" id="multiselect-tags">
+                <span class="form-dropdown-placeholder">Select roles</span>
+              </div>
+              <svg class="form-dropdown-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <ul class="form-dropdown-menu" role="listbox" aria-labelledby="multiselect-label" aria-multiselectable="true">
+              <li class="form-dropdown-option" role="option" aria-selected="false" data-value="admin" onclick="toggleMultiOption('multiselect-dropdown', this, 'Administrator')" tabindex="0">
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Administrator
+              </li>
+              <li class="form-dropdown-option" role="option" aria-selected="false" data-value="moderator" onclick="toggleMultiOption('multiselect-dropdown', this, 'Moderator')" tabindex="0">
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Moderator
+              </li>
+              <li class="form-dropdown-option" role="option" aria-selected="false" data-value="member" onclick="toggleMultiOption('multiselect-dropdown', this, 'Member')" tabindex="0">
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Member
+              </li>
+              <li class="form-dropdown-option" role="option" aria-selected="false" data-value="vip" onclick="toggleMultiOption('multiselect-dropdown', this, 'VIP')" tabindex="0">
+                <svg class="form-dropdown-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                VIP
+              </li>
+            </ul>
+          </div>
+          <span class="form-help">Select one or more roles to assign.</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-text-tertiary text-center">
+        Form Components Library - Discord Bot Admin
+      </p>
+    </div>
+  </footer>
+
+  <!-- JavaScript -->
+  <script>
+    // Toggle dropdown open/close
+    function toggleDropdown(dropdownId) {
+      const dropdown = document.getElementById(dropdownId);
+      const trigger = dropdown.querySelector('.form-dropdown-trigger');
+      const isOpen = dropdown.classList.contains('open');
+
+      // Close all other dropdowns first
+      document.querySelectorAll('.form-dropdown.open').forEach(d => {
+        if (d.id !== dropdownId) {
+          d.classList.remove('open');
+          d.querySelector('.form-dropdown-trigger').setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      // Toggle current dropdown
+      dropdown.classList.toggle('open');
+      trigger.setAttribute('aria-expanded', !isOpen);
+
+      // Focus search input if present
+      if (!isOpen) {
+        const searchInput = dropdown.querySelector('.form-dropdown-search-input');
+        if (searchInput) {
+          setTimeout(() => searchInput.focus(), 50);
+        }
+      }
+    }
+
+    // Select option in single-select dropdown
+    function selectOption(dropdownId, optionEl, displayText) {
+      const dropdown = document.getElementById(dropdownId);
+      const valueDisplay = dropdown.querySelector('.form-dropdown-value');
+      const options = dropdown.querySelectorAll('.form-dropdown-option');
+
+      // Update aria-selected
+      options.forEach(opt => opt.setAttribute('aria-selected', 'false'));
+      optionEl.setAttribute('aria-selected', 'true');
+
+      // Update displayed value
+      valueDisplay.textContent = displayText;
+      valueDisplay.classList.remove('form-dropdown-placeholder');
+
+      // Close dropdown
+      toggleDropdown(dropdownId);
+    }
+
+    // Filter options in searchable dropdown
+    function filterOptions(dropdownId, searchTerm) {
+      const dropdown = document.getElementById(dropdownId);
+      const options = dropdown.querySelectorAll('.form-dropdown-option');
+      const noResults = dropdown.querySelector('.form-dropdown-no-results');
+      const term = searchTerm.toLowerCase();
+      let hasVisibleOptions = false;
+
+      options.forEach(option => {
+        const text = option.textContent.toLowerCase();
+        if (text.includes(term)) {
+          option.style.display = '';
+          hasVisibleOptions = true;
+        } else {
+          option.style.display = 'none';
+        }
+      });
+
+      if (noResults) {
+        noResults.style.display = hasVisibleOptions ? 'none' : 'block';
+      }
+    }
+
+    // Multi-select: toggle option selection
+    const multiSelectState = {};
+
+    function toggleMultiOption(dropdownId, optionEl, displayText) {
+      const dropdown = document.getElementById(dropdownId);
+      const tagsContainer = dropdown.querySelector('.form-multiselect-tags');
+      const value = optionEl.dataset.value;
+      const isSelected = optionEl.getAttribute('aria-selected') === 'true';
+
+      if (!multiSelectState[dropdownId]) {
+        multiSelectState[dropdownId] = new Map();
+      }
+
+      if (isSelected) {
+        // Deselect
+        optionEl.setAttribute('aria-selected', 'false');
+        multiSelectState[dropdownId].delete(value);
+      } else {
+        // Select
+        optionEl.setAttribute('aria-selected', 'true');
+        multiSelectState[dropdownId].set(value, displayText);
+      }
+
+      // Update tags display
+      updateMultiSelectTags(dropdownId);
+    }
+
+    function updateMultiSelectTags(dropdownId) {
+      const dropdown = document.getElementById(dropdownId);
+      const tagsContainer = dropdown.querySelector('.form-multiselect-tags');
+      const selections = multiSelectState[dropdownId] || new Map();
+
+      if (selections.size === 0) {
+        tagsContainer.innerHTML = '<span class="form-dropdown-placeholder">Select roles</span>';
+      } else {
+        tagsContainer.innerHTML = '';
+        selections.forEach((displayText, value) => {
+          const tag = document.createElement('span');
+          tag.className = 'form-multiselect-tag';
+          tag.innerHTML = `
+            ${displayText}
+            <span class="form-multiselect-tag-remove" onclick="event.stopPropagation(); removeMultiOption('${dropdownId}', '${value}')">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </span>
+          `;
+          tagsContainer.appendChild(tag);
+        });
+      }
+    }
+
+    function removeMultiOption(dropdownId, value) {
+      const dropdown = document.getElementById(dropdownId);
+      const option = dropdown.querySelector(`[data-value="${value}"]`);
+      if (option) {
+        option.setAttribute('aria-selected', 'false');
+      }
+      if (multiSelectState[dropdownId]) {
+        multiSelectState[dropdownId].delete(value);
+      }
+      updateMultiSelectTags(dropdownId);
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+      if (!event.target.closest('.form-dropdown')) {
+        document.querySelectorAll('.form-dropdown.open').forEach(dropdown => {
+          dropdown.classList.remove('open');
+          dropdown.querySelector('.form-dropdown-trigger').setAttribute('aria-expanded', 'false');
+        });
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(event) {
+      const openDropdown = document.querySelector('.form-dropdown.open');
+      if (!openDropdown) return;
+
+      if (event.key === 'Escape') {
+        openDropdown.classList.remove('open');
+        openDropdown.querySelector('.form-dropdown-trigger').setAttribute('aria-expanded', 'false');
+        openDropdown.querySelector('.form-dropdown-trigger').focus();
+      }
+
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const options = Array.from(openDropdown.querySelectorAll('.form-dropdown-option:not([style*="display: none"])'));
+        const currentIndex = options.findIndex(opt => opt === document.activeElement);
+        let nextIndex;
+
+        if (event.key === 'ArrowDown') {
+          nextIndex = currentIndex < options.length - 1 ? currentIndex + 1 : 0;
+        } else {
+          nextIndex = currentIndex > 0 ? currentIndex - 1 : options.length - 1;
+        }
+
+        options[nextIndex]?.focus();
+      }
+
+      if (event.key === 'Enter' && document.activeElement.classList.contains('form-dropdown-option')) {
+        event.preventDefault();
+        document.activeElement.click();
+      }
+    });
+  </script>
+
+</body>
+</html>

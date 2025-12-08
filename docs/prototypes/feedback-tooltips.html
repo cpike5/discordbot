@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tooltips & Popovers - Feedback Prototype</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config with Design System -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* ==================== */
+    /* TOOLTIP STYLES       */
+    /* ==================== */
+    .tooltip {
+      position: absolute;
+      z-index: 900;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      color: #d7d3d0;
+      background-color: #2f3336;
+      border-radius: 0.375rem;
+      max-width: 250px;
+      white-space: normal;
+      word-wrap: break-word;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 150ms ease-in-out, visibility 150ms ease-in-out;
+      pointer-events: none;
+    }
+
+    .tooltip.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Tooltip Arrows */
+    .tooltip::before {
+      content: '';
+      position: absolute;
+      border: 6px solid transparent;
+    }
+
+    /* Top position */
+    .tooltip[data-position="top"] {
+      transform: translateX(-50%);
+    }
+    .tooltip[data-position="top"]::before {
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-top-color: #2f3336;
+    }
+
+    /* Bottom position */
+    .tooltip[data-position="bottom"] {
+      transform: translateX(-50%);
+    }
+    .tooltip[data-position="bottom"]::before {
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-bottom-color: #2f3336;
+    }
+
+    /* Left position */
+    .tooltip[data-position="left"] {
+      transform: translateY(-50%);
+    }
+    .tooltip[data-position="left"]::before {
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left-color: #2f3336;
+    }
+
+    /* Right position */
+    .tooltip[data-position="right"] {
+      transform: translateY(-50%);
+    }
+    .tooltip[data-position="right"]::before {
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border-right-color: #2f3336;
+    }
+
+    /* ==================== */
+    /* POPOVER STYLES       */
+    /* ==================== */
+    .popover {
+      position: absolute;
+      z-index: 900;
+      padding: 1rem;
+      background-color: #2f3336;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 15px rgba(0, 0, 0, 0.3);
+      max-width: 320px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 150ms ease-in-out, visibility 150ms ease-in-out;
+    }
+
+    .popover.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Popover Arrows */
+    .popover::before {
+      content: '';
+      position: absolute;
+      border: 8px solid transparent;
+    }
+    .popover::after {
+      content: '';
+      position: absolute;
+      border: 7px solid transparent;
+    }
+
+    /* Top position */
+    .popover[data-position="top"] {
+      transform: translateX(-50%);
+    }
+    .popover[data-position="top"]::before {
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-top-color: #3f4447;
+    }
+    .popover[data-position="top"]::after {
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-top: -1px;
+      border-top-color: #2f3336;
+    }
+
+    /* Bottom position */
+    .popover[data-position="bottom"] {
+      transform: translateX(-50%);
+    }
+    .popover[data-position="bottom"]::before {
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-bottom-color: #3f4447;
+    }
+    .popover[data-position="bottom"]::after {
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-bottom: -1px;
+      border-bottom-color: #2f3336;
+    }
+
+    /* Left position */
+    .popover[data-position="left"] {
+      transform: translateY(-50%);
+    }
+    .popover[data-position="left"]::before {
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border-left-color: #3f4447;
+    }
+    .popover[data-position="left"]::after {
+      left: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-left: -1px;
+      border-left-color: #2f3336;
+    }
+
+    /* Right position */
+    .popover[data-position="right"] {
+      transform: translateY(-50%);
+    }
+    .popover[data-position="right"]::before {
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      border-right-color: #3f4447;
+    }
+    .popover[data-position="right"]::after {
+      right: 100%;
+      top: 50%;
+      transform: translateY(-50%);
+      margin-right: -1px;
+      border-right-color: #2f3336;
+    }
+
+    /* Popover Header */
+    .popover-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .popover-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .popover-close {
+      padding: 0.25rem;
+      color: #a8a5a3;
+      background: none;
+      border: none;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+    }
+
+    .popover-close:hover {
+      color: #d7d3d0;
+      background-color: #363a3e;
+    }
+
+    .popover-body {
+      font-size: 0.875rem;
+      color: #a8a5a3;
+      line-height: 1.5;
+    }
+
+    .popover-footer {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #3f4447;
+    }
+
+    /* Button styles */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      line-height: 1.5;
+      border-radius: 0.375rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      white-space: nowrap;
+    }
+
+    .btn-sm {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .btn-primary {
+      background-color: #cb4e1b;
+      color: #ffffff;
+      border-color: #cb4e1b;
+    }
+    .btn-primary:hover {
+      background-color: #e5591f;
+      border-color: #e5591f;
+    }
+    .btn-primary:active {
+      background-color: #b04517;
+      border-color: #b04517;
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      color: #d7d3d0;
+      border-color: #3f4447;
+    }
+    .btn-secondary:hover {
+      background-color: #363a3e;
+      border-color: #3f4447;
+    }
+    .btn-secondary:active {
+      background-color: #2f3336;
+    }
+
+    .btn-danger {
+      background-color: #ef4444;
+      color: #ffffff;
+      border-color: #ef4444;
+    }
+    .btn-danger:hover {
+      background-color: #dc2626;
+      border-color: #dc2626;
+    }
+
+    /* Demo trigger button */
+    .demo-trigger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #d7d3d0;
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .demo-trigger:hover {
+      background-color: #363a3e;
+      border-color: #098ecf;
+    }
+
+    /* Section styling */
+    .demo-section {
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .demo-section-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #d7d3d0;
+      margin-bottom: 0.5rem;
+    }
+
+    .demo-section-desc {
+      font-size: 0.875rem;
+      color: #a8a5a3;
+      margin-bottom: 1.5rem;
+    }
+
+    .demo-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    /* Tooltip trigger wrapper - needed for positioning */
+    .tooltip-trigger-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+      <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Tooltips & Popovers - Feedback Prototype</h1>
+      <p class="mt-2 text-text-secondary">Interactive tooltip and popover components for the Discord Bot Admin UI</p>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 py-8">
+
+    <!-- Section 1: Tooltip Positions -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">1. Tooltip Positions</h2>
+      <p class="demo-section-desc">Hover over each button to see tooltips in different positions. Tooltips appear after a 200ms delay.</p>
+
+      <div class="demo-grid py-8">
+        <!-- Top Tooltip -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-tooltip="This tooltip appears above the button"
+            data-tooltip-position="top"
+            aria-describedby="tooltip-top"
+          >
+            Tooltip Top
+          </button>
+        </div>
+
+        <!-- Right Tooltip -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-tooltip="This tooltip appears to the right"
+            data-tooltip-position="right"
+            aria-describedby="tooltip-right"
+          >
+            Tooltip Right
+          </button>
+        </div>
+
+        <!-- Bottom Tooltip -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-tooltip="This tooltip appears below the button"
+            data-tooltip-position="bottom"
+            aria-describedby="tooltip-bottom"
+          >
+            Tooltip Bottom
+          </button>
+        </div>
+
+        <!-- Left Tooltip -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-tooltip="This tooltip appears to the left"
+            data-tooltip-position="left"
+            aria-describedby="tooltip-left"
+          >
+            Tooltip Left
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Tooltip with Delay -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">2. Tooltip with Custom Delay</h2>
+      <p class="demo-section-desc">Tooltips support configurable delays. The default is 200ms, but you can customize it.</p>
+
+      <div class="demo-grid py-8">
+        <!-- No Delay -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-tooltip="Instant tooltip with no delay"
+            data-tooltip-position="top"
+            data-tooltip-delay="0"
+          >
+            No Delay (0ms)
+          </button>
+        </div>
+
+        <!-- Default Delay -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-tooltip="Default delay of 200 milliseconds"
+            data-tooltip-position="top"
+            data-tooltip-delay="200"
+          >
+            Default (200ms)
+          </button>
+        </div>
+
+        <!-- Long Delay -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-tooltip="Longer delay of 500 milliseconds"
+            data-tooltip-position="top"
+            data-tooltip-delay="500"
+          >
+            Long Delay (500ms)
+          </button>
+        </div>
+
+        <!-- Very Long Delay -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-tooltip="Very long delay of 1000 milliseconds"
+            data-tooltip-position="top"
+            data-tooltip-delay="1000"
+          >
+            Very Long (1000ms)
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Popover Positions -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">3. Popover Positions</h2>
+      <p class="demo-section-desc">Click each button to open popovers in different positions. Click outside or press Escape to close.</p>
+
+      <div class="demo-grid py-8">
+        <!-- Top Popover -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-top"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            Popover Top
+          </button>
+          <div id="popover-top" class="popover" data-position="top" role="dialog" aria-modal="false">
+            <div class="popover-header">
+              <span class="popover-title">Top Popover</span>
+            </div>
+            <div class="popover-body">
+              This popover appears above the trigger element. It supports rich content including text, links, and buttons.
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Popover -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-right"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            Popover Right
+          </button>
+          <div id="popover-right" class="popover" data-position="right" role="dialog" aria-modal="false">
+            <div class="popover-header">
+              <span class="popover-title">Right Popover</span>
+            </div>
+            <div class="popover-body">
+              This popover appears to the right of the trigger element.
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Popover -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-bottom"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            Popover Bottom
+          </button>
+          <div id="popover-bottom" class="popover" data-position="bottom" role="dialog" aria-modal="false">
+            <div class="popover-header">
+              <span class="popover-title">Bottom Popover</span>
+            </div>
+            <div class="popover-body">
+              This popover appears below the trigger element.
+            </div>
+          </div>
+        </div>
+
+        <!-- Left Popover -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-left"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            Popover Left
+          </button>
+          <div id="popover-left" class="popover" data-position="left" role="dialog" aria-modal="false">
+            <div class="popover-header">
+              <span class="popover-title">Left Popover</span>
+            </div>
+            <div class="popover-body">
+              This popover appears to the left of the trigger element.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Popover with Rich Content -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">4. Popover with Rich Content</h2>
+      <p class="demo-section-desc">Popovers can contain rich HTML content including titles, descriptions, and action buttons.</p>
+
+      <div class="demo-grid py-8">
+        <!-- Rich Content Popover -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-rich"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            View Server Details
+          </button>
+          <div id="popover-rich" class="popover" data-position="bottom" role="dialog" aria-modal="false">
+            <div class="popover-header">
+              <span class="popover-title">Gaming Community</span>
+            </div>
+            <div class="popover-body">
+              <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-text-tertiary">Members:</span>
+                  <span class="text-text-primary font-medium">1,234</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-tertiary">Status:</span>
+                  <span class="inline-flex items-center gap-1.5 text-success">
+                    <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+                    Online
+                  </span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-text-tertiary">Commands Today:</span>
+                  <span class="text-text-primary font-medium">892</span>
+                </div>
+              </div>
+            </div>
+            <div class="popover-footer">
+              <button class="btn btn-sm btn-primary flex-1">View Dashboard</button>
+              <button class="btn btn-sm btn-secondary flex-1">Settings</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Profile Popover -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-profile"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <div class="w-6 h-6 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-semibold mr-2">JD</div>
+            User Profile
+          </button>
+          <div id="popover-profile" class="popover" data-position="bottom" role="dialog" aria-modal="false">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold">JD</div>
+              <div>
+                <p class="font-semibold text-text-primary">John Doe</p>
+                <p class="text-xs text-text-tertiary">Administrator</p>
+              </div>
+            </div>
+            <div class="popover-body">
+              <div class="space-y-1 text-sm">
+                <p><span class="text-text-tertiary">Email:</span> <span class="text-text-primary">john@example.com</span></p>
+                <p><span class="text-text-tertiary">Joined:</span> <span class="text-text-primary">Jan 15, 2025</span></p>
+                <p><span class="text-text-tertiary">Last Active:</span> <span class="text-success">Online now</span></p>
+              </div>
+            </div>
+            <div class="popover-footer">
+              <button class="btn btn-sm btn-secondary flex-1">View Profile</button>
+              <button class="btn btn-sm btn-secondary flex-1">Message</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confirmation Popover -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-confirm"
+            aria-haspopup="true"
+            aria-expanded="false"
+            style="border-color: #ef4444; color: #ef4444;"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete Server
+          </button>
+          <div id="popover-confirm" class="popover" data-position="top" role="dialog" aria-modal="false">
+            <div class="popover-header">
+              <span class="popover-title text-error">Confirm Deletion</span>
+            </div>
+            <div class="popover-body">
+              Are you sure you want to remove this server? This action cannot be undone and all associated data will be permanently deleted.
+            </div>
+            <div class="popover-footer">
+              <button class="btn btn-sm btn-secondary flex-1" onclick="closeAllPopovers()">Cancel</button>
+              <button class="btn btn-sm btn-danger flex-1">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: Popover with Close Button -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">5. Popover with Close Button</h2>
+      <p class="demo-section-desc">Popovers can include an optional close button in the header for explicit dismissal.</p>
+
+      <div class="demo-grid py-8">
+        <!-- Popover with Close Button -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-closable"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            Notifications
+          </button>
+          <div id="popover-closable" class="popover" data-position="bottom" role="dialog" aria-modal="false">
+            <div class="popover-header">
+              <span class="popover-title">Notifications</span>
+              <button class="popover-close" aria-label="Close popover" data-close-popover="popover-closable">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="popover-body">
+              <div class="space-y-3">
+                <div class="flex items-start gap-2 p-2 rounded bg-bg-hover/50">
+                  <span class="w-2 h-2 mt-1.5 bg-accent-orange rounded-full flex-shrink-0"></span>
+                  <div>
+                    <p class="text-sm text-text-primary">New member joined Gaming Community</p>
+                    <p class="text-xs text-text-tertiary">2 minutes ago</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2 p-2 rounded bg-bg-hover/50">
+                  <span class="w-2 h-2 mt-1.5 bg-accent-blue rounded-full flex-shrink-0"></span>
+                  <div>
+                    <p class="text-sm text-text-primary">Bot settings updated</p>
+                    <p class="text-xs text-text-tertiary">15 minutes ago</p>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2 p-2 rounded">
+                  <span class="w-2 h-2 mt-1.5 bg-text-tertiary rounded-full flex-shrink-0"></span>
+                  <div>
+                    <p class="text-sm text-text-secondary">Weekly report generated</p>
+                    <p class="text-xs text-text-tertiary">1 hour ago</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="popover-footer">
+              <button class="btn btn-sm btn-secondary flex-1">View All</button>
+              <button class="btn btn-sm btn-primary flex-1">Mark Read</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settings Popover with Close -->
+        <div class="tooltip-trigger-wrapper">
+          <button
+            class="demo-trigger"
+            data-popover="popover-settings"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Quick Settings
+          </button>
+          <div id="popover-settings" class="popover" data-position="bottom" role="dialog" aria-modal="false">
+            <div class="popover-header">
+              <span class="popover-title">Quick Settings</span>
+              <button class="popover-close" aria-label="Close popover" data-close-popover="popover-settings">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div class="popover-body">
+              <div class="space-y-3">
+                <!-- Toggle Item -->
+                <label class="flex items-center justify-between cursor-pointer">
+                  <span class="text-sm text-text-primary">Dark Mode</span>
+                  <div class="relative">
+                    <input type="checkbox" class="sr-only peer" checked>
+                    <div class="w-10 h-5 bg-border-primary rounded-full peer peer-checked:bg-accent-orange transition-colors"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-text-primary rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                  </div>
+                </label>
+                <!-- Toggle Item -->
+                <label class="flex items-center justify-between cursor-pointer">
+                  <span class="text-sm text-text-primary">Notifications</span>
+                  <div class="relative">
+                    <input type="checkbox" class="sr-only peer" checked>
+                    <div class="w-10 h-5 bg-border-primary rounded-full peer peer-checked:bg-accent-orange transition-colors"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-text-primary rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                  </div>
+                </label>
+                <!-- Toggle Item -->
+                <label class="flex items-center justify-between cursor-pointer">
+                  <span class="text-sm text-text-primary">Sound Effects</span>
+                  <div class="relative">
+                    <input type="checkbox" class="sr-only peer">
+                    <div class="w-10 h-5 bg-border-primary rounded-full peer peer-checked:bg-accent-orange transition-colors"></div>
+                    <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-text-primary rounded-full peer-checked:translate-x-5 transition-transform"></div>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div class="popover-footer">
+              <button class="btn btn-sm btn-secondary flex-1">All Settings</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Interactive Demo -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">6. Interactive Demo</h2>
+      <p class="demo-section-desc">A practical example showing tooltips and popovers in a realistic UI context.</p>
+
+      <div class="bg-bg-primary border border-border-primary rounded-lg p-6 mt-4">
+        <!-- Demo Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">GC</div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Gaming Community</h3>
+                <p class="text-xs text-text-tertiary font-mono">ID: 123456789012345678</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <!-- Tooltip on Icon Button -->
+              <div class="tooltip-trigger-wrapper">
+                <button
+                  class="p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+                  data-tooltip="Refresh server data"
+                  data-tooltip-position="top"
+                  data-tooltip-delay="200"
+                  aria-label="Refresh"
+                >
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Tooltip on Icon Button -->
+              <div class="tooltip-trigger-wrapper">
+                <button
+                  class="p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+                  data-tooltip="Server settings"
+                  data-tooltip-position="top"
+                  data-tooltip-delay="200"
+                  aria-label="Settings"
+                >
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Popover Menu -->
+              <div class="tooltip-trigger-wrapper">
+                <button
+                  class="p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+                  data-popover="popover-menu"
+                  aria-haspopup="true"
+                  aria-expanded="false"
+                  aria-label="More options"
+                >
+                  <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                  </svg>
+                </button>
+                <div id="popover-menu" class="popover" data-position="bottom" role="menu" aria-modal="false" style="min-width: 180px; padding: 0.5rem;">
+                  <button class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Server
+                  </button>
+                  <button class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Duplicate
+                  </button>
+                  <button class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Export Data
+                  </button>
+                  <div class="my-1 border-t border-border-primary"></div>
+                  <button class="w-full flex items-center gap-2 px-3 py-2 text-sm text-error hover:bg-error/10 rounded transition-colors" role="menuitem">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Remove Server
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Stats Row -->
+          <div class="grid grid-cols-4 divide-x divide-border-primary">
+            <div class="tooltip-trigger-wrapper p-4 text-center">
+              <p class="text-2xl font-bold text-text-primary">1,234</p>
+              <p
+                class="text-xs text-text-tertiary cursor-help"
+                data-tooltip="Total unique members in this server"
+                data-tooltip-position="bottom"
+                data-tooltip-delay="200"
+              >Members</p>
+            </div>
+            <div class="tooltip-trigger-wrapper p-4 text-center">
+              <p class="text-2xl font-bold text-success">892</p>
+              <p
+                class="text-xs text-text-tertiary cursor-help"
+                data-tooltip="Members currently online"
+                data-tooltip-position="bottom"
+                data-tooltip-delay="200"
+              >Online</p>
+            </div>
+            <div class="tooltip-trigger-wrapper p-4 text-center">
+              <p class="text-2xl font-bold text-accent-blue">3,291</p>
+              <p
+                class="text-xs text-text-tertiary cursor-help"
+                data-tooltip="Bot commands executed today"
+                data-tooltip-position="bottom"
+                data-tooltip-delay="200"
+              >Commands</p>
+            </div>
+            <div class="tooltip-trigger-wrapper p-4 text-center">
+              <p class="text-2xl font-bold text-accent-orange">99.9%</p>
+              <p
+                class="text-xs text-text-tertiary cursor-help"
+                data-tooltip="Bot uptime percentage for this server"
+                data-tooltip-position="bottom"
+                data-tooltip-delay="200"
+              >Uptime</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Technical Specifications -->
+    <section class="demo-section">
+      <h2 class="demo-section-title">Technical Specifications</h2>
+      <p class="demo-section-desc">Reference specifications for implementing tooltips and popovers.</p>
+
+      <div class="grid md:grid-cols-2 gap-6 mt-4">
+        <!-- Tooltip Specs -->
+        <div class="bg-bg-primary border border-border-primary rounded-lg p-5">
+          <h3 class="font-semibold text-text-primary mb-4">Tooltip</h3>
+          <table class="w-full text-sm">
+            <tbody class="divide-y divide-border-secondary">
+              <tr>
+                <td class="py-2 text-text-tertiary">Background</td>
+                <td class="py-2 text-text-primary font-mono">#2f3336</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Text Color</td>
+                <td class="py-2 text-text-primary font-mono">#d7d3d0</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Padding</td>
+                <td class="py-2 text-text-primary font-mono">0.5rem 0.75rem</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Font Size</td>
+                <td class="py-2 text-text-primary font-mono">0.75rem (12px)</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Border Radius</td>
+                <td class="py-2 text-text-primary font-mono">0.375rem (6px)</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Arrow Size</td>
+                <td class="py-2 text-text-primary font-mono">6px</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Max Width</td>
+                <td class="py-2 text-text-primary font-mono">250px</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Z-Index</td>
+                <td class="py-2 text-text-primary font-mono">900</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Animation</td>
+                <td class="py-2 text-text-primary font-mono">150ms ease-in-out</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Default Delay</td>
+                <td class="py-2 text-text-primary font-mono">200ms</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Popover Specs -->
+        <div class="bg-bg-primary border border-border-primary rounded-lg p-5">
+          <h3 class="font-semibold text-text-primary mb-4">Popover</h3>
+          <table class="w-full text-sm">
+            <tbody class="divide-y divide-border-secondary">
+              <tr>
+                <td class="py-2 text-text-tertiary">Background</td>
+                <td class="py-2 text-text-primary font-mono">#2f3336</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Border</td>
+                <td class="py-2 text-text-primary font-mono">1px solid #3f4447</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Padding</td>
+                <td class="py-2 text-text-primary font-mono">1rem</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Border Radius</td>
+                <td class="py-2 text-text-primary font-mono">0.5rem (8px)</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Max Width</td>
+                <td class="py-2 text-text-primary font-mono">320px</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Arrow Size</td>
+                <td class="py-2 text-text-primary font-mono">8px</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Z-Index</td>
+                <td class="py-2 text-text-primary font-mono">900</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Shadow</td>
+                <td class="py-2 text-text-primary font-mono text-xs">0 10px 15px rgba(0,0,0,0.3)</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Animation</td>
+                <td class="py-2 text-text-primary font-mono">150ms ease-in-out</td>
+              </tr>
+              <tr>
+                <td class="py-2 text-text-tertiary">Trigger</td>
+                <td class="py-2 text-text-primary font-mono">click</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-bg-secondary border-t border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+      <p class="text-sm text-text-tertiary text-center">Discord Bot Admin UI - Feedback Components Prototype</p>
+    </div>
+  </footer>
+
+  <!-- JavaScript for Tooltip and Popover Functionality -->
+  <script>
+    // ==========================================
+    // TOOLTIP IMPLEMENTATION
+    // ==========================================
+
+    class TooltipManager {
+      constructor() {
+        this.activeTooltip = null;
+        this.showTimeout = null;
+        this.init();
+      }
+
+      init() {
+        // Find all elements with tooltip data attributes
+        const triggers = document.querySelectorAll('[data-tooltip]');
+
+        triggers.forEach(trigger => {
+          trigger.addEventListener('mouseenter', (e) => this.handleMouseEnter(e));
+          trigger.addEventListener('mouseleave', (e) => this.handleMouseLeave(e));
+          trigger.addEventListener('focus', (e) => this.handleMouseEnter(e));
+          trigger.addEventListener('blur', (e) => this.handleMouseLeave(e));
+        });
+      }
+
+      handleMouseEnter(e) {
+        const trigger = e.currentTarget;
+        const content = trigger.getAttribute('data-tooltip');
+        const position = trigger.getAttribute('data-tooltip-position') || 'top';
+        const delay = parseInt(trigger.getAttribute('data-tooltip-delay')) || 200;
+
+        // Clear any existing timeout
+        if (this.showTimeout) {
+          clearTimeout(this.showTimeout);
+        }
+
+        // Hide any existing tooltip
+        this.hideTooltip();
+
+        // Show tooltip after delay
+        this.showTimeout = setTimeout(() => {
+          this.showTooltip(trigger, content, position);
+        }, delay);
+      }
+
+      handleMouseLeave(e) {
+        // Clear show timeout
+        if (this.showTimeout) {
+          clearTimeout(this.showTimeout);
+          this.showTimeout = null;
+        }
+
+        // Hide tooltip
+        this.hideTooltip();
+      }
+
+      showTooltip(trigger, content, position) {
+        // Create tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tooltip';
+        tooltip.setAttribute('data-position', position);
+        tooltip.setAttribute('role', 'tooltip');
+        tooltip.textContent = content;
+
+        // Add to DOM
+        document.body.appendChild(tooltip);
+        this.activeTooltip = tooltip;
+
+        // Position the tooltip
+        this.positionTooltip(trigger, tooltip, position);
+
+        // Make visible (triggers animation)
+        requestAnimationFrame(() => {
+          tooltip.classList.add('visible');
+        });
+      }
+
+      hideTooltip() {
+        if (this.activeTooltip) {
+          this.activeTooltip.classList.remove('visible');
+          const tooltipToRemove = this.activeTooltip;
+
+          // Remove after animation
+          setTimeout(() => {
+            if (tooltipToRemove && tooltipToRemove.parentNode) {
+              tooltipToRemove.parentNode.removeChild(tooltipToRemove);
+            }
+          }, 150);
+
+          this.activeTooltip = null;
+        }
+      }
+
+      positionTooltip(trigger, tooltip, position) {
+        const triggerRect = trigger.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const scrollX = window.scrollX;
+        const scrollY = window.scrollY;
+        const gap = 8; // Gap between trigger and tooltip
+
+        let top, left;
+
+        switch (position) {
+          case 'top':
+            top = triggerRect.top + scrollY - tooltipRect.height - gap;
+            left = triggerRect.left + scrollX + (triggerRect.width / 2);
+            break;
+          case 'bottom':
+            top = triggerRect.bottom + scrollY + gap;
+            left = triggerRect.left + scrollX + (triggerRect.width / 2);
+            break;
+          case 'left':
+            top = triggerRect.top + scrollY + (triggerRect.height / 2);
+            left = triggerRect.left + scrollX - tooltipRect.width - gap;
+            break;
+          case 'right':
+            top = triggerRect.top + scrollY + (triggerRect.height / 2);
+            left = triggerRect.right + scrollX + gap;
+            break;
+        }
+
+        // Viewport edge detection and auto-flip
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Check if tooltip goes off screen and flip if needed
+        if (position === 'top' && top - scrollY < 0) {
+          // Flip to bottom
+          top = triggerRect.bottom + scrollY + gap;
+          tooltip.setAttribute('data-position', 'bottom');
+        } else if (position === 'bottom' && top + tooltipRect.height - scrollY > viewportHeight) {
+          // Flip to top
+          top = triggerRect.top + scrollY - tooltipRect.height - gap;
+          tooltip.setAttribute('data-position', 'top');
+        } else if (position === 'left' && left < 0) {
+          // Flip to right
+          left = triggerRect.right + scrollX + gap;
+          tooltip.setAttribute('data-position', 'right');
+        } else if (position === 'right' && left + tooltipRect.width > viewportWidth) {
+          // Flip to left
+          left = triggerRect.left + scrollX - tooltipRect.width - gap;
+          tooltip.setAttribute('data-position', 'left');
+        }
+
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
+      }
+    }
+
+    // ==========================================
+    // POPOVER IMPLEMENTATION
+    // ==========================================
+
+    class PopoverManager {
+      constructor() {
+        this.activePopover = null;
+        this.activeTrigger = null;
+        this.init();
+      }
+
+      init() {
+        // Find all elements with popover data attributes
+        const triggers = document.querySelectorAll('[data-popover]');
+
+        triggers.forEach(trigger => {
+          trigger.addEventListener('click', (e) => this.handleClick(e));
+        });
+
+        // Close button listeners
+        const closeButtons = document.querySelectorAll('[data-close-popover]');
+        closeButtons.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.hidePopover();
+          });
+        });
+
+        // Click outside to close
+        document.addEventListener('click', (e) => this.handleOutsideClick(e));
+
+        // Escape key to close
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            this.hidePopover();
+          }
+        });
+      }
+
+      handleClick(e) {
+        e.stopPropagation();
+        const trigger = e.currentTarget;
+        const popoverId = trigger.getAttribute('data-popover');
+        const popover = document.getElementById(popoverId);
+
+        if (!popover) return;
+
+        // If clicking the same trigger, toggle
+        if (this.activeTrigger === trigger && this.activePopover) {
+          this.hidePopover();
+          return;
+        }
+
+        // Hide any existing popover
+        this.hidePopover();
+
+        // Show new popover
+        this.showPopover(trigger, popover);
+      }
+
+      handleOutsideClick(e) {
+        if (this.activePopover && !this.activePopover.contains(e.target) && !this.activeTrigger.contains(e.target)) {
+          this.hidePopover();
+        }
+      }
+
+      showPopover(trigger, popover) {
+        const position = popover.getAttribute('data-position') || 'bottom';
+
+        // Position the popover
+        this.positionPopover(trigger, popover, position);
+
+        // Show popover
+        popover.classList.add('visible');
+        trigger.setAttribute('aria-expanded', 'true');
+
+        this.activePopover = popover;
+        this.activeTrigger = trigger;
+      }
+
+      hidePopover() {
+        if (this.activePopover) {
+          this.activePopover.classList.remove('visible');
+          if (this.activeTrigger) {
+            this.activeTrigger.setAttribute('aria-expanded', 'false');
+          }
+          this.activePopover = null;
+          this.activeTrigger = null;
+        }
+      }
+
+      positionPopover(trigger, popover, position) {
+        const triggerRect = trigger.getBoundingClientRect();
+        const gap = 12; // Gap between trigger and popover
+
+        // Reset any inline styles first
+        popover.style.top = '';
+        popover.style.left = '';
+        popover.style.right = '';
+        popover.style.bottom = '';
+
+        // Get popover dimensions after reset
+        const popoverRect = popover.getBoundingClientRect();
+
+        let top, left;
+
+        switch (position) {
+          case 'top':
+            top = -popoverRect.height - gap;
+            left = (triggerRect.width / 2);
+            break;
+          case 'bottom':
+            top = triggerRect.height + gap;
+            left = (triggerRect.width / 2);
+            break;
+          case 'left':
+            top = (triggerRect.height / 2);
+            left = -popoverRect.width - gap;
+            break;
+          case 'right':
+            top = (triggerRect.height / 2);
+            left = triggerRect.width + gap;
+            break;
+        }
+
+        popover.style.top = `${top}px`;
+        popover.style.left = `${left}px`;
+
+        // After positioning, check if popover is outside viewport and adjust
+        requestAnimationFrame(() => {
+          this.adjustForViewport(popover, position);
+        });
+      }
+
+      adjustForViewport(popover, position) {
+        const rect = popover.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const padding = 16;
+
+        // Horizontal adjustment
+        if (rect.left < padding) {
+          const currentLeft = parseFloat(popover.style.left) || 0;
+          popover.style.left = `${currentLeft + (padding - rect.left)}px`;
+        } else if (rect.right > viewportWidth - padding) {
+          const currentLeft = parseFloat(popover.style.left) || 0;
+          popover.style.left = `${currentLeft - (rect.right - viewportWidth + padding)}px`;
+        }
+
+        // Vertical adjustment
+        if (rect.top < padding) {
+          const currentTop = parseFloat(popover.style.top) || 0;
+          popover.style.top = `${currentTop + (padding - rect.top)}px`;
+        } else if (rect.bottom > viewportHeight - padding) {
+          const currentTop = parseFloat(popover.style.top) || 0;
+          popover.style.top = `${currentTop - (rect.bottom - viewportHeight + padding)}px`;
+        }
+      }
+    }
+
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
+
+    // Initialize managers when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      window.tooltipManager = new TooltipManager();
+      window.popoverManager = new PopoverManager();
+    });
+
+    // Global function to close all popovers (used by buttons)
+    function closeAllPopovers() {
+      if (window.popoverManager) {
+        window.popoverManager.hidePopover();
+      }
+    }
+  </script>
+
+</body>
+</html>
