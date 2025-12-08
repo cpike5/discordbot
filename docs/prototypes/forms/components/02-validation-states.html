@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Validation States - Form Components Library</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config (Design System) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* ========================================
+       FORM COMPONENT STYLES
+       ======================================== */
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Screen reader only */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ----------------------------------------
+       Form Group
+       ---------------------------------------- */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .form-required {
+      color: #ef4444;
+      margin-left: 0.25rem;
+    }
+
+    .form-help {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .form-error {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #ef4444;
+    }
+
+    .form-success {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #10b981;
+    }
+
+    .form-warning {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #f59e0b;
+    }
+
+    .form-info {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #06b6d4;
+    }
+
+    /* ----------------------------------------
+       Text Input
+       ---------------------------------------- */
+    .form-input {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-input::placeholder {
+      color: #7a7876;
+    }
+
+    .form-input:hover:not(:disabled) {
+      border-color: #098ecf;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+    }
+
+    .form-input:disabled {
+      background-color: #262a2d;
+      color: #7a7876;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    /* Validation states */
+    .form-input-error {
+      border-color: #ef4444;
+    }
+
+    .form-input-error:hover:not(:disabled) {
+      border-color: #ef4444;
+    }
+
+    .form-input-error:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+    }
+
+    .form-input-success {
+      border-color: #10b981;
+    }
+
+    .form-input-success:hover:not(:disabled) {
+      border-color: #10b981;
+    }
+
+    .form-input-success:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    .form-input-warning {
+      border-color: #f59e0b;
+    }
+
+    .form-input-warning:hover:not(:disabled) {
+      border-color: #f59e0b;
+    }
+
+    .form-input-warning:focus {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+    }
+
+    /* ----------------------------------------
+       Input Wrapper (for status icons)
+       ---------------------------------------- */
+    .form-input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .form-input-status-icon {
+      position: absolute;
+      right: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .form-input-with-status {
+      padding-right: 2.5rem;
+    }
+
+    /* ----------------------------------------
+       Select
+       ---------------------------------------- */
+    .form-select {
+      width: 100%;
+      padding: 0.625rem 2.5rem 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.5em 1.5em;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      appearance: none;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-select:hover:not(:disabled) {
+      border-color: #098ecf;
+    }
+
+    .form-select:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+    }
+
+    .form-select-error {
+      border-color: #ef4444;
+    }
+
+    .form-select-error:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+    }
+
+    .form-select-success {
+      border-color: #10b981;
+    }
+
+    .form-select-success:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    /* ----------------------------------------
+       Checkbox with validation
+       ---------------------------------------- */
+    .form-checkbox {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.625rem;
+      cursor: pointer;
+    }
+
+    .form-checkbox-input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .form-checkbox-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.125rem;
+      height: 1.125rem;
+      flex-shrink: 0;
+      margin-top: 0.125rem;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.25rem;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .form-checkbox-icon {
+      width: 0.75rem;
+      height: 0.75rem;
+      color: white;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.15s ease-in-out;
+    }
+
+    .form-checkbox:hover .form-checkbox-box {
+      border-color: #098ecf;
+    }
+
+    .form-checkbox-input:checked + .form-checkbox-box {
+      background-color: #cb4e1b;
+      border-color: #cb4e1b;
+    }
+
+    .form-checkbox-input:checked + .form-checkbox-box .form-checkbox-icon {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .form-checkbox-box-error {
+      border-color: #ef4444;
+    }
+
+    .form-checkbox-label {
+      font-size: 0.875rem;
+      color: #d7d3d0;
+    }
+
+    /* ----------------------------------------
+       Validation Message Animations
+       ---------------------------------------- */
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .form-message-animated {
+      animation: slideIn 0.2s ease-out;
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="../index.html" class="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium">Back to Components</span>
+          </a>
+        </div>
+        <h1 class="text-lg font-semibold text-text-primary">Validation States</h1>
+        <div class="w-32"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-text-primary">Input Validation States</h2>
+      <p class="mt-2 text-text-secondary">
+        Validation states provide visual feedback to users about the status of their input.
+        These states include default, hover, focus, error, success, warning, and disabled.
+        All states follow accessibility guidelines by not relying on color alone.
+      </p>
+    </div>
+
+    <!-- All States Overview -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">All States Overview</h3>
+      <p class="text-sm text-text-secondary mb-6">Side-by-side comparison of all validation states.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Default State -->
+          <div class="form-group">
+            <label class="form-label">Default State</label>
+            <input
+              type="text"
+              class="form-input"
+              placeholder="Default input"
+            />
+            <span class="form-help">Default helper text.</span>
+          </div>
+
+          <!-- Hover State (simulated via description) -->
+          <div class="form-group">
+            <label class="form-label">Hover State</label>
+            <input
+              type="text"
+              class="form-input"
+              style="border-color: #098ecf;"
+              placeholder="Hover over me"
+            />
+            <span class="form-help">Border changes to blue on hover.</span>
+          </div>
+
+          <!-- Focus State (simulated) -->
+          <div class="form-group">
+            <label class="form-label">Focus State</label>
+            <input
+              type="text"
+              class="form-input"
+              style="border-color: #098ecf; box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);"
+              placeholder="Click to focus"
+            />
+            <span class="form-help">Blue border with glow shadow.</span>
+          </div>
+
+          <!-- Error State -->
+          <div class="form-group">
+            <label class="form-label">Error State</label>
+            <input
+              type="text"
+              class="form-input form-input-error"
+              value="Invalid value"
+              aria-invalid="true"
+            />
+            <span class="form-error" role="alert">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              This field has an error.
+            </span>
+          </div>
+
+          <!-- Success State -->
+          <div class="form-group">
+            <label class="form-label">Success State</label>
+            <input
+              type="text"
+              class="form-input form-input-success"
+              value="Valid value"
+            />
+            <span class="form-success">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              This field is valid.
+            </span>
+          </div>
+
+          <!-- Disabled State -->
+          <div class="form-group">
+            <label class="form-label">Disabled State</label>
+            <input
+              type="text"
+              class="form-input"
+              value="Disabled value"
+              disabled
+            />
+            <span class="form-help">This field is disabled.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error State Details -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Error State</h3>
+      <p class="text-sm text-text-secondary mb-6">
+        Error states indicate invalid input. Always include an icon and descriptive text message,
+        never rely on color alone. Use <code class="text-accent-blue">aria-invalid="true"</code> and
+        <code class="text-accent-blue">role="alert"</code> for accessibility.
+      </p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <!-- Basic Error -->
+        <div class="form-group">
+          <label for="error-email" class="form-label">
+            Email Address
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <div class="form-input-wrapper">
+            <input
+              type="email"
+              id="error-email"
+              class="form-input form-input-error form-input-with-status"
+              value="invalid-email"
+              aria-invalid="true"
+              aria-describedby="error-email-message"
+            />
+            <span class="form-input-status-icon text-error">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+          </div>
+          <span id="error-email-message" class="form-error form-message-animated" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Please enter a valid email address (e.g., user@example.com).
+          </span>
+        </div>
+
+        <!-- Error with longer message -->
+        <div class="form-group">
+          <label for="error-password" class="form-label">
+            Password
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <div class="form-input-wrapper">
+            <input
+              type="password"
+              id="error-password"
+              class="form-input form-input-error form-input-with-status"
+              value="123"
+              aria-invalid="true"
+              aria-describedby="error-password-message"
+            />
+            <span class="form-input-status-icon text-error">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+          </div>
+          <span id="error-password-message" class="form-error form-message-animated" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Password must be at least 8 characters and include uppercase, lowercase, and a number.
+          </span>
+        </div>
+
+        <!-- Multiple errors list -->
+        <div class="form-group">
+          <label for="error-username" class="form-label">
+            Username
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <div class="form-input-wrapper">
+            <input
+              type="text"
+              id="error-username"
+              class="form-input form-input-error form-input-with-status"
+              value="ab"
+              aria-invalid="true"
+              aria-describedby="error-username-message"
+            />
+            <span class="form-input-status-icon text-error">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+          </div>
+          <div id="error-username-message" class="form-error form-message-animated" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <ul class="list-disc list-inside">
+              <li>Must be at least 3 characters long</li>
+              <li>Cannot contain special characters</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Success State Details -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Success State</h3>
+      <p class="text-sm text-text-secondary mb-6">
+        Success states confirm valid input. Use to provide positive reinforcement,
+        especially for fields requiring specific formats or availability checks.
+      </p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <!-- Basic Success -->
+        <div class="form-group">
+          <label for="success-username" class="form-label">
+            Username
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <div class="form-input-wrapper">
+            <input
+              type="text"
+              id="success-username"
+              class="form-input form-input-success form-input-with-status"
+              value="awesome_user_123"
+              aria-describedby="success-username-message"
+            />
+            <span class="form-input-status-icon text-success">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+          </div>
+          <span id="success-username-message" class="form-success form-message-animated">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            This username is available!
+          </span>
+        </div>
+
+        <!-- Success with additional info -->
+        <div class="form-group">
+          <label for="success-email" class="form-label">
+            Email Address
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <div class="form-input-wrapper">
+            <input
+              type="email"
+              id="success-email"
+              class="form-input form-input-success form-input-with-status"
+              value="valid@example.com"
+              aria-describedby="success-email-message"
+            />
+            <span class="form-input-status-icon text-success">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </span>
+          </div>
+          <span id="success-email-message" class="form-success form-message-animated">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Email format is valid. A confirmation will be sent.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Warning State Details -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Warning State</h3>
+      <p class="text-sm text-text-secondary mb-6">
+        Warning states indicate potential issues that don't prevent submission but require attention.
+        Use for suggestions, deprecation notices, or approaching limits.
+      </p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <!-- Warning about password strength -->
+        <div class="form-group">
+          <label for="warning-password" class="form-label">Password</label>
+          <div class="form-input-wrapper">
+            <input
+              type="password"
+              id="warning-password"
+              class="form-input form-input-warning form-input-with-status"
+              value="password123"
+              aria-describedby="warning-password-message"
+            />
+            <span class="form-input-status-icon text-warning">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </span>
+          </div>
+          <span id="warning-password-message" class="form-warning form-message-animated">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            Password is weak. Consider using a stronger password.
+          </span>
+        </div>
+
+        <!-- Warning about character limit -->
+        <div class="form-group">
+          <label for="warning-bio" class="form-label">Bio</label>
+          <textarea
+            id="warning-bio"
+            class="form-input form-input-warning"
+            rows="3"
+            aria-describedby="warning-bio-message"
+          >This is a very long bio that is approaching the character limit. You may want to shorten it soon before you hit the maximum.</textarea>
+          <div class="flex justify-between items-center">
+            <span id="warning-bio-message" class="form-warning form-message-animated">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Approaching character limit.
+            </span>
+            <span class="text-xs text-warning">145/160</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Info State -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Info State</h3>
+      <p class="text-sm text-text-secondary mb-6">
+        Info states provide neutral information or context about a field without indicating errors or success.
+      </p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="info-token" class="form-label">Bot Token</label>
+          <input
+            type="password"
+            id="info-token"
+            class="form-input"
+            placeholder="Enter your bot token"
+            aria-describedby="info-token-message"
+          />
+          <span id="info-token-message" class="form-info">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            You can find your token in the Discord Developer Portal.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Select Validation -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Select Validation</h3>
+      <p class="text-sm text-text-secondary mb-6">Validation states applied to select/dropdown components.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Error Select -->
+          <div class="form-group">
+            <label for="select-error" class="form-label">
+              Server Region
+              <span class="form-required" aria-label="required">*</span>
+            </label>
+            <select
+              id="select-error"
+              class="form-select form-select-error"
+              aria-invalid="true"
+              aria-describedby="select-error-message"
+            >
+              <option value="" disabled selected>Select a region</option>
+              <option value="us-east">US East</option>
+              <option value="us-west">US West</option>
+              <option value="eu-west">EU West</option>
+            </select>
+            <span id="select-error-message" class="form-error" role="alert">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Please select a server region.
+            </span>
+          </div>
+
+          <!-- Success Select -->
+          <div class="form-group">
+            <label for="select-success" class="form-label">
+              Server Type
+              <span class="form-required" aria-label="required">*</span>
+            </label>
+            <select
+              id="select-success"
+              class="form-select form-select-success"
+              aria-describedby="select-success-message"
+            >
+              <option value="" disabled>Select a type</option>
+              <option value="gaming" selected>Gaming</option>
+              <option value="community">Community</option>
+              <option value="education">Education</option>
+            </select>
+            <span id="select-success-message" class="form-success">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Server type selected.
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Checkbox Validation -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Checkbox Validation</h3>
+      <p class="text-sm text-text-secondary mb-6">Error states for required checkbox fields.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <!-- Error Checkbox -->
+        <div class="form-group">
+          <label class="form-checkbox">
+            <input
+              type="checkbox"
+              class="form-checkbox-input"
+              aria-invalid="true"
+              aria-describedby="checkbox-error-message"
+            />
+            <span class="form-checkbox-box form-checkbox-box-error" aria-hidden="true">
+              <svg class="form-checkbox-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <span class="form-checkbox-label">
+              I agree to the Terms of Service
+              <span class="text-error">*</span>
+            </span>
+          </label>
+          <span id="checkbox-error-message" class="form-error ml-7" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            You must accept the Terms of Service to continue.
+          </span>
+        </div>
+
+        <!-- Valid Checkbox -->
+        <div class="form-group">
+          <label class="form-checkbox">
+            <input
+              type="checkbox"
+              class="form-checkbox-input"
+              checked
+              aria-describedby="checkbox-success-message"
+            />
+            <span class="form-checkbox-box" aria-hidden="true" style="background-color: #10b981; border-color: #10b981;">
+              <svg class="form-checkbox-icon" style="opacity: 1; transform: scale(1);" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </span>
+            <span class="form-checkbox-label">
+              I agree to the Privacy Policy
+              <span class="text-error">*</span>
+            </span>
+          </label>
+          <span id="checkbox-success-message" class="form-success ml-7">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Thank you for accepting the Privacy Policy.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Demo -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Interactive Validation Demo</h3>
+      <p class="text-sm text-text-secondary mb-6">
+        Type in the field below to see real-time validation. Try entering an invalid email format.
+      </p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="demo-email" class="form-label">
+            Email Address
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <div class="form-input-wrapper">
+            <input
+              type="email"
+              id="demo-email"
+              class="form-input form-input-with-status"
+              placeholder="Type an email address..."
+              oninput="validateEmail(this)"
+              aria-describedby="demo-email-message"
+            />
+            <span id="demo-email-icon" class="form-input-status-icon hidden">
+              <!-- Icon inserted by JS -->
+            </span>
+          </div>
+          <span id="demo-email-message" class="form-help">Enter your email address to see validation.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Form with Multiple Validations -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Form with Mixed Validation States</h3>
+      <p class="text-sm text-text-secondary mb-6">Example of a form showing multiple validation states simultaneously.</p>
+
+      <form class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-4">
+          <!-- Success field -->
+          <div class="form-group">
+            <label for="form-username" class="form-label">
+              Username
+              <span class="form-required" aria-label="required">*</span>
+            </label>
+            <div class="form-input-wrapper">
+              <input
+                type="text"
+                id="form-username"
+                class="form-input form-input-success form-input-with-status"
+                value="valid_user"
+              />
+              <span class="form-input-status-icon text-success">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </span>
+            </div>
+            <span class="form-success">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Username is available.
+            </span>
+          </div>
+
+          <!-- Error field -->
+          <div class="form-group">
+            <label for="form-email" class="form-label">
+              Email
+              <span class="form-required" aria-label="required">*</span>
+            </label>
+            <div class="form-input-wrapper">
+              <input
+                type="email"
+                id="form-email"
+                class="form-input form-input-error form-input-with-status"
+                value="notanemail"
+                aria-invalid="true"
+              />
+              <span class="form-input-status-icon text-error">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </span>
+            </div>
+            <span class="form-error" role="alert">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Please enter a valid email address.
+            </span>
+          </div>
+
+          <!-- Warning field -->
+          <div class="form-group">
+            <label for="form-password" class="form-label">
+              Password
+              <span class="form-required" aria-label="required">*</span>
+            </label>
+            <div class="form-input-wrapper">
+              <input
+                type="password"
+                id="form-password"
+                class="form-input form-input-warning form-input-with-status"
+                value="weakpass"
+              />
+              <span class="form-input-status-icon text-warning">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </span>
+            </div>
+            <span class="form-warning">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Password is weak. Add uppercase letters and numbers.
+            </span>
+          </div>
+
+          <!-- Default field -->
+          <div class="form-group">
+            <label for="form-phone" class="form-label">
+              Phone Number
+              <span class="text-text-tertiary text-xs font-normal ml-1">(optional)</span>
+            </label>
+            <input
+              type="tel"
+              id="form-phone"
+              class="form-input"
+              placeholder="+1 (555) 000-0000"
+            />
+            <span class="form-help">We'll only use this for account recovery.</span>
+          </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-border-primary flex justify-end gap-3">
+          <button type="button" class="px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange hover:bg-accent-orange-hover rounded-lg transition-colors opacity-50 cursor-not-allowed" disabled>
+            Submit (Fix Errors)
+          </button>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-text-tertiary text-center">
+        Form Components Library - Discord Bot Admin
+      </p>
+    </div>
+  </footer>
+
+  <!-- JavaScript -->
+  <script>
+    // Interactive email validation demo
+    function validateEmail(input) {
+      const icon = document.getElementById('demo-email-icon');
+      const message = document.getElementById('demo-email-message');
+      const value = input.value.trim();
+
+      // Reset states
+      input.classList.remove('form-input-error', 'form-input-success');
+      icon.classList.add('hidden');
+
+      if (value === '') {
+        // Empty - show default state
+        message.className = 'form-help';
+        message.innerHTML = 'Enter your email address to see validation.';
+        input.removeAttribute('aria-invalid');
+        return;
+      }
+
+      // Simple email regex
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (emailRegex.test(value)) {
+        // Valid
+        input.classList.add('form-input-success');
+        icon.classList.remove('hidden');
+        icon.className = 'form-input-status-icon text-success';
+        icon.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+
+        message.className = 'form-success form-message-animated';
+        message.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Valid email format!';
+        input.removeAttribute('aria-invalid');
+      } else {
+        // Invalid
+        input.classList.add('form-input-error');
+        input.setAttribute('aria-invalid', 'true');
+        icon.classList.remove('hidden');
+        icon.className = 'form-input-status-icon text-error';
+        icon.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+
+        message.className = 'form-error form-message-animated';
+        message.setAttribute('role', 'alert');
+        message.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Please enter a valid email format (e.g., user@example.com).';
+      }
+    }
+  </script>
+
+</body>
+</html>

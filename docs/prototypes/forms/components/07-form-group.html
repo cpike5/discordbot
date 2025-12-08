@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form Group - Form Components Library</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Tailwind Config (Design System) -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    /* ========================================
+       FORM COMPONENT STYLES
+       ======================================== */
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Screen reader only */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* ----------------------------------------
+       Form Group
+       ---------------------------------------- */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .form-required {
+      color: #ef4444;
+      margin-left: 0.25rem;
+    }
+
+    .form-optional {
+      font-weight: 400;
+      color: #7a7876;
+      margin-left: 0.25rem;
+      font-size: 0.75rem;
+    }
+
+    .form-help {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .form-error {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #ef4444;
+    }
+
+    .form-success {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: #10b981;
+    }
+
+    /* ----------------------------------------
+       Text Input (Base)
+       ---------------------------------------- */
+    .form-input {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+
+    .form-input::placeholder {
+      color: #7a7876;
+    }
+
+    .form-input:hover:not(:disabled) {
+      border-color: #098ecf;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+    }
+
+    .form-input:disabled {
+      background-color: #262a2d;
+      color: #7a7876;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    /* Size variants */
+    .form-input-sm {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    .form-input-lg {
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+    }
+
+    /* Validation states */
+    .form-input-error {
+      border-color: #ef4444;
+    }
+
+    .form-input-error:focus {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+    }
+
+    .form-input-success {
+      border-color: #10b981;
+    }
+
+    .form-input-success:focus {
+      border-color: #10b981;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    /* ----------------------------------------
+       Form Group Layout Variants
+       ---------------------------------------- */
+
+    /* Horizontal layout - label and input side by side */
+    .form-group-horizontal {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .form-group-horizontal .form-label {
+      flex-shrink: 0;
+      width: 150px;
+      padding-top: 0.625rem;
+    }
+
+    .form-group-horizontal .form-group-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    /* Inline - multiple groups in a row */
+    .form-group-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group-inline .form-group {
+      flex: 1;
+      min-width: 150px;
+      margin-bottom: 0;
+    }
+
+    /* Grouped - multiple form groups with section styling */
+    .form-section {
+      padding: 1.5rem;
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #d7d3d0;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #3f4447;
+    }
+
+    .form-section-description {
+      font-size: 0.875rem;
+      color: #a8a5a3;
+      margin-top: -0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Divider between form groups */
+    .form-divider {
+      height: 1px;
+      background-color: #3f4447;
+      margin: 1.5rem 0;
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="../index.html" class="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium">Back to Components</span>
+          </a>
+        </div>
+        <h1 class="text-lg font-semibold text-text-primary">Form Group</h1>
+        <div class="w-32"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-text-primary">Form Group Container</h2>
+      <p class="mt-2 text-text-secondary">
+        Form groups provide consistent structure for form fields including labels, inputs, helper text, and validation messages.
+        They serve as the foundation for organizing form layouts.
+      </p>
+    </div>
+
+    <!-- Basic Form Group -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Basic Form Group</h3>
+      <p class="text-sm text-text-secondary mb-6">Standard vertical layout with label, input, and helper text.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="basic-input" class="form-label">Username</label>
+          <input
+            type="text"
+            id="basic-input"
+            class="form-input"
+            placeholder="Enter your username"
+            aria-describedby="basic-input-help"
+          />
+          <span id="basic-input-help" class="form-help">Choose a unique username between 3-20 characters.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Required Field -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Required Field</h3>
+      <p class="text-sm text-text-secondary mb-6">Indicates required fields with a red asterisk.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="required-input" class="form-label">
+            Email Address
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <input
+            type="email"
+            id="required-input"
+            class="form-input"
+            placeholder="you@example.com"
+            required
+            aria-describedby="required-input-help"
+          />
+          <span id="required-input-help" class="form-help">We'll never share your email with anyone.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Optional Field -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Optional Field</h3>
+      <p class="text-sm text-text-secondary mb-6">Indicates optional fields with "(optional)" text.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="optional-input" class="form-label">
+            Phone Number
+            <span class="form-optional">(optional)</span>
+          </label>
+          <input
+            type="tel"
+            id="optional-input"
+            class="form-input"
+            placeholder="+1 (555) 000-0000"
+            aria-describedby="optional-input-help"
+          />
+          <span id="optional-input-help" class="form-help">Used for two-factor authentication.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error State -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Error State</h3>
+      <p class="text-sm text-text-secondary mb-6">Shows validation error with icon and message.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="error-input" class="form-label">
+            Password
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <input
+            type="password"
+            id="error-input"
+            class="form-input form-input-error"
+            value="123"
+            aria-invalid="true"
+            aria-describedby="error-input-message"
+          />
+          <span id="error-input-message" class="form-error" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Password must be at least 8 characters long.
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Success State -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Success State</h3>
+      <p class="text-sm text-text-secondary mb-6">Shows validation success with icon and message.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="success-input" class="form-label">
+            Username
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <input
+            type="text"
+            id="success-input"
+            class="form-input form-input-success"
+            value="cool_username_123"
+            aria-describedby="success-input-message"
+          />
+          <span id="success-input-message" class="form-success">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Username is available!
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Horizontal Layout -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Horizontal Layout</h3>
+      <p class="text-sm text-text-secondary mb-6">Label and input displayed side by side for wider screens.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group form-group-horizontal">
+          <label for="horizontal-input" class="form-label">Display Name</label>
+          <div class="form-group-content">
+            <input
+              type="text"
+              id="horizontal-input"
+              class="form-input"
+              placeholder="Your display name"
+              aria-describedby="horizontal-input-help"
+            />
+            <span id="horizontal-input-help" class="form-help">This is how others will see you on the platform.</span>
+          </div>
+        </div>
+
+        <div class="form-group form-group-horizontal">
+          <label for="horizontal-input-2" class="form-label">Bio</label>
+          <div class="form-group-content">
+            <textarea
+              id="horizontal-input-2"
+              class="form-input"
+              rows="3"
+              placeholder="Tell us about yourself"
+              aria-describedby="horizontal-input-2-help"
+            ></textarea>
+            <span id="horizontal-input-2-help" class="form-help">Maximum 160 characters.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Inline Layout -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Inline Layout</h3>
+      <p class="text-sm text-text-secondary mb-6">Multiple form groups displayed in a row for compact forms.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group-inline">
+          <div class="form-group">
+            <label for="inline-first" class="form-label">First Name</label>
+            <input
+              type="text"
+              id="inline-first"
+              class="form-input"
+              placeholder="John"
+            />
+          </div>
+          <div class="form-group">
+            <label for="inline-last" class="form-label">Last Name</label>
+            <input
+              type="text"
+              id="inline-last"
+              class="form-input"
+              placeholder="Doe"
+            />
+          </div>
+        </div>
+
+        <div class="form-group-inline">
+          <div class="form-group" style="flex: 2;">
+            <label for="inline-city" class="form-label">City</label>
+            <input
+              type="text"
+              id="inline-city"
+              class="form-input"
+              placeholder="New York"
+            />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label for="inline-state" class="form-label">State</label>
+            <input
+              type="text"
+              id="inline-state"
+              class="form-input"
+              placeholder="NY"
+            />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label for="inline-zip" class="form-label">ZIP Code</label>
+            <input
+              type="text"
+              id="inline-zip"
+              class="form-input"
+              placeholder="10001"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Form Section (Grouped) -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Form Section (Grouped)</h3>
+      <p class="text-sm text-text-secondary mb-6">Related form groups organized into sections with titles.</p>
+
+      <div class="form-section">
+        <h4 class="form-section-title">Personal Information</h4>
+        <p class="form-section-description">Basic information about yourself.</p>
+
+        <div class="form-group-inline">
+          <div class="form-group">
+            <label for="section-first" class="form-label">
+              First Name
+              <span class="form-required" aria-label="required">*</span>
+            </label>
+            <input type="text" id="section-first" class="form-input" placeholder="John" required />
+          </div>
+          <div class="form-group">
+            <label for="section-last" class="form-label">
+              Last Name
+              <span class="form-required" aria-label="required">*</span>
+            </label>
+            <input type="text" id="section-last" class="form-input" placeholder="Doe" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="section-email" class="form-label">
+            Email Address
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <input type="email" id="section-email" class="form-input" placeholder="john@example.com" required />
+          <span class="form-help">Your primary email address.</span>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h4 class="form-section-title">Account Settings</h4>
+        <p class="form-section-description">Configure your account preferences.</p>
+
+        <div class="form-group">
+          <label for="section-username" class="form-label">
+            Username
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <input type="text" id="section-username" class="form-input" placeholder="johndoe" required />
+          <span class="form-help">Unique identifier for your account.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="section-password" class="form-label">
+            Password
+            <span class="form-required" aria-label="required">*</span>
+          </label>
+          <input type="password" id="section-password" class="form-input" placeholder="Enter password" required />
+          <span class="form-help">Minimum 8 characters with at least one number.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- With Divider -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Divider</h3>
+      <p class="text-sm text-text-secondary mb-6">Form groups separated by horizontal dividers.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="divider-name" class="form-label">Server Name</label>
+          <input type="text" id="divider-name" class="form-input" placeholder="My Awesome Server" />
+          <span class="form-help">The display name of your Discord server.</span>
+        </div>
+
+        <div class="form-divider"></div>
+
+        <div class="form-group">
+          <label for="divider-description" class="form-label">
+            Description
+            <span class="form-optional">(optional)</span>
+          </label>
+          <textarea id="divider-description" class="form-input" rows="3" placeholder="Describe your server..."></textarea>
+          <span class="form-help">A brief description that appears in server discovery.</span>
+        </div>
+
+        <div class="form-divider"></div>
+
+        <div class="form-group">
+          <label for="divider-icon" class="form-label">
+            Server Icon URL
+            <span class="form-optional">(optional)</span>
+          </label>
+          <input type="url" id="divider-icon" class="form-input" placeholder="https://example.com/icon.png" />
+          <span class="form-help">URL to an image for your server icon.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Disabled State -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Disabled State</h3>
+      <p class="text-sm text-text-secondary mb-6">Form group with disabled input field.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label for="disabled-input" class="form-label">Server ID</label>
+          <input
+            type="text"
+            id="disabled-input"
+            class="form-input"
+            value="123456789012345678"
+            disabled
+            aria-describedby="disabled-input-help"
+          />
+          <span id="disabled-input-help" class="form-help">Server ID cannot be changed.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Complete Form Example -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Complete Form Example</h3>
+      <p class="text-sm text-text-secondary mb-6">A realistic form combining multiple group patterns.</p>
+
+      <form class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-section" style="margin-bottom: 1.5rem;">
+          <h4 class="form-section-title">Bot Configuration</h4>
+
+          <div class="form-group">
+            <label for="complete-botname" class="form-label">
+              Bot Name
+              <span class="form-required" aria-label="required">*</span>
+            </label>
+            <input type="text" id="complete-botname" class="form-input" placeholder="My Discord Bot" required />
+          </div>
+
+          <div class="form-group-inline">
+            <div class="form-group">
+              <label for="complete-prefix" class="form-label">Command Prefix</label>
+              <input type="text" id="complete-prefix" class="form-input" value="!" maxlength="3" />
+              <span class="form-help">1-3 characters</span>
+            </div>
+            <div class="form-group">
+              <label for="complete-status" class="form-label">Bot Status</label>
+              <input type="text" id="complete-status" class="form-input" placeholder="Playing a game" />
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group form-group-horizontal">
+          <label for="complete-token" class="form-label">Bot Token</label>
+          <div class="form-group-content">
+            <input type="password" id="complete-token" class="form-input" placeholder="Enter your bot token" />
+            <span class="form-help">Your Discord bot token from the Developer Portal.</span>
+          </div>
+        </div>
+
+        <div class="form-divider"></div>
+
+        <div class="flex justify-end gap-3">
+          <button type="button" class="px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange hover:bg-accent-orange-hover rounded-lg transition-colors">
+            Save Configuration
+          </button>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-text-tertiary text-center">
+        Form Components Library - Discord Bot Admin
+      </p>
+    </div>
+  </footer>
+
+</body>
+</html>
