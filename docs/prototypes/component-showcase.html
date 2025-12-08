@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Feedback Components Showcase - Discord Bot Admin</title>
+  <title>Component Library Showcase - Discord Bot Admin</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -118,16 +118,16 @@
         <div class="flex items-center gap-4">
           <div class="w-10 h-10 rounded-lg bg-accent-orange flex items-center justify-center">
             <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
           </div>
           <div>
-            <h1 class="text-xl font-bold text-text-primary">Feedback Components</h1>
-            <p class="text-sm text-text-secondary">UI Component Library Showcase</p>
+            <h1 class="text-xl font-bold text-text-primary">Component Library</h1>
+            <p class="text-sm text-text-secondary">Discord Bot Admin UI Showcase</p>
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <span class="text-xs text-text-tertiary">Issues #38 & #39</span>
+          <span class="text-xs text-text-tertiary">Issues #37, #38 & #39</span>
           <a href="dashboard.html" class="px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
             View Dashboard
           </a>
@@ -144,13 +144,13 @@
       <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
         <h2 class="text-lg font-semibold text-text-primary mb-2">About This Showcase</h2>
         <p class="text-text-secondary mb-4">
-          This showcase presents the feedback UI components (Issue #39) and data display components (Issue #38) designed for the Discord Bot Admin interface.
+          This showcase presents the form components (Issue #37), feedback UI components (Issue #39), and data display components (Issue #38) designed for the Discord Bot Admin interface.
           Each component follows the design system defined in <code class="px-1.5 py-0.5 bg-bg-tertiary rounded text-accent-blue font-mono text-sm">docs/design-system.md</code>.
         </p>
         <div class="flex flex-wrap gap-2">
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-success-bg text-success border border-success-border rounded-full">
             <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
-            10 Components
+            20 Components
           </span>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-info-bg text-info border border-info-border rounded-full">
             <span class="w-1.5 h-1.5 bg-info rounded-full"></span>
@@ -164,9 +164,332 @@
       </div>
     </section>
 
-    <!-- Component Grid -->
+    <!-- Form Components Section -->
+    <section class="mb-12">
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Form Components</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- Text Input Component -->
+        <a href="forms/components/01-text-input.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-blue-muted rounded-lg">
+                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Text Input</h3>
+                <p class="text-xs text-text-tertiary">Input fields and textareas</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-2">
+            <input type="text" placeholder="Enter text..." class="w-full px-3 py-2 text-xs bg-bg-primary border border-border-primary rounded text-text-primary placeholder-text-tertiary" readonly>
+            <input type="text" value="With value" class="w-full px-3 py-2 text-xs bg-bg-primary border border-accent-blue rounded text-text-primary" readonly>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Sizes, icons, password, search
+          </div>
+        </a>
+
+        <!-- Validation States Component -->
+        <a href="forms/components/02-validation-states.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-error-bg rounded-lg">
+                <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Validation States</h3>
+                <p class="text-xs text-text-tertiary">Error, success, warning</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-2">
+            <input type="text" value="Invalid input" class="w-full px-3 py-2 text-xs bg-bg-primary border border-error rounded text-text-primary" readonly>
+            <span class="flex items-center gap-1 text-xs text-error">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              This field is required
+            </span>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Error, success, warning, info
+          </div>
+        </a>
+
+        <!-- Select Dropdown Component -->
+        <a href="forms/components/03-select-dropdown.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-orange-muted rounded-lg">
+                <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Select Dropdown</h3>
+                <p class="text-xs text-text-tertiary">Native and custom selects</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="relative">
+              <select class="w-full px-3 py-2 text-xs bg-bg-primary border border-border-primary rounded text-text-primary appearance-none pr-8" disabled>
+                <option>Select an option</option>
+              </select>
+              <svg class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Searchable, multi-select, custom
+          </div>
+        </a>
+
+        <!-- Checkbox Component -->
+        <a href="forms/components/04-checkbox.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-success-bg rounded-lg">
+                <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Checkbox</h3>
+                <p class="text-xs text-text-tertiary">Single and group selection</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-2">
+            <label class="flex items-center gap-2 text-xs text-text-primary cursor-pointer">
+              <span class="w-4 h-4 bg-accent-orange border border-accent-orange rounded flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+              </span>
+              Checked option
+            </label>
+            <label class="flex items-center gap-2 text-xs text-text-primary cursor-pointer">
+              <span class="w-4 h-4 bg-bg-primary border border-border-primary rounded"></span>
+              Unchecked option
+            </label>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Indeterminate, select-all, groups
+          </div>
+        </a>
+
+        <!-- Radio Button Component -->
+        <a href="forms/components/05-radio-button.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-info-bg rounded-lg">
+                <svg class="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Radio Button</h3>
+                <p class="text-xs text-text-tertiary">Single selection groups</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-2">
+            <label class="flex items-center gap-2 text-xs text-text-primary cursor-pointer">
+              <span class="w-4 h-4 bg-accent-orange border border-accent-orange rounded-full flex items-center justify-center">
+                <span class="w-2 h-2 bg-white rounded-full"></span>
+              </span>
+              Selected option
+            </label>
+            <label class="flex items-center gap-2 text-xs text-text-primary cursor-pointer">
+              <span class="w-4 h-4 bg-bg-primary border border-border-primary rounded-full"></span>
+              Unselected option
+            </label>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Vertical, horizontal, card style
+          </div>
+        </a>
+
+        <!-- Toggle Switch Component -->
+        <a href="forms/components/06-toggle-switch.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-warning-bg rounded-lg">
+                <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Toggle Switch</h3>
+                <p class="text-xs text-text-tertiary">On/off binary controls</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 flex items-center justify-center gap-4">
+            <div class="flex items-center gap-2">
+              <span class="relative inline-block w-10 h-6 bg-accent-orange rounded-full">
+                <span class="absolute top-1 right-1 w-4 h-4 bg-white rounded-full"></span>
+              </span>
+              <span class="text-xs text-text-primary">On</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="relative inline-block w-10 h-6 bg-border-primary rounded-full">
+                <span class="absolute top-1 left-1 w-4 h-4 bg-text-secondary rounded-full"></span>
+              </span>
+              <span class="text-xs text-text-tertiary">Off</span>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Sizes, labels, icons, animated
+          </div>
+        </a>
+
+        <!-- Form Group Component -->
+        <a href="forms/components/07-form-group.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-bg-tertiary rounded-lg">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Form Group</h3>
+                <p class="text-xs text-text-tertiary">Label + input containers</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-1">
+            <label class="block text-xs font-medium text-text-primary">Label <span class="text-error">*</span></label>
+            <input type="text" class="w-full px-3 py-2 text-xs bg-bg-primary border border-border-primary rounded text-text-primary" readonly>
+            <span class="text-xs text-text-tertiary">Helper text here</span>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Required, optional, horizontal
+          </div>
+        </a>
+
+        <!-- Date/Time Component -->
+        <a href="forms/components/08-date-time.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-blue-muted rounded-lg">
+                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Date/Time</h3>
+                <p class="text-xs text-text-tertiary">Date and time pickers</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4 space-y-2">
+            <div class="flex items-center gap-2 px-3 py-2 bg-bg-primary border border-border-primary rounded text-xs text-text-primary">
+              <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              December 7, 2025
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Date, time, range, duration
+          </div>
+        </a>
+
+        <!-- Number Input Component -->
+        <a href="forms/components/09-number-input.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-success-bg rounded-lg">
+                <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Number Input</h3>
+                <p class="text-xs text-text-tertiary">Numeric inputs with steppers</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="flex items-center border border-border-primary rounded overflow-hidden">
+              <button class="px-3 py-2 bg-bg-tertiary text-text-secondary text-xs hover:bg-bg-hover">−</button>
+              <input type="text" value="5" class="flex-1 px-3 py-2 text-xs bg-bg-primary text-text-primary text-center border-x border-border-primary" readonly>
+              <button class="px-3 py-2 bg-bg-tertiary text-text-secondary text-xs hover:bg-bg-hover">+</button>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Stepper, min/max, prefix/suffix
+          </div>
+        </a>
+
+        <!-- File Upload Component -->
+        <a href="forms/components/10-file-upload.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-orange-muted rounded-lg">
+                <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">File Upload</h3>
+                <p class="text-xs text-text-tertiary">File input and drag-drop</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="border-2 border-dashed border-border-primary rounded-lg p-4 text-center">
+              <svg class="w-8 h-8 mx-auto text-text-tertiary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p class="text-xs text-text-tertiary">Drop files here</p>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-text-tertiary">
+            Drag-drop, preview, multiple
+          </div>
+        </a>
+
+        <!-- Form Gallery Link -->
+        <a href="forms/index.html" class="component-card block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="p-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-blue-muted rounded-lg">
+                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-semibold text-text-primary">Form Gallery</h3>
+                <p class="text-xs text-text-tertiary">View all form components</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="text-center py-4">
+              <span class="text-3xl font-bold text-accent-blue">10</span>
+              <p class="text-xs text-text-secondary mt-1">Form Components</p>
+              <p class="text-xs text-text-tertiary">50+ Variants</p>
+            </div>
+          </div>
+          <div class="px-4 py-3 bg-bg-primary/50 text-xs text-accent-blue font-medium">
+            View complete gallery →
+          </div>
+        </a>
+
+      </div>
+    </section>
+
+    <!-- Feedback Component Grid -->
     <section>
-      <h2 class="text-lg font-semibold text-text-primary mb-6">Components</h2>
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Feedback Components</h2>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
@@ -620,6 +943,74 @@
     <section class="mt-12">
       <h2 class="text-lg font-semibold text-text-primary mb-6">Quick Reference</h2>
 
+      <!-- Form Components Table -->
+      <h3 class="text-sm font-semibold text-text-secondary mb-3">Form Components</h3>
+      <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+        <table class="w-full text-sm">
+          <thead class="bg-bg-primary/50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Component</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Variants</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Key Features</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-primary">
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Text Input</td>
+              <td class="px-4 py-3 text-text-secondary">sm, base, lg, textarea</td>
+              <td class="px-4 py-3 text-text-secondary">Icons, password toggle, character counter, search</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Validation States</td>
+              <td class="px-4 py-3 text-text-secondary">error, success, warning, info</td>
+              <td class="px-4 py-3 text-text-secondary">Inline messages, icons, focus shadows</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Select Dropdown</td>
+              <td class="px-4 py-3 text-text-secondary">native, custom, searchable, multi</td>
+              <td class="px-4 py-3 text-text-secondary">Keyboard navigation, option groups</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Checkbox</td>
+              <td class="px-4 py-3 text-text-secondary">single, group, indeterminate</td>
+              <td class="px-4 py-3 text-text-secondary">Select-all pattern, error state</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Radio Button</td>
+              <td class="px-4 py-3 text-text-secondary">vertical, horizontal, card</td>
+              <td class="px-4 py-3 text-text-secondary">Group containers, descriptions</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Toggle Switch</td>
+              <td class="px-4 py-3 text-text-secondary">sm, base, lg, with-labels</td>
+              <td class="px-4 py-3 text-text-secondary">Animated transition, settings list</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Form Group</td>
+              <td class="px-4 py-3 text-text-secondary">vertical, horizontal, inline</td>
+              <td class="px-4 py-3 text-text-secondary">Label, helper text, required indicator</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Date/Time</td>
+              <td class="px-4 py-3 text-text-secondary">date, time, datetime, range</td>
+              <td class="px-4 py-3 text-text-secondary">Native inputs, duration picker</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Number Input</td>
+              <td class="px-4 py-3 text-text-secondary">basic, stepper, slider</td>
+              <td class="px-4 py-3 text-text-secondary">Min/max, step, prefix/suffix</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">File Upload</td>
+              <td class="px-4 py-3 text-text-secondary">button, dropzone, avatar</td>
+              <td class="px-4 py-3 text-text-secondary">Drag-drop, preview, multiple files</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Feedback Components Table -->
+      <h3 class="text-sm font-semibold text-text-secondary mb-3">Feedback Components</h3>
       <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <table class="w-full text-sm">
           <thead class="bg-bg-primary/50">
@@ -699,8 +1090,8 @@
     <!-- Footer -->
     <footer class="mt-12 pt-8 border-t border-border-primary">
       <div class="flex items-center justify-between text-sm text-text-tertiary">
-        <p>Discord Bot Admin UI - Feedback Components</p>
-        <p>Part of Issues #38 & #39</p>
+        <p>Discord Bot Admin UI - Component Library</p>
+        <p>Part of Issues #37, #38 & #39</p>
       </div>
     </footer>
 
