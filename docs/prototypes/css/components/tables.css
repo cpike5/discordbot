@@ -1,0 +1,212 @@
+/**
+ * Table Components
+ * Discord Bot Admin UI
+ *
+ * Data table styles with sorting, selection, and responsive variants.
+ */
+
+/* ==========================================
+   BASE TABLE
+   ========================================== */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* ==========================================
+   TABLE HEADER
+   ========================================== */
+.table-header {
+  background-color: var(--color-bg-tertiary, #2f3336);
+}
+
+.table-header th {
+  padding: 0.75rem 1.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #a8a5a3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Sortable header */
+.table-header th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease-out;
+}
+
+.table-header th.sortable:hover {
+  color: var(--color-text-primary, #d7d3d0);
+}
+
+.table-header th.sorted {
+  color: var(--color-accent-blue, #098ecf);
+}
+
+/* ==========================================
+   TABLE BODY
+   ========================================== */
+.table-row {
+  border-bottom: 1px solid var(--color-border-secondary, #2f3336);
+  transition: background-color 0.15s ease-out;
+}
+
+.table-row:hover {
+  background-color: var(--color-bg-hover, #363a3e);
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+/* Striped rows */
+.table-striped .table-row:nth-child(even) {
+  background-color: rgba(47, 51, 54, 0.3);
+}
+
+/* Selected row */
+.table-row.selected {
+  background-color: var(--color-accent-blue-muted, rgba(9, 142, 207, 0.2));
+}
+
+/* ==========================================
+   TABLE CELL
+   ========================================== */
+.table-cell {
+  padding: 1rem 1.5rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary, #d7d3d0);
+}
+
+.table-cell-secondary {
+  color: var(--color-text-secondary, #a8a5a3);
+}
+
+/* ==========================================
+   COMPACT TABLE
+   ========================================== */
+.table-compact .table-header th {
+  padding: 0.5rem 1rem;
+}
+
+.table-compact .table-cell {
+  padding: 0.5rem 1rem;
+}
+
+/* ==========================================
+   TABLE CONTAINER
+   ========================================== */
+.table-container {
+  overflow-x: auto;
+  border: 1px solid var(--color-border-primary, #3f4447);
+  border-radius: 0.5rem;
+}
+
+.table-container .table {
+  min-width: 100%;
+}
+
+/* ==========================================
+   TABLE STATES
+   ========================================== */
+
+/* Empty state */
+.table-empty {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.table-empty-icon {
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 1rem;
+  color: var(--color-text-tertiary, #7a7876);
+}
+
+.table-empty-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #a8a5a3);
+}
+
+.table-empty-description {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #7a7876);
+  margin-top: 0.25rem;
+}
+
+/* Loading skeleton row */
+.table-skeleton {
+  height: 1rem;
+  background: linear-gradient(90deg, var(--color-bg-secondary, #262a2d) 0%, var(--color-bg-hover, #363a3e) 50%, var(--color-bg-secondary, #262a2d) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.25rem;
+}
+
+/* Error state */
+.table-error {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background-color: var(--color-error-bg, rgba(239, 68, 68, 0.1));
+  border: 1px solid var(--color-error-border, rgba(239, 68, 68, 0.3));
+  border-radius: 0.5rem;
+}
+
+.table-error-icon {
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 1rem;
+  color: var(--color-error, #ef4444);
+}
+
+.table-error-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-error, #ef4444);
+}
+
+/* ==========================================
+   EXPANDABLE ROWS
+   ========================================== */
+.table-row-expandable {
+  cursor: pointer;
+}
+
+.table-row-expanded {
+  background-color: var(--color-bg-primary, #1d2022);
+  border-left: 2px solid var(--color-accent-blue, #098ecf);
+}
+
+.expand-icon {
+  transition: transform 0.15s ease-out;
+}
+
+.expand-icon.rotated {
+  transform: rotate(90deg);
+}
+
+/* ==========================================
+   TABLE PAGINATION
+   ========================================== */
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border-primary, #3f4447);
+  background-color: var(--color-bg-secondary, #262a2d);
+}
+
+.table-pagination-info {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #a8a5a3);
+}
+
+.table-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

@@ -1,0 +1,301 @@
+/**
+ * Loading Components
+ * Discord Bot Admin UI
+ *
+ * Skeleton loaders, spinners, and progress indicators.
+ */
+
+/* ==========================================
+   SKELETON LOADER
+   ========================================== */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-secondary, #262a2d) 0%,
+    var(--color-bg-hover, #363a3e) 50%,
+    var(--color-bg-secondary, #262a2d) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.25rem;
+}
+
+/* Skeleton variants */
+.skeleton-text {
+  height: 1rem;
+  width: 100%;
+}
+
+.skeleton-title {
+  height: 1.5rem;
+  width: 60%;
+}
+
+.skeleton-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+}
+
+.skeleton-button {
+  height: 2.5rem;
+  width: 6rem;
+  border-radius: 0.375rem;
+}
+
+.skeleton-card {
+  height: 8rem;
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+/* ==========================================
+   SIMPLE SPINNER
+   Rotating circle animation
+   ========================================== */
+.spinner {
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--color-accent-blue, #098ecf);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.spinner-sm {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+}
+
+.spinner-md {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+}
+
+.spinner-lg {
+  width: 64px;
+  height: 64px;
+  border-width: 4px;
+}
+
+/* Spinner color variants */
+.spinner-primary {
+  border-top-color: var(--color-accent-orange, #cb4e1b);
+}
+
+.spinner-white {
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+}
+
+/* ==========================================
+   DOTS SPINNER
+   Bouncing dots animation
+   ========================================== */
+.dots-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dots-spinner .dot {
+  background-color: var(--color-accent-blue, #098ecf);
+  border-radius: 50%;
+  animation: bounce-dot 1.4s ease-in-out infinite both;
+}
+
+.dots-spinner .dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.dots-spinner .dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.dots-spinner .dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+.dots-spinner-sm .dot {
+  width: 6px;
+  height: 6px;
+}
+
+.dots-spinner-md .dot {
+  width: 10px;
+  height: 10px;
+}
+
+.dots-spinner-lg .dot {
+  width: 16px;
+  height: 16px;
+}
+
+/* ==========================================
+   PULSE SPINNER
+   Pulsing circle animation
+   ========================================== */
+.pulse-spinner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-spinner .ring {
+  position: absolute;
+  border: 3px solid var(--color-accent-blue, #098ecf);
+  border-radius: 50%;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+.pulse-spinner .core {
+  background-color: var(--color-accent-blue, #098ecf);
+  border-radius: 50%;
+  animation: pulse-core 1.5s ease-in-out infinite;
+}
+
+.pulse-spinner-sm .ring {
+  width: 24px;
+  height: 24px;
+  border-width: 2px;
+}
+
+.pulse-spinner-sm .core {
+  width: 12px;
+  height: 12px;
+}
+
+.pulse-spinner-md .ring {
+  width: 40px;
+  height: 40px;
+  border-width: 3px;
+}
+
+.pulse-spinner-md .core {
+  width: 20px;
+  height: 20px;
+}
+
+.pulse-spinner-lg .ring {
+  width: 64px;
+  height: 64px;
+  border-width: 4px;
+}
+
+.pulse-spinner-lg .core {
+  width: 32px;
+  height: 32px;
+}
+
+/* ==========================================
+   PROGRESS BAR
+   ========================================== */
+.progress-bar {
+  height: 4px;
+  background-color: var(--color-border-primary, #3f4447);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--color-accent-blue, #098ecf);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Indeterminate progress */
+.progress-bar-indeterminate .progress-bar-fill {
+  width: 50%;
+  animation: indeterminate-progress 1.5s ease-in-out infinite;
+}
+
+/* Progress bar variants */
+.progress-bar-success .progress-bar-fill {
+  background-color: var(--color-success, #10b981);
+}
+
+.progress-bar-warning .progress-bar-fill {
+  background-color: var(--color-warning, #f59e0b);
+}
+
+.progress-bar-error .progress-bar-fill {
+  background-color: var(--color-error, #ef4444);
+}
+
+/* ==========================================
+   CIRCULAR PROGRESS
+   ========================================== */
+.circular-progress {
+  animation: circular-progress-rotate 2s linear infinite;
+}
+
+.circular-progress-path {
+  stroke: var(--color-accent-blue, #098ecf);
+  stroke-linecap: round;
+  animation: circular-progress-dash 1.5s ease-in-out infinite;
+}
+
+/* ==========================================
+   LOADING OVERLAY
+   ========================================== */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(29, 32, 34, 0.8);
+  z-index: var(--z-tooltip, 1200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.loading-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Container-scoped overlay */
+.loading-container {
+  position: relative;
+}
+
+.loading-container-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(29, 32, 34, 0.8);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-radius: inherit;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.loading-container-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ==========================================
+   LOADING TEXT
+   ========================================== */
+.loading-text {
+  font-size: 0.875rem;
+  color: var(--color-text-primary, #d7d3d0);
+}
+
+.loading-subtext {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #7a7876);
+}

@@ -1,0 +1,290 @@
+/**
+ * Modal and Drawer Components
+ * Discord Bot Admin UI
+ *
+ * Modal dialogs and slide-out drawer panels.
+ */
+
+/* ==========================================
+   MODAL BACKDROP
+   z-index: 1000 as per design system
+   ========================================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop, 1000);
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 150ms ease-out, visibility 150ms ease-out;
+}
+
+.modal-backdrop.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ==========================================
+   MODAL CONTAINER
+   z-index: 1001 as per design system
+   ========================================== */
+.modal {
+  position: fixed;
+  z-index: var(--z-modal, 1001);
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.95) translateY(-10px);
+  transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms ease-out;
+}
+
+.modal.active {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1) translateY(0);
+}
+
+/* ==========================================
+   MODAL POSITIONING
+   ========================================== */
+
+/* Centered (default) */
+.modal-centered {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+}
+
+.modal-centered.active {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Top aligned */
+.modal-top {
+  top: 5rem;
+  left: 50%;
+  transform: translateX(-50%) scale(0.95) translateY(-10px);
+}
+
+.modal-top.active {
+  transform: translateX(-50%) scale(1) translateY(0);
+}
+
+/* ==========================================
+   MODAL SIZE VARIANTS
+   ========================================== */
+.modal-sm {
+  max-width: 400px;
+  width: calc(100% - 2rem);
+}
+
+.modal-md {
+  max-width: 500px;
+  width: calc(100% - 2rem);
+}
+
+.modal-lg {
+  max-width: 600px;
+  width: calc(100% - 2rem);
+}
+
+.modal-xl {
+  max-width: 800px;
+  width: calc(100% - 2rem);
+}
+
+.modal-full {
+  max-width: calc(100% - 3rem);
+  max-height: calc(100% - 3rem);
+  width: calc(100% - 3rem);
+}
+
+/* ==========================================
+   MODAL SECTIONS
+   ========================================== */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border-primary, #3f4447);
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border-primary, #3f4447);
+}
+
+/* Scrollable modal body */
+.modal-body-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* ==========================================
+   MODAL CLOSE BUTTON
+   ========================================== */
+.modal-close {
+  padding: 0.25rem;
+  color: var(--color-text-tertiary, #7a7876);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: color 0.15s ease-out, background-color 0.15s ease-out;
+}
+
+.modal-close:hover {
+  color: var(--color-text-primary, #d7d3d0);
+  background-color: var(--color-bg-hover, #363a3e);
+}
+
+.modal-close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* ==========================================
+   PREVENT BODY SCROLL
+   ========================================== */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* ==========================================
+   DRAWER COMPONENT
+   ========================================== */
+
+/* Drawer backdrop */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop, 1000);
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms ease-out, visibility 200ms ease-out;
+}
+
+.drawer-backdrop.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Drawer panel */
+.drawer {
+  position: fixed;
+  z-index: var(--z-modal, 1001);
+  background-color: var(--color-bg-secondary, #262a2d);
+  transition: transform 300ms ease-out;
+}
+
+/* Right drawer (default) */
+.drawer-right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 400px;
+  transform: translateX(100%);
+  border-left: 1px solid var(--color-border-primary, #3f4447);
+}
+
+.drawer-right.active {
+  transform: translateX(0);
+}
+
+/* Left drawer */
+.drawer-left {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 400px;
+  transform: translateX(-100%);
+  border-right: 1px solid var(--color-border-primary, #3f4447);
+}
+
+.drawer-left.active {
+  transform: translateX(0);
+}
+
+/* Bottom drawer */
+.drawer-bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: auto;
+  max-height: 80vh;
+  transform: translateY(100%);
+  border-top: 1px solid var(--color-border-primary, #3f4447);
+  border-radius: 1rem 1rem 0 0;
+}
+
+.drawer-bottom.active {
+  transform: translateY(0);
+}
+
+/* Top drawer */
+.drawer-top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: auto;
+  max-height: 80vh;
+  transform: translateY(-100%);
+  border-bottom: 1px solid var(--color-border-primary, #3f4447);
+  border-radius: 0 0 1rem 1rem;
+}
+
+.drawer-top.active {
+  transform: translateY(0);
+}
+
+/* ==========================================
+   DRAWER SIZE VARIANTS
+   ========================================== */
+.drawer-sm {
+  max-width: 320px;
+}
+
+.drawer-md {
+  max-width: 400px;
+}
+
+.drawer-lg {
+  max-width: 480px;
+}
+
+.drawer-xl {
+  max-width: 640px;
+}
+
+/* ==========================================
+   DRAWER SECTIONS
+   ========================================== */
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--color-border-primary, #3f4447);
+}
+
+.drawer-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--color-border-primary, #3f4447);
+}

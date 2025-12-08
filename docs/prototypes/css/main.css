@@ -1,0 +1,26 @@
+/**
+ * Main CSS Entry Point
+ * Discord Bot Admin UI
+ *
+ * This file imports all shared styles in the correct order.
+ * Include this file in HTML prototypes to load all design system styles.
+ */
+
+/* Design System Tokens (CSS Custom Properties) */
+@import 'tokens.css';
+
+/* Base styles (reset, scrollbar, focus states) */
+@import 'base.css';
+
+/* Utility classes and animations */
+@import 'utilities.css';
+
+/* Component styles */
+@import 'components/buttons.css';
+@import 'components/forms.css';
+@import 'components/cards.css';
+@import 'components/tables.css';
+@import 'components/alerts.css';
+@import 'components/navigation.css';
+@import 'components/modals.css';
+@import 'components/loading.css';
