@@ -1,0 +1,222 @@
+/**
+ * Navigation Components
+ * Discord Bot Admin UI
+ *
+ * Navbar, sidebar, and breadcrumb styles.
+ */
+
+/* ==========================================
+   TOP NAVBAR
+   ========================================== */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-fixed, 300);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 4rem;
+  padding: 0 1rem;
+  background-color: var(--color-bg-secondary, #262a2d);
+  border-bottom: 1px solid var(--color-border-primary, #3f4447);
+}
+
+@media (min-width: 1024px) {
+  .navbar {
+    padding: 0 1.5rem;
+  }
+}
+
+/* ==========================================
+   SIDEBAR
+   ========================================== */
+.sidebar {
+  position: fixed;
+  top: 4rem;
+  left: 0;
+  z-index: var(--z-fixed, 300);
+  width: 16rem;
+  height: calc(100vh - 4rem);
+  background-color: var(--color-bg-secondary, #262a2d);
+  border-right: 1px solid var(--color-border-primary, #3f4447);
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+}
+
+@media (min-width: 1024px) {
+  .sidebar {
+    transform: translateX(0);
+  }
+}
+
+/* Sidebar overlay for mobile */
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-fixed, 300) - 1);
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.sidebar-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* ==========================================
+   SIDEBAR LINKS
+   ========================================== */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #a8a5a3);
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out;
+}
+
+.sidebar-link:hover {
+  color: var(--color-text-primary, #d7d3d0);
+  background-color: var(--color-bg-hover, #363a3e);
+}
+
+.sidebar-link.active {
+  color: var(--color-text-primary, #d7d3d0);
+  background-color: rgba(203, 78, 27, 0.15);
+  border-left: 3px solid var(--color-accent-orange, #cb4e1b);
+}
+
+.sidebar-link svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+}
+
+/* ==========================================
+   SIDEBAR BADGE
+   ========================================== */
+.sidebar-badge {
+  margin-left: auto;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: var(--color-border-primary, #3f4447);
+  color: var(--color-text-primary, #d7d3d0);
+  border-radius: 9999px;
+}
+
+/* Notification dot */
+.sidebar-badge-dot {
+  margin-left: auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: var(--color-accent-orange, #cb4e1b);
+  border-radius: 9999px;
+}
+
+/* ==========================================
+   SIDEBAR SECTION
+   ========================================== */
+.sidebar-section {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-tertiary, #7a7876);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ==========================================
+   BREADCRUMB
+   ========================================== */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.breadcrumb-item {
+  color: var(--color-text-secondary, #a8a5a3);
+  transition: color 0.15s ease-out;
+}
+
+.breadcrumb-item:hover {
+  color: var(--color-text-primary, #d7d3d0);
+}
+
+.breadcrumb-item.active {
+  color: var(--color-text-primary, #d7d3d0);
+}
+
+.breadcrumb-separator {
+  color: var(--color-text-tertiary, #7a7876);
+}
+
+.breadcrumb-separator svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ==========================================
+   DROPDOWN MENU
+   ========================================== */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+}
+
+.dropdown-menu.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ==========================================
+   STATUS INDICATOR
+   ========================================== */
+.status-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* Bot status in sidebar footer */
+.sidebar-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.sidebar-status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+}
+
+.sidebar-status-dot.online {
+  background-color: var(--color-success, #10b981);
+}
+
+.sidebar-status-dot.offline {
+  background-color: var(--color-text-tertiary, #7a7876);
+}
+
+.sidebar-status-dot.error {
+  background-color: var(--color-error, #ef4444);
+}

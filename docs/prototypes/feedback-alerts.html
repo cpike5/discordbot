@@ -4,109 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alert Components - Feedback Prototype</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="css/tailwind.config.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        dark: {
-                            900: '#0f0f23',
-                            800: '#1a1a2e',
-                            700: '#25253a',
-                            600: '#2d2d44'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        /* Alert variant styles */
-        .alert-info {
-            background: rgba(6, 182, 212, 0.1);
-            border-color: rgba(6, 182, 212, 0.3);
-            color: #06b6d4;
-        }
-        .alert-success {
-            background: rgba(16, 185, 129, 0.1);
-            border-color: rgba(16, 185, 129, 0.3);
-            color: #10b981;
-        }
-        .alert-warning {
-            background: rgba(245, 158, 11, 0.1);
-            border-color: rgba(245, 158, 11, 0.3);
-            color: #f59e0b;
-        }
-        .alert-error {
-            background: rgba(239, 68, 68, 0.1);
-            border-color: rgba(239, 68, 68, 0.3);
-            color: #ef4444;
-        }
-
-        /* Slide-in animation */
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-1rem);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes slideOut {
-            from {
-                opacity: 1;
-                transform: translateY(0);
-            }
-            to {
-                opacity: 0;
-                transform: translateY(-1rem);
-            }
-        }
-
-        .alert-slide-in {
-            animation: slideIn 300ms ease-out forwards;
-        }
-
-        .alert-slide-out {
-            animation: slideOut 300ms ease-out forwards;
-        }
-
-        /* Alert base styles */
-        .alert {
-            padding: 1rem;
-            border-radius: 0.5rem;
-            border-width: 1px;
-            border-style: solid;
-        }
-
-        .alert-icon {
-            width: 1.25rem;
-            height: 1.25rem;
-            flex-shrink: 0;
-        }
-
-        .alert-content {
-            gap: 0.75rem;
-        }
-    </style>
+    <script>tailwind.config = window.tailwindConfig;</script>
 </head>
-<body class="bg-dark-900 text-gray-100 min-h-screen">
+<body class="bg-bg-primary text-text-primary min-h-screen">
     <!-- Header -->
-    <header class="bg-dark-800 border-b border-dark-600 px-6 py-4">
-        <h1 class="text-2xl font-bold text-white">Alert Components - Feedback Prototype</h1>
-        <p class="text-gray-400 mt-1">Interactive alert component demonstration with multiple variants and behaviors</p>
+    <header class="bg-bg-secondary border-b border-border-primary px-6 py-4">
+        <h1 class="text-2xl font-bold text-text-primary">Alert Components - Feedback Prototype</h1>
+        <p class="text-text-secondary mt-1">Interactive alert component demonstration with multiple variants and behaviors</p>
     </header>
 
     <main class="max-w-5xl mx-auto px-6 py-8 space-y-12">
 
         <!-- Section 1: Static Alerts -->
         <section>
-            <h2 class="text-xl font-semibold text-white mb-4">Section 1: Static Alerts (Basic Message Only)</h2>
-            <p class="text-gray-400 mb-6">All four alert variants displayed with just a message.</p>
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Section 1: Static Alerts (Basic Message Only)</h2>
+            <p class="text-text-secondary mb-6">All four alert variants displayed with just a message.</p>
 
             <div class="space-y-4">
                 <!-- Info Alert -->
@@ -145,8 +64,8 @@
 
         <!-- Section 2: Alerts with Title + Message -->
         <section>
-            <h2 class="text-xl font-semibold text-white mb-4">Section 2: Alerts with Title + Message</h2>
-            <p class="text-gray-400 mb-6">Alerts featuring both a bold title and descriptive message content.</p>
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Section 2: Alerts with Title + Message</h2>
+            <p class="text-text-secondary mb-6">Alerts featuring both a bold title and descriptive message content.</p>
 
             <div class="space-y-4">
                 <!-- Info Alert with Title -->
@@ -197,8 +116,8 @@
 
         <!-- Section 3: Dismissible Alerts -->
         <section>
-            <h2 class="text-xl font-semibold text-white mb-4">Section 3: Dismissible Alerts</h2>
-            <p class="text-gray-400 mb-6">Alerts with close buttons that can be dismissed by the user.</p>
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Section 3: Dismissible Alerts</h2>
+            <p class="text-text-secondary mb-6">Alerts with close buttons that can be dismissed by the user.</p>
 
             <div id="dismissible-alerts" class="space-y-4">
                 <!-- Dismissible Info Alert -->
@@ -274,27 +193,27 @@
                 </div>
             </div>
 
-            <button type="button" class="mt-4 px-4 py-2 bg-dark-700 hover:bg-dark-600 text-white rounded-lg transition-colors text-sm" onclick="resetDismissibleAlerts()">
+            <button type="button" class="mt-4 px-4 py-2 bg-bg-tertiary hover:bg-bg-hover text-text-primary rounded-lg transition-colors text-sm" onclick="resetDismissibleAlerts()">
                 Reset Dismissed Alerts
             </button>
         </section>
 
         <!-- Section 4: Auto-Dismiss Demo -->
         <section>
-            <h2 class="text-xl font-semibold text-white mb-4">Section 4: Auto-Dismiss Demo</h2>
-            <p class="text-gray-400 mb-6">Alerts that automatically dismiss after a configurable timeout.</p>
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Section 4: Auto-Dismiss Demo</h2>
+            <p class="text-text-secondary mb-6">Alerts that automatically dismiss after a configurable timeout.</p>
 
             <div class="flex flex-wrap items-center gap-4 mb-6">
                 <div class="flex items-center gap-2">
-                    <label for="auto-dismiss-duration" class="text-sm text-gray-300">Auto-dismiss after:</label>
-                    <select id="auto-dismiss-duration" class="bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                    <label for="auto-dismiss-duration" class="text-sm text-text-secondary">Auto-dismiss after:</label>
+                    <select id="auto-dismiss-duration" class="bg-bg-tertiary border border-border-primary text-text-primary rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent-blue focus:border-transparent">
                         <option value="2000">2 seconds</option>
                         <option value="3000" selected>3 seconds</option>
                         <option value="5000">5 seconds</option>
                         <option value="10000">10 seconds</option>
                     </select>
                 </div>
-                <button type="button" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm" onclick="showAutoDismissAlert()">
+                <button type="button" class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white rounded-lg transition-colors text-sm" onclick="showAutoDismissAlert()">
                     Show Auto-Dismiss Alert
                 </button>
             </div>
@@ -306,17 +225,17 @@
 
         <!-- Section 5: Interactive Playground -->
         <section>
-            <h2 class="text-xl font-semibold text-white mb-4">Section 5: Interactive Playground</h2>
-            <p class="text-gray-400 mb-6">Trigger alerts dynamically with customizable options.</p>
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Section 5: Interactive Playground</h2>
+            <p class="text-text-secondary mb-6">Trigger alerts dynamically with customizable options.</p>
 
             <!-- Controls -->
-            <div class="bg-dark-800 rounded-lg p-6 border border-dark-600 mb-6">
-                <h3 class="text-lg font-medium text-white mb-4">Alert Configuration</h3>
+            <div class="bg-bg-secondary rounded-lg p-6 border border-border-primary mb-6">
+                <h3 class="text-lg font-medium text-text-primary mb-4">Alert Configuration</h3>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label for="alert-variant" class="block text-sm font-medium text-gray-300 mb-2">Variant</label>
-                        <select id="alert-variant" class="w-full bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                        <label for="alert-variant" class="block text-sm font-medium text-text-secondary mb-2">Variant</label>
+                        <select id="alert-variant" class="w-full bg-bg-tertiary border border-border-primary text-text-primary rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent-blue focus:border-transparent">
                             <option value="info">Info</option>
                             <option value="success">Success</option>
                             <option value="warning">Warning</option>
@@ -325,30 +244,30 @@
                     </div>
 
                     <div>
-                        <label for="alert-title" class="block text-sm font-medium text-gray-300 mb-2">Title (optional)</label>
-                        <input type="text" id="alert-title" placeholder="Enter alert title" class="w-full bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent placeholder-gray-500">
+                        <label for="alert-title" class="block text-sm font-medium text-text-secondary mb-2">Title (optional)</label>
+                        <input type="text" id="alert-title" placeholder="Enter alert title" class="w-full bg-bg-tertiary border border-border-primary text-text-primary rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent-blue focus:border-transparent placeholder-text-tertiary">
                     </div>
 
                     <div class="md:col-span-2">
-                        <label for="alert-message" class="block text-sm font-medium text-gray-300 mb-2">Message</label>
-                        <textarea id="alert-message" rows="2" placeholder="Enter alert message" class="w-full bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent placeholder-gray-500 resize-none">This is a custom alert message.</textarea>
+                        <label for="alert-message" class="block text-sm font-medium text-text-secondary mb-2">Message</label>
+                        <textarea id="alert-message" rows="2" placeholder="Enter alert message" class="w-full bg-bg-tertiary border border-border-primary text-text-primary rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent-blue focus:border-transparent placeholder-text-tertiary resize-none">This is a custom alert message.</textarea>
                     </div>
 
                     <div class="flex items-center gap-6">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="alert-dismissible" checked class="w-4 h-4 text-cyan-600 bg-dark-700 border-dark-600 rounded focus:ring-cyan-500">
-                            <span class="text-sm text-gray-300">Dismissible</span>
+                            <input type="checkbox" id="alert-dismissible" checked class="w-4 h-4 text-accent-blue bg-bg-tertiary border-border-primary rounded focus:ring-accent-blue">
+                            <span class="text-sm text-text-secondary">Dismissible</span>
                         </label>
 
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" id="alert-auto-dismiss" class="w-4 h-4 text-cyan-600 bg-dark-700 border-dark-600 rounded focus:ring-cyan-500">
-                            <span class="text-sm text-gray-300">Auto-dismiss</span>
+                            <input type="checkbox" id="alert-auto-dismiss" class="w-4 h-4 text-accent-blue bg-bg-tertiary border-border-primary rounded focus:ring-accent-blue">
+                            <span class="text-sm text-text-secondary">Auto-dismiss</span>
                         </label>
                     </div>
 
                     <div>
-                        <label for="alert-auto-duration" class="block text-sm font-medium text-gray-300 mb-2">Auto-dismiss Duration</label>
-                        <select id="alert-auto-duration" class="w-full bg-dark-700 border border-dark-600 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-500 focus:border-transparent">
+                        <label for="alert-auto-duration" class="block text-sm font-medium text-text-secondary mb-2">Auto-dismiss Duration</label>
+                        <select id="alert-auto-duration" class="w-full bg-bg-tertiary border border-border-primary text-text-primary rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent-blue focus:border-transparent">
                             <option value="2000">2 seconds</option>
                             <option value="3000" selected>3 seconds</option>
                             <option value="5000">5 seconds</option>
@@ -358,29 +277,29 @@
                 </div>
 
                 <div class="flex flex-wrap gap-3 mt-6">
-                    <button type="button" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm font-medium" onclick="triggerCustomAlert()">
+                    <button type="button" class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white rounded-lg transition-colors text-sm font-medium" onclick="triggerCustomAlert()">
                         Show Alert
                     </button>
-                    <button type="button" class="px-4 py-2 bg-dark-700 hover:bg-dark-600 text-white rounded-lg transition-colors text-sm" onclick="clearPlaygroundAlerts()">
+                    <button type="button" class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover text-text-primary rounded-lg transition-colors text-sm" onclick="clearPlaygroundAlerts()">
                         Clear All Alerts
                     </button>
                 </div>
             </div>
 
             <!-- Quick Trigger Buttons -->
-            <div class="bg-dark-800 rounded-lg p-6 border border-dark-600 mb-6">
-                <h3 class="text-lg font-medium text-white mb-4">Quick Trigger</h3>
+            <div class="bg-bg-secondary rounded-lg p-6 border border-border-primary mb-6">
+                <h3 class="text-lg font-medium text-text-primary mb-4">Quick Trigger</h3>
                 <div class="flex flex-wrap gap-3">
-                    <button type="button" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('info')">
+                    <button type="button" class="px-4 py-2 bg-info hover:opacity-90 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('info')">
                         Info Alert
                     </button>
-                    <button type="button" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('success')">
+                    <button type="button" class="px-4 py-2 bg-success hover:opacity-90 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('success')">
                         Success Alert
                     </button>
-                    <button type="button" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('warning')">
+                    <button type="button" class="px-4 py-2 bg-warning hover:opacity-90 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('warning')">
                         Warning Alert
                     </button>
-                    <button type="button" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('error')">
+                    <button type="button" class="px-4 py-2 bg-error hover:opacity-90 text-white rounded-lg transition-colors text-sm" onclick="triggerQuickAlert('error')">
                         Error Alert
                     </button>
                 </div>
@@ -395,8 +314,8 @@
     </main>
 
     <!-- Footer -->
-    <footer class="bg-dark-800 border-t border-dark-600 px-6 py-4 mt-12">
-        <p class="text-gray-400 text-sm text-center">Alert Components Prototype - Part of Discord Bot Design System</p>
+    <footer class="bg-bg-secondary border-t border-border-primary px-6 py-4 mt-12">
+        <p class="text-text-secondary text-sm text-center">Alert Components Prototype - Part of Discord Bot Design System</p>
     </footer>
 
     <script>

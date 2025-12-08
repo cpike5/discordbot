@@ -1,0 +1,55 @@
+/**
+ * Base Styles
+ * Discord Bot Admin UI
+ *
+ * Contains reset styles, scrollbar customization, and focus states.
+ */
+
+/* ==========================================
+   BOX SIZING RESET
+   ========================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ==========================================
+   CUSTOM SCROLLBAR FOR DARK THEME
+   ========================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary, #1d2022);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-primary, #3f4447);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4f52;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-primary, #3f4447) var(--color-bg-primary, #1d2022);
+}
+
+/* ==========================================
+   FOCUS VISIBLE STATES
+   ========================================== */
+*:focus-visible {
+  outline: 2px solid var(--color-border-focus, #098ecf);
+  outline-offset: 2px;
+}
+
+/* Remove default focus outline for mouse users */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
