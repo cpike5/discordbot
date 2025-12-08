@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Layout & Navigation Showcase - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Page-specific styles */
+    .component-demo {
+      position: relative;
+      border: 1px dashed var(--color-border-primary, #3f4447);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(63, 68, 71, 0.1) 10px,
+        rgba(63, 68, 71, 0.1) 20px
+      );
+    }
+    .code-block {
+      background-color: var(--color-bg-primary, #1d2022);
+      border: 1px solid var(--color-border-primary, #3f4447);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .mini-sidebar {
+      width: 200px;
+      min-height: 300px;
+    }
+    .mini-navbar {
+      height: 48px;
+    }
+    .mini-main {
+      min-height: 200px;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-bg-secondary border-b border-border-primary sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-10 h-10 rounded-lg bg-accent-orange flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-text-primary">Layout & Navigation</h1>
+            <p class="text-sm text-text-secondary">Component Showcase - Issue #29</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="component-showcase.html" class="px-3 py-1.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
+            Component Library
+          </a>
+          <a href="dashboard.html" class="px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+            View Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Introduction -->
+    <section class="mb-12">
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-2">Layout & Navigation Components</h2>
+        <p class="text-text-secondary mb-4">
+          This showcase presents the main layout structure and navigation components for the Discord Bot Admin interface.
+          These components work together to create a cohesive application shell with responsive behavior.
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-success-bg text-success border border-success-border rounded-full">
+            <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+            6 Layout Components
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-info-bg text-info border border-info-border rounded-full">
+            <span class="w-1.5 h-1.5 bg-info rounded-full"></span>
+            Responsive Design
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-accent-orange-muted text-accent-orange border border-accent-orange/30 rounded-full">
+            <span class="w-1.5 h-1.5 bg-accent-orange rounded-full"></span>
+            WCAG 2.1 AA
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Table of Contents -->
+    <section class="mb-12">
+      <h2 class="text-lg font-semibold text-text-primary mb-4">Contents</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a href="#layout-container" class="block p-4 bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-blue/50 transition-colors">
+          <h3 class="font-medium text-text-primary mb-1">Layout Container</h3>
+          <p class="text-sm text-text-secondary">Sidebar + main content structure</p>
+        </a>
+        <a href="#top-navigation" class="block p-4 bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-blue/50 transition-colors">
+          <h3 class="font-medium text-text-primary mb-1">Top Navigation</h3>
+          <p class="text-sm text-text-secondary">Navbar with different states</p>
+        </a>
+        <a href="#sidebar-navigation" class="block p-4 bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-blue/50 transition-colors">
+          <h3 class="font-medium text-text-primary mb-1">Sidebar Navigation</h3>
+          <p class="text-sm text-text-secondary">Expanded sidebar with active states</p>
+        </a>
+        <a href="#breadcrumbs" class="block p-4 bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-blue/50 transition-colors">
+          <h3 class="font-medium text-text-primary mb-1">Breadcrumbs</h3>
+          <p class="text-sm text-text-secondary">2-level, 3-level, truncated</p>
+        </a>
+        <a href="#mobile-menu" class="block p-4 bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-blue/50 transition-colors">
+          <h3 class="font-medium text-text-primary mb-1">Mobile Menu</h3>
+          <p class="text-sm text-text-secondary">Mobile sidebar behavior</p>
+        </a>
+        <a href="#responsive-behavior" class="block p-4 bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-blue/50 transition-colors">
+          <h3 class="font-medium text-text-primary mb-1">Responsive Behavior</h3>
+          <p class="text-sm text-text-secondary">Breakpoints and adaptations</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- 1. Layout Container Structure -->
+    <section id="layout-container" class="mb-16">
+      <h2 class="text-xl font-semibold text-text-primary mb-2">1. Layout Container Structure</h2>
+      <p class="text-text-secondary mb-6">The main application shell consists of a fixed navbar, a sidebar (collapsible on mobile), and a main content area that adjusts based on sidebar visibility.</p>
+
+      <!-- Visual Demo -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Visual Structure</h3>
+        <div class="component-demo">
+          <div class="flex flex-col">
+            <!-- Mini Navbar -->
+            <div class="mini-navbar bg-bg-tertiary border-b border-border-primary flex items-center px-4 gap-4">
+              <div class="w-6 h-6 bg-accent-orange rounded"></div>
+              <span class="text-xs text-text-secondary">Top Navigation Bar (fixed, z-index: var(--z-fixed))</span>
+              <div class="ml-auto flex items-center gap-2">
+                <div class="w-6 h-6 bg-border-primary rounded"></div>
+                <div class="w-6 h-6 bg-accent-blue rounded-full"></div>
+              </div>
+            </div>
+            <!-- Body -->
+            <div class="flex">
+              <!-- Mini Sidebar -->
+              <div class="mini-sidebar bg-bg-secondary border-r border-border-primary p-4">
+                <p class="text-xs text-text-tertiary mb-4">Sidebar (w-64, fixed)</p>
+                <div class="space-y-2">
+                  <div class="h-8 bg-accent-orange/15 border-l-2 border-accent-orange rounded px-2 flex items-center">
+                    <span class="text-xs text-text-primary">Active Link</span>
+                  </div>
+                  <div class="h-8 bg-bg-hover rounded px-2 flex items-center">
+                    <span class="text-xs text-text-secondary">Nav Link</span>
+                  </div>
+                  <div class="h-8 bg-bg-hover rounded px-2 flex items-center">
+                    <span class="text-xs text-text-secondary">Nav Link</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Mini Main Content -->
+              <div class="flex-1 mini-main bg-bg-primary p-4">
+                <p class="text-xs text-text-tertiary mb-4">Main Content (lg:ml-64, pt-16)</p>
+                <div class="space-y-2">
+                  <div class="h-4 bg-border-primary rounded w-1/3"></div>
+                  <div class="h-3 bg-border-primary/50 rounded w-2/3"></div>
+                  <div class="grid grid-cols-3 gap-2 mt-4">
+                    <div class="h-16 bg-bg-secondary border border-border-primary rounded"></div>
+                    <div class="h-16 bg-bg-secondary border border-border-primary rounded"></div>
+                    <div class="h-16 bg-bg-secondary border border-border-primary rounded"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Code Example -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">HTML Structure</h3>
+        <div class="code-block text-text-secondary">&lt;body class="bg-bg-primary text-text-primary"&gt;
+  &lt;!-- Mobile Sidebar Overlay --&gt;
+  &lt;div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 lg:hidden hidden"
+    style="z-index: var(--z-fixed);"&gt;&lt;/div&gt;
+
+  &lt;!-- Top Navigation Bar --&gt;
+  &lt;nav class="navbar fixed top-0 left-0 right-0 h-16 bg-bg-secondary border-b border-border-primary"&gt;
+    &lt;!-- Navbar content --&gt;
+  &lt;/nav&gt;
+
+  &lt;!-- Sidebar Navigation --&gt;
+  &lt;aside id="sidebar" class="sidebar fixed top-16 left-0 w-64 h-[calc(100vh-4rem)]
+    bg-bg-secondary border-r border-border-primary
+    transform -translate-x-full lg:translate-x-0"&gt;
+    &lt;!-- Sidebar content --&gt;
+  &lt;/aside&gt;
+
+  &lt;!-- Main Content Area --&gt;
+  &lt;main class="lg:ml-64 pt-16 min-h-screen"&gt;
+    &lt;div class="p-4 lg:p-8"&gt;
+      &lt;!-- Page content --&gt;
+    &lt;/div&gt;
+  &lt;/main&gt;
+&lt;/body&gt;</div>
+      </div>
+    </section>
+
+    <!-- 2. Top Navigation Variations -->
+    <section id="top-navigation" class="mb-16">
+      <h2 class="text-xl font-semibold text-text-primary mb-2">2. Top Navigation</h2>
+      <p class="text-text-secondary mb-6">The navbar is fixed at the top and contains the logo, search, notifications, and user menu. It adapts for mobile with a hamburger menu.</p>
+
+      <!-- Default State -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Default State</h3>
+        <div class="component-demo">
+          <nav class="flex items-center justify-between h-16 px-4 bg-bg-secondary border border-border-primary rounded-lg">
+            <!-- Left -->
+            <div class="flex items-center gap-4">
+              <button class="lg:hidden p-2 rounded-md text-text-secondary hover:bg-bg-hover">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-accent-orange flex items-center justify-center">
+                  <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.36-.687.772-1.341 1.225-1.962a.077.077 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+                  </svg>
+                </div>
+                <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+              </div>
+            </div>
+            <!-- Center: Search -->
+            <div class="hidden md:flex flex-1 max-w-md mx-8">
+              <div class="relative w-full">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input type="search" placeholder="Search servers, commands, logs..." class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus" />
+              </div>
+            </div>
+            <!-- Right -->
+            <div class="flex items-center gap-2">
+              <button class="relative p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span class="absolute top-1 right-1 w-2 h-2 bg-accent-orange rounded-full"></span>
+              </button>
+              <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">AD</div>
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Code Example -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Key Classes</h3>
+        <div class="code-block text-text-secondary">&lt;!-- Navbar Container --&gt;
+class="fixed top-0 left-0 right-0 z-30 h-16 px-4 lg:px-6
+       bg-bg-secondary border-b border-border-primary"
+
+&lt;!-- Mobile Menu Toggle (aria-expanded for accessibility) --&gt;
+&lt;button id="sidebarToggle" aria-expanded="false" aria-controls="sidebar"&gt;
+
+&lt;!-- Search Input --&gt;
+class="hidden md:flex" &lt;!-- Hidden on mobile --&gt;
+
+&lt;!-- Notification Badge --&gt;
+class="absolute top-1 right-1 w-2 h-2 bg-accent-orange rounded-full"</div>
+      </div>
+    </section>
+
+    <!-- 3. Sidebar Navigation -->
+    <section id="sidebar-navigation" class="mb-16">
+      <h2 class="text-xl font-semibold text-text-primary mb-2">3. Sidebar Navigation</h2>
+      <p class="text-text-secondary mb-6">The sidebar contains main navigation links, section headers, badges, and a status footer. It supports active, hover, and focus states.</p>
+
+      <!-- States Demo -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Link States</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Default State -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">Default</p>
+            <a href="#" class="sidebar-link">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+              </svg>
+              Servers
+            </a>
+          </div>
+          <!-- Active State -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">Active</p>
+            <a href="#" class="sidebar-link active">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Dashboard
+            </a>
+          </div>
+          <!-- With Badge -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">With Badge</p>
+            <a href="#" class="sidebar-link">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Logs
+              <span class="sidebar-badge-dot status-pulse"></span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Full Sidebar Demo -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Full Sidebar Structure</h3>
+        <div class="component-demo max-w-xs">
+          <nav class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+            <!-- Main Navigation -->
+            <div class="space-y-1">
+              <a href="#" class="sidebar-link active">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                Dashboard
+              </a>
+              <a href="#" class="sidebar-link">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+                </svg>
+                Servers
+                <span class="sidebar-badge">12</span>
+              </a>
+              <a href="#" class="sidebar-link">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Commands
+              </a>
+            </div>
+
+            <!-- Divider -->
+            <div class="my-4 border-t border-border-secondary"></div>
+
+            <!-- Secondary Navigation -->
+            <div class="space-y-1">
+              <p class="sidebar-section">Support</p>
+              <a href="#" class="sidebar-link">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                Documentation
+              </a>
+            </div>
+
+            <!-- Bot Status Footer -->
+            <div class="mt-6 pt-4 border-t border-border-secondary">
+              <div class="sidebar-status">
+                <span class="sidebar-status-dot online status-pulse"></span>
+                <span class="text-success font-medium">Bot Online</span>
+                <span class="ml-auto text-xs text-text-tertiary">v2.1.0</span>
+              </div>
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Code Example -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">CSS Classes (from navigation.css)</h3>
+        <div class="code-block text-text-secondary">/* Active link styling */
+.sidebar-link.active {
+  color: var(--color-text-primary);
+  background-color: rgba(203, 78, 27, 0.15);  /* accent-orange/15 */
+  border-left: 3px solid var(--color-accent-orange);
+}
+
+/* Sidebar badge */
+.sidebar-badge {
+  margin-left: auto;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: var(--color-border-primary);
+  border-radius: 9999px;
+}
+
+/* Notification dot (pulsing) */
+.sidebar-badge-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background-color: var(--color-accent-orange);
+  border-radius: 9999px;
+}</div>
+      </div>
+    </section>
+
+    <!-- 4. Breadcrumb Variations -->
+    <section id="breadcrumbs" class="mb-16">
+      <h2 class="text-xl font-semibold text-text-primary mb-2">4. Breadcrumb Variations</h2>
+      <p class="text-text-secondary mb-6">Breadcrumbs provide hierarchical navigation context. They support multiple levels and can be truncated for deep hierarchies.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Variations</h3>
+        <div class="space-y-6">
+          <!-- 2-Level Breadcrumb -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">2-Level (Simple)</p>
+            <nav aria-label="Breadcrumb" class="breadcrumb">
+              <ol class="breadcrumb-list flex items-center gap-2 text-sm">
+                <li class="breadcrumb-item">
+                  <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+                </li>
+                <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </li>
+                <li class="breadcrumb-item">
+                  <span class="text-text-primary font-medium" aria-current="page">Dashboard</span>
+                </li>
+              </ol>
+            </nav>
+          </div>
+
+          <!-- 3-Level Breadcrumb -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">3-Level (Standard)</p>
+            <nav aria-label="Breadcrumb" class="breadcrumb">
+              <ol class="breadcrumb-list flex items-center gap-2 text-sm">
+                <li class="breadcrumb-item">
+                  <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+                </li>
+                <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </li>
+                <li class="breadcrumb-item">
+                  <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+                </li>
+                <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </li>
+                <li class="breadcrumb-item">
+                  <span class="text-text-primary font-medium" aria-current="page">Gaming Community</span>
+                </li>
+              </ol>
+            </nav>
+          </div>
+
+          <!-- 4-Level Breadcrumb (Truncated) -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">4-Level (Truncated)</p>
+            <nav aria-label="Breadcrumb" class="breadcrumb">
+              <ol class="breadcrumb-list flex items-center gap-2 text-sm">
+                <li class="breadcrumb-item">
+                  <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+                </li>
+                <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </li>
+                <li class="breadcrumb-item">
+                  <button class="text-text-secondary hover:text-accent-blue transition-colors">...</button>
+                </li>
+                <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </li>
+                <li class="breadcrumb-item">
+                  <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Commands</a>
+                </li>
+                <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </li>
+                <li class="breadcrumb-item">
+                  <span class="text-text-primary font-medium" aria-current="page">Edit /help</span>
+                </li>
+              </ol>
+            </nav>
+          </div>
+
+          <!-- With Home Icon -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">With Home Icon</p>
+            <nav aria-label="Breadcrumb" class="breadcrumb">
+              <ol class="breadcrumb-list flex items-center gap-2 text-sm">
+                <li class="breadcrumb-item">
+                  <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors" aria-label="Home">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                  </a>
+                </li>
+                <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </li>
+                <li class="breadcrumb-item">
+                  <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Settings</a>
+                </li>
+                <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </li>
+                <li class="breadcrumb-item">
+                  <span class="text-text-primary font-medium" aria-current="page">Permissions</span>
+                </li>
+              </ol>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <!-- Code Example -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">HTML Structure</h3>
+        <div class="code-block text-text-secondary">&lt;nav aria-label="Breadcrumb" class="breadcrumb mb-6"&gt;
+  &lt;ol class="breadcrumb-list flex items-center gap-2 text-sm"&gt;
+    &lt;li class="breadcrumb-item"&gt;
+      &lt;a href="#" class="text-text-secondary hover:text-accent-blue transition-colors"&gt;Home&lt;/a&gt;
+    &lt;/li&gt;
+    &lt;li class="breadcrumb-separator text-text-tertiary" aria-hidden="true"&gt;
+      &lt;svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"&gt;
+        &lt;path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /&gt;
+      &lt;/svg&gt;
+    &lt;/li&gt;
+    &lt;li class="breadcrumb-item"&gt;
+      &lt;span class="text-text-primary font-medium" aria-current="page"&gt;Dashboard&lt;/span&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/nav&gt;</div>
+      </div>
+    </section>
+
+    <!-- 5. Mobile Menu States -->
+    <section id="mobile-menu" class="mb-16">
+      <h2 class="text-xl font-semibold text-text-primary mb-2">5. Mobile Menu States</h2>
+      <p class="text-text-secondary mb-6">On mobile (below 1024px), the sidebar is hidden by default and slides in from the left when the hamburger menu is clicked. An overlay appears behind it.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Mobile Sidebar Behavior</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Closed State -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">Closed (Default)</p>
+            <div class="component-demo h-48 flex flex-col">
+              <div class="h-10 bg-bg-tertiary border-b border-border-primary flex items-center px-3">
+                <div class="w-6 h-6 bg-border-primary rounded flex items-center justify-center">
+                  <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </div>
+              </div>
+              <div class="flex-1 bg-bg-primary p-3">
+                <div class="h-3 bg-border-primary/50 rounded w-1/2 mb-2"></div>
+                <div class="h-2 bg-border-primary/30 rounded w-3/4"></div>
+              </div>
+            </div>
+            <p class="text-xs text-text-tertiary mt-2">aria-expanded="false"</p>
+          </div>
+          <!-- Open State -->
+          <div>
+            <p class="text-xs text-text-tertiary mb-2">Open (Expanded)</p>
+            <div class="component-demo h-48 flex flex-col relative overflow-hidden">
+              <!-- Overlay -->
+              <div class="absolute inset-0 bg-black/50 z-10"></div>
+              <!-- Sidebar -->
+              <div class="absolute top-10 left-0 w-32 h-full bg-bg-secondary border-r border-border-primary z-20 p-2">
+                <div class="space-y-1">
+                  <div class="h-6 bg-accent-orange/15 border-l-2 border-accent-orange rounded"></div>
+                  <div class="h-6 bg-bg-hover rounded"></div>
+                  <div class="h-6 bg-bg-hover rounded"></div>
+                </div>
+              </div>
+              <!-- Navbar -->
+              <div class="h-10 bg-bg-tertiary border-b border-border-primary flex items-center px-3 relative z-30">
+                <div class="w-6 h-6 bg-accent-blue rounded flex items-center justify-center">
+                  <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+              </div>
+              <div class="flex-1 bg-bg-primary"></div>
+            </div>
+            <p class="text-xs text-text-tertiary mt-2">aria-expanded="true", focus trapped in sidebar</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accessibility Features -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Accessibility Features</h3>
+        <ul class="space-y-3 text-sm text-text-secondary">
+          <li class="flex items-start gap-2">
+            <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span><strong class="text-text-primary">Focus Trap:</strong> When sidebar is open, Tab cycles through sidebar links only</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span><strong class="text-text-primary">Escape Key:</strong> Closes sidebar and returns focus to hamburger button</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span><strong class="text-text-primary">aria-expanded:</strong> Toggles on hamburger button to indicate state</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span><strong class="text-text-primary">aria-controls:</strong> Links hamburger button to sidebar element</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Code Example -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">JavaScript Implementation</h3>
+        <div class="code-block text-text-secondary">// Focus trap for mobile sidebar
+function trapFocus(event) {
+  if (!sidebarOpen || window.innerWidth >= 1024) return;
+
+  const focusableElements = getSidebarFocusableElements();
+  const firstFocusable = focusableElements[0];
+  const lastFocusable = focusableElements[focusableElements.length - 1];
+
+  if (event.key === 'Tab') {
+    if (event.shiftKey && document.activeElement === firstFocusable) {
+      event.preventDefault();
+      lastFocusable.focus();
+    } else if (!event.shiftKey && document.activeElement === lastFocusable) {
+      event.preventDefault();
+      firstFocusable.focus();
+    }
+  }
+}
+
+// Close sidebar and return focus
+function closeSidebar() {
+  if (sidebarOpen && window.innerWidth < 1024) {
+    sidebarOpen = false;
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+    toggleButton.setAttribute('aria-expanded', 'false');
+    toggleButton.focus(); // Return focus to hamburger
+  }
+}</div>
+      </div>
+    </section>
+
+    <!-- 6. Responsive Behavior -->
+    <section id="responsive-behavior" class="mb-16">
+      <h2 class="text-xl font-semibold text-text-primary mb-2">6. Responsive Behavior</h2>
+      <p class="text-text-secondary mb-6">The layout adapts at different breakpoints to provide an optimal experience across devices.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Breakpoint Summary</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-bg-primary/50">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Breakpoint</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Width</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Sidebar</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Navbar</th>
+                <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Content</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-primary">
+              <tr>
+                <td class="px-4 py-3 text-text-primary font-medium">Mobile</td>
+                <td class="px-4 py-3 text-text-secondary font-mono">&lt; 640px</td>
+                <td class="px-4 py-3 text-text-secondary">Hidden (slide-out)</td>
+                <td class="px-4 py-3 text-text-secondary">Hamburger + logo only</td>
+                <td class="px-4 py-3 text-text-secondary">Full width, p-4</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 text-text-primary font-medium">Tablet (sm)</td>
+                <td class="px-4 py-3 text-text-secondary font-mono">640px - 1023px</td>
+                <td class="px-4 py-3 text-text-secondary">Hidden (slide-out)</td>
+                <td class="px-4 py-3 text-text-secondary">Hamburger + logo + app name</td>
+                <td class="px-4 py-3 text-text-secondary">Full width, p-4</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 text-text-primary font-medium">Desktop (lg)</td>
+                <td class="px-4 py-3 text-text-secondary font-mono">&gt;= 1024px</td>
+                <td class="px-4 py-3 text-text-secondary">Visible (fixed)</td>
+                <td class="px-4 py-3 text-text-secondary">Full navbar with search</td>
+                <td class="px-4 py-3 text-text-secondary">ml-64, p-8</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Key CSS Classes -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Key Responsive Classes</h3>
+        <div class="code-block text-text-secondary">&lt;!-- Sidebar: uses .sidebar class from navigation.css --&gt;
+class="sidebar transform -translate-x-full lg:translate-x-0"
+
+&lt;!-- Main content: full width on mobile, offset on desktop --&gt;
+class="lg:ml-64 pt-16"
+
+&lt;!-- Padding: smaller on mobile, larger on desktop --&gt;
+class="p-4 lg:p-8"
+
+&lt;!-- Hamburger: visible on mobile, hidden on desktop --&gt;
+class="lg:hidden"
+
+&lt;!-- Search: hidden on mobile, visible on tablet+ --&gt;
+class="hidden md:flex"
+
+&lt;!-- App name: hidden on mobile, visible on tablet+ --&gt;
+class="hidden sm:block"</div>
+      </div>
+    </section>
+
+    <!-- Quick Reference -->
+    <section class="mb-12">
+      <h2 class="text-lg font-semibold text-text-primary mb-6">Quick Reference</h2>
+      <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-bg-primary/50">
+            <tr>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Component</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">CSS Class</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Z-Index</th>
+              <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase">Notes</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-primary">
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Navbar</td>
+              <td class="px-4 py-3 font-mono text-text-secondary">.navbar</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">300 (--z-fixed)</td>
+              <td class="px-4 py-3 text-text-secondary">Fixed at top, h-16</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Sidebar</td>
+              <td class="px-4 py-3 font-mono text-text-secondary">.sidebar</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">300 (--z-fixed)</td>
+              <td class="px-4 py-3 text-text-secondary">w-64, below navbar (top-16)</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Sidebar Overlay</td>
+              <td class="px-4 py-3 font-mono text-text-secondary">.sidebar-overlay</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">300 (--z-fixed)</td>
+              <td class="px-4 py-3 text-text-secondary">Mobile only, bg-black/50</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Sidebar Link</td>
+              <td class="px-4 py-3 font-mono text-text-secondary">.sidebar-link</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">-</td>
+              <td class="px-4 py-3 text-text-secondary">Has .active variant</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Breadcrumb</td>
+              <td class="px-4 py-3 font-mono text-text-secondary">.breadcrumb</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">-</td>
+              <td class="px-4 py-3 text-text-secondary">Use aria-current on current page</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-text-primary">Dropdown Menu</td>
+              <td class="px-4 py-3 font-mono text-text-secondary">.dropdown-menu</td>
+              <td class="px-4 py-3 font-mono text-text-tertiary">-</td>
+              <td class="px-4 py-3 text-text-secondary">Toggle .active class</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="pt-8 border-t border-border-primary">
+      <div class="flex items-center justify-between text-sm text-text-tertiary">
+        <p>Discord Bot Admin UI - Layout & Navigation Showcase</p>
+        <p>Issue #29</p>
+      </div>
+    </footer>
+
+  </main>
+
+</body>
+</html>
