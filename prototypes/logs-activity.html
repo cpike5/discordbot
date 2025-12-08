@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Bot Admin - Logs &amp; Activity</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    /* Base styles */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f54;
+    }
+
+    /* Focus styles */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Sidebar styles */
+    .sidebar {
+      transform: translateX(-100%);
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
+    }
+
+    @media (min-width: 1024px) {
+      .sidebar {
+        transform: translateX(0);
+      }
+    }
+
+    /* Sidebar link */
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.625rem 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #a8a5a3;
+      border-radius: 0.5rem;
+      transition: background-color 0.15s ease-out, color 0.15s ease-out;
+      text-decoration: none;
+    }
+
+    .sidebar-link:hover {
+      color: #d7d3d0;
+      background-color: #363a3e;
+    }
+
+    .sidebar-link.active {
+      color: #d7d3d0;
+      background-color: rgba(203, 78, 27, 0.15);
+      border-left: 3px solid #cb4e1b;
+    }
+
+    /* Dropdown menu */
+    .dropdown-menu {
+      display: none;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
+    }
+
+    .dropdown-menu.active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Modal styles */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background-color: rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 150ms ease-out, visibility 150ms ease-out;
+    }
+
+    .modal-backdrop.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      position: fixed;
+      z-index: 1001;
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(0.95) translateY(-10px);
+      transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms ease-out;
+    }
+
+    .modal.active {
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-centered {
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+    }
+
+    .modal-centered.active {
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    /* Table row hover */
+    .log-row {
+      cursor: pointer;
+      transition: background-color 0.15s ease-out;
+    }
+
+    .log-row:hover {
+      background-color: #262a2d;
+    }
+
+    /* Status dot animation */
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .status-pulse {
+      animation: pulse 2s infinite;
+    }
+
+    /* Filter panel collapse */
+    .filter-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .filter-content.expanded {
+      max-height: 500px;
+    }
+
+    /* Mobile card layout for logs */
+    @media (max-width: 767px) {
+      .logs-table {
+        display: none;
+      }
+
+      .logs-cards {
+        display: block;
+      }
+    }
+
+    @media (min-width: 768px) {
+      .logs-table {
+        display: block;
+      }
+
+      .logs-cards {
+        display: none;
+      }
+    }
+
+    /* Sortable header */
+    .sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sortable:hover {
+      color: #d7d3d0;
+    }
+
+    /* Code/Stack trace styling */
+    .stack-trace {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 lg:hidden hidden z-[299]" onclick="toggleSidebar()"></div>
+
+  <!-- Top Navigation Bar -->
+  <nav class="fixed top-0 left-0 right-0 flex items-center justify-between h-16 px-4 lg:px-6 bg-bg-secondary border-b border-border-primary z-[300]">
+    <!-- Left Section: Menu Toggle & Logo -->
+    <div class="flex items-center gap-4">
+      <!-- Mobile Menu Toggle -->
+      <button
+        id="sidebarToggle"
+        onclick="toggleSidebar()"
+        class="lg:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle sidebar menu"
+        aria-expanded="false"
+        aria-controls="sidebar"
+      >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <!-- Logo & App Name -->
+      <a href="#" class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-accent-orange flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+      </a>
+    </div>
+
+    <!-- Center Section: Search -->
+    <div class="hidden md:flex flex-1 max-w-md mx-8">
+      <div class="relative w-full">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search logs..."
+          class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+        />
+      </div>
+    </div>
+
+    <!-- Right Section: Actions & User Menu -->
+    <div class="flex items-center gap-2">
+      <!-- Mobile Search Toggle -->
+      <button class="md:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Search">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </button>
+
+      <!-- Notifications -->
+      <button class="relative p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span class="absolute top-1 right-1 w-2 h-2 bg-accent-orange rounded-full"></span>
+      </button>
+
+      <!-- User Menu Dropdown -->
+      <div class="relative">
+        <button
+          onclick="toggleUserMenu()"
+          class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
+          aria-label="User menu"
+          aria-expanded="false"
+        >
+          <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">
+            AD
+          </div>
+          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <div id="userMenu" class="dropdown-menu absolute right-0 mt-2 w-48 py-1 bg-bg-tertiary border border-border-primary rounded-lg shadow-xl">
+          <div class="px-4 py-2 border-b border-border-primary">
+            <p class="text-sm font-medium text-text-primary">Admin User</p>
+            <p class="text-xs text-text-secondary">admin@example.com</p>
+          </div>
+          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            Profile
+          </a>
+          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </a>
+          <div class="border-t border-border-primary mt-1 pt-1">
+            <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Sidebar Navigation -->
+  <aside
+    id="sidebar"
+    class="sidebar fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-bg-secondary border-r border-border-primary z-[300]"
+  >
+    <nav class="flex flex-col h-full p-4">
+      <!-- Main Navigation -->
+      <div class="space-y-1">
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Dashboard
+        </a>
+
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          Servers
+          <span class="ml-auto px-2 py-0.5 text-xs font-semibold bg-border-primary text-text-primary rounded-full">12</span>
+        </a>
+
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Commands
+        </a>
+
+        <a href="#" class="sidebar-link active">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          Logs
+          <span class="ml-auto w-2 h-2 bg-accent-orange rounded-full status-pulse"></span>
+        </a>
+
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Settings
+        </a>
+      </div>
+
+      <!-- Divider -->
+      <div class="my-4 border-t border-border-secondary"></div>
+
+      <!-- Secondary Navigation -->
+      <div class="space-y-1">
+        <p class="px-3 py-2 text-xs font-semibold text-text-tertiary uppercase tracking-wider">Support</p>
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          Documentation
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Help &amp; Support
+        </a>
+      </div>
+
+      <!-- Bot Status Footer -->
+      <div class="mt-auto pt-4 border-t border-border-secondary">
+        <div class="flex items-center gap-2 px-3 py-2 text-sm">
+          <span class="w-2 h-2 bg-success rounded-full status-pulse"></span>
+          <span class="text-success font-medium">Bot Online</span>
+          <span class="ml-auto text-xs text-text-tertiary">v2.1.0</span>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="lg:ml-64 pt-16 min-h-screen">
+    <div class="p-4 lg:p-8">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Logs &amp; Activity</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+          <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Logs &amp; Activity</h1>
+          <span class="px-3 py-1 text-xs font-semibold bg-accent-blue/20 text-accent-blue rounded-full">2,847 entries</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <button
+            onclick="openExportModal()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Export Logs
+          </button>
+          <button
+            onclick="clearFilters()"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-border-primary text-text-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear Filters
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Panel -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <button
+          onclick="toggleFilterPanel()"
+          class="w-full flex items-center justify-between px-5 py-4 text-left"
+          aria-expanded="true"
+          aria-controls="filterContent"
+        >
+          <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span class="text-lg font-semibold text-text-primary">Filters</span>
+            <span class="px-2 py-0.5 text-xs font-medium bg-accent-orange/20 text-accent-orange rounded-full" id="activeFilterCount">3 active</span>
+          </div>
+          <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div id="filterContent" class="filter-content expanded border-t border-border-primary">
+          <div class="p-5">
+            <!-- Date Range Presets -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-text-secondary mb-2">Quick Date Range</label>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="setDatePreset('today')" class="px-3 py-1.5 text-xs font-medium bg-accent-blue/20 text-accent-blue border border-accent-blue/30 rounded-md hover:bg-accent-blue/30 transition-colors">Today</button>
+                <button onclick="setDatePreset('7days')" class="px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">Last 7 Days</button>
+                <button onclick="setDatePreset('30days')" class="px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">Last 30 Days</button>
+                <button onclick="setDatePreset('custom')" class="px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">Custom</button>
+              </div>
+            </div>
+
+            <!-- Filter Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+              <!-- Date From -->
+              <div>
+                <label for="dateFrom" class="block text-sm font-medium text-text-secondary mb-1.5">From Date</label>
+                <input
+                  type="date"
+                  id="dateFrom"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                  value="2025-12-01"
+                />
+              </div>
+
+              <!-- Date To -->
+              <div>
+                <label for="dateTo" class="block text-sm font-medium text-text-secondary mb-1.5">To Date</label>
+                <input
+                  type="date"
+                  id="dateTo"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                  value="2025-12-08"
+                />
+              </div>
+
+              <!-- Server Filter -->
+              <div>
+                <label for="serverFilter" class="block text-sm font-medium text-text-secondary mb-1.5">Server</label>
+                <select
+                  id="serverFilter"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
+                  style="background-image: url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e&quot;); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;"
+                >
+                  <option value="">All Servers</option>
+                  <option value="123456789012345678">Gaming Community</option>
+                  <option value="234567890123456789">Dev Community</option>
+                  <option value="345678901234567890">Music Lovers</option>
+                  <option value="456789012345678901">Art Studio</option>
+                </select>
+              </div>
+
+              <!-- Event Type Filter -->
+              <div>
+                <label for="eventTypeFilter" class="block text-sm font-medium text-text-secondary mb-1.5">Event Type</label>
+                <select
+                  id="eventTypeFilter"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
+                  style="background-image: url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e&quot;); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;"
+                >
+                  <option value="">All Events</option>
+                  <option value="command">Command</option>
+                  <option value="join">Join</option>
+                  <option value="leave">Leave</option>
+                  <option value="error">Error</option>
+                  <option value="moderation">Moderation</option>
+                </select>
+              </div>
+
+              <!-- Log Level Filter -->
+              <div>
+                <label for="logLevelFilter" class="block text-sm font-medium text-text-secondary mb-1.5">Log Level</label>
+                <select
+                  id="logLevelFilter"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
+                  style="background-image: url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e&quot;); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;"
+                >
+                  <option value="">All Levels</option>
+                  <option value="info">Info</option>
+                  <option value="warning">Warning</option>
+                  <option value="error">Error</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- User Search -->
+            <div class="mt-4">
+              <label for="userSearch" class="block text-sm font-medium text-text-secondary mb-1.5">User Search</label>
+              <div class="relative max-w-md">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  id="userSearch"
+                  placeholder="Search by username or ID..."
+                  class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                />
+              </div>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
+              <button
+                onclick="applyFilters()"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Apply Filters
+              </button>
+              <button
+                onclick="resetFilters()"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-border-primary text-text-secondary hover:text-text-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Logs Table (Desktop) -->
+      <div class="logs-table bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+        <div class="overflow-x-auto">
+          <table class="w-full" id="logsTable">
+            <thead class="bg-bg-primary/50">
+              <tr>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider sortable" onclick="sortTable('timestamp')">
+                  <div class="flex items-center gap-1">
+                    Timestamp
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                    </svg>
+                  </div>
+                </th>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Event Type</th>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Server</th>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Description</th>
+                <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                <th class="px-5 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-primary" id="logsTableBody">
+              <!-- Log entries will be rendered here by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Logs Cards (Mobile) -->
+      <div class="logs-cards space-y-3 mb-6" id="logsCards">
+        <!-- Log cards will be rendered here by JavaScript -->
+      </div>
+
+      <!-- Empty State (hidden by default) -->
+      <div id="emptyState" class="hidden bg-bg-secondary border border-border-primary rounded-lg p-12 text-center mb-6">
+        <div class="flex justify-center mb-4">
+          <div class="p-4 bg-bg-tertiary rounded-full">
+            <svg class="w-12 h-12 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+        <h3 class="text-lg font-semibold text-text-primary mb-2">No logs found</h3>
+        <p class="text-text-secondary mb-6">Try adjusting your filters or date range to find what you're looking for.</p>
+        <button
+          onclick="clearFilters()"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white font-medium text-sm rounded-lg transition-colors"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Reset Filters
+        </button>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-bg-secondary border border-border-primary rounded-lg px-5 py-4">
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-text-secondary">
+            Showing <span class="font-medium text-text-primary">1-50</span> of <span class="font-medium text-text-primary">2,847</span> entries
+          </span>
+          <div class="flex items-center gap-2">
+            <label for="perPage" class="text-sm text-text-secondary">Per page:</label>
+            <select
+              id="perPage"
+              class="px-2 py-1 text-sm bg-bg-primary border border-border-primary rounded text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
+              style="background-image: url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e&quot;); background-position: right 0.25rem center; background-repeat: no-repeat; background-size: 1.25em 1.25em; padding-right: 1.75rem;"
+            >
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+              <option value="250">250</option>
+            </select>
+          </div>
+        </div>
+
+        <nav class="flex items-center gap-1" aria-label="Pagination">
+          <button class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled aria-label="Previous page">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <button class="px-3 py-1.5 text-sm font-medium bg-accent-orange text-white rounded transition-colors" aria-current="page">1</button>
+          <button class="px-3 py-1.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors">2</button>
+          <button class="px-3 py-1.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors">3</button>
+          <span class="px-2 text-text-tertiary">...</span>
+          <button class="px-3 py-1.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors">57</button>
+
+          <button class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="Next page">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </nav>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Log Detail Modal -->
+  <div id="logDetailBackdrop" class="modal-backdrop" onclick="closeLogDetailModal()"></div>
+  <div id="logDetailModal" class="modal modal-centered w-full max-w-2xl mx-4 bg-bg-secondary border border-border-primary rounded-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary shrink-0">
+      <h2 class="text-lg font-semibold text-text-primary">Log Details</h2>
+      <button onclick="closeLogDetailModal()" class="p-1 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="Close modal">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="p-6 overflow-y-auto flex-1" id="logDetailContent">
+      <!-- Content will be populated by JavaScript -->
+    </div>
+
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-primary/30 shrink-0">
+      <button
+        onclick="copyLogToClipboard()"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white font-medium text-sm rounded-lg transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+        Copy Log
+      </button>
+      <button
+        onclick="closeLogDetailModal()"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-border-primary text-text-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors"
+      >
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- Export Dialog Modal -->
+  <div id="exportBackdrop" class="modal-backdrop" onclick="closeExportModal()"></div>
+  <div id="exportModal" class="modal modal-centered w-full max-w-md mx-4 bg-bg-secondary border border-border-primary rounded-lg shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+      <h2 class="text-lg font-semibold text-text-primary">Export Logs</h2>
+      <button onclick="closeExportModal()" class="p-1 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="Close modal">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <!-- Format Selection -->
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-text-primary mb-3">Export Format</label>
+        <div class="space-y-2">
+          <label class="flex items-center gap-3 p-3 bg-bg-primary border border-border-primary rounded-lg cursor-pointer hover:border-accent-blue transition-colors">
+            <input type="radio" name="exportFormat" value="csv" checked class="w-4 h-4 text-accent-orange bg-bg-primary border-border-primary focus:ring-accent-blue" />
+            <div>
+              <span class="text-sm font-medium text-text-primary">CSV</span>
+              <p class="text-xs text-text-tertiary">Comma-separated values, compatible with Excel</p>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 bg-bg-primary border border-border-primary rounded-lg cursor-pointer hover:border-accent-blue transition-colors">
+            <input type="radio" name="exportFormat" value="json" class="w-4 h-4 text-accent-orange bg-bg-primary border-border-primary focus:ring-accent-blue" />
+            <div>
+              <span class="text-sm font-medium text-text-primary">JSON</span>
+              <p class="text-xs text-text-tertiary">JavaScript Object Notation, structured data format</p>
+            </div>
+          </label>
+          <label class="flex items-center gap-3 p-3 bg-bg-primary border border-border-primary rounded-lg cursor-pointer hover:border-accent-blue transition-colors">
+            <input type="radio" name="exportFormat" value="txt" class="w-4 h-4 text-accent-orange bg-bg-primary border-border-primary focus:ring-accent-blue" />
+            <div>
+              <span class="text-sm font-medium text-text-primary">TXT</span>
+              <p class="text-xs text-text-tertiary">Plain text format, human-readable logs</p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Export Summary -->
+      <div class="p-4 bg-bg-tertiary rounded-lg mb-6">
+        <h4 class="text-sm font-medium text-text-primary mb-2">Export Summary</h4>
+        <div class="space-y-1 text-sm">
+          <div class="flex justify-between">
+            <span class="text-text-secondary">Date Range:</span>
+            <span class="text-text-primary">Dec 1 - Dec 8, 2025</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary">Filters Applied:</span>
+            <span class="text-text-primary">3 active</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-text-secondary">Total Entries:</span>
+            <span class="text-text-primary font-medium">2,847</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-primary/30">
+      <button
+        onclick="closeExportModal()"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-border-primary text-text-secondary hover:text-text-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors"
+      >
+        Cancel
+      </button>
+      <button
+        onclick="downloadExport()"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Download
+      </button>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // Sample log data
+    const sampleLogs = [
+      {
+        id: "log_20251207_103245_001",
+        timestamp: "2025-12-07T10:32:45.123Z",
+        eventType: "command",
+        logLevel: "info",
+        serverId: "123456789012345678",
+        serverName: "Gaming Community",
+        channelId: "987654321098765432",
+        channelName: "general",
+        userId: "111222333444555666",
+        userName: "JohnDoe#1234",
+        userRoles: ["Member", "Moderator"],
+        command: "/ban",
+        parameters: { user: "SpammerBot", reason: "Spam" },
+        result: "success",
+        description: "User SpammerBot banned for: Spam",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_102130_002",
+        timestamp: "2025-12-07T10:21:30.456Z",
+        eventType: "join",
+        logLevel: "info",
+        serverId: "234567890123456789",
+        serverName: "Dev Community",
+        channelId: null,
+        channelName: null,
+        userId: "222333444555666777",
+        userName: "NewDeveloper#5678",
+        userRoles: ["Member"],
+        command: null,
+        parameters: null,
+        result: "success",
+        description: "New member joined the server",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_095512_003",
+        timestamp: "2025-12-07T09:55:12.789Z",
+        eventType: "error",
+        logLevel: "error",
+        serverId: "345678901234567890",
+        serverName: "Music Lovers",
+        channelId: "456789012345678901",
+        channelName: "bot-commands",
+        userId: "333444555666777888",
+        userName: "MusicFan#9012",
+        userRoles: ["Member"],
+        command: "/play",
+        parameters: { url: "https://youtube.com/watch?v=invalid" },
+        result: "error",
+        description: "Failed to play audio: Invalid URL format",
+        errorMessage: "InvalidURLException: The provided URL is not a valid YouTube link",
+        stackTrace: "at AudioService.ValidateUrl(String url) in /src/Services/AudioService.cs:line 142\nat AudioService.PlayAsync(String url) in /src/Services/AudioService.cs:line 78\nat PlayCommand.ExecuteAsync() in /src/Commands/PlayCommand.cs:line 35"
+      },
+      {
+        id: "log_20251207_091845_004",
+        timestamp: "2025-12-07T09:18:45.012Z",
+        eventType: "moderation",
+        logLevel: "warning",
+        serverId: "123456789012345678",
+        serverName: "Gaming Community",
+        channelId: "567890123456789012",
+        channelName: "chat",
+        userId: "444555666777888999",
+        userName: "RuleBreaker#3456",
+        userRoles: ["Member"],
+        command: null,
+        parameters: null,
+        result: "warning",
+        description: "Auto-mod triggered: Excessive caps detected",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_084522_005",
+        timestamp: "2025-12-07T08:45:22.345Z",
+        eventType: "leave",
+        logLevel: "info",
+        serverId: "456789012345678901",
+        serverName: "Art Studio",
+        channelId: null,
+        channelName: null,
+        userId: "555666777888999000",
+        userName: "FormerMember#7890",
+        userRoles: [],
+        command: null,
+        parameters: null,
+        result: "success",
+        description: "Member left the server",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_081033_006",
+        timestamp: "2025-12-07T08:10:33.678Z",
+        eventType: "command",
+        logLevel: "info",
+        serverId: "234567890123456789",
+        serverName: "Dev Community",
+        channelId: "678901234567890123",
+        channelName: "help",
+        userId: "666777888999000111",
+        userName: "HelpfulDev#2345",
+        userRoles: ["Member", "Helper"],
+        command: "/help",
+        parameters: { topic: "moderation" },
+        result: "success",
+        description: "Help command executed: moderation topic",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_074501_007",
+        timestamp: "2025-12-07T07:45:01.901Z",
+        eventType: "command",
+        logLevel: "info",
+        serverId: "345678901234567890",
+        serverName: "Music Lovers",
+        channelId: "789012345678901234",
+        channelName: "music-bot",
+        userId: "777888999000111222",
+        userName: "DJ_Master#6789",
+        userRoles: ["Member", "DJ"],
+        command: "/queue",
+        parameters: null,
+        result: "success",
+        description: "Queue displayed: 5 tracks",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_070215_008",
+        timestamp: "2025-12-07T07:02:15.234Z",
+        eventType: "moderation",
+        logLevel: "info",
+        serverId: "123456789012345678",
+        serverName: "Gaming Community",
+        channelId: "890123456789012345",
+        channelName: "admin-log",
+        userId: "888999000111222333",
+        userName: "AdminUser#0123",
+        userRoles: ["Admin", "Moderator"],
+        command: "/mute",
+        parameters: { user: "NoisyUser#4567", duration: "1h", reason: "Spamming" },
+        result: "success",
+        description: "User NoisyUser#4567 muted for 1 hour",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_063048_009",
+        timestamp: "2025-12-07T06:30:48.567Z",
+        eventType: "error",
+        logLevel: "error",
+        serverId: "234567890123456789",
+        serverName: "Dev Community",
+        channelId: "901234567890123456",
+        channelName: "bot-testing",
+        userId: "999000111222333444",
+        userName: "Tester#8901",
+        userRoles: ["Member", "Tester"],
+        command: "/deploy",
+        parameters: { environment: "staging" },
+        result: "error",
+        description: "Deployment failed: Permission denied",
+        errorMessage: "UnauthorizedAccessException: User does not have deploy permissions",
+        stackTrace: "at DeployService.CheckPermissions(User user) in /src/Services/DeployService.cs:line 56\nat DeployService.DeployAsync(String env) in /src/Services/DeployService.cs:line 23\nat DeployCommand.ExecuteAsync() in /src/Commands/DeployCommand.cs:line 42"
+      },
+      {
+        id: "log_20251207_055622_010",
+        timestamp: "2025-12-07T05:56:22.890Z",
+        eventType: "join",
+        logLevel: "info",
+        serverId: "345678901234567890",
+        serverName: "Music Lovers",
+        channelId: null,
+        channelName: null,
+        userId: "000111222333444555",
+        userName: "MusicNewbie#2345",
+        userRoles: ["Member"],
+        command: null,
+        parameters: null,
+        result: "success",
+        description: "New member joined via invite link",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_052109_011",
+        timestamp: "2025-12-07T05:21:09.123Z",
+        eventType: "command",
+        logLevel: "warning",
+        serverId: "456789012345678901",
+        serverName: "Art Studio",
+        channelId: "012345678901234567",
+        channelName: "showcase",
+        userId: "111222333444555666",
+        userName: "Artist#3456",
+        userRoles: ["Member", "Artist"],
+        command: "/upload",
+        parameters: { file: "artwork.png" },
+        result: "warning",
+        description: "File upload rate limited - try again in 60 seconds",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_044533_012",
+        timestamp: "2025-12-07T04:45:33.456Z",
+        eventType: "moderation",
+        logLevel: "info",
+        serverId: "123456789012345678",
+        serverName: "Gaming Community",
+        channelId: "123456789012345678",
+        channelName: "announcements",
+        userId: "222333444555666777",
+        userName: "ModeratorBob#7890",
+        userRoles: ["Moderator"],
+        command: "/announce",
+        parameters: { message: "Server maintenance at 6 AM UTC" },
+        result: "success",
+        description: "Announcement sent to all channels",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_041256_013",
+        timestamp: "2025-12-07T04:12:56.789Z",
+        eventType: "command",
+        logLevel: "info",
+        serverId: "234567890123456789",
+        serverName: "Dev Community",
+        channelId: "234567890123456789",
+        channelName: "code-review",
+        userId: "333444555666777888",
+        userName: "SeniorDev#0123",
+        userRoles: ["Member", "Senior Dev"],
+        command: "/review",
+        parameters: { pr: "123" },
+        result: "success",
+        description: "Code review started for PR #123",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_034820_014",
+        timestamp: "2025-12-07T03:48:20.012Z",
+        eventType: "leave",
+        logLevel: "info",
+        serverId: "345678901234567890",
+        serverName: "Music Lovers",
+        channelId: null,
+        channelName: null,
+        userId: "444555666777888999",
+        userName: "QuietListener#4567",
+        userRoles: [],
+        command: null,
+        parameters: null,
+        result: "success",
+        description: "Member left the server (kicked by moderator)",
+        errorMessage: null,
+        stackTrace: null
+      },
+      {
+        id: "log_20251207_031544_015",
+        timestamp: "2025-12-07T03:15:44.345Z",
+        eventType: "error",
+        logLevel: "error",
+        serverId: "456789012345678901",
+        serverName: "Art Studio",
+        channelId: "345678901234567890",
+        channelName: "gallery",
+        userId: "555666777888999000",
+        userName: "GalleryBot#8901",
+        userRoles: ["Bot"],
+        command: "/sync",
+        parameters: null,
+        result: "error",
+        description: "Gallery sync failed: API timeout",
+        errorMessage: "TimeoutException: The external API did not respond within 30 seconds",
+        stackTrace: "at HttpClient.GetAsync(String url) in /src/Http/HttpClient.cs:line 89\nat GalleryService.SyncAsync() in /src/Services/GalleryService.cs:line 134\nat SyncCommand.ExecuteAsync() in /src/Commands/SyncCommand.cs:line 28"
+      }
+    ];
+
+    // Current selected log for detail view
+    let currentLog = null;
+
+    // Get event type badge HTML
+    function getEventTypeBadge(eventType) {
+      const badges = {
+        command: '<span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-white bg-accent-blue rounded-full">Command</span>',
+        join: '<span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-white bg-success rounded-full">Join</span>',
+        leave: '<span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-text-primary bg-border-primary rounded-full">Leave</span>',
+        error: '<span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-white bg-error rounded-full">Error</span>',
+        moderation: '<span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-white bg-accent-orange rounded-full">Moderation</span>'
+      };
+      return badges[eventType] || badges.command;
+    }
+
+    // Get status indicator HTML
+    function getStatusIndicator(result) {
+      const indicators = {
+        success: '<span class="flex items-center gap-1.5 text-success"><span class="w-2 h-2 bg-success rounded-full"></span>Success</span>',
+        warning: '<span class="flex items-center gap-1.5 text-warning"><span class="w-2 h-2 bg-warning rounded-full"></span>Warning</span>',
+        error: '<span class="flex items-center gap-1.5 text-error"><span class="w-2 h-2 bg-error rounded-full"></span>Error</span>'
+      };
+      return indicators[result] || indicators.success;
+    }
+
+    // Format timestamp for display
+    function formatTimestamp(isoString) {
+      const date = new Date(isoString);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+
+    // Format full timestamp with milliseconds
+    function formatFullTimestamp(isoString) {
+      const date = new Date(isoString);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        fractionalSecondDigits: 3
+      });
+    }
+
+    // Truncate text
+    function truncateText(text, maxLength) {
+      if (text.length <= maxLength) return text;
+      return text.substring(0, maxLength) + '...';
+    }
+
+    // Render table rows
+    function renderTableRows() {
+      const tbody = document.getElementById('logsTableBody');
+      tbody.innerHTML = sampleLogs.map(log => `
+        <tr class="log-row" onclick="openLogDetailModal('${log.id}')">
+          <td class="px-5 py-4 text-sm text-text-secondary whitespace-nowrap">
+            <span class="font-mono">${formatTimestamp(log.timestamp)}</span>
+          </td>
+          <td class="px-5 py-4">
+            ${getEventTypeBadge(log.eventType)}
+          </td>
+          <td class="px-5 py-4 text-sm text-text-primary">${log.serverName}</td>
+          <td class="px-5 py-4 text-sm">
+            <span class="text-text-primary">${log.userName.split('#')[0]}</span>
+            <span class="text-text-tertiary">#${log.userName.split('#')[1]}</span>
+          </td>
+          <td class="px-5 py-4 text-sm text-text-secondary max-w-xs truncate" title="${log.description}">${truncateText(log.description, 40)}</td>
+          <td class="px-5 py-4 text-sm">
+            ${getStatusIndicator(log.result)}
+          </td>
+          <td class="px-5 py-4 text-right">
+            <button
+              onclick="event.stopPropagation(); openLogDetailModal('${log.id}')"
+              class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-accent-blue hover:text-accent-blue-hover border border-accent-blue/30 hover:border-accent-blue rounded transition-colors"
+            >
+              View Details
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Render mobile cards
+    function renderMobileCards() {
+      const container = document.getElementById('logsCards');
+      container.innerHTML = sampleLogs.map(log => `
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 cursor-pointer hover:border-accent-blue/50 transition-colors" onclick="openLogDetailModal('${log.id}')">
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div class="flex items-center gap-2">
+              ${getEventTypeBadge(log.eventType)}
+              ${getStatusIndicator(log.result)}
+            </div>
+            <span class="text-xs font-mono text-text-tertiary">${formatTimestamp(log.timestamp)}</span>
+          </div>
+          <p class="text-sm text-text-primary mb-2">${log.description}</p>
+          <div class="flex items-center gap-4 text-xs text-text-secondary">
+            <span>${log.serverName}</span>
+            <span>${log.userName}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Initialize logs display
+    function initLogs() {
+      renderTableRows();
+      renderMobileCards();
+    }
+
+    // Sidebar toggle
+    let sidebarOpen = false;
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const toggleButton = document.getElementById('sidebarToggle');
+
+      sidebarOpen = !sidebarOpen;
+
+      if (sidebarOpen) {
+        sidebar.classList.add('open');
+        overlay.classList.remove('hidden');
+      } else {
+        sidebar.classList.remove('open');
+        overlay.classList.add('hidden');
+      }
+
+      toggleButton.setAttribute('aria-expanded', sidebarOpen.toString());
+    }
+
+    // User menu toggle
+    function toggleUserMenu() {
+      const menu = document.getElementById('userMenu');
+      menu.classList.toggle('active');
+    }
+
+    // Close dropdowns on click outside
+    document.addEventListener('click', function(event) {
+      const userMenu = document.getElementById('userMenu');
+      const userButton = event.target.closest('[aria-label="User menu"]');
+
+      if (!userButton && !event.target.closest('#userMenu')) {
+        userMenu.classList.remove('active');
+      }
+    });
+
+    // Filter panel toggle
+    function toggleFilterPanel() {
+      const content = document.getElementById('filterContent');
+      const chevron = document.getElementById('filterChevron');
+
+      content.classList.toggle('expanded');
+      chevron.classList.toggle('rotate-180');
+    }
+
+    // Date preset buttons
+    function setDatePreset(preset) {
+      const today = new Date();
+      const dateFrom = document.getElementById('dateFrom');
+      const dateTo = document.getElementById('dateTo');
+
+      dateTo.value = today.toISOString().split('T')[0];
+
+      switch (preset) {
+        case 'today':
+          dateFrom.value = today.toISOString().split('T')[0];
+          break;
+        case '7days':
+          const weekAgo = new Date(today);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          dateFrom.value = weekAgo.toISOString().split('T')[0];
+          break;
+        case '30days':
+          const monthAgo = new Date(today);
+          monthAgo.setDate(monthAgo.getDate() - 30);
+          dateFrom.value = monthAgo.toISOString().split('T')[0];
+          break;
+        case 'custom':
+          // Just focus the from date input
+          dateFrom.focus();
+          break;
+      }
+    }
+
+    // Apply filters (placeholder)
+    function applyFilters() {
+      // In a real implementation, this would filter the logs
+      alert('Filters applied! (This is a prototype - actual filtering would happen here)');
+    }
+
+    // Reset filters
+    function resetFilters() {
+      document.getElementById('dateFrom').value = '';
+      document.getElementById('dateTo').value = '';
+      document.getElementById('serverFilter').value = '';
+      document.getElementById('eventTypeFilter').value = '';
+      document.getElementById('logLevelFilter').value = '';
+      document.getElementById('userSearch').value = '';
+      document.getElementById('activeFilterCount').textContent = '0 active';
+    }
+
+    // Clear filters (same as reset for this prototype)
+    function clearFilters() {
+      resetFilters();
+    }
+
+    // Sort table (placeholder)
+    function sortTable(column) {
+      // In a real implementation, this would sort the table
+      console.log('Sorting by:', column);
+    }
+
+    // Open log detail modal
+    function openLogDetailModal(logId) {
+      const log = sampleLogs.find(l => l.id === logId);
+      if (!log) return;
+
+      currentLog = log;
+
+      const content = document.getElementById('logDetailContent');
+      content.innerHTML = `
+        <div class="space-y-6">
+          <!-- Basic Info -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-text-tertiary mb-1">Timestamp</label>
+              <p class="text-sm font-mono text-text-primary">${formatFullTimestamp(log.timestamp)}</p>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-text-tertiary mb-1">Event Type</label>
+              <div>${getEventTypeBadge(log.eventType)}</div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-text-tertiary mb-1">Log ID</label>
+              <p class="text-sm font-mono text-text-secondary">${log.id}</p>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-text-tertiary mb-1">Status</label>
+              <div>${getStatusIndicator(log.result)}</div>
+            </div>
+          </div>
+
+          <!-- Server & Channel -->
+          <div class="p-4 bg-bg-tertiary rounded-lg">
+            <h4 class="text-sm font-medium text-text-primary mb-3">Server Information</h4>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <label class="block text-xs text-text-tertiary mb-0.5">Server</label>
+                <p class="text-text-primary">${log.serverName}</p>
+                <p class="text-xs font-mono text-text-tertiary">${log.serverId}</p>
+              </div>
+              <div>
+                <label class="block text-xs text-text-tertiary mb-0.5">Channel</label>
+                <p class="text-text-primary">${log.channelName || 'N/A'}</p>
+                ${log.channelId ? `<p class="text-xs font-mono text-text-tertiary">${log.channelId}</p>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <!-- User Info -->
+          <div class="p-4 bg-bg-tertiary rounded-lg">
+            <h4 class="text-sm font-medium text-text-primary mb-3">User Information</h4>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <label class="block text-xs text-text-tertiary mb-0.5">Username</label>
+                <p class="text-text-primary">${log.userName}</p>
+                <p class="text-xs font-mono text-text-tertiary">${log.userId}</p>
+              </div>
+              <div>
+                <label class="block text-xs text-text-tertiary mb-0.5">Roles</label>
+                <div class="flex flex-wrap gap-1">
+                  ${log.userRoles.length > 0
+                    ? log.userRoles.map(role => `<span class="px-2 py-0.5 text-xs bg-bg-hover text-text-secondary rounded">${role}</span>`).join('')
+                    : '<span class="text-text-tertiary">None</span>'
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Command/Action -->
+          ${log.command ? `
+          <div class="p-4 bg-bg-tertiary rounded-lg">
+            <h4 class="text-sm font-medium text-text-primary mb-3">Command Details</h4>
+            <div class="space-y-3 text-sm">
+              <div>
+                <label class="block text-xs text-text-tertiary mb-0.5">Command</label>
+                <code class="px-2 py-1 bg-bg-primary text-accent-blue rounded font-mono text-sm">${log.command}</code>
+              </div>
+              ${log.parameters ? `
+              <div>
+                <label class="block text-xs text-text-tertiary mb-0.5">Parameters</label>
+                <pre class="p-2 bg-bg-primary rounded text-xs font-mono text-text-secondary overflow-x-auto">${JSON.stringify(log.parameters, null, 2)}</pre>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- Description -->
+          <div>
+            <label class="block text-xs font-medium text-text-tertiary mb-1">Description</label>
+            <p class="text-sm text-text-primary">${log.description}</p>
+          </div>
+
+          <!-- Error Info (if applicable) -->
+          ${log.errorMessage || log.stackTrace ? `
+          <div class="p-4 bg-error/10 border border-error/30 rounded-lg">
+            <h4 class="text-sm font-medium text-error mb-3 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Error Details
+            </h4>
+            ${log.errorMessage ? `
+            <div class="mb-3">
+              <label class="block text-xs text-error/80 mb-0.5">Error Message</label>
+              <p class="text-sm text-error">${log.errorMessage}</p>
+            </div>
+            ` : ''}
+            ${log.stackTrace ? `
+            <div>
+              <label class="block text-xs text-error/80 mb-0.5">Stack Trace</label>
+              <pre class="stack-trace p-3 bg-bg-primary border border-error/20 rounded text-text-secondary overflow-x-auto">${log.stackTrace}</pre>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+        </div>
+      `;
+
+      document.getElementById('logDetailBackdrop').classList.add('active');
+      document.getElementById('logDetailModal').classList.add('active');
+      document.body.classList.add('modal-open');
+    }
+
+    // Close log detail modal
+    function closeLogDetailModal() {
+      document.getElementById('logDetailBackdrop').classList.remove('active');
+      document.getElementById('logDetailModal').classList.remove('active');
+      document.body.classList.remove('modal-open');
+      currentLog = null;
+    }
+
+    // Copy log to clipboard
+    function copyLogToClipboard() {
+      if (!currentLog) return;
+
+      const logText = JSON.stringify(currentLog, null, 2);
+      navigator.clipboard.writeText(logText).then(() => {
+        alert('Log copied to clipboard!');
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+      });
+    }
+
+    // Open export modal
+    function openExportModal() {
+      document.getElementById('exportBackdrop').classList.add('active');
+      document.getElementById('exportModal').classList.add('active');
+      document.body.classList.add('modal-open');
+    }
+
+    // Close export modal
+    function closeExportModal() {
+      document.getElementById('exportBackdrop').classList.remove('active');
+      document.getElementById('exportModal').classList.remove('active');
+      document.body.classList.remove('modal-open');
+    }
+
+    // Download export (placeholder)
+    function downloadExport() {
+      const format = document.querySelector('input[name="exportFormat"]:checked').value;
+      alert(`Downloading logs as ${format.toUpperCase()}! (This is a prototype - actual download would happen here)`);
+      closeExportModal();
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeLogDetailModal();
+        closeExportModal();
+        document.getElementById('userMenu').classList.remove('active');
+
+        if (sidebarOpen && window.innerWidth < 1024) {
+          toggleSidebar();
+        }
+      }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      if (window.innerWidth >= 1024) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggleButton = document.getElementById('sidebarToggle');
+
+        sidebarOpen = false;
+        sidebar.classList.remove('open');
+        overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      initLogs();
+    });
+  </script>
+
+</body>
+</html>
