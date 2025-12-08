@@ -34,6 +34,12 @@
       transform: translateY(-2px);
     }
 
+    .component-card:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+      border-color: #098ecf;
+    }
+
     .component-card-preview {
       padding: 1.5rem;
       background-color: #1d2022;
@@ -92,7 +98,7 @@
       max-width: 200px;
       padding: 0.5rem 0.75rem;
       font-size: 0.75rem;
-      color: #7a7876;
+      color: #d7d3d0;
       background-color: #1d2022;
       border: 1px solid #3f4447;
       border-radius: 0.25rem;
@@ -297,13 +303,13 @@
     }
 
     .preview-label {
-      font-size: 0.625rem;
+      font-size: 0.75rem;
       font-weight: 600;
       color: #d7d3d0;
     }
 
     .preview-help {
-      font-size: 0.5rem;
+      font-size: 0.75rem;
       color: #a8a5a3;
     }
 
@@ -322,12 +328,18 @@
     ::-webkit-scrollbar-thumb:hover {
       background: #4a4f52;
     }
+
+    /* Firefox scrollbar */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: #4a4f52 #1d2022;
+    }
   </style>
 </head>
 <body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
 
   <!-- Navigation Header -->
-  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+  <header class="sticky top-0 z-10 bg-bg-secondary/95 border-b border-border-primary" style="backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center gap-4">
@@ -360,20 +372,20 @@
     <!-- Quick Stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
       <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 text-center">
-        <div class="text-2xl font-bold text-accent-orange">10</div>
-        <div class="text-xs text-text-tertiary">Components</div>
+        <div class="text-2xl font-bold text-accent-orange mb-1">10</div>
+        <div class="text-sm text-text-tertiary">Components</div>
       </div>
       <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 text-center">
-        <div class="text-2xl font-bold text-accent-blue">50+</div>
-        <div class="text-xs text-text-tertiary">Variants</div>
+        <div class="text-2xl font-bold text-accent-blue mb-1">50+</div>
+        <div class="text-sm text-text-tertiary">Variants</div>
       </div>
       <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 text-center">
-        <div class="text-2xl font-bold text-success">WCAG</div>
-        <div class="text-xs text-text-tertiary">Accessible</div>
+        <div class="text-2xl font-bold text-success mb-1">WCAG</div>
+        <div class="text-sm text-text-tertiary">Accessible</div>
       </div>
       <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 text-center">
-        <div class="text-2xl font-bold text-text-primary">Dark</div>
-        <div class="text-xs text-text-tertiary">Theme</div>
+        <div class="text-2xl font-bold text-text-primary mb-1">Dark</div>
+        <div class="text-sm text-text-tertiary">Theme</div>
       </div>
     </div>
 
@@ -653,7 +665,7 @@
           Form Components Library - Discord Bot Admin
         </p>
         <p class="text-sm text-text-tertiary">
-          GitHub Issue #37
+          <a href="https://github.com/cpike5/discordbot/issues/37" class="hover:text-text-secondary transition-colors">GitHub Issue #37</a>
         </p>
       </div>
     </div>
