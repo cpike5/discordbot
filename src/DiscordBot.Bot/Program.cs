@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Infrastructure.Extensions;
 using Serilog;
 
 // Configure Serilog bootstrap logger for startup errors
@@ -20,6 +21,9 @@ try
 
     // Add Discord bot services
     builder.Services.AddDiscordBot(builder.Configuration);
+
+    // Add Infrastructure services (database and repositories)
+    builder.Services.AddInfrastructure(builder.Configuration);
 
     // Add Web API services
     builder.Services.AddControllers();

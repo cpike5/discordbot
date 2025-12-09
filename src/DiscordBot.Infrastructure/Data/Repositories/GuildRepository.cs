@@ -1,0 +1,76 @@
+using DiscordBot.Core.Entities;
+using DiscordBot.Core.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
+namespace DiscordBot.Infrastructure.Data.Repositories;
+
+/// <summary>
+/// Repository implementation for Guild entities with Discord-specific operations.
+/// </summary>
+public class GuildRepository : Repository<Guild>, IGuildRepository
+{
+    private readonly ILogger<GuildRepository> _logger;
+
+    public GuildRepository(BotDbContext context, ILogger<GuildRepository> logger) : base(context)
+    {
+        _logger = logger;
+    }
+
+    public async Task<Guild?> GetByDiscordIdAsync(ulong discordId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving guild by Discord ID {GuildId}", discordId);
+        return await DbSet.FindAsync(new object[] { discordId }, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Guild>> GetActiveGuildsAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving all active guilds");
+        return await DbSet
+            .Where(g => g.IsActive)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<Guild?> GetWithCommandLogsAsync(ulong discordId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving guild {GuildId} with command logs", discordId);
+        return await DbSet
+            .Include(g => g.CommandLogs)
+            .FirstOrDefaultAsync(g => g.Id == discordId, cancellationToken);
+    }
+
+    public async Task SetActiveStatusAsync(ulong discordId, bool isActive, CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Setting guild {GuildId} active status to {IsActive}", discordId, isActive);
+
+        await DbSet
+            .Where(g => g.Id == discordId)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(g => g.IsActive, isActive),
+                cancellationToken);
+    }
+
+    public async Task<Guild> UpsertAsync(Guild guild, CancellationToken cancellationToken = default)
+    {
+        var existing = await GetByDiscordIdAsync(guild.Id, cancellationToken);
+
+        if (existing == null)
+        {
+            _logger.LogInformation("Creating new guild record for {GuildId} ({GuildName})", guild.Id, guild.Name);
+            await DbSet.AddAsync(guild, cancellationToken);
+        }
+        else
+        {
+            _logger.LogDebug("Updating existing guild record for {GuildId} ({GuildName})", guild.Id, guild.Name);
+            existing.Name = guild.Name;
+            existing.IsActive = guild.IsActive;
+            existing.Prefix = guild.Prefix;
+            existing.Settings = guild.Settings;
+            DbSet.Update(existing);
+            guild = existing;
+        }
+
+        await Context.SaveChangesAsync(cancellationToken);
+        return guild;
+    }
+}
