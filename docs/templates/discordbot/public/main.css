@@ -1,0 +1,1034 @@
+/**
+ * Discord Bot Documentation - Custom DocFX Theme
+ * Based on the project's design system (docs/articles/design-system.md)
+ *
+ * Color Palette:
+ * - Background Primary: #1d2022
+ * - Background Secondary: #262a2d
+ * - Background Tertiary: #2f3336
+ * - Text Primary: #d7d3d0
+ * - Text Secondary: #a8a5a3
+ * - Text Tertiary: #7a7876
+ * - Accent Orange: #cb4e1b
+ * - Accent Blue: #098ecf
+ * - Border Primary: #3f4447
+ */
+
+/* ============================================
+   CSS Custom Properties (Design Tokens)
+   ============================================ */
+:root {
+  /* Background Colors */
+  --bg-primary: #1d2022;
+  --bg-secondary: #262a2d;
+  --bg-tertiary: #2f3336;
+  --bg-hover: #363a3e;
+
+  /* Text Colors */
+  --text-primary: #d7d3d0;
+  --text-secondary: #a8a5a3;
+  --text-tertiary: #7a7876;
+  --text-inverse: #1d2022;
+
+  /* Accent Colors */
+  --accent-orange: #cb4e1b;
+  --accent-orange-hover: #e5591f;
+  --accent-orange-active: #b04517;
+  --accent-orange-muted: rgba(203, 78, 27, 0.2);
+
+  --accent-blue: #098ecf;
+  --accent-blue-hover: #0ba3ea;
+  --accent-blue-active: #0879b3;
+  --accent-blue-muted: rgba(9, 142, 207, 0.15);
+
+  /* Semantic Colors */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #06b6d4;
+
+  /* Border Colors */
+  --border-primary: #3f4447;
+  --border-secondary: #2f3336;
+  --border-focus: #098ecf;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+
+  /* Typography */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Spacing */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+html {
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  line-height: 1.6;
+}
+
+/* ============================================
+   Typography
+   ============================================ */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary) !important;
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+h1 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: 0.5rem;
+}
+
+h2 {
+  font-size: 1.875rem;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--border-secondary);
+  padding-bottom: 0.3rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+h4 {
+  font-size: 1.25rem;
+}
+
+h5 {
+  font-size: 1.125rem;
+}
+
+h6 {
+  font-size: 1rem;
+}
+
+p {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   Links
+   ============================================ */
+a {
+  color: var(--accent-blue) !important;
+  text-decoration: none;
+  transition: color 0.15s ease-in-out;
+}
+
+a:hover {
+  color: var(--accent-blue-hover) !important;
+  text-decoration: underline;
+}
+
+a:active {
+  color: var(--accent-blue-active) !important;
+}
+
+/* ============================================
+   Navigation - Top Navbar
+   ============================================ */
+.navbar {
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border-primary) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.navbar-brand {
+  color: var(--text-primary) !important;
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.navbar-brand:hover {
+  color: var(--accent-orange) !important;
+}
+
+.navbar-nav .nav-link {
+  color: var(--text-secondary) !important;
+  font-weight: 500;
+  padding: 0.5rem 1rem !important;
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease-in-out;
+}
+
+.navbar-nav .nav-link:hover {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-hover);
+}
+
+.navbar-nav .nav-link.active {
+  color: var(--accent-orange) !important;
+  background-color: var(--accent-orange-muted);
+}
+
+/* Navbar toggler for mobile */
+.navbar-toggler {
+  border-color: var(--border-primary) !important;
+}
+
+.navbar-toggler-icon {
+  filter: invert(0.8);
+}
+
+/* ============================================
+   Navigation - Sidebar / TOC
+   ============================================ */
+.toc {
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+}
+
+.toc .nav-link,
+.toc .nav > li > a,
+.sidetoc .nav > li > a {
+  color: var(--text-secondary) !important;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  margin: 0.125rem 0;
+  transition: all 0.15s ease-in-out;
+}
+
+.toc .nav-link:hover,
+.toc .nav > li > a:hover,
+.sidetoc .nav > li > a:hover {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-hover);
+}
+
+.toc .nav-link.active,
+.toc .nav > li.active > a,
+.sidetoc .nav > li.active > a {
+  color: var(--text-primary) !important;
+  background-color: var(--accent-orange-muted);
+  border-left: 3px solid var(--accent-orange);
+  font-weight: 500;
+}
+
+/* Nested navigation */
+.toc .nav .nav {
+  margin-left: 1rem;
+  border-left: 1px solid var(--border-secondary);
+}
+
+/* Filter box in TOC */
+.toc-filter {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+}
+
+.toc-filter:focus {
+  border-color: var(--border-focus);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-blue-muted);
+}
+
+.toc-filter::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ============================================
+   Sidebar (Article TOC / In-page navigation)
+   ============================================ */
+.sidetoc {
+  background-color: var(--bg-secondary);
+  border-left: 1px solid var(--border-primary);
+}
+
+.sidetoc > .toc {
+  background-color: transparent;
+}
+
+.sideaffix {
+  background-color: var(--bg-secondary);
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+}
+
+/* ============================================
+   Main Content Area
+   ============================================ */
+.article {
+  background-color: var(--bg-primary);
+}
+
+article {
+  color: var(--text-primary);
+}
+
+/* Content container */
+main,
+.main {
+  background-color: var(--bg-primary);
+}
+
+/* ============================================
+   Code Blocks & Inline Code
+   ============================================ */
+code {
+  font-family: var(--font-mono);
+  background-color: var(--bg-tertiary);
+  color: var(--accent-orange);
+  padding: 0.2em 0.4em;
+  border-radius: var(--radius-sm);
+  font-size: 0.875em;
+}
+
+pre {
+  background-color: var(--bg-secondary) !important;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+pre code {
+  background-color: transparent;
+  color: var(--text-primary);
+  padding: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Syntax highlighting adjustments */
+.hljs {
+  background-color: var(--bg-secondary) !important;
+  color: var(--text-primary);
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-section,
+.hljs-link {
+  color: var(--accent-blue);
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-name,
+.hljs-type,
+.hljs-attribute,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition,
+.hljs-variable,
+.hljs-template-tag,
+.hljs-template-variable {
+  color: var(--color-success);
+}
+
+.hljs-comment,
+.hljs-quote,
+.hljs-deletion,
+.hljs-meta {
+  color: var(--text-tertiary);
+}
+
+.hljs-number,
+.hljs-regexp,
+.hljs-literal,
+.hljs-params {
+  color: var(--accent-orange);
+}
+
+/* ============================================
+   Tables
+   ============================================ */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-primary);
+}
+
+thead {
+  background-color: var(--bg-tertiary);
+}
+
+th {
+  color: var(--text-secondary) !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+td {
+  color: var(--text-primary);
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+/* Striped tables */
+.table-striped tbody tr:nth-child(even) {
+  background-color: var(--bg-primary);
+}
+
+/* ============================================
+   Blockquotes & Alerts
+   ============================================ */
+blockquote {
+  background-color: var(--accent-blue-muted);
+  border-left: 4px solid var(--accent-blue);
+  padding: 1rem 1.5rem;
+  margin: 1rem 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  color: var(--text-primary);
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* DocFX Alerts / Notes */
+.alert {
+  padding: 1rem 1.5rem;
+  margin: 1rem 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid;
+}
+
+.alert-info,
+.NOTE,
+.TIP {
+  background-color: rgba(6, 182, 212, 0.1);
+  border-color: rgba(6, 182, 212, 0.3);
+  color: var(--color-info);
+}
+
+.alert-warning,
+.WARNING,
+.CAUTION {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+  color: var(--color-warning);
+}
+
+.alert-danger,
+.IMPORTANT {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--color-error);
+}
+
+.alert h5 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  text-decoration: none !important;
+}
+
+.btn-primary {
+  background-color: var(--accent-orange) !important;
+  color: #ffffff !important;
+  border-color: var(--accent-orange) !important;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-orange-hover) !important;
+  border-color: var(--accent-orange-hover) !important;
+}
+
+.btn-secondary,
+.btn-outline-secondary {
+  background-color: transparent !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-primary) !important;
+}
+
+.btn-secondary:hover,
+.btn-outline-secondary:hover {
+  background-color: var(--bg-hover) !important;
+}
+
+/* ============================================
+   Search
+   ============================================ */
+.search {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+}
+
+#search-query {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+}
+
+#search-query:focus {
+  border-color: var(--border-focus) !important;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-blue-muted);
+}
+
+#search-query::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* Search results */
+.search-results {
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.search-results .sr-item {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.search-results .sr-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.search-results .sr-item .item-title {
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+
+.search-results .sr-item .item-brief {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+/* ============================================
+   Breadcrumbs
+   ============================================ */
+.breadcrumb {
+  background-color: transparent;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+}
+
+.breadcrumb-item {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.breadcrumb-item a {
+  color: var(--text-secondary) !important;
+}
+
+.breadcrumb-item a:hover {
+  color: var(--accent-blue) !important;
+}
+
+.breadcrumb-item.active {
+  color: var(--text-primary);
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  color: var(--text-tertiary);
+}
+
+/* ============================================
+   API Documentation Specific
+   ============================================ */
+/* Method/property signatures */
+.memberInfo,
+.declaration {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+/* Type signatures */
+.signature {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+/* Parameters table */
+.parameters-table {
+  margin-top: 1rem;
+}
+
+/* Inheritance chain */
+.inheritance {
+  color: var(--text-secondary);
+}
+
+.inheritance a {
+  color: var(--accent-blue) !important;
+}
+
+/* Namespace badges */
+.small {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+/* ============================================
+   Footer
+   ============================================ */
+footer {
+  background-color: var(--bg-secondary) !important;
+  border-top: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  padding: 2rem 0;
+}
+
+footer a {
+  color: var(--text-secondary) !important;
+}
+
+footer a:hover {
+  color: var(--accent-blue) !important;
+}
+
+/* ============================================
+   Scrollbars (Webkit)
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* ============================================
+   Selection
+   ============================================ */
+::selection {
+  background-color: var(--accent-blue);
+  color: #ffffff;
+}
+
+/* ============================================
+   Focus States (Accessibility)
+   ============================================ */
+*:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.875rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+  }
+
+  .toc {
+    background-color: var(--bg-tertiary);
+  }
+}
+
+/* ============================================
+   Print Styles
+   ============================================ */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  a {
+    color: #000000 !important;
+  }
+
+  pre, code {
+    background-color: #f5f5f5 !important;
+  }
+}
+
+/* ============================================
+   DocFX Modern Template Overrides
+   ============================================ */
+
+/* Override default blue theme color */
+[data-bs-theme="dark"] {
+  --bs-body-bg: var(--bg-primary);
+  --bs-body-color: var(--text-primary);
+  --bs-link-color: var(--accent-blue);
+  --bs-link-hover-color: var(--accent-blue-hover);
+  --bs-border-color: var(--border-primary);
+}
+
+/* Modern template specific overrides */
+.subnav {
+  background-color: var(--bg-secondary) !important;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.contribution-link {
+  color: var(--text-secondary) !important;
+}
+
+.contribution-link:hover {
+  color: var(--accent-blue) !important;
+}
+
+/* Article metadata */
+.article-meta {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+/* Affix panel */
+.affix {
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.affix h5 {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+}
+
+/* Filter/search in sidebar */
+form.filter {
+  margin-bottom: 1rem;
+}
+
+.form-control {
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-primary) !important;
+}
+
+.form-control:focus {
+  border-color: var(--border-focus) !important;
+  box-shadow: 0 0 0 3px var(--accent-blue-muted) !important;
+}
+
+/* Tabs */
+.nav-tabs {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.nav-tabs .nav-link {
+  color: var(--text-secondary) !important;
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+
+.nav-tabs .nav-link:hover {
+  color: var(--text-primary) !important;
+  border-color: transparent;
+  border-bottom-color: var(--border-primary);
+}
+
+.nav-tabs .nav-link.active {
+  color: var(--accent-orange) !important;
+  background-color: transparent !important;
+  border-color: transparent;
+  border-bottom-color: var(--accent-orange) !important;
+}
+
+/* Cards (if used) */
+.card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+}
+
+.card-header {
+  background-color: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-primary);
+  color: var(--text-primary);
+}
+
+.card-body {
+  color: var(--text-primary);
+}
+
+/* List groups */
+.list-group-item {
+  background-color: var(--bg-secondary);
+  border-color: var(--border-secondary);
+  color: var(--text-primary);
+}
+
+.list-group-item:hover {
+  background-color: var(--bg-hover);
+}
+
+/* Badges */
+.badge {
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+}
+
+.badge.bg-primary,
+.badge-primary {
+  background-color: var(--accent-orange) !important;
+}
+
+.badge.bg-secondary,
+.badge-secondary {
+  background-color: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+}
+
+.badge.bg-info,
+.badge-info {
+  background-color: var(--accent-blue) !important;
+}
+
+/* Version selector (if present) */
+.version-dropdown {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+}
+
+/* Expand/collapse icons */
+.expand-stub,
+.collapse-stub {
+  color: var(--text-tertiary);
+}
+
+/* API reference panels */
+.api-section {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+/* Method return type */
+.returns {
+  color: var(--text-secondary);
+}
+
+/* Deprecated items */
+.deprecated {
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+/* Empty state */
+.empty-state {
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 3rem;
+}
+
+/* ============================================
+   CRITICAL: Force Dark Theme Overrides
+   These must be at the end to override defaults
+   ============================================ */
+
+/* Force dark mode on html and body */
+html {
+  color-scheme: dark;
+}
+
+html, body {
+  background-color: #1d2022 !important;
+  color: #d7d3d0 !important;
+}
+
+/* Override Bootstrap variables for modern template */
+:root,
+[data-bs-theme="light"],
+[data-bs-theme="dark"] {
+  --bs-body-bg: #1d2022 !important;
+  --bs-body-color: #d7d3d0 !important;
+  --bs-link-color: #098ecf !important;
+  --bs-link-hover-color: #0ba3ea !important;
+  --bs-border-color: #3f4447 !important;
+  --bs-tertiary-bg: #262a2d !important;
+  --bs-secondary-bg: #2f3336 !important;
+  --bs-emphasis-color: #d7d3d0 !important;
+}
+
+/* Force navbar styling */
+header,
+.navbar,
+nav.navbar {
+  background-color: #262a2d !important;
+  border-bottom: 1px solid #3f4447 !important;
+}
+
+/* Force sidebar/toc styling */
+.sidebar,
+.toc,
+#toc,
+.sidetoc,
+#sidetoc {
+  background-color: #262a2d !important;
+}
+
+/* Force main content area */
+main,
+.main,
+article,
+.article,
+#main,
+.body-content {
+  background-color: #1d2022 !important;
+  color: #d7d3d0 !important;
+}
+
+/* Force footer styling */
+footer,
+.footer {
+  background-color: #262a2d !important;
+  border-top: 1px solid #3f4447 !important;
+  color: #a8a5a3 !important;
+}
+
+/* Force link colors everywhere */
+a:not(.btn) {
+  color: #098ecf !important;
+}
+
+a:not(.btn):hover {
+  color: #0ba3ea !important;
+}
+
+/* Force heading colors */
+h1, h2, h3, h4, h5, h6,
+.h1, .h2, .h3, .h4, .h5, .h6 {
+  color: #d7d3d0 !important;
+}
+
+/* Force code block styling */
+pre, code {
+  background-color: #262a2d !important;
+}
+
+code {
+  color: #cb4e1b !important;
+}
+
+pre code {
+  color: #d7d3d0 !important;
+}
+
+/* Force active nav items with orange accent */
+.nav-link.active,
+.nav-item.active > .nav-link,
+.toc .active > a,
+.sidetoc .active > a {
+  color: #cb4e1b !important;
+  background-color: rgba(203, 78, 27, 0.15) !important;
+}
+
+/* Force table styling */
+table, .table {
+  --bs-table-bg: #262a2d !important;
+  --bs-table-color: #d7d3d0 !important;
+  --bs-table-border-color: #3f4447 !important;
+  background-color: #262a2d !important;
+  color: #d7d3d0 !important;
+}
+
+th {
+  background-color: #2f3336 !important;
+  color: #a8a5a3 !important;
+}
+
+/* Force input styling */
+input, select, textarea,
+.form-control, .form-select {
+  background-color: #1d2022 !important;
+  color: #d7d3d0 !important;
+  border-color: #3f4447 !important;
+}
+
+input::placeholder,
+.form-control::placeholder {
+  color: #7a7876 !important;
+}
+
+/* Force card styling */
+.card {
+  background-color: #262a2d !important;
+  border-color: #3f4447 !important;
+}
+
+.card-header {
+  background-color: #2f3336 !important;
+  border-color: #3f4447 !important;
+}
