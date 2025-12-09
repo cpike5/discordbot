@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -10,6 +11,7 @@ namespace DiscordBot.Bot.Pages.Account;
 /// <summary>
 /// Page model for user login functionality.
 /// </summary>
+[AllowAnonymous]
 public class LoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signInManager;

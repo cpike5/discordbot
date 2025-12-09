@@ -190,6 +190,10 @@ public class EditGuildModel : PageModel
 
 #### In Razor Page Markup
 
+The application provides two custom tag helpers for conditional rendering:
+
+**`<authorize>` Tag Helper** - For policy-based authorization:
+
 ```cshtml
 @* Show element only to SuperAdmins *@
 <authorize policy="RequireSuperAdmin">
@@ -200,7 +204,26 @@ public class EditGuildModel : PageModel
 <authorize policy="RequireModerator">
     <button type="submit">Save Changes</button>
 </authorize>
+
+@* Show element only to non-authenticated users *@
+<authorize negate="true">
+    <a href="/Account/Login">Sign In</a>
+</authorize>
 ```
+
+**`if-role` Attribute Tag Helper** - For role-based visibility on any HTML element:
+
+```cshtml
+@* Element visible only to SuperAdmin and Admin roles *@
+<div if-role="SuperAdmin,Admin">
+    <p>This content is only visible to admins.</p>
+</div>
+
+@* Navigation link visible to moderators and above *@
+<a href="/Servers" if-role="SuperAdmin,Admin,Moderator">Servers</a>
+```
+
+**Tag Helper Location:** `src/DiscordBot.Bot/TagHelpers/`
 
 #### In Controllers (API)
 
@@ -842,6 +865,7 @@ var roles = _roleManager.Roles.ToList();
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.1 | 2025-12-09 | Claude Code | Added tag helper documentation for Issue #65 |
 | 1.0 | 2025-12-09 | docs-writer | Initial documentation for Issue #64 |
 
 ---
