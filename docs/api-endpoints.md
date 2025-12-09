@@ -1,0 +1,767 @@
+# API Endpoints Reference
+
+This document provides comprehensive reference documentation for the Discord Bot Management System REST API.
+
+## Overview
+
+The REST API provides programmatic access to bot status, guild management, and command log analytics. All endpoints return JSON responses and use standard HTTP status codes.
+
+**Base URL:** `http://localhost:5000/api` (development)
+
+**API Version:** 1.0
+
+**Authentication:** None (MVP - authentication to be added in future releases)
+
+---
+
+## Quick Reference
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health` | GET | Health check with database connectivity |
+| `/api/bot/status` | GET | Bot status (uptime, latency, guilds) |
+| `/api/bot/guilds` | GET | Connected guilds from Discord |
+| `/api/bot/restart` | POST | Restart bot (not supported) |
+| `/api/bot/shutdown` | POST | Graceful shutdown |
+| `/api/guilds` | GET | All guilds (DB + Discord merged) |
+| `/api/guilds/{id}` | GET | Specific guild by ID |
+| `/api/guilds/{id}` | PUT | Update guild settings |
+| `/api/guilds/{id}/sync` | POST | Sync guild from Discord to DB |
+| `/api/commandlogs` | GET | Query command logs (filtered, paginated) |
+| `/api/commandlogs/stats` | GET | Command usage statistics |
+
+---
+
+## Health Endpoints
+
+### GET /api/health
+
+Returns the health status of the application including database connectivity.
+
+**Response: 200 OK**
+
+```json
+{
+  "status": "Healthy",
+  "timestamp": "2024-12-08T15:30:00Z",
+  "version": "1.0.0.0",
+  "checks": {
+    "Database": "Healthy"
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Overall status: "Healthy" or "Degraded" |
+| `timestamp` | datetime | UTC timestamp of health check |
+| `version` | string | Application version |
+| `checks` | object | Individual health check results |
+
+**Status Values:**
+- `Healthy`: All checks passed
+- `Degraded`: One or more checks failed (still operational)
+
+---
+
+## Bot Management Endpoints
+
+### GET /api/bot/status
+
+Returns current bot status including uptime, latency, and connection information.
+
+**Response: 200 OK**
+
+```json
+{
+  "uptime": "2.15:30:45",
+  "guildCount": 5,
+  "latencyMs": 42,
+  "startTime": "2024-12-06T00:00:00Z",
+  "botUsername": "MyDiscordBot#1234",
+  "connectionState": "Connected"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `uptime` | TimeSpan | Time since bot started (format: d.HH:mm:ss) |
+| `guildCount` | integer | Number of connected guilds |
+| `latencyMs` | integer | Gateway latency in milliseconds |
+| `startTime` | datetime | UTC timestamp when bot started |
+| `botUsername` | string | Bot's Discord username with discriminator |
+| `connectionState` | string | Discord connection state |
+
+**Connection States:**
+- `Connected`: Bot is connected and operational
+- `Connecting`: Bot is establishing connection
+- `Disconnected`: Bot is offline
+- `Disconnecting`: Bot is shutting down
+
+---
+
+### GET /api/bot/guilds
+
+Returns list of guilds currently connected to the bot via Discord gateway.
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": 123456789012345678,
+    "name": "My Awesome Server",
+    "memberCount": 1250,
+    "iconUrl": "https://cdn.discordapp.com/icons/123456789012345678/abc123.png"
+  },
+  {
+    "id": 987654321098765432,
+    "name": "Dev Testing Server",
+    "memberCount": 5,
+    "iconUrl": null
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | ulong | Discord snowflake ID |
+| `name` | string | Guild name |
+| `memberCount` | integer | Number of members |
+| `iconUrl` | string? | CDN URL for guild icon (null if none) |
+
+---
+
+### POST /api/bot/restart
+
+Restarts the bot. **Note:** Currently not supported and will return 500 error.
+
+**Response: 202 Accepted**
+
+```json
+(Empty response body on success)
+```
+
+**Response: 500 Internal Server Error**
+
+```json
+{
+  "message": "Restart operation is not supported",
+  "detail": "Bot restart is not implemented in the current version",
+  "statusCode": 500,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### POST /api/bot/shutdown
+
+Initiates graceful shutdown of the bot.
+
+**Response: 202 Accepted**
+
+```json
+{
+  "message": "Shutdown initiated"
+}
+```
+
+**Notes:**
+- Shutdown is asynchronous; the API will remain available briefly
+- All pending commands will be completed before shutdown
+- Database connections are closed gracefully
+
+---
+
+## Guild Management Endpoints
+
+### GET /api/guilds
+
+Returns all guilds with merged data from database and live Discord information.
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": 123456789012345678,
+    "name": "My Awesome Server",
+    "joinedAt": "2024-01-15T10:30:00Z",
+    "isActive": true,
+    "prefix": "!",
+    "settings": "{\"welcomeChannel\":\"general\"}",
+    "memberCount": 1250,
+    "iconUrl": "https://cdn.discordapp.com/icons/123456789012345678/abc123.png"
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | ulong | Discord snowflake ID |
+| `name` | string | Guild name (from Discord) |
+| `joinedAt` | datetime | When bot joined the guild |
+| `isActive` | boolean | Whether guild is active in database |
+| `prefix` | string? | Custom command prefix (nullable) |
+| `settings` | string? | JSON-encoded guild settings (nullable) |
+| `memberCount` | integer? | Current member count from Discord (nullable if offline) |
+| `iconUrl` | string? | Guild icon URL from Discord (nullable) |
+
+---
+
+### GET /api/guilds/{id}
+
+Returns detailed information for a specific guild by ID.
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | ulong | Discord guild snowflake ID |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": 123456789012345678,
+  "name": "My Awesome Server",
+  "joinedAt": "2024-01-15T10:30:00Z",
+  "isActive": true,
+  "prefix": "!",
+  "settings": "{\"welcomeChannel\":\"general\",\"modRole\":\"Moderator\"}",
+  "memberCount": 1250,
+  "iconUrl": "https://cdn.discordapp.com/icons/123456789012345678/abc123.png"
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Guild not found",
+  "detail": "No guild with ID 123456789012345678 exists in the database.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### PUT /api/guilds/{id}
+
+Updates guild settings in the database.
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "prefix": "?",
+  "settings": "{\"welcomeChannel\":\"lobby\",\"modRole\":\"Staff\"}",
+  "isActive": true
+}
+```
+
+**Request Fields:** (all optional)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `prefix` | string? | Custom command prefix (null = no change) |
+| `settings` | string? | JSON-encoded settings (null = no change) |
+| `isActive` | boolean? | Active status (null = no change) |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": 123456789012345678,
+  "name": "My Awesome Server",
+  "joinedAt": "2024-01-15T10:30:00Z",
+  "isActive": true,
+  "prefix": "?",
+  "settings": "{\"welcomeChannel\":\"lobby\",\"modRole\":\"Staff\"}",
+  "memberCount": 1250,
+  "iconUrl": "https://cdn.discordapp.com/icons/123456789012345678/abc123.png"
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Guild not found",
+  "detail": "No guild with ID 123456789012345678 exists in the database.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Request body cannot be null.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### POST /api/guilds/{id}/sync
+
+Synchronizes guild data from Discord to the database. Creates or updates the guild record with current Discord information.
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | ulong | Discord guild snowflake ID |
+
+**Response: 200 OK**
+
+```json
+{
+  "message": "Guild synced successfully",
+  "guildId": 123456789012345678
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Guild not found",
+  "detail": "No guild with ID 123456789012345678 is connected to the bot.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Notes:**
+- Guild must be currently connected to the bot
+- Creates new database record if guild doesn't exist
+- Updates name and other Discord-sourced fields if record exists
+
+---
+
+## Command Log Endpoints
+
+### GET /api/commandlogs
+
+Retrieves command execution logs with optional filtering and pagination.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `guildId` | ulong? | null | Filter by guild ID |
+| `userId` | ulong? | null | Filter by user ID |
+| `commandName` | string? | null | Filter by command name (case-sensitive) |
+| `startDate` | datetime? | null | Filter logs after this date (inclusive) |
+| `endDate` | datetime? | null | Filter logs before this date (inclusive) |
+| `successOnly` | boolean? | null | If true, only show successful commands |
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 50 | Items per page (max: 100) |
+
+**Example Request:**
+
+```
+GET /api/commandlogs?guildId=123456789012345678&successOnly=true&page=1&pageSize=20
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "guildId": 123456789012345678,
+      "guildName": "My Awesome Server",
+      "userId": 987654321098765432,
+      "username": "JohnDoe#1234",
+      "commandName": "ping",
+      "parameters": "{}",
+      "executedAt": "2024-12-08T15:30:00Z",
+      "responseTimeMs": 42,
+      "success": true,
+      "errorMessage": null
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "guildId": 123456789012345678,
+      "guildName": "My Awesome Server",
+      "userId": 111222333444555666,
+      "username": "JaneSmith#5678",
+      "commandName": "status",
+      "parameters": "{}",
+      "executedAt": "2024-12-08T15:25:00Z",
+      "responseTimeMs": 156,
+      "success": true,
+      "errorMessage": null
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalCount": 2,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "hasPreviousPage": false
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | array | Array of CommandLogDto objects |
+| `page` | integer | Current page number (1-based) |
+| `pageSize` | integer | Items per page |
+| `totalCount` | integer | Total number of items across all pages |
+| `totalPages` | integer | Total number of pages |
+| `hasNextPage` | boolean | Whether there are more pages |
+| `hasPreviousPage` | boolean | Whether there are previous pages |
+
+**CommandLogDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Unique log entry identifier |
+| `guildId` | ulong? | Guild ID where command was executed (null for DMs) |
+| `guildName` | string? | Guild name (null for DMs) |
+| `userId` | ulong | User who executed the command |
+| `username` | string? | Username of executor |
+| `commandName` | string | Name of the command |
+| `parameters` | string? | JSON-encoded command parameters |
+| `executedAt` | datetime | UTC timestamp of execution |
+| `responseTimeMs` | integer | Command execution time in milliseconds |
+| `success` | boolean | Whether command succeeded |
+| `errorMessage` | string? | Error message if command failed (null if success) |
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid date range",
+  "detail": "Start date cannot be after end date.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### GET /api/commandlogs/stats
+
+Returns command usage statistics, optionally filtered by date.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `since` | datetime? | null | Only count commands since this date (null = all time) |
+
+**Example Request:**
+
+```
+GET /api/commandlogs/stats?since=2024-12-01T00:00:00Z
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "ping": 1250,
+  "status": 85,
+  "shutdown": 12,
+  "guilds": 42
+}
+```
+
+**Response Format:**
+
+Dictionary mapping command names (string) to usage counts (integer).
+
+**Notes:**
+- Returns all commands that have been executed
+- Counts include both successful and failed executions
+- Empty object `{}` returned if no commands match filter
+
+---
+
+## Error Response Format
+
+All error responses follow a consistent format using `ApiErrorDto`.
+
+**Structure:**
+
+```json
+{
+  "message": "Brief error description",
+  "detail": "Detailed explanation of what went wrong",
+  "statusCode": 400,
+  "traceId": "00-abc123def456-789012-00"
+}
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `message` | string | Short, user-friendly error message |
+| `detail` | string? | Detailed error explanation (optional) |
+| `statusCode` | integer | HTTP status code |
+| `traceId` | string? | Correlation ID for log tracing (optional) |
+
+**Common Status Codes:**
+
+| Code | Meaning | Common Causes |
+|------|---------|---------------|
+| 400 | Bad Request | Invalid input, validation failure, malformed JSON |
+| 404 | Not Found | Guild not found, resource doesn't exist |
+| 500 | Internal Server Error | Unexpected server error, database connection failure |
+| 202 | Accepted | Async operation initiated (shutdown, restart) |
+
+---
+
+## Accessing Swagger UI
+
+The API includes interactive Swagger/OpenAPI documentation for testing endpoints directly in your browser.
+
+**URL:** `http://localhost:5000/swagger`
+
+**Features:**
+- Interactive endpoint testing with request/response examples
+- Schema definitions for all DTOs
+- Try-it-out functionality for immediate testing
+- Automatic request validation
+
+**Development vs Production:**
+- Swagger is enabled by default in Development environment
+- Consider disabling Swagger in Production for security
+
+---
+
+## Rate Limiting
+
+**Current Status:** Not implemented in MVP
+
+**Future Considerations:**
+- Per-IP rate limiting for API endpoints
+- Separate rate limits for read vs write operations
+- Rate limit headers in responses (`X-RateLimit-Limit`, `X-RateLimit-Remaining`)
+
+---
+
+## CORS Configuration
+
+**Current Status:** CORS is configured to allow all origins in Development
+
+**Configuration Location:** `Program.cs`
+
+**Future Considerations:**
+- Restrict allowed origins in Production
+- Configure allowed methods and headers
+- Implement credential support for authenticated requests
+
+---
+
+## Data Transfer Objects (DTOs)
+
+### HealthResponseDto
+
+```csharp
+{
+  "status": string,           // "Healthy" or "Degraded"
+  "timestamp": DateTime,      // UTC timestamp
+  "version": string,          // Application version
+  "checks": Dictionary<string, string>  // Check name -> status
+}
+```
+
+### BotStatusDto
+
+```csharp
+{
+  "uptime": TimeSpan,         // Time since start
+  "guildCount": int,          // Number of guilds
+  "latencyMs": int,           // Gateway latency
+  "startTime": DateTime,      // Start timestamp
+  "botUsername": string,      // Bot username#discriminator
+  "connectionState": string   // Discord connection state
+}
+```
+
+### GuildInfoDto
+
+```csharp
+{
+  "id": ulong,                // Discord snowflake ID
+  "name": string,             // Guild name
+  "memberCount": int,         // Member count
+  "iconUrl": string?          // Icon URL (nullable)
+}
+```
+
+### GuildDto
+
+```csharp
+{
+  "id": ulong,                // Discord snowflake ID
+  "name": string,             // Guild name
+  "joinedAt": DateTime,       // Join timestamp
+  "isActive": bool,           // Active status
+  "prefix": string?,          // Custom prefix (nullable)
+  "settings": string?,        // JSON settings (nullable)
+  "memberCount": int?,        // Live member count (nullable)
+  "iconUrl": string?          // Live icon URL (nullable)
+}
+```
+
+### GuildUpdateRequestDto
+
+```csharp
+{
+  "prefix": string?,          // New prefix (null = no change)
+  "settings": string?,        // New settings JSON (null = no change)
+  "isActive": bool?           // New active status (null = no change)
+}
+```
+
+### CommandLogDto
+
+```csharp
+{
+  "id": Guid,                 // Unique identifier
+  "guildId": ulong?,          // Guild ID (nullable for DMs)
+  "guildName": string?,       // Guild name (nullable)
+  "userId": ulong,            // User ID
+  "username": string?,        // Username (nullable)
+  "commandName": string,      // Command name
+  "parameters": string?,      // Parameters JSON (nullable)
+  "executedAt": DateTime,     // Execution timestamp
+  "responseTimeMs": int,      // Response time
+  "success": bool,            // Success flag
+  "errorMessage": string?     // Error message (nullable)
+}
+```
+
+### CommandLogQueryDto
+
+```csharp
+{
+  "guildId": ulong?,          // Filter by guild
+  "userId": ulong?,           // Filter by user
+  "commandName": string?,     // Filter by command
+  "startDate": DateTime?,     // Filter by start date
+  "endDate": DateTime?,       // Filter by end date
+  "successOnly": bool?,       // Filter successes only
+  "page": int,                // Page number (default: 1)
+  "pageSize": int             // Page size (default: 50, max: 100)
+}
+```
+
+### PaginatedResponseDto&lt;T&gt;
+
+```csharp
+{
+  "items": IReadOnlyList<T>,  // Page items
+  "page": int,                // Current page (1-based)
+  "pageSize": int,            // Items per page
+  "totalCount": int,          // Total items
+  "totalPages": int,          // Total pages (calculated)
+  "hasNextPage": bool,        // Has next page (calculated)
+  "hasPreviousPage": bool     // Has previous page (calculated)
+}
+```
+
+### ApiErrorDto
+
+```csharp
+{
+  "message": string,          // Error message
+  "detail": string?,          // Error details (nullable)
+  "statusCode": int,          // HTTP status code
+  "traceId": string?          // Trace ID (nullable)
+}
+```
+
+---
+
+## Integration Examples
+
+### Example: Get Bot Status
+
+```bash
+curl -X GET "http://localhost:5000/api/bot/status" -H "accept: application/json"
+```
+
+### Example: Update Guild Settings
+
+```bash
+curl -X PUT "http://localhost:5000/api/guilds/123456789012345678" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prefix": "!",
+    "isActive": true,
+    "settings": "{\"welcomeChannel\":\"general\"}"
+  }'
+```
+
+### Example: Query Command Logs
+
+```bash
+curl -X GET "http://localhost:5000/api/commandlogs?guildId=123456789012345678&page=1&pageSize=10&successOnly=true" \
+  -H "accept: application/json"
+```
+
+### Example: Get Command Statistics
+
+```bash
+curl -X GET "http://localhost:5000/api/commandlogs/stats?since=2024-12-01T00:00:00Z" \
+  -H "accept: application/json"
+```
+
+### Example: Sync Guild from Discord
+
+```bash
+curl -X POST "http://localhost:5000/api/guilds/123456789012345678/sync" \
+  -H "accept: application/json"
+```
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2024-12-08 | Initial API implementation (Phase 4 MVP) |
+
+---
+
+## Related Documentation
+
+- [MVP Implementation Plan](mvp-plan.md) - Full development roadmap
+- [Database Schema](database-schema.md) - Entity definitions and relationships
+- [Repository Pattern](repository-pattern.md) - Data access implementation
+- [Admin Commands](admin-commands.md) - Discord slash command reference
+
+---
+
+*Last Updated: December 8, 2024*

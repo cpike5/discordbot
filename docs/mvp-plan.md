@@ -360,11 +360,16 @@ CommandLog
 - Services encapsulate business logic
 
 **Acceptance Criteria:**
-- [ ] GET /api/health returns 200
-- [ ] GET /api/guilds returns list of guilds
-- [ ] PUT /api/guilds/{id} updates guild settings
-- [ ] Swagger UI displays all endpoints
-- [ ] Invalid requests return appropriate status codes
+- [x] GET /api/health returns 200
+- [x] GET /api/guilds returns list of guilds
+- [x] PUT /api/guilds/{id} updates guild settings
+- [x] Swagger UI displays all endpoints
+- [x] Invalid requests return appropriate status codes
+
+**Status:** ✓ COMPLETED
+
+**Documentation:**
+- [API Endpoints](api-endpoints.md) - Complete REST API reference with request/response examples
 
 ---
 
