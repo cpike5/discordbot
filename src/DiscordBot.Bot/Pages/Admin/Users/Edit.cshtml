@@ -1,0 +1,238 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.Users.EditModel
+@{
+    ViewData["Title"] = "Edit User";
+}
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center gap-2 text-sm text-text-secondary mb-2">
+            <a asp-page="Index" class="hover:text-text-primary">Users</a>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-text-primary">Edit</span>
+        </div>
+        <h1 class="text-2xl font-bold text-text-primary">Edit User</h1>
+        <p class="mt-1 text-sm text-text-secondary">Update user information and permissions</p>
+    </div>
+
+    <!-- Self-Edit Warning -->
+    @if (Model.ViewModel.IsSelf)
+    {
+        <div class="mb-6">
+            @{
+                var warningMessage = "You are editing your own account. Some options are restricted to prevent accidental lockout.";
+            }
+            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel {
+                Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Warning,
+                Message = warningMessage,
+                IsDismissible = false
+            }" />
+        </div>
+    }
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel {
+                Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel {
+                Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- User Information Form -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">User Information</h2>
+        </div>
+        <form method="post" class="p-6 space-y-6">
+            <input type="hidden" name="Input.UserId" value="@Model.Input.UserId" />
+            <div asp-validation-summary="ModelOnly" class="text-error text-sm"></div>
+
+            <!-- Email -->
+            <div>
+                @{
+                    var emailValidation = !ViewData.ModelState.IsValid && ViewData.ModelState["Input.Email"]?.Errors.Count > 0
+                        ? DiscordBot.Bot.ViewModels.Components.ValidationState.Error
+                        : DiscordBot.Bot.ViewModels.Components.ValidationState.None;
+                    var emailError = ViewData.ModelState["Input.Email"]?.Errors.FirstOrDefault()?.ErrorMessage;
+                    var emailInputModel = new DiscordBot.Bot.ViewModels.Components.FormInputViewModel {
+                        Id = "Input_Email",
+                        Name = "Input.Email",
+                        Label = "Email Address",
+                        Type = "email",
+                        Value = Model.Input.Email,
+                        IsRequired = true,
+                        ValidationState = emailValidation,
+                        ValidationMessage = emailError
+                    };
+                }
+                <partial name="Shared/Components/_FormInput" model="emailInputModel" />
+            </div>
+
+            <!-- Display Name -->
+            <div>
+                @{
+                    var displayNameModel = new DiscordBot.Bot.ViewModels.Components.FormInputViewModel {
+                        Id = "Input_DisplayName",
+                        Name = "Input.DisplayName",
+                        Label = "Display Name",
+                        Type = "text",
+                        Value = Model.Input.DisplayName,
+                        Placeholder = "Optional friendly name"
+                    };
+                }
+                <partial name="Shared/Components/_FormInput" model="displayNameModel" />
+            </div>
+
+            <!-- Role -->
+            <div>
+                @{
+                    var roleHelpText = Model.ViewModel.IsSelf ? "You cannot change your own role" : "The role determines what permissions the user has";
+                    var roleOptions = Model.ViewModel.AvailableRoles.Select(r => new DiscordBot.Bot.ViewModels.Components.SelectOption {
+                        Value = r.Value,
+                        Text = r.Text
+                    }).ToList();
+                    var roleModel = new DiscordBot.Bot.ViewModels.Components.FormSelectViewModel {
+                        Id = "Input_Role",
+                        Name = "Input.Role",
+                        Label = "Role",
+                        Options = roleOptions,
+                        IsRequired = true,
+                        IsDisabled = !Model.ViewModel.CanChangeRole,
+                        HelpText = roleHelpText
+                    };
+                }
+                <partial name="Shared/Components/_FormSelect" model="roleModel" />
+            </div>
+
+            <!-- Active Status -->
+            <div>
+                <div class="flex items-center">
+                    <input
+                        type="checkbox"
+                        id="Input_IsActive"
+                        name="Input.IsActive"
+                        checked="@Model.Input.IsActive"
+                        disabled="@(!Model.ViewModel.CanChangeActiveStatus)"
+                        class="h-4 w-4 text-accent-blue focus:ring-accent-blue border-border-primary rounded" />
+                    <label for="Input_IsActive" class="ml-2 block text-sm text-text-primary">
+                        Account is active
+                    </label>
+                </div>
+                @if (Model.ViewModel.IsSelf)
+                {
+                    <p class="mt-1 text-xs text-text-secondary">You cannot disable your own account</p>
+                }
+                else
+                {
+                    <p class="mt-1 text-xs text-text-secondary">Inactive users cannot log in</p>
+                }
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end gap-3 pt-4 border-t border-border-primary">
+                <a asp-page="Index" class="btn-secondary">
+                    Cancel
+                </a>
+                <button type="submit" class="btn-primary">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Discord Account Section -->
+    @if (Model.ViewModel.IsDiscordLinked)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Discord Account</h2>
+            </div>
+            <div class="p-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        @if (!string.IsNullOrEmpty(Model.ViewModel.DiscordAvatarUrl))
+                        {
+                            <img class="h-12 w-12 rounded-full" src="@Model.ViewModel.DiscordAvatarUrl" alt="Discord Avatar" />
+                        }
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-accent-blue" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                                </svg>
+                                <span class="text-sm font-medium text-text-primary">@Model.ViewModel.DiscordUsername</span>
+                            </div>
+                            <p class="text-xs text-text-secondary mt-1">Linked Discord account</p>
+                        </div>
+                    </div>
+                    <form method="post" asp-page-handler="UnlinkDiscord">
+                        <input type="hidden" name="userId" value="@Model.Input.UserId" />
+                        <button type="submit" class="btn-secondary text-error hover:bg-error/10"
+                                onclick="return confirm('Are you sure you want to unlink this Discord account?');">
+                            Unlink Discord
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Actions Section -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Additional Actions</h2>
+        </div>
+        <div class="p-6 space-y-4">
+            <!-- Reset Password -->
+            <div class="flex items-center justify-between py-3 border-b border-border-primary last:border-0">
+                <div>
+                    <h3 class="text-sm font-medium text-text-primary">Reset Password</h3>
+                    <p class="text-xs text-text-secondary mt-1">Generate a new temporary password for this user</p>
+                </div>
+                <form method="post" asp-page-handler="ResetPassword">
+                    <input type="hidden" name="userId" value="@Model.Input.UserId" />
+                    <button type="submit" class="btn-secondary"
+                            onclick="return confirm('Are you sure you want to reset this user\'s password? A new temporary password will be generated.');">
+                        Reset Password
+                    </button>
+                </form>
+            </div>
+
+            <!-- View Details -->
+            <div class="flex items-center justify-between py-3">
+                <div>
+                    <h3 class="text-sm font-medium text-text-primary">View Activity Log</h3>
+                    <p class="text-xs text-text-secondary mt-1">See detailed user activity and management history</p>
+                </div>
+                <a asp-page="Details" asp-route-id="@Model.Input.UserId" class="btn-secondary">
+                    View Details
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

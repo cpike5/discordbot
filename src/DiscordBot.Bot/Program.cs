@@ -141,6 +141,7 @@ try
     builder.Services.AddScoped<IBotService, BotService>();
     builder.Services.AddScoped<IGuildService, GuildService>();
     builder.Services.AddScoped<ICommandLogService, CommandLogService>();
+    builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
     // Add Web API services
     builder.Services.AddControllers();

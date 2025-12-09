@@ -1,0 +1,190 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.Users.CreateModel
+@{
+    ViewData["Title"] = "Create User";
+}
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center gap-2 text-sm text-text-secondary mb-2">
+            <a asp-page="Index" class="hover:text-text-primary">Users</a>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-text-primary">Create</span>
+        </div>
+        <h1 class="text-2xl font-bold text-text-primary">Create New User</h1>
+        <p class="mt-1 text-sm text-text-secondary">Add a new user to the system</p>
+    </div>
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel { Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = true }" />
+        </div>
+    }
+
+    <!-- Form -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg">
+        <form method="post" class="p-6 space-y-6">
+            <div asp-validation-summary="ModelOnly" class="text-error text-sm"></div>
+
+            <!-- Email -->
+            <div>
+                @{
+                    var emailValidation = !ViewData.ModelState.IsValid && ViewData.ModelState["Input.Email"]?.Errors.Count > 0
+                        ? DiscordBot.Bot.ViewModels.Components.ValidationState.Error
+                        : DiscordBot.Bot.ViewModels.Components.ValidationState.None;
+                    var emailError = ViewData.ModelState["Input.Email"]?.Errors.FirstOrDefault()?.ErrorMessage;
+                    var emailInputModel = new DiscordBot.Bot.ViewModels.Components.FormInputViewModel {
+                        Id = "Input_Email",
+                        Name = "Input.Email",
+                        Label = "Email Address",
+                        Type = "email",
+                        Value = Model.Input.Email,
+                        Placeholder = "user@example.com",
+                        IsRequired = true,
+                        HelpText = "This will be the user's login email",
+                        ValidationState = emailValidation,
+                        ValidationMessage = emailError
+                    };
+                }
+                <partial name="Shared/Components/_FormInput" model="emailInputModel" />
+            </div>
+
+            <!-- Display Name -->
+            <div>
+                @{
+                    var displayNameModel = new DiscordBot.Bot.ViewModels.Components.FormInputViewModel {
+                        Id = "Input_DisplayName",
+                        Name = "Input.DisplayName",
+                        Label = "Display Name",
+                        Type = "text",
+                        Value = Model.Input.DisplayName,
+                        Placeholder = "John Doe",
+                        IsRequired = false,
+                        HelpText = "Optional friendly name for display in the UI"
+                    };
+                }
+                <partial name="Shared/Components/_FormInput" model="displayNameModel" />
+            </div>
+
+            <!-- Password -->
+            <div>
+                @{
+                    var passwordValidation = !ViewData.ModelState.IsValid && ViewData.ModelState["Input.Password"]?.Errors.Count > 0
+                        ? DiscordBot.Bot.ViewModels.Components.ValidationState.Error
+                        : DiscordBot.Bot.ViewModels.Components.ValidationState.None;
+                    var passwordError = ViewData.ModelState["Input.Password"]?.Errors.FirstOrDefault()?.ErrorMessage;
+                    var passwordModel = new DiscordBot.Bot.ViewModels.Components.FormInputViewModel {
+                        Id = "Input_Password",
+                        Name = "Input.Password",
+                        Label = "Password",
+                        Type = "password",
+                        Placeholder = "Enter a secure password",
+                        IsRequired = true,
+                        HelpText = "Must be at least 8 characters with uppercase, lowercase, number, and special character",
+                        ValidationState = passwordValidation,
+                        ValidationMessage = passwordError
+                    };
+                }
+                <partial name="Shared/Components/_FormInput" model="passwordModel" />
+            </div>
+
+            <!-- Confirm Password -->
+            <div>
+                @{
+                    var confirmValidation = !ViewData.ModelState.IsValid && ViewData.ModelState["Input.ConfirmPassword"]?.Errors.Count > 0
+                        ? DiscordBot.Bot.ViewModels.Components.ValidationState.Error
+                        : DiscordBot.Bot.ViewModels.Components.ValidationState.None;
+                    var confirmError = ViewData.ModelState["Input.ConfirmPassword"]?.Errors.FirstOrDefault()?.ErrorMessage;
+                    var confirmModel = new DiscordBot.Bot.ViewModels.Components.FormInputViewModel {
+                        Id = "Input_ConfirmPassword",
+                        Name = "Input.ConfirmPassword",
+                        Label = "Confirm Password",
+                        Type = "password",
+                        Placeholder = "Re-enter password",
+                        IsRequired = true,
+                        ValidationState = confirmValidation,
+                        ValidationMessage = confirmError
+                    };
+                }
+                <partial name="Shared/Components/_FormInput" model="confirmModel" />
+            </div>
+
+            <!-- Role -->
+            <div>
+                @{
+                    var roleOptions = Model.ViewModel.AvailableRoles.Select(r => new DiscordBot.Bot.ViewModels.Components.SelectOption {
+                        Value = r.Value,
+                        Text = r.Text
+                    }).ToList();
+                    var roleModel = new DiscordBot.Bot.ViewModels.Components.FormSelectViewModel {
+                        Id = "Input_Role",
+                        Name = "Input.Role",
+                        Label = "Role",
+                        Options = roleOptions,
+                        IsRequired = true,
+                        HelpText = "The role determines what permissions the user has"
+                    };
+                }
+                <partial name="Shared/Components/_FormSelect" model="roleModel" />
+            </div>
+
+            <!-- Send Welcome Email -->
+            <div class="flex items-center">
+                <input
+                    type="checkbox"
+                    id="Input_SendWelcomeEmail"
+                    name="Input.SendWelcomeEmail"
+                    checked="@Model.Input.SendWelcomeEmail"
+                    class="h-4 w-4 text-accent-blue focus:ring-accent-blue border-border-primary rounded" />
+                <label for="Input_SendWelcomeEmail" class="ml-2 block text-sm text-text-primary">
+                    Send welcome email to new user
+                </label>
+            </div>
+
+            <!-- Divider -->
+            <div class="border-t border-border-primary pt-6">
+                <!-- Action Buttons -->
+                <div class="flex justify-end gap-3">
+                    <a asp-page="Index" class="btn-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn-primary">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Create User
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Info Box -->
+    <div class="mt-6">
+        <div class="bg-info/10 border border-info/20 rounded-lg p-4">
+            <div class="flex">
+                <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-info">About User Creation</h3>
+                    <div class="mt-2 text-sm text-text-secondary space-y-1">
+                        <p>- The user's email will be automatically confirmed</p>
+                        <p>- Users will be able to log in immediately after creation</p>
+                        <p>- The password must meet complexity requirements</p>
+                        <p>- You can only assign roles that you have permission to manage</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

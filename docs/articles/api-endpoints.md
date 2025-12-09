@@ -582,6 +582,422 @@ The API includes interactive Swagger/OpenAPI documentation for testing endpoints
 
 ---
 
+## User Management Service Interface
+
+The User Management Service provides programmatic access to user administration operations. This is a service-layer interface (not a REST API endpoint) used by the admin web UI.
+
+**Interface:** `IUserManagementService`
+
+**Location:** `DiscordBot.Core.Interfaces.IUserManagementService`
+
+**Authorization:** All operations enforce role-based authorization and self-protection rules. See [User Management Guide](user-management.md) for details.
+
+### Service Methods
+
+#### Query Operations
+
+##### GetUsersAsync
+
+Retrieves a paginated list of users with search and filter capabilities.
+
+```csharp
+Task<PaginatedResponseDto<UserDto>> GetUsersAsync(
+    UserSearchQueryDto query,
+    CancellationToken cancellationToken = default);
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `query` | UserSearchQueryDto | Search, filter, and pagination parameters |
+| `cancellationToken` | CancellationToken | Cancellation token (optional) |
+
+**UserSearchQueryDto Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `SearchTerm` | string? | null | Search by email, display name, or Discord username |
+| `Role` | string? | null | Filter by role (SuperAdmin, Admin, Moderator, Viewer) |
+| `IsActive` | bool? | null | Filter by active status |
+| `IsDiscordLinked` | bool? | null | Filter by Discord link status |
+| `Page` | int | 1 | Page number (1-based) |
+| `PageSize` | int | 20 | Items per page |
+| `SortBy` | string | "CreatedAt" | Sort field (Email, DisplayName, CreatedAt, LastLoginAt) |
+| `SortDescending` | bool | true | Sort direction |
+
+**Returns:** `PaginatedResponseDto<UserDto>` containing user list and pagination metadata.
+
+##### GetUserByIdAsync
+
+Retrieves detailed information for a single user.
+
+```csharp
+Task<UserDto?> GetUserByIdAsync(
+    string userId,
+    CancellationToken cancellationToken = default);
+```
+
+**Returns:** `UserDto` if found, `null` otherwise.
+
+##### GetAvailableRolesAsync
+
+Gets the list of roles that the current user is authorized to assign.
+
+```csharp
+Task<IReadOnlyList<string>> GetAvailableRolesAsync(
+    string currentUserId,
+    CancellationToken cancellationToken = default);
+```
+
+**Role Assignment Rules:**
+- SuperAdmin can assign: SuperAdmin, Admin, Moderator, Viewer
+- Admin can assign: Admin, Moderator, Viewer (not SuperAdmin)
+- Other roles cannot assign roles
+
+**Returns:** List of role names the user can assign.
+
+#### Create Operations
+
+##### CreateUserAsync
+
+Creates a new user account with the specified email, password, and role.
+
+```csharp
+Task<UserManagementResult> CreateUserAsync(
+    UserCreateDto request,
+    string actorUserId,
+    string? ipAddress = null,
+    CancellationToken cancellationToken = default);
+```
+
+**UserCreateDto Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `Email` | string | Yes | User email address (must be unique) |
+| `DisplayName` | string? | No | Display name (optional) |
+| `Password` | string | Yes | Initial password (must meet complexity requirements) |
+| `ConfirmPassword` | string | Yes | Password confirmation (must match) |
+| `Role` | string | Yes | Initial role (default: "Viewer") |
+| `SendWelcomeEmail` | bool | No | Send welcome email (default: true) |
+
+**Validation:**
+- Email must be unique
+- Password must meet ASP.NET Identity complexity requirements
+- Actor must have permission to assign the specified role
+
+**Activity Logged:** `UserCreated` with email and assigned role
+
+**Returns:** `UserManagementResult` with created user data on success.
+
+#### Update Operations
+
+##### UpdateUserAsync
+
+Updates user information including email, display name, active status, and role.
+
+```csharp
+Task<UserManagementResult> UpdateUserAsync(
+    string userId,
+    UserUpdateDto request,
+    string actorUserId,
+    string? ipAddress = null,
+    CancellationToken cancellationToken = default);
+```
+
+**UserUpdateDto Fields:** (all optional)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `DisplayName` | string? | New display name |
+| `Email` | string? | New email address |
+| `IsActive` | bool? | Active status |
+| `Role` | string? | New role |
+
+**Self-Protection:**
+- Users cannot change their own active status
+- Users cannot change their own role
+
+**Activity Logged:** `UserUpdated` with changed fields
+
+**Returns:** `UserManagementResult` with updated user data.
+
+##### SetUserActiveStatusAsync
+
+Enables or disables a user account.
+
+```csharp
+Task<UserManagementResult> SetUserActiveStatusAsync(
+    string userId,
+    bool isActive,
+    string actorUserId,
+    string? ipAddress = null,
+    CancellationToken cancellationToken = default);
+```
+
+**Self-Protection:** Users cannot disable their own account.
+
+**Activity Logged:** `UserEnabled` or `UserDisabled`
+
+**Returns:** `UserManagementResult` with updated user data.
+
+##### AssignRoleAsync
+
+Assigns a role to a user (removes existing roles).
+
+```csharp
+Task<UserManagementResult> AssignRoleAsync(
+    string userId,
+    string role,
+    string actorUserId,
+    string? ipAddress = null,
+    CancellationToken cancellationToken = default);
+```
+
+**Authorization:**
+- Actor must have permission to assign the target role
+- SuperAdmin required to assign SuperAdmin role
+- Only SuperAdmin can manage other SuperAdmins
+
+**Self-Protection:** Users cannot change their own role.
+
+**Activity Logged:** `RoleAssigned` with old and new roles
+
+**Returns:** `UserManagementResult` with updated user data.
+
+##### RemoveRoleAsync
+
+Removes a specific role from a user.
+
+```csharp
+Task<UserManagementResult> RemoveRoleAsync(
+    string userId,
+    string role,
+    string actorUserId,
+    string? ipAddress = null,
+    CancellationToken cancellationToken = default);
+```
+
+**Self-Protection:** Users cannot remove their own roles.
+
+**Activity Logged:** `RoleRemoved` with removed role
+
+**Returns:** `UserManagementResult` with updated user data.
+
+#### Password Operations
+
+##### ResetPasswordAsync
+
+Performs an admin-initiated password reset, generating a secure temporary password.
+
+```csharp
+Task<UserManagementResult> ResetPasswordAsync(
+    string userId,
+    string actorUserId,
+    string? ipAddress = null,
+    CancellationToken cancellationToken = default);
+```
+
+**Behavior:**
+- Generates a secure 16-character temporary password
+- Password includes uppercase, lowercase, digits, and special characters
+- Temporary password is returned in the result (`GeneratedPassword` property)
+- Old password is immediately invalidated
+
+**Security:** The password is never logged or stored in plain text.
+
+**Activity Logged:** `PasswordReset` (no password details included)
+
+**Returns:** `UserManagementResult` with `GeneratedPassword` containing the temporary password.
+
+#### Discord Linking Operations
+
+##### UnlinkDiscordAccountAsync
+
+Removes the Discord account association from a user.
+
+```csharp
+Task<UserManagementResult> UnlinkDiscordAccountAsync(
+    string userId,
+    string actorUserId,
+    string? ipAddress = null,
+    CancellationToken cancellationToken = default);
+```
+
+**Behavior:**
+- Removes Discord user ID, username, and avatar URL
+- User can still log in with email/password after unlinking
+- User must re-link Discord account to access Discord-only features
+
+**Activity Logged:** `DiscordUnlinked` with previous Discord username
+
+**Returns:** `UserManagementResult` with updated user data.
+
+#### Activity Log
+
+##### GetActivityLogAsync
+
+Retrieves the audit log of user management actions.
+
+```csharp
+Task<PaginatedResponseDto<UserActivityLogDto>> GetActivityLogAsync(
+    string? userId,
+    int page = 1,
+    int pageSize = 50,
+    CancellationToken cancellationToken = default);
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `userId` | string? | null | Filter by user (null = all users) |
+| `page` | int | 1 | Page number |
+| `pageSize` | int | 50 | Items per page |
+
+**Returns:** Paginated list of `UserActivityLogDto` entries, ordered by timestamp (newest first).
+
+#### Validation
+
+##### CanManageUserAsync
+
+Checks if an actor has permission to manage a target user.
+
+```csharp
+Task<bool> CanManageUserAsync(
+    string actorUserId,
+    string targetUserId,
+    CancellationToken cancellationToken = default);
+```
+
+**Rules:**
+- Users cannot manage themselves (returns `false`)
+- Only SuperAdmins can manage other SuperAdmins
+- Admins and SuperAdmins can manage users below SuperAdmin
+
+**Returns:** `true` if actor can manage target user, `false` otherwise.
+
+---
+
+## User Management DTOs
+
+### UserDto
+
+```csharp
+{
+  "id": string,                    // User ID
+  "email": string,                 // Email address
+  "displayName": string?,          // Display name (nullable)
+  "isActive": bool,                // Active status
+  "emailConfirmed": bool,          // Email confirmation status
+  "createdAt": DateTime,           // Account creation timestamp
+  "lastLoginAt": DateTime?,        // Last login timestamp (nullable)
+  "isLockedOut": bool,             // Lockout status (computed)
+  "lockoutEnd": DateTimeOffset?,   // Lockout end time (nullable)
+  "isDiscordLinked": bool,         // Discord link status
+  "discordUserId": ulong?,         // Discord user ID (nullable)
+  "discordUsername": string?,      // Discord username (nullable)
+  "discordAvatarUrl": string?,     // Discord avatar URL (nullable)
+  "roles": string[],               // Assigned roles
+  "highestRole": string            // Highest priority role (computed)
+}
+```
+
+### UserCreateDto
+
+```csharp
+{
+  "email": string,                 // Email address (required)
+  "displayName": string?,          // Display name (optional)
+  "password": string,              // Password (required)
+  "confirmPassword": string,       // Password confirmation (required)
+  "role": string,                  // Initial role (default: "Viewer")
+  "sendWelcomeEmail": bool         // Send welcome email (default: true)
+}
+```
+
+### UserUpdateDto
+
+```csharp
+{
+  "displayName": string?,          // New display name (optional)
+  "email": string?,                // New email (optional)
+  "isActive": bool?,               // New active status (optional)
+  "role": string?                  // New role (optional)
+}
+```
+
+### UserManagementResult
+
+```csharp
+{
+  "succeeded": bool,               // Operation success flag
+  "errorCode": string?,            // Error code (nullable)
+  "errorMessage": string?,         // Error message (nullable)
+  "user": UserDto?,                // Updated user data (nullable)
+  "generatedPassword": string?     // Temporary password (password reset only)
+}
+```
+
+**Common Error Codes:**
+- `USER_NOT_FOUND` - User does not exist
+- `SELF_MODIFICATION_DENIED` - Cannot modify own account
+- `INSUFFICIENT_PERMISSIONS` - Insufficient role privileges
+- `INVALID_ROLE` - Role does not exist
+- `EMAIL_ALREADY_EXISTS` - Email already in use
+- `PASSWORD_VALIDATION_FAILED` - Password does not meet requirements
+- `DISCORD_NOT_LINKED` - No Discord account linked
+
+### UserActivityLogDto
+
+```csharp
+{
+  "id": Guid,                      // Log entry ID
+  "actorUserId": string,           // User who performed action
+  "actorEmail": string,            // Actor's email
+  "targetUserId": string?,         // User affected (nullable)
+  "targetEmail": string?,          // Target's email (nullable)
+  "action": UserActivityAction,    // Action type (enum)
+  "details": string?,              // JSON details (nullable)
+  "timestamp": DateTime,           // Action timestamp
+  "ipAddress": string?             // Actor's IP address (nullable)
+}
+```
+
+**UserActivityAction Enum:**
+- `UserCreated` - User account created
+- `UserUpdated` - User information updated
+- `UserDeleted` - User account deleted
+- `UserEnabled` - User account enabled
+- `UserDisabled` - User account disabled
+- `RoleAssigned` - Role assigned to user
+- `RoleRemoved` - Role removed from user
+- `PasswordReset` - Password reset by admin
+- `DiscordLinked` - Discord account linked
+- `DiscordUnlinked` - Discord account unlinked
+- `AccountLocked` - Account locked (failed login attempts)
+- `AccountUnlocked` - Account unlocked
+- `LoginSuccess` - Successful login
+- `LoginFailed` - Failed login attempt
+
+### UserSearchQueryDto
+
+```csharp
+{
+  "searchTerm": string?,           // Search filter (optional)
+  "role": string?,                 // Role filter (optional)
+  "isActive": bool?,               // Active status filter (optional)
+  "isDiscordLinked": bool?,        // Discord link filter (optional)
+  "page": int,                     // Page number (default: 1)
+  "pageSize": int,                 // Items per page (default: 20)
+  "sortBy": string,                // Sort field (default: "CreatedAt")
+  "sortDescending": bool           // Sort direction (default: true)
+}
+```
+
+---
+
 ## Data Transfer Objects (DTOs)
 
 ### HealthResponseDto
@@ -751,17 +1167,20 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/sync" \
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2024-12-09 | Added User Management Service interface documentation (Issue #66) |
 | 1.0 | 2024-12-08 | Initial API implementation (Phase 4 MVP) |
 
 ---
 
 ## Related Documentation
 
+- [User Management Guide](user-management.md) - Comprehensive user administration guide
 - [MVP Implementation Plan](mvp-plan.md) - Full development roadmap
 - [Database Schema](database-schema.md) - Entity definitions and relationships
 - [Repository Pattern](repository-pattern.md) - Data access implementation
 - [Admin Commands](admin-commands.md) - Discord slash command reference
+- [Authorization Policies](authorization-policies.md) - Role-based authorization
 
 ---
 
-*Last Updated: December 8, 2024*
+*Last Updated: December 9, 2024*
