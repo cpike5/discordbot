@@ -1,0 +1,390 @@
+@page
+@model DiscordBot.Bot.Pages.ComponentsModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = "Component Showcase";
+}
+
+<div class="space-y-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-text-primary mb-2">Component Showcase</h1>
+        <p class="text-text-secondary">Visual reference for all UI components with their various states and variants.</p>
+    </div>
+
+    <!-- 1. BUTTONS -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Buttons",
+            Subtitle = "Interactive elements for user actions",
+            BodyContent = @"
+                <div class='space-y-6'>
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Button Variants</h4>
+                        <div class='flex flex-wrap gap-3'>
+                            " + string.Join("", Model.ButtonVariants.Select(btn =>
+                                Html.PartialAsync("Components/_Button", btn).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Button Sizes</h4>
+                        <div class='flex flex-wrap items-center gap-3'>
+                            " + string.Join("", Model.ButtonSizes.Select(btn =>
+                                Html.PartialAsync("Components/_Button", btn).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Icon Buttons</h4>
+                        <div class='flex flex-wrap gap-3'>
+                            " + string.Join("", Model.IconButtons.Select(btn =>
+                                Html.PartialAsync("Components/_Button", btn).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Loading State</h4>
+                        <div>
+                            " + Html.PartialAsync("Components/_Button", Model.LoadingButton).Result + @"
+                        </div>
+                    </div>
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- 2. BADGES -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Badges",
+            Subtitle = "Labels for status, categories, and tags",
+            BodyContent = @"
+                <div class='space-y-6'>
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Filled Style</h4>
+                        <div class='flex flex-wrap gap-2'>
+                            " + string.Join("", Model.BadgeFilledVariants.Select(badge =>
+                                Html.PartialAsync("Components/_Badge", badge).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Outline Style</h4>
+                        <div class='flex flex-wrap gap-2'>
+                            " + string.Join("", Model.BadgeOutlineVariants.Select(badge =>
+                                Html.PartialAsync("Components/_Badge", badge).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Badge Sizes</h4>
+                        <div class='flex flex-wrap items-center gap-2'>
+                            " + string.Join("", Model.BadgeSizes.Select(badge =>
+                                Html.PartialAsync("Components/_Badge", badge).Result)) + @"
+                        </div>
+                    </div>
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- 3. STATUS INDICATORS -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Status Indicators",
+            Subtitle = "Visual status displays for users and services",
+            BodyContent = @"
+                <div class='space-y-6'>
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Dot Only</h4>
+                        <div class='flex flex-wrap gap-4'>
+                            " + string.Join("", Model.StatusDotOnly.Select(status =>
+                                Html.PartialAsync("Components/_StatusIndicator", status).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Dot With Text</h4>
+                        <div class='flex flex-wrap gap-4'>
+                            " + string.Join("", Model.StatusWithText.Select(status =>
+                                Html.PartialAsync("Components/_StatusIndicator", status).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Badge Style</h4>
+                        <div class='flex flex-wrap gap-3'>
+                            " + string.Join("", Model.StatusBadgeStyle.Select(status =>
+                                Html.PartialAsync("Components/_StatusIndicator", status).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Pulsing Animation</h4>
+                        <div class='flex flex-wrap gap-4'>
+                            " + string.Join("", Model.StatusPulsing.Select(status =>
+                                Html.PartialAsync("Components/_StatusIndicator", status).Result)) + @"
+                        </div>
+                    </div>
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- 4. LOADING SPINNERS -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Loading Spinners",
+            Subtitle = "Animated loading indicators",
+            BodyContent = @"
+                <div class='space-y-6'>
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Spinner Variants</h4>
+                        <div class='flex flex-wrap gap-8'>
+                            " + string.Join("", Model.SpinnerVariants.Select(spinner =>
+                                Html.PartialAsync("Components/_LoadingSpinner", spinner).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Spinner Sizes</h4>
+                        <div class='flex flex-wrap items-center gap-8'>
+                            " + string.Join("", Model.SpinnerSizes.Select(spinner =>
+                                Html.PartialAsync("Components/_LoadingSpinner", spinner).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>With Message</h4>
+                        <div>
+                            " + Html.PartialAsync("Components/_LoadingSpinner", Model.SpinnerWithMessage).Result + @"
+                        </div>
+                    </div>
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- 5. FORM INPUTS -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Form Inputs",
+            Subtitle = "Text input fields with validation",
+            BodyContent = @"
+                <div class='space-y-6'>
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Basic Input</h4>
+                        <div class='max-w-md'>
+                            " + Html.PartialAsync("Components/_FormInput", Model.BasicInput).Result + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Input Sizes</h4>
+                        <div class='max-w-md space-y-4'>
+                            " + string.Join("", Model.InputSizes.Select(input =>
+                                Html.PartialAsync("Components/_FormInput", input).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Input With Icon</h4>
+                        <div class='max-w-md'>
+                            " + Html.PartialAsync("Components/_FormInput", Model.InputWithIcon).Result + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Validation States</h4>
+                        <div class='max-w-md space-y-4'>
+                            " + string.Join("", Model.InputValidationStates.Select(input =>
+                                Html.PartialAsync("Components/_FormInput", input).Result)) + @"
+                        </div>
+                    </div>
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- 6. FORM SELECTS -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Form Selects",
+            Subtitle = "Dropdown selection fields",
+            BodyContent = @"
+                <div class='space-y-6'>
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Basic Select</h4>
+                        <div class='max-w-md'>
+                            " + Html.PartialAsync("Components/_FormSelect", Model.BasicSelect).Result + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Select With Option Groups</h4>
+                        <div class='max-w-md'>
+                            " + Html.PartialAsync("Components/_FormSelect", Model.SelectWithGroups).Result + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Validation States</h4>
+                        <div class='max-w-md space-y-4'>
+                            " + string.Join("", Model.SelectValidationStates.Select(select =>
+                                Html.PartialAsync("Components/_FormSelect", select).Result)) + @"
+                        </div>
+                    </div>
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- 7. ALERTS -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Alerts",
+            Subtitle = "Contextual feedback messages",
+            BodyContent = @"
+                <div class='space-y-6'>
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Alert Variants</h4>
+                        <div class='space-y-4'>
+                            " + string.Join("", Model.AlertVariants.Select(alert =>
+                                Html.PartialAsync("Components/_Alert", alert).Result)) + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Dismissible Alerts</h4>
+                        <div class='space-y-4'>
+                            " + string.Join("", Model.AlertDismissible.Select(alert =>
+                                Html.PartialAsync("Components/_Alert", alert).Result)) + @"
+                        </div>
+                    </div>
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- 8. CARDS -->
+    <section>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                @await Html.PartialAsync("Components/_Card", Model.DefaultCard)
+            </div>
+            <div>
+                @await Html.PartialAsync("Components/_Card", Model.ElevatedCard)
+            </div>
+            <div>
+                @await Html.PartialAsync("Components/_Card", Model.InteractiveCard)
+            </div>
+            <div>
+                @await Html.PartialAsync("Components/_Card", Model.CollapsibleCard)
+            </div>
+        </div>
+    </section>
+
+    <!-- 9. EMPTY STATES -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Empty States",
+            Subtitle = "Helpful placeholders for empty content",
+            BodyContent = @"
+                <div class='space-y-8'>
+                    " + string.Join("", Model.EmptyStateTypes.Select(empty =>
+                        Html.PartialAsync("Components/_EmptyState", empty).Result)) + @"
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- 10. PAGINATION -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Pagination",
+            Subtitle = "Navigation controls for paginated content",
+            BodyContent = @"
+                <div class='space-y-8'>
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Full Style</h4>
+                        <div>
+                            " + Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[0]).Result + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Simple Style</h4>
+                        <div>
+                            " + Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[1]).Result + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Compact Style</h4>
+                        <div>
+                            " + Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[2]).Result + @"
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class='text-sm font-semibold text-text-primary mb-3'>Bordered Style</h4>
+                        <div>
+                            " + Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[3]).Result + @"
+                        </div>
+                    </div>
+                </div>
+            ",
+            Variant = CardVariant.Default
+        })
+    </section>
+
+    <!-- Usage Instructions -->
+    <section>
+        @await Html.PartialAsync("Components/_Card", new CardViewModel
+        {
+            Title = "Usage",
+            Subtitle = "How to use these components in your pages",
+            BodyContent = @"
+                <div class='prose prose-sm max-w-none'>
+                    <p class='text-text-secondary mb-4'>
+                        All components are available as partial views under <code class='px-2 py-1 bg-bg-tertiary rounded text-xs'>Pages/Shared/Components/</code>.
+                    </p>
+
+                    <h4 class='text-sm font-semibold text-text-primary mb-2'>Example Usage:</h4>
+                    <pre class='bg-bg-tertiary p-4 rounded-lg text-xs overflow-x-auto'><code>@@await Html.PartialAsync(""Components/_Button"", new ButtonViewModel
+{
+    Text = ""Save Changes"",
+    Variant = ButtonVariant.Primary,
+    Size = ButtonSize.Medium,
+    IconLeft = ""M5 13l4 4L19 7""
+})</code></pre>
+
+                    <h4 class='text-sm font-semibold text-text-primary mt-6 mb-2'>ViewModels Location:</h4>
+                    <p class='text-text-secondary'>
+                        All component ViewModels are located in <code class='px-2 py-1 bg-bg-tertiary rounded text-xs'>ViewModels/Components/</code>
+                        and should be imported with <code class='px-2 py-1 bg-bg-tertiary rounded text-xs'>@@using DiscordBot.Bot.ViewModels.Components</code>.
+                    </p>
+                </div>
+            ",
+            Variant = CardVariant.Flat
+        })
+    </section>
+</div>
