@@ -17,6 +17,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Guild> Guilds => Set<Guild>();
     public new DbSet<User> Users => Set<User>();
     public DbSet<CommandLog> CommandLogs => Set<CommandLog>();
+    public DbSet<UserGuildAccess> UserGuildAccess => Set<UserGuildAccess>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,40 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
             // Configure default values
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // Configure UserGuildAccess entity
+        modelBuilder.Entity<UserGuildAccess>(entity =>
+        {
+            // Composite primary key
+            entity.HasKey(e => new { e.ApplicationUserId, e.GuildId });
+
+            // Configure GuildId to handle SQLite compatibility (ulong -> long conversion)
+            entity.Property(e => e.GuildId)
+                .HasConversion(
+                    v => (long)v,
+                    v => (ulong)v);
+
+            // Configure AccessLevel as int for storage
+            entity.Property(e => e.AccessLevel)
+                .HasConversion<int>();
+
+            // Configure default values
+            entity.Property(e => e.GrantedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            // Configure foreign key relationships
+            entity.HasOne(e => e.ApplicationUser)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Guild)
+                .WithMany()
+                .HasForeignKey(e => e.GuildId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Index for efficient guild lookups
+            entity.HasIndex(e => e.GuildId);
         });
     }
 }
