@@ -10,6 +10,11 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Database Schema](database-schema.md) - Entity definitions and relationships
 - [Repository Pattern](repository-pattern.md) - Data access implementation
 - [Design System](design-system.md) - UI design tokens and components
+- [Razor Components](razor-components.md) - Reusable Razor components specification
+- [Epic 2: Authentication Architecture](epic-2-auth-architecture-plan.md) - Authentication and authorization architecture plan
+
+## Security & Authentication
+- [Identity Configuration](identity-configuration.md) - ASP.NET Identity setup, Discord OAuth, and security settings
 
 ## API & Integration
 - [REST API Endpoints](api-endpoints.md) - Complete REST API reference
