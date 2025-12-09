@@ -162,9 +162,7 @@ dotnet test
 dotnet test --filter "FullyQualifiedName~TestClassName.TestMethodName"
 ```
 
-### Adding Migrations (Future)
-
-When the data layer is implemented:
+### Adding Migrations
 
 ```bash
 # Add migration
@@ -179,12 +177,15 @@ dotnet ef database update --project src/DiscordBot.Infrastructure --startup-proj
 ```
 discordbot/
 ├── src/
-│   ├── DiscordBot.Core/          # Domain layer (entities, interfaces)
-│   ├── DiscordBot.Infrastructure/ # Data access and logging
+│   ├── DiscordBot.Core/           # Domain layer (entities, interfaces, DTOs)
+│   ├── DiscordBot.Infrastructure/ # EF Core DbContext, repositories, logging
 │   └── DiscordBot.Bot/            # Application layer (API + bot)
 │       ├── Commands/              # Slash command modules
-│       ├── Handlers/              # Command and interaction handlers
-│       ├── Services/              # Bot hosted service
+│       ├── Components/            # Interactive component utilities
+│       ├── Controllers/           # REST API controllers
+│       ├── Handlers/              # Interaction handlers
+│       ├── Preconditions/         # Permission check attributes
+│       ├── Services/              # Bot hosted service, state management
 │       └── Program.cs             # DI composition root
 ├── tests/
 │   └── DiscordBot.Tests/          # Unit and integration tests
@@ -278,4 +279,6 @@ This project is for educational and development purposes.
 
 - [MVP Implementation Plan](docs/mvp-plan.md) - Detailed architecture and roadmap
 - [Requirements](docs/requirements.md) - Technology stack and specifications
-- [Design System](docs/design-system.md) - UI design tokens and components (future)
+- [Design System](docs/design-system.md) - UI design tokens and components
+- [API Endpoints](docs/api-endpoints.md) - REST API documentation
+- [Interactive Components](docs/interactive-components.md) - Button/component patterns

@@ -35,6 +35,7 @@ Discord bot token must be configured via User Secrets (never commit tokens):
 ```bash
 cd src/DiscordBot.Bot
 dotnet user-secrets set "Discord:Token" "your-bot-token-here"
+dotnet user-secrets set "Discord:TestGuildId" "your-guild-id"  # Optional: instant command registration
 ```
 
 UserSecretsId: `7b84433c-c2a8-46db-a8bf-58786ea4f28e`
@@ -62,14 +63,27 @@ Reference these docs for detailed specifications:
 - [docs/requirements.md](docs/requirements.md) - Technology stack and architecture requirements
 - [docs/mvp-plan.md](docs/mvp-plan.md) - MVP implementation phases and file structure
 - [docs/design-system.md](docs/design-system.md) - UI design tokens, color palette, component specs
+- [docs/api-endpoints.md](docs/api-endpoints.md) - REST API documentation
+- [docs/interactive-components.md](docs/interactive-components.md) - Button/component patterns
 
 ## Discord.NET Specifics
 
 - Using Discord.NET 3.18.0
 - Slash commands only (no prefix commands)
-- `InteractionHandler` discovers and registers command modules
-- Command modules inherit from `InteractionModuleBase`
-- Precondition attributes for permission checks (e.g., `RequireAdminAttribute`)
+- `InteractionHandler` discovers and registers command modules from assembly
+- Command modules inherit from `InteractionModuleBase<SocketInteractionContext>`
+- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`
+
+**Interactive Components Pattern:**
+- Use `ComponentIdBuilder` to create custom IDs: `{handler}:{action}:{userId}:{correlationId}:{data}`
+- Store component state via `IInteractionStateService` (15-min default expiry)
+- Component handlers go in separate `*ComponentModule` classes using `[ComponentInteraction]` attribute
+
+**Adding a New Command:**
+1. Create module in `Commands/` inheriting from `InteractionModuleBase<SocketInteractionContext>`
+2. Use `[SlashCommand("name", "description")]` attribute on methods
+3. Inject dependencies via constructor (logger, services, etc.)
+4. If using buttons/components, create separate component handler module
 
 ## Testing
 
