@@ -76,6 +76,27 @@ public class InteractionHandler
                 _logger.LogInformation("Commands registered globally successfully. Note: Global commands may take up to 1 hour to propagate");
             }
         }
+        catch (Discord.Net.HttpException ex) when (ex.DiscordCode == Discord.DiscordErrorCode.MissingPermissions)
+        {
+            _logger.LogWarning(
+                "Missing access to register commands to guild {GuildId}. " +
+                "Ensure the bot was invited with the 'applications.commands' scope. " +
+                "Re-invite the bot using: https://discord.com/oauth2/authorize?client_id={ClientId}&scope=bot%20applications.commands&permissions=0",
+                _config.TestGuildId,
+                _client.CurrentUser.Id);
+
+            // Fall back to global registration
+            _logger.LogInformation("Falling back to global command registration");
+            try
+            {
+                await _interactionService.RegisterCommandsGloballyAsync();
+                _logger.LogInformation("Commands registered globally successfully. Note: Global commands may take up to 1 hour to propagate");
+            }
+            catch (Exception fallbackEx)
+            {
+                _logger.LogError(fallbackEx, "Failed to register commands globally after guild registration failed");
+            }
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to register commands");
