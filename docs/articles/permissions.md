@@ -964,7 +964,7 @@ public class BotConfiguration
 
 - [Admin Commands](admin-commands.md) - Command reference and usage examples
 - [Database Schema](database-schema.md) - CommandLog entity for audit tracking
-- [Configuration Guide](../CLAUDE.md#configuration) - Bot configuration and user secrets
+- [Configuration Guide](https://github.com/cpike5/discordbot/blob/main/CLAUDE.md#configuration) - Bot configuration and user secrets
 
 ---
 

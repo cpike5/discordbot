@@ -624,7 +624,7 @@ Correlation ID: 7a3f9b2c8d1e4f5a
 - [Permissions System](permissions.md) - Detailed precondition attribute documentation
 - [Database Schema](database-schema.md) - CommandLog entity and relationships
 - [Repository Pattern](repository-pattern.md) - ICommandLogRepository usage
-- [Configuration Guide](../CLAUDE.md#configuration) - User secrets and appsettings
+- [Configuration Guide](https://github.com/cpike5/discordbot/blob/main/CLAUDE.md#configuration) - User secrets and appsettings
 
 ---
 

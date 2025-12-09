@@ -26,6 +26,13 @@ dotnet ef migrations add MigrationName --project src/DiscordBot.Infrastructure -
 
 # Apply migrations
 dotnet ef database update --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot
+
+# Build documentation
+dotnet tool restore                    # First time: restore DocFX tool
+.\build-docs.ps1                       # Windows: build docs
+.\build-docs.ps1 -Serve                # Windows: build and serve locally at http://localhost:8080
+./build-docs.sh                        # Linux/macOS: build docs
+./build-docs.sh --serve                # Linux/macOS: build and serve locally
 ```
 
 ## Configuration
@@ -60,11 +67,13 @@ Three-layer clean architecture:
 
 Reference these docs for detailed specifications:
 
-- [docs/requirements.md](docs/requirements.md) - Technology stack and architecture requirements
-- [docs/mvp-plan.md](docs/mvp-plan.md) - MVP implementation phases and file structure
-- [docs/design-system.md](docs/design-system.md) - UI design tokens, color palette, component specs
-- [docs/api-endpoints.md](docs/api-endpoints.md) - REST API documentation
-- [docs/interactive-components.md](docs/interactive-components.md) - Button/component patterns
+- [docs/articles/requirements.md](docs/articles/requirements.md) - Technology stack and architecture requirements
+- [docs/articles/mvp-plan.md](docs/articles/mvp-plan.md) - MVP implementation phases and file structure
+- [docs/articles/design-system.md](docs/articles/design-system.md) - UI design tokens, color palette, component specs
+- [docs/articles/api-endpoints.md](docs/articles/api-endpoints.md) - REST API documentation
+- [docs/articles/interactive-components.md](docs/articles/interactive-components.md) - Button/component patterns
+
+Build and serve documentation locally with `.\build-docs.ps1 -Serve` to view the full documentation site.
 
 ## Discord.NET Specifics
 

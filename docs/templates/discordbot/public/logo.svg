@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <!-- Discord Bot Logo - Stylized bot icon -->
+  <defs>
+    <linearGradient id="botGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#cb4e1b"/>
+      <stop offset="100%" style="stop-color:#e5591f"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="20" cy="20" r="18" fill="url(#botGradient)"/>
+  <!-- Bot face -->
+  <rect x="10" y="12" width="20" height="16" rx="3" fill="#1d2022"/>
+  <!-- Eyes -->
+  <circle cx="14" cy="18" r="2.5" fill="#098ecf"/>
+  <circle cx="26" cy="18" r="2.5" fill="#098ecf"/>
+  <!-- Eye shine -->
+  <circle cx="15" cy="17" r="0.8" fill="#ffffff"/>
+  <circle cx="27" cy="17" r="0.8" fill="#ffffff"/>
+  <!-- Antenna -->
+  <line x1="20" y1="8" x2="20" y2="12" stroke="#1d2022" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="20" cy="7" r="2" fill="#098ecf"/>
+  <!-- Mouth - slight smile -->
+  <path d="M14 24 Q20 27 26 24" stroke="#d7d3d0" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json",
+  "metadata": [
+    {
+      "src": [
+        {
+          "src": "./src",
+          "files": [
+            "**/*.csproj"
+          ],
+          "exclude": [
+            "**/bin/**",
+            "**/obj/**"
+          ]
+        }
+      ],
+      "dest": "api",
+      "includePrivateMembers": false,
+      "disableGitFeatures": false,
+      "disableDefaultFilter": false,
+      "noRestore": false,
+      "namespaceLayout": "flattened",
+      "memberLayout": "samePage",
+      "EnumSortOrder": "alphabetic",
+      "allowCompilationErrors": false
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "api/**.yml",
+          "api/index.md"
+        ]
+      },
+      {
+        "files": [
+          "docs/articles/**.md",
+          "docs/articles/**/toc.yml",
+          "docs/toc.yml",
+          "docs/*.md"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "docs/images/**"
+        ]
+      }
+    ],
+    "output": "_site",
+    "template": [
+      "default",
+      "modern",
+      "docs/templates/discordbot"
+    ],
+    "globalMetadata": {
+      "_appTitle": "DiscordBot Documentation",
+      "_appName": "Discord Bot",
+      "_appLogoPath": "docs/images/logo.png",
+      "_appFaviconPath": "docs/images/logo.png",
+      "_appFooter": "<span>Discord Bot Management System</span> | Built with <a href=\"https://dotnet.github.io/docfx\">DocFX</a>",
+      "_enableSearch": true,
+      "_enableNewTab": true,
+      "_disableContribution": false,
+      "_gitContribute": {
+        "repo": "https://github.com/cpike5/discordbot",
+        "branch": "main"
+      },
+      "_disableBreadcrumb": false,
+      "_disableToc": false,
+      "_disableAffix": false,
+      "_disableNavbar": false,
+      "pdf": false
+    },
+    "fileMetadata": {
+      "_disableContribution": {
+        "api/*": true
+      }
+    },
+    "markdownEngineProperties": {
+      "alerts": {
+        "NOTE": "alert alert-info",
+        "TIP": "alert alert-info",
+        "WARNING": "alert alert-warning",
+        "CAUTION": "alert alert-warning",
+        "IMPORTANT": "alert alert-danger"
+      }
+    }
+  }
+}
