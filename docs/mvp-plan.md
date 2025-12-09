@@ -310,11 +310,17 @@ CommandLog
 - Command audit trail persisted
 
 **Acceptance Criteria:**
-- [ ] `/status` returns accurate metrics
-- [ ] `/shutdown` only works for bot owner
-- [ ] Non-admins receive permission denied message
-- [ ] Command logs appear in database
-- [ ] Rate limited users receive cooldown message
+- [x] `/status` returns accurate metrics
+- [x] `/shutdown` only works for bot owner
+- [x] Non-admins receive permission denied message
+- [x] Command logs appear in database
+- [x] Rate limited users receive cooldown message
+
+**Status:** ✓ COMPLETED
+
+**Documentation:**
+- [Admin Commands](admin-commands.md) - Slash command reference and configuration
+- [Permissions System](permissions.md) - Precondition attributes and custom permission logic
 
 ---
 

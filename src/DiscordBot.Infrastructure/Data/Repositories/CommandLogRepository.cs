@@ -115,6 +115,7 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
         int responseTimeMs,
         bool success,
         string? errorMessage = null,
+        string? correlationId = null,
         CancellationToken cancellationToken = default)
     {
         var commandLog = new CommandLog
@@ -127,12 +128,13 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
             ExecutedAt = DateTime.UtcNow,
             ResponseTimeMs = responseTimeMs,
             Success = success,
-            ErrorMessage = errorMessage
+            ErrorMessage = errorMessage,
+            CorrelationId = correlationId
         };
 
         _logger.LogInformation(
-            "Logging command execution: {CommandName} by user {UserId} in guild {GuildId}, success: {Success}, response time: {ResponseTimeMs}ms",
-            commandName, userId, guildId, success, responseTimeMs);
+            "Logging command execution: {CommandName} by user {UserId} in guild {GuildId}, success: {Success}, response time: {ResponseTimeMs}ms, correlationId: {CorrelationId}",
+            commandName, userId, guildId, success, responseTimeMs, correlationId);
 
         await DbSet.AddAsync(commandLog, cancellationToken);
         await Context.SaveChangesAsync(cancellationToken);

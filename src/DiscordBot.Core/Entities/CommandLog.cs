@@ -52,6 +52,11 @@ public class CommandLog
     public string? ErrorMessage { get; set; }
 
     /// <summary>
+    /// Correlation ID for tracking the request across logs.
+    /// </summary>
+    public string? CorrelationId { get; set; }
+
+    /// <summary>
     /// Navigation property for the guild (nullable for DM commands).
     /// </summary>
     public Guild? Guild { get; set; }

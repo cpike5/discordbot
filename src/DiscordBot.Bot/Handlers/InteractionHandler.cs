@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using Discord;
 using Discord.Interactions;
@@ -18,19 +19,25 @@ public class InteractionHandler
     private readonly IServiceProvider _serviceProvider;
     private readonly BotConfiguration _config;
     private readonly ILogger<InteractionHandler> _logger;
+    private readonly ICommandExecutionLogger _commandExecutionLogger;
+
+    // AsyncLocal storage for tracking execution context across async calls
+    private static readonly AsyncLocal<ExecutionContext> _executionContext = new();
 
     public InteractionHandler(
         DiscordSocketClient client,
         InteractionService interactionService,
         IServiceProvider serviceProvider,
         IOptions<BotConfiguration> config,
-        ILogger<InteractionHandler> logger)
+        ILogger<InteractionHandler> logger,
+        ICommandExecutionLogger commandExecutionLogger)
     {
         _client = client;
         _interactionService = interactionService;
         _serviceProvider = serviceProvider;
         _config = config.Value;
         _logger = logger;
+        _commandExecutionLogger = commandExecutionLogger;
     }
 
     /// <summary>
@@ -109,61 +116,169 @@ public class InteractionHandler
     /// </summary>
     private async Task OnInteractionCreatedAsync(SocketInteraction interaction)
     {
+        // Generate correlation ID for tracking this request
+        var correlationId = Guid.NewGuid().ToString("N")[..16];
+        var stopwatch = Stopwatch.StartNew();
+
+        // Store execution context for use in OnSlashCommandExecutedAsync
+        _executionContext.Value = new ExecutionContext
+        {
+            CorrelationId = correlationId,
+            Stopwatch = stopwatch
+        };
+
         try
         {
             // Create an execution context
             var context = new SocketInteractionContext(_client, interaction);
 
-            // Execute the command
-            await _interactionService.ExecuteCommandAsync(context, _serviceProvider);
+            // Use logging scope for correlation ID
+            using (_logger.BeginScope(new Dictionary<string, object>
+            {
+                ["CorrelationId"] = correlationId,
+                ["InteractionId"] = interaction.Id
+            }))
+            {
+                _logger.LogDebug(
+                    "Executing interaction {InteractionType} with correlation ID {CorrelationId}",
+                    interaction.Type,
+                    correlationId);
+
+                // Execute the command
+                await _interactionService.ExecuteCommandAsync(context, _serviceProvider);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error executing interaction {InteractionId}", interaction.Id);
+            stopwatch.Stop();
+
+            _logger.LogError(
+                ex,
+                "Error executing interaction {InteractionId}, CorrelationId: {CorrelationId}",
+                interaction.Id,
+                correlationId);
 
             // If the interaction hasn't been responded to, send an error message
             if (interaction.Type == InteractionType.ApplicationCommand)
             {
-                var followupText = "An error occurred while executing this command.";
+                var embed = new EmbedBuilder()
+                    .WithTitle("Error")
+                    .WithDescription("An error occurred while executing this command.")
+                    .WithColor(Color.Red)
+                    .WithFooter($"Correlation ID: {correlationId}")
+                    .WithCurrentTimestamp()
+                    .Build();
 
                 if (interaction.HasResponded)
                 {
-                    await interaction.FollowupAsync(followupText, ephemeral: true);
+                    await interaction.FollowupAsync(embed: embed, ephemeral: true);
                 }
                 else
                 {
-                    await interaction.RespondAsync(followupText, ephemeral: true);
+                    await interaction.RespondAsync(embed: embed, ephemeral: true);
                 }
             }
+        }
+        finally
+        {
+            // Clear execution context
+            _executionContext.Value = null!;
         }
     }
 
     /// <summary>
     /// Called after a slash command has been executed.
-    /// Logs the result of the command execution.
+    /// Logs the result of the command execution and records it to the database.
     /// </summary>
-    private Task OnSlashCommandExecutedAsync(SlashCommandInfo commandInfo, IInteractionContext context, Discord.Interactions.IResult result)
+    private async Task OnSlashCommandExecutedAsync(SlashCommandInfo commandInfo, IInteractionContext context, Discord.Interactions.IResult result)
     {
-        if (result.IsSuccess)
+        // Get execution context
+        var execContext = _executionContext.Value;
+        var correlationId = execContext?.CorrelationId ?? "unknown";
+        var stopwatch = execContext?.Stopwatch;
+
+        stopwatch?.Stop();
+        var executionTimeMs = (int)(stopwatch?.ElapsedMilliseconds ?? 0);
+
+        var success = result.IsSuccess;
+        var errorMessage = result.IsSuccess ? null : result.ErrorReason;
+
+        // Log with correlation ID
+        using (_logger.BeginScope(new Dictionary<string, object>
         {
-            _logger.LogInformation(
-                "Slash command '{CommandName}' executed successfully by {Username} in guild {GuildName} (ID: {GuildId})",
-                commandInfo.Name,
-                context.User.Username,
-                context.Guild?.Name ?? "DM",
-                context.Guild?.Id ?? 0);
-        }
-        else
+            ["CorrelationId"] = correlationId
+        }))
         {
-            _logger.LogWarning(
-                "Slash command '{CommandName}' failed for {Username} in guild {GuildName} (ID: {GuildId}). Error: {Error}",
-                commandInfo.Name,
-                context.User.Username,
-                context.Guild?.Name ?? "DM",
-                context.Guild?.Id ?? 0,
-                result.ErrorReason);
+            if (result.IsSuccess)
+            {
+                _logger.LogInformation(
+                    "Slash command '{CommandName}' executed successfully by {Username} in guild {GuildName} (ID: {GuildId}), ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
+                    commandInfo.Name,
+                    context.User.Username,
+                    context.Guild?.Name ?? "DM",
+                    context.Guild?.Id ?? 0,
+                    executionTimeMs,
+                    correlationId);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Slash command '{CommandName}' failed for {Username} in guild {GuildName} (ID: {GuildId}). Error: {Error}, ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
+                    commandInfo.Name,
+                    context.User.Username,
+                    context.Guild?.Name ?? "DM",
+                    context.Guild?.Id ?? 0,
+                    result.ErrorReason,
+                    executionTimeMs,
+                    correlationId);
+
+                // Send enhanced error message to user for permission errors
+                if (result.Error == InteractionCommandError.UnmetPrecondition)
+                {
+                    var embed = new EmbedBuilder()
+                        .WithTitle("Permission Denied")
+                        .WithDescription(errorMessage ?? "You do not have permission to use this command.")
+                        .WithColor(Color.Red)
+                        .WithFooter($"Correlation ID: {correlationId}")
+                        .WithCurrentTimestamp()
+                        .Build();
+
+                    try
+                    {
+                        if (context.Interaction.HasResponded)
+                        {
+                            await context.Interaction.FollowupAsync(embed: embed, ephemeral: true);
+                        }
+                        else
+                        {
+                            await context.Interaction.RespondAsync(embed: embed, ephemeral: true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send permission error message to user, CorrelationId: {CorrelationId}", correlationId);
+                    }
+                }
+            }
         }
 
-        return Task.CompletedTask;
+        // Log command execution to database (fire and forget with error handling inside)
+        _ = _commandExecutionLogger.LogCommandExecutionAsync(
+            context,
+            commandInfo.Name,
+            null, // Parameters - could be serialized if needed
+            executionTimeMs,
+            success,
+            errorMessage,
+            correlationId);
+    }
+
+    /// <summary>
+    /// Holds execution context for tracking command execution across async calls.
+    /// </summary>
+    private class ExecutionContext
+    {
+        public string CorrelationId { get; set; } = string.Empty;
+        public Stopwatch? Stopwatch { get; set; }
     }
 }
