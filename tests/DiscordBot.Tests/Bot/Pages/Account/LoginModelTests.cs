@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using DiscordBot.Bot.Pages.Account;
+using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authentication;
@@ -22,6 +24,7 @@ public class LoginModelTests
     private readonly Mock<SignInManager<ApplicationUser>> _mockSignInManager;
     private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
     private readonly Mock<ILogger<LoginModel>> _mockLogger;
+    private readonly DiscordOAuthSettings _discordOAuthSettings;
     private readonly LoginModel _loginModel;
     private readonly Mock<IAuthenticationService> _mockAuthService;
     private readonly Mock<IServiceProvider> _mockServiceProvider;
@@ -56,6 +59,9 @@ public class LoginModelTests
         // Setup logger mock
         _mockLogger = new Mock<ILogger<LoginModel>>();
 
+        // Setup Discord OAuth settings (configured by default for tests)
+        _discordOAuthSettings = new DiscordOAuthSettings { IsConfigured = true };
+
         // Setup authentication service mock
         _mockAuthService = new Mock<IAuthenticationService>();
 
@@ -68,7 +74,8 @@ public class LoginModelTests
         _loginModel = new LoginModel(
             _mockSignInManager.Object,
             _mockUserManager.Object,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _discordOAuthSettings);
 
         // Setup HttpContext
         var httpContext = new DefaultHttpContext
@@ -92,62 +99,52 @@ public class LoginModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_ClearsExternalCookie()
-    {
-        // Arrange
-        _mockAuthService.Setup(a => a.SignOutAsync(
-            It.IsAny<HttpContext>(),
-            IdentityConstants.ExternalScheme,
-            It.IsAny<AuthenticationProperties>()))
-            .Returns(Task.CompletedTask);
-
-        // Act
-        await _loginModel.OnGetAsync();
-
-        // Assert
-        _mockAuthService.Verify(
-            a => a.SignOutAsync(
-                It.IsAny<HttpContext>(),
-                IdentityConstants.ExternalScheme,
-                It.IsAny<AuthenticationProperties>()),
-            Times.Once,
-            "external cookie should be cleared on GET");
-    }
-
-    [Fact]
-    public async Task OnGetAsync_SetsReturnUrl()
+    public void OnGet_SetsReturnUrl()
     {
         // Arrange
         const string expectedReturnUrl = "/dashboard";
 
-        _mockAuthService.Setup(a => a.SignOutAsync(
-            It.IsAny<HttpContext>(),
-            It.IsAny<string>(),
-            It.IsAny<AuthenticationProperties>()))
-            .Returns(Task.CompletedTask);
-
         // Act
-        await _loginModel.OnGetAsync(expectedReturnUrl);
+        var result = _loginModel.OnGet(expectedReturnUrl);
 
         // Assert
+        result.Should().BeOfType<PageResult>();
         _loginModel.ReturnUrl.Should().Be(expectedReturnUrl);
     }
 
     [Fact]
-    public async Task OnGetAsync_DefaultsReturnUrlToHome()
+    public void OnGet_DefaultsReturnUrlToHome()
     {
-        // Arrange
-        _mockAuthService.Setup(a => a.SignOutAsync(
-            It.IsAny<HttpContext>(),
-            It.IsAny<string>(),
-            It.IsAny<AuthenticationProperties>()))
-            .Returns(Task.CompletedTask);
-
         // Act
-        await _loginModel.OnGetAsync();
+        var result = _loginModel.OnGet();
 
         // Assert
+        result.Should().BeOfType<PageResult>();
         _loginModel.ReturnUrl.Should().Be("~/");
+    }
+
+    [Fact]
+    public void OnGet_WhenAuthenticated_RedirectsToReturnUrl()
+    {
+        // Arrange
+        var claims = new List<Claim> { new Claim(ClaimTypes.Name, "testuser") };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = _mockServiceProvider.Object,
+            User = principal
+        };
+        _loginModel.PageContext = new PageContext { HttpContext = httpContext };
+
+        // Act
+        var result = _loginModel.OnGet("/dashboard");
+
+        // Assert
+        result.Should().BeOfType<LocalRedirectResult>();
+        var redirectResult = (LocalRedirectResult)result;
+        redirectResult.Url.Should().Be("/dashboard");
     }
 
     [Fact]
@@ -427,7 +424,53 @@ public class LoginModelTests
             "lockoutOnFailure should be enabled");
     }
 
-    // Note: Discord OAuth tests are skipped due to complexity of mocking IUrlHelper extension methods.
+    [Fact]
+    public void IsDiscordOAuthConfigured_ReturnsSettingsValue()
+    {
+        // Arrange - settings is configured by default in test constructor
+
+        // Assert
+        _loginModel.IsDiscordOAuthConfigured.Should().BeTrue();
+    }
+
+    [Fact]
+    public void OnPostDiscordLogin_WhenOAuthNotConfigured_ReturnsPageWithError()
+    {
+        // Arrange
+        var oauthSettings = new DiscordOAuthSettings { IsConfigured = false };
+        var loginModel = new LoginModel(
+            _mockSignInManager.Object,
+            _mockUserManager.Object,
+            _mockLogger.Object,
+            oauthSettings);
+
+        // Setup URL helper for the new instance
+        var urlHelper = new Mock<IUrlHelper>();
+        urlHelper.Setup(u => u.Content(It.IsAny<string>()))
+            .Returns<string>(path => path);
+        loginModel.Url = urlHelper.Object;
+
+        // Setup HttpContext
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = _mockServiceProvider.Object
+        };
+        loginModel.PageContext = new PageContext
+        {
+            HttpContext = httpContext
+        };
+
+        // Act
+        var result = loginModel.OnPostDiscordLogin("/dashboard");
+
+        // Assert
+        result.Should().BeOfType<PageResult>();
+        loginModel.ModelState.IsValid.Should().BeFalse();
+        loginModel.ModelState[string.Empty]!.Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Contain("Discord login is not available");
+    }
+
+    // Note: Full Discord OAuth flow tests are skipped due to complexity of mocking IUrlHelper extension methods.
     // Discord OAuth functionality should be tested via integration tests instead.
 
     [Fact]

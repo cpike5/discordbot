@@ -71,16 +71,26 @@ try
         options.AccessDeniedPath = "/Account/AccessDenied";
     });
 
-    // Add Discord OAuth authentication
-    builder.Services.AddAuthentication()
-        .AddDiscord(options =>
-        {
-            options.ClientId = builder.Configuration["Discord:OAuth:ClientId"] ?? "";
-            options.ClientSecret = builder.Configuration["Discord:OAuth:ClientSecret"] ?? "";
-            options.Scope.Add("identify");
-            options.Scope.Add("email");
-            options.SaveTokens = true;
-        });
+    // Add Discord OAuth authentication (only if configured)
+    var discordClientId = builder.Configuration["Discord:OAuth:ClientId"];
+    var discordClientSecret = builder.Configuration["Discord:OAuth:ClientSecret"];
+    var isDiscordOAuthConfigured = !string.IsNullOrEmpty(discordClientId) && !string.IsNullOrEmpty(discordClientSecret);
+
+    if (isDiscordOAuthConfigured)
+    {
+        builder.Services.AddAuthentication()
+            .AddDiscord(options =>
+            {
+                options.ClientId = discordClientId!;
+                options.ClientSecret = discordClientSecret!;
+                options.Scope.Add("identify");
+                options.Scope.Add("email");
+                options.SaveTokens = true;
+            });
+    }
+
+    // Register whether Discord OAuth is configured for UI to consume
+    builder.Services.AddSingleton(new DiscordOAuthSettings { IsConfigured = isDiscordOAuthConfigured });
 
     // Add application services
     builder.Services.AddScoped<IBotService, BotService>();

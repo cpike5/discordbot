@@ -1,5 +1,5 @@
+using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -15,16 +15,24 @@ public class LoginModel : PageModel
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<LoginModel> _logger;
+    private readonly DiscordOAuthSettings _discordOAuthSettings;
 
     public LoginModel(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
-        ILogger<LoginModel> logger)
+        ILogger<LoginModel> logger,
+        DiscordOAuthSettings discordOAuthSettings)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _logger = logger;
+        _discordOAuthSettings = discordOAuthSettings;
     }
+
+    /// <summary>
+    /// Indicates whether Discord OAuth is configured and available.
+    /// </summary>
+    public bool IsDiscordOAuthConfigured => _discordOAuthSettings.IsConfigured;
 
     /// <summary>
     /// Login input model bound from the form.
@@ -65,21 +73,25 @@ public class LoginModel : PageModel
     /// <summary>
     /// Handles GET request to display the login page.
     /// </summary>
-    public async Task OnGetAsync(string? returnUrl = null)
+    public IActionResult OnGet(string? returnUrl = null)
     {
+        // Redirect authenticated users away from login page
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            _logger.LogDebug("Authenticated user redirected from login page");
+            return LocalRedirect(returnUrl ?? Url.Content("~/"));
+        }
+
         if (!string.IsNullOrEmpty(ErrorMessage))
         {
             ModelState.AddModelError(string.Empty, ErrorMessage);
         }
 
         returnUrl ??= Url.Content("~/");
-
-        // Clear existing external cookie to ensure clean login
-        await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
-
         ReturnUrl = returnUrl;
 
         _logger.LogDebug("Login page accessed, return URL: {ReturnUrl}", returnUrl);
+        return Page();
     }
 
     /// <summary>
@@ -151,6 +163,14 @@ public class LoginModel : PageModel
     /// </summary>
     public IActionResult OnPostDiscordLogin(string? returnUrl = null)
     {
+        if (!_discordOAuthSettings.IsConfigured)
+        {
+            _logger.LogWarning("Discord OAuth login attempted but OAuth is not configured");
+            ModelState.AddModelError(string.Empty, "Discord login is not available.");
+            ReturnUrl = returnUrl ?? Url.Content("~/");
+            return Page();
+        }
+
         returnUrl ??= Url.Content("~/");
 
         _logger.LogInformation("Discord OAuth login initiated");
