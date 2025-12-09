@@ -3,6 +3,7 @@
 This section contains conceptual documentation and developer guides for the Discord Bot Management System.
 
 ## Getting Started
+- [Discord Bot Setup](discord-bot-setup.md) - How to obtain a bot token and configure your Discord bot
 - [Requirements](requirements.md) - Technology stack and architecture requirements
 - [MVP Plan](mvp-plan.md) - Implementation phases and roadmap
 
