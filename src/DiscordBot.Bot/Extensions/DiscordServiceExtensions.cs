@@ -53,6 +53,9 @@ public static class DiscordServiceExtensions
         // Register InteractionHandler as singleton
         services.AddSingleton<InteractionHandler>();
 
+        // Register CommandExecutionLogger as singleton
+        services.AddSingleton<ICommandExecutionLogger, CommandExecutionLogger>();
+
         // Register BotHostedService as hosted service
         services.AddHostedService<BotHostedService>();
 

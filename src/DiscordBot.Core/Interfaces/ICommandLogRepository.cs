@@ -64,5 +64,6 @@ public interface ICommandLogRepository : IRepository<CommandLog>
         int responseTimeMs,
         bool success,
         string? errorMessage = null,
+        string? correlationId = null,
         CancellationToken cancellationToken = default);
 }

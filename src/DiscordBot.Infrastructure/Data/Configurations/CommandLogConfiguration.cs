@@ -44,6 +44,9 @@ public class CommandLogConfiguration : IEntityTypeConfiguration<CommandLog>
         builder.Property(c => c.ErrorMessage)
             .HasMaxLength(2000);
 
+        builder.Property(c => c.CorrelationId)
+            .HasMaxLength(50);
+
         // Relationships
         builder.HasOne(c => c.Guild)
             .WithMany(g => g.CommandLogs)

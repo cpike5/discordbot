@@ -21,4 +21,19 @@ public class BotConfiguration
     /// When set, commands are registered to this specific guild instead of globally.
     /// </summary>
     public ulong? TestGuildId { get; set; }
+
+    /// <summary>
+    /// Default number of invocations allowed within the rate limit period.
+    /// </summary>
+    public int DefaultRateLimitInvokes { get; set; } = 3;
+
+    /// <summary>
+    /// Default rate limit period in seconds.
+    /// </summary>
+    public double DefaultRateLimitPeriodSeconds { get; set; } = 60.0;
+
+    /// <summary>
+    /// Additional user IDs that should be treated as bot owners (beyond the application owner).
+    /// </summary>
+    public List<ulong> AdditionalOwnerIds { get; set; } = new();
 }
