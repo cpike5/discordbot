@@ -1,7 +1,9 @@
 @using DiscordBot.Bot
+@using DiscordBot.Bot.Extensions
 @using DiscordBot.Core.Entities
 @using Microsoft.AspNetCore.Identity
 @namespace DiscordBot.Bot.Pages
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@addTagHelper *, DiscordBot.Bot
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager

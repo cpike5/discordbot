@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages;
 
+[Authorize(Policy = "RequireViewer")]
 public class IndexModel : PageModel
 {
     private readonly ILogger<IndexModel> _logger;

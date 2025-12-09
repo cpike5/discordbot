@@ -1,9 +1,12 @@
+using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Extensions;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -91,6 +94,48 @@ try
 
     // Register whether Discord OAuth is configured for UI to consume
     builder.Services.AddSingleton(new DiscordOAuthSettings { IsConfigured = isDiscordOAuthConfigured });
+
+    // Add Authorization Policies
+    builder.Services.AddAuthorization(options =>
+    {
+        // Hierarchical role policies
+        options.AddPolicy("RequireSuperAdmin", policy =>
+            policy.RequireRole(IdentitySeeder.Roles.SuperAdmin));
+
+        options.AddPolicy("RequireAdmin", policy =>
+            policy.RequireRole(IdentitySeeder.Roles.SuperAdmin, IdentitySeeder.Roles.Admin));
+
+        options.AddPolicy("RequireModerator", policy =>
+            policy.RequireRole(
+                IdentitySeeder.Roles.SuperAdmin,
+                IdentitySeeder.Roles.Admin,
+                IdentitySeeder.Roles.Moderator));
+
+        options.AddPolicy("RequireViewer", policy =>
+            policy.RequireRole(
+                IdentitySeeder.Roles.SuperAdmin,
+                IdentitySeeder.Roles.Admin,
+                IdentitySeeder.Roles.Moderator,
+                IdentitySeeder.Roles.Viewer));
+
+        // Guild-specific authorization (handler will be added later)
+        options.AddPolicy("GuildAccess", policy =>
+            policy.Requirements.Add(new GuildAccessRequirement()));
+
+        // Fallback policy - require authentication for all pages by default
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+    });
+
+    // Register IHttpContextAccessor for authorization handlers
+    builder.Services.AddHttpContextAccessor();
+
+    // Register custom authorization handlers
+    builder.Services.AddScoped<IAuthorizationHandler, GuildAccessHandler>();
+
+    // Register claims transformation for Discord-linked users
+    builder.Services.AddScoped<IClaimsTransformation, DiscordClaimsTransformation>();
 
     // Add application services
     builder.Services.AddScoped<IBotService, BotService>();

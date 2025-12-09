@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Account;
@@ -5,6 +6,7 @@ namespace DiscordBot.Bot.Pages.Account;
 /// <summary>
 /// Page model for access denied (403) page.
 /// </summary>
+[AllowAnonymous]
 public class AccessDeniedModel : PageModel
 {
     /// <summary>

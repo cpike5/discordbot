@@ -1,4 +1,5 @@
 // src/DiscordBot.Bot/Pages/Components.cshtml.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using DiscordBot.Bot.ViewModels.Components;
 
@@ -8,6 +9,7 @@ namespace DiscordBot.Bot.Pages;
 /// PageModel for the component showcase page.
 /// Creates sample ViewModels for all UI components to demonstrate their various states and variants.
 /// </summary>
+[Authorize(Policy = "RequireViewer")]
 public class ComponentsModel : PageModel
 {
     // Buttons
