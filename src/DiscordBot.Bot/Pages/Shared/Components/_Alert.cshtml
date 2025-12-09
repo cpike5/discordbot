@@ -1,0 +1,44 @@
+@model DiscordBot.Bot.ViewModels.Components.AlertViewModel
+@{
+    var (bgClass, borderClass, textClass, iconPath) = Model.Variant switch
+    {
+        DiscordBot.Bot.ViewModels.Components.AlertVariant.Success => ("bg-success/10", "border-success/30", "text-success", "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"),
+        DiscordBot.Bot.ViewModels.Components.AlertVariant.Warning => ("bg-warning/10", "border-warning/30", "text-warning", "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"),
+        DiscordBot.Bot.ViewModels.Components.AlertVariant.Error => ("bg-error/10", "border-error/30", "text-error", "M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"),
+        _ => ("bg-info/10", "border-info/30", "text-info", "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z")
+    };
+}
+
+<div class="flex items-start gap-3 p-4 rounded-lg border @bgClass @borderClass @textClass" role="alert" aria-live="polite">
+    @if (Model.ShowIcon)
+    {
+        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@iconPath" />
+        </svg>
+    }
+
+    <div class="flex-1">
+        @if (!string.IsNullOrEmpty(Model.Title))
+        {
+            <h3 class="text-sm font-semibold">@Model.Title</h3>
+        }
+        <p class="text-sm opacity-90 @(!string.IsNullOrEmpty(Model.Title) ? "mt-1" : "")">@Model.Message</p>
+    </div>
+
+    @if (Model.IsDismissible)
+    {
+        <button
+            type="button"
+            class="p-1 hover:opacity-70 transition-opacity"
+            aria-label="Dismiss"
+            @if (!string.IsNullOrEmpty(Model.DismissCallback))
+            {
+                @:onclick="@Model.DismissCallback"
+            }
+        >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    }
+</div>

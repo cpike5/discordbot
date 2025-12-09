@@ -1,0 +1,72 @@
+@model DiscordBot.Bot.ViewModels.Components.ButtonViewModel
+@{
+    var sizeClasses = Model.Size switch
+    {
+        DiscordBot.Bot.ViewModels.Components.ButtonSize.Small => "px-3 py-1.5 text-xs",
+        DiscordBot.Bot.ViewModels.Components.ButtonSize.Large => "px-6 py-3 text-base",
+        _ => "px-5 py-2.5 text-sm"
+    };
+
+    var variantClasses = Model.Variant switch
+    {
+        DiscordBot.Bot.ViewModels.Components.ButtonVariant.Secondary => "text-text-primary bg-transparent border border-border-primary hover:bg-bg-hover",
+        DiscordBot.Bot.ViewModels.Components.ButtonVariant.Accent => "text-white bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active",
+        DiscordBot.Bot.ViewModels.Components.ButtonVariant.Danger => "text-white bg-error hover:bg-error/80",
+        DiscordBot.Bot.ViewModels.Components.ButtonVariant.Ghost => "text-text-secondary hover:text-text-primary hover:bg-bg-hover",
+        _ => "text-white bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active"
+    };
+
+    var baseClasses = Model.IsIconOnly
+        ? "p-2.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors"
+        : $"inline-flex items-center justify-center gap-2 {sizeClasses} font-semibold {variantClasses} rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-blue disabled:opacity-50 disabled:cursor-not-allowed";
+
+    var isDisabled = Model.IsDisabled || Model.IsLoading;
+    var ariaLabel = Model.AriaLabel ?? (Model.IsIconOnly ? Model.Text : null);
+}
+
+<button
+    type="@Model.Type"
+    class="@baseClasses"
+    @(isDisabled ? "disabled" : "")
+    @if (!string.IsNullOrEmpty(Model.OnClick))
+    {
+        @:onclick="@Model.OnClick"
+    }
+    @if (!string.IsNullOrEmpty(ariaLabel))
+    {
+        @:aria-label="@ariaLabel"
+    }
+    @if (Model.AdditionalAttributes != null)
+    {
+        foreach (var attr in Model.AdditionalAttributes)
+        {
+            @($"{attr.Key}=\"{attr.Value}\"")
+        }
+    }
+>
+    @if (Model.IsLoading)
+    {
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    }
+    else if (!string.IsNullOrEmpty(Model.IconLeft))
+    {
+        <svg class="w-4 h-4">
+            <path d="@Model.IconLeft" />
+        </svg>
+    }
+
+    @if (!Model.IsIconOnly)
+    {
+        <span>@Model.Text</span>
+    }
+
+    @if (!Model.IsLoading && !string.IsNullOrEmpty(Model.IconRight))
+    {
+        <svg class="w-4 h-4">
+            <path d="@Model.IconRight" />
+        </svg>
+    }
+</button>

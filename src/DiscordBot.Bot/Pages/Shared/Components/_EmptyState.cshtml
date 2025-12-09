@@ -1,0 +1,75 @@
+@model DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel
+@{
+    var (containerClasses, iconContainer, iconSize, titleSize, descSize, buttonSize, iconGap) = Model.Size switch
+    {
+        DiscordBot.Bot.ViewModels.Components.EmptyStateSize.Compact => ("max-w-[320px] space-y-3 py-5", "p-3", "w-10 h-10", "text-base", "text-xs", "px-4 py-2 text-xs", "gap-1.5"),
+        DiscordBot.Bot.ViewModels.Components.EmptyStateSize.Large => ("max-w-[500px] space-y-6 py-12", "p-5", "w-20 h-20", "text-2xl", "text-base", "px-6 py-3 text-base", "gap-2.5"),
+        _ => ("max-w-[400px] space-y-4 py-8", "p-4", "w-16 h-16", "text-lg", "text-sm", "px-5 py-2.5 text-sm", "gap-2")
+    };
+
+    var iconPath = Model.IconSvgPath ?? Model.Type switch
+    {
+        DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults => "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
+        DiscordBot.Bot.ViewModels.Components.EmptyStateType.FirstTime => "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z",
+        DiscordBot.Bot.ViewModels.Components.EmptyStateType.Error => "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z",
+        DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoPermission => "M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z",
+        DiscordBot.Bot.ViewModels.Components.EmptyStateType.Offline => "M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0M12.53 18.22l-.53.53-.53-.53a.75.75 0 011.06 0z",
+        _ => "M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+    };
+
+    var iconStrokeWidth = Model.Type == DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoData ? "1.5" : "2";
+}
+
+<div class="flex flex-col items-center text-center @containerClasses mx-auto">
+    <div class="@iconContainer bg-bg-tertiary rounded-full">
+        <svg class="@iconSize text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="@iconStrokeWidth" d="@iconPath" />
+        </svg>
+    </div>
+
+    <div>
+        <h3 class="@titleSize font-semibold text-text-primary @(Model.Size == DiscordBot.Bot.ViewModels.Components.EmptyStateSize.Compact ? "mb-1" : "mb-2")">@Model.Title</h3>
+        <p class="@descSize text-text-secondary">@Model.Description</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.PrimaryActionText) || !string.IsNullOrEmpty(Model.SecondaryActionText))
+    {
+        <div class="flex flex-col sm:flex-row items-center gap-3">
+            @if (!string.IsNullOrEmpty(Model.PrimaryActionText))
+            {
+                @if (!string.IsNullOrEmpty(Model.PrimaryActionUrl))
+                {
+                    <a href="@Model.PrimaryActionUrl" class="inline-flex items-center @iconGap @buttonSize bg-accent-orange hover:bg-accent-orange-hover text-white font-semibold rounded-md transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        @Model.PrimaryActionText
+                    </a>
+                }
+                else
+                {
+                    <button
+                        type="button"
+                        class="inline-flex items-center @iconGap @buttonSize bg-accent-orange hover:bg-accent-orange-hover text-white font-semibold rounded-md transition-colors"
+                        @if (!string.IsNullOrEmpty(Model.PrimaryActionOnClick))
+                        {
+                            @:onclick="@Model.PrimaryActionOnClick"
+                        }
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        @Model.PrimaryActionText
+                    </button>
+                }
+            }
+
+            @if (!string.IsNullOrEmpty(Model.SecondaryActionText) && !string.IsNullOrEmpty(Model.SecondaryActionUrl))
+            {
+                <a href="@Model.SecondaryActionUrl" class="@descSize text-accent-blue hover:text-accent-blue-hover transition-colors">
+                    @Model.SecondaryActionText
+                </a>
+            }
+        </div>
+    }
+</div>
