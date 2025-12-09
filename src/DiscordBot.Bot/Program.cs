@@ -36,6 +36,7 @@ try
 
     // Add Web API services
     builder.Services.AddControllers();
+    builder.Services.AddRazorPages();
     builder.Services.AddEndpointsApiExplorer();
 
     // Configure Swagger/OpenAPI
@@ -62,6 +63,9 @@ try
     // Configure middleware pipeline
     app.UseSerilogRequestLogging();
 
+    // Enable static file serving for wwwroot
+    app.UseStaticFiles();
+
     // Enable Swagger in all environments for now (can be restricted to Development later)
     app.UseSwagger();
     app.UseSwaggerUI(c =>
@@ -73,6 +77,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapRazorPages();
 
     Log.Information("Application configured successfully, starting web host");
 
