@@ -58,8 +58,8 @@
     "globalMetadata": {
       "_appTitle": "DiscordBot Documentation",
       "_appName": "Discord Bot",
-      "_appLogoPath": "logo.svg",
-      "_appFaviconPath": "favicon.svg",
+      "_appLogoPath": "docs/images/logo.png",
+      "_appFaviconPath": "docs/images/logo.png",
       "_appFooter": "<span>Discord Bot Management System</span> | Built with <a href=\"https://dotnet.github.io/docfx\">DocFX</a>",
       "_enableSearch": true,
       "_enableNewTab": true,

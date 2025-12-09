@@ -160,6 +160,12 @@ a:active {
   font-size: 1.25rem;
 }
 
+.navbar-brand img {
+  height: 36px;
+  width: auto;
+  margin-right: 0.5rem;
+}
+
 .navbar-brand:hover {
   color: var(--accent-orange) !important;
 }
