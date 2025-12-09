@@ -282,6 +282,9 @@ ServiceFabricBackup/
 *.ldf
 *.ndf
 
+# SQLite database files
+discordbot.db*
+
 # Business Intelligence projects
 *.rdl.data
 *.bim.layout
