@@ -1,0 +1,90 @@
+@model DiscordBot.Bot.ViewModels.Components.CardViewModel
+@{
+    var variantClasses = Model.Variant switch
+    {
+        DiscordBot.Bot.ViewModels.Components.CardVariant.Flat => "bg-bg-secondary",
+        DiscordBot.Bot.ViewModels.Components.CardVariant.Elevated => "bg-bg-secondary border border-border-primary shadow-lg",
+        _ => "bg-bg-secondary border border-border-primary"
+    };
+
+    var interactiveClasses = Model.IsInteractive
+        ? "cursor-pointer transition-all hover:border-accent-blue hover:-translate-y-0.5 hover:shadow-lg hover:shadow-accent-blue/15"
+        : "";
+
+    var cardClasses = $"{variantClasses} {interactiveClasses} rounded-lg overflow-hidden {Model.CssClass ?? ""}".Trim();
+
+    var hasHeader = !string.IsNullOrEmpty(Model.Title) || !string.IsNullOrEmpty(Model.HeaderContent) || !string.IsNullOrEmpty(Model.HeaderActions);
+    var hasFooter = !string.IsNullOrEmpty(Model.FooterContent);
+    var bodyOnly = !hasHeader && !hasFooter;
+}
+
+<div class="@cardClasses" @(string.IsNullOrEmpty(Model.OnClick) ? "" : $"onclick=\"{Model.OnClick}\"")>
+    @if (hasHeader)
+    {
+        @if (Model.IsCollapsible)
+        {
+            <button
+                type="button"
+                class="w-full flex items-center justify-between px-6 py-4 @(hasFooter || !string.IsNullOrEmpty(Model.BodyContent) ? "border-b border-border-primary" : "") hover:bg-bg-hover transition-colors"
+                onclick="this.nextElementSibling?.classList.toggle('hidden')"
+            >
+                <div>
+                    @if (!string.IsNullOrEmpty(Model.HeaderContent))
+                    {
+                        @Html.Raw(Model.HeaderContent)
+                    }
+                    else if (!string.IsNullOrEmpty(Model.Title))
+                    {
+                        <h3 class="text-lg font-semibold text-text-primary">@Model.Title</h3>
+                        @if (!string.IsNullOrEmpty(Model.Subtitle))
+                        {
+                            <p class="text-sm text-text-secondary mt-1">@Model.Subtitle</p>
+                        }
+                    }
+                </div>
+                <svg class="w-5 h-5 text-text-secondary transition-transform @(Model.IsExpanded ? "" : "rotate-180")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+        }
+        else
+        {
+            <div class="flex items-center justify-between px-6 py-4 @(hasFooter || !string.IsNullOrEmpty(Model.BodyContent) ? "border-b border-border-primary" : "")">
+                <div>
+                    @if (!string.IsNullOrEmpty(Model.HeaderContent))
+                    {
+                        @Html.Raw(Model.HeaderContent)
+                    }
+                    else if (!string.IsNullOrEmpty(Model.Title))
+                    {
+                        <h3 class="text-lg font-semibold text-text-primary">@Model.Title</h3>
+                        @if (!string.IsNullOrEmpty(Model.Subtitle))
+                        {
+                            <p class="text-sm text-text-secondary mt-1">@Model.Subtitle</p>
+                        }
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(Model.HeaderActions))
+                {
+                    <div>
+                        @Html.Raw(Model.HeaderActions)
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(Model.BodyContent))
+    {
+        <div class="@(bodyOnly ? "p-6" : Model.IsCollapsible && !Model.IsExpanded ? "p-6 hidden" : "p-6")">
+            @Html.Raw(Model.BodyContent)
+        </div>
+    }
+
+    @if (hasFooter)
+    {
+        <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+            @Html.Raw(Model.FooterContent)
+        </div>
+    }
+</div>

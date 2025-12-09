@@ -1,0 +1,142 @@
+@model DiscordBot.Bot.ViewModels.Components.FormInputViewModel
+@{
+    var sizeClasses = Model.Size switch
+    {
+        DiscordBot.Bot.ViewModels.Components.InputSize.Small => "py-1.5 px-3 text-xs",
+        DiscordBot.Bot.ViewModels.Components.InputSize.Large => "py-3 px-4 text-base",
+        _ => "py-2.5 px-3.5 text-sm"
+    };
+
+    var validationClasses = Model.ValidationState switch
+    {
+        DiscordBot.Bot.ViewModels.Components.ValidationState.Error => "border-error focus:border-error focus:ring-error/15",
+        DiscordBot.Bot.ViewModels.Components.ValidationState.Success => "border-success focus:border-success focus:ring-success/15",
+        DiscordBot.Bot.ViewModels.Components.ValidationState.Warning => "border-warning focus:border-warning focus:ring-warning/15",
+        _ => "border-border-primary focus:border-accent-blue focus:ring-accent-blue/15"
+    };
+
+    var paddingLeft = !string.IsNullOrEmpty(Model.IconLeft) ? "pl-10" : "";
+    var paddingRight = !string.IsNullOrEmpty(Model.IconRight) ? "pr-10" : "";
+
+    var inputClasses = $"w-full {sizeClasses} {paddingLeft} {paddingRight} text-text-primary bg-bg-primary border {validationClasses} rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-[3px]";
+
+    if (Model.IsDisabled)
+    {
+        inputClasses += " bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60";
+    }
+}
+
+<div class="space-y-1.5">
+    @if (!string.IsNullOrEmpty(Model.Label))
+    {
+        <label for="@Model.Id" class="block text-sm font-medium text-text-primary">
+            @Model.Label
+            @if (Model.IsRequired)
+            {
+                <span class="text-error">*</span>
+            }
+        </label>
+    }
+
+    <div class="relative">
+        @if (!string.IsNullOrEmpty(Model.IconLeft))
+        {
+            <div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@Model.IconLeft" />
+                </svg>
+            </div>
+        }
+
+        <input
+            type="@Model.Type"
+            id="@Model.Id"
+            name="@Model.Name"
+            class="@inputClasses"
+            @if (!string.IsNullOrEmpty(Model.Placeholder))
+            {
+                @:placeholder="@Model.Placeholder"
+            }
+            @if (!string.IsNullOrEmpty(Model.Value))
+            {
+                @:value="@Model.Value"
+            }
+            @if (Model.IsRequired)
+            {
+                @:required
+            }
+            @if (Model.IsDisabled)
+            {
+                @:disabled
+            }
+            @if (Model.IsReadOnly)
+            {
+                @:readonly
+            }
+            @if (Model.MaxLength.HasValue)
+            {
+                @:maxlength="@Model.MaxLength.Value"
+            }
+            @if (Model.AdditionalAttributes != null)
+            {
+                foreach (var attr in Model.AdditionalAttributes)
+                {
+                    @($"{attr.Key}=\"{attr.Value}\"")
+                }
+            }
+        />
+
+        @if (!string.IsNullOrEmpty(Model.IconRight))
+        {
+            <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@Model.IconRight" />
+                </svg>
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.HelpText) && Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.None)
+    {
+        <p class="text-xs text-text-secondary">@Model.HelpText</p>
+    }
+
+    @if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Error && !string.IsNullOrEmpty(Model.ValidationMessage))
+    {
+        <p class="flex items-center gap-1.5 text-xs text-error">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @Model.ValidationMessage
+        </p>
+    }
+
+    @if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Success && !string.IsNullOrEmpty(Model.ValidationMessage))
+    {
+        <p class="flex items-center gap-1.5 text-xs text-success">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @Model.ValidationMessage
+        </p>
+    }
+
+    @if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Warning && !string.IsNullOrEmpty(Model.ValidationMessage))
+    {
+        <p class="flex items-center gap-1.5 text-xs text-warning">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            @Model.ValidationMessage
+        </p>
+    }
+
+    @if (Model.ShowCharacterCount && Model.MaxLength.HasValue)
+    {
+        <div class="flex justify-end">
+            <span class="text-xs text-text-tertiary">
+                @(Model.Value?.Length ?? 0)/@Model.MaxLength.Value
+            </span>
+        </div>
+    }
+</div>

@@ -1,0 +1,313 @@
+@model DiscordBot.Bot.ViewModels.Components.PaginationViewModel
+@{
+    var startItem = (Model.CurrentPage - 1) * Model.PageSize + 1;
+    var endItem = Math.Min(Model.CurrentPage * Model.PageSize, Model.TotalItems);
+    var isFirstPage = Model.CurrentPage == 1;
+    var isLastPage = Model.CurrentPage == Model.TotalPages;
+
+    // Generate page numbers to show (max 7 buttons: 1 ... 4 5 6 ... 10)
+    var pagesToShow = new List<int?>();
+    if (Model.TotalPages <= 7)
+    {
+        for (int i = 1; i <= Model.TotalPages; i++)
+            pagesToShow.Add(i);
+    }
+    else
+    {
+        pagesToShow.Add(1);
+
+        if (Model.CurrentPage <= 4)
+        {
+            for (int i = 2; i <= Math.Min(5, Model.TotalPages - 1); i++)
+                pagesToShow.Add(i);
+            pagesToShow.Add(null); // ellipsis
+        }
+        else if (Model.CurrentPage >= Model.TotalPages - 3)
+        {
+            pagesToShow.Add(null);
+            for (int i = Math.Max(2, Model.TotalPages - 4); i < Model.TotalPages; i++)
+                pagesToShow.Add(i);
+        }
+        else
+        {
+            pagesToShow.Add(null);
+            for (int i = Model.CurrentPage - 1; i <= Model.CurrentPage + 1; i++)
+                pagesToShow.Add(i);
+            pagesToShow.Add(null);
+        }
+
+        pagesToShow.Add(Model.TotalPages);
+    }
+
+    string BuildUrl(int page, int? pageSize = null)
+    {
+        if (string.IsNullOrEmpty(Model.BaseUrl)) return "#";
+        var separator = Model.BaseUrl.Contains("?") ? "&" : "?";
+        var url = $"{Model.BaseUrl}{separator}{Model.PageParameterName}={page}";
+        if (pageSize.HasValue)
+            url += $"&{Model.PageSizeParameterName}={pageSize.Value}";
+        return url;
+    }
+}
+
+@if (Model.Style == DiscordBot.Bot.ViewModels.Components.PaginationStyle.Simple)
+{
+    <nav aria-label="Pagination" class="flex items-center gap-3">
+        <a
+            href="@BuildUrl(Model.CurrentPage - 1)"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors @(isFirstPage ? "pointer-events-none opacity-50" : "")"
+            aria-disabled="@(isFirstPage ? "true" : "false")"
+        >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Previous
+        </a>
+        <a
+            href="@BuildUrl(Model.CurrentPage + 1)"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors @(isLastPage ? "pointer-events-none opacity-50" : "")"
+            aria-disabled="@(isLastPage ? "true" : "false")"
+        >
+            Next
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </nav>
+}
+else if (Model.Style == DiscordBot.Bot.ViewModels.Components.PaginationStyle.Compact)
+{
+    <nav aria-label="Pagination" class="flex items-center justify-between gap-4">
+        <a
+            href="@BuildUrl(Model.CurrentPage - 1)"
+            class="px-3 py-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors @(isFirstPage ? "pointer-events-none opacity-50" : "")"
+            aria-label="Previous page"
+            aria-disabled="@(isFirstPage ? "true" : "false")"
+        >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        <span class="text-sm text-text-secondary">
+            Page <span class="font-medium text-text-primary">@Model.CurrentPage</span> of <span class="font-medium text-text-primary">@Model.TotalPages</span>
+        </span>
+        <a
+            href="@BuildUrl(Model.CurrentPage + 1)"
+            class="px-3 py-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors @(isLastPage ? "pointer-events-none opacity-50" : "")"
+            aria-label="Next page"
+            aria-disabled="@(isLastPage ? "true" : "false")"
+        >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </nav>
+}
+else if (Model.Style == DiscordBot.Bot.ViewModels.Components.PaginationStyle.Bordered)
+{
+    <nav aria-label="Pagination" class="inline-flex items-center bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <a
+            href="@BuildUrl(Model.CurrentPage - 1)"
+            class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary @(isFirstPage ? "pointer-events-none opacity-50" : "")"
+            aria-label="Previous page"
+            aria-disabled="@(isFirstPage ? "true" : "false")"
+        >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        @foreach (var page in pagesToShow)
+        {
+            if (page == null)
+            {
+                <span class="px-4 py-2 text-sm text-text-tertiary border-r border-border-primary">...</span>
+            }
+            else if (page == Model.CurrentPage)
+            {
+                <span class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border-r border-border-primary">@(page)</span>
+            }
+            else
+            {
+                <a href="@BuildUrl(page.Value)" class="px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary transition-colors">@(page)</a>
+            }
+        }
+        <a
+            href="@BuildUrl(Model.CurrentPage + 1)"
+            class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover @(isLastPage ? "pointer-events-none opacity-50" : "")"
+            aria-label="Next page"
+            aria-disabled="@(isLastPage ? "true" : "false")"
+        >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </nav>
+}
+else
+{
+    @* Full Pagination Style *@
+    @if (Model.ShowPageSizeSelector || Model.ShowItemCount)
+    {
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-3">
+                @if (Model.ShowPageSizeSelector)
+                {
+                    <label for="pageSize" class="text-sm text-text-secondary">Show:</label>
+                    <select
+                        id="pageSize"
+                        class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue"
+                        onchange="window.location.href='@BuildUrl(1)'.replace('page=1', 'page=1&pageSize=' + this.value)"
+                    >
+                        @foreach (var size in Model.PageSizeOptions)
+                        {
+                            <option value="@size" selected="@(size == Model.PageSize)">@size</option>
+                        }
+                    </select>
+                }
+                @if (Model.ShowItemCount)
+                {
+                    <span class="text-sm text-text-secondary">
+                        Showing <span class="font-medium text-text-primary">@startItem-@endItem</span> of <span class="font-medium text-text-primary">@Model.TotalItems</span>
+                    </span>
+                }
+            </div>
+            <nav aria-label="Pagination" class="flex items-center gap-1">
+                @if (Model.ShowFirstLast)
+                {
+                    <a
+                        href="@BuildUrl(1)"
+                        class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isFirstPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                        aria-label="First page"
+                        aria-disabled="@(isFirstPage ? "true" : "false")"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                        </svg>
+                    </a>
+                }
+
+                <a
+                    href="@BuildUrl(Model.CurrentPage - 1)"
+                    class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isFirstPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                    aria-label="Previous page"
+                    aria-disabled="@(isFirstPage ? "true" : "false")"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </a>
+
+                @foreach (var pageNum in pagesToShow)
+                {
+                    if (pageNum == null)
+                    {
+                        <span class="px-2 py-2 text-text-tertiary">...</span>
+                    }
+                    else if (pageNum == Model.CurrentPage)
+                    {
+                        <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">@(pageNum)</span>
+                    }
+                    else
+                    {
+                        <a href="@BuildUrl(pageNum.Value)" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">@(pageNum)</a>
+                    }
+                }
+
+                <a
+                    href="@BuildUrl(Model.CurrentPage + 1)"
+                    class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isLastPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                    aria-label="Next page"
+                    aria-disabled="@(isLastPage ? "true" : "false")"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+
+                @if (Model.ShowFirstLast)
+                {
+                    <a
+                        href="@BuildUrl(Model.TotalPages)"
+                        class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isLastPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                        aria-label="Last page"
+                        aria-disabled="@(isLastPage ? "true" : "false")"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                }
+            </nav>
+        </div>
+    }
+    else
+    {
+        <nav aria-label="Pagination" class="flex items-center gap-1">
+            @if (Model.ShowFirstLast)
+            {
+                <a
+                    href="@BuildUrl(1)"
+                    class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isFirstPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                    aria-label="First page"
+                    aria-disabled="@(isFirstPage ? "true" : "false")"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                </a>
+            }
+
+            <a
+                href="@BuildUrl(Model.CurrentPage - 1)"
+                class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isFirstPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                aria-label="Previous page"
+                aria-disabled="@(isFirstPage ? "true" : "false")"
+            >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </a>
+
+            @foreach (var page in pagesToShow)
+            {
+                if (page == null)
+                {
+                    <span class="px-2 py-2 text-text-tertiary">...</span>
+                }
+                else if (page == Model.CurrentPage)
+                {
+                    <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">@(page)</span>
+                }
+                else
+                {
+                    <a href="@BuildUrl(page.Value)" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">@(page)</a>
+                }
+            }
+
+            <a
+                href="@BuildUrl(Model.CurrentPage + 1)"
+                class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isLastPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                aria-label="Next page"
+                aria-disabled="@(isLastPage ? "true" : "false")"
+            >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+
+            @if (Model.ShowFirstLast)
+            {
+                <a
+                    href="@BuildUrl(Model.TotalPages)"
+                    class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isLastPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                    aria-label="Last page"
+                    aria-disabled="@(isLastPage ? "true" : "false")"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                </a>
+            }
+        </nav>
+    }
+}

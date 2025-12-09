@@ -1,0 +1,394 @@
+@page
+@model DiscordBot.Bot.Pages.ComponentsModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = "Component Showcase";
+}
+
+<div class="space-y-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-text-primary mb-2">Component Showcase</h1>
+        <p class="text-text-secondary">Visual reference for all UI components with their various states and variants.</p>
+    </div>
+
+    <!-- 1. BUTTONS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Buttons</h3>
+            <p class="text-sm text-text-secondary mt-1">Interactive elements for user actions</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Button Variants</h4>
+                <div class="flex flex-wrap gap-3">
+                    @foreach (var btn in Model.ButtonVariants)
+                    {
+                        @await Html.PartialAsync("Components/_Button", btn)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Button Sizes</h4>
+                <div class="flex flex-wrap items-center gap-3">
+                    @foreach (var btn in Model.ButtonSizes)
+                    {
+                        @await Html.PartialAsync("Components/_Button", btn)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Icon Buttons</h4>
+                <div class="flex flex-wrap gap-3">
+                    @foreach (var btn in Model.IconButtons)
+                    {
+                        @await Html.PartialAsync("Components/_Button", btn)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Loading State</h4>
+                <div>
+                    @await Html.PartialAsync("Components/_Button", Model.LoadingButton)
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. BADGES -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Badges</h3>
+            <p class="text-sm text-text-secondary mt-1">Labels for status, categories, and tags</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Filled Style</h4>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var badge in Model.BadgeFilledVariants)
+                    {
+                        @await Html.PartialAsync("Components/_Badge", badge)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Outline Style</h4>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var badge in Model.BadgeOutlineVariants)
+                    {
+                        @await Html.PartialAsync("Components/_Badge", badge)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Badge Sizes</h4>
+                <div class="flex flex-wrap items-center gap-2">
+                    @foreach (var badge in Model.BadgeSizes)
+                    {
+                        @await Html.PartialAsync("Components/_Badge", badge)
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. STATUS INDICATORS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Status Indicators</h3>
+            <p class="text-sm text-text-secondary mt-1">Visual status displays for users and services</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Dot Only</h4>
+                <div class="flex flex-wrap gap-4">
+                    @foreach (var status in Model.StatusDotOnly)
+                    {
+                        @await Html.PartialAsync("Components/_StatusIndicator", status)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Dot With Text</h4>
+                <div class="flex flex-wrap gap-4">
+                    @foreach (var status in Model.StatusWithText)
+                    {
+                        @await Html.PartialAsync("Components/_StatusIndicator", status)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Badge Style</h4>
+                <div class="flex flex-wrap gap-3">
+                    @foreach (var status in Model.StatusBadgeStyle)
+                    {
+                        @await Html.PartialAsync("Components/_StatusIndicator", status)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Pulsing Animation</h4>
+                <div class="flex flex-wrap gap-4">
+                    @foreach (var status in Model.StatusPulsing)
+                    {
+                        @await Html.PartialAsync("Components/_StatusIndicator", status)
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. LOADING SPINNERS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Loading Spinners</h3>
+            <p class="text-sm text-text-secondary mt-1">Animated loading indicators</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Spinner Variants</h4>
+                <div class="flex flex-wrap gap-8">
+                    @foreach (var spinner in Model.SpinnerVariants)
+                    {
+                        @await Html.PartialAsync("Components/_LoadingSpinner", spinner)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Spinner Sizes</h4>
+                <div class="flex flex-wrap items-center gap-8">
+                    @foreach (var spinner in Model.SpinnerSizes)
+                    {
+                        @await Html.PartialAsync("Components/_LoadingSpinner", spinner)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">With Message</h4>
+                <div>
+                    @await Html.PartialAsync("Components/_LoadingSpinner", Model.SpinnerWithMessage)
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. FORM INPUTS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Form Inputs</h3>
+            <p class="text-sm text-text-secondary mt-1">Text input fields with validation</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Basic Input</h4>
+                <div class="max-w-md">
+                    @await Html.PartialAsync("Components/_FormInput", Model.BasicInput)
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Input Sizes</h4>
+                <div class="max-w-md space-y-4">
+                    @foreach (var input in Model.InputSizes)
+                    {
+                        @await Html.PartialAsync("Components/_FormInput", input)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Input With Icon</h4>
+                <div class="max-w-md">
+                    @await Html.PartialAsync("Components/_FormInput", Model.InputWithIcon)
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Validation States</h4>
+                <div class="max-w-md space-y-4">
+                    @foreach (var input in Model.InputValidationStates)
+                    {
+                        @await Html.PartialAsync("Components/_FormInput", input)
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. FORM SELECTS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Form Selects</h3>
+            <p class="text-sm text-text-secondary mt-1">Dropdown selection fields</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Basic Select</h4>
+                <div class="max-w-md">
+                    @await Html.PartialAsync("Components/_FormSelect", Model.BasicSelect)
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Select With Option Groups</h4>
+                <div class="max-w-md">
+                    @await Html.PartialAsync("Components/_FormSelect", Model.SelectWithGroups)
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Validation States</h4>
+                <div class="max-w-md space-y-4">
+                    @foreach (var select in Model.SelectValidationStates)
+                    {
+                        @await Html.PartialAsync("Components/_FormSelect", select)
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 7. ALERTS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Alerts</h3>
+            <p class="text-sm text-text-secondary mt-1">Contextual feedback messages</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Alert Variants</h4>
+                <div class="space-y-4">
+                    @foreach (var alert in Model.AlertVariants)
+                    {
+                        @await Html.PartialAsync("Components/_Alert", alert)
+                    }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Dismissible Alerts</h4>
+                <div class="space-y-4">
+                    @foreach (var alert in Model.AlertDismissible)
+                    {
+                        @await Html.PartialAsync("Components/_Alert", alert)
+                    }
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 8. CARDS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Cards</h3>
+            <p class="text-sm text-text-secondary mt-1">Content containers with various styles</p>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    @await Html.PartialAsync("Components/_Card", Model.DefaultCard)
+                </div>
+                <div>
+                    @await Html.PartialAsync("Components/_Card", Model.ElevatedCard)
+                </div>
+                <div>
+                    @await Html.PartialAsync("Components/_Card", Model.InteractiveCard)
+                </div>
+                <div>
+                    @await Html.PartialAsync("Components/_Card", Model.CollapsibleCard)
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 9. EMPTY STATES -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Empty States</h3>
+            <p class="text-sm text-text-secondary mt-1">Helpful placeholders for empty content</p>
+        </div>
+        <div class="p-6 space-y-8">
+            @foreach (var empty in Model.EmptyStateTypes)
+            {
+                @await Html.PartialAsync("Components/_EmptyState", empty)
+            }
+        </div>
+    </section>
+
+    <!-- 10. PAGINATION -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Pagination</h3>
+            <p class="text-sm text-text-secondary mt-1">Navigation controls for paginated content</p>
+        </div>
+        <div class="p-6 space-y-8">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Full Style</h4>
+                <div>
+                    @await Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[0])
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Simple Style</h4>
+                <div>
+                    @await Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[1])
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Compact Style</h4>
+                <div>
+                    @await Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[2])
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Bordered Style</h4>
+                <div>
+                    @await Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[3])
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Usage Instructions -->
+    <section class="bg-bg-secondary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Usage</h3>
+            <p class="text-sm text-text-secondary mt-1">How to use these components in your pages</p>
+        </div>
+        <div class="p-6">
+            <div class="prose prose-sm max-w-none">
+                <p class="text-text-secondary mb-4">
+                    All components are available as partial views under <code class="px-2 py-1 bg-bg-tertiary rounded text-xs">Pages/Shared/Components/</code>.
+                </p>
+
+                <h4 class="text-sm font-semibold text-text-primary mb-2">Example Usage:</h4>
+                <pre class="bg-bg-tertiary p-4 rounded-lg text-xs overflow-x-auto"><code>@@await Html.PartialAsync("Components/_Button", new ButtonViewModel
+{
+    Text = "Save Changes",
+    Variant = ButtonVariant.Primary,
+    Size = ButtonSize.Medium,
+    IconLeft = "M5 13l4 4L19 7"
+})</code></pre>
+
+                <h4 class="text-sm font-semibold text-text-primary mt-6 mb-2">ViewModels Location:</h4>
+                <p class="text-text-secondary">
+                    All component ViewModels are located in <code class="px-2 py-1 bg-bg-tertiary rounded text-xs">ViewModels/Components/</code>
+                    and should be imported with <code class="px-2 py-1 bg-bg-tertiary rounded text-xs">@@using DiscordBot.Bot.ViewModels.Components</code>.
+                </p>
+            </div>
+        </div>
+    </section>
+</div>

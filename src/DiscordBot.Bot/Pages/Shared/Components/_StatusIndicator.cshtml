@@ -1,0 +1,83 @@
+@model DiscordBot.Bot.ViewModels.Components.StatusIndicatorViewModel
+@{
+    var sizeClasses = Model.Size switch
+    {
+        DiscordBot.Bot.ViewModels.Components.StatusSize.Small => "w-1.5 h-1.5",
+        DiscordBot.Bot.ViewModels.Components.StatusSize.Large => "w-3 h-3",
+        _ => "w-2 h-2"
+    };
+
+    var (colorClass, textColorClass) = Model.Status switch
+    {
+        DiscordBot.Bot.ViewModels.Components.StatusType.Online => ("bg-success", "text-success"),
+        DiscordBot.Bot.ViewModels.Components.StatusType.Idle => ("bg-warning", "text-warning"),
+        DiscordBot.Bot.ViewModels.Components.StatusType.Busy => ("bg-error", "text-error"),
+        _ => ("bg-text-tertiary", "text-text-tertiary")
+    };
+
+    var displayText = Model.Text ?? Model.Status switch
+    {
+        DiscordBot.Bot.ViewModels.Components.StatusType.Online => "Online",
+        DiscordBot.Bot.ViewModels.Components.StatusType.Idle => "Idle",
+        DiscordBot.Bot.ViewModels.Components.StatusType.Busy => "Do Not Disturb",
+        _ => "Offline"
+    };
+}
+
+@if (Model.DisplayStyle == DiscordBot.Bot.ViewModels.Components.StatusDisplayStyle.DotOnly)
+{
+    @if (Model.IsPulsing)
+    {
+        <span class="relative inline-flex">
+            <span class="@sizeClasses @colorClass rounded-full"></span>
+            <span class="absolute inset-0 @sizeClasses @colorClass rounded-full animate-ping opacity-75"></span>
+        </span>
+    }
+    else
+    {
+        <span class="@sizeClasses @colorClass rounded-full"></span>
+    }
+}
+else if (Model.DisplayStyle == DiscordBot.Bot.ViewModels.Components.StatusDisplayStyle.BadgeStyle)
+{
+    var badgeBgClass = Model.Status switch
+    {
+        DiscordBot.Bot.ViewModels.Components.StatusType.Online => "bg-success/20 text-success",
+        DiscordBot.Bot.ViewModels.Components.StatusType.Idle => "bg-warning/20 text-warning",
+        DiscordBot.Bot.ViewModels.Components.StatusType.Busy => "bg-error/20 text-error",
+        _ => "bg-border-primary text-text-tertiary"
+    };
+    var badgeDotSize = "w-1.5 h-1.5";
+
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full @badgeBgClass">
+        @if (Model.IsPulsing)
+        {
+            <span class="relative inline-flex">
+                <span class="@badgeDotSize @colorClass rounded-full"></span>
+                <span class="absolute inset-0 @badgeDotSize @colorClass rounded-full animate-ping opacity-75"></span>
+            </span>
+        }
+        else
+        {
+            <span class="@badgeDotSize @colorClass rounded-full"></span>
+        }
+        @displayText
+    </span>
+}
+else
+{
+    <span class="inline-flex items-center gap-2 text-sm font-medium @textColorClass">
+        @if (Model.IsPulsing)
+        {
+            <span class="relative inline-flex">
+                <span class="@sizeClasses @colorClass rounded-full"></span>
+                <span class="absolute inset-0 @sizeClasses @colorClass rounded-full animate-ping opacity-75"></span>
+            </span>
+        }
+        else
+        {
+            <span class="@sizeClasses @colorClass rounded-full"></span>
+        }
+        @displayText
+    </span>
+}
