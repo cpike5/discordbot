@@ -1,0 +1,35 @@
+@{
+    var breadcrumbs = ViewData["Breadcrumbs"] as List<(string Text, string Url)>;
+    if (breadcrumbs != null && breadcrumbs.Any())
+    {
+        <nav aria-label="Breadcrumb" class="breadcrumb mb-6">
+            <ol class="breadcrumb-list flex items-center gap-2 text-sm">
+                @for (int i = 0; i < breadcrumbs.Count; i++)
+                {
+                    var (text, url) = breadcrumbs[i];
+                    var isLast = i == breadcrumbs.Count - 1;
+
+                    <li class="breadcrumb-item">
+                        @if (isLast)
+                        {
+                            <span class="text-text-primary font-medium" aria-current="page">@text</span>
+                        }
+                        else
+                        {
+                            <a href="@url" class="text-text-secondary hover:text-accent-blue transition-colors">@text</a>
+                        }
+                    </li>
+
+                    @if (!isLast)
+                    {
+                        <li class="breadcrumb-separator text-text-tertiary" aria-hidden="true">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </li>
+                    }
+                }
+            </ol>
+        </nav>
+    }
+}
