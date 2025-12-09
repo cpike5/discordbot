@@ -1,7 +1,10 @@
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Extensions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
 using Serilog;
 using System.Reflection;
@@ -28,6 +31,66 @@ try
 
     // Add Infrastructure services (database and repositories)
     builder.Services.AddInfrastructure(builder.Configuration);
+
+    // Add ASP.NET Core Identity
+    builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        // Password settings
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireNonAlphanumeric = true;
+        options.Password.RequiredLength = 8;
+        options.Password.RequiredUniqueChars = 1;
+
+        // Lockout settings
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.AllowedForNewUsers = true;
+
+        // User settings
+        options.User.RequireUniqueEmail = true;
+
+        // Sign-in settings
+        options.SignIn.RequireConfirmedAccount = false;
+        options.SignIn.RequireConfirmedEmail = false;
+    })
+    .AddEntityFrameworkStores<BotDbContext>()
+    .AddDefaultTokenProviders();
+
+    // Configure application cookie
+    builder.Services.ConfigureApplicationCookie(options =>
+    {
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.ExpireTimeSpan = TimeSpan.FromDays(7);
+        options.SlidingExpiration = true;
+        options.LoginPath = "/Account/Login";
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+    });
+
+    // Add Discord OAuth authentication (only if configured)
+    var discordClientId = builder.Configuration["Discord:OAuth:ClientId"];
+    var discordClientSecret = builder.Configuration["Discord:OAuth:ClientSecret"];
+    var isDiscordOAuthConfigured = !string.IsNullOrEmpty(discordClientId) && !string.IsNullOrEmpty(discordClientSecret);
+
+    if (isDiscordOAuthConfigured)
+    {
+        builder.Services.AddAuthentication()
+            .AddDiscord(options =>
+            {
+                options.ClientId = discordClientId!;
+                options.ClientSecret = discordClientSecret!;
+                options.Scope.Add("identify");
+                options.Scope.Add("email");
+                options.SaveTokens = true;
+            });
+    }
+
+    // Register whether Discord OAuth is configured for UI to consume
+    builder.Services.AddSingleton(new DiscordOAuthSettings { IsConfigured = isDiscordOAuthConfigured });
 
     // Add application services
     builder.Services.AddScoped<IBotService, BotService>();
@@ -74,10 +137,26 @@ try
         c.RoutePrefix = "swagger";
     });
 
+    // Enable authentication and authorization middleware
+    app.UseAuthentication();
     app.UseAuthorization();
 
     app.MapControllers();
     app.MapRazorPages();
+
+    // Seed Identity roles and default admin user
+    using (var scope = app.Services.CreateScope())
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        try
+        {
+            await IdentitySeeder.SeedIdentityAsync(scope.ServiceProvider, logger);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while seeding Identity data");
+        }
+    }
 
     Log.Information("Application configured successfully, starting web host");
 

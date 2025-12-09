@@ -3,6 +3,7 @@
 This section contains conceptual documentation and developer guides for the Discord Bot Management System.
 
 ## Getting Started
+- [Discord Bot Setup](discord-bot-setup.md) - How to obtain a bot token and configure your Discord bot
 - [Requirements](requirements.md) - Technology stack and architecture requirements
 - [MVP Plan](mvp-plan.md) - Implementation phases and roadmap
 
@@ -10,6 +11,11 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Database Schema](database-schema.md) - Entity definitions and relationships
 - [Repository Pattern](repository-pattern.md) - Data access implementation
 - [Design System](design-system.md) - UI design tokens and components
+- [Razor Components](razor-components.md) - Reusable Razor components specification
+- [Epic 2: Authentication Architecture](epic-2-auth-architecture-plan.md) - Authentication and authorization architecture plan
+
+## Security & Authentication
+- [Identity Configuration](identity-configuration.md) - ASP.NET Identity setup, Discord OAuth, and security settings
 
 ## API & Integration
 - [REST API Endpoints](api-endpoints.md) - Complete REST API reference

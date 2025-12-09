@@ -47,6 +47,32 @@ dotnet user-secrets set "Discord:TestGuildId" "your-guild-id"  # Optional: insta
 
 UserSecretsId: `7b84433c-c2a8-46db-a8bf-58786ea4f28e`
 
+### Authentication Configuration
+
+Discord OAuth must be configured via User Secrets for admin UI authentication:
+
+```bash
+cd src/DiscordBot.Bot
+dotnet user-secrets set "Discord:OAuth:ClientId" "your-client-id"
+dotnet user-secrets set "Discord:OAuth:ClientSecret" "your-client-secret"
+
+# Optional: Default admin user (change password immediately after first login)
+dotnet user-secrets set "Identity:DefaultAdmin:Email" "admin@example.com"
+dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
+```
+
+#### Discord Developer Portal Setup
+
+1. Go to https://discord.com/developers/applications
+2. Select your bot application (or create new)
+3. Go to OAuth2 section
+4. Add redirect URIs:
+   - Development: `https://localhost:5001/signin-discord`
+   - Production: `https://yourdomain.com/signin-discord`
+5. Copy Client ID and Client Secret to user secrets
+
+See [Identity Configuration](docs/articles/identity-configuration.md) for detailed authentication setup and troubleshooting.
+
 ## Architecture
 
 Three-layer clean architecture:
