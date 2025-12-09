@@ -403,10 +403,16 @@ CommandLog
 - Interactive workflows complete
 
 **Acceptance Criteria:**
-- [ ] Shutdown requires confirmation button
-- [ ] Guild list paginates with buttons
-- [ ] Components timeout after 15 minutes
-- [ ] Unknown component clicks handled gracefully
+- [x] Shutdown requires confirmation button
+- [x] Guild list paginates with buttons
+- [x] Components timeout after 15 minutes
+- [x] Unknown component clicks handled gracefully
+
+**Status:** ✓ COMPLETED
+
+**Documentation:**
+- [Interactive Components](interactive-components.md) - Component interactions, state management, and developer guide
+- [Admin Commands](admin-commands.md) - Updated with interactive `/shutdown` and `/guilds` workflows
 
 ---
 

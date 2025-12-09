@@ -1,8 +1,11 @@
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Bot.Components;
+using DiscordBot.Bot.Models;
 using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Commands;
 
@@ -14,6 +17,7 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly DiscordSocketClient _client;
     private readonly IHostApplicationLifetime _lifetime;
+    private readonly IInteractionStateService _stateService;
     private readonly ILogger<AdminModule> _logger;
     private static readonly DateTime _processStartTime = DateTime.UtcNow;
 
@@ -23,10 +27,12 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
     public AdminModule(
         DiscordSocketClient client,
         IHostApplicationLifetime lifetime,
+        IInteractionStateService stateService,
         ILogger<AdminModule> logger)
     {
         _client = client;
         _lifetime = lifetime;
+        _stateService = stateService;
         _logger = logger;
     }
 
@@ -87,7 +93,7 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
     }
 
     /// <summary>
-    /// Lists all guilds the bot is connected to.
+    /// Lists all guilds the bot is connected to with pagination.
     /// </summary>
     [SlashCommand("guilds", "List all guilds the bot is connected to")]
     public async Task GuildsAsync()
@@ -101,57 +107,74 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
 
         var guilds = _client.Guilds
             .OrderByDescending(g => g.MemberCount)
-            .Select(g => new GuildInfoDto
+            .Select(g => new GuildDto
             {
                 Id = g.Id,
                 Name = g.Name,
                 MemberCount = g.MemberCount,
                 IconUrl = g.IconUrl,
-                JoinedAt = g.CurrentUser?.JoinedAt?.UtcDateTime
+                JoinedAt = g.CurrentUser?.JoinedAt?.UtcDateTime ?? DateTime.UtcNow
             })
             .ToList();
 
         _logger.LogDebug("Retrieved {GuildCount} guilds", guilds.Count);
 
-        var embed = new EmbedBuilder()
-            .WithTitle($"📋 Connected Guilds ({guilds.Count})")
-            .WithColor(Color.Blue)
-            .WithCurrentTimestamp()
-            .WithFooter("Admin Command");
-
         if (guilds.Count == 0)
         {
-            embed.WithDescription("The bot is not connected to any guilds.");
+            var emptyEmbed = new EmbedBuilder()
+                .WithTitle("📋 Connected Guilds")
+                .WithDescription("The bot is not connected to any guilds.")
+                .WithColor(Color.Blue)
+                .WithCurrentTimestamp()
+                .WithFooter("Admin Command")
+                .Build();
+
+            await RespondAsync(embed: emptyEmbed, ephemeral: true);
+            _logger.LogDebug("Guilds command response sent (no guilds)");
+            return;
         }
-        else
+
+        // Set up pagination
+        const int pageSize = 5;
+        var totalPages = (int)Math.Ceiling(guilds.Count / (double)pageSize);
+        var currentPage = 0;
+
+        var state = new GuildsPaginationState
         {
-            // Discord embeds have a limit of 25 fields, so we'll show the top 25 guilds
-            var topGuilds = guilds.Take(25);
-            foreach (var guild in topGuilds)
-            {
-                var joinedText = guild.JoinedAt.HasValue
-                    ? $"<t:{new DateTimeOffset(guild.JoinedAt.Value).ToUnixTimeSeconds()}:R>"
-                    : "Unknown";
+            Guilds = guilds,
+            CurrentPage = currentPage,
+            PageSize = pageSize,
+            TotalPages = totalPages
+        };
 
-                embed.AddField(
-                    guild.Name,
-                    $"ID: `{guild.Id}`\nMembers: {guild.MemberCount}\nJoined: {joinedText}",
-                    inline: false);
-            }
+        var correlationId = _stateService.CreateState(Context.User.Id, state);
 
-            if (guilds.Count > 25)
-            {
-                embed.WithDescription($"Showing top 25 of {guilds.Count} guilds (sorted by member count).");
-            }
+        // Build first page
+        var pageGuilds = guilds.Take(pageSize).ToList();
+        var embed = new EmbedBuilder()
+            .WithTitle($"Connected Guilds (Page 1/{totalPages})")
+            .WithDescription(string.Join("\n", pageGuilds.Select(g => $"**{g.Name}** (ID: {g.Id})")))
+            .WithColor(Color.Blue)
+            .WithFooter($"Total: {guilds.Count} guilds")
+            .WithCurrentTimestamp()
+            .Build();
+
+        // Build pagination buttons
+        var components = new ComponentBuilder();
+        if (totalPages > 1)
+        {
+            var nextId = ComponentIdBuilder.Build("guilds", "page", Context.User.Id, correlationId, "next");
+            components.WithButton("Next", nextId, ButtonStyle.Primary);
         }
 
-        await RespondAsync(embed: embed.Build(), ephemeral: true);
+        await RespondAsync(embed: embed, components: components.Build(), ephemeral: true);
 
-        _logger.LogDebug("Guilds command response sent successfully");
+        _logger.LogDebug("Guilds command response sent with pagination (page 1/{TotalPages})", totalPages);
     }
 
     /// <summary>
     /// Gracefully shuts down the bot. Owner only.
+    /// Shows a confirmation dialog before shutting down.
     /// </summary>
     [SlashCommand("shutdown", "Gracefully shut down the bot")]
     [Preconditions.RequireOwner]
@@ -164,20 +187,34 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
             Context.Guild?.Name ?? "DM",
             Context.Guild?.Id ?? 0);
 
+        // Create state for shutdown confirmation
+        var state = new ShutdownState
+        {
+            RequestedAt = DateTime.UtcNow
+        };
+
+        var correlationId = _stateService.CreateState(Context.User.Id, state);
+
+        // Build confirmation buttons
+        var confirmId = ComponentIdBuilder.Build("shutdown", "confirm", Context.User.Id, correlationId);
+        var cancelId = ComponentIdBuilder.Build("shutdown", "cancel", Context.User.Id, correlationId);
+
+        var components = new ComponentBuilder()
+            .WithButton("Confirm Shutdown", confirmId, ButtonStyle.Danger)
+            .WithButton("Cancel", cancelId, ButtonStyle.Secondary)
+            .Build();
+
         var embed = new EmbedBuilder()
-            .WithTitle("⚠️ Bot Shutdown")
-            .WithDescription("The bot is shutting down gracefully...")
+            .WithTitle("⚠️ Shutdown Confirmation")
+            .WithDescription("Are you sure you want to shut down the bot? This will stop all services and disconnect from Discord.")
             .WithColor(Color.Orange)
             .WithCurrentTimestamp()
             .WithFooter("Owner Command")
             .Build();
 
-        await RespondAsync(embed: embed, ephemeral: true);
+        await RespondAsync(embed: embed, components: components, ephemeral: true);
 
-        _logger.LogWarning("Initiating bot shutdown as requested by owner");
-
-        // Trigger graceful shutdown
-        _lifetime.StopApplication();
+        _logger.LogInformation("Shutdown confirmation sent to user {UserId}", Context.User.Id);
     }
 
     /// <summary>

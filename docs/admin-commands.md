@@ -60,86 +60,153 @@ Started At: December 7, 2025 10:30 AM
 
 ### /guilds
 
-**Description:** List all guilds the bot is connected to
+**Description:** List all guilds the bot is connected to with interactive pagination
 
 **Permission:** Requires Administrator permission in the guild
 
-**Response Type:** Embed message with guild details
+**Response Type:** Ephemeral embed message with pagination buttons
 
 **Fields:**
-For each guild (up to 25):
+For each guild (up to 5 per page):
 - **Guild Name** - Display name of the guild
 - **Guild ID** - Unique Discord snowflake ID
-- **Member Count** - Total members in the guild
-- **Joined At** - Timestamp when the bot joined (relative format)
 
 **Sorting:** Guilds are sorted by member count in descending order
 
-**Limitations:**
-- Discord embed field limit: Maximum 25 guilds displayed
-- If the bot is in more than 25 guilds, a description indicates the total count
+**Pagination:**
+- **Page Size:** 5 guilds per page
+- **Navigation:** Previous and Next buttons for navigating pages
+- **Page Indicator:** Shows current page and total pages in title
+- **Total Count:** Shows total guild count in footer
+- **Button Behavior:**
+  - Previous button only shown when not on first page
+  - Next button only shown when not on last page
+  - Buttons automatically update page content when clicked
+
+**State Management:**
+- Interaction state stores guild list and pagination context
+- State expires after 15 minutes
+- Clicking pagination buttons updates the message in-place
 
 **Usage Example:**
 ```
 /guilds
 ```
 
-**Sample Output:**
+**Sample Output (Page 1):**
 ```
-📋 Connected Guilds (15)
+📋 Connected Guilds (Page 1/3)
 
-Gaming Community
-ID: 123456789012345678
-Members: 5,432
-Joined: 3 months ago
+**Gaming Community** (ID: 123456789012345678)
+**Developer Hub** (ID: 234567890123456789)
+**Tech Talk** (ID: 345678901234567890)
+**Anime Fans** (ID: 456789012345678901)
+**Music Lovers** (ID: 567890123456789012)
 
-Developer Hub
-ID: 234567890123456789
-Members: 2,150
-Joined: 1 week ago
+Total: 15 guilds
 
-[... additional guilds ...]
+[Next]
 ```
+
+**Sample Output (Page 2):**
+```
+📋 Connected Guilds (Page 2/3)
+
+**Book Club** (ID: 678901234567890123)
+**Fitness Group** (ID: 789012345678901234)
+**Art Community** (ID: 890123456789012345)
+**Cooking Enthusiasts** (ID: 901234567890123456)
+**Travel Blog** (ID: 012345678901234567)
+
+Total: 15 guilds
+
+[Previous] [Next]
+```
+
+**Interactive Workflow:**
+1. User runs `/guilds` command
+2. Bot responds with first page (5 guilds) and Next button
+3. User clicks "Next" to view next page
+4. Bot updates message with new page content and Previous/Next buttons
+5. User can navigate through all pages
+6. Interaction state expires after 15 minutes
+
+**Component Security:**
+- Only the user who invoked the command can click the pagination buttons
+- If another user tries to click, they receive "You cannot interact with this component"
+- If state expires, user receives "This interaction has expired" and must re-run the command
 
 **Error Conditions:**
 - Returns permission denied if user lacks Administrator permission
 - Shows "The bot is not connected to any guilds" if guild count is 0
+- Returns "You cannot interact with this component" if another user tries to click buttons
+- Returns "This interaction has expired" if buttons are clicked after 15-minute timeout
 
 ---
 
 ### /shutdown
 
-**Description:** Gracefully shut down the bot
+**Description:** Gracefully shut down the bot with interactive confirmation
 
 **Permission:** Requires bot owner status (not just Administrator)
 
-**Response Type:** Embed message with warning color
+**Response Type:** Ephemeral embed message with confirmation buttons
 
 **Behavior:**
 1. Validates that the user is the application owner
-2. Sends confirmation message to the user
-3. Logs the shutdown request with owner details
-4. Triggers `IHostApplicationLifetime.StopApplication()`
-5. Allows hosted services to shut down gracefully
+2. Sends confirmation dialog with two buttons: "Confirm Shutdown" (danger) and "Cancel" (secondary)
+3. Creates interaction state with correlation ID for tracking
+4. Waits for user to click a button (15-minute timeout)
+5. On confirmation, triggers `IHostApplicationLifetime.StopApplication()`
+6. On cancel, removes the buttons and displays cancellation message
 
 **Usage Example:**
 ```
 /shutdown
 ```
 
-**Sample Output:**
+**Initial Response:**
 ```
-⚠️ Bot Shutdown
-The bot is shutting down gracefully...
+⚠️ Shutdown Confirmation
+Are you sure you want to shut down the bot? This will stop all services and disconnect from Discord.
+
+[Confirm Shutdown] [Cancel]
 ```
+
+**After Confirmation:**
+```
+Shutdown confirmed. The bot is shutting down...
+```
+
+**After Cancellation:**
+```
+Shutdown cancelled.
+```
+
+**Interactive Workflow:**
+1. User runs `/shutdown` command
+2. Bot responds with confirmation dialog containing two buttons
+3. User clicks "Confirm Shutdown" to proceed or "Cancel" to abort
+4. Bot updates the message to remove buttons and show result
+5. If confirmed, bot initiates graceful shutdown
+6. All shutdown attempts are logged at WARNING level with user details
+
+**Component Security:**
+- Only the user who invoked the command can click the buttons
+- Permission is re-validated when the button is clicked (not just at command invocation)
+- Interaction state expires after 15 minutes
+- If state expires, user receives "This interaction has expired" and must re-run the command
 
 **Security:**
 - Only the Discord application owner can execute this command
 - Additional owner IDs can be configured in `appsettings.json` (future enhancement)
-- All shutdown attempts are logged at WARNING level
+- All shutdown confirmation and cancellation events are logged at INFO level
+- All shutdown requests are logged at WARNING level with owner details
 
 **Error Conditions:**
 - Returns "This command can only be used by the bot owner" for non-owners
+- Returns "You cannot interact with this component" if another user tries to click the buttons
+- Returns "This interaction has expired" if buttons are clicked after 15-minute timeout
 - Rate limiting does not apply to shutdown command by default
 
 ---
@@ -553,6 +620,7 @@ Correlation ID: 7a3f9b2c8d1e4f5a
 
 ## Related Documentation
 
+- [Interactive Components](interactive-components.md) - Button interactions, state management, and component ID conventions
 - [Permissions System](permissions.md) - Detailed precondition attribute documentation
 - [Database Schema](database-schema.md) - CommandLog entity and relationships
 - [Repository Pattern](repository-pattern.md) - ICommandLogRepository usage
