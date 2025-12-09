@@ -40,7 +40,7 @@ public class GeneralModule : InteractionModuleBase<SocketInteractionContext>
             .WithCurrentTimestamp()
             .Build();
 
-        await RespondAsync(embed: embed);
+        await RespondAsync(embed: embed, ephemeral: true);
 
         _logger.LogDebug("Ping command response sent successfully");
     }
