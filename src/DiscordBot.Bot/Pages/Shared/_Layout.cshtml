@@ -4,72 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Discord Bot Admin</title>
-    <!-- Tailwind CSS CDN for development (replace with compiled CSS in production) -->
-    <script>
-        // Define config BEFORE loading Tailwind CDN
-        window.tailwindConfig = {
-            theme: {
-                extend: {
-                    colors: {
-                        bg: {
-                            primary: '#1d2022',
-                            secondary: '#262a2d',
-                            tertiary: '#2f3336',
-                            hover: '#363a3e',
-                        },
-                        text: {
-                            primary: '#d7d3d0',
-                            secondary: '#a8a5a3',
-                            tertiary: '#7a7876',
-                            inverse: '#1d2022',
-                        },
-                        accent: {
-                            orange: {
-                                DEFAULT: '#cb4e1b',
-                                hover: '#e5591f',
-                                active: '#b04517',
-                                muted: '#cb4e1b33',
-                            },
-                            blue: {
-                                DEFAULT: '#098ecf',
-                                hover: '#0ba3ea',
-                                active: '#0879b3',
-                                muted: '#098ecf33',
-                            },
-                        },
-                        success: {
-                            DEFAULT: '#10b981',
-                            bg: '#10b98120',
-                            border: '#10b98150',
-                        },
-                        warning: {
-                            DEFAULT: '#f59e0b',
-                            bg: '#f59e0b20',
-                            border: '#f59e0b50',
-                        },
-                        error: {
-                            DEFAULT: '#ef4444',
-                            bg: '#ef444420',
-                            border: '#ef444450',
-                        },
-                        info: {
-                            DEFAULT: '#06b6d4',
-                            bg: '#06b6d420',
-                            border: '#06b6d450',
-                        },
-                        border: {
-                            primary: '#3f4447',
-                            secondary: '#2f3336',
-                            focus: '#098ecf',
-                        },
-                    },
-                }
-            }
-        };
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>tailwind.config = window.tailwindConfig;</script>
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
 </head>
 <body class="bg-bg-primary text-text-primary font-sans antialiased">
 
