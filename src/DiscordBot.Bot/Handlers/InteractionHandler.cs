@@ -54,6 +54,7 @@ public class InteractionHandler
         _client.Ready += OnReadyAsync;
         _client.InteractionCreated += OnInteractionCreatedAsync;
         _interactionService.SlashCommandExecuted += OnSlashCommandExecutedAsync;
+        _interactionService.ComponentCommandExecuted += OnComponentCommandExecutedAsync;
 
         _logger.LogDebug("Interaction handler initialized with {ModuleCount} modules", _interactionService.Modules.Count());
     }
@@ -271,6 +272,83 @@ public class InteractionHandler
             success,
             errorMessage,
             correlationId);
+    }
+
+    /// <summary>
+    /// Called after a component command (button, select menu, etc.) has been executed.
+    /// Logs the result of the component interaction execution.
+    /// </summary>
+    private async Task OnComponentCommandExecutedAsync(ComponentCommandInfo commandInfo, IInteractionContext context, Discord.Interactions.IResult result)
+    {
+        // Get execution context
+        var execContext = _executionContext.Value;
+        var correlationId = execContext?.CorrelationId ?? "unknown";
+        var stopwatch = execContext?.Stopwatch;
+
+        stopwatch?.Stop();
+        var executionTimeMs = (int)(stopwatch?.ElapsedMilliseconds ?? 0);
+
+        // Log with correlation ID
+        using (_logger.BeginScope(new Dictionary<string, object>
+        {
+            ["CorrelationId"] = correlationId
+        }))
+        {
+            if (result.IsSuccess)
+            {
+                _logger.LogInformation(
+                    "Component interaction '{CustomId}' executed successfully by {Username} in guild {GuildName} (ID: {GuildId}), ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
+                    commandInfo.Name,
+                    context.User.Username,
+                    context.Guild?.Name ?? "DM",
+                    context.Guild?.Id ?? 0,
+                    executionTimeMs,
+                    correlationId);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Component interaction '{CustomId}' failed for {Username} in guild {GuildName} (ID: {GuildId}). Error: {Error}, ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
+                    commandInfo.Name,
+                    context.User.Username,
+                    context.Guild?.Name ?? "DM",
+                    context.Guild?.Id ?? 0,
+                    result.ErrorReason,
+                    executionTimeMs,
+                    correlationId);
+
+                // Send error message to user for permission errors
+                if (result.Error == InteractionCommandError.UnmetPrecondition)
+                {
+                    var embed = new EmbedBuilder()
+                        .WithTitle("Permission Denied")
+                        .WithDescription(result.ErrorReason ?? "You do not have permission to use this component.")
+                        .WithColor(Color.Red)
+                        .WithFooter($"Correlation ID: {correlationId}")
+                        .WithCurrentTimestamp()
+                        .Build();
+
+                    try
+                    {
+                        if (context.Interaction.HasResponded)
+                        {
+                            await context.Interaction.FollowupAsync(embed: embed, ephemeral: true);
+                        }
+                        else
+                        {
+                            await context.Interaction.RespondAsync(embed: embed, ephemeral: true);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send permission error message to user, CorrelationId: {CorrelationId}", correlationId);
+                    }
+                }
+            }
+        }
+
+        // We don't log component interactions to database since they're follow-up actions
+        await Task.CompletedTask;
     }
 
     /// <summary>

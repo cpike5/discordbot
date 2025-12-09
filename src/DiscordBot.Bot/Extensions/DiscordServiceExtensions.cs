@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -56,8 +57,14 @@ public static class DiscordServiceExtensions
         // Register CommandExecutionLogger as singleton
         services.AddSingleton<ICommandExecutionLogger, CommandExecutionLogger>();
 
+        // Register InteractionStateService as singleton
+        services.AddSingleton<IInteractionStateService, InteractionStateService>();
+
         // Register BotHostedService as hosted service
         services.AddHostedService<BotHostedService>();
+
+        // Register InteractionStateCleanupService as hosted service
+        services.AddHostedService<InteractionStateCleanupService>();
 
         return services;
     }
