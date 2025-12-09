@@ -81,7 +81,7 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
             .WithFooter("Admin Command")
             .Build();
 
-        await RespondAsync(embed: embed);
+        await RespondAsync(embed: embed, ephemeral: true);
 
         _logger.LogDebug("Status command response sent successfully");
     }
@@ -145,7 +145,7 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
             }
         }
 
-        await RespondAsync(embed: embed.Build());
+        await RespondAsync(embed: embed.Build(), ephemeral: true);
 
         _logger.LogDebug("Guilds command response sent successfully");
     }
@@ -172,7 +172,7 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
             .WithFooter("Owner Command")
             .Build();
 
-        await RespondAsync(embed: embed);
+        await RespondAsync(embed: embed, ephemeral: true);
 
         _logger.LogWarning("Initiating bot shutdown as requested by owner");
 
