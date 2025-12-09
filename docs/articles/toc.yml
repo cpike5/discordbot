@@ -1,0 +1,32 @@
+- name: Overview
+  href: index.md
+- name: Getting Started
+  items:
+    - name: Requirements
+      href: requirements.md
+    - name: MVP Plan
+      href: mvp-plan.md
+- name: Architecture
+  items:
+    - name: Database Schema
+      href: database-schema.md
+    - name: Repository Pattern
+      href: repository-pattern.md
+    - name: Design System
+      href: design-system.md
+- name: API & Integration
+  items:
+    - name: REST API Endpoints
+      href: api-endpoints.md
+    - name: Interactive Components
+      href: interactive-components.md
+- name: Bot Features
+  items:
+    - name: Admin Commands
+      href: admin-commands.md
+    - name: Permissions
+      href: permissions.md
+- name: Operations
+  items:
+    - name: APM Tracing
+      href: apm-tracing-plan.md
