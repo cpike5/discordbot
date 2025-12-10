@@ -99,7 +99,7 @@ public class ComponentsModel : PageModel
         IconButtons = new List<ButtonViewModel>
         {
             new() { Text = "Save", Variant = ButtonVariant.Primary, IconLeft = "M5 13l4 4L19 7" },
-            new() { Text = "Delete", Variant = ButtonVariant.Danger, IconRight = "M6 18L18 6M6 6l12 12" },
+            new() { Text = "Delete", Variant = ButtonVariant.Danger, IconLeft = "M6 18L18 6M6 6l12 12" },
             new() { IsIconOnly = true, Variant = ButtonVariant.Ghost, IconLeft = "M15 12a3 3 0 11-6 0 3 3 0 016 0z", AriaLabel = "Settings" }
         };
 
