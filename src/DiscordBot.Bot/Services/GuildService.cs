@@ -36,12 +36,31 @@ public class GuildService : IGuildService
         _logger.LogDebug("Retrieving all guilds with merged Discord and database data");
 
         var dbGuilds = await _guildRepository.GetAllAsync(cancellationToken);
+        var dbGuildIds = dbGuilds.Select(g => g.Id).ToHashSet();
         var guilds = new List<GuildDto>();
 
+        // Add guilds from database, enriched with live Discord data
         foreach (var dbGuild in dbGuilds)
         {
             var discordGuild = _client.GetGuild(dbGuild.Id);
             guilds.Add(MapToDto(dbGuild, discordGuild));
+        }
+
+        // Add guilds from Discord client that aren't in the database yet
+        foreach (var discordGuild in _client.Guilds)
+        {
+            if (!dbGuildIds.Contains(discordGuild.Id))
+            {
+                guilds.Add(new GuildDto
+                {
+                    Id = discordGuild.Id,
+                    Name = discordGuild.Name,
+                    JoinedAt = discordGuild.CurrentUser?.JoinedAt?.UtcDateTime ?? DateTime.UtcNow,
+                    IsActive = true,
+                    MemberCount = discordGuild.MemberCount,
+                    IconUrl = discordGuild.IconUrl
+                });
+            }
         }
 
         _logger.LogInformation("Retrieved {Count} guilds", guilds.Count);
