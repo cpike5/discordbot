@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +19,8 @@ public class CommandExecutionLoggerTests
     private readonly Mock<IServiceScope> _mockScope;
     private readonly Mock<IServiceProvider> _mockServiceProvider;
     private readonly Mock<ICommandLogRepository> _mockCommandLogRepository;
+    private readonly Mock<IUserRepository> _mockUserRepository;
+    private readonly Mock<IGuildRepository> _mockGuildRepository;
     private readonly Mock<ILogger<CommandExecutionLogger>> _mockLogger;
     private readonly CommandExecutionLogger _service;
 
@@ -27,6 +30,8 @@ public class CommandExecutionLoggerTests
         _mockScope = new Mock<IServiceScope>();
         _mockServiceProvider = new Mock<IServiceProvider>();
         _mockCommandLogRepository = new Mock<ICommandLogRepository>();
+        _mockUserRepository = new Mock<IUserRepository>();
+        _mockGuildRepository = new Mock<IGuildRepository>();
         _mockLogger = new Mock<ILogger<CommandExecutionLogger>>();
 
         // Setup service scope factory chain
@@ -35,6 +40,22 @@ public class CommandExecutionLoggerTests
         _mockServiceProvider
             .Setup(sp => sp.GetService(typeof(ICommandLogRepository)))
             .Returns(_mockCommandLogRepository.Object);
+        _mockServiceProvider
+            .Setup(sp => sp.GetService(typeof(IUserRepository)))
+            .Returns(_mockUserRepository.Object);
+        _mockServiceProvider
+            .Setup(sp => sp.GetService(typeof(IGuildRepository)))
+            .Returns(_mockGuildRepository.Object);
+
+        // Setup default user upsert behavior
+        _mockUserRepository
+            .Setup(r => r.UpsertAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+
+        // Setup default guild upsert behavior
+        _mockGuildRepository
+            .Setup(r => r.UpsertAsync(It.IsAny<Guild>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guild g, CancellationToken _) => g);
 
         _service = new CommandExecutionLogger(_mockScopeFactory.Object, _mockLogger.Object);
     }
@@ -53,9 +74,12 @@ public class CommandExecutionLoggerTests
 
         var mockGuild = new Mock<IGuild>();
         mockGuild.Setup(g => g.Id).Returns(guildId);
+        mockGuild.Setup(g => g.Name).Returns("Test Guild");
 
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(userId);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns(mockGuild.Object);
@@ -100,9 +124,12 @@ public class CommandExecutionLoggerTests
 
         var mockGuild = new Mock<IGuild>();
         mockGuild.Setup(g => g.Id).Returns(guildId);
+        mockGuild.Setup(g => g.Name).Returns("Test Guild");
 
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(userId);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns(mockGuild.Object);
@@ -142,6 +169,8 @@ public class CommandExecutionLoggerTests
 
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(userId);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns((IGuild?)null); // DM context
@@ -180,6 +209,8 @@ public class CommandExecutionLoggerTests
 
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(userId);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns((IGuild?)null);
@@ -216,6 +247,8 @@ public class CommandExecutionLoggerTests
         // Arrange
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(123456789UL);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns((IGuild?)null);
@@ -251,6 +284,8 @@ public class CommandExecutionLoggerTests
         // Arrange
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(123456789UL);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns((IGuild?)null);
@@ -296,6 +331,8 @@ public class CommandExecutionLoggerTests
         // Arrange
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(123456789UL);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns((IGuild?)null);
@@ -322,6 +359,8 @@ public class CommandExecutionLoggerTests
         // Arrange
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(123456789UL);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns((IGuild?)null);
@@ -348,6 +387,8 @@ public class CommandExecutionLoggerTests
         // Arrange
         var mockUser = new Mock<IUser>();
         mockUser.Setup(u => u.Id).Returns(123456789UL);
+        mockUser.Setup(u => u.Username).Returns("TestUser");
+        mockUser.Setup(u => u.Discriminator).Returns("0");
 
         var mockContext = new Mock<IInteractionContext>();
         mockContext.Setup(c => c.Guild).Returns((IGuild?)null);
