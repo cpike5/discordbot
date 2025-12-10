@@ -11,7 +11,7 @@ namespace DiscordBot.Bot.Pages.Account;
 
 /// <summary>
 /// Page model for linking and unlinking Discord accounts from user profiles.
-/// Allows authenticated users to manage their Discord OAuth connection.
+/// Allows authenticated users to manage their Discord OAuth connection and bot verification.
 /// </summary>
 [Authorize]
 public class LinkDiscordModel : PageModel
@@ -21,6 +21,7 @@ public class LinkDiscordModel : PageModel
     private readonly IDiscordTokenService _tokenService;
     private readonly IDiscordUserInfoService _userInfoService;
     private readonly IGuildMembershipService _guildMembershipService;
+    private readonly IVerificationService _verificationService;
     private readonly DiscordOAuthSettings _oauthSettings;
     private readonly ILogger<LinkDiscordModel> _logger;
 
@@ -30,6 +31,7 @@ public class LinkDiscordModel : PageModel
         IDiscordTokenService tokenService,
         IDiscordUserInfoService userInfoService,
         IGuildMembershipService guildMembershipService,
+        IVerificationService verificationService,
         DiscordOAuthSettings oauthSettings,
         ILogger<LinkDiscordModel> logger)
     {
@@ -38,6 +40,7 @@ public class LinkDiscordModel : PageModel
         _tokenService = tokenService;
         _userInfoService = userInfoService;
         _guildMembershipService = guildMembershipService;
+        _verificationService = verificationService;
         _oauthSettings = oauthSettings;
         _logger = logger;
     }
@@ -76,6 +79,22 @@ public class LinkDiscordModel : PageModel
     /// List of guilds where the user has administrative permissions.
     /// </summary>
     public IReadOnlyList<DiscordGuildDto> UserGuilds { get; set; } = Array.Empty<DiscordGuildDto>();
+
+    /// <summary>
+    /// Indicates whether the user has a pending bot verification.
+    /// </summary>
+    public bool HasPendingVerification { get; set; }
+
+    /// <summary>
+    /// The pending verification code information, if any.
+    /// </summary>
+    public VerificationCode? PendingVerification { get; set; }
+
+    /// <summary>
+    /// The verification code entered by the user.
+    /// </summary>
+    [BindProperty]
+    public string? VerificationCode { get; set; }
 
     /// <summary>
     /// Status message to display to the user (success or error).
@@ -138,6 +157,16 @@ public class LinkDiscordModel : PageModel
         else
         {
             _logger.LogDebug("User {UserId} does not have Discord linked", user.Id);
+
+            // Check for pending verification
+            PendingVerification = await _verificationService.GetPendingVerificationAsync(user.Id);
+            HasPendingVerification = PendingVerification != null;
+
+            if (HasPendingVerification)
+            {
+                _logger.LogDebug("User {UserId} has pending verification (ID: {VerificationId}, Expires: {ExpiresAt})",
+                    user.Id, PendingVerification!.Id, PendingVerification.ExpiresAt);
+            }
         }
 
         return Page();
@@ -246,6 +275,143 @@ public class LinkDiscordModel : PageModel
         {
             _logger.LogError(ex, "Error unlinking Discord account for user {UserId}", user.Id);
             StatusMessage = "An error occurred while unlinking Discord account.";
+            IsSuccess = false;
+        }
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Handles POST requests to initiate bot verification.
+    /// Creates a pending verification record for the user.
+    /// </summary>
+    public async Task<IActionResult> OnPostInitiateBotVerificationAsync()
+    {
+        _logger.LogTrace("Entering {MethodName}", nameof(OnPostInitiateBotVerificationAsync));
+
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            _logger.LogWarning("User not found during bot verification initiation");
+            return NotFound("User not found.");
+        }
+
+        _logger.LogInformation("User {UserId} initiating bot verification", user.Id);
+
+        try
+        {
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            var result = await _verificationService.InitiateVerificationAsync(user.Id, ipAddress);
+
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Bot verification initiated successfully for user {UserId}, verification ID: {VerificationId}",
+                    user.Id, result.VerificationId);
+                StatusMessage = "Verification initiated. Run /verify-account in Discord to continue.";
+                IsSuccess = true;
+            }
+            else
+            {
+                _logger.LogWarning("Failed to initiate bot verification for user {UserId}: {ErrorCode} - {ErrorMessage}",
+                    user.Id, result.ErrorCode, result.ErrorMessage);
+                StatusMessage = result.ErrorMessage ?? "Failed to initiate verification.";
+                IsSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initiating bot verification for user {UserId}", user.Id);
+            StatusMessage = "An error occurred while initiating verification.";
+            IsSuccess = false;
+        }
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Handles POST requests to verify a code entered by the user.
+    /// Links the Discord account if the code is valid.
+    /// </summary>
+    public async Task<IActionResult> OnPostVerifyCodeAsync()
+    {
+        _logger.LogTrace("Entering {MethodName}", nameof(OnPostVerifyCodeAsync));
+
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            _logger.LogWarning("User not found during code verification");
+            return NotFound("User not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(VerificationCode))
+        {
+            _logger.LogWarning("User {UserId} submitted empty verification code", user.Id);
+            StatusMessage = "Please enter a verification code.";
+            IsSuccess = false;
+            return RedirectToPage();
+        }
+
+        // Remove any formatting (hyphens, spaces) from the code
+        var cleanCode = VerificationCode.Replace("-", "").Replace(" ", "").ToUpperInvariant();
+
+        _logger.LogInformation("User {UserId} attempting to verify code", user.Id);
+
+        try
+        {
+            var result = await _verificationService.ValidateCodeAsync(user.Id, cleanCode);
+
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Code verified successfully for user {UserId}, linked Discord user {DiscordUserId}",
+                    user.Id, result.LinkedDiscordUserId);
+                StatusMessage = $"Discord account successfully linked! Welcome, {result.LinkedDiscordUsername ?? "Discord User"}!";
+                IsSuccess = true;
+            }
+            else
+            {
+                _logger.LogWarning("Code verification failed for user {UserId}: {ErrorCode} - {ErrorMessage}",
+                    user.Id, result.ErrorCode, result.ErrorMessage);
+                StatusMessage = result.ErrorMessage ?? "Invalid verification code.";
+                IsSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying code for user {UserId}", user.Id);
+            StatusMessage = "An error occurred while verifying the code.";
+            IsSuccess = false;
+        }
+
+        return RedirectToPage();
+    }
+
+    /// <summary>
+    /// Handles POST requests to cancel pending verification.
+    /// </summary>
+    public async Task<IActionResult> OnPostCancelVerificationAsync()
+    {
+        _logger.LogTrace("Entering {MethodName}", nameof(OnPostCancelVerificationAsync));
+
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            _logger.LogWarning("User not found during verification cancellation");
+            return NotFound("User not found.");
+        }
+
+        _logger.LogInformation("User {UserId} cancelling pending verification", user.Id);
+
+        try
+        {
+            await _verificationService.CancelPendingVerificationAsync(user.Id);
+            _logger.LogInformation("Verification cancelled successfully for user {UserId}", user.Id);
+            StatusMessage = "Verification cancelled.";
+            IsSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling verification for user {UserId}", user.Id);
+            StatusMessage = "An error occurred while cancelling verification.";
             IsSuccess = false;
         }
 
