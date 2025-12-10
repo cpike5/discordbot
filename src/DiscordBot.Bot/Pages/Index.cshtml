@@ -35,6 +35,13 @@
     </div>
 </div>
 
+<!-- Command Usage Statistics Section -->
+<div class="mb-8">
+    <partial name="Shared/Components/_CommandStatsCard" model="Model.CommandStats" />
+</div>
+
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="~/js/bot-status-refresh.js" asp-append-version="true"></script>
+    <script src="~/js/command-stats-chart.js" asp-append-version="true"></script>
 }
