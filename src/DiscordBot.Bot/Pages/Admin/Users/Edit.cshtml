@@ -110,12 +110,15 @@
                         Value = r.Value,
                         Text = r.Text
                     }).ToList();
+                    // Map "None" to empty string so the placeholder is shown for users without roles
+                    var selectedRole = Model.Input.Role == "None" ? "" : Model.Input.Role;
                     var roleModel = new DiscordBot.Bot.ViewModels.Components.FormSelectViewModel {
                         Id = "Input_Role",
                         Name = "Input.Role",
                         Label = "Role",
+                        Placeholder = "Select a role",
                         Options = roleOptions,
-                        SelectedValue = Model.Input.Role,
+                        SelectedValue = selectedRole,
                         IsRequired = true,
                         IsDisabled = !Model.ViewModel.CanChangeRole,
                         HelpText = roleHelpText
