@@ -1,0 +1,57 @@
+@model DiscordBot.Bot.ViewModels.Pages.BotStatusViewModel
+@{
+    var statusIndicatorModel = new DiscordBot.Bot.ViewModels.Components.StatusIndicatorViewModel
+    {
+        Status = Model.StatusType,
+        DisplayStyle = DiscordBot.Bot.ViewModels.Components.StatusDisplayStyle.BadgeStyle,
+        IsPulsing = Model.StatusType == DiscordBot.Bot.ViewModels.Components.StatusType.Online
+    };
+}
+
+<!-- Bot Status Card -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-5" data-bot-status-card>
+    <!-- Card Header -->
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-text-primary">Bot Status</h2>
+        <partial name="Shared/Components/_StatusIndicator" model="statusIndicatorModel" />
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+        <!-- Connection State -->
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Connection</p>
+            <div class="flex items-center gap-2">
+                <partial name="Shared/Components/_StatusIndicator" model="@(new DiscordBot.Bot.ViewModels.Components.StatusIndicatorViewModel { Status = Model.StatusType, DisplayStyle = DiscordBot.Bot.ViewModels.Components.StatusDisplayStyle.DotOnly, Size = DiscordBot.Bot.ViewModels.Components.StatusSize.Small })" />
+                <p class="text-sm font-medium text-text-primary" data-connection-state>@Model.ConnectionState</p>
+            </div>
+        </div>
+
+        <!-- Latency -->
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Latency</p>
+            <p class="text-sm font-medium text-text-primary">
+                <span data-latency>@Model.LatencyMs</span><span class="text-text-secondary"> ms</span>
+            </p>
+        </div>
+
+        <!-- Uptime -->
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Uptime</p>
+            <p class="text-sm font-medium text-text-primary" data-uptime>@Model.UptimeFormatted</p>
+        </div>
+
+        <!-- Guild Count -->
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Servers</p>
+            <p class="text-sm font-medium text-text-primary" data-guild-count>@Model.GuildCount</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="pt-3 border-t border-border-primary">
+        <p class="text-xs text-text-tertiary">
+            Last updated: <span data-last-updated>Just now</span>
+        </p>
+    </div>
+</div>

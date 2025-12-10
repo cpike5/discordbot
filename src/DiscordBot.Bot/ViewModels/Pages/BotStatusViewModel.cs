@@ -1,4 +1,5 @@
 using DiscordBot.Core.DTOs;
+using DiscordBot.Bot.ViewModels.Components;
 
 namespace DiscordBot.Bot.ViewModels.Pages;
 
@@ -43,6 +44,11 @@ public record BotStatusViewModel
     public bool IsOnline { get; init; }
 
     /// <summary>
+    /// Gets the status type for visual representation.
+    /// </summary>
+    public StatusType StatusType { get; init; }
+
+    /// <summary>
     /// Creates a <see cref="BotStatusViewModel"/> from a <see cref="BotStatusDto"/>.
     /// </summary>
     /// <param name="dto">The bot status DTO to map from.</param>
@@ -57,7 +63,8 @@ public record BotStatusViewModel
             StartTime = dto.StartTime,
             BotUsername = dto.BotUsername,
             ConnectionState = dto.ConnectionState,
-            IsOnline = dto.ConnectionState.Equals("Connected", StringComparison.OrdinalIgnoreCase)
+            IsOnline = dto.ConnectionState.Equals("Connected", StringComparison.OrdinalIgnoreCase),
+            StatusType = MapConnectionStateToStatusType(dto.ConnectionState)
         };
     }
 
@@ -79,5 +86,21 @@ public record BotStatusViewModel
         }
 
         return $"{uptime.Minutes}m";
+    }
+
+    /// <summary>
+    /// Maps Discord connection state to a status type for visual representation.
+    /// </summary>
+    /// <param name="connectionState">The connection state string from Discord.</param>
+    /// <returns>The corresponding <see cref="StatusType"/>.</returns>
+    private static StatusType MapConnectionStateToStatusType(string connectionState)
+    {
+        return connectionState.ToUpperInvariant() switch
+        {
+            "CONNECTED" => StatusType.Online,
+            "CONNECTING" => StatusType.Idle,
+            "DISCONNECTING" => StatusType.Busy,
+            _ => StatusType.Offline
+        };
     }
 }
