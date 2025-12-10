@@ -2,6 +2,33 @@
 
 A Discord bot built with .NET 8 and Discord.NET that provides a foundation for managing Discord servers through slash commands, a REST API, and a Razor Pages admin UI. The system combines a hosted Discord bot service with a Web API and admin dashboard for management and monitoring.
 
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Configuration](#configuration)
+  - [Running the Bot](#running-the-bot)
+- [Architecture](#architecture)
+  - [Key Components](#key-components)
+- [Commands](#commands)
+- [Logging](#logging)
+  - [Log Levels](#log-levels)
+- [Development](#development)
+  - [Adding New Commands](#adding-new-commands)
+  - [Building and Testing](#building-and-testing)
+  - [Adding Migrations](#adding-migrations)
+- [Project Structure](#project-structure)
+- [Configuration Reference](#configuration-reference)
+  - [appsettings.json](#appsettingsjson)
+  - [User Secrets](#user-secrets)
+- [Dependencies](#dependencies)
+- [Security](#security)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+- [Related Documentation](#related-documentation)
+
 ## Features
 
 - Slash command framework with automatic discovery and registration
