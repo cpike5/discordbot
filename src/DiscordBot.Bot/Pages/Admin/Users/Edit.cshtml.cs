@@ -90,11 +90,17 @@ public class EditModel : PageModel
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(currentUserId))
         {
+            _logger.LogWarning("OnPostAsync: Unauthorized - no current user ID");
             return Unauthorized();
         }
 
+        _logger.LogInformation("OnPostAsync: Received form data - UserId={UserId}, Email={Email}, DisplayName={DisplayName}, Role={Role}, IsActive={IsActive}",
+            Input.UserId, Input.Email, Input.DisplayName, Input.Role, Input.IsActive);
+
         if (!ModelState.IsValid)
         {
+            _logger.LogWarning("OnPostAsync: ModelState is invalid. Errors: {Errors}",
+                string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
             var user = await _userManagementService.GetUserByIdAsync(Input.UserId);
             if (user == null)
             {
@@ -114,6 +120,9 @@ public class EditModel : PageModel
             Role = Input.Role,
             IsActive = Input.IsActive
         };
+
+        _logger.LogInformation("OnPostAsync: Created UpdateDto - Email={Email}, DisplayName={DisplayName}, Role={Role}, IsActive={IsActive}",
+            updateDto.Email, updateDto.DisplayName, updateDto.Role, updateDto.IsActive);
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
         var result = await _userManagementService.UpdateUserAsync(Input.UserId, updateDto, currentUserId, ipAddress);

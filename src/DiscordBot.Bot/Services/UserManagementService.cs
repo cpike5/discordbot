@@ -323,13 +323,22 @@ public class UserManagementService : IUserManagementService
         }
 
         // Handle role change
+        _logger.LogInformation("UpdateUserAsync: Checking role change. Request.Role={Role}, IsNullOrWhiteSpace={IsEmpty}",
+            request.Role, string.IsNullOrWhiteSpace(request.Role));
         if (!string.IsNullOrWhiteSpace(request.Role))
         {
+            _logger.LogInformation("UpdateUserAsync: Calling AssignRoleAsync with role={Role}", request.Role);
             var roleResult = await AssignRoleAsync(userId, request.Role, actorUserId, ipAddress, cancellationToken);
+            _logger.LogInformation("UpdateUserAsync: AssignRoleAsync returned Succeeded={Succeeded}, Error={Error}",
+                roleResult.Succeeded, roleResult.ErrorMessage);
             if (!roleResult.Succeeded)
             {
                 return roleResult;
             }
+        }
+        else
+        {
+            _logger.LogInformation("UpdateUserAsync: Skipping role assignment - Role is null/empty");
         }
 
         _logger.LogInformation("Successfully updated user {UserId}", userId);
