@@ -1,8 +1,44 @@
 @page
 @model DiscordBot.Bot.Pages.IndexModel
 @{
-    ViewData["Title"] = "Home";
+    ViewData["Title"] = "Dashboard";
 }
 
-<h1>Discord Bot Admin Dashboard</h1>
-<p>Welcome to the Discord Bot management interface.</p>
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Dashboard</h1>
+        <p class="mt-1 text-text-secondary">Welcome back! Here's an overview of your bot's performance.</p>
+    </div>
+</div>
+
+<!-- Stats Cards Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
+    <!-- Bot Status Card -->
+    <partial name="Shared/Components/_BotStatusCard" model="Model.BotStatus" />
+
+    <!-- Total Servers - Placeholder -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-center h-full">
+            <p class="text-text-tertiary font-medium">Coming Soon</p>
+        </div>
+    </div>
+
+    <!-- Active Users - Placeholder -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-center h-full">
+            <p class="text-text-tertiary font-medium">Coming Soon</p>
+        </div>
+    </div>
+
+    <!-- Commands Today - Placeholder -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-center h-full">
+            <p class="text-text-tertiary font-medium">Coming Soon</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/bot-status-refresh.js" asp-append-version="true"></script>
+}
