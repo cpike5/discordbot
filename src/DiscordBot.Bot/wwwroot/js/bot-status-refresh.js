@@ -19,22 +19,36 @@
     /**
      * Formats a TimeSpan string (e.g., "2.05:30:15") into human-readable format.
      * @param {string} timeSpanString - The TimeSpan string from the API
-     * @returns {string} Formatted uptime (e.g., "2d 5h 30m" or "5h 30m" or "30m")
+     * @returns {string} Formatted uptime (e.g., "2d 5h 30m" or "5h 30m" or "30m" or "<1m")
      */
     function formatUptime(timeSpanString) {
-        // Parse TimeSpan format: "days.hours:minutes:seconds" or "hours:minutes:seconds"
-        const parts = timeSpanString.split(/[.:]/);
-        let days = 0, hours = 0, minutes = 0;
+        // Parse TimeSpan format: "days.hours:minutes:seconds.fraction" or "hours:minutes:seconds.fraction"
+        // First, strip off any fractional seconds (after the last dot if it comes after a colon)
+        let cleanedString = timeSpanString;
+        const lastColonIndex = timeSpanString.lastIndexOf(':');
+        const lastDotIndex = timeSpanString.lastIndexOf('.');
+        if (lastDotIndex > lastColonIndex) {
+            // There's a fractional part in the seconds, remove it
+            cleanedString = timeSpanString.substring(0, lastDotIndex);
+        }
 
-        if (parts.length === 4) {
-            // Format: days.hours:minutes:seconds
-            days = parseInt(parts[0], 10);
-            hours = parseInt(parts[1], 10);
-            minutes = parseInt(parts[2], 10);
-        } else if (parts.length === 3) {
-            // Format: hours:minutes:seconds
-            hours = parseInt(parts[0], 10);
-            minutes = parseInt(parts[1], 10);
+        let days = 0, hours = 0, minutes = 0, seconds = 0;
+
+        // Check for days component (format: "days.hours:minutes:seconds")
+        const daysSplit = cleanedString.split('.');
+        if (daysSplit.length === 2 && daysSplit[1].includes(':')) {
+            // Has days component
+            days = parseInt(daysSplit[0], 10);
+            const timeParts = daysSplit[1].split(':');
+            hours = parseInt(timeParts[0], 10);
+            minutes = parseInt(timeParts[1], 10);
+            seconds = timeParts.length > 2 ? parseInt(timeParts[2], 10) : 0;
+        } else {
+            // No days component, format: "hours:minutes:seconds"
+            const timeParts = cleanedString.split(':');
+            hours = parseInt(timeParts[0], 10);
+            minutes = parseInt(timeParts[1], 10);
+            seconds = timeParts.length > 2 ? parseInt(timeParts[2], 10) : 0;
         }
 
         // Format output based on duration
@@ -42,8 +56,10 @@
             return `${days}d ${hours}h ${minutes}m`;
         } else if (hours > 0) {
             return `${hours}h ${minutes}m`;
-        } else {
+        } else if (minutes > 0) {
             return `${minutes}m`;
+        } else {
+            return '<1m';
         }
     }
 
