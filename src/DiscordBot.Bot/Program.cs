@@ -152,6 +152,10 @@ try
     // Add Discord OAuth Token Refresh background service
     builder.Services.AddHostedService<DiscordTokenRefreshService>();
 
+    // Add Verification services
+    builder.Services.AddScoped<IVerificationService, VerificationService>();
+    builder.Services.AddHostedService<VerificationCleanupService>();
+
     // Add HttpClient for Discord API calls
     builder.Services.AddHttpClient("Discord", client =>
     {

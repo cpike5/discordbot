@@ -209,6 +209,128 @@
                     <strong>Note:</strong> You'll be redirected to Discord to authorize this application. We only request the permissions necessary for guild management and authentication.
                 </p>
             </div>
+
+            @if (!Model.HasPendingVerification)
+            {
+                <!-- "Or" Divider -->
+                <div class="relative my-8 max-w-md mx-auto">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-border-primary"></div>
+                    </div>
+                    <div class="relative flex justify-center text-xs">
+                        <span class="px-3 bg-bg-secondary text-text-tertiary">or</span>
+                    </div>
+                </div>
+
+                <!-- Bot Verification - Initial State -->
+                <div class="max-w-md mx-auto text-left">
+                    <div class="flex items-start gap-3 mb-4">
+                        <!-- Bot Icon -->
+                        <div class="flex-shrink-0 w-10 h-10 bg-bg-tertiary rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-text-primary">Link via Discord Bot</h3>
+                            <p class="text-sm text-text-secondary mt-1">
+                                Already in a server with the bot? Link your account by running a command in Discord and entering a verification code here.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Start Verification Button -->
+                    <form method="post" asp-page-handler="InitiateBotVerification">
+                        <button type="submit" class="inline-flex items-center justify-center gap-2 py-2.5 px-4 w-full text-sm font-semibold text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-hover hover:border-border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Start Verification
+                        </button>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <!-- "Or" Divider -->
+                <div class="relative my-8 max-w-md mx-auto">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-border-primary"></div>
+                    </div>
+                    <div class="relative flex justify-center text-xs">
+                        <span class="px-3 bg-bg-secondary text-text-tertiary">or</span>
+                    </div>
+                </div>
+
+                <!-- Bot Verification - Pending State -->
+                <div class="max-w-md mx-auto text-left">
+                    <!-- Info Box with Instructions -->
+                    <div class="p-4 bg-info-bg border border-info-border rounded-lg mb-6">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                            </svg>
+                            <div class="text-sm text-info">
+                                <p class="font-semibold mb-1">Complete verification in Discord</p>
+                                <ol class="list-decimal list-inside space-y-1 text-info/90">
+                                    <li>Open Discord and go to a server with the bot</li>
+                                    <li>Run the command <code class="px-1.5 py-0.5 bg-info/20 rounded font-mono text-xs">/verify-account</code></li>
+                                    <li>Enter the code you receive below</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Expiry Notice -->
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-sm text-text-secondary">Verification pending</span>
+                        <span class="text-xs text-warning flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                            </svg>
+                            Expires @Model.PendingVerification!.ExpiresAt.ToLocalTime().ToString("h:mm tt")
+                        </span>
+                    </div>
+
+                    <!-- Verification Code Input Form -->
+                    <form method="post" asp-page-handler="VerifyCode">
+                        <div class="mb-4">
+                            <label asp-for="VerificationCode" class="block text-sm font-semibold text-text-primary mb-2">
+                                Verification Code
+                            </label>
+                            <input
+                                asp-for="VerificationCode"
+                                type="text"
+                                maxlength="7"
+                                placeholder="ABC-123"
+                                autocomplete="off"
+                                class="w-full px-4 py-3 text-2xl font-mono uppercase text-center tracking-widest text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors hover:border-border-focus focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                                aria-describedby="code-hint"
+                            />
+                            <p id="code-hint" class="mt-2 text-xs text-text-tertiary">
+                                Enter the 6-character code from the Discord bot
+                            </p>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-3">
+                            <button type="submit" class="btn inline-flex items-center justify-center gap-2 py-2.5 px-4 flex-1 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-orange focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Verify
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Cancel Button -->
+                    <form method="post" asp-page-handler="CancelVerification" class="mt-3">
+                        <button type="submit" class="btn inline-flex items-center justify-center gap-2 py-2 px-4 w-full text-sm font-semibold text-text-secondary bg-transparent border-0 rounded-md transition-colors hover:bg-bg-hover hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                            Cancel
+                        </button>
+                    </form>
+                </div>
+            }
         </div>
     }
 

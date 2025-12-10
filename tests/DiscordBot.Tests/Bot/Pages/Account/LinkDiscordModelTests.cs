@@ -28,6 +28,7 @@ public class LinkDiscordModelTests
     private readonly Mock<IDiscordTokenService> _mockTokenService;
     private readonly Mock<IDiscordUserInfoService> _mockUserInfoService;
     private readonly Mock<IGuildMembershipService> _mockGuildMembershipService;
+    private readonly Mock<IVerificationService> _mockVerificationService;
     private readonly DiscordOAuthSettings _oauthSettings;
     private readonly Mock<ILogger<LinkDiscordModel>> _mockLogger;
     private readonly LinkDiscordModel _pageModel;
@@ -64,6 +65,11 @@ public class LinkDiscordModelTests
         _mockTokenService = new Mock<IDiscordTokenService>();
         _mockUserInfoService = new Mock<IDiscordUserInfoService>();
         _mockGuildMembershipService = new Mock<IGuildMembershipService>();
+        _mockVerificationService = new Mock<IVerificationService>();
+
+        // Setup verification service default: no pending verification
+        _mockVerificationService.Setup(vs => vs.GetPendingVerificationAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((VerificationCode?)null);
 
         // Setup OAuth settings (configured by default)
         _oauthSettings = new DiscordOAuthSettings { IsConfigured = true };
@@ -81,6 +87,7 @@ public class LinkDiscordModelTests
             _mockTokenService.Object,
             _mockUserInfoService.Object,
             _mockGuildMembershipService.Object,
+            _mockVerificationService.Object,
             _oauthSettings,
             _mockLogger.Object);
 
@@ -300,6 +307,7 @@ public class LinkDiscordModelTests
             _mockTokenService.Object,
             _mockUserInfoService.Object,
             _mockGuildMembershipService.Object,
+            _mockVerificationService.Object,
             oauthSettings,
             _mockLogger.Object);
 

@@ -25,6 +25,7 @@ This section contains conceptual documentation and developer guides for the Disc
 
 ## Bot Features
 - [Admin Commands](admin-commands.md) - Slash command reference
+- [Bot Account Verification](bot-verification.md) - Discord bot account verification feature
 - [Permissions](permissions.md) - Permission system documentation
 
 ## Operations

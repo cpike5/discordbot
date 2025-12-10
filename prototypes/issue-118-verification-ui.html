@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discord Bot Verification UI - Prototype</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              primary: '#1d2022',
+              secondary: '#262a2d',
+              tertiary: '#2f3336',
+              hover: '#363a3e',
+            },
+            text: {
+              primary: '#d7d3d0',
+              secondary: '#a8a5a3',
+              tertiary: '#7a7876',
+              inverse: '#1d2022',
+            },
+            accent: {
+              orange: {
+                DEFAULT: '#cb4e1b',
+                hover: '#e5591f',
+                active: '#b04517',
+                muted: 'rgba(203, 78, 27, 0.2)',
+              },
+              blue: {
+                DEFAULT: '#098ecf',
+                hover: '#0ba3ea',
+                active: '#0879b3',
+                muted: 'rgba(9, 142, 207, 0.2)',
+              },
+            },
+            border: {
+              primary: '#3f4447',
+              secondary: '#2f3336',
+              focus: '#098ecf',
+            },
+            discord: {
+              DEFAULT: '#5865F2',
+              hover: '#4752C4',
+            },
+            success: {
+              DEFAULT: '#10b981',
+              bg: 'rgba(16, 185, 129, 0.1)',
+              border: 'rgba(16, 185, 129, 0.3)',
+            },
+            warning: {
+              DEFAULT: '#f59e0b',
+              bg: 'rgba(245, 158, 11, 0.1)',
+              border: 'rgba(245, 158, 11, 0.3)',
+            },
+            error: {
+              DEFAULT: '#ef4444',
+              bg: 'rgba(239, 68, 68, 0.1)',
+              border: 'rgba(239, 68, 68, 0.3)',
+            },
+            info: {
+              DEFAULT: '#06b6d4',
+              bg: 'rgba(6, 182, 212, 0.1)',
+              border: 'rgba(6, 182, 212, 0.3)',
+            },
+          },
+          fontFamily: {
+            sans: [
+              '-apple-system',
+              'BlinkMacSystemFont',
+              '"Segoe UI"',
+              'Roboto',
+              '"Helvetica Neue"',
+              'Arial',
+              'sans-serif',
+            ],
+            mono: [
+              'ui-monospace',
+              'SFMono-Regular',
+              '"SF Mono"',
+              'Menlo',
+              'Monaco',
+              'Consolas',
+              '"Liberation Mono"',
+              '"Courier New"',
+              'monospace',
+            ],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    /* Custom focus styles for accessibility */
+    *:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Button base styles */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      line-height: 1.5;
+      border-radius: 0.375rem;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      white-space: nowrap;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background-color: #cb4e1b;
+      color: #ffffff;
+      border-color: #cb4e1b;
+    }
+
+    .btn-primary:hover {
+      background-color: #e5591f;
+      border-color: #e5591f;
+    }
+
+    .btn-primary:active {
+      background-color: #b04517;
+      border-color: #b04517;
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      color: #d7d3d0;
+      border-color: #3f4447;
+    }
+
+    .btn-secondary:hover {
+      background-color: #363a3e;
+      border-color: #3f4447;
+    }
+
+    .btn-secondary:active {
+      background-color: #2f3336;
+    }
+
+    .btn-ghost {
+      background-color: transparent;
+      color: #a8a5a3;
+      border-color: transparent;
+    }
+
+    .btn-ghost:hover {
+      background-color: #363a3e;
+      color: #d7d3d0;
+    }
+
+    .btn-ghost:active {
+      background-color: #2f3336;
+    }
+
+    .btn-discord {
+      background-color: #5865F2;
+      color: #ffffff;
+      border-color: #5865F2;
+    }
+
+    .btn-discord:hover {
+      background-color: #4752C4;
+      border-color: #4752C4;
+    }
+
+    /* Form input styles */
+    .form-input {
+      width: 100%;
+      padding: 0.625rem 0.875rem;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .form-input::placeholder {
+      color: #7a7876;
+    }
+
+    .form-input:hover {
+      border-color: #098ecf;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+    }
+
+    .form-input.error {
+      border-color: #ef4444;
+    }
+
+    .form-input.error:focus {
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+    }
+
+    /* Verification code input - special styling */
+    .verification-code-input {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      text-transform: uppercase;
+      text-align: center;
+      letter-spacing: 0.25em;
+      font-size: 1.5rem;
+      padding: 1rem;
+    }
+
+    /* Smooth transitions */
+    .transition-colors {
+      transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, color 0.15s ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-bg-primary px-4 py-8 font-sans">
+
+  <div class="max-w-2xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-text-primary mb-2">Discord Account</h1>
+      <p class="text-text-secondary">Link your Discord account for seamless authentication and guild management</p>
+    </div>
+
+    <!-- State Toggle (for prototype demonstration) -->
+    <div class="mb-6 p-4 bg-bg-tertiary border border-border-primary rounded-lg">
+      <p class="text-sm font-semibold text-text-primary mb-3">Prototype State Toggle</p>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="showState('initial')" class="btn btn-secondary text-xs" id="btn-initial">Initial State</button>
+        <button onclick="showState('pending')" class="btn btn-secondary text-xs" id="btn-pending">Pending Verification</button>
+        <button onclick="showState('error')" class="btn btn-secondary text-xs" id="btn-error">Error State</button>
+      </div>
+    </div>
+
+    <!-- Discord Link Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg">
+
+      <!-- Discord Not Linked Section -->
+      <div class="text-center py-8">
+        <!-- Discord Icon -->
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+          <svg class="w-10 h-10 text-text-secondary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z" />
+          </svg>
+        </div>
+        <h2 class="text-xl font-semibold text-text-primary mb-2">No Discord Account Linked</h2>
+        <p class="text-text-secondary text-sm mb-6 max-w-md mx-auto">
+          Link your Discord account to enable seamless authentication and access guild management features.
+        </p>
+
+        <!-- Link Discord Button (OAuth) -->
+        <button type="button" class="btn btn-discord gap-2.5 py-2.5 px-6">
+          <!-- Discord Logo SVG -->
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+          </svg>
+          Link Discord Account
+        </button>
+
+        <!-- Info Note for OAuth -->
+        <div class="mt-6 p-4 bg-info-bg border border-info-border rounded-md text-left max-w-md mx-auto">
+          <p class="text-xs text-info">
+            <strong>Note:</strong> You'll be redirected to Discord to authorize this application. We only request the permissions necessary for guild management and authentication.
+          </p>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- SECTION 1: Bot Verification - Initial State -->
+        <!-- ============================================== -->
+        <div id="state-initial">
+          <!-- "Or" Divider -->
+          <div class="relative my-8 max-w-md mx-auto">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-border-primary"></div>
+            </div>
+            <div class="relative flex justify-center text-xs">
+              <span class="px-3 bg-bg-secondary text-text-tertiary">or</span>
+            </div>
+          </div>
+
+          <!-- Bot Verification Section -->
+          <div class="max-w-md mx-auto text-left">
+            <div class="flex items-start gap-3 mb-4">
+              <!-- Bot Icon -->
+              <div class="flex-shrink-0 w-10 h-10 bg-bg-tertiary rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 class="text-base font-semibold text-text-primary">Link via Discord Bot</h3>
+                <p class="text-sm text-text-secondary mt-1">
+                  Already in a server with the bot? Link your account by running a command in Discord and entering a verification code here.
+                </p>
+              </div>
+            </div>
+
+            <!-- Start Verification Button -->
+            <button type="button" class="btn btn-secondary w-full" onclick="showState('pending')">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Start Verification
+            </button>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- SECTION 2: Pending Verification State -->
+        <!-- ============================================== -->
+        <div id="state-pending" class="hidden">
+          <!-- "Or" Divider -->
+          <div class="relative my-8 max-w-md mx-auto">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-border-primary"></div>
+            </div>
+            <div class="relative flex justify-center text-xs">
+              <span class="px-3 bg-bg-secondary text-text-tertiary">or</span>
+            </div>
+          </div>
+
+          <!-- Pending Verification Form -->
+          <div class="max-w-md mx-auto text-left">
+            <!-- Info Box with Instructions -->
+            <div class="p-4 bg-info-bg border border-info-border rounded-lg mb-6">
+              <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+                <div class="text-sm text-info">
+                  <p class="font-semibold mb-1">Complete verification in Discord</p>
+                  <ol class="list-decimal list-inside space-y-1 text-info/90">
+                    <li>Open Discord and go to a server with the bot</li>
+                    <li>Run the command <code class="px-1.5 py-0.5 bg-info/20 rounded font-mono text-xs">/verify-account</code></li>
+                    <li>Enter the code you receive below</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            <!-- Expiry Notice -->
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-sm text-text-secondary">Verification pending</span>
+              <span class="text-xs text-warning flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+                </svg>
+                Expires in 14:32
+              </span>
+            </div>
+
+            <!-- Verification Code Input -->
+            <form id="verification-form">
+              <div class="mb-4">
+                <label for="verification-code" class="block text-sm font-semibold text-text-primary mb-2">
+                  Verification Code
+                </label>
+                <input
+                  type="text"
+                  id="verification-code"
+                  name="code"
+                  maxlength="7"
+                  placeholder="ABC-123"
+                  autocomplete="off"
+                  class="form-input verification-code-input"
+                  aria-describedby="code-hint"
+                />
+                <p id="code-hint" class="mt-2 text-xs text-text-tertiary">
+                  Enter the 6-character code from the Discord bot
+                </p>
+              </div>
+
+              <!-- Error Message (hidden by default) -->
+              <div id="error-message" class="hidden mb-4 p-3 bg-error-bg border border-error-border rounded-md">
+                <p class="text-sm text-error flex items-center gap-2">
+                  <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                  </svg>
+                  Invalid verification code. Please check and try again.
+                </p>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="flex gap-3">
+                <button type="submit" class="btn btn-primary flex-1">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Verify
+                </button>
+                <button type="button" class="btn btn-ghost" onclick="showState('initial')">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- SECTION 3: Error State (expired/invalid) -->
+        <!-- ============================================== -->
+        <div id="state-error" class="hidden">
+          <!-- "Or" Divider -->
+          <div class="relative my-8 max-w-md mx-auto">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-border-primary"></div>
+            </div>
+            <div class="relative flex justify-center text-xs">
+              <span class="px-3 bg-bg-secondary text-text-tertiary">or</span>
+            </div>
+          </div>
+
+          <!-- Error State Content -->
+          <div class="max-w-md mx-auto text-left">
+            <!-- Error Banner -->
+            <div class="p-4 bg-error-bg border border-error-border rounded-lg mb-6">
+              <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                </svg>
+                <div class="text-sm">
+                  <p class="font-semibold text-error mb-1">Verification Expired</p>
+                  <p class="text-error/90">
+                    Your verification request has expired. Please start a new verification to link your Discord account.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Retry Button -->
+            <button type="button" class="btn btn-secondary w-full" onclick="showState('pending')">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Try Again
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Documentation Section -->
+    <div class="mt-8 p-6 bg-bg-secondary border border-border-primary rounded-lg">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Prototype Documentation</h3>
+
+      <div class="space-y-4 text-sm text-text-secondary">
+        <div>
+          <h4 class="font-semibold text-text-primary mb-1">Section 1: Initial State</h4>
+          <p>Shows the "Link via Discord Bot" option with a "Start Verification" button. This appears after the OAuth button when the user has no pending verification.</p>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-text-primary mb-1">Section 2: Pending Verification State</h4>
+          <p>Shows the verification code entry form with instructions, countdown timer, and input field. The code input is styled with monospace font, uppercase, and centered text for easy code entry.</p>
+        </div>
+
+        <div>
+          <h4 class="font-semibold text-text-primary mb-1">Section 3: Error State</h4>
+          <p>Shows an error message when verification expires or fails, with a "Try Again" button to restart the process.</p>
+        </div>
+
+        <div class="pt-4 border-t border-border-primary">
+          <h4 class="font-semibold text-text-primary mb-2">CSS Classes Used</h4>
+          <ul class="list-disc list-inside space-y-1 text-xs font-mono">
+            <li>bg-info-bg, border-info-border, text-info - Info boxes</li>
+            <li>btn btn-primary - Primary action buttons</li>
+            <li>btn btn-secondary - Secondary/outline buttons</li>
+            <li>btn btn-ghost - Tertiary/cancel buttons</li>
+            <li>form-input - Standard input styling</li>
+            <li>verification-code-input - Monospace, uppercase, centered code input</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // State management for prototype demonstration
+    function showState(state) {
+      // Hide all states
+      document.getElementById('state-initial').classList.add('hidden');
+      document.getElementById('state-pending').classList.add('hidden');
+      document.getElementById('state-error').classList.add('hidden');
+
+      // Reset toggle button styles
+      document.getElementById('btn-initial').classList.remove('bg-accent-orange', 'text-white', 'border-accent-orange');
+      document.getElementById('btn-pending').classList.remove('bg-accent-orange', 'text-white', 'border-accent-orange');
+      document.getElementById('btn-error').classList.remove('bg-accent-orange', 'text-white', 'border-accent-orange');
+
+      // Show selected state and highlight button
+      document.getElementById('state-' + state).classList.remove('hidden');
+      document.getElementById('btn-' + state).classList.add('bg-accent-orange', 'text-white', 'border-accent-orange');
+
+      // Clear error message when switching states
+      document.getElementById('error-message').classList.add('hidden');
+      document.getElementById('verification-code').classList.remove('error');
+    }
+
+    // Initialize with initial state
+    showState('initial');
+
+    // Form submission handler for demonstration
+    document.getElementById('verification-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const codeInput = document.getElementById('verification-code');
+      const errorMessage = document.getElementById('error-message');
+      const code = codeInput.value.trim().toUpperCase();
+
+      // Simple validation for demonstration
+      if (!code || code.length < 6) {
+        codeInput.classList.add('error');
+        errorMessage.classList.remove('hidden');
+        return;
+      }
+
+      // Simulate successful verification
+      if (code === 'ABC-123' || code === 'ABC123') {
+        alert('Verification successful! In the real application, you would be redirected to the linked account view.');
+        showState('initial');
+        codeInput.value = '';
+      } else {
+        // Show error for invalid code
+        codeInput.classList.add('error');
+        errorMessage.classList.remove('hidden');
+      }
+    });
+
+    // Auto-format verification code input (add hyphen after 3 characters)
+    document.getElementById('verification-code').addEventListener('input', function(e) {
+      let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+      if (value.length > 3) {
+        value = value.slice(0, 3) + '-' + value.slice(3, 6);
+      }
+
+      e.target.value = value;
+
+      // Clear error state on input
+      if (e.target.classList.contains('error')) {
+        e.target.classList.remove('error');
+        document.getElementById('error-message').classList.add('hidden');
+      }
+    });
+
+    // Countdown timer simulation (for demonstration)
+    let timeRemaining = 872; // 14:32 in seconds
+
+    function updateTimer() {
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      const timerElement = document.querySelector('#state-pending .text-warning');
+
+      if (timerElement && timeRemaining > 0) {
+        timerElement.innerHTML = `
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+          </svg>
+          Expires in ${minutes}:${seconds.toString().padStart(2, '0')}
+        `;
+        timeRemaining--;
+      } else if (timeRemaining <= 0) {
+        showState('error');
+      }
+    }
+
+    // Update timer every second
+    setInterval(updateTimer, 1000);
+  </script>
+</body>
+</html>
