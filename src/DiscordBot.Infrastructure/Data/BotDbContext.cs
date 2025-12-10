@@ -19,6 +19,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<CommandLog> CommandLogs => Set<CommandLog>();
     public DbSet<UserGuildAccess> UserGuildAccess => Set<UserGuildAccess>();
     public DbSet<UserActivityLog> UserActivityLogs => Set<UserActivityLog>();
+    public DbSet<DiscordOAuthToken> DiscordOAuthTokens => Set<DiscordOAuthToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

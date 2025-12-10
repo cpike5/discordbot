@@ -41,4 +41,10 @@ public class ApplicationUser : IdentityUser
     /// Date and time of the user's last login.
     /// </summary>
     public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
+    /// Navigation property to the user's Discord OAuth token (one-to-one relationship).
+    /// Null if the user hasn't authenticated with Discord OAuth.
+    /// </summary>
+    public DiscordOAuthToken? DiscordOAuthToken { get; set; }
 }
