@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Discord bot management system built with .NET 8 and Discord.NET. Combines a Discord bot hosted service with a Web API for management, plus a future Razor Pages admin UI.
+Discord bot management system built with .NET 8 and Discord.NET. Combines a Discord bot hosted service with a Web API and Razor Pages admin UI for management.
 
 ## Build & Run Commands
 
@@ -26,6 +26,9 @@ dotnet ef migrations add MigrationName --project src/DiscordBot.Infrastructure -
 
 # Apply migrations
 dotnet ef database update --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot
+
+# Rebuild Tailwind CSS manually (auto-runs on dotnet build)
+cd src/DiscordBot.Bot && npm run build:css
 
 # Build documentation
 dotnet tool restore                    # First time: restore DocFX tool
@@ -79,15 +82,17 @@ Three-layer clean architecture:
 
 | Layer | Project | Purpose |
 |-------|---------|---------|
-| Domain | `DiscordBot.Core` | Entities, interfaces, DTOs, enums |
-| Infrastructure | `DiscordBot.Infrastructure` | EF Core DbContext, repositories, Serilog config |
-| Application | `DiscordBot.Bot` | Web API controllers, bot hosted service, command modules, DI composition |
+| Domain | `DiscordBot.Core` | Entities, interfaces, DTOs, enums, authorization roles |
+| Infrastructure | `DiscordBot.Infrastructure` | EF Core DbContext (with Identity), repositories, Serilog config |
+| Application | `DiscordBot.Bot` | Web API controllers, Razor Pages admin UI, bot hosted service, command modules, DI composition |
 
 **Key patterns:**
 - `DiscordSocketClient` registered as singleton, managed by `BotHostedService`
 - Repository pattern with interfaces in Core, implementations in Infrastructure
 - Serilog as logging provider, inject `ILogger<T>` via DI
+- ASP.NET Core Identity for authentication with Discord OAuth support
 - SQLite for dev/test, MSSQL/MySQL/PostgreSQL for production
+- Tailwind CSS for admin UI styling (auto-builds via npm on `dotnet build`)
 
 ## Key Documentation
 
@@ -98,6 +103,10 @@ Reference these docs for detailed specifications:
 - [docs/articles/design-system.md](docs/articles/design-system.md) - UI design tokens, color palette, component specs
 - [docs/articles/api-endpoints.md](docs/articles/api-endpoints.md) - REST API documentation
 - [docs/articles/interactive-components.md](docs/articles/interactive-components.md) - Button/component patterns
+- [docs/articles/identity-configuration.md](docs/articles/identity-configuration.md) - Authentication setup and troubleshooting
+- [docs/articles/authorization-policies.md](docs/articles/authorization-policies.md) - Role hierarchy and guild access
+- [docs/articles/user-management.md](docs/articles/user-management.md) - Admin UI user management
+- [docs/articles/bot-verification.md](docs/articles/bot-verification.md) - Discord account linking flow
 
 Build and serve documentation locally with `.\build-docs.ps1 -Serve` to view the full documentation site.
 
@@ -119,6 +128,28 @@ Build and serve documentation locally with `.\build-docs.ps1 -Serve` to view the
 2. Use `[SlashCommand("name", "description")]` attribute on methods
 3. Inject dependencies via constructor (logger, services, etc.)
 4. If using buttons/components, create separate component handler module
+
+## Admin UI (Razor Pages)
+
+Located in `src/DiscordBot.Bot/Pages/`:
+- Dashboard (`Index.cshtml`) - Bot status, guild stats, command stats cards
+- Account pages - Login, logout, Discord OAuth flow, account linking
+- Admin/Users - Full CRUD for user management (SuperAdmin only)
+
+**Shared Components** in `Pages/Shared/Components/`:
+- Reusable partial views (`_Alert`, `_Badge`, `_Button`, `_Card`, etc.)
+- ViewModels in `ViewModels/Components/` define component parameters
+
+**Authorization:**
+- Role hierarchy: SuperAdmin > Admin > Moderator > Viewer
+- Guild-specific access via `GuildAccessRequirement` and `GuildAccessHandler`
+- Discord claims transformation adds guild membership info
+
+**Adding a New Razor Page:**
+1. Create page in `Pages/` with `.cshtml` and `.cshtml.cs` files
+2. Use `[Authorize(Policy = "RequireAdmin")]` or appropriate policy
+3. Inject services via constructor in PageModel
+4. Use shared components via `@Html.Partial("Components/_ComponentName", viewModel)`
 
 ## Testing
 

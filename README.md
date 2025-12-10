@@ -1,20 +1,25 @@
 # Discord Bot Management System
 
-A Discord bot built with .NET 8 and Discord.NET that provides a foundation for managing Discord servers through slash commands and a REST API. The system combines a hosted Discord bot service with a Web API for external management and monitoring.
+A Discord bot built with .NET 8 and Discord.NET that provides a foundation for managing Discord servers through slash commands, a REST API, and a Razor Pages admin UI. The system combines a hosted Discord bot service with a Web API and admin dashboard for management and monitoring.
 
 ## Features
 
 - Slash command framework with automatic discovery and registration
+- Razor Pages admin UI with Tailwind CSS
+- ASP.NET Core Identity with Discord OAuth integration
+- Role-based authorization (SuperAdmin, Admin, Moderator, Viewer)
+- User management dashboard with Discord account linking
 - Structured logging with Serilog (console and rotating file outputs)
 - Clean architecture with separation of concerns
 - Graceful bot lifecycle management
-- Health check command for monitoring bot status
+- Swagger/OpenAPI documentation for REST API
 
 ## Quick Start
 
 ### Prerequisites
 
 - .NET 8 SDK
+- Node.js (for Tailwind CSS build)
 - Discord bot token ([Create a bot](https://discord.com/developers/applications))
 
 ### Configuration
@@ -34,6 +39,20 @@ dotnet user-secrets set "Discord:TestGuildId" "your-guild-id-here"
 
 When `TestGuildId` is set, commands register instantly to that guild. Without it, commands register globally (can take up to 1 hour to propagate).
 
+3. **Optional: Configure Discord OAuth for admin UI**:
+
+```bash
+dotnet user-secrets set "Discord:OAuth:ClientId" "your-client-id"
+dotnet user-secrets set "Discord:OAuth:ClientSecret" "your-client-secret"
+```
+
+4. **Optional: Configure default admin user**:
+
+```bash
+dotnet user-secrets set "Identity:DefaultAdmin:Email" "admin@example.com"
+dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
+```
+
 ### Running the Bot
 
 From the solution root:
@@ -46,7 +65,8 @@ The bot will:
 - Connect to Discord and appear online
 - Register slash commands
 - Log output to console and `logs/discordbot-YYYY-MM-DD.log`
-- Start a Web API on `http://localhost:5000` (default)
+- Start Web API and admin UI on `https://localhost:5001` (or `http://localhost:5000`)
+- Swagger docs available at `/swagger`
 
 To stop the bot gracefully, press `Ctrl+C`.
 
@@ -56,9 +76,9 @@ The solution follows a three-layer clean architecture pattern:
 
 | Layer | Project | Responsibility |
 |-------|---------|----------------|
-| **Domain** | `DiscordBot.Core` | Entities, interfaces, DTOs, enums |
-| **Infrastructure** | `DiscordBot.Infrastructure` | EF Core, repositories, logging configuration |
-| **Application** | `DiscordBot.Bot` | Web API controllers, bot hosted service, command modules |
+| **Domain** | `DiscordBot.Core` | Entities, interfaces, DTOs, enums, authorization roles |
+| **Infrastructure** | `DiscordBot.Infrastructure` | EF Core (with Identity), repositories, logging configuration |
+| **Application** | `DiscordBot.Bot` | Web API controllers, Razor Pages admin UI, bot hosted service, command modules |
 
 ### Key Components
 
@@ -66,8 +86,10 @@ The solution follows a three-layer clean architecture pattern:
 - **InteractionHandler**: Discovers and registers slash command modules automatically
 - **DiscordSocketClient**: Singleton client for Discord gateway communication
 - **Command Modules**: Slash command implementations inheriting from `InteractionModuleBase`
+- **Razor Pages**: Admin UI with Tailwind CSS for user/guild management
+- **Identity System**: ASP.NET Core Identity with Discord OAuth external login
 
-For detailed architecture documentation, see [docs/mvp-plan.md](docs/mvp-plan.md).
+For detailed architecture documentation, see [docs/articles/mvp-plan.md](docs/articles/mvp-plan.md).
 
 ## Commands
 
@@ -179,17 +201,24 @@ discordbot/
 ├── src/
 │   ├── DiscordBot.Core/           # Domain layer (entities, interfaces, DTOs)
 │   ├── DiscordBot.Infrastructure/ # EF Core DbContext, repositories, logging
-│   └── DiscordBot.Bot/            # Application layer (API + bot)
+│   └── DiscordBot.Bot/            # Application layer (API + bot + admin UI)
+│       ├── Authorization/         # Custom authorization handlers
 │       ├── Commands/              # Slash command modules
 │       ├── Components/            # Interactive component utilities
 │       ├── Controllers/           # REST API controllers
+│       ├── Extensions/            # DI and service extensions
 │       ├── Handlers/              # Interaction handlers
+│       ├── Pages/                 # Razor Pages admin UI
+│       │   ├── Account/           # Login, logout, OAuth pages
+│       │   ├── Admin/Users/       # User management CRUD
+│       │   └── Shared/            # Layouts, partials, components
 │       ├── Preconditions/         # Permission check attributes
 │       ├── Services/              # Bot hosted service, state management
+│       ├── ViewModels/            # Page and component view models
 │       └── Program.cs             # DI composition root
 ├── tests/
 │   └── DiscordBot.Tests/          # Unit and integration tests
-├── docs/                          # Documentation
+├── docs/                          # DocFX documentation
 └── logs/                          # Log files (created at runtime)
 ```
 
@@ -220,20 +249,27 @@ Required secrets:
 
 Optional secrets:
 - `Discord:TestGuildId`: Guild ID for development command testing
+- `Discord:OAuth:ClientId`: Discord OAuth client ID for admin login
+- `Discord:OAuth:ClientSecret`: Discord OAuth client secret
+- `Identity:DefaultAdmin:Email`: Default admin user email
+- `Identity:DefaultAdmin:Password`: Default admin user password
 
 ## Dependencies
 
 ### Core Packages
 
 - **Discord.Net** (3.18.0): Discord API client and gateway
-- **Serilog** (10.x): Structured logging framework
-- **Microsoft.Extensions.Hosting**: Generic host for background services
+- **AspNet.Security.OAuth.Discord** (8.0.0): Discord OAuth authentication
+- **Microsoft.AspNetCore.Identity.EntityFrameworkCore** (8.0.0): ASP.NET Core Identity
+- **Serilog.AspNetCore** (8.0.0): Structured logging framework
+- **Swashbuckle.AspNetCore** (6.5.0): Swagger/OpenAPI documentation
 
 ### Development
 
 - **xUnit**: Test framework
 - **FluentAssertions**: Assertion library
 - **Moq**: Mocking framework
+- **Tailwind CSS**: Utility-first CSS framework (built via npm)
 
 ## Security
 
@@ -277,8 +313,11 @@ This project is for educational and development purposes.
 
 ## Related Documentation
 
-- [MVP Implementation Plan](docs/mvp-plan.md) - Detailed architecture and roadmap
-- [Requirements](docs/requirements.md) - Technology stack and specifications
-- [Design System](docs/design-system.md) - UI design tokens and components
-- [API Endpoints](docs/api-endpoints.md) - REST API documentation
-- [Interactive Components](docs/interactive-components.md) - Button/component patterns
+- [MVP Implementation Plan](docs/articles/mvp-plan.md) - Detailed architecture and roadmap
+- [Requirements](docs/articles/requirements.md) - Technology stack and specifications
+- [Design System](docs/articles/design-system.md) - UI design tokens and components
+- [API Endpoints](docs/articles/api-endpoints.md) - REST API documentation
+- [Interactive Components](docs/articles/interactive-components.md) - Button/component patterns
+- [Identity Configuration](docs/articles/identity-configuration.md) - Authentication setup
+- [Authorization Policies](docs/articles/authorization-policies.md) - Role hierarchy and access control
+- [User Management](docs/articles/user-management.md) - Admin UI user management
