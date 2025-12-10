@@ -151,6 +151,55 @@ public class ExternalLoginModel : PageModel
             return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
         }
 
+        // Check if a user with this Discord ID already exists (they may have changed their email)
+        if (ulong.TryParse(discordId, out var parsedDiscordId))
+        {
+            var existingDiscordUser = _userManager.Users.FirstOrDefault(u => u.DiscordUserId == parsedDiscordId);
+            if (existingDiscordUser != null)
+            {
+                // User exists with this Discord ID - link the external login and update their info
+                _logger.LogInformation("Found existing user with Discord ID {DiscordId}, linking {Provider} login", discordId, info.LoginProvider);
+
+                var addLoginResult = await _userManager.AddLoginAsync(existingDiscordUser, info);
+                if (addLoginResult.Succeeded || addLoginResult.Errors.Any(e => e.Code == "LoginAlreadyAssociated"))
+                {
+                    // Update Discord info and email if changed
+                    await UpdateExistingUserDiscordInfoAsync(existingDiscordUser, discordId, discordUsername, avatarHash);
+
+                    // Update email if it changed
+                    if (!string.Equals(existingDiscordUser.Email, email, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _logger.LogInformation("Updating email for user {UserId} from {OldEmail} to {NewEmail}",
+                            existingDiscordUser.Id, existingDiscordUser.Email, email);
+                        existingDiscordUser.Email = email;
+                        existingDiscordUser.NormalizedEmail = email.ToUpperInvariant();
+                        existingDiscordUser.UserName = email;
+                        existingDiscordUser.NormalizedUserName = email.ToUpperInvariant();
+                        await _userManager.UpdateAsync(existingDiscordUser);
+                    }
+
+                    // Store OAuth tokens BEFORE signing in if this is a Discord login
+                    if (info.LoginProvider == "Discord")
+                    {
+                        await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+                    }
+
+                    await _signInManager.SignInAsync(existingDiscordUser, isPersistent: true);
+                    _logger.LogInformation("User {Email} signed in after linking {Provider}", email, info.LoginProvider);
+
+                    return LocalRedirect(returnUrl);
+                }
+
+                foreach (var error in addLoginResult.Errors)
+                {
+                    _logger.LogWarning("Error linking external login to existing Discord user: {Error}", error.Description);
+                }
+
+                ErrorMessage = "Unable to link Discord account to existing user.";
+                return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+            }
+        }
+
         // Check if a user with this email already exists
         var existingUser = await _userManager.FindByEmailAsync(email);
         if (existingUser != null)
