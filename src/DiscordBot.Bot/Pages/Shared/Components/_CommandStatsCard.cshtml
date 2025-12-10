@@ -1,0 +1,103 @@
+@model DiscordBot.Bot.ViewModels.Pages.CommandStatsViewModel
+@using System.Text.Json
+
+@{
+    // Prepare chart data for JavaScript
+    var chartData = new
+    {
+        labels = Model.TopCommands.Select(c => c.CommandName).ToArray(),
+        counts = Model.TopCommands.Select(c => c.Count).ToArray(),
+        totalCommands = Model.TotalCommands,
+        timeRangeHours = Model.TimeRangeHours
+    };
+    var chartDataJson = JsonSerializer.Serialize(chartData);
+}
+
+<!-- Command Usage Statistics Card -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-command-stats-card>
+    <!-- Card Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-accent-orange/10 rounded-lg">
+                <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-text-primary">Command Usage</h2>
+        </div>
+        <div class="flex items-center gap-3">
+            <label for="commandTimeRange" class="sr-only">Select time range</label>
+            <select
+                id="commandTimeRange"
+                class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer appearance-none pr-8"
+                style="background-image: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 fill=%27none%27 viewBox=%270 0 20 20%27%3e%3cpath stroke=%27%23a8a5a3%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%271.5%27 d=%27M6 8l4 4 4-4%27/%3e%3c/svg%3e'); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.25em 1.25em;"
+                aria-label="Select time range for statistics"
+                data-time-range-selector
+            >
+                <option value="24" selected="@(Model.TimeRangeHours == 24)">Last 24 hours</option>
+                <option value="168" selected="@(Model.TimeRangeHours == 168)">Last 7 days</option>
+                <option value="720" selected="@(Model.TimeRangeHours == 720)">Last 30 days</option>
+                <option value="" selected="@(!Model.TimeRangeHours.HasValue)">All time</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Card Body -->
+    <div class="p-5">
+        <!-- Total Count Display -->
+        <div class="mb-6 p-4 bg-bg-primary/50 rounded-lg border border-border-secondary">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Total Commands Executed</p>
+                    <p class="mt-1 text-3xl font-bold text-text-primary" data-total-count>@Model.TotalCommands.ToString("N0")</p>
+                </div>
+                <div class="text-text-secondary">
+                    <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.TopCommands.Any())
+        {
+            <!-- Chart Container -->
+            <div style="position: relative; min-height: 300px; max-height: 400px;">
+                <canvas id="commandUsageChart" aria-label="Horizontal bar chart showing top 10 commands by usage count" role="img"></canvas>
+            </div>
+        }
+        else
+        {
+            <!-- Empty State -->
+            <div class="py-12 text-center">
+                <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p class="text-text-secondary font-medium">No command data available</p>
+                <p class="text-sm text-text-tertiary mt-1">Commands will appear here once they are executed</p>
+            </div>
+        }
+    </div>
+
+    <!-- Card Footer -->
+    <div class="flex items-center justify-between px-5 py-3 border-t border-border-primary bg-bg-primary/30">
+        <span class="text-sm text-text-tertiary" data-command-count-label>
+            @if (Model.TopCommands.Any())
+            {
+                <text>Showing top @Model.TopCommands.Count commands</text>
+            }
+            else
+            {
+                <text>No commands to display</text>
+            }
+        </span>
+        <a href="/CommandLogs" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:ring-offset-2 focus:ring-offset-bg-secondary rounded px-2 py-1">
+            View All Logs
+        </a>
+    </div>
+</div>
+
+<!-- Embed initial chart data for JavaScript -->
+<script type="application/json" data-command-stats-initial>
+@Html.Raw(chartDataJson)
+</script>

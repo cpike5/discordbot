@@ -41,6 +41,30 @@ public class CommandExecutionLogger : ICommandExecutionLogger
             // Create a new scope to access scoped services (repositories are scoped)
             using var scope = _scopeFactory.CreateScope();
             var commandLogRepository = scope.ServiceProvider.GetRequiredService<ICommandLogRepository>();
+            var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+            var guildRepository = scope.ServiceProvider.GetRequiredService<IGuildRepository>();
+
+            // Ensure user exists before logging command (foreign key constraint)
+            await userRepository.UpsertAsync(new Core.Entities.User
+            {
+                Id = context.User.Id,
+                Username = context.User.Username,
+                Discriminator = context.User.Discriminator,
+                FirstSeenAt = DateTime.UtcNow,
+                LastSeenAt = DateTime.UtcNow
+            }, cancellationToken);
+
+            // Ensure guild exists before logging command (foreign key constraint)
+            if (context.Guild != null)
+            {
+                await guildRepository.UpsertAsync(new Core.Entities.Guild
+                {
+                    Id = context.Guild.Id,
+                    Name = context.Guild.Name,
+                    JoinedAt = DateTime.UtcNow,
+                    IsActive = true
+                }, cancellationToken);
+            }
 
             _logger.LogDebug(
                 "Logging command execution: {CommandName} by user {UserId} in guild {GuildId}, Success: {Success}, ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",

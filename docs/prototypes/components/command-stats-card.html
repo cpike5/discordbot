@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Usage Statistics Card - Discord Bot Admin UI</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js 4.4.1 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Custom select dropdown styling */
+    .time-range-select {
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.5rem center;
+      background-repeat: no-repeat;
+      background-size: 1.25em 1.25em;
+      appearance: none;
+      padding-right: 2rem;
+    }
+
+    /* Chart container responsive height */
+    .chart-container {
+      position: relative;
+      min-height: 300px;
+      max-height: 400px;
+    }
+
+    @media (min-width: 768px) {
+      .chart-container {
+        min-height: 350px;
+      }
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Page Container -->
+  <div class="min-h-screen p-4 lg:p-8">
+    <div class="max-w-4xl mx-auto">
+
+      <!-- Page Header -->
+      <div class="mb-8">
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Command Usage Statistics Card</h1>
+        <p class="mt-1 text-text-secondary">A dashboard card component showing command usage analytics with Chart.js horizontal bar chart.</p>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- COMMAND STATS CARD COMPONENT -->
+      <!-- ========================================== -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">Component Preview</h2>
+
+        <!-- Command Usage Statistics Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <!-- Card Header -->
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+              <div class="p-2 bg-accent-orange/10 rounded-lg">
+                <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h2 class="text-lg font-semibold text-text-primary">Command Usage</h2>
+            </div>
+            <div class="flex items-center gap-3">
+              <label for="timeRange" class="sr-only">Select time range</label>
+              <select
+                id="timeRange"
+                class="time-range-select px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer"
+                aria-label="Select time range for statistics"
+              >
+                <option value="24h">Last 24 hours</option>
+                <option value="7d" selected>Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="all">All time</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Card Body -->
+          <div class="p-5">
+            <!-- Total Count Display -->
+            <div class="mb-6 p-4 bg-bg-primary/50 rounded-lg border border-border-secondary">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-text-secondary">Total Commands Executed</p>
+                  <p id="totalCount" class="mt-1 text-3xl font-bold text-text-primary">6,130</p>
+                </div>
+                <div id="trendIndicator" class="flex items-center gap-1 text-success">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                  </svg>
+                  <span id="trendValue" class="text-sm font-medium">+12.5%</span>
+                  <span class="text-xs text-text-tertiary ml-1">vs previous period</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chart Container -->
+            <div class="chart-container">
+              <canvas id="commandUsageChart" aria-label="Horizontal bar chart showing top 10 commands by usage count" role="img"></canvas>
+            </div>
+          </div>
+
+          <!-- Card Footer -->
+          <div class="flex items-center justify-between px-5 py-3 border-t border-border-primary bg-bg-primary/30">
+            <span id="commandCountLabel" class="text-sm text-text-tertiary">Showing top 10 commands</span>
+            <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:ring-offset-2 focus:ring-offset-bg-secondary rounded">
+              View All Logs
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- USAGE NOTES -->
+      <!-- ========================================== -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">Usage Notes</h2>
+
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+          <div class="space-y-4">
+            <div>
+              <h3 class="font-medium text-text-primary mb-2">Features</h3>
+              <ul class="list-disc list-inside text-sm text-text-secondary space-y-1">
+                <li>Time range selector with 4 options (24h, 7 days, 30 days, All time)</li>
+                <li>Prominent total count display with trend indicator</li>
+                <li>Horizontal bar chart showing top 10 commands</li>
+                <li>Responsive design for all screen sizes</li>
+                <li>Interactive tooltips showing count and percentage</li>
+                <li>Dark theme styling consistent with design system</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-medium text-text-primary mb-2">Accessibility</h3>
+              <ul class="list-disc list-inside text-sm text-text-secondary space-y-1">
+                <li>Proper ARIA labels for interactive elements</li>
+                <li>Screen reader accessible chart with descriptive label</li>
+                <li>Keyboard navigable dropdown selector</li>
+                <li>Visible focus indicators on interactive elements</li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 class="font-medium text-text-primary mb-2">Chart Colors (Design System)</h3>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(203, 78, 27, 0.2); color: #cb4e1b;">Orange</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(9, 142, 207, 0.2); color: #098ecf;">Blue</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(16, 185, 129, 0.2); color: #10b981;">Success</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(245, 158, 11, 0.2); color: #f59e0b;">Warning</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(6, 182, 212, 0.2); color: #06b6d4;">Info</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(239, 68, 68, 0.2); color: #ef4444;">Error</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(139, 92, 246, 0.2); color: #8b5cf6;">Purple</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(236, 72, 153, 0.2); color: #ec4899;">Pink</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(20, 184, 166, 0.2); color: #14b8a6;">Teal</span>
+                <span class="inline-flex items-center gap-1.5 px-2 py-1 text-xs rounded-full" style="background-color: rgba(99, 102, 241, 0.2); color: #6366f1;">Indigo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- COMPACT VARIANT -->
+      <!-- ========================================== -->
+      <section class="mb-12">
+        <h2 class="text-xl font-semibold text-text-primary mb-6 pb-2 border-b border-border-primary">Compact Variant</h2>
+        <p class="text-sm text-text-secondary mb-4">A smaller version suitable for sidebar or grid layouts.</p>
+
+        <div class="max-w-md">
+          <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <!-- Compact Card Header -->
+            <div class="flex items-center justify-between px-4 py-3 border-b border-border-primary">
+              <h3 class="text-sm font-semibold text-text-primary">Command Usage</h3>
+              <select
+                class="time-range-select px-2 py-1 text-xs bg-bg-primary border border-border-primary rounded text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer"
+                aria-label="Select time range"
+              >
+                <option value="24h">24h</option>
+                <option value="7d" selected>7d</option>
+                <option value="30d">30d</option>
+                <option value="all">All</option>
+              </select>
+            </div>
+
+            <!-- Compact Card Body -->
+            <div class="p-4">
+              <div class="text-center mb-4">
+                <p class="text-2xl font-bold text-text-primary">6,130</p>
+                <p class="text-xs text-text-tertiary">Total Commands</p>
+              </div>
+
+              <!-- Simple bar list for compact view -->
+              <div class="space-y-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-mono text-text-secondary w-12 truncate">/help</span>
+                  <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full rounded-full" style="width: 100%; background-color: #cb4e1b;"></div>
+                  </div>
+                  <span class="text-xs text-text-tertiary w-10 text-right">1,523</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-mono text-text-secondary w-12 truncate">/ping</span>
+                  <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full rounded-full" style="width: 65%; background-color: #098ecf;"></div>
+                  </div>
+                  <span class="text-xs text-text-tertiary w-10 text-right">987</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-mono text-text-secondary w-12 truncate">/play</span>
+                  <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full rounded-full" style="width: 56%; background-color: #10b981;"></div>
+                  </div>
+                  <span class="text-xs text-text-tertiary w-10 text-right">856</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-mono text-text-secondary w-12 truncate">/stats</span>
+                  <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full rounded-full" style="width: 49%; background-color: #f59e0b;"></div>
+                  </div>
+                  <span class="text-xs text-text-tertiary w-10 text-right">743</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-mono text-text-secondary w-12 truncate">/ban</span>
+                  <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden">
+                    <div class="h-full rounded-full" style="width: 34%; background-color: #06b6d4;"></div>
+                  </div>
+                  <span class="text-xs text-text-tertiary w-10 text-right">521</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Compact Card Footer -->
+            <div class="px-4 py-2 border-t border-border-primary bg-bg-primary/30">
+              <a href="#" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors">View All</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- JavaScript for Chart.js and Interactivity -->
+  <script>
+    // Design system chart colors
+    const chartColors = [
+      '#cb4e1b', // accent-orange
+      '#098ecf', // accent-blue
+      '#10b981', // success
+      '#f59e0b', // warning
+      '#06b6d4', // info
+      '#ef4444', // error
+      '#8b5cf6', // purple
+      '#ec4899', // pink
+      '#14b8a6', // teal
+      '#6366f1'  // indigo
+    ];
+
+    // Sample data for different time ranges
+    const sampleData = {
+      '24h': {
+        commands: [
+          { name: '/help', count: 423 },
+          { name: '/ping', count: 287 },
+          { name: '/play', count: 256 },
+          { name: '/stats', count: 143 },
+          { name: '/ban', count: 121 },
+          { name: '/kick', count: 112 },
+          { name: '/mute', count: 89 },
+          { name: '/queue', count: 76 },
+          { name: '/skip', count: 54 },
+          { name: '/unmute', count: 39 }
+        ],
+        total: 1600,
+        trend: '+8.2%'
+      },
+      '7d': {
+        commands: [
+          { name: '/help', count: 1523 },
+          { name: '/ping', count: 987 },
+          { name: '/play', count: 856 },
+          { name: '/stats', count: 743 },
+          { name: '/ban', count: 521 },
+          { name: '/kick', count: 412 },
+          { name: '/mute', count: 389 },
+          { name: '/queue', count: 276 },
+          { name: '/skip', count: 234 },
+          { name: '/unmute', count: 189 }
+        ],
+        total: 6130,
+        trend: '+12.5%'
+      },
+      '30d': {
+        commands: [
+          { name: '/help', count: 6892 },
+          { name: '/ping', count: 4521 },
+          { name: '/play', count: 3987 },
+          { name: '/stats', count: 3245 },
+          { name: '/ban', count: 2134 },
+          { name: '/kick', count: 1876 },
+          { name: '/mute', count: 1654 },
+          { name: '/queue', count: 1243 },
+          { name: '/skip', count: 987 },
+          { name: '/unmute', count: 761 }
+        ],
+        total: 27300,
+        trend: '+15.3%'
+      },
+      'all': {
+        commands: [
+          { name: '/help', count: 45234 },
+          { name: '/ping', count: 32145 },
+          { name: '/play', count: 28976 },
+          { name: '/stats', count: 21543 },
+          { name: '/ban', count: 15432 },
+          { name: '/kick', count: 12876 },
+          { name: '/mute', count: 10234 },
+          { name: '/queue', count: 8765 },
+          { name: '/skip', count: 6543 },
+          { name: '/unmute', count: 4321 }
+        ],
+        total: 186069,
+        trend: '+23.7%'
+      }
+    };
+
+    // Chart instance reference
+    let commandChart = null;
+
+    // Format number with commas
+    function formatNumber(num) {
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    // Initialize Chart
+    function initChart() {
+      const ctx = document.getElementById('commandUsageChart').getContext('2d');
+      const data = sampleData['7d'];
+
+      // Calculate percentages
+      const totalCount = data.commands.reduce((sum, cmd) => sum + cmd.count, 0);
+
+      commandChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.commands.map(cmd => cmd.name),
+          datasets: [{
+            label: 'Usage Count',
+            data: data.commands.map(cmd => cmd.count),
+            backgroundColor: chartColors,
+            borderColor: chartColors,
+            borderWidth: 1,
+            borderRadius: 4,
+            barThickness: 24
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              cornerRadius: 6,
+              displayColors: true,
+              callbacks: {
+                label: function(context) {
+                  const value = context.parsed.x;
+                  const percentage = ((value / totalCount) * 100).toFixed(1);
+                  return `Count: ${formatNumber(value)} (${percentage}%)`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: {
+                color: 'rgba(63, 68, 71, 0.5)',
+                drawBorder: false
+              },
+              ticks: {
+                color: '#7a7876',
+                font: {
+                  size: 12
+                },
+                callback: function(value) {
+                  if (value >= 1000) {
+                    return (value / 1000).toFixed(1) + 'k';
+                  }
+                  return value;
+                }
+              }
+            },
+            y: {
+              grid: {
+                display: false
+              },
+              ticks: {
+                color: '#a8a5a3',
+                font: {
+                  size: 13,
+                  family: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace'
+                },
+                padding: 8
+              }
+            }
+          },
+          animation: {
+            duration: 500,
+            easing: 'easeOutQuart'
+          }
+        }
+      });
+    }
+
+    // Update chart with new data
+    function updateChart(timeRange) {
+      const data = sampleData[timeRange];
+      const totalCount = data.commands.reduce((sum, cmd) => sum + cmd.count, 0);
+
+      // Update chart data
+      commandChart.data.labels = data.commands.map(cmd => cmd.name);
+      commandChart.data.datasets[0].data = data.commands.map(cmd => cmd.count);
+
+      // Update tooltip callback with new total
+      commandChart.options.plugins.tooltip.callbacks.label = function(context) {
+        const value = context.parsed.x;
+        const percentage = ((value / totalCount) * 100).toFixed(1);
+        return `Count: ${formatNumber(value)} (${percentage}%)`;
+      };
+
+      commandChart.update('active');
+
+      // Update total count display
+      document.getElementById('totalCount').textContent = formatNumber(data.total);
+      document.getElementById('trendValue').textContent = data.trend;
+
+      // Update command count label
+      document.getElementById('commandCountLabel').textContent = `Showing top ${data.commands.length} commands`;
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      initChart();
+
+      // Time range selector event listener
+      document.getElementById('timeRange').addEventListener('change', function() {
+        updateChart(this.value);
+      });
+    });
+  </script>
+
+</body>
+</html>

@@ -11,15 +11,22 @@ public class IndexModel : PageModel
     private readonly ILogger<IndexModel> _logger;
     private readonly IBotService _botService;
     private readonly IGuildService _guildService;
+    private readonly ICommandLogService _commandLogService;
 
     public BotStatusViewModel BotStatus { get; private set; } = default!;
     public GuildStatsViewModel GuildStats { get; private set; } = default!;
+    public CommandStatsViewModel CommandStats { get; private set; } = default!;
 
-    public IndexModel(ILogger<IndexModel> logger, IBotService botService, IGuildService guildService)
+    public IndexModel(
+        ILogger<IndexModel> logger,
+        IBotService botService,
+        IGuildService guildService,
+        ICommandLogService commandLogService)
     {
         _logger = logger;
         _botService = botService;
         _guildService = guildService;
+        _commandLogService = commandLogService;
     }
 
     public async Task OnGetAsync()
@@ -37,5 +44,14 @@ public class IndexModel : PageModel
 
         _logger.LogDebug("Guild stats retrieved: Total: {TotalGuilds}, Active: {ActiveGuilds}, Inactive: {InactiveGuilds}",
             GuildStats.TotalGuilds, GuildStats.ActiveGuilds, GuildStats.InactiveGuilds);
+
+        // Get command statistics for last 24 hours by default
+        var since = DateTime.UtcNow.AddHours(-24);
+        var commandStats = await _commandLogService.GetCommandStatsAsync(since);
+        CommandStats = CommandStatsViewModel.FromStats(commandStats, timeRangeHours: 24);
+
+        _logger.LogDebug("Command stats retrieved: Total: {TotalCommands}, Top command: {TopCommand}",
+            CommandStats.TotalCommands,
+            CommandStats.TopCommands.FirstOrDefault()?.CommandName ?? "None");
     }
 }
