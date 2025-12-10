@@ -88,6 +88,7 @@ try
                 options.ClientSecret = discordClientSecret!;
                 options.Scope.Add("identify");
                 options.Scope.Add("email");
+                options.Scope.Add("guilds"); // Required for fetching user's guild list
                 options.SaveTokens = true;
             });
     }
@@ -142,6 +143,21 @@ try
     builder.Services.AddScoped<IGuildService, GuildService>();
     builder.Services.AddScoped<ICommandLogService, CommandLogService>();
     builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+
+    // Add Discord OAuth services
+    builder.Services.AddScoped<IDiscordTokenService, DiscordTokenService>();
+    builder.Services.AddScoped<IDiscordUserInfoService, DiscordUserInfoService>();
+    builder.Services.AddScoped<IGuildMembershipService, GuildMembershipService>();
+
+    // Add Discord OAuth Token Refresh background service
+    builder.Services.AddHostedService<DiscordTokenRefreshService>();
+
+    // Add HttpClient for Discord API calls
+    builder.Services.AddHttpClient("Discord", client =>
+    {
+        client.BaseAddress = new Uri("https://discord.com/api/v10/");
+        client.DefaultRequestHeaders.Add("User-Agent", "DiscordBot-Admin");
+    });
 
     // Add Web API services
     builder.Services.AddControllers();

@@ -50,6 +50,7 @@ module.exports = {
         },
         error: {
           DEFAULT: '#ef4444',
+          hover: '#dc2626',
           bg: '#ef444420',
           border: '#ef444450',
         },
@@ -63,6 +64,11 @@ module.exports = {
           primary: '#3f4447',
           secondary: '#2f3336',
           focus: '#098ecf',
+        },
+        // Discord brand color
+        discord: {
+          DEFAULT: '#5865F2',
+          hover: '#4752C4',
         },
       },
       fontFamily: {

@@ -1,4 +1,6 @@
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Interfaces;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -15,15 +17,18 @@ public class ExternalLoginModel : PageModel
 {
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IDiscordTokenService _tokenService;
     private readonly ILogger<ExternalLoginModel> _logger;
 
     public ExternalLoginModel(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
+        IDiscordTokenService tokenService,
         ILogger<ExternalLoginModel> logger)
     {
         _signInManager = signInManager;
         _userManager = userManager;
+        _tokenService = tokenService;
         _logger = logger;
     }
 
@@ -73,6 +78,23 @@ public class ExternalLoginModel : PageModel
         ProviderDisplayName = info.ProviderDisplayName;
         _logger.LogInformation("External login callback received from {Provider}", info.LoginProvider);
 
+        // Extract OAuth tokens BEFORE signing in (they come from external auth cookie)
+        // IMPORTANT: Must specify the external authentication scheme - tokens are stored there, not in the default scheme
+        string? accessToken = null;
+        string? refreshToken = null;
+        string? expiresAt = null;
+        if (info.LoginProvider == "Discord")
+        {
+            accessToken = await HttpContext.GetTokenAsync(IdentityConstants.ExternalScheme, "access_token");
+            refreshToken = await HttpContext.GetTokenAsync(IdentityConstants.ExternalScheme, "refresh_token");
+            expiresAt = await HttpContext.GetTokenAsync(IdentityConstants.ExternalScheme, "expires_at");
+
+            _logger.LogDebug("Retrieved tokens from external auth - AccessToken: {HasAccess}, RefreshToken: {HasRefresh}, ExpiresAt: {ExpiresAt}",
+                !string.IsNullOrEmpty(accessToken),
+                !string.IsNullOrEmpty(refreshToken),
+                expiresAt ?? "null");
+        }
+
         // Try to sign in with existing external login
         var signInResult = await _signInManager.ExternalLoginSignInAsync(
             info.LoginProvider,
@@ -87,6 +109,12 @@ public class ExternalLoginModel : PageModel
             // Update user's Discord info and last login
             await UpdateUserDiscordInfoAsync(info);
 
+            // Store OAuth tokens if this is a Discord login
+            if (info.LoginProvider == "Discord")
+            {
+                await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+            }
+
             return LocalRedirect(returnUrl);
         }
 
@@ -98,13 +126,18 @@ public class ExternalLoginModel : PageModel
 
         // User doesn't have an account yet - create one
         _logger.LogInformation("Creating new user account for {Provider} login", info.LoginProvider);
-        return await CreateUserFromExternalLoginAsync(info, returnUrl);
+        return await CreateUserFromExternalLoginAsync(info, returnUrl, accessToken, refreshToken, expiresAt);
     }
 
     /// <summary>
     /// Creates a new user from external login information.
     /// </summary>
-    private async Task<IActionResult> CreateUserFromExternalLoginAsync(ExternalLoginInfo info, string returnUrl)
+    private async Task<IActionResult> CreateUserFromExternalLoginAsync(
+        ExternalLoginInfo info,
+        string returnUrl,
+        string? accessToken,
+        string? refreshToken,
+        string? expiresAt)
     {
         var email = info.Principal.FindFirstValue(ClaimTypes.Email);
         var discordId = info.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -131,8 +164,15 @@ public class ExternalLoginModel : PageModel
                 // Update Discord info
                 await UpdateExistingUserDiscordInfoAsync(existingUser, discordId, discordUsername, avatarHash);
 
+                // Store OAuth tokens BEFORE signing in if this is a Discord login
+                if (info.LoginProvider == "Discord")
+                {
+                    await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+                }
+
                 await _signInManager.SignInAsync(existingUser, isPersistent: true);
                 _logger.LogInformation("User {Email} signed in after linking {Provider}", email, info.LoginProvider);
+
                 return LocalRedirect(returnUrl);
             }
 
@@ -191,6 +231,12 @@ public class ExternalLoginModel : PageModel
         }
 
         _logger.LogInformation("Created new user {Email} via {Provider} OAuth", email, info.LoginProvider);
+
+        // Store OAuth tokens BEFORE signing in if this is a Discord login
+        if (info.LoginProvider == "Discord")
+        {
+            await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+        }
 
         // Sign in the new user
         await _signInManager.SignInAsync(user, isPersistent: true);
@@ -257,6 +303,82 @@ public class ExternalLoginModel : PageModel
         if (needsUpdate)
         {
             await _userManager.UpdateAsync(user);
+        }
+    }
+
+    /// <summary>
+    /// Stores OAuth tokens for a Discord user.
+    /// Tokens must be retrieved BEFORE calling SignInAsync as they come from the external auth cookie.
+    /// </summary>
+    /// <param name="info">The external login info from Discord.</param>
+    /// <param name="accessToken">The OAuth access token.</param>
+    /// <param name="refreshToken">The OAuth refresh token.</param>
+    /// <param name="expiresAt">The token expiration time (ISO 8601 string).</param>
+    private async Task StoreOAuthTokensAsync(ExternalLoginInfo info, string? accessToken, string? refreshToken, string? expiresAt)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                _logger.LogWarning("Access token not available from {Provider} OAuth callback - user may have denied permissions", info.LoginProvider);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                _logger.LogWarning("Refresh token not available from {Provider} OAuth callback", info.LoginProvider);
+                return;
+            }
+
+            if (string.IsNullOrEmpty(expiresAt))
+            {
+                _logger.LogWarning("Token expiration time not available from {Provider} OAuth callback", info.LoginProvider);
+                return;
+            }
+
+            // Parse Discord user ID
+            var discordId = info.Principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!ulong.TryParse(discordId, out var discordUserId))
+            {
+                _logger.LogWarning("Could not parse Discord user ID from external login claims");
+                return;
+            }
+
+            // Find the ApplicationUser
+            var user = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+            if (user == null)
+            {
+                _logger.LogWarning("Could not find user for external login {Provider}:{ProviderKey}", info.LoginProvider, info.ProviderKey);
+                return;
+            }
+
+            // Parse expiration time (ISO 8601 format)
+            if (!DateTime.TryParse(expiresAt, out var expirationTime))
+            {
+                _logger.LogWarning("Could not parse token expiration time: {ExpiresAt}", expiresAt);
+                return;
+            }
+
+            // Get scopes - they should be in the authentication properties or we use the default
+            var scopes = "identify email";
+            _logger.LogDebug("Storing OAuth tokens for user {UserId}, expires at {ExpiresAt}", user.Id, expirationTime);
+
+            // Store the tokens
+            await _tokenService.StoreTokensAsync(
+                user.Id,
+                discordUserId,
+                accessToken,
+                refreshToken,
+                expirationTime,
+                scopes,
+                HttpContext.RequestAborted);
+
+            _logger.LogInformation("Successfully stored OAuth tokens for user {UserId}, Discord ID {DiscordUserId}", user.Id, discordUserId);
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the login if token storage fails - user can still use the app
+            _logger.LogError(ex, "Failed to store OAuth tokens for {Provider} login", info.LoginProvider);
         }
     }
 }
