@@ -1,0 +1,256 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.Users.IndexModel
+@{
+    ViewData["Title"] = "User Management";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Users</h1>
+            <p class="mt-1 text-sm text-text-secondary">Manage application users and their roles</p>
+        </div>
+        @if (Model.ViewModel.CanCreateUsers)
+        {
+            <a asp-page="Create" class="btn btn-primary">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Create User
+            </a>
+        }
+    </div>
+
+    <!-- Success/Error Messages -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel { Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Success, Message = Model.SuccessMessage, IsDismissible = true }" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel { Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = true }" />
+        </div>
+    }
+
+    <!-- Search and Filters -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Search -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                <input
+                    type="text"
+                    name="SearchTerm"
+                    value="@Model.SearchTerm"
+                    placeholder="Email, name, or Discord username..."
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent" />
+            </div>
+
+            <!-- Role Filter -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Role</label>
+                <select
+                    name="RoleFilter"
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent">
+                    <option value="">All Roles</option>
+                    @foreach (var role in Model.ViewModel.AvailableRoles)
+                    {
+                        <option value="@role" selected="@(Model.RoleFilter == role)">@role</option>
+                    }
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Status</label>
+                <select
+                    name="ActiveFilter"
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent">
+                    <option value="">All</option>
+                    <option value="true" selected="@(Model.ActiveFilter == true)">Active</option>
+                    <option value="false" selected="@(Model.ActiveFilter == false)">Inactive</option>
+                </select>
+            </div>
+
+            <!-- Discord Filter -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Discord</label>
+                <select
+                    name="DiscordLinkedFilter"
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent">
+                    <option value="">All</option>
+                    <option value="true" selected="@(Model.DiscordLinkedFilter == true)">Linked</option>
+                    <option value="false" selected="@(Model.DiscordLinkedFilter == false)">Not Linked</option>
+                </select>
+            </div>
+
+            <!-- Search Button -->
+            <div class="md:col-span-4 flex justify-end gap-2">
+                <a asp-page="Index" class="btn btn-secondary">Clear</a>
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Search
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-border-primary">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Role</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Discord</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Last Login</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @if (Model.ViewModel.Users.Any())
+                    {
+                        @foreach (var user in Model.ViewModel.Users)
+                        {
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        @if (!string.IsNullOrEmpty(user.DiscordAvatarUrl))
+                                        {
+                                            <img class="h-10 w-10 rounded-full" src="@user.DiscordAvatarUrl" alt="@user.Email" />
+                                        }
+                                        else
+                                        {
+                                            <div class="h-10 w-10 rounded-full bg-accent-blue flex items-center justify-center">
+                                                <span class="text-white font-medium text-sm">@user.Email.Substring(0, 1).ToUpper()</span>
+                                            </div>
+                                        }
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-text-primary">@user.Email</div>
+                                            @if (!string.IsNullOrEmpty(user.DisplayName))
+                                            {
+                                                <div class="text-sm text-text-secondary">@user.DisplayName</div>
+                                            }
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @{
+                                        var badgeVariant = user.HighestRole switch
+                                        {
+                                            "SuperAdmin" => DiscordBot.Bot.ViewModels.Components.BadgeVariant.Error,
+                                            "Admin" => DiscordBot.Bot.ViewModels.Components.BadgeVariant.Orange,
+                                            "Moderator" => DiscordBot.Bot.ViewModels.Components.BadgeVariant.Blue,
+                                            "Viewer" => DiscordBot.Bot.ViewModels.Components.BadgeVariant.Info,
+                                            _ => DiscordBot.Bot.ViewModels.Components.BadgeVariant.Default
+                                        };
+                                    }
+                                    <partial name="Shared/Components/_Badge" model="new DiscordBot.Bot.ViewModels.Components.BadgeViewModel { Text = user.HighestRole, Variant = badgeVariant, Size = DiscordBot.Bot.ViewModels.Components.BadgeSize.Small }" />
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if (user.IsActive)
+                                    {
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">
+                                            <svg class="w-2 h-2 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+                                                <circle cx="4" cy="4" r="3" />
+                                            </svg>
+                                            Active
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-text-tertiary/20 text-text-tertiary">
+                                            <svg class="w-2 h-2 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+                                                <circle cx="4" cy="4" r="3" />
+                                            </svg>
+                                            Inactive
+                                        </span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if (user.IsDiscordLinked)
+                                    {
+                                        <div class="flex items-center text-sm text-text-primary">
+                                            <svg class="w-4 h-4 mr-1.5 text-accent-blue" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                                            </svg>
+                                            @user.DiscordUsername
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-text-tertiary">-</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                    @if (user.LastLoginAt.HasValue)
+                                    {
+                                        @user.LastLoginAt.Value.ToString("MMM d, yyyy")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-text-tertiary">Never</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div class="flex justify-end gap-2">
+                                        <a asp-page="Details" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                                            View
+                                        </a>
+                                        <a asp-page="Edit" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                                            Edit
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                @{
+                                    var emptyTitle = Model.SearchTerm != null ? "No users found" : "No users yet";
+                                    var emptyDesc = Model.SearchTerm != null ? "Try adjusting your search or filters" : "Create your first user to get started";
+                                }
+                                <partial name="Shared/Components/_EmptyState" model="new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
+                                    Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
+                                    Title = emptyTitle,
+                                    Description = emptyDesc
+                                }" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        @if (Model.ViewModel.TotalPages > 1)
+        {
+            <div class="px-6 py-4 border-t border-border-primary">
+                @{
+                    var baseUrl = Url.Page("Index", new { SearchTerm = Model.SearchTerm, RoleFilter = Model.RoleFilter, ActiveFilter = Model.ActiveFilter, DiscordLinkedFilter = Model.DiscordLinkedFilter }) ?? string.Empty;
+                }
+                <partial name="Shared/Components/_Pagination" model="new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
+                    CurrentPage = Model.ViewModel.CurrentPage,
+                    TotalPages = Model.ViewModel.TotalPages,
+                    BaseUrl = baseUrl
+                }" />
+            </div>
+        }
+    </div>
+
+    <!-- Results Summary -->
+    <div class="mt-4 text-sm text-text-secondary">
+        Showing @((Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1) to @Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount) of @Model.ViewModel.TotalCount users
+    </div>
+</div>

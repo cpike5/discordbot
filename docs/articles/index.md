@@ -16,6 +16,8 @@ This section contains conceptual documentation and developer guides for the Disc
 
 ## Security & Authentication
 - [Identity Configuration](identity-configuration.md) - ASP.NET Identity setup, Discord OAuth, and security settings
+- [Authorization Policies](authorization-policies.md) - Role-based authorization policies and implementation
+- [User Management Guide](user-management.md) - Admin user management feature documentation
 
 ## API & Integration
 - [REST API Endpoints](api-endpoints.md) - Complete REST API reference

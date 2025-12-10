@@ -20,6 +20,14 @@
       href: api-endpoints.md
     - name: Interactive Components
       href: interactive-components.md
+- name: Security & Authentication
+  items:
+    - name: Identity Configuration
+      href: identity-configuration.md
+    - name: Authorization Policies
+      href: authorization-policies.md
+    - name: User Management Guide
+      href: user-management.md
 - name: Bot Features
   items:
     - name: Admin Commands

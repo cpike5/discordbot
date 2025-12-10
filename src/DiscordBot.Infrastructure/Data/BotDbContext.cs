@@ -18,6 +18,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public new DbSet<User> Users => Set<User>();
     public DbSet<CommandLog> CommandLogs => Set<CommandLog>();
     public DbSet<UserGuildAccess> UserGuildAccess => Set<UserGuildAccess>();
+    public DbSet<UserActivityLog> UserActivityLogs => Set<UserActivityLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -83,6 +84,43 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
 
             // Index for efficient guild lookups
             entity.HasIndex(e => e.GuildId);
+        });
+
+        // Configure UserActivityLog entity
+        modelBuilder.Entity<UserActivityLog>(entity =>
+        {
+            // Configure primary key
+            entity.HasKey(e => e.Id);
+
+            // Configure string properties with appropriate max lengths
+            entity.Property(e => e.ActorUserId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.TargetUserId).HasMaxLength(450);
+            entity.Property(e => e.IpAddress).HasMaxLength(45);
+
+            // Configure Action as int for storage
+            entity.Property(e => e.Action)
+                .HasConversion<int>()
+                .IsRequired();
+
+            // Configure default values
+            entity.Property(e => e.Timestamp).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            // Configure foreign key relationships
+            entity.HasOne(e => e.Actor)
+                .WithMany()
+                .HasForeignKey(e => e.ActorUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.Target)
+                .WithMany()
+                .HasForeignKey(e => e.TargetUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Indexes for efficient queries
+            entity.HasIndex(e => e.ActorUserId);
+            entity.HasIndex(e => e.TargetUserId);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.Action);
         });
     }
 }

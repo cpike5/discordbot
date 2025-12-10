@@ -62,7 +62,15 @@
         >
             @if (!string.IsNullOrEmpty(Model.Placeholder) && !Model.AllowMultiple)
             {
-                <option value="" disabled selected="@(string.IsNullOrEmpty(Model.SelectedValue))">@Model.Placeholder</option>
+                var placeholderSelected = string.IsNullOrEmpty(Model.SelectedValue);
+                if (placeholderSelected)
+                {
+                    <option value="" disabled selected>@Model.Placeholder</option>
+                }
+                else
+                {
+                    <option value="" disabled>@Model.Placeholder</option>
+                }
             }
 
             @if (Model.OptionGroups != null && Model.OptionGroups.Any())
@@ -72,9 +80,29 @@
                     <optgroup label="@group.Label">
                         @foreach (var option in group.Options)
                         {
-                            <option value="@option.Value" selected="@(option.Value == Model.SelectedValue)" disabled="@option.IsDisabled">
-                                @option.Text
-                            </option>
+                            var isSelected = option.Value == Model.SelectedValue;
+                            if (isSelected)
+                            {
+                                if (option.IsDisabled)
+                                {
+                                    <option value="@option.Value" selected disabled>@option.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@option.Value" selected>@option.Text</option>
+                                }
+                            }
+                            else
+                            {
+                                if (option.IsDisabled)
+                                {
+                                    <option value="@option.Value" disabled>@option.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@option.Value">@option.Text</option>
+                                }
+                            }
                         }
                     </optgroup>
                 }
@@ -83,9 +111,29 @@
             {
                 foreach (var option in Model.Options)
                 {
-                    <option value="@option.Value" selected="@(option.Value == Model.SelectedValue)" disabled="@option.IsDisabled">
-                        @option.Text
-                    </option>
+                    var isSelected = option.Value == Model.SelectedValue;
+                    if (isSelected)
+                    {
+                        if (option.IsDisabled)
+                        {
+                            <option value="@option.Value" selected disabled>@option.Text</option>
+                        }
+                        else
+                        {
+                            <option value="@option.Value" selected>@option.Text</option>
+                        }
+                    }
+                    else
+                    {
+                        if (option.IsDisabled)
+                        {
+                            <option value="@option.Value" disabled>@option.Text</option>
+                        }
+                        else
+                        {
+                            <option value="@option.Value">@option.Text</option>
+                        }
+                    }
                 }
             }
         </select>
