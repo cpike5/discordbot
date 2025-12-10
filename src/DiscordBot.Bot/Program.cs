@@ -88,6 +88,7 @@ try
                 options.ClientSecret = discordClientSecret!;
                 options.Scope.Add("identify");
                 options.Scope.Add("email");
+                options.Scope.Add("guilds"); // Required for fetching user's guild list
                 options.SaveTokens = true;
             });
     }

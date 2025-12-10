@@ -79,14 +79,20 @@ public class ExternalLoginModel : PageModel
         _logger.LogInformation("External login callback received from {Provider}", info.LoginProvider);
 
         // Extract OAuth tokens BEFORE signing in (they come from external auth cookie)
+        // IMPORTANT: Must specify the external authentication scheme - tokens are stored there, not in the default scheme
         string? accessToken = null;
         string? refreshToken = null;
         string? expiresAt = null;
         if (info.LoginProvider == "Discord")
         {
-            accessToken = await HttpContext.GetTokenAsync("access_token");
-            refreshToken = await HttpContext.GetTokenAsync("refresh_token");
-            expiresAt = await HttpContext.GetTokenAsync("expires_at");
+            accessToken = await HttpContext.GetTokenAsync(IdentityConstants.ExternalScheme, "access_token");
+            refreshToken = await HttpContext.GetTokenAsync(IdentityConstants.ExternalScheme, "refresh_token");
+            expiresAt = await HttpContext.GetTokenAsync(IdentityConstants.ExternalScheme, "expires_at");
+
+            _logger.LogDebug("Retrieved tokens from external auth - AccessToken: {HasAccess}, RefreshToken: {HasRefresh}, ExpiresAt: {ExpiresAt}",
+                !string.IsNullOrEmpty(accessToken),
+                !string.IsNullOrEmpty(refreshToken),
+                expiresAt ?? "null");
         }
 
         // Try to sign in with existing external login
