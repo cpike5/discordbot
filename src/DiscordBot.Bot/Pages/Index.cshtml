@@ -1,5 +1,6 @@
 @page
 @model DiscordBot.Bot.Pages.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Dashboard";
 }
@@ -10,6 +11,11 @@
         <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Dashboard</h1>
         <p class="mt-1 text-text-secondary">Welcome back! Here's an overview of your bot's performance.</p>
     </div>
+</div>
+
+<!-- Quick Actions Section -->
+<div class="mb-8">
+    <partial name="Shared/Components/_QuickActionsCard" model="Model.QuickActions" />
 </div>
 
 <!-- Stats Cards Row -->
@@ -45,8 +51,28 @@
     <partial name="Shared/Components/_RecentActivityCard" model="Model.RecentActivity" />
 </div>
 
+<!-- Confirmation Modals (hidden by default) -->
+@{
+    var restartBotModal = new ConfirmationModalViewModel
+    {
+        Id = "restartBotModal",
+        Title = "Restart Bot",
+        Message = "Are you sure you want to restart the bot? This will disconnect the bot from all servers temporarily. The bot will automatically reconnect after restarting.",
+        ConfirmText = "Restart Bot",
+        CancelText = "Cancel",
+        Variant = ConfirmationVariant.Warning,
+        FormAction = "",
+        FormHandler = "RestartBot"
+    };
+}
+<partial name="Shared/Components/_ConfirmationModal" model="restartBotModal" />
+
+<!-- Toast Container -->
+<partial name="Shared/Components/_ToastContainer" />
+
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="~/js/bot-status-refresh.js" asp-append-version="true"></script>
     <script src="~/js/command-stats-chart.js" asp-append-version="true"></script>
+    <script src="~/js/quick-actions.js" asp-append-version="true"></script>
 }
