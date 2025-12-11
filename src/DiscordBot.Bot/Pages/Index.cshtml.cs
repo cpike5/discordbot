@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Bot.ViewModels.Components;
 
 namespace DiscordBot.Bot.Pages;
 
@@ -18,6 +20,7 @@ public class IndexModel : PageModel
     public GuildStatsViewModel GuildStats { get; private set; } = default!;
     public CommandStatsViewModel CommandStats { get; private set; } = default!;
     public RecentActivityViewModel RecentActivity { get; private set; } = default!;
+    public QuickActionsCardViewModel QuickActions { get; private set; } = default!;
 
     public IndexModel(
         ILogger<IndexModel> logger,
@@ -66,5 +69,123 @@ public class IndexModel : PageModel
 
         _logger.LogDebug("Recent activity retrieved: {ActivityCount} items",
             RecentActivity.Activities.Count);
+
+        // Build Quick Actions
+        var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        QuickActions = new QuickActionsCardViewModel
+        {
+            UserIsAdmin = isAdmin,
+            Actions = new List<QuickActionItemViewModel>
+            {
+                new()
+                {
+                    Id = "restart-bot",
+                    Label = "Restart Bot",
+                    IconPath = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+                    Color = QuickActionColor.Warning,
+                    ActionType = QuickActionType.PostAction,
+                    Handler = "RestartBot",
+                    RequiresConfirmation = true,
+                    ConfirmationModalId = "restartBotModal",
+                    IsAdminOnly = true
+                },
+                new()
+                {
+                    Id = "sync-guilds",
+                    Label = "Sync All Guilds",
+                    IconPath = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+                    Color = QuickActionColor.Blue,
+                    ActionType = QuickActionType.PostAction,
+                    Handler = "SyncAllGuilds",
+                    RequiresConfirmation = false,
+                    IsAdminOnly = false
+                },
+                new()
+                {
+                    Id = "settings",
+                    Label = "Settings",
+                    IconPath = "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+                    Color = QuickActionColor.Gray,
+                    ActionType = QuickActionType.Link,
+                    Href = "#",
+                    IsAdminOnly = false
+                }
+            }
+        };
+    }
+
+    /// <summary>
+    /// Handler for restarting the bot (Admin only).
+    /// </summary>
+    public async Task<IActionResult> OnPostRestartBotAsync()
+    {
+        // Check admin authorization manually since [Authorize] can't be on handler methods
+        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
+        {
+            _logger.LogWarning("Non-admin user {UserId} attempted to restart bot", User.Identity?.Name);
+            return Forbid();
+        }
+
+        _logger.LogWarning("Bot restart requested by user {UserId}", User.Identity?.Name);
+
+        try
+        {
+            await _botService.RestartAsync();
+            _logger.LogInformation("Bot restart initiated successfully");
+
+            // Return JSON response for AJAX
+            return new JsonResult(new
+            {
+                success = true,
+                message = "Bot is restarting..."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to restart bot");
+
+            return new JsonResult(new
+            {
+                success = false,
+                message = "Failed to restart bot. Please check logs for details."
+            })
+            {
+                StatusCode = 500
+            };
+        }
+    }
+
+    /// <summary>
+    /// Handler for syncing all guilds.
+    /// </summary>
+    public async Task<IActionResult> OnPostSyncAllGuildsAsync()
+    {
+        _logger.LogInformation("Guild sync requested by user {UserId}", User.Identity?.Name);
+
+        try
+        {
+            var syncedCount = await _guildService.SyncAllGuildsAsync();
+            _logger.LogInformation("Successfully synced {SyncedCount} guilds", syncedCount);
+
+            // Return JSON response for AJAX
+            return new JsonResult(new
+            {
+                success = true,
+                message = $"Successfully synced {syncedCount} guild{(syncedCount == 1 ? "" : "s")}"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to sync guilds");
+
+            return new JsonResult(new
+            {
+                success = false,
+                message = "Failed to sync guilds. Please check logs for details."
+            })
+            {
+                StatusCode = 500
+            };
+        }
     }
 }

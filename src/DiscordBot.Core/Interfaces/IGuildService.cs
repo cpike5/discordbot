@@ -38,4 +38,11 @@ public interface IGuildService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if the sync was successful, false if the guild was not found.</returns>
     Task<bool> SyncGuildAsync(ulong guildId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Synchronizes all connected guilds from Discord to the database.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of guilds successfully synced.</returns>
+    Task<int> SyncAllGuildsAsync(CancellationToken cancellationToken = default);
 }

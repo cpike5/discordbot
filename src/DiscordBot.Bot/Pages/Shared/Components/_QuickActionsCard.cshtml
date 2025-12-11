@@ -1,0 +1,73 @@
+@model DiscordBot.Bot.ViewModels.Components.QuickActionsCardViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+@{
+    var visibleActions = Model.Actions.Where(a => !a.IsAdminOnly || Model.UserIsAdmin).ToList();
+}
+
+<!-- Quick Actions Card -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+    <h2 class="text-lg font-semibold text-text-primary mb-4">@Model.Title</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        @foreach (var action in visibleActions)
+        {
+            @if (action.ActionType == QuickActionType.Link)
+            {
+                <a href="@action.Href"
+                   class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-@GetColorClass(action.Color)/50 hover:bg-bg-hover transition-colors group">
+                    <div class="p-3 bg-@GetColorClass(action.Color)/10 rounded-lg group-hover:bg-@GetColorClass(action.Color)/20 transition-colors">
+                        <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
+                        </svg>
+                    </div>
+                    <span class="text-sm font-medium text-text-primary">@action.Label</span>
+                </a>
+            }
+            else
+            {
+                @if (action.RequiresConfirmation)
+                {
+                    <button type="button"
+                            onclick="window.quickActions?.showConfirmationModal('@action.ConfirmationModalId')"
+                            class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-@GetColorClass(action.Color)/50 hover:bg-bg-hover transition-colors group">
+                        <div class="p-3 bg-@GetColorClass(action.Color)/10 rounded-lg group-hover:bg-@GetColorClass(action.Color)/20 transition-colors">
+                            <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
+                            </svg>
+                        </div>
+                        <span class="text-sm font-medium text-text-primary">@action.Label</span>
+                    </button>
+                }
+                else
+                {
+                    <button type="button"
+                            data-handler="@action.Handler"
+                            onclick="window.quickActions?.submitQuickAction('@action.Handler', this)"
+                            class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-@GetColorClass(action.Color)/50 hover:bg-bg-hover transition-colors group">
+                        <div class="p-3 bg-@GetColorClass(action.Color)/10 rounded-lg group-hover:bg-@GetColorClass(action.Color)/20 transition-colors">
+                            <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
+                            </svg>
+                        </div>
+                        <span class="text-sm font-medium text-text-primary">@action.Label</span>
+                    </button>
+                }
+            }
+        }
+    </div>
+</div>
+
+@functions {
+    private string GetColorClass(QuickActionColor color)
+    {
+        return color switch
+        {
+            QuickActionColor.Orange => "accent-orange",
+            QuickActionColor.Blue => "accent-blue",
+            QuickActionColor.Green => "success",
+            QuickActionColor.Warning => "warning",
+            QuickActionColor.Gray => "text-tertiary",
+            _ => "accent-blue"
+        };
+    }
+}

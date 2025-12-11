@@ -152,6 +152,48 @@ public class GuildService : IGuildService
         return true;
     }
 
+    /// <inheritdoc/>
+    public async Task<int> SyncAllGuildsAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Syncing all connected guilds from Discord to database");
+
+        var connectedGuilds = _client.Guilds;
+        if (connectedGuilds.Count == 0)
+        {
+            _logger.LogWarning("No guilds connected to sync");
+            return 0;
+        }
+
+        var syncedCount = 0;
+
+        foreach (var discordGuild in connectedGuilds)
+        {
+            try
+            {
+                var guild = new Guild
+                {
+                    Id = discordGuild.Id,
+                    Name = discordGuild.Name,
+                    JoinedAt = discordGuild.CurrentUser?.JoinedAt?.UtcDateTime ?? DateTime.UtcNow,
+                    IsActive = true
+                };
+
+                await _guildRepository.UpsertAsync(guild, cancellationToken);
+                syncedCount++;
+
+                _logger.LogDebug("Synced guild {GuildId}: {GuildName}", guild.Id, guild.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to sync guild {GuildId}: {GuildName}", discordGuild.Id, discordGuild.Name);
+            }
+        }
+
+        _logger.LogInformation("Synced {SyncedCount} of {TotalCount} guilds successfully", syncedCount, connectedGuilds.Count);
+
+        return syncedCount;
+    }
+
     /// <summary>
     /// Maps a Guild entity and optional Discord guild to a GuildDto.
     /// </summary>
