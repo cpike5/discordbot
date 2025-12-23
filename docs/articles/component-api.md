@@ -1,0 +1,1893 @@
+# Component API Usage Guide
+
+**Version:** 1.0
+**Last Updated:** 2025-12-22
+**Target Framework:** .NET 8 Razor Pages with Tailwind CSS
+
+---
+
+## Overview
+
+This guide provides comprehensive documentation for the Discord Bot Admin UI component library. All components are built as reusable Razor partial views with strongly-typed ViewModels, designed to maintain consistency with the [Design System](design-system.md) and provide an accessible, maintainable developer experience.
+
+### Key Features
+
+- **Strongly-typed ViewModels**: All components use C# record types for compile-time safety
+- **Tailwind CSS Integration**: Components leverage the design system's utility classes
+- **Accessibility-first**: WCAG 2.1 AA compliant with proper ARIA attributes
+- **Flexible Configuration**: Support for variants, sizes, states, and custom styling
+- **Partial View Pattern**: Easy integration with Razor Pages and Blazor
+
+### Basic Usage Pattern
+
+All components follow the same rendering pattern:
+
+```cshtml
+@using DiscordBot.Bot.ViewModels.Components
+
+<partial name="Shared/Components/_ComponentName" model="viewModel" />
+```
+
+Or in code-behind (PageModel):
+
+```csharp
+using DiscordBot.Bot.ViewModels.Components;
+
+public class MyPageModel : PageModel
+{
+    public ButtonViewModel MyButton { get; set; } = new()
+    {
+        Text = "Click Me",
+        Variant = ButtonVariant.Primary,
+        Size = ButtonSize.Medium
+    };
+}
+```
+
+Then in the view:
+
+```cshtml
+<partial name="Shared/Components/_Button" model="Model.MyButton" />
+```
+
+---
+
+## Quick Reference
+
+| Component | Purpose | Common Use Cases |
+|-----------|---------|------------------|
+| [Button](#button-component) | Interactive actions | Forms, CTAs, navigation triggers |
+| [Badge](#badge-component) | Status labels and tags | Roles, statuses, counts |
+| [StatusIndicator](#statusindicator-component) | Real-time status display | Bot status, user presence |
+| [Card](#card-component) | Content containers | Dashboard widgets, grouped content |
+| [FormInput](#forminput-component) | Text input fields | Forms, search bars |
+| [FormSelect](#formselect-component) | Dropdown selection | Forms, filters |
+| [Alert](#alert-component) | User notifications | Success/error messages, warnings |
+| [LoadingSpinner](#loadingspinner-component) | Loading states | Async operations, page loads |
+| [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results |
+| [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
+
+---
+
+## Button Component
+
+Interactive button element with multiple variants, sizes, and states including loading and icon support.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Text` | `string` | `""` | Button text content (required unless `IsIconOnly`) |
+| `Variant` | `ButtonVariant` | `Primary` | Visual style variant |
+| `Size` | `ButtonSize` | `Medium` | Button size |
+| `Type` | `string?` | `"button"` | HTML button type: `button`, `submit`, `reset` |
+| `IconLeft` | `string?` | `null` | SVG path for left icon |
+| `IconRight` | `string?` | `null` | SVG path for right icon |
+| `IsDisabled` | `bool` | `false` | Disables the button |
+| `IsLoading` | `bool` | `false` | Shows loading spinner instead of icon |
+| `IsIconOnly` | `bool` | `false` | Renders as icon-only button (hides text) |
+| `AriaLabel` | `string?` | `null` | Accessibility label (required for icon-only buttons) |
+| `OnClick` | `string?` | `null` | JavaScript click handler function name |
+| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Custom HTML attributes |
+
+### Enums
+
+#### ButtonVariant
+
+| Value | Description | Visual Style |
+|-------|-------------|--------------|
+| `Primary` | Main call-to-action | Orange background, white text |
+| `Secondary` | Secondary actions | Transparent with border, hover effect |
+| `Accent` | Informational actions | Blue background, white text |
+| `Danger` | Destructive actions | Red background, white text |
+| `Ghost` | Subtle actions | Transparent, minimal styling |
+
+#### ButtonSize
+
+| Value | Description | Padding | Font Size |
+|-------|-------------|---------|-----------|
+| `Small` | Compact button | `py-1.5 px-3` | `text-xs` |
+| `Medium` | Default size | `py-2.5 px-5` | `text-sm` |
+| `Large` | Prominent button | `py-3 px-6` | `text-base` |
+
+### Basic Usage
+
+**Simple Primary Button:**
+
+```csharp
+var button = new ButtonViewModel
+{
+    Text = "Save Changes",
+    Variant = ButtonVariant.Primary,
+    Type = "submit"
+};
+```
+
+```cshtml
+<partial name="Shared/Components/_Button" model="button" />
+```
+
+**Button with Icon:**
+
+```csharp
+var addButton = new ButtonViewModel
+{
+    Text = "Add Server",
+    Variant = ButtonVariant.Primary,
+    IconLeft = "M12 4v16m8-8H4" // Plus icon path
+};
+```
+
+**Icon-Only Button:**
+
+```csharp
+var settingsButton = new ButtonViewModel
+{
+    Text = "Settings", // Used for accessibility
+    IsIconOnly = true,
+    IconLeft = "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z",
+    AriaLabel = "Open Settings"
+};
+```
+
+### Common Patterns
+
+**Loading State:**
+
+```csharp
+var submitButton = new ButtonViewModel
+{
+    Text = "Processing...",
+    Variant = ButtonVariant.Primary,
+    IsLoading = true,
+    IsDisabled = true
+};
+```
+
+**Button Group:**
+
+```cshtml
+<div class="flex gap-3">
+    <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+    {
+        Text = "Save",
+        Variant = ButtonVariant.Primary,
+        Type = "submit"
+    })" />
+    <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+    {
+        Text = "Cancel",
+        Variant = ButtonVariant.Secondary,
+        OnClick = "closeModal()"
+    })" />
+</div>
+```
+
+**Danger Action with Confirmation:**
+
+```csharp
+var deleteButton = new ButtonViewModel
+{
+    Text = "Delete Server",
+    Variant = ButtonVariant.Danger,
+    IconLeft = "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+    OnClick = "confirmDelete()"
+};
+```
+
+### Accessibility Notes
+
+- All buttons include `focus-visible:outline` for keyboard navigation
+- Icon-only buttons automatically use `Text` property for `aria-label` if `AriaLabel` is not provided
+- Disabled state applies `disabled` attribute and reduces opacity
+- Loading state shows spinner with implicit "loading" indication
+
+---
+
+## Badge Component
+
+Small labeled element for displaying statuses, tags, roles, or counts with support for icons and removable badges.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Text` | `string` | `""` | Badge label text (required) |
+| `Variant` | `BadgeVariant` | `Default` | Color scheme variant |
+| `Size` | `BadgeSize` | `Medium` | Badge size |
+| `Style` | `BadgeStyle` | `Filled` | Filled or outline style |
+| `IconLeft` | `string?` | `null` | SVG path for left icon |
+| `IsRemovable` | `bool` | `false` | Shows remove button |
+| `OnRemove` | `string?` | `null` | JavaScript function for remove action |
+
+### Enums
+
+#### BadgeVariant
+
+| Value | Description | Color |
+|-------|-------------|-------|
+| `Default` | Neutral/gray | `bg-bg-tertiary` |
+| `Orange` | Primary accent | `bg-accent-orange` |
+| `Blue` | Secondary accent | `bg-accent-blue` |
+| `Success` | Positive state | `bg-success` (green) |
+| `Warning` | Caution state | `bg-warning` (amber) |
+| `Error` | Error state | `bg-error` (red) |
+| `Info` | Informational | `bg-info` (cyan) |
+
+#### BadgeSize
+
+| Value | Padding | Font Size |
+|-------|---------|-----------|
+| `Small` | `px-2 py-0.5` | `text-[10px]` |
+| `Medium` | `px-3 py-1` | `text-xs` |
+| `Large` | `px-4 py-1.5` | `text-sm` |
+
+#### BadgeStyle
+
+| Value | Description |
+|-------|-------------|
+| `Filled` | Solid background color |
+| `Outline` | Border only, transparent background |
+
+### Basic Usage
+
+**Simple Status Badge:**
+
+```csharp
+var badge = new BadgeViewModel
+{
+    Text = "Online",
+    Variant = BadgeVariant.Success
+};
+```
+
+**Role Badge with Icon:**
+
+```csharp
+var adminBadge = new BadgeViewModel
+{
+    Text = "Admin",
+    Variant = BadgeVariant.Orange,
+    IconLeft = "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+};
+```
+
+**Outline Badge:**
+
+```csharp
+var outlineBadge = new BadgeViewModel
+{
+    Text = "Moderator",
+    Variant = BadgeVariant.Blue,
+    Style = BadgeStyle.Outline
+};
+```
+
+### Common Patterns
+
+**Removable Tag:**
+
+```csharp
+var tag = new BadgeViewModel
+{
+    Text = "JavaScript",
+    Variant = BadgeVariant.Info,
+    IsRemovable = true,
+    OnRemove = "removeTag('javascript')"
+};
+```
+
+**Count Badge:**
+
+```csharp
+var countBadge = new BadgeViewModel
+{
+    Text = "12",
+    Variant = BadgeVariant.Default,
+    Size = BadgeSize.Small
+};
+```
+
+**Status in Table:**
+
+```cshtml
+<td class="table-cell">
+    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel
+    {
+        Text = user.IsActive ? "Active" : "Inactive",
+        Variant = user.IsActive ? BadgeVariant.Success : BadgeVariant.Default
+    })" />
+</td>
+```
+
+### Accessibility Notes
+
+- Badges use `<span>` element with semantic color classes
+- Removable badges include `aria-label="Remove"` on close button
+- Remove button has hover state for keyboard/mouse interaction
+
+---
+
+## StatusIndicator Component
+
+Displays real-time status with colored dot indicator and optional text label, supporting pulsing animation.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Status` | `StatusType` | `Offline` | Status type (determines color) |
+| `Text` | `string?` | `null` | Optional status label text |
+| `DisplayStyle` | `StatusDisplayStyle` | `DotWithText` | Display variant |
+| `IsPulsing` | `bool` | `false` | Enables pulsing animation |
+| `Size` | `StatusSize` | `Medium` | Indicator size |
+
+### Enums
+
+#### StatusType
+
+| Value | Description | Color |
+|-------|-------------|-------|
+| `Online` | Active/connected | Green (`#10b981`) |
+| `Idle` | Away/inactive | Amber (`#f59e0b`) |
+| `Busy` | Do Not Disturb | Red (`#ef4444`) |
+| `Offline` | Disconnected | Gray (`#7a7876`) |
+
+#### StatusDisplayStyle
+
+| Value | Description |
+|-------|-------------|
+| `DotOnly` | Shows only the colored dot |
+| `DotWithText` | Dot with text label inline |
+| `BadgeStyle` | Pill-shaped badge with dot and text |
+
+#### StatusSize
+
+| Value | Dimensions |
+|-------|------------|
+| `Small` | `w-1.5 h-1.5` (6px) |
+| `Medium` | `w-2 h-2` (8px) |
+| `Large` | `w-3 h-3` (12px) |
+
+### Basic Usage
+
+**Simple Online Indicator:**
+
+```csharp
+var status = new StatusIndicatorViewModel
+{
+    Status = StatusType.Online,
+    Text = "Connected"
+};
+```
+
+**Pulsing Live Indicator:**
+
+```csharp
+var liveStatus = new StatusIndicatorViewModel
+{
+    Status = StatusType.Online,
+    Text = "Live",
+    IsPulsing = true
+};
+```
+
+**Dot Only (Compact):**
+
+```csharp
+var dotOnly = new StatusIndicatorViewModel
+{
+    Status = StatusType.Idle,
+    DisplayStyle = StatusDisplayStyle.DotOnly,
+    Size = StatusSize.Small
+};
+```
+
+### Common Patterns
+
+**Bot Status Display:**
+
+```csharp
+var botStatus = new StatusIndicatorViewModel
+{
+    Status = botIsOnline ? StatusType.Online : StatusType.Offline,
+    Text = botIsOnline ? "Bot Online" : "Bot Offline",
+    IsPulsing = botIsOnline,
+    Size = StatusSize.Large
+};
+```
+
+**User Presence:**
+
+```cshtml
+<div class="flex items-center gap-2">
+    <img src="@user.AvatarUrl" class="w-10 h-10 rounded-full" />
+    <div>
+        <div class="font-medium">@user.Username</div>
+        <partial name="Shared/Components/_StatusIndicator" model="@(new StatusIndicatorViewModel
+        {
+            Status = user.Status,
+            Text = user.StatusText,
+            DisplayStyle = StatusDisplayStyle.DotWithText,
+            Size = StatusSize.Small
+        })" />
+    </div>
+</div>
+```
+
+### Accessibility Notes
+
+- Uses semantic HTML with proper color contrast
+- Text labels provide context for screen readers
+- Pulsing animation respects `prefers-reduced-motion` preference
+
+---
+
+## Card Component
+
+Flexible container component for grouping related content with optional header, body, footer, and interactive states.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Title` | `string?` | `null` | Card header title |
+| `Subtitle` | `string?` | `null` | Card header subtitle |
+| `HeaderContent` | `string?` | `null` | Custom header HTML |
+| `HeaderActions` | `string?` | `null` | Header action buttons HTML |
+| `BodyContent` | `string?` | `null` | Main content HTML |
+| `FooterContent` | `string?` | `null` | Footer content HTML |
+| `Variant` | `CardVariant` | `Default` | Visual style variant |
+| `IsInteractive` | `bool` | `false` | Adds hover effect and pointer cursor |
+| `IsCollapsible` | `bool` | `false` | Enables collapse/expand functionality |
+| `IsExpanded` | `bool` | `true` | Initial expanded state (if collapsible) |
+| `OnClick` | `string?` | `null` | JavaScript click handler |
+| `CssClass` | `string?` | `null` | Additional CSS classes |
+
+### Enums
+
+#### CardVariant
+
+| Value | Description | Styling |
+|-------|-------------|---------|
+| `Default` | Standard card | Border, secondary background |
+| `Flat` | Subtle card | No border, minimal background |
+| `Elevated` | Raised card | Shadow effect |
+
+### Basic Usage
+
+**Simple Card:**
+
+```csharp
+var card = new CardViewModel
+{
+    Title = "Server Statistics",
+    BodyContent = "<p class='text-text-secondary'>Content goes here</p>"
+};
+```
+
+**Card with Actions:**
+
+```csharp
+var actionCard = new CardViewModel
+{
+    Title = "Recent Activity",
+    Subtitle = "Last 24 hours",
+    HeaderActions = "<button class='btn btn-sm btn-secondary'>View All</button>",
+    BodyContent = activityHtml
+};
+```
+
+**Interactive Card:**
+
+```csharp
+var clickableCard = new CardViewModel
+{
+    Title = "Server: Main Guild",
+    BodyContent = serverDetailsHtml,
+    IsInteractive = true,
+    OnClick = "navigateToServer('12345')",
+    Variant = CardVariant.Elevated
+};
+```
+
+### Common Patterns
+
+**Dashboard Widget:**
+
+```csharp
+var statsCard = new CardViewModel
+{
+    Title = "Total Members",
+    BodyContent = @"
+        <div class='text-4xl font-bold text-text-primary'>1,234</div>
+        <p class='text-sm text-success mt-2'>↑ 12% from last month</p>
+    ",
+    Variant = CardVariant.Default
+};
+```
+
+**Card with Footer:**
+
+```csharp
+var dataCard = new CardViewModel
+{
+    Title = "Command Usage",
+    BodyContent = chartHtml,
+    FooterContent = @"
+        <div class='flex items-center justify-between text-xs text-text-tertiary'>
+            <span>Last updated: 2 minutes ago</span>
+            <button class='text-accent-blue hover:underline'>Refresh</button>
+        </div>
+    "
+};
+```
+
+**Grid of Cards:**
+
+```cshtml
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    @foreach (var stat in Model.Stats)
+    {
+        <partial name="Shared/Components/_Card" model="@(new CardViewModel
+        {
+            Title = stat.Title,
+            BodyContent = stat.Content,
+            Variant = CardVariant.Default
+        })" />
+    }
+</div>
+```
+
+### Accessibility Notes
+
+- Proper heading hierarchy with `<h3>` for card titles
+- Interactive cards use `role="button"` when clickable
+- Collapsible cards implement `aria-expanded` state
+
+---
+
+## FormInput Component
+
+Text input field with label, validation states, help text, icons, and character counting.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Id` | `string` | `""` | Input element ID (required) |
+| `Name` | `string` | `""` | Input name attribute (required) |
+| `Label` | `string?` | `null` | Field label text |
+| `Type` | `string` | `"text"` | Input type: `text`, `email`, `password`, `search`, `url`, `tel` |
+| `Placeholder` | `string?` | `null` | Placeholder text |
+| `Value` | `string?` | `null` | Input value |
+| `HelpText` | `string?` | `null` | Help text below input |
+| `Size` | `InputSize` | `Medium` | Input size |
+| `ValidationState` | `ValidationState` | `None` | Validation state |
+| `ValidationMessage` | `string?` | `null` | Validation message text |
+| `IsRequired` | `bool` | `false` | Adds required attribute |
+| `IsDisabled` | `bool` | `false` | Disables input |
+| `IsReadOnly` | `bool` | `false` | Makes input read-only |
+| `IconLeft` | `string?` | `null` | SVG path for left icon |
+| `IconRight` | `string?` | `null` | SVG path for right icon |
+| `MaxLength` | `int?` | `null` | Maximum character length |
+| `ShowCharacterCount` | `bool` | `false` | Shows character counter |
+| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Custom HTML attributes |
+
+### Enums
+
+#### InputSize
+
+| Value | Padding | Font Size |
+|-------|---------|-----------|
+| `Small` | `py-1.5 px-3` | `text-xs` |
+| `Medium` | `py-2.5 px-3.5` | `text-sm` |
+| `Large` | `py-3 px-4` | `text-base` |
+
+#### ValidationState
+
+| Value | Description | Border Color |
+|-------|-------------|--------------|
+| `None` | No validation | Default border |
+| `Success` | Valid input | Green border |
+| `Warning` | Warning state | Amber border |
+| `Error` | Invalid input | Red border |
+
+### Basic Usage
+
+**Simple Text Input:**
+
+```csharp
+var nameInput = new FormInputViewModel
+{
+    Id = "server-name",
+    Name = "serverName",
+    Label = "Server Name",
+    Placeholder = "Enter server name",
+    IsRequired = true
+};
+```
+
+**Email Input with Validation:**
+
+```csharp
+var emailInput = new FormInputViewModel
+{
+    Id = "email",
+    Name = "email",
+    Label = "Email Address",
+    Type = "email",
+    ValidationState = isValid ? ValidationState.Success : ValidationState.Error,
+    ValidationMessage = isValid ? "" : "Please enter a valid email address",
+    IsRequired = true
+};
+```
+
+**Search Input with Icon:**
+
+```csharp
+var searchInput = new FormInputViewModel
+{
+    Id = "search",
+    Name = "query",
+    Type = "search",
+    Placeholder = "Search servers...",
+    IconLeft = "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+};
+```
+
+### Common Patterns
+
+**Password Input with Toggle:**
+
+```csharp
+var passwordInput = new FormInputViewModel
+{
+    Id = "password",
+    Name = "password",
+    Label = "Password",
+    Type = "password",
+    HelpText = "Must be at least 8 characters",
+    IconRight = "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+    IsRequired = true
+};
+```
+
+**Character-Limited Input:**
+
+```csharp
+var bioInput = new FormInputViewModel
+{
+    Id = "bio",
+    Name = "bio",
+    Label = "Bio",
+    Placeholder = "Tell us about yourself",
+    MaxLength = 200,
+    ShowCharacterCount = true,
+    HelpText = "A brief description for your profile"
+};
+```
+
+**Disabled/Read-Only Input:**
+
+```csharp
+var idInput = new FormInputViewModel
+{
+    Id = "user-id",
+    Name = "userId",
+    Label = "User ID",
+    Value = "123456789",
+    IsReadOnly = true,
+    HelpText = "This value cannot be changed"
+};
+```
+
+### Accessibility Notes
+
+- All inputs have associated `<label>` elements
+- Required inputs include `required` attribute
+- Validation messages use proper ARIA attributes
+- Focus states use blue outline for visibility
+- Help text uses `aria-describedby` association
+
+---
+
+## FormSelect Component
+
+Dropdown selection component with support for option groups, validation states, and multiple selection.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Id` | `string` | `""` | Select element ID (required) |
+| `Name` | `string` | `""` | Select name attribute (required) |
+| `Label` | `string?` | `null` | Field label text |
+| `Placeholder` | `string?` | `"Select an option"` | Placeholder option text |
+| `SelectedValue` | `string?` | `null` | Pre-selected value |
+| `Options` | `List<SelectOption>` | `new()` | List of options |
+| `OptionGroups` | `List<SelectOptionGroup>?` | `null` | Grouped options |
+| `HelpText` | `string?` | `null` | Help text below select |
+| `Size` | `InputSize` | `Medium` | Select size |
+| `ValidationState` | `ValidationState` | `None` | Validation state |
+| `ValidationMessage` | `string?` | `null` | Validation message text |
+| `IsRequired` | `bool` | `false` | Adds required attribute |
+| `IsDisabled` | `bool` | `false` | Disables select |
+| `AllowMultiple` | `bool` | `false` | Enables multiple selection |
+| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Custom HTML attributes |
+
+### Supporting Types
+
+#### SelectOption
+
+```csharp
+public record SelectOption
+{
+    public string Value { get; init; } = string.Empty;
+    public string Text { get; init; } = string.Empty;
+    public bool IsDisabled { get; init; } = false;
+}
+```
+
+#### SelectOptionGroup
+
+```csharp
+public record SelectOptionGroup
+{
+    public string Label { get; init; } = string.Empty;
+    public List<SelectOption> Options { get; init; } = new();
+}
+```
+
+### Basic Usage
+
+**Simple Dropdown:**
+
+```csharp
+var roleSelect = new FormSelectViewModel
+{
+    Id = "role",
+    Name = "role",
+    Label = "User Role",
+    Options = new List<SelectOption>
+    {
+        new() { Value = "admin", Text = "Administrator" },
+        new() { Value = "mod", Text = "Moderator" },
+        new() { Value = "member", Text = "Member" }
+    },
+    IsRequired = true
+};
+```
+
+**With Placeholder and Selection:**
+
+```csharp
+var regionSelect = new FormSelectViewModel
+{
+    Id = "region",
+    Name = "region",
+    Label = "Server Region",
+    Placeholder = "Choose a region",
+    SelectedValue = "us-east",
+    Options = new List<SelectOption>
+    {
+        new() { Value = "us-east", Text = "US East" },
+        new() { Value = "us-west", Text = "US West" },
+        new() { Value = "eu-west", Text = "EU West" },
+        new() { Value = "asia", Text = "Asia Pacific" }
+    }
+};
+```
+
+**With Option Groups:**
+
+```csharp
+var channelSelect = new FormSelectViewModel
+{
+    Id = "channel",
+    Name = "channelId",
+    Label = "Target Channel",
+    OptionGroups = new List<SelectOptionGroup>
+    {
+        new()
+        {
+            Label = "Text Channels",
+            Options = new List<SelectOption>
+            {
+                new() { Value = "1", Text = "#general" },
+                new() { Value = "2", Text = "#announcements" }
+            }
+        },
+        new()
+        {
+            Label = "Voice Channels",
+            Options = new List<SelectOption>
+            {
+                new() { Value = "3", Text = "General Voice" },
+                new() { Value = "4", Text = "Gaming" }
+            }
+        }
+    }
+};
+```
+
+### Common Patterns
+
+**Multiple Selection:**
+
+```csharp
+var permissionsSelect = new FormSelectViewModel
+{
+    Id = "permissions",
+    Name = "permissions",
+    Label = "Permissions",
+    AllowMultiple = true,
+    Options = new List<SelectOption>
+    {
+        new() { Value = "read", Text = "Read Messages" },
+        new() { Value = "write", Text = "Send Messages" },
+        new() { Value = "manage", Text = "Manage Channels" }
+    }
+};
+```
+
+**With Validation:**
+
+```csharp
+var validatedSelect = new FormSelectViewModel
+{
+    Id = "category",
+    Name = "category",
+    Label = "Category",
+    ValidationState = string.IsNullOrEmpty(selectedValue)
+        ? ValidationState.Error
+        : ValidationState.None,
+    ValidationMessage = "Please select a category",
+    Options = categories
+};
+```
+
+### Accessibility Notes
+
+- All selects have associated `<label>` elements
+- Placeholder option has empty value
+- Required selects include `required` attribute
+- Option groups use `<optgroup>` for semantic grouping
+- Disabled options use `disabled` attribute
+
+---
+
+## Alert Component
+
+Notification banner for displaying informational, success, warning, or error messages with optional dismiss functionality.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Variant` | `AlertVariant` | `Info` | Alert type/severity |
+| `Title` | `string?` | `null` | Optional alert title |
+| `Message` | `string` | `""` | Alert message text (required) |
+| `IsDismissible` | `bool` | `false` | Shows dismiss button |
+| `ShowIcon` | `bool` | `true` | Shows variant icon |
+| `DismissCallback` | `string?` | `null` | JavaScript function for dismiss |
+
+### Enums
+
+#### AlertVariant
+
+| Value | Description | Color | Icon |
+|-------|-------------|-------|------|
+| `Info` | Informational message | Cyan/Blue | Info circle |
+| `Success` | Success confirmation | Green | Check circle |
+| `Warning` | Warning/caution | Amber | Exclamation triangle |
+| `Error` | Error/danger | Red | X circle |
+
+### Basic Usage
+
+**Simple Info Alert:**
+
+```csharp
+var alert = new AlertViewModel
+{
+    Variant = AlertVariant.Info,
+    Message = "Your changes have been saved successfully."
+};
+```
+
+**Success Alert with Title:**
+
+```csharp
+var successAlert = new AlertViewModel
+{
+    Variant = AlertVariant.Success,
+    Title = "Server Created",
+    Message = "Your new server has been created and is now active."
+};
+```
+
+**Dismissible Warning:**
+
+```csharp
+var warningAlert = new AlertViewModel
+{
+    Variant = AlertVariant.Warning,
+    Title = "Limited Functionality",
+    Message = "Some features are unavailable while the bot is restarting.",
+    IsDismissible = true,
+    DismissCallback = "dismissAlert('warning-1')"
+};
+```
+
+### Common Patterns
+
+**Error with Details:**
+
+```csharp
+var errorAlert = new AlertViewModel
+{
+    Variant = AlertVariant.Error,
+    Title = "Connection Failed",
+    Message = "Unable to connect to Discord API. Please check your internet connection and try again.",
+    IsDismissible = true
+};
+```
+
+**Icon-less Alert:**
+
+```csharp
+var subtleAlert = new AlertViewModel
+{
+    Variant = AlertVariant.Info,
+    Message = "This is a subtle informational message.",
+    ShowIcon = false
+};
+```
+
+**Form Validation Summary:**
+
+```cshtml
+@if (!ModelState.IsValid)
+{
+    <partial name="Shared/Components/_Alert" model="@(new AlertViewModel
+    {
+        Variant = AlertVariant.Error,
+        Title = "Validation Errors",
+        Message = "Please correct the errors below and try again.",
+        IsDismissible = true
+    })" />
+}
+```
+
+### Accessibility Notes
+
+- Uses semantic colors with sufficient contrast
+- Dismiss button includes `aria-label="Dismiss"`
+- Alert uses appropriate ARIA role implicitly
+- Icon provides visual reinforcement (not sole indicator)
+
+---
+
+## LoadingSpinner Component
+
+Loading indicator with multiple visual styles, sizes, and optional message text for async operations.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Variant` | `SpinnerVariant` | `Simple` | Visual style |
+| `Size` | `SpinnerSize` | `Medium` | Spinner size |
+| `Message` | `string?` | `null` | Loading message text |
+| `SubMessage` | `string?` | `null` | Secondary message text |
+| `Color` | `SpinnerColor` | `Blue` | Spinner color |
+| `IsOverlay` | `bool` | `false` | Full container overlay with backdrop |
+
+### Enums
+
+#### SpinnerVariant
+
+| Value | Description |
+|-------|-------------|
+| `Simple` | Rotating circle (default) |
+| `Dots` | Three bouncing dots |
+| `Pulse` | Pulsing circle with ring |
+
+#### SpinnerSize
+
+| Value | Dimensions |
+|-------|------------|
+| `Small` | 24px |
+| `Medium` | 40px |
+| `Large` | 64px |
+
+#### SpinnerColor
+
+| Value | Color |
+|-------|-------|
+| `Blue` | Accent blue (default) |
+| `Orange` | Accent orange |
+| `White` | White (for dark backgrounds) |
+
+### Basic Usage
+
+**Simple Spinner:**
+
+```csharp
+var spinner = new LoadingSpinnerViewModel
+{
+    Variant = SpinnerVariant.Simple,
+    Size = SpinnerSize.Medium
+};
+```
+
+**With Message:**
+
+```csharp
+var loadingSpinner = new LoadingSpinnerViewModel
+{
+    Variant = SpinnerVariant.Simple,
+    Message = "Loading servers...",
+    Color = SpinnerColor.Blue
+};
+```
+
+**Overlay Loading:**
+
+```csharp
+var overlaySpinner = new LoadingSpinnerViewModel
+{
+    Variant = SpinnerVariant.Pulse,
+    Size = SpinnerSize.Large,
+    Message = "Processing request...",
+    SubMessage = "This may take a few moments",
+    IsOverlay = true
+};
+```
+
+### Common Patterns
+
+**Inline Button Loading:**
+
+```csharp
+// In button
+var button = new ButtonViewModel
+{
+    Text = "Saving...",
+    IsLoading = true // Built-in spinner
+};
+```
+
+**Page Loading State:**
+
+```cshtml
+@if (Model.IsLoading)
+{
+    <partial name="Shared/Components/_LoadingSpinner" model="@(new LoadingSpinnerViewModel
+    {
+        Variant = SpinnerVariant.Dots,
+        Size = SpinnerSize.Large,
+        Message = "Loading dashboard...",
+        IsOverlay = true
+    })" />
+}
+else
+{
+    <!-- Page content -->
+}
+```
+
+**Card Loading State:**
+
+```csharp
+var cardContent = isLoading
+    ? "<div class='flex items-center justify-center py-12'>" +
+      "  <partial name='Shared/Components/_LoadingSpinner' model='spinner' />" +
+      "</div>"
+    : actualContent;
+```
+
+### Accessibility Notes
+
+- Respects `prefers-reduced-motion` for animations
+- Overlay includes backdrop for focus trapping
+- Loading messages provide context for screen readers
+- Spinner animations are CSS-based (no JavaScript required)
+
+---
+
+## EmptyState Component
+
+Placeholder component for empty lists, no search results, error states, and first-time user experiences.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Type` | `EmptyStateType` | `NoData` | Empty state type (determines icon) |
+| `Title` | `string` | `"No Data"` | Main heading text |
+| `Description` | `string` | `"There are no items to display."` | Descriptive text |
+| `IconSvgPath` | `string?` | `null` | Custom SVG path (overrides type icon) |
+| `PrimaryActionText` | `string?` | `null` | Primary button text |
+| `PrimaryActionUrl` | `string?` | `null` | Primary button URL |
+| `PrimaryActionOnClick` | `string?` | `null` | Primary button JavaScript handler |
+| `SecondaryActionText` | `string?` | `null` | Secondary button/link text |
+| `SecondaryActionUrl` | `string?` | `null` | Secondary link URL |
+| `Size` | `EmptyStateSize` | `Default` | Component size |
+
+### Enums
+
+#### EmptyStateType
+
+| Value | Description | Default Icon |
+|-------|-------------|--------------|
+| `NoData` | Generic empty state | Folder icon |
+| `NoResults` | No search results | Search with X icon |
+| `FirstTime` | Onboarding/welcome | Rocket/stars icon |
+| `Error` | Error loading data | Warning icon |
+| `NoPermission` | Access restricted | Lock icon |
+| `Offline` | No connection | Wifi-off icon |
+
+#### EmptyStateSize
+
+| Value | Use Case |
+|-------|----------|
+| `Compact` | Small containers, cards |
+| `Default` | Standard empty states |
+| `Large` | Full-page empty states |
+
+### Basic Usage
+
+**Simple Empty List:**
+
+```csharp
+var emptyState = new EmptyStateViewModel
+{
+    Type = EmptyStateType.NoData,
+    Title = "No Servers Found",
+    Description = "You haven't added any servers yet."
+};
+```
+
+**With Primary Action:**
+
+```csharp
+var emptyServers = new EmptyStateViewModel
+{
+    Type = EmptyStateType.FirstTime,
+    Title = "Welcome to Your Dashboard",
+    Description = "Get started by adding your first server to the bot.",
+    PrimaryActionText = "Add Server",
+    PrimaryActionUrl = "/servers/add"
+};
+```
+
+**Search Results Empty:**
+
+```csharp
+var noResults = new EmptyStateViewModel
+{
+    Type = EmptyStateType.NoResults,
+    Title = "No Results Found",
+    Description = $"No servers match your search for '{searchQuery}'.",
+    SecondaryActionText = "Clear Search",
+    SecondaryActionUrl = "/servers"
+};
+```
+
+### Common Patterns
+
+**Error State:**
+
+```csharp
+var errorState = new EmptyStateViewModel
+{
+    Type = EmptyStateType.Error,
+    Title = "Failed to Load Data",
+    Description = "An error occurred while loading the server list. Please try again.",
+    PrimaryActionText = "Retry",
+    PrimaryActionOnClick = "location.reload()",
+    Size = EmptyStateSize.Default
+};
+```
+
+**No Permission:**
+
+```csharp
+var noAccess = new EmptyStateViewModel
+{
+    Type = EmptyStateType.NoPermission,
+    Title = "Access Restricted",
+    Description = "You don't have permission to view this content. Contact an administrator for access.",
+    Size = EmptyStateSize.Large
+};
+```
+
+**Conditional Rendering:**
+
+```cshtml
+@if (!Model.Servers.Any())
+{
+    <partial name="Shared/Components/_EmptyState" model="@(new EmptyStateViewModel
+    {
+        Type = EmptyStateType.NoData,
+        Title = "No Servers",
+        Description = "Add your first server to get started.",
+        PrimaryActionText = "Add Server",
+        PrimaryActionUrl = "/servers/add"
+    })" />
+}
+else
+{
+    <!-- Server list -->
+}
+```
+
+### Accessibility Notes
+
+- Uses semantic heading hierarchy
+- Buttons/links have proper focus states
+- Icon uses decorative `aria-hidden="true"`
+- Text content is fully accessible to screen readers
+
+---
+
+## Pagination Component
+
+Navigation component for paginated data with page numbers, item counts, and page size selection.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `CurrentPage` | `int` | `1` | Active page number (1-indexed) |
+| `TotalPages` | `int` | `1` | Total number of pages |
+| `TotalItems` | `int` | `0` | Total number of items |
+| `PageSize` | `int` | `10` | Items per page |
+| `PageSizeOptions` | `int[]` | `[10, 25, 50, 100]` | Available page sizes |
+| `Style` | `PaginationStyle` | `Full` | Visual style variant |
+| `ShowPageSizeSelector` | `bool` | `false` | Shows page size dropdown |
+| `ShowItemCount` | `bool` | `false` | Shows "Showing X-Y of Z" text |
+| `ShowFirstLast` | `bool` | `true` | Shows First/Last buttons |
+| `BaseUrl` | `string` | `""` | Base URL for page links |
+| `PageParameterName` | `string` | `"page"` | Query string parameter for page |
+| `PageSizeParameterName` | `string` | `"pageSize"` | Query string parameter for page size |
+
+### Enums
+
+#### PaginationStyle
+
+| Value | Description |
+|-------|-------------|
+| `Full` | First, Prev, page numbers, Next, Last buttons |
+| `Simple` | Only Previous/Next buttons |
+| `Compact` | Previous, "Page X of Y", Next |
+| `Bordered` | Connected button group style |
+
+### Basic Usage
+
+**Simple Pagination:**
+
+```csharp
+var pagination = new PaginationViewModel
+{
+    CurrentPage = 2,
+    TotalPages = 10,
+    BaseUrl = "/servers"
+};
+```
+
+**With Item Count:**
+
+```csharp
+var paginationWithCount = new PaginationViewModel
+{
+    CurrentPage = 1,
+    TotalPages = 5,
+    TotalItems = 47,
+    PageSize = 10,
+    ShowItemCount = true,
+    BaseUrl = "/users"
+};
+```
+
+**With Page Size Selector:**
+
+```csharp
+var customPagination = new PaginationViewModel
+{
+    CurrentPage = Model.Page,
+    TotalPages = Model.TotalPages,
+    TotalItems = Model.TotalCount,
+    PageSize = Model.PageSize,
+    PageSizeOptions = new[] { 10, 25, 50, 100 },
+    ShowPageSizeSelector = true,
+    ShowItemCount = true,
+    BaseUrl = "/servers",
+    Style = PaginationStyle.Full
+};
+```
+
+### Common Patterns
+
+**Table Pagination:**
+
+```cshtml
+<div class="space-y-4">
+    <!-- Table -->
+    <table class="table">
+        <!-- Table content -->
+    </table>
+
+    <!-- Pagination -->
+    <partial name="Shared/Components/_Pagination" model="@(new PaginationViewModel
+    {
+        CurrentPage = Model.CurrentPage,
+        TotalPages = Model.TotalPages,
+        TotalItems = Model.TotalItems,
+        PageSize = Model.PageSize,
+        ShowItemCount = true,
+        BaseUrl = Request.Path
+    })" />
+</div>
+```
+
+**Compact Mobile Pagination:**
+
+```csharp
+var mobilePagination = new PaginationViewModel
+{
+    CurrentPage = currentPage,
+    TotalPages = totalPages,
+    Style = PaginationStyle.Compact,
+    ShowFirstLast = false,
+    BaseUrl = "/search"
+};
+```
+
+**Custom Query Parameters:**
+
+```csharp
+var customPagination = new PaginationViewModel
+{
+    CurrentPage = Model.CurrentPage,
+    TotalPages = Model.TotalPages,
+    BaseUrl = "/api/data",
+    PageParameterName = "pageNumber",
+    PageSizeParameterName = "itemsPerPage"
+};
+// Generates: /api/data?pageNumber=2&itemsPerPage=25
+```
+
+### Accessibility Notes
+
+- Uses `<nav>` with `aria-label="Pagination"`
+- Current page marked with `aria-current="page"`
+- Disabled buttons have `disabled` attribute
+- Page links use semantic `<a>` elements
+- Keyboard navigable
+
+---
+
+## Integration Examples
+
+### Form with Validation
+
+Complete form example combining FormInput, FormSelect, Button, and Alert components.
+
+```cshtml
+@page
+@model CreateServerModel
+@using DiscordBot.Bot.ViewModels.Components
+
+<!-- Success Alert -->
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="@(new AlertViewModel
+        {
+            Variant = AlertVariant.Success,
+            Message = TempData["SuccessMessage"]!.ToString()!,
+            IsDismissible = true
+        })" />
+    </div>
+}
+
+<!-- Error Alert -->
+@if (!ModelState.IsValid)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="@(new AlertViewModel
+        {
+            Variant = AlertVariant.Error,
+            Title = "Validation Errors",
+            Message = "Please correct the errors below and try again."
+        })" />
+    </div>
+}
+
+<form method="post" class="space-y-6 max-w-2xl">
+    <h1 class="text-h2 mb-6">Create New Server</h1>
+
+    <!-- Server Name Input -->
+    <partial name="Shared/Components/_FormInput" model="@(new FormInputViewModel
+    {
+        Id = "server-name",
+        Name = "ServerName",
+        Label = "Server Name",
+        Placeholder = "Enter server name",
+        Value = Model.ServerName,
+        ValidationState = ModelState.GetValidationState("ServerName") == ModelValidationState.Invalid
+            ? ValidationState.Error
+            : ValidationState.None,
+        ValidationMessage = ModelState["ServerName"]?.Errors.FirstOrDefault()?.ErrorMessage,
+        IsRequired = true,
+        HelpText = "This will be the display name for your server"
+    })" />
+
+    <!-- Region Select -->
+    <partial name="Shared/Components/_FormSelect" model="@(new FormSelectViewModel
+    {
+        Id = "region",
+        Name = "Region",
+        Label = "Server Region",
+        SelectedValue = Model.Region,
+        Options = new List<SelectOption>
+        {
+            new() { Value = "us-east", Text = "US East" },
+            new() { Value = "us-west", Text = "US West" },
+            new() { Value = "eu-west", Text = "Europe West" },
+            new() { Value = "asia", Text = "Asia Pacific" }
+        },
+        ValidationState = ModelState.GetValidationState("Region") == ModelValidationState.Invalid
+            ? ValidationState.Error
+            : ValidationState.None,
+        ValidationMessage = ModelState["Region"]?.Errors.FirstOrDefault()?.ErrorMessage,
+        IsRequired = true
+    })" />
+
+    <!-- Description Input -->
+    <partial name="Shared/Components/_FormInput" model="@(new FormInputViewModel
+    {
+        Id = "description",
+        Name = "Description",
+        Label = "Description",
+        Placeholder = "Brief description of your server",
+        Value = Model.Description,
+        MaxLength = 200,
+        ShowCharacterCount = true,
+        HelpText = "Optional description visible to members"
+    })" />
+
+    <!-- Form Actions -->
+    <div class="flex gap-3 pt-4">
+        <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+        {
+            Text = "Create Server",
+            Variant = ButtonVariant.Primary,
+            Type = "submit",
+            IconLeft = "M12 4v16m8-8H4"
+        })" />
+        <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+        {
+            Text = "Cancel",
+            Variant = ButtonVariant.Secondary,
+            OnClick = "window.location.href='/servers'"
+        })" />
+    </div>
+</form>
+```
+
+### Data Table with Pagination and Empty States
+
+```cshtml
+@page
+@model ServersListModel
+@using DiscordBot.Bot.ViewModels.Components
+
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <h1 class="text-h2">Servers</h1>
+        <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+        {
+            Text = "Add Server",
+            Variant = ButtonVariant.Primary,
+            IconLeft = "M12 4v16m8-8H4"
+        })" />
+    </div>
+
+    @if (!Model.Servers.Any())
+    {
+        <!-- Empty State -->
+        <partial name="Shared/Components/_EmptyState" model="@(new EmptyStateViewModel
+        {
+            Type = EmptyStateType.NoData,
+            Title = "No Servers Found",
+            Description = "Get started by adding your first server to the bot.",
+            PrimaryActionText = "Add Server",
+            PrimaryActionUrl = "/servers/add",
+            Size = EmptyStateSize.Large
+        })" />
+    }
+    else
+    {
+        <!-- Table -->
+        <div class="table-container">
+            <table class="table">
+                <thead class="table-header">
+                    <tr>
+                        <th class="table-cell-header">Server Name</th>
+                        <th class="table-cell-header">Region</th>
+                        <th class="table-cell-header">Members</th>
+                        <th class="table-cell-header">Status</th>
+                        <th class="table-cell-header">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="table-body">
+                    @foreach (var server in Model.Servers)
+                    {
+                        <tr class="table-row">
+                            <td class="table-cell font-medium">@server.Name</td>
+                            <td class="table-cell">
+                                <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel
+                                {
+                                    Text = server.Region,
+                                    Variant = BadgeVariant.Blue,
+                                    Size = BadgeSize.Small
+                                })" />
+                            </td>
+                            <td class="table-cell">@server.MemberCount.ToString("N0")</td>
+                            <td class="table-cell">
+                                <partial name="Shared/Components/_StatusIndicator" model="@(new StatusIndicatorViewModel
+                                {
+                                    Status = server.IsOnline ? StatusType.Online : StatusType.Offline,
+                                    Text = server.IsOnline ? "Online" : "Offline"
+                                })" />
+                            </td>
+                            <td class="table-cell">
+                                <div class="flex gap-2">
+                                    <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+                                    {
+                                        Text = "Edit",
+                                        Variant = ButtonVariant.Secondary,
+                                        Size = ButtonSize.Small
+                                    })" />
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <partial name="Shared/Components/_Pagination" model="@(new PaginationViewModel
+        {
+            CurrentPage = Model.CurrentPage,
+            TotalPages = Model.TotalPages,
+            TotalItems = Model.TotalItems,
+            PageSize = Model.PageSize,
+            ShowItemCount = true,
+            ShowPageSizeSelector = true,
+            BaseUrl = "/servers"
+        })" />
+    }
+</div>
+```
+
+### Dashboard Card Grid Layout
+
+```cshtml
+@page
+@model DashboardModel
+@using DiscordBot.Bot.ViewModels.Components
+
+<!-- Stats Card Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Servers Card -->
+    <partial name="Shared/Components/_Card" model="@(new CardViewModel
+    {
+        Title = "Total Servers",
+        BodyContent = $@"
+            <div class='text-4xl font-bold text-text-primary'>{Model.TotalServers}</div>
+            <div class='flex items-center gap-2 mt-2 text-sm'>
+                <span class='text-success'>↑ 12%</span>
+                <span class='text-text-tertiary'>from last month</span>
+            </div>
+        ",
+        Variant = CardVariant.Default
+    })" />
+
+    <!-- Active Users Card -->
+    <partial name="Shared/Components/_Card" model="@(new CardViewModel
+    {
+        Title = "Active Users",
+        BodyContent = $@"
+            <div class='text-4xl font-bold text-text-primary'>{Model.ActiveUsers:N0}</div>
+            <div class='flex items-center gap-2 mt-2'>
+                <partial name='Shared/Components/_StatusIndicator' model='@(new StatusIndicatorViewModel
+                {
+                    Status = StatusType.Online,
+                    Text = ""Online Now"",
+                    Size = StatusSize.Small
+                })' />
+            </div>
+        ",
+        Variant = CardVariant.Default
+    })" />
+
+    <!-- Commands Today Card -->
+    <partial name="Shared/Components/_Card" model="@(new CardViewModel
+    {
+        Title = "Commands Today",
+        BodyContent = $@"
+            <div class='text-4xl font-bold text-text-primary'>{Model.CommandsToday:N0}</div>
+            <div class='text-sm text-text-tertiary mt-2'>
+                Avg: {Model.AvgCommandsPerDay:N0}/day
+            </div>
+        ",
+        Variant = CardVariant.Default
+    })" />
+
+    <!-- Bot Status Card -->
+    <partial name="Shared/Components/_Card" model="@(new CardViewModel
+    {
+        Title = "Bot Status",
+        BodyContent = $@"
+            <div class='space-y-3'>
+                <partial name='Shared/Components/_StatusIndicator' model='@(new StatusIndicatorViewModel
+                {
+                    Status = Model.BotStatus,
+                    Text = Model.BotStatusText,
+                    DisplayStyle = StatusDisplayStyle.BadgeStyle,
+                    IsPulsing = Model.BotStatus == StatusType.Online
+                })' />
+                <div class='text-sm text-text-tertiary'>
+                    Uptime: {Model.Uptime}
+                </div>
+            </div>
+        ",
+        Variant = CardVariant.Elevated
+    })" />
+</div>
+```
+
+### Loading States Pattern
+
+```cshtml
+@page
+@model DataPageModel
+@using DiscordBot.Bot.ViewModels.Components
+
+@if (Model.IsLoading)
+{
+    <!-- Full Page Loading -->
+    <partial name="Shared/Components/_LoadingSpinner" model="@(new LoadingSpinnerViewModel
+    {
+        Variant = SpinnerVariant.Pulse,
+        Size = SpinnerSize.Large,
+        Message = "Loading data...",
+        SubMessage = "This may take a few moments",
+        IsOverlay = true
+    })" />
+}
+else if (Model.HasError)
+{
+    <!-- Error State -->
+    <partial name="Shared/Components/_EmptyState" model="@(new EmptyStateViewModel
+    {
+        Type = EmptyStateType.Error,
+        Title = "Failed to Load Data",
+        Description = Model.ErrorMessage,
+        PrimaryActionText = "Retry",
+        PrimaryActionOnClick = "location.reload()"
+    })" />
+}
+else
+{
+    <!-- Loaded Content -->
+    <partial name="Shared/Components/_Card" model="@(new CardViewModel
+    {
+        Title = "Data Overview",
+        BodyContent = Model.ContentHtml,
+        FooterContent = $@"
+            <div class='text-xs text-text-tertiary'>
+                Last updated: {Model.LastUpdated:g}
+            </div>
+        "
+    })" />
+}
+```
+
+---
+
+## Patterns & Best Practices
+
+### Form Validation Patterns
+
+**Client-Side Validation States:**
+
+```csharp
+// In PageModel
+public ValidationState GetInputValidationState(string fieldName)
+{
+    if (!ModelState.ContainsKey(fieldName))
+        return ValidationState.None;
+
+    var state = ModelState.GetValidationState(fieldName);
+    return state == ModelValidationState.Invalid
+        ? ValidationState.Error
+        : ValidationState.None;
+}
+
+public string? GetValidationMessage(string fieldName)
+{
+    return ModelState[fieldName]?.Errors.FirstOrDefault()?.ErrorMessage;
+}
+```
+
+**Success State After Save:**
+
+```csharp
+// After successful save
+TempData["SuccessMessage"] = "Server created successfully!";
+return RedirectToPage("/Servers/Index");
+
+// In target page
+@if (TempData["SuccessMessage"] != null)
+{
+    <partial name="Shared/Components/_Alert" model="@(new AlertViewModel
+    {
+        Variant = AlertVariant.Success,
+        Message = TempData["SuccessMessage"]!.ToString()!,
+        IsDismissible = true
+    })" />
+}
+```
+
+### Button Groups and Loading States
+
+**Action Button Group:**
+
+```cshtml
+<div class="flex items-center gap-3">
+    <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+    {
+        Text = "Save",
+        Variant = ButtonVariant.Primary,
+        Type = "submit",
+        IsLoading = Model.IsSaving
+    })" />
+    <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+    {
+        Text = "Cancel",
+        Variant = ButtonVariant.Secondary,
+        IsDisabled = Model.IsSaving,
+        OnClick = "history.back()"
+    })" />
+    <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+    {
+        Text = "Delete",
+        Variant = ButtonVariant.Danger,
+        IsDisabled = Model.IsSaving,
+        OnClick = "confirmDelete()"
+    })" />
+</div>
+```
+
+### Card Layouts with Actions
+
+**Card with Header Actions:**
+
+```csharp
+var card = new CardViewModel
+{
+    Title = "Recent Activity",
+    Subtitle = "Last 24 hours",
+    HeaderActions = @"
+        <div class='flex gap-2'>
+            <partial name='Shared/Components/_Button' model='@(new ButtonViewModel
+            {
+                Text = ""Refresh"",
+                Variant = ButtonVariant.Ghost,
+                Size = ButtonSize.Small,
+                IconLeft = ""M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15""
+            })' />
+        </div>
+    ",
+    BodyContent = activityListHtml
+};
+```
+
+### Empty State Fallbacks
+
+**Conditional Content Pattern:**
+
+```csharp
+public string GetCardContent()
+{
+    if (IsLoading)
+    {
+        return @"
+            <div class='flex justify-center py-12'>
+                <partial name='Shared/Components/_LoadingSpinner'
+                         model='@(new LoadingSpinnerViewModel { Size = SpinnerSize.Medium })' />
+            </div>
+        ";
+    }
+
+    if (!Items.Any())
+    {
+        return @"
+            <partial name='Shared/Components/_EmptyState'
+                     model='@(new EmptyStateViewModel
+                     {
+                         Type = EmptyStateType.NoData,
+                         Title = ""No Items"",
+                         Description = ""Add your first item to get started."",
+                         Size = EmptyStateSize.Compact
+                     })' />
+        ";
+    }
+
+    return RenderItemsList();
+}
+```
+
+---
+
+## Cross-References
+
+### Related Documentation
+
+- **[Design System](design-system.md)** - Color palette, typography, spacing tokens used by components
+- **[User Management](user-management.md)** - Examples of components in user CRUD pages
+- **[Interactive Components](interactive-components.md)** - Discord bot button/component patterns
+
+### Component Showcase
+
+For live examples of all components with interactive demos, visit the component showcase page at `/components` when running the application locally.
+
+---
+
+## Changelog
+
+### Version 1.0 (2025-12-22)
+- Initial component API documentation
+- Documented all 10 core components
+- Added integration examples and patterns
+- Included accessibility guidelines
+
+---
+
+## Support & Contributions
+
+For questions, bug reports, or feature requests related to components:
+
+1. Check this documentation first
+2. Review the [Design System](design-system.md) for styling questions
+3. Create an issue in the project repository with the `component` label
+
+**Maintained by:** UI Development Team
+**Last Review:** 2025-12-22
+**Next Review:** Quarterly
