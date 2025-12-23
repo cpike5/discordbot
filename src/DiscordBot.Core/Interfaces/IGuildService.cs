@@ -15,6 +15,16 @@ public interface IGuildService
     Task<IReadOnlyList<GuildDto>> GetAllGuildsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets guilds with filtering, sorting, and pagination support.
+    /// </summary>
+    /// <param name="query">The search query parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A paginated response of guild data.</returns>
+    Task<PaginatedResponseDto<GuildDto>> GetGuildsAsync(
+        GuildSearchQueryDto query,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets a specific guild by ID with merged database and Discord data.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
