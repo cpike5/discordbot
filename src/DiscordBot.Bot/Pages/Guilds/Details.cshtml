@@ -1,0 +1,330 @@
+@page
+@model DiscordBot.Bot.Pages.Guilds.DetailsModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = Model.ViewModel.Name;
+    var guild = Model.ViewModel;
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">@guild.Name</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <!-- Guild Icon -->
+                @if (!string.IsNullOrEmpty(guild.IconUrl))
+                {
+                    <img src="@guild.IconUrl" alt="@guild.Name" class="w-16 h-16 rounded-full flex-shrink-0" />
+                }
+                else
+                {
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                        @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                    </div>
+                }
+                <!-- Guild Name and ID -->
+                <div>
+                    <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">@guild.Name</h1>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="text-sm text-text-tertiary font-mono">ID: @guild.Id</span>
+                        <button onclick="copyToClipboard('@guild.Id')"
+                                class="text-text-tertiary hover:text-accent-blue transition-colors"
+                                title="Copy ID">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Actions -->
+            <div class="flex items-center gap-3">
+                @{
+                    var statusModel = new StatusIndicatorViewModel
+                    {
+                        Status = guild.IsActive ? StatusType.Online : StatusType.Offline,
+                        Text = guild.IsActive ? "Active" : "Inactive",
+                        DisplayStyle = StatusDisplayStyle.DotWithText,
+                        Size = StatusSize.Medium
+                    };
+                }
+                <partial name="Shared/Components/_StatusIndicator" model="statusModel" />
+                @if (guild.CanEdit)
+                {
+                    <a asp-page="Edit" asp-route-id="@guild.Id" class="btn btn-primary">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Settings
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Guild Information Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Information</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <!-- Members -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Members</span>
+                </div>
+                <p class="text-xl font-bold text-text-primary">@guild.MemberCount.ToString("N0")</p>
+            </div>
+            <!-- Bot Joined -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Bot Joined</span>
+                </div>
+                <p class="text-xl font-bold text-text-primary">
+                    <time datetime="@guild.JoinedAt.ToString("s")">@guild.JoinedAt.ToString("MMM d, yyyy")</time>
+                </p>
+            </div>
+            <!-- Prefix -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Prefix</span>
+                </div>
+                <p class="text-xl font-bold text-text-primary font-mono">
+                    @if (!string.IsNullOrEmpty(guild.Prefix))
+                    {
+                        @guild.Prefix
+                    }
+                    else
+                    {
+                        <span class="text-text-secondary text-base">Default (/)</span>
+                    }
+                </p>
+            </div>
+            <!-- Status -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Status</span>
+                </div>
+                <p class="text-xl font-bold text-text-primary">
+                    @if (guild.IsActive)
+                    {
+                        <span class="text-success">Active</span>
+                    }
+                    else
+                    {
+                        <span class="text-error">Inactive</span>
+                    }
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guild Settings Card (conditional) -->
+    @if (guild.Settings.HasSettings)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Settings</h2>
+            <div class="space-y-3">
+                @if (!string.IsNullOrEmpty(guild.Settings.WelcomeChannel))
+                {
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-text-secondary">Welcome Channel</span>
+                        <span class="text-text-primary font-medium">#@guild.Settings.WelcomeChannel</span>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(guild.Settings.LogChannel))
+                {
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-text-secondary">Log Channel</span>
+                        <span class="text-text-primary font-medium">#@guild.Settings.LogChannel</span>
+                    </div>
+                }
+                @if (guild.Settings.AutoModEnabled)
+                {
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-text-secondary">Auto-Moderation</span>
+                        <span class="text-success font-medium">Enabled</span>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Recent Command Activity Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Recent Command Activity</h2>
+            <p class="text-sm text-text-secondary mt-1">Last 10 commands executed in this server</p>
+        </div>
+
+        @if (guild.RecentCommandLogs.Any())
+        {
+            <!-- Desktop Table -->
+            <div class="overflow-x-auto hidden md:block">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Command</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Response</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var cmd in guild.RecentCommandLogs)
+                        {
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                    @cmd.Username
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                    <time datetime="@cmd.ExecutedAt.ToString("s")" title="@cmd.ExecutedAt.ToString("f")">
+                                        @GetRelativeTime(cmd.ExecutedAt)
+                                    </time>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                    @cmd.ResponseTimeMs ms
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @{
+                                        var statusBadge = new BadgeViewModel
+                                        {
+                                            Text = cmd.Success ? "Success" : "Failed",
+                                            Variant = cmd.Success ? BadgeVariant.Success : BadgeVariant.Error,
+                                            Size = BadgeSize.Small
+                                        };
+                                    }
+                                    <partial name="Shared/Components/_Badge" model="statusBadge" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile Card Layout -->
+            <div class="md:hidden divide-y divide-border-primary">
+                @foreach (var cmd in guild.RecentCommandLogs)
+                {
+                    <div class="p-4 hover:bg-bg-tertiary/50 transition-colors">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
+                            @{
+                                var mobileBadge = new BadgeViewModel
+                                {
+                                    Text = cmd.Success ? "Success" : "Failed",
+                                    Variant = cmd.Success ? BadgeVariant.Success : BadgeVariant.Error,
+                                    Size = BadgeSize.Small
+                                };
+                            }
+                            <partial name="Shared/Components/_Badge" model="mobileBadge" />
+                        </div>
+                        <div class="space-y-1 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-text-tertiary">User:</span>
+                                <span class="text-text-secondary">@cmd.Username</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-text-tertiary">Time:</span>
+                                <span class="text-text-secondary">
+                                    <time datetime="@cmd.ExecutedAt.ToString("s")" title="@cmd.ExecutedAt.ToString("f")">
+                                        @GetRelativeTime(cmd.ExecutedAt)
+                                    </time>
+                                </span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-text-tertiary">Response:</span>
+                                <span class="text-text-secondary">@cmd.ResponseTimeMs ms</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="p-12 text-center">
+                @{
+                    var emptyState = new EmptyStateViewModel
+                    {
+                        Type = EmptyStateType.NoData,
+                        Title = "No command activity yet",
+                        Description = "No commands have been executed in this server"
+                    };
+                }
+                <partial name="Shared/Components/_EmptyState" model="emptyState" />
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Could add a toast notification here
+                console.log('Copied to clipboard:', text);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+            });
+        }
+    </script>
+}
+
+@functions {
+    private string GetRelativeTime(DateTime timestamp)
+    {
+        var now = DateTime.UtcNow;
+        var diff = now - timestamp;
+
+        if (diff.TotalMinutes < 1)
+            return "Just now";
+        if (diff.TotalMinutes < 60)
+            return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24)
+            return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7)
+            return $"{(int)diff.TotalDays}d ago";
+
+        return timestamp.ToString("MMM d, yyyy");
+    }
+}
