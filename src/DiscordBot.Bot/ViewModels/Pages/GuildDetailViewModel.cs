@@ -1,4 +1,5 @@
 using DiscordBot.Core.DTOs;
+using System.Text.Json;
 
 namespace DiscordBot.Bot.ViewModels.Pages;
 
@@ -43,14 +44,19 @@ public record GuildDetailViewModel
     public string? Prefix { get; init; }
 
     /// <summary>
-    /// Gets the guild settings as JSON.
+    /// Gets the parsed guild settings.
     /// </summary>
-    public string? Settings { get; init; }
+    public GuildSettingsViewModel Settings { get; init; } = new();
 
     /// <summary>
     /// Gets the list of recent command logs for this guild.
     /// </summary>
     public IReadOnlyList<RecentCommandLogItem> RecentCommandLogs { get; init; } = Array.Empty<RecentCommandLogItem>();
+
+    /// <summary>
+    /// Gets whether the current user can edit this guild's settings.
+    /// </summary>
+    public bool CanEdit { get; init; }
 
     /// <summary>
     /// Creates a <see cref="GuildDetailViewModel"/> from a <see cref="GuildDto"/>.
@@ -69,8 +75,9 @@ public record GuildDetailViewModel
             IsActive = dto.IsActive,
             JoinedAt = dto.JoinedAt,
             Prefix = dto.Prefix,
-            Settings = dto.Settings,
-            RecentCommandLogs = recentLogs?.Select(RecentCommandLogItem.FromDto).ToList() ?? (IReadOnlyList<RecentCommandLogItem>)Array.Empty<RecentCommandLogItem>()
+            Settings = GuildSettingsViewModel.Parse(dto.Settings),
+            RecentCommandLogs = recentLogs?.Select(RecentCommandLogItem.FromDto).ToList() ?? (IReadOnlyList<RecentCommandLogItem>)Array.Empty<RecentCommandLogItem>(),
+            CanEdit = true // Will be set by PageModel based on authorization
         };
     }
 }
@@ -132,5 +139,57 @@ public record RecentCommandLogItem
             Success = dto.Success,
             ErrorMessage = dto.ErrorMessage
         };
+    }
+}
+
+/// <summary>
+/// Parsed guild settings for display.
+/// </summary>
+public record GuildSettingsViewModel
+{
+    /// <summary>
+    /// Gets the welcome channel ID or name.
+    /// </summary>
+    public string? WelcomeChannel { get; init; }
+
+    /// <summary>
+    /// Gets the log channel ID or name.
+    /// </summary>
+    public string? LogChannel { get; init; }
+
+    /// <summary>
+    /// Gets whether auto-moderation is enabled.
+    /// </summary>
+    public bool AutoModEnabled { get; init; }
+
+    /// <summary>
+    /// Gets whether any custom settings are configured.
+    /// </summary>
+    public bool HasSettings => !string.IsNullOrEmpty(WelcomeChannel)
+        || !string.IsNullOrEmpty(LogChannel)
+        || AutoModEnabled;
+
+    /// <summary>
+    /// Parses guild settings from JSON.
+    /// </summary>
+    /// <param name="settingsJson">The JSON settings blob from the database.</param>
+    /// <returns>A parsed GuildSettingsViewModel instance.</returns>
+    public static GuildSettingsViewModel Parse(string? settingsJson)
+    {
+        if (string.IsNullOrEmpty(settingsJson))
+            return new GuildSettingsViewModel();
+
+        try
+        {
+            return JsonSerializer.Deserialize<GuildSettingsViewModel>(settingsJson, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            }) ?? new GuildSettingsViewModel();
+        }
+        catch (JsonException)
+        {
+            // If JSON parsing fails, return empty settings
+            return new GuildSettingsViewModel();
+        }
     }
 }
