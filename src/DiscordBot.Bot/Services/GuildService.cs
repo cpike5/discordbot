@@ -69,6 +69,70 @@ public class GuildService : IGuildService
     }
 
     /// <inheritdoc/>
+    public async Task<PaginatedResponseDto<GuildDto>> GetGuildsAsync(
+        GuildSearchQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving guilds with query: Search={Search}, IsActive={IsActive}, " +
+            "Page={Page}, PageSize={PageSize}, SortBy={SortBy}, SortDesc={SortDesc}",
+            query.SearchTerm, query.IsActive, query.Page, query.PageSize,
+            query.SortBy, query.SortDescending);
+
+        // Get all guilds first (using existing method)
+        var allGuilds = await GetAllGuildsAsync(cancellationToken);
+
+        // Apply filters
+        var filtered = allGuilds.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var searchLower = query.SearchTerm.ToLowerInvariant();
+            filtered = filtered.Where(g =>
+                g.Name.ToLowerInvariant().Contains(searchLower) ||
+                g.Id.ToString().Contains(searchLower));
+        }
+
+        if (query.IsActive.HasValue)
+        {
+            filtered = filtered.Where(g => g.IsActive == query.IsActive.Value);
+        }
+
+        // Apply sorting
+        filtered = query.SortBy?.ToLowerInvariant() switch
+        {
+            "membercount" => query.SortDescending
+                ? filtered.OrderByDescending(g => g.MemberCount ?? 0)
+                : filtered.OrderBy(g => g.MemberCount ?? 0),
+            "joinedat" => query.SortDescending
+                ? filtered.OrderByDescending(g => g.JoinedAt)
+                : filtered.OrderBy(g => g.JoinedAt),
+            _ => query.SortDescending
+                ? filtered.OrderByDescending(g => g.Name)
+                : filtered.OrderBy(g => g.Name)
+        };
+
+        var filteredList = filtered.ToList();
+        var totalCount = filteredList.Count;
+
+        // Apply pagination
+        var items = filteredList
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToList();
+
+        _logger.LogInformation("Retrieved {Count} of {Total} guilds for page {Page}",
+            items.Count, totalCount, query.Page);
+
+        return new PaginatedResponseDto<GuildDto>
+        {
+            Items = items,
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalCount = totalCount
+        };
+    }
+
+    /// <inheritdoc/>
     public async Task<GuildDto?> GetGuildByIdAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Retrieving guild {GuildId}", guildId);

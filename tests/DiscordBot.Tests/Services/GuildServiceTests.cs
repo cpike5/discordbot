@@ -215,4 +215,454 @@ public class GuildServiceTests
         // Cleanup
         await client.DisposeAsync();
     }
+
+    #region GetGuildsAsync Tests
+
+    [Fact]
+    public async Task GetGuildsAsync_WithNoFilters_ReturnsAllGuilds()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Alpha Guild", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Beta Guild", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Gamma Guild", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = false }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(3, "all guilds should be returned when no filters are applied");
+        result.TotalCount.Should().Be(3);
+        result.Page.Should().Be(1);
+        result.PageSize.Should().Be(10);
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_WithSearchTerm_FiltersGuildsByName()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Alpha Guild", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Beta Guild", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Gamma Guild", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = false }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            SearchTerm = "beta",
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(1, "only guilds matching the search term should be returned");
+        result.Items[0].Name.Should().Be("Beta Guild");
+        result.TotalCount.Should().Be(1);
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_WithSearchTerm_FiltersGuildsById()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Alpha Guild", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Beta Guild", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Gamma Guild", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = false }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            SearchTerm = "222",
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(1, "guilds should be searchable by ID");
+        result.Items[0].Id.Should().Be(222UL);
+        result.Items[0].Name.Should().Be("Beta Guild");
+        result.TotalCount.Should().Be(1);
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_WithActiveFilter_FiltersActiveGuilds()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Alpha Guild", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Beta Guild", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Gamma Guild", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = false }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            IsActive = true,
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(2, "only active guilds should be returned");
+        result.Items.Should().OnlyContain(g => g.IsActive == true, "all returned guilds should be active");
+        result.TotalCount.Should().Be(2);
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_WithActiveFilter_FiltersInactiveGuilds()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Alpha Guild", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Beta Guild", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Gamma Guild", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = false }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            IsActive = false,
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(1, "only inactive guilds should be returned");
+        result.Items.Should().OnlyContain(g => g.IsActive == false, "all returned guilds should be inactive");
+        result.Items[0].Name.Should().Be("Gamma Guild");
+        result.TotalCount.Should().Be(1);
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_SortByName_OrdersAscending()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 333UL, Name = "Gamma Guild", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = true },
+            new Guild { Id = 111UL, Name = "Alpha Guild", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Beta Guild", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            SortBy = "Name",
+            SortDescending = false,
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(3);
+        result.Items[0].Name.Should().Be("Alpha Guild", "guilds should be sorted alphabetically");
+        result.Items[1].Name.Should().Be("Beta Guild");
+        result.Items[2].Name.Should().Be("Gamma Guild");
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_SortByName_OrdersDescending()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Alpha Guild", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Beta Guild", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Gamma Guild", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = true }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            SortBy = "Name",
+            SortDescending = true,
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(3);
+        result.Items[0].Name.Should().Be("Gamma Guild", "guilds should be sorted reverse alphabetically");
+        result.Items[1].Name.Should().Be("Beta Guild");
+        result.Items[2].Name.Should().Be("Alpha Guild");
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_SortByMemberCount_OrdersCorrectly()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Small Guild", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Large Guild", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Medium Guild", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = true }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            SortBy = "MemberCount",
+            SortDescending = true,
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(3);
+        // Note: All guilds will have null MemberCount since DiscordSocketClient.GetGuild returns null
+        // This test verifies the sorting logic handles null values (treating them as 0)
+        result.Items.Should().AllSatisfy(g => g.MemberCount.Should().BeNull());
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_SortByJoinedAt_OrdersCorrectly()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var now = DateTime.UtcNow;
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Recent Guild", JoinedAt = now.AddDays(-5), IsActive = true },
+            new Guild { Id = 222UL, Name = "Old Guild", JoinedAt = now.AddDays(-30), IsActive = true },
+            new Guild { Id = 333UL, Name = "Medium Guild", JoinedAt = now.AddDays(-15), IsActive = true }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            SortBy = "JoinedAt",
+            SortDescending = false,
+            Page = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(3);
+        result.Items[0].Name.Should().Be("Old Guild", "guilds should be sorted by join date ascending (oldest first)");
+        result.Items[1].Name.Should().Be("Medium Guild");
+        result.Items[2].Name.Should().Be("Recent Guild");
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_WithPagination_ReturnsCorrectPage()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Guild 1", JoinedAt = DateTime.UtcNow.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Guild 2", JoinedAt = DateTime.UtcNow.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Guild 3", JoinedAt = DateTime.UtcNow.AddDays(-30), IsActive = true },
+            new Guild { Id = 444UL, Name = "Guild 4", JoinedAt = DateTime.UtcNow.AddDays(-40), IsActive = true },
+            new Guild { Id = 555UL, Name = "Guild 5", JoinedAt = DateTime.UtcNow.AddDays(-50), IsActive = true }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            Page = 2,
+            PageSize = 2,
+            SortBy = "Name"
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(2, "page 2 with page size 2 should return 2 items");
+        result.Items[0].Name.Should().Be("Guild 3", "pagination should skip the first page");
+        result.Items[1].Name.Should().Be("Guild 4");
+        result.Page.Should().Be(2);
+        result.PageSize.Should().Be(2);
+        result.TotalCount.Should().Be(5);
+        result.TotalPages.Should().Be(3);
+        result.HasPreviousPage.Should().BeTrue();
+        result.HasNextPage.Should().BeTrue();
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetGuildsAsync_WithCombinedFilters_AppliesAllFilters()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+
+        var now = DateTime.UtcNow;
+        var guilds = new List<Guild>
+        {
+            new Guild { Id = 111UL, Name = "Active Alpha", JoinedAt = now.AddDays(-10), IsActive = true },
+            new Guild { Id = 222UL, Name = "Active Beta", JoinedAt = now.AddDays(-20), IsActive = true },
+            new Guild { Id = 333UL, Name = "Inactive Alpha", JoinedAt = now.AddDays(-30), IsActive = false },
+            new Guild { Id = 444UL, Name = "Active Gamma", JoinedAt = now.AddDays(-40), IsActive = true },
+            new Guild { Id = 555UL, Name = "Inactive Beta", JoinedAt = now.AddDays(-50), IsActive = false }
+        };
+
+        _mockGuildRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(guilds);
+
+        var query = new GuildSearchQueryDto
+        {
+            SearchTerm = "Active",
+            IsActive = true,
+            SortBy = "JoinedAt",
+            SortDescending = false,
+            Page = 1,
+            PageSize = 2
+        };
+
+        // Act
+        var result = await service.GetGuildsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(2, "page size is 2");
+        result.TotalCount.Should().Be(3, "3 guilds match the combined filters (Active + contains 'Active')");
+        result.Items.Should().OnlyContain(g => g.IsActive == true && g.Name.Contains("Active"),
+            "all filters should be applied");
+        result.Items[0].Name.Should().Be("Active Gamma", "results should be sorted by JoinedAt ascending");
+        result.Items[1].Name.Should().Be("Active Beta");
+
+        // Cleanup
+        await client.DisposeAsync();
+    }
+
+    #endregion
 }

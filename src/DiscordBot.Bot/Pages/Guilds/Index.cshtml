@@ -1,0 +1,325 @@
+@page
+@model DiscordBot.Bot.Pages.Guilds.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@{
+    ViewData["Title"] = "Servers";
+    var startItem = Model.ViewModel.TotalCount > 0 ? (Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1 : 0;
+    var endItem = Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount);
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Servers</h1>
+            <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = Model.ViewModel.TotalCount.ToString(), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
+        </div>
+        <span class="text-xs text-text-tertiary hidden sm:block">
+            Last updated: <time datetime="@DateTime.UtcNow.ToString("s")">@DateTime.UtcNow.ToString("MMM d, yyyy 'at' h:mm tt")</time>
+        </span>
+    </div>
+
+    <!-- Search & Filter Bar -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <form method="get" class="flex flex-col md:flex-row md:items-end gap-4">
+            <!-- Search Input -->
+            <div class="flex-1">
+                <label for="SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                <div class="relative">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input type="search"
+                           id="SearchTerm"
+                           name="SearchTerm"
+                           value="@Model.SearchTerm"
+                           placeholder="Search servers by name or ID..."
+                           class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="w-full md:w-40">
+                <label for="StatusFilter" class="block text-sm font-medium text-text-primary mb-1">Status</label>
+                <select id="StatusFilter"
+                        name="StatusFilter"
+                        class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                    <option value="">All Statuses</option>
+                    <option value="true" selected="@(Model.StatusFilter == true)">Active</option>
+                    <option value="false" selected="@(Model.StatusFilter == false)">Inactive</option>
+                </select>
+            </div>
+
+            <!-- Sort By -->
+            <div class="w-full md:w-40">
+                <label for="SortBy" class="block text-sm font-medium text-text-primary mb-1">Sort By</label>
+                <select id="SortBy"
+                        name="SortBy"
+                        class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                    @foreach (var (value, display) in GuildListViewModel.SortOptions)
+                    {
+                        <option value="@value" selected="@(Model.SortBy == value)">@display</option>
+                    }
+                </select>
+            </div>
+
+            <!-- Sort Direction -->
+            <div class="w-full md:w-40">
+                <label for="SortDescending" class="block text-sm font-medium text-text-primary mb-1">Order</label>
+                <select id="SortDescending"
+                        name="SortDescending"
+                        class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                    <option value="false" selected="@(!Model.SortDescending)">Ascending</option>
+                    <option value="true" selected="@(Model.SortDescending)">Descending</option>
+                </select>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2">
+                <a asp-page="Index" class="btn btn-secondary">Clear</a>
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Search
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Desktop Table -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                            Server Name
+                        </th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">
+                            Server ID
+                        </th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                            Members
+                        </th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">
+                            Joined
+                        </th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @if (Model.ViewModel.Guilds.Any())
+                    {
+                        @foreach (var guild in Model.ViewModel.Guilds)
+                        {
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <!-- Server Name with Icon -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        @if (!string.IsNullOrEmpty(guild.IconUrl))
+                                        {
+                                            <img src="@guild.IconUrl" alt="@guild.Name" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                            </div>
+                                        }
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-text-primary truncate">@guild.Name</p>
+                                            <p class="text-xs text-text-tertiary lg:hidden font-mono">ID: @guild.Id</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <!-- Server ID (desktop only) -->
+                                <td class="px-6 py-4 text-text-secondary font-mono text-sm hidden lg:table-cell">
+                                    @guild.Id
+                                </td>
+                                <!-- Member Count -->
+                                <td class="px-6 py-4 text-text-secondary">
+                                    @guild.MemberCount.ToString("N0")
+                                </td>
+                                <!-- Status -->
+                                <td class="px-6 py-4">
+                                    @{
+                                        var statusModel = new StatusIndicatorViewModel
+                                        {
+                                            Status = guild.IsActive ? StatusType.Online : StatusType.Offline,
+                                            Text = guild.IsActive ? "Active" : "Inactive",
+                                            DisplayStyle = StatusDisplayStyle.DotWithText,
+                                            Size = StatusSize.Medium
+                                        };
+                                    }
+                                    <partial name="Shared/Components/_StatusIndicator" model="statusModel" />
+                                </td>
+                                <!-- Join Date (desktop only) -->
+                                <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                                    <time datetime="@guild.JoinedAt.ToString("s")">@guild.JoinedAt.ToString("MMM d, yyyy")</time>
+                                </td>
+                                <!-- Actions -->
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" title="View Details">
+                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </button>
+                                        <button class="p-2 text-text-secondary hover:text-accent-orange hover:bg-bg-hover rounded transition-colors" title="Configure">
+                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                @{
+                                    var hasFilters = !string.IsNullOrEmpty(Model.SearchTerm) || Model.StatusFilter.HasValue;
+                                    var emptyTitle = hasFilters ? "No servers found" : "No servers yet";
+                                    var emptyDesc = hasFilters ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
+                                }
+                                <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                                    Type = EmptyStateType.NoResults,
+                                    Title = emptyTitle,
+                                    Description = emptyDesc
+                                }" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Mobile Card Layout -->
+    <div class="md:hidden space-y-4">
+        @if (Model.ViewModel.Guilds.Any())
+        {
+            @foreach (var guild in Model.ViewModel.Guilds)
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            @if (!string.IsNullOrEmpty(guild.IconUrl))
+                            {
+                                <img src="@guild.IconUrl" alt="@guild.Name" class="w-10 h-10 rounded-full flex-shrink-0" />
+                            }
+                            else
+                            {
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                    @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                </div>
+                            }
+                            <div class="min-w-0">
+                                <p class="font-medium text-text-primary truncate">@guild.Name</p>
+                                <p class="text-xs text-text-tertiary font-mono">@guild.Id</p>
+                            </div>
+                        </div>
+                        @{
+                            var mobileStatusModel = new StatusIndicatorViewModel
+                            {
+                                Status = guild.IsActive ? StatusType.Online : StatusType.Offline,
+                                Text = guild.IsActive ? "Active" : "Inactive",
+                                DisplayStyle = StatusDisplayStyle.DotWithText,
+                                Size = StatusSize.Small
+                            };
+                        }
+                        <partial name="Shared/Components/_StatusIndicator" model="mobileStatusModel" />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                        <div>
+                            <span class="text-text-tertiary">Members:</span>
+                            <span class="text-text-primary ml-1">@guild.MemberCount.ToString("N0")</span>
+                        </div>
+                        <div>
+                            <span class="text-text-tertiary">Joined:</span>
+                            <span class="text-text-primary ml-1">@guild.JoinedAt.ToString("MMM d, yyyy")</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 pt-3 border-t border-border-secondary">
+                        <button class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View
+                        </button>
+                        <button class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Configure
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                @{
+                    var hasFilters = !string.IsNullOrEmpty(Model.SearchTerm) || Model.StatusFilter.HasValue;
+                    var emptyTitle = hasFilters ? "No servers found" : "No servers yet";
+                    var emptyDesc = hasFilters ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
+                }
+                <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                    Type = EmptyStateType.NoResults,
+                    Title = emptyTitle,
+                    Description = emptyDesc
+                }" />
+            </div>
+        }
+    </div>
+
+    <!-- Pagination -->
+    @if (Model.ViewModel.TotalPages > 1)
+    {
+        <div class="mt-6">
+            @{
+                var baseUrl = Url.Page("Index", new {
+                    SearchTerm = Model.SearchTerm,
+                    StatusFilter = Model.StatusFilter,
+                    SortBy = Model.SortBy,
+                    SortDescending = Model.SortDescending,
+                    PageSize = Model.PageSize
+                }) ?? string.Empty;
+            }
+            <partial name="Shared/Components/_Pagination" model="new PaginationViewModel {
+                CurrentPage = Model.ViewModel.CurrentPage,
+                TotalPages = Model.ViewModel.TotalPages,
+                TotalItems = Model.ViewModel.TotalCount,
+                PageSize = Model.ViewModel.PageSize,
+                BaseUrl = baseUrl,
+                Style = PaginationStyle.Full,
+                ShowPageSizeSelector = true,
+                ShowItemCount = true
+            }" />
+        </div>
+    }
+
+    <!-- Results Summary -->
+    @if (Model.ViewModel.TotalCount > 0)
+    {
+        <div class="mt-4 text-sm text-text-secondary">
+            Showing @startItem to @endItem of @Model.ViewModel.TotalCount servers
+        </div>
+    }
+</div>
