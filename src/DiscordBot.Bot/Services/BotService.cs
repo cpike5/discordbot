@@ -1,6 +1,9 @@
+using Discord;
 using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.Options;
+using System.Reflection;
 
 namespace DiscordBot.Bot.Services;
 
@@ -12,6 +15,7 @@ public class BotService : IBotService
     private readonly DiscordSocketClient _client;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger<BotService> _logger;
+    private readonly BotConfiguration _config;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     /// <summary>
@@ -20,14 +24,17 @@ public class BotService : IBotService
     /// <param name="client">The Discord socket client.</param>
     /// <param name="lifetime">The application lifetime.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="config">The bot configuration.</param>
     public BotService(
         DiscordSocketClient client,
         IHostApplicationLifetime lifetime,
-        ILogger<BotService> logger)
+        ILogger<BotService> logger,
+        IOptions<BotConfiguration> config)
     {
         _client = client;
         _lifetime = lifetime;
         _logger = logger;
+        _config = config.Value;
     }
 
     /// <inheritdoc/>
@@ -73,10 +80,24 @@ public class BotService : IBotService
     }
 
     /// <inheritdoc/>
-    public Task RestartAsync(CancellationToken cancellationToken = default)
+    public async Task RestartAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogWarning("Restart requested but not implemented - this feature requires external process management");
-        throw new NotSupportedException("Bot restart is not currently supported. Use an external process manager for restart capabilities.");
+        _logger.LogWarning("Bot soft restart requested");
+
+        // Disconnect from Discord
+        await _client.StopAsync();
+        await _client.LogoutAsync();
+
+        _logger.LogInformation("Bot disconnected, waiting before reconnect...");
+
+        // Brief delay to ensure clean disconnect
+        await Task.Delay(2000, cancellationToken);
+
+        // Reconnect
+        await _client.LoginAsync(TokenType.Bot, _config.Token);
+        await _client.StartAsync();
+
+        _logger.LogInformation("Bot reconnected successfully");
     }
 
     /// <inheritdoc/>
@@ -86,5 +107,41 @@ public class BotService : IBotService
         _lifetime.StopApplication();
         _logger.LogInformation("Application shutdown initiated");
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public BotConfigurationDto GetConfiguration()
+    {
+        _logger.LogDebug("Retrieving bot configuration");
+
+        var token = _config.Token ?? string.Empty;
+        var maskedToken = token.Length > 4
+            ? $"{new string('\u2022', 20)}{token[^4..]}"
+            : new string('\u2022', 24);
+
+        // Get Discord.NET version
+        var discordNetVersion = typeof(DiscordSocketClient).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? typeof(DiscordSocketClient).Assembly.GetName().Version?.ToString()
+            ?? "Unknown";
+
+        // Get application version
+        var appVersion = Assembly.GetEntryAssembly()
+            ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
+            ?? "Unknown";
+
+        return new BotConfigurationDto
+        {
+            TokenMasked = maskedToken,
+            TestGuildId = _config.TestGuildId,
+            HasTestGuild = _config.TestGuildId.HasValue,
+            DatabaseProvider = "SQLite", // TODO: Get from actual configuration
+            DiscordNetVersion = discordNetVersion,
+            AppVersion = appVersion,
+            RuntimeVersion = Environment.Version.ToString(),
+            DefaultRateLimitInvokes = _config.DefaultRateLimitInvokes,
+            DefaultRateLimitPeriodSeconds = _config.DefaultRateLimitPeriodSeconds
+        };
     }
 }

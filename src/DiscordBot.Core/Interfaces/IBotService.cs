@@ -32,4 +32,10 @@ public interface IBotService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task ShutdownAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the bot configuration with sensitive values masked.
+    /// </summary>
+    /// <returns>Bot configuration information safe for display.</returns>
+    BotConfigurationDto GetConfiguration();
 }
