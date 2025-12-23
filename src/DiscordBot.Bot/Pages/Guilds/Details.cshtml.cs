@@ -34,6 +34,12 @@ public class DetailsModel : PageModel
     /// </summary>
     public GuildDetailViewModel ViewModel { get; set; } = new();
 
+    /// <summary>
+    /// Success message from TempData.
+    /// </summary>
+    [TempData]
+    public string? SuccessMessage { get; set; }
+
     public async Task<IActionResult> OnGetAsync(ulong id, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", id);
