@@ -28,8 +28,8 @@ public class CommandLogService : ICommandLogService
     /// <inheritdoc/>
     public async Task<PaginatedResponseDto<CommandLogDto>> GetLogsAsync(CommandLogQueryDto query, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Querying command logs with filters: GuildId={GuildId}, UserId={UserId}, CommandName={CommandName}, Page={Page}, PageSize={PageSize}",
-            query.GuildId, query.UserId, query.CommandName, query.Page, query.PageSize);
+        _logger.LogDebug("Querying command logs with filters: SearchTerm={SearchTerm}, GuildId={GuildId}, UserId={UserId}, CommandName={CommandName}, Page={Page}, PageSize={PageSize}",
+            query.SearchTerm, query.GuildId, query.UserId, query.CommandName, query.Page, query.PageSize);
 
         // Validate pagination parameters
         if (query.Page < 1)
@@ -47,6 +47,14 @@ public class CommandLogService : ICommandLogService
         var allLogs = await _commandLogRepository.GetAllAsync(cancellationToken);
 
         var filteredLogs = allLogs.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            filteredLogs = filteredLogs.Where(l =>
+                l.CommandName.Contains(query.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
+                (l.User?.Username != null && l.User.Username.Contains(query.SearchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                (l.Guild?.Name != null && l.Guild.Name.Contains(query.SearchTerm, StringComparison.OrdinalIgnoreCase)));
+        }
 
         if (query.GuildId.HasValue)
         {

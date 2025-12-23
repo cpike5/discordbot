@@ -141,6 +141,11 @@ public record CommandLogListItem
 public record CommandLogFilterOptions
 {
     /// <summary>
+    /// Gets the search term for multi-field search. Null or empty means no search filter.
+    /// </summary>
+    public string? SearchTerm { get; init; }
+
+    /// <summary>
     /// Gets the guild ID filter. Null means no filter.
     /// </summary>
     public ulong? GuildId { get; init; }
@@ -174,6 +179,7 @@ public record CommandLogFilterOptions
     /// Gets whether any filters are currently applied.
     /// </summary>
     public bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(SearchTerm) ||
         GuildId.HasValue ||
         UserId.HasValue ||
         !string.IsNullOrWhiteSpace(CommandName) ||
