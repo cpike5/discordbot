@@ -1,0 +1,65 @@
+@page "/Error/404"
+@model NotFoundModel
+@{
+    ViewData["Title"] = "Page Not Found";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] - Discord Bot Admin</title>
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+</head>
+<body class="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-8 font-sans">
+
+    <div class="w-full max-w-md">
+        <!-- Error Icon -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-warning rounded-xl mb-4">
+                <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-text-primary">Page Not Found</h1>
+            <p class="text-text-secondary mt-2">The page you're looking for doesn't exist or has been moved.</p>
+        </div>
+
+        <!-- Message Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg">
+            <div class="mb-6 p-4 bg-warning-bg border border-warning-border rounded-lg">
+                <p class="text-sm text-warning">
+                    <strong>404 Not Found:</strong> This URL doesn't match any resource.
+                </p>
+            </div>
+
+            <p class="text-sm text-text-primary mb-4">
+                The page you requested could not be found. It may have been removed, renamed, or is temporarily unavailable.
+            </p>
+
+            @if (!string.IsNullOrEmpty(Model.RequestedPath))
+            {
+                <p class="text-xs text-text-tertiary mb-6 font-mono break-all">
+                    Requested URL: @Model.RequestedPath
+                </p>
+            }
+
+            <p class="text-sm text-text-secondary mb-6">
+                Please check the URL or navigate back to the dashboard to find what you're looking for.
+            </p>
+
+            <div class="flex gap-3">
+                <a asp-page="/Index" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    Go to Dashboard
+                </a>
+                <button onclick="history.back()" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    Go Back
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

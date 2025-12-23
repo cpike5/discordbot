@@ -194,6 +194,19 @@ try
     // Configure middleware pipeline
     app.UseSerilogRequestLogging();
 
+    // Configure error handling
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseDeveloperExceptionPage();
+    }
+    else
+    {
+        app.UseExceptionHandler("/Error/500");
+    }
+
+    // Configure status code pages for common HTTP errors
+    app.UseStatusCodePagesWithReExecute("/Error/{0}");
+
     // Enable static file serving for wwwroot
     app.UseStaticFiles();
 
