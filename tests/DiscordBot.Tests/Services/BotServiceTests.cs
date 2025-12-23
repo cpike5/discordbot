@@ -5,6 +5,7 @@ using DiscordBot.Core.DTOs;
 using FluentAssertions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Services;
@@ -19,11 +20,20 @@ public class BotServiceTests
 {
     private readonly Mock<IHostApplicationLifetime> _mockLifetime;
     private readonly Mock<ILogger<BotService>> _mockLogger;
+    private readonly Mock<IOptions<BotConfiguration>> _mockConfig;
 
     public BotServiceTests()
     {
         _mockLifetime = new Mock<IHostApplicationLifetime>();
         _mockLogger = new Mock<ILogger<BotService>>();
+        _mockConfig = new Mock<IOptions<BotConfiguration>>();
+        _mockConfig.Setup(c => c.Value).Returns(new BotConfiguration
+        {
+            Token = "test-token-1234567890",
+            TestGuildId = 123456789,
+            DefaultRateLimitInvokes = 3,
+            DefaultRateLimitPeriodSeconds = 60.0
+        });
     }
 
     /// <summary>
@@ -108,7 +118,7 @@ public class BotServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
 
         // Act
         await service.ShutdownAsync();
@@ -128,7 +138,7 @@ public class BotServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
 
         // Act
         await service.ShutdownAsync();
@@ -153,7 +163,7 @@ public class BotServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
         var cancellationTokenSource = new CancellationTokenSource();
 
         // Act
@@ -170,36 +180,22 @@ public class BotServiceTests
     }
 
     [Fact]
-    public async Task RestartAsync_ShouldThrowNotSupportedException()
-    {
-        // Arrange
-        var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object);
-
-        // Act & Assert
-        await FluentActions.Invoking(async () => await service.RestartAsync())
-            .Should().ThrowAsync<NotSupportedException>()
-            .WithMessage("*restart is not currently supported*");
-
-        // Cleanup
-        await client.DisposeAsync();
-    }
-
-    [Fact]
     public async Task RestartAsync_ShouldLogWarning()
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
 
         // Act
+        // Note: RestartAsync now performs a soft restart (disconnect/reconnect)
+        // but will fail on an unconnected client, so we just verify it logs
         try
         {
             await service.RestartAsync();
         }
-        catch (NotSupportedException)
+        catch (Exception)
         {
-            // Expected exception
+            // May fail because client is not connected - that's expected in tests
         }
 
         // Assert
@@ -207,7 +203,7 @@ public class BotServiceTests
             l => l.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Restart requested but not implemented")),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("soft restart")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once,
@@ -215,5 +211,30 @@ public class BotServiceTests
 
         // Cleanup
         await client.DisposeAsync();
+    }
+
+    [Fact]
+    public void GetConfiguration_ShouldReturnMaskedToken()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
+
+        // Act
+        var config = service.GetConfiguration();
+
+        // Assert
+        config.Should().NotBeNull();
+        config.TokenMasked.Should().NotContain("test-token");
+        config.TokenMasked.Should().EndWith("7890"); // Last 4 chars
+        config.TokenMasked.Should().Contain("\u2022"); // Contains bullet characters
+        config.HasTestGuild.Should().BeTrue();
+        config.TestGuildId.Should().Be(123456789);
+        config.DefaultRateLimitInvokes.Should().Be(3);
+        config.DefaultRateLimitPeriodSeconds.Should().Be(60.0);
+        config.RuntimeVersion.Should().NotBeNullOrEmpty();
+
+        // Cleanup
+        client.Dispose();
     }
 }
