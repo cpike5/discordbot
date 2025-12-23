@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -140,5 +141,110 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
         await Context.SaveChangesAsync(cancellationToken);
 
         return commandLog;
+    }
+
+    public async Task<IReadOnlyList<UsageOverTimeDto>> GetUsageOverTimeAsync(
+        DateTime start,
+        DateTime end,
+        ulong? guildId = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving command usage over time from {StartDate} to {EndDate} for guild {GuildId}",
+            start, end, guildId);
+
+        var query = DbSet.AsQueryable();
+
+        query = query.Where(l => l.ExecutedAt >= start && l.ExecutedAt < end);
+
+        if (guildId.HasValue)
+        {
+            query = query.Where(l => l.GuildId == guildId.Value);
+        }
+
+        var result = await query
+            .GroupBy(l => l.ExecutedAt.Date)
+            .Select(g => new UsageOverTimeDto
+            {
+                Date = g.Key,
+                Count = g.Count()
+            })
+            .OrderBy(x => x.Date)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogInformation("Retrieved usage over time data with {DataPointCount} data points", result.Count);
+        return result;
+    }
+
+    public async Task<CommandSuccessRateDto> GetSuccessRateAsync(
+        DateTime? since = null,
+        ulong? guildId = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving command success rate since {Since} for guild {GuildId}", since, guildId);
+
+        var query = DbSet.AsQueryable();
+
+        if (since.HasValue)
+        {
+            query = query.Where(l => l.ExecutedAt >= since.Value);
+        }
+
+        if (guildId.HasValue)
+        {
+            query = query.Where(l => l.GuildId == guildId.Value);
+        }
+
+        var successCount = await query.CountAsync(l => l.Success, cancellationToken);
+        var failureCount = await query.CountAsync(l => !l.Success, cancellationToken);
+
+        var result = new CommandSuccessRateDto
+        {
+            SuccessCount = successCount,
+            FailureCount = failureCount
+        };
+
+        _logger.LogInformation("Retrieved success rate: {SuccessCount} successful, {FailureCount} failed, {SuccessRate:F2}%",
+            result.SuccessCount, result.FailureCount, result.SuccessRate);
+
+        return result;
+    }
+
+    public async Task<IReadOnlyList<CommandPerformanceDto>> GetCommandPerformanceAsync(
+        DateTime? since = null,
+        ulong? guildId = null,
+        int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving command performance metrics since {Since} for guild {GuildId}, limit {Limit}",
+            since, guildId, limit);
+
+        var query = DbSet.AsQueryable();
+
+        if (since.HasValue)
+        {
+            query = query.Where(l => l.ExecutedAt >= since.Value);
+        }
+
+        if (guildId.HasValue)
+        {
+            query = query.Where(l => l.GuildId == guildId.Value);
+        }
+
+        var result = await query
+            .GroupBy(l => l.CommandName)
+            .Select(g => new CommandPerformanceDto
+            {
+                CommandName = g.Key,
+                AvgResponseTimeMs = g.Average(l => l.ResponseTimeMs),
+                MinResponseTimeMs = g.Min(l => l.ResponseTimeMs),
+                MaxResponseTimeMs = g.Max(l => l.ResponseTimeMs),
+                ExecutionCount = g.Count()
+            })
+            .OrderByDescending(x => x.ExecutionCount)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogInformation("Retrieved performance metrics for {CommandCount} commands", result.Count);
+        return result;
     }
 }

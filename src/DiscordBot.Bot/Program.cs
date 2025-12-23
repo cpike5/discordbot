@@ -5,6 +5,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Extensions;
+using DiscordBot.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -142,6 +143,7 @@ try
     builder.Services.AddScoped<IBotService, BotService>();
     builder.Services.AddScoped<IGuildService, GuildService>();
     builder.Services.AddScoped<ICommandLogService, CommandLogService>();
+    builder.Services.AddScoped<ICommandAnalyticsService, CommandAnalyticsService>();
     builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
     // Add Discord OAuth services
