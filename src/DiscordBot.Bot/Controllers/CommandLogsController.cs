@@ -12,18 +12,22 @@ namespace DiscordBot.Bot.Controllers;
 public class CommandLogsController : ControllerBase
 {
     private readonly ICommandLogService _commandLogService;
+    private readonly ICommandAnalyticsService _analyticsService;
     private readonly ILogger<CommandLogsController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommandLogsController"/> class.
     /// </summary>
     /// <param name="commandLogService">The command log service.</param>
+    /// <param name="analyticsService">The analytics service.</param>
     /// <param name="logger">The logger.</param>
     public CommandLogsController(
         ICommandLogService commandLogService,
+        ICommandAnalyticsService analyticsService,
         ILogger<CommandLogsController> logger)
     {
         _commandLogService = commandLogService;
+        _analyticsService = analyticsService;
         _logger = logger;
     }
 
@@ -110,5 +114,111 @@ public class CommandLogsController : ControllerBase
         _logger.LogTrace("Retrieved statistics for {Count} commands", stats.Count);
 
         return Ok(stats);
+    }
+
+    /// <summary>
+    /// Gets comprehensive analytics data for the dashboard.
+    /// </summary>
+    /// <param name="start">Optional start date for analytics period. Defaults to 30 days ago.</param>
+    /// <param name="end">Optional end date for analytics period. Defaults to now.</param>
+    /// <param name="guildId">Optional guild ID filter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Comprehensive analytics data including usage over time, success rates, and performance metrics.</returns>
+    [HttpGet("analytics")]
+    [ProducesResponseType(typeof(CommandAnalyticsDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CommandAnalyticsDto>> GetAnalytics(
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        [FromQuery] ulong? guildId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Analytics requested from {StartDate} to {EndDate} for guild {GuildId}",
+            startDate, endDate, guildId);
+
+        var analytics = await _analyticsService.GetAnalyticsAsync(startDate, endDate, guildId, cancellationToken);
+
+        _logger.LogTrace("Retrieved analytics with {TotalCommands} total commands, {SuccessRate:F2}% success rate",
+            analytics.TotalCommands, analytics.SuccessRate);
+
+        return Ok(analytics);
+    }
+
+    /// <summary>
+    /// Gets command usage over time.
+    /// </summary>
+    /// <param name="start">Start date for the period.</param>
+    /// <param name="end">End date for the period.</param>
+    /// <param name="guildId">Optional guild ID filter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of daily usage data points.</returns>
+    [HttpGet("analytics/usage-over-time")]
+    [ProducesResponseType(typeof(IEnumerable<UsageOverTimeDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<UsageOverTimeDto>>> GetUsageOverTime(
+        [FromQuery] DateTime start,
+        [FromQuery] DateTime end,
+        [FromQuery] ulong? guildId = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Usage over time requested from {StartDate} to {EndDate} for guild {GuildId}",
+            start, end, guildId);
+
+        var usageData = await _analyticsService.GetUsageOverTimeAsync(start, end, guildId, cancellationToken);
+
+        _logger.LogTrace("Retrieved {DataPointCount} usage over time data points", usageData.Count);
+
+        return Ok(usageData);
+    }
+
+    /// <summary>
+    /// Gets success/failure rate statistics.
+    /// </summary>
+    /// <param name="since">Optional start date. If not provided, returns all-time statistics.</param>
+    /// <param name="guildId">Optional guild ID filter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Success rate statistics including success count, failure count, and percentage.</returns>
+    [HttpGet("analytics/success-rate")]
+    [ProducesResponseType(typeof(CommandSuccessRateDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CommandSuccessRateDto>> GetSuccessRate(
+        [FromQuery] DateTime? since = null,
+        [FromQuery] ulong? guildId = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Success rate requested since {Since} for guild {GuildId}", since, guildId);
+
+        var successRate = await _analyticsService.GetSuccessRateAsync(since, guildId, cancellationToken);
+
+        _logger.LogTrace("Retrieved success rate: {SuccessCount} successful, {FailureCount} failed, {SuccessRate:F2}%",
+            successRate.SuccessCount, successRate.FailureCount, successRate.SuccessRate);
+
+        return Ok(successRate);
+    }
+
+    /// <summary>
+    /// Gets response time performance metrics.
+    /// </summary>
+    /// <param name="since">Optional start date. If not provided, returns all-time statistics.</param>
+    /// <param name="guildId">Optional guild ID filter.</param>
+    /// <param name="limit">Maximum number of commands to return. Default is 10.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of command performance metrics including average, min, and max response times.</returns>
+    [HttpGet("analytics/performance")]
+    [ProducesResponseType(typeof(IEnumerable<CommandPerformanceDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<CommandPerformanceDto>>> GetPerformance(
+        [FromQuery] DateTime? since = null,
+        [FromQuery] ulong? guildId = null,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Performance metrics requested since {Since} for guild {GuildId}, limit {Limit}",
+            since, guildId, limit);
+
+        var performance = await _analyticsService.GetCommandPerformanceAsync(since, guildId, limit, cancellationToken);
+
+        _logger.LogTrace("Retrieved performance metrics for {CommandCount} commands", performance.Count);
+
+        return Ok(performance);
     }
 }

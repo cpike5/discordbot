@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 
 namespace DiscordBot.Core.Interfaces;
@@ -65,5 +66,31 @@ public interface ICommandLogRepository : IRepository<CommandLog>
         bool success,
         string? errorMessage = null,
         string? correlationId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets command usage aggregated by day.
+    /// </summary>
+    Task<IReadOnlyList<UsageOverTimeDto>> GetUsageOverTimeAsync(
+        DateTime start,
+        DateTime end,
+        ulong? guildId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets success/failure rate statistics.
+    /// </summary>
+    Task<CommandSuccessRateDto> GetSuccessRateAsync(
+        DateTime? since = null,
+        ulong? guildId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets response time performance metrics by command.
+    /// </summary>
+    Task<IReadOnlyList<CommandPerformanceDto>> GetCommandPerformanceAsync(
+        DateTime? since = null,
+        ulong? guildId = null,
+        int limit = 10,
         CancellationToken cancellationToken = default);
 }
