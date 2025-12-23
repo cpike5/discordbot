@@ -15,9 +15,27 @@
             <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Servers</h1>
             <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = Model.ViewModel.TotalCount.ToString(), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
         </div>
-        <span class="text-xs text-text-tertiary hidden sm:block">
-            Last updated: <time datetime="@DateTime.UtcNow.ToString("s")">@DateTime.UtcNow.ToString("MMM d, yyyy 'at' h:mm tt")</time>
-        </span>
+        <div class="flex items-center gap-3">
+            @if (User.IsInRole("SuperAdmin") || User.IsInRole("Admin"))
+            {
+                <button type="button"
+                        class="btn btn-accent"
+                        onclick="syncAllGuilds(this)"
+                        title="Sync all guilds from Discord">
+                    <svg class="w-5 h-5 mr-2 sync-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <svg class="w-5 h-5 mr-2 sync-spinner hidden animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="sync-text">Sync All</span>
+                </button>
+            }
+            <span class="text-xs text-text-tertiary hidden lg:block">
+                Last updated: <time datetime="@DateTime.UtcNow.ToString("s")">@DateTime.UtcNow.ToString("MMM d, yyyy 'at' h:mm tt")</time>
+            </span>
+        </div>
     </div>
 
     <!-- Search & Filter Bar -->
@@ -167,6 +185,19 @@
                                 <!-- Actions -->
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-2">
+                                        <button type="button"
+                                                class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors"
+                                                onclick="syncGuild(@guild.Id, this)"
+                                                title="Sync guild data">
+                                            <svg class="w-5 h-5 sync-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                            </svg>
+                                            <svg class="w-5 h-5 sync-spinner hidden animate-spin" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span class="sync-text sr-only">Sync</span>
+                                        </button>
                                         <a asp-page="Details" asp-route-id="@guild.Id" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" title="View Details">
                                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -254,6 +285,19 @@
                     </div>
 
                     <div class="flex items-center gap-2 pt-3 border-t border-border-secondary">
+                        <button type="button"
+                                class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors"
+                                onclick="syncGuild(@guild.Id, this)"
+                                title="Sync guild data">
+                            <svg class="w-4 h-4 sync-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <svg class="w-4 h-4 sync-spinner hidden animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="sync-text">Sync</span>
+                        </button>
                         <a asp-page="Details" asp-route-id="@guild.Id" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -323,3 +367,11 @@
         </div>
     }
 </div>
+
+<!-- Toast Container -->
+<partial name="Shared/Components/_ToastContainer" />
+
+@section Scripts {
+    <script src="~/js/toast.js"></script>
+    <script src="~/js/guild-sync.js"></script>
+}

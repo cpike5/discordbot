@@ -72,4 +72,55 @@ public class DetailsModel : PageModel
 
         return Page();
     }
+
+    /// <summary>
+    /// Handles POST request to sync a single guild from Discord.
+    /// </summary>
+    public async Task<IActionResult> OnPostSyncAsync(ulong id, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("User requesting sync for guild {GuildId}", id);
+
+        try
+        {
+            var success = await _guildService.SyncGuildAsync(id, cancellationToken);
+
+            if (success)
+            {
+                _logger.LogInformation("Successfully synced guild {GuildId}", id);
+
+                // Check if this is an AJAX request
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return new JsonResult(new { success = true, message = "Guild synced successfully" });
+                }
+
+                SuccessMessage = "Guild synced successfully";
+                return RedirectToPage(new { id });
+            }
+            else
+            {
+                _logger.LogWarning("Failed to sync guild {GuildId} - guild not found in Discord", id);
+
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return new JsonResult(new { success = false, message = "Guild not found in Discord client" });
+                }
+
+                SuccessMessage = null;
+                return RedirectToPage(new { id });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error syncing guild {GuildId}", id);
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+            {
+                return new JsonResult(new { success = false, message = "An error occurred while syncing the guild" });
+            }
+
+            SuccessMessage = null;
+            return RedirectToPage(new { id });
+        }
+    }
 }
