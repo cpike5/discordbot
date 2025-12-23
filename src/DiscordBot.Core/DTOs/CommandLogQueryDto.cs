@@ -6,6 +6,11 @@ namespace DiscordBot.Core.DTOs;
 public class CommandLogQueryDto
 {
     /// <summary>
+    /// Gets or sets the search term for multi-field search across command name, username, and guild name. Null or empty means no search filter.
+    /// </summary>
+    public string? SearchTerm { get; set; }
+
+    /// <summary>
     /// Gets or sets the guild ID filter. Null means no filter.
     /// </summary>
     public ulong? GuildId { get; set; }

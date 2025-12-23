@@ -472,6 +472,297 @@ public class CommandLogServiceTests
             "the cancellation token should be passed to the repository");
     }
 
+    [Fact]
+    public async Task GetLogsAsync_WithSearchTermMatchingCommandName_ShouldFilterByCommandName()
+    {
+        // Arrange
+        var logs = new List<CommandLog>
+        {
+            CreateCommandLog(1, commandName: "ping"),
+            CreateCommandLog(2, commandName: "status"),
+            CreateCommandLog(3, commandName: "pingpong"),
+            CreateCommandLog(4, commandName: "help")
+        };
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = "ping",
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(2, "there are 2 commands containing 'ping'");
+        result.Items.Should().AllSatisfy(l => l.CommandName.Should().Contain("ping", "search term should match command name"));
+        result.TotalCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithSearchTermMatchingUsername_ShouldFilterByUsername()
+    {
+        // Arrange
+        var logs = new List<CommandLog>
+        {
+            CreateCommandLog(1, userId: 111UL, commandName: "ping"),
+            CreateCommandLog(2, userId: 222UL, commandName: "status"),
+            CreateCommandLog(3, userId: 333UL, commandName: "help")
+        };
+
+        // Modify usernames directly after creation
+        logs[0].User.Username = "Alice";
+        logs[1].User.Username = "Bob";
+        logs[2].User.Username = "Charlie";
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = "Alice",
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(1, "there is 1 user matching 'Alice'");
+        result.Items.First().Username.Should().Be("Alice");
+        result.TotalCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithSearchTermMatchingGuildName_ShouldFilterByGuildName()
+    {
+        // Arrange
+        var logs = new List<CommandLog>
+        {
+            CreateCommandLog(1, guildId: 111UL, commandName: "ping"),
+            CreateCommandLog(2, guildId: 222UL, commandName: "status"),
+            CreateCommandLog(3, guildId: 333UL, commandName: "help")
+        };
+
+        // Modify guild names directly after creation
+        logs[0].Guild!.Name = "Gaming Guild";
+        logs[1].Guild!.Name = "Dev Team";
+        logs[2].Guild!.Name = "Gaming Paradise";
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = "Gaming",
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(2, "there are 2 guilds containing 'Gaming'");
+        result.Items.Should().AllSatisfy(l => l.GuildName.Should().Contain("Gaming"));
+        result.TotalCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithSearchTermCaseInsensitive_ShouldMatchIgnoringCase()
+    {
+        // Arrange
+        var logs = new List<CommandLog>
+        {
+            CreateCommandLog(1, commandName: "PING"),
+            CreateCommandLog(2, commandName: "ping"),
+            CreateCommandLog(3, commandName: "Ping"),
+            CreateCommandLog(4, commandName: "status")
+        };
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = "PiNg",
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(3, "search should be case-insensitive");
+        result.Items.Should().AllSatisfy(l => l.CommandName.ToLower().Should().Contain("ping"));
+        result.TotalCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithSearchTermMatchingMultipleFields_ShouldReturnAllMatches()
+    {
+        // Arrange
+        var logs = new List<CommandLog>
+        {
+            CreateCommandLog(1, commandName: "test", userId: 111UL),
+            CreateCommandLog(2, commandName: "ping", guildId: 222UL),
+            CreateCommandLog(3, commandName: "status", userId: 333UL)
+        };
+
+        // Set up so search term matches different fields
+        logs[0].User.Username = "tester";  // Matches username
+        logs[1].Guild!.Name = "Test Guild"; // Matches guild name
+        logs[2].User.Username = "admin";    // Doesn't match
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = "test",
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(2, "search should match across command name, username, and guild name");
+        result.TotalCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithNullSearchTerm_ShouldReturnAllLogs()
+    {
+        // Arrange
+        var logs = CreateTestCommandLogs(5);
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = null,
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(5, "null search term should return all logs");
+        result.TotalCount.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithEmptySearchTerm_ShouldReturnAllLogs()
+    {
+        // Arrange
+        var logs = CreateTestCommandLogs(5);
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = "",
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(5, "empty search term should return all logs");
+        result.TotalCount.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithWhitespaceSearchTerm_ShouldReturnAllLogs()
+    {
+        // Arrange
+        var logs = CreateTestCommandLogs(5);
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = "   ",
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(5, "whitespace-only search term should return all logs");
+        result.TotalCount.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task GetLogsAsync_WithSearchTermAndOtherFilters_ShouldApplyAllFilters()
+    {
+        // Arrange
+        var logs = new List<CommandLog>
+        {
+            CreateCommandLog(1, guildId: 111UL, commandName: "ping", success: true),
+            CreateCommandLog(2, guildId: 111UL, commandName: "ping", success: false),
+            CreateCommandLog(3, guildId: 222UL, commandName: "ping", success: true),
+            CreateCommandLog(4, guildId: 111UL, commandName: "status", success: true)
+        };
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(logs);
+
+        var query = new CommandLogQueryDto
+        {
+            SearchTerm = "ping",
+            GuildId = 111UL,
+            SuccessOnly = true,
+            Page = 1,
+            PageSize = 50
+        };
+
+        // Act
+        var result = await _service.GetLogsAsync(query);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(1, "only 1 log matches all filters (search term, guild ID, and success)");
+        result.Items.First().CommandName.Should().Be("ping");
+        result.Items.First().GuildId.Should().Be(111UL);
+        result.Items.First().Success.Should().BeTrue();
+        result.TotalCount.Should().Be(1);
+    }
+
     // Helper methods for creating test data
 
     private List<CommandLog> CreateTestCommandLogs(int count)
