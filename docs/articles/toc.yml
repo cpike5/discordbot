@@ -14,6 +14,8 @@
       href: repository-pattern.md
     - name: Design System
       href: design-system.md
+    - name: Component API
+      href: component-api.md
 - name: API & Integration
   items:
     - name: REST API Endpoints
