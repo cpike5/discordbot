@@ -22,4 +22,12 @@ public interface ICommandLogService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A dictionary mapping command names to their usage counts.</returns>
     Task<IDictionary<string, int>> GetCommandStatsAsync(DateTime? since = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a single command log entry by its unique identifier.
+    /// </summary>
+    /// <param name="id">The command log identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The command log DTO, or null if not found.</returns>
+    Task<CommandLogDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 }

@@ -763,6 +763,69 @@ public class CommandLogServiceTests
         result.TotalCount.Should().Be(1);
     }
 
+    [Fact]
+    public async Task GetByIdAsync_WhenLogExists_ReturnsDto()
+    {
+        // Arrange
+        var logId = Guid.NewGuid();
+        var commandLog = CreateCommandLog(1, guildId: 111111111UL);
+        commandLog.Id = logId;
+        commandLog.CommandName = "test-command";
+        commandLog.Parameters = "{\"user\": \"test\"}";
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetByIdAsync(logId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(commandLog);
+
+        // Act
+        var result = await _service.GetByIdAsync(logId);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(logId);
+        result.CommandName.Should().Be("test-command");
+        result.Parameters.Should().Be("{\"user\": \"test\"}");
+        result.GuildId.Should().Be(111111111UL);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WhenLogDoesNotExist_ReturnsNull()
+    {
+        // Arrange
+        var logId = Guid.NewGuid();
+        _mockCommandLogRepository
+            .Setup(r => r.GetByIdAsync(logId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CommandLog?)null);
+
+        // Act
+        var result = await _service.GetByIdAsync(logId);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WithCancellationToken_ShouldPassToRepository()
+    {
+        // Arrange
+        var logId = Guid.NewGuid();
+        var cancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = cancellationTokenSource.Token;
+
+        _mockCommandLogRepository
+            .Setup(r => r.GetByIdAsync(logId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CommandLog?)null);
+
+        // Act
+        await _service.GetByIdAsync(logId, cancellationToken);
+
+        // Assert
+        _mockCommandLogRepository.Verify(
+            r => r.GetByIdAsync(logId, cancellationToken),
+            Times.Once,
+            "the cancellation token should be passed to the repository");
+    }
+
     // Helper methods for creating test data
 
     private List<CommandLog> CreateTestCommandLogs(int count)
