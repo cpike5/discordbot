@@ -163,11 +163,35 @@ public record GuildSettingsViewModel
     public bool AutoModEnabled { get; init; }
 
     /// <summary>
+    /// Gets whether welcome messages are enabled.
+    /// </summary>
+    public bool WelcomeMessagesEnabled { get; init; }
+
+    /// <summary>
+    /// Gets whether leave messages are enabled.
+    /// </summary>
+    public bool LeaveMessagesEnabled { get; init; }
+
+    /// <summary>
+    /// Gets whether moderation alerts are enabled.
+    /// </summary>
+    public bool ModerationAlertsEnabled { get; init; }
+
+    /// <summary>
+    /// Gets whether command logging is enabled.
+    /// </summary>
+    public bool CommandLoggingEnabled { get; init; }
+
+    /// <summary>
     /// Gets whether any custom settings are configured.
     /// </summary>
     public bool HasSettings => !string.IsNullOrEmpty(WelcomeChannel)
         || !string.IsNullOrEmpty(LogChannel)
-        || AutoModEnabled;
+        || AutoModEnabled
+        || WelcomeMessagesEnabled
+        || LeaveMessagesEnabled
+        || ModerationAlertsEnabled
+        || CommandLoggingEnabled;
 
     /// <summary>
     /// Parses guild settings from JSON.

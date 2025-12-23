@@ -1,0 +1,308 @@
+@page "{id:long}"
+@model DiscordBot.Bot.Pages.Guilds.EditModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"Edit {Model.ViewModel.Name}";
+}
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="Details" asp-route-id="@Model.ViewModel.Id" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.Name</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Edit Settings</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-4">
+            @if (!string.IsNullOrEmpty(Model.ViewModel.IconUrl))
+            {
+                <img src="@Model.ViewModel.IconUrl" alt="@Model.ViewModel.Name" class="w-12 h-12 rounded-full flex-shrink-0" />
+            }
+            else
+            {
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                    @(Model.ViewModel.Name.Length >= 2 ? Model.ViewModel.Name[..2].ToUpper() : Model.ViewModel.Name.ToUpper())
+                </div>
+            }
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">Edit Settings</h1>
+                <p class="mt-1 text-sm text-text-secondary">Configure bot settings for @Model.ViewModel.Name</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <form method="post">
+        <input type="hidden" name="Input.GuildId" value="@Model.Input.GuildId" />
+        <div asp-validation-summary="ModelOnly" class="text-error text-sm mb-4"></div>
+
+        <!-- General Settings Section -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">General Settings</h2>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Command Prefix -->
+                <div>
+                    @{
+                        var prefixValidation = !ViewData.ModelState.IsValid && ViewData.ModelState["Input.Prefix"]?.Errors.Count > 0
+                            ? ValidationState.Error
+                            : ValidationState.None;
+                        var prefixError = ViewData.ModelState["Input.Prefix"]?.Errors.FirstOrDefault()?.ErrorMessage;
+                        var prefixModel = new FormInputViewModel {
+                            Id = "Input_Prefix",
+                            Name = "Input.Prefix",
+                            Label = "Command Prefix",
+                            Type = "text",
+                            Value = Model.Input.Prefix,
+                            MaxLength = 3,
+                            Placeholder = "e.g., ! or ?",
+                            HelpText = "Custom prefix for text commands (1-3 characters). Leave empty for default.",
+                            ValidationState = prefixValidation,
+                            ValidationMessage = prefixError
+                        };
+                    }
+                    <partial name="Shared/Components/_FormInput" model="prefixModel" />
+                </div>
+
+                <!-- Is Active Toggle -->
+                <div class="flex items-center justify-between py-2">
+                    <div class="flex-1 pr-4">
+                        <label for="Input_IsActive" class="text-sm font-medium text-text-primary">Bot Active</label>
+                        <p class="text-xs text-text-tertiary mt-0.5">Enable or disable the bot for this server</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="hidden" name="Input.IsActive" value="false" />
+                        <input type="checkbox"
+                               id="Input_IsActive"
+                               name="Input.IsActive"
+                               value="true"
+                               checked="@Model.Input.IsActive"
+                               class="sr-only peer" />
+                        <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Settings Section -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Notifications</h2>
+            </div>
+            <div class="divide-y divide-border-secondary">
+                <!-- Welcome Messages -->
+                <div class="p-4 flex items-center justify-between">
+                    <div class="flex-1 pr-4">
+                        <label for="Input_WelcomeMessagesEnabled" class="text-sm font-medium text-text-primary">Welcome Messages</label>
+                        <p class="text-xs text-text-tertiary mt-0.5">Send a message when new members join</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="hidden" name="Input.WelcomeMessagesEnabled" value="false" />
+                        <input type="checkbox"
+                               id="Input_WelcomeMessagesEnabled"
+                               name="Input.WelcomeMessagesEnabled"
+                               value="true"
+                               checked="@Model.Input.WelcomeMessagesEnabled"
+                               class="sr-only peer" />
+                        <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                    </label>
+                </div>
+
+                <!-- Leave Messages -->
+                <div class="p-4 flex items-center justify-between">
+                    <div class="flex-1 pr-4">
+                        <label for="Input_LeaveMessagesEnabled" class="text-sm font-medium text-text-primary">Leave Messages</label>
+                        <p class="text-xs text-text-tertiary mt-0.5">Announce when members leave the server</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="hidden" name="Input.LeaveMessagesEnabled" value="false" />
+                        <input type="checkbox"
+                               id="Input_LeaveMessagesEnabled"
+                               name="Input.LeaveMessagesEnabled"
+                               value="true"
+                               checked="@Model.Input.LeaveMessagesEnabled"
+                               class="sr-only peer" />
+                        <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                    </label>
+                </div>
+
+                <!-- Moderation Alerts -->
+                <div class="p-4 flex items-center justify-between">
+                    <div class="flex-1 pr-4">
+                        <label for="Input_ModerationAlertsEnabled" class="text-sm font-medium text-text-primary">Moderation Alerts</label>
+                        <p class="text-xs text-text-tertiary mt-0.5">Send alerts for moderation actions</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="hidden" name="Input.ModerationAlertsEnabled" value="false" />
+                        <input type="checkbox"
+                               id="Input_ModerationAlertsEnabled"
+                               name="Input.ModerationAlertsEnabled"
+                               value="true"
+                               checked="@Model.Input.ModerationAlertsEnabled"
+                               class="sr-only peer" />
+                        <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                    </label>
+                </div>
+
+                <!-- Command Logging -->
+                <div class="p-4 flex items-center justify-between">
+                    <div class="flex-1 pr-4">
+                        <label for="Input_CommandLoggingEnabled" class="text-sm font-medium text-text-primary">Command Logging</label>
+                        <p class="text-xs text-text-tertiary mt-0.5">Log all command usage to a designated channel</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="hidden" name="Input.CommandLoggingEnabled" value="false" />
+                        <input type="checkbox"
+                               id="Input_CommandLoggingEnabled"
+                               name="Input.CommandLoggingEnabled"
+                               value="true"
+                               checked="@Model.Input.CommandLoggingEnabled"
+                               class="sr-only peer" />
+                        <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Settings Section -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Advanced Settings</h2>
+            </div>
+            <div class="p-6 space-y-6">
+                <!-- Log Channel -->
+                <div>
+                    @{
+                        var logChannelValidation = !ViewData.ModelState.IsValid && ViewData.ModelState["Input.LogChannel"]?.Errors.Count > 0
+                            ? ValidationState.Error
+                            : ValidationState.None;
+                        var logChannelError = ViewData.ModelState["Input.LogChannel"]?.Errors.FirstOrDefault()?.ErrorMessage;
+                        var logChannelModel = new FormInputViewModel {
+                            Id = "Input_LogChannel",
+                            Name = "Input.LogChannel",
+                            Label = "Log Channel",
+                            Type = "text",
+                            Value = Model.Input.LogChannel,
+                            MaxLength = 100,
+                            Placeholder = "e.g., bot-logs",
+                            HelpText = "Channel name for bot activity logs",
+                            ValidationState = logChannelValidation,
+                            ValidationMessage = logChannelError
+                        };
+                    }
+                    <partial name="Shared/Components/_FormInput" model="logChannelModel" />
+                </div>
+
+                <!-- Welcome Channel -->
+                <div>
+                    @{
+                        var welcomeChannelValidation = !ViewData.ModelState.IsValid && ViewData.ModelState["Input.WelcomeChannel"]?.Errors.Count > 0
+                            ? ValidationState.Error
+                            : ValidationState.None;
+                        var welcomeChannelError = ViewData.ModelState["Input.WelcomeChannel"]?.Errors.FirstOrDefault()?.ErrorMessage;
+                        var welcomeChannelModel = new FormInputViewModel {
+                            Id = "Input_WelcomeChannel",
+                            Name = "Input.WelcomeChannel",
+                            Label = "Welcome Channel",
+                            Type = "text",
+                            Value = Model.Input.WelcomeChannel,
+                            MaxLength = 100,
+                            Placeholder = "e.g., welcome",
+                            HelpText = "Channel for welcome and leave messages",
+                            ValidationState = welcomeChannelValidation,
+                            ValidationMessage = welcomeChannelError
+                        };
+                    }
+                    <partial name="Shared/Components/_FormInput" model="welcomeChannelModel" />
+                </div>
+
+                <!-- Auto-Moderation Toggle -->
+                <div class="flex items-center justify-between py-2">
+                    <div class="flex-1 pr-4">
+                        <label for="Input_AutoModEnabled" class="text-sm font-medium text-text-primary">Auto-Moderation</label>
+                        <p class="text-xs text-text-tertiary mt-0.5">Enable automatic content moderation features</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="hidden" name="Input.AutoModEnabled" value="false" />
+                        <input type="checkbox"
+                               id="Input_AutoModEnabled"
+                               name="Input.AutoModEnabled"
+                               value="true"
+                               checked="@Model.Input.AutoModEnabled"
+                               class="sr-only peer" />
+                        <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex items-center justify-end gap-4">
+            <a asp-page="Details" asp-route-id="@Model.ViewModel.Id" class="btn btn-secondary">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Save Settings
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -87,6 +87,18 @@
         </div>
     </div>
 
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
     <!-- Guild Information Card -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
         <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Information</h2>
