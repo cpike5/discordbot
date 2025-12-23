@@ -1,6 +1,7 @@
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
+using DiscordBot.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGuildRepository, GuildRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICommandLogRepository, CommandLogRepository>();
+        services.AddScoped<ISettingsRepository, SettingsRepository>();
+
+        // Register services
+        // SettingsService is registered as Singleton to maintain restart pending flag across requests
+        services.AddSingleton<ISettingsService, SettingsService>();
 
         return services;
     }
