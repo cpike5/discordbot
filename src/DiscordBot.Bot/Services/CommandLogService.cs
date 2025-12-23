@@ -119,6 +119,24 @@ public class CommandLogService : ICommandLogService
         return stats;
     }
 
+    /// <inheritdoc/>
+    public async Task<CommandLogDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving command log with ID {Id}", id);
+
+        var log = await _commandLogRepository.GetByIdAsync(id, cancellationToken);
+
+        if (log is null)
+        {
+            _logger.LogWarning("Command log with ID {Id} not found", id);
+            return null;
+        }
+
+        _logger.LogInformation("Retrieved command log {Id} for command {CommandName}", id, log.CommandName);
+
+        return MapToDto(log);
+    }
+
     /// <summary>
     /// Maps a CommandLog entity to a CommandLogDto.
     /// </summary>
