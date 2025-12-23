@@ -1,0 +1,290 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.SettingsModel
+@{
+    ViewData["Title"] = "Settings";
+}
+
+<!-- Restart Required Banner (conditional) -->
+@if (Model.ViewModel.IsRestartPending)
+{
+    <partial name="Components/_RestartBanner" />
+}
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Settings</h1>
+        <p class="text-text-secondary mt-1">Manage your bot configuration and preferences</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <button type="button"
+                onclick="window.settingsManager?.showResetAllModal()"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-semibold text-sm rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Reset All
+        </button>
+        <button type="button"
+                onclick="window.settingsManager?.saveAllSettings()"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-semibold text-sm rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Save All
+        </button>
+    </div>
+</div>
+
+<!-- Settings Navigation Tabs -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-2 mb-6">
+    <div class="flex flex-wrap gap-2" role="tablist" aria-label="Settings sections">
+        <button class="settings-tab @(Model.ViewModel.ActiveCategory == "General" ? "active" : "")"
+                role="tab"
+                aria-selected="@(Model.ViewModel.ActiveCategory == "General" ? "true" : "false")"
+                aria-controls="general-settings"
+                data-tab="General"
+                onclick="window.settingsManager?.switchTab('General')">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            General
+        </button>
+        <button class="settings-tab @(Model.ViewModel.ActiveCategory == "Logging" ? "active" : "")"
+                role="tab"
+                aria-selected="@(Model.ViewModel.ActiveCategory == "Logging" ? "true" : "false")"
+                aria-controls="logging-settings"
+                data-tab="Logging"
+                onclick="window.settingsManager?.switchTab('Logging')">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Logging
+        </button>
+        <button class="settings-tab @(Model.ViewModel.ActiveCategory == "Features" ? "active" : "")"
+                role="tab"
+                aria-selected="@(Model.ViewModel.ActiveCategory == "Features" ? "true" : "false")"
+                aria-controls="features-settings"
+                data-tab="Features"
+                onclick="window.settingsManager?.switchTab('Features')">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+            </svg>
+            Features
+        </button>
+        <button class="settings-tab @(Model.ViewModel.ActiveCategory == "Advanced" ? "active" : "")"
+                role="tab"
+                aria-selected="@(Model.ViewModel.ActiveCategory == "Advanced" ? "true" : "false")"
+                aria-controls="advanced-settings"
+                data-tab="Advanced"
+                onclick="window.settingsManager?.switchTab('Advanced')">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            Advanced
+        </button>
+    </div>
+</div>
+
+<!-- Settings Sections -->
+<form method="post" id="settingsForm">
+    @Html.AntiForgeryToken()
+
+    <!-- General Settings -->
+    <section id="general-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "General" ? "active" : "")" role="tabpanel" aria-labelledby="general-tab">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">General Settings</h2>
+                <p class="text-sm text-text-secondary mt-1">Configure your bot's basic settings and behavior</p>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    @foreach (var setting in Model.ViewModel.GeneralSettings)
+                    {
+                        @await Html.PartialAsync("_SettingField", setting)
+                    }
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
+                <button type="button"
+                        onclick="window.settingsManager?.showResetCategoryModal('General')"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                    Reset
+                </button>
+                <button type="button"
+                        onclick="window.settingsManager?.saveCategory('General')"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Logging Settings -->
+    <section id="logging-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "Logging" ? "active" : "")" role="tabpanel" aria-labelledby="logging-tab">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Logging Settings</h2>
+                <p class="text-sm text-text-secondary mt-1">Configure logging levels and retention policies</p>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    @foreach (var setting in Model.ViewModel.LoggingSettings)
+                    {
+                        @await Html.PartialAsync("_SettingField", setting)
+                    }
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
+                <button type="button"
+                        onclick="window.settingsManager?.showResetCategoryModal('Logging')"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                    Reset
+                </button>
+                <button type="button"
+                        onclick="window.settingsManager?.saveCategory('Logging')"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Settings -->
+    <section id="features-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "Features" ? "active" : "")" role="tabpanel" aria-labelledby="features-tab">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Features Settings</h2>
+                <p class="text-sm text-text-secondary mt-1">Enable or disable bot features and configure rate limits</p>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    @foreach (var setting in Model.ViewModel.FeaturesSettings)
+                    {
+                        @await Html.PartialAsync("_SettingField", setting)
+                    }
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
+                <button type="button"
+                        onclick="window.settingsManager?.showResetCategoryModal('Features')"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                    Reset
+                </button>
+                <button type="button"
+                        onclick="window.settingsManager?.saveCategory('Features')"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Advanced Settings -->
+    <section id="advanced-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "Advanced" ? "active" : "")" role="tabpanel" aria-labelledby="advanced-tab">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Advanced Settings</h2>
+                <p class="text-sm text-text-secondary mt-1">Configure advanced technical settings and debugging options</p>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    @foreach (var setting in Model.ViewModel.AdvancedSettings)
+                    {
+                        @await Html.PartialAsync("_SettingField", setting)
+                    }
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
+                <button type="button"
+                        onclick="window.settingsManager?.showResetCategoryModal('Advanced')"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                    Reset
+                </button>
+                <button type="button"
+                        onclick="window.settingsManager?.saveCategory('Advanced')"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </section>
+</form>
+
+<!-- Danger Zone -->
+<div class="border-2 border-error rounded-lg p-6 bg-error/5">
+    <div class="flex items-start gap-4">
+        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+            <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <div class="flex-1">
+            <h3 class="text-lg font-semibold text-error">Danger Zone</h3>
+            <p class="text-sm text-text-secondary mt-1">
+                Resetting all settings will restore all configuration to default values. This action cannot be undone.
+            </p>
+            <div class="mt-4">
+                <button type="button"
+                        onclick="window.settingsManager?.showResetAllModal()"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset All Settings to Defaults
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+<partial name="Components/_ConfirmationModal" model="Model.ResetCategoryModal" />
+<partial name="Components/_ConfirmationModal" model="Model.ResetAllModal" />
+
+<style>
+    /* Settings Tab Styles */
+    .settings-tab {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #a8a5a3;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.15s ease-out;
+        border: none;
+        background: transparent;
+    }
+
+    .settings-tab:hover {
+        background-color: #2f3336;
+        color: #d7d3d0;
+    }
+
+    .settings-tab.active {
+        background-color: #cb4e1b;
+        color: white;
+    }
+
+    .settings-tab svg {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    /* Settings Section Visibility */
+    .settings-section {
+        display: none;
+    }
+
+    .settings-section.active {
+        display: block;
+    }
+</style>
+
+@section Scripts {
+    <script src="~/js/settings.js"></script>
+}

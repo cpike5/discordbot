@@ -1,0 +1,97 @@
+@model DiscordBot.Bot.ViewModels.Components.FormToggleViewModel
+
+<div class="flex items-start gap-4">
+    <label class="form-toggle @(Model.IsDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer")">
+        <input type="checkbox"
+               id="@Model.Id"
+               name="@Model.Name"
+               class="form-toggle-input"
+               @(Model.IsChecked ? "checked" : "")
+               @(Model.IsDisabled ? "disabled" : "")
+               value="true" />
+        <span class="form-toggle-track">
+            <span class="form-toggle-thumb"></span>
+        </span>
+    </label>
+
+    @if (!string.IsNullOrEmpty(Model.Label) || !string.IsNullOrEmpty(Model.Description))
+    {
+        <div class="flex-1">
+            @if (!string.IsNullOrEmpty(Model.Label))
+            {
+                <label for="@Model.Id" class="block text-sm font-semibold text-text-primary @(Model.IsDisabled ? "cursor-not-allowed" : "cursor-pointer")">
+                    @Model.Label
+                </label>
+            }
+            @if (!string.IsNullOrEmpty(Model.Description))
+            {
+                <p class="text-xs text-text-secondary mt-1">@Model.Description</p>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    /* Toggle Switch Component */
+    .form-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .form-toggle-input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .form-toggle-track {
+        position: relative;
+        display: inline-block;
+        width: 2.75rem;
+        height: 1.5rem;
+        background-color: #3f4447;
+        border-radius: 9999px;
+        flex-shrink: 0;
+        transition: background-color 0.2s ease-in-out;
+    }
+
+    .form-toggle-thumb {
+        position: absolute;
+        top: 0.125rem;
+        left: 0.125rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        background-color: #d7d3d0;
+        border-radius: 50%;
+        transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    }
+
+    .form-toggle:hover .form-toggle-track {
+        background-color: #4a4f52;
+    }
+
+    .form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
+        background-color: #e5591f;
+    }
+
+    .form-toggle-input:focus-visible + .form-toggle-track {
+        outline: 2px solid #098ecf;
+        outline-offset: 2px;
+    }
+
+    .form-toggle-input:checked + .form-toggle-track {
+        background-color: #cb4e1b;
+    }
+
+    .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+        transform: translateX(1.25rem);
+        background-color: white;
+    }
+
+    .form-toggle-input:disabled + .form-toggle-track {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+</style>
