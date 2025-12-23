@@ -74,6 +74,19 @@
                     };
                 }
                 <partial name="Shared/Components/_StatusIndicator" model="statusModel" />
+                <button type="button"
+                        class="btn btn-secondary"
+                        onclick="syncGuild(@guild.Id, this)"
+                        title="Sync guild data from Discord">
+                    <svg class="w-5 h-5 mr-2 sync-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <svg class="w-5 h-5 mr-2 sync-spinner hidden animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="sync-text">Sync</span>
+                </button>
                 @if (guild.CanEdit)
                 {
                     <a asp-page="Edit" asp-route-id="@guild.Id" class="btn btn-primary">
@@ -309,14 +322,19 @@
     </div>
 </div>
 
+<!-- Toast Container -->
+<partial name="Shared/Components/_ToastContainer" />
+
 @section Scripts {
+    <script src="~/js/toast.js"></script>
+    <script src="~/js/guild-sync.js"></script>
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                // Could add a toast notification here
-                console.log('Copied to clipboard:', text);
+                ToastManager.show('success', 'ID copied to clipboard');
             }).catch(err => {
                 console.error('Failed to copy:', err);
+                ToastManager.show('error', 'Failed to copy to clipboard');
             });
         }
     </script>
