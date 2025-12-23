@@ -16,21 +16,23 @@ namespace DiscordBot.Bot.Commands;
 public class AdminModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly DiscordSocketClient _client;
+    private readonly IBotService _botService;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly IInteractionStateService _stateService;
     private readonly ILogger<AdminModule> _logger;
-    private static readonly DateTime _processStartTime = DateTime.UtcNow;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AdminModule"/> class.
     /// </summary>
     public AdminModule(
         DiscordSocketClient client,
+        IBotService botService,
         IHostApplicationLifetime lifetime,
         IInteractionStateService stateService,
         ILogger<AdminModule> logger)
     {
         _client = client;
+        _botService = botService;
         _lifetime = lifetime;
         _stateService = stateService;
         _logger = logger;
@@ -49,30 +51,16 @@ public class AdminModule : InteractionModuleBase<SocketInteractionContext>
             Context.Guild?.Name ?? "DM",
             Context.Guild?.Id ?? 0);
 
-        var uptime = DateTime.UtcNow - _processStartTime;
-        var guildCount = _client.Guilds.Count;
-        var latency = _client.Latency;
-        var connectionState = _client.ConnectionState.ToString();
-        var botUsername = _client.CurrentUser?.Username ?? "Unknown";
-
-        var statusDto = new BotStatusDto
-        {
-            Uptime = uptime,
-            GuildCount = guildCount,
-            LatencyMs = latency,
-            StartTime = _processStartTime,
-            BotUsername = botUsername,
-            ConnectionState = connectionState
-        };
+        var statusDto = _botService.GetStatus();
 
         _logger.LogDebug(
             "Bot status: Uptime={Uptime}, Guilds={GuildCount}, Latency={Latency}ms, State={ConnectionState}",
-            uptime,
-            guildCount,
-            latency,
-            connectionState);
+            statusDto.Uptime,
+            statusDto.GuildCount,
+            statusDto.LatencyMs,
+            statusDto.ConnectionState);
 
-        var statusColor = connectionState == "Connected" ? Color.Green : Color.Orange;
+        var statusColor = statusDto.ConnectionState == "Connected" ? Color.Green : Color.Orange;
 
         var embed = new EmbedBuilder()
             .WithTitle("🤖 Bot Status")
