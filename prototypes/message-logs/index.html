@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Logs - Discord Bot Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: {
+                            primary: '#1d2022',
+                            secondary: '#262a2d',
+                            tertiary: '#2f3336',
+                            hover: '#363a3e',
+                        },
+                        text: {
+                            primary: '#d7d3d0',
+                            secondary: '#a8a5a3',
+                            tertiary: '#7a7876',
+                            inverse: '#1d2022',
+                        },
+                        accent: {
+                            orange: {
+                                DEFAULT: '#cb4e1b',
+                                hover: '#e5591f',
+                                active: '#b04517',
+                                muted: '#cb4e1b33',
+                            },
+                            blue: {
+                                DEFAULT: '#098ecf',
+                                hover: '#0ba3ea',
+                                active: '#0879b3',
+                                muted: '#098ecf33',
+                            },
+                        },
+                        success: {
+                            DEFAULT: '#10b981',
+                            bg: '#10b98120',
+                            border: '#10b98150',
+                        },
+                        warning: {
+                            DEFAULT: '#f59e0b',
+                            bg: '#f59e0b20',
+                            border: '#f59e0b50',
+                        },
+                        error: {
+                            DEFAULT: '#ef4444',
+                            bg: '#ef444420',
+                            border: '#ef444450',
+                        },
+                        info: {
+                            DEFAULT: '#06b6d4',
+                            bg: '#06b6d420',
+                            border: '#06b6d450',
+                        },
+                        border: {
+                            primary: '#3f4447',
+                            secondary: '#2f3336',
+                            focus: '#098ecf',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Custom styles for form elements */
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #098ecf;
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        /* Custom date input styling */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+            cursor: pointer;
+        }
+
+        /* Radio button styling */
+        input[type="radio"] {
+            accent-color: #cb4e1b;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2022;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f4447;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f5457;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Users</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Message Logs</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex items-center gap-2 text-sm">
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li class="text-text-primary font-medium">Message Logs</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">Message Logs</h1>
+                <p class="mt-1 text-sm text-text-secondary">View and search logged Discord messages</p>
+            </div>
+            <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+            </button>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-text-primary">Filters</h2>
+                <button id="toggleFilters" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors md:hidden">
+                    Show Filters
+                </button>
+            </div>
+
+            <form id="filtersForm" class="space-y-4">
+                <!-- Row 1: User ID, Guild, Channel ID -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- User ID -->
+                    <div>
+                        <label for="userId" class="block text-sm font-medium text-text-primary mb-1">User ID</label>
+                        <input
+                            type="text"
+                            id="userId"
+                            name="userId"
+                            placeholder="Enter Discord User ID..."
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+                        />
+                    </div>
+
+                    <!-- Guild Dropdown -->
+                    <div>
+                        <label for="guildId" class="block text-sm font-medium text-text-primary mb-1">Guild</label>
+                        <select
+                            id="guildId"
+                            name="guildId"
+                            class="form-select w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                        >
+                            <option value="">All Guilds</option>
+                            <option value="123456789">Gaming Hub (123456789)</option>
+                            <option value="987654321">Tech Community (987654321)</option>
+                            <option value="456789123">Art & Design (456789123)</option>
+                            <option value="789123456">Music Lovers (789123456)</option>
+                        </select>
+                    </div>
+
+                    <!-- Channel ID -->
+                    <div>
+                        <label for="channelId" class="block text-sm font-medium text-text-primary mb-1">Channel ID</label>
+                        <input
+                            type="text"
+                            id="channelId"
+                            name="channelId"
+                            placeholder="Enter Channel ID..."
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+                        />
+                    </div>
+                </div>
+
+                <!-- Row 2: Date Range -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- From Date -->
+                    <div>
+                        <label for="fromDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                        <input
+                            type="date"
+                            id="fromDate"
+                            name="fromDate"
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                        />
+                    </div>
+
+                    <!-- To Date -->
+                    <div>
+                        <label for="toDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                        <input
+                            type="date"
+                            id="toDate"
+                            name="toDate"
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                        />
+                    </div>
+                </div>
+
+                <!-- Row 3: Source Type -->
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-2">Source Type</label>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="sourceType" value="all" checked class="w-4 h-4">
+                            <span class="text-sm text-text-primary">All</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="sourceType" value="dm" class="w-4 h-4">
+                            <span class="text-sm text-text-primary">DMs Only</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="sourceType" value="server" class="w-4 h-4">
+                            <span class="text-sm text-text-primary">Server Only</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Row 4: Content Search -->
+                <div>
+                    <label for="contentSearch" class="block text-sm font-medium text-text-primary mb-1">Content Search</label>
+                    <input
+                        type="text"
+                        id="contentSearch"
+                        name="contentSearch"
+                        placeholder="Search message content..."
+                        class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+                    />
+                </div>
+
+                <!-- Actions -->
+                <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                    <button type="button" onclick="clearFilters()" class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                        Clear Filters
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                        <span class="flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            Apply Filters
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Summary -->
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">1-25</span> of <span class="font-medium text-text-primary">1,234</span> messages
+            </p>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Author</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Guild</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Channel</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Source</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Content</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        <!-- Row 1 - Server Message -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 10:30 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 rounded-full bg-accent-blue flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">JD</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-text-primary">JohnDoe#1234</div>
+                                        <div class="text-xs text-text-tertiary font-mono">123456789012345678</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Gaming Hub</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">#general</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                    Server
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">Hey everyone! Just wanted to share this amazing...</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Row 2 - DM Message -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 10:28 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 rounded-full bg-accent-orange flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">AS</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-text-primary">AliceSmith#5678</div>
+                                        <div class="text-xs text-text-tertiary font-mono">234567890123456789</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-tertiary">(DM)</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-tertiary">-</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                                    DM
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">Hi! I need help with setting up the bot. Can you...</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Row 3 - Server Message -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 10:25 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 rounded-full bg-success flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">BJ</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-text-primary">BobJones#9012</div>
+                                        <div class="text-xs text-text-tertiary font-mono">345678901234567890</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Tech Community</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">#development</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                    Server
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">Does anyone know how to fix this TypeScript error...</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Row 4 - Server Message with long content -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 10:22 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 rounded-full bg-warning flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">CW</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-text-primary">CarolWilson#3456</div>
+                                        <div class="text-xs text-text-tertiary font-mono">456789012345678901</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Art & Design</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">#showcase</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                    Server
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">Check out my latest digital art piece! I spent about...</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Row 5 - DM Message -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 10:18 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 rounded-full bg-error flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">DL</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-text-primary">DavidLee#7890</div>
+                                        <div class="text-xs text-text-tertiary font-mono">567890123456789012</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-tertiary">(DM)</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-tertiary">-</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                                    DM
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">Thanks for the help earlier! The commands are working...</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Row 6 - Server Message -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 10:15 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 rounded-full bg-info flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">EM</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-text-primary">EmilyMiller#2345</div>
+                                        <div class="text-xs text-text-tertiary font-mono">678901234567890123</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Music Lovers</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">#recommendations</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                    Server
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">Has anyone listened to the new album by Midnight...</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Row 7 - Server Message (ID only, no username) -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 10:10 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 rounded-full bg-bg-tertiary flex items-center justify-center">
+                                        <span class="text-text-tertiary font-medium text-xs">?</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-text-tertiary">(Unknown)</div>
+                                        <div class="text-xs text-text-tertiary font-mono">789012345678901234</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Gaming Hub</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">#off-topic</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                    Server
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">What time is the event starting tonight? I don't want...</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="px-6 py-4 border-t border-border-primary">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <label for="pageSize" class="text-sm text-text-secondary">Show:</label>
+                        <select id="pageSize" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <nav aria-label="Pagination" class="flex items-center gap-1">
+                        <!-- First Page -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="First page" aria-disabled="true">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                        </a>
+                        <!-- Previous -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="Previous page" aria-disabled="true">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </a>
+                        <!-- Page Numbers -->
+                        <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">1</span>
+                        <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</a>
+                        <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</a>
+                        <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">4</a>
+                        <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">5</a>
+                        <span class="px-2 py-2 text-text-tertiary">...</span>
+                        <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">50</a>
+                        <!-- Next -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Next page">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                        <!-- Last Page -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Last page">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Clear filters function
+        function clearFilters() {
+            document.getElementById('userId').value = '';
+            document.getElementById('guildId').value = '';
+            document.getElementById('channelId').value = '';
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            document.getElementById('contentSearch').value = '';
+            document.querySelector('input[name="sourceType"][value="all"]').checked = true;
+        }
+
+        // Toggle filters on mobile
+        document.getElementById('toggleFilters')?.addEventListener('click', function() {
+            const form = document.getElementById('filtersForm');
+            form.classList.toggle('hidden');
+            this.textContent = form.classList.contains('hidden') ? 'Show Filters' : 'Hide Filters';
+        });
+
+        // Form submit handler (for prototype - prevents actual submission)
+        document.getElementById('filtersForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Filters applied:', {
+                userId: document.getElementById('userId').value,
+                guildId: document.getElementById('guildId').value,
+                channelId: document.getElementById('channelId').value,
+                fromDate: document.getElementById('fromDate').value,
+                toDate: document.getElementById('toDate').value,
+                sourceType: document.querySelector('input[name="sourceType"]:checked').value,
+                contentSearch: document.getElementById('contentSearch').value
+            });
+            alert('Filters applied! (Prototype - no actual filtering)');
+        });
+    </script>
+</body>
+</html>

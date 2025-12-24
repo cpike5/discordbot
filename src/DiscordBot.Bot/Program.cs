@@ -173,6 +173,12 @@ try
     // Add Consent services
     builder.Services.AddScoped<IConsentService, ConsentService>();
 
+    // Add Message Log services and cleanup
+    builder.Services.AddScoped<IMessageLogService, MessageLogService>();
+    builder.Services.Configure<DiscordBot.Core.Configuration.MessageLogRetentionOptions>(
+        builder.Configuration.GetSection("MessageLogRetention"));
+    builder.Services.AddHostedService<MessageLogCleanupService>();
+
     // Add Metrics update background services
     builder.Services.AddHostedService<MetricsUpdateService>();
     builder.Services.AddHostedService<BusinessMetricsUpdateService>();
