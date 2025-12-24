@@ -69,14 +69,9 @@
 
                 <!-- Password Field -->
                 <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label asp-for="Input.Password" class="block text-sm font-semibold text-text-primary">
-                            Password
-                        </label>
-                        <a href="#" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors" tabindex="-1" aria-disabled="true" title="Coming soon">
-                            Forgot password?
-                        </a>
-                    </div>
+                    <label asp-for="Input.Password" class="block text-sm font-semibold text-text-primary mb-2">
+                        Password
+                    </label>
                     <input
                         asp-for="Input.Password"
                         type="password"
@@ -136,14 +131,6 @@
                 </form>
             }
         </div>
-
-        <!-- Footer Note -->
-        <p class="text-center text-xs text-text-tertiary mt-6">
-            By signing in, you agree to our
-            <a href="#" class="text-accent-blue hover:text-accent-blue-hover transition-colors">Terms of Service</a>
-            and
-            <a href="#" class="text-accent-blue hover:text-accent-blue-hover transition-colors">Privacy Policy</a>.
-        </p>
     </div>
 
     @section Scripts {
