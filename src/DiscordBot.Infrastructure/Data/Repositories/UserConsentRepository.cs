@@ -183,4 +183,62 @@ public class UserConsentRepository : Repository<UserConsent>, IUserConsentReposi
             throw;
         }
     }
+
+    public async Task<IEnumerable<ulong>> GetUsersWithActiveConsentAsync(
+        IEnumerable<ulong> discordUserIds,
+        ConsentType type,
+        CancellationToken cancellationToken = default)
+    {
+        var userIdsList = discordUserIds.ToList();
+
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "GetUsersWithActiveConsentAsync",
+            entityType: nameof(UserConsent),
+            dbOperation: "SELECT",
+            entityId: $"Batch:{type}:Count={userIdsList.Count}");
+
+        var stopwatch = Stopwatch.StartNew();
+        _logger.LogDebug(
+            "Batch checking active consent for {Count} users and type {ConsentType}",
+            userIdsList.Count, type);
+
+        try
+        {
+            var usersWithConsent = await DbSet
+                .AsNoTracking()
+                .Where(c => userIdsList.Contains(c.DiscordUserId)
+                         && c.ConsentType == type
+                         && c.RevokedAt == null)
+                .Select(c => c.DiscordUserId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            stopwatch.Stop();
+
+            _logger.LogDebug(
+                "Batch checked active consent for {TotalCount} users and type {ConsentType} in {ElapsedMs}ms. Found={FoundCount}",
+                userIdsList.Count, type, stopwatch.ElapsedMilliseconds, usersWithConsent.Count);
+
+            if (stopwatch.ElapsedMilliseconds > SlowOperationThresholdMs)
+            {
+                _logger.LogWarning(
+                    "UserConsentRepository.GetUsersWithActiveConsentAsync slow operation. ElapsedMs={ElapsedMs}, Threshold={ThresholdMs}ms, ConsentType={ConsentType}, TotalCount={TotalCount}, FoundCount={FoundCount}",
+                    stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, type, userIdsList.Count, usersWithConsent.Count);
+            }
+
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+
+            return usersWithConsent;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
+            _logger.LogError(ex,
+                "Failed to batch check active consent for {Count} users and type {ConsentType}. ElapsedMs={ElapsedMs}, Error={Error}",
+                userIdsList.Count, type, stopwatch.ElapsedMilliseconds, ex.Message);
+            throw;
+        }
+    }
 }

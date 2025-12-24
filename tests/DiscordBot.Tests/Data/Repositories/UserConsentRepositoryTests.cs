@@ -735,4 +735,226 @@ public class UserConsentRepositoryTests : IDisposable
     }
 
     #endregion
+
+    #region GetUsersWithActiveConsentAsync Tests
+
+    [Fact]
+    public async Task GetUsersWithActiveConsentAsync_ReturnsOnlyUsersWithActiveConsent()
+    {
+        // Arrange
+        var user1 = 111111111UL;
+        var user2 = 222222222UL;
+        var user3 = 333333333UL;
+        var user4 = 444444444UL;
+
+        await SeedUserAsync(user1);
+        await SeedUserAsync(user2);
+        await SeedUserAsync(user3);
+        await SeedUserAsync(user4);
+
+        var consentType = ConsentType.MessageLogging;
+
+        // User1 has active consent
+        var consent1 = new UserConsent
+        {
+            DiscordUserId = user1,
+            ConsentType = consentType,
+            GrantedAt = DateTime.UtcNow.AddDays(-30),
+            RevokedAt = null,
+            GrantedVia = "WebUI"
+        };
+
+        // User2 has no consent (not in database)
+
+        // User3 has revoked consent
+        var consent3 = new UserConsent
+        {
+            DiscordUserId = user3,
+            ConsentType = consentType,
+            GrantedAt = DateTime.UtcNow.AddDays(-30),
+            RevokedAt = DateTime.UtcNow.AddDays(-10),
+            GrantedVia = "WebUI",
+            RevokedVia = "SlashCommand"
+        };
+
+        // User4 has active consent
+        var consent4 = new UserConsent
+        {
+            DiscordUserId = user4,
+            ConsentType = consentType,
+            GrantedAt = DateTime.UtcNow.AddDays(-15),
+            RevokedAt = null,
+            GrantedVia = "SlashCommand"
+        };
+
+        await _context.UserConsents.AddRangeAsync(consent1, consent3, consent4);
+        await _context.SaveChangesAsync();
+
+        var userIdsToCheck = new[] { user1, user2, user3, user4 };
+
+        // Act
+        var result = await _repository.GetUsersWithActiveConsentAsync(userIdsToCheck, consentType);
+
+        // Assert
+        var usersWithConsent = result.ToList();
+        usersWithConsent.Should().HaveCount(2);
+        usersWithConsent.Should().Contain(user1);
+        usersWithConsent.Should().Contain(user4);
+        usersWithConsent.Should().NotContain(user2, "user has no consent record");
+        usersWithConsent.Should().NotContain(user3, "user's consent is revoked");
+    }
+
+    [Fact]
+    public async Task GetUsersWithActiveConsentAsync_ReturnsEmptyForNoMatches()
+    {
+        // Arrange
+        var user1 = 111111111UL;
+        var user2 = 222222222UL;
+
+        var userIdsToCheck = new[] { user1, user2 };
+        var consentType = ConsentType.MessageLogging;
+
+        // Act
+        var result = await _repository.GetUsersWithActiveConsentAsync(userIdsToCheck, consentType);
+
+        // Assert
+        result.Should().BeEmpty("no users have active consent");
+    }
+
+    [Fact]
+    public async Task GetUsersWithActiveConsentAsync_HandlesEmptyInputList()
+    {
+        // Arrange
+        var userIdsToCheck = Array.Empty<ulong>();
+        var consentType = ConsentType.MessageLogging;
+
+        // Act
+        var result = await _repository.GetUsersWithActiveConsentAsync(userIdsToCheck, consentType);
+
+        // Assert
+        result.Should().BeEmpty("input list is empty");
+    }
+
+    [Fact]
+    public async Task GetUsersWithActiveConsentAsync_FiltersByConsentType()
+    {
+        // Arrange
+        var user1 = 111111111UL;
+        var user2 = 222222222UL;
+
+        await SeedUserAsync(user1);
+        await SeedUserAsync(user2);
+
+        // User1 has consent for MessageLogging
+        var consent1 = new UserConsent
+        {
+            DiscordUserId = user1,
+            ConsentType = ConsentType.MessageLogging,
+            GrantedAt = DateTime.UtcNow.AddDays(-30),
+            RevokedAt = null,
+            GrantedVia = "WebUI"
+        };
+
+        // User2 has consent for a different type (using value 99)
+        var consent2 = new UserConsent
+        {
+            DiscordUserId = user2,
+            ConsentType = (ConsentType)99,
+            GrantedAt = DateTime.UtcNow.AddDays(-30),
+            RevokedAt = null,
+            GrantedVia = "WebUI"
+        };
+
+        await _context.UserConsents.AddRangeAsync(consent1, consent2);
+        await _context.SaveChangesAsync();
+
+        var userIdsToCheck = new[] { user1, user2 };
+
+        // Act
+        var result = await _repository.GetUsersWithActiveConsentAsync(userIdsToCheck, ConsentType.MessageLogging);
+
+        // Assert
+        var usersWithConsent = result.ToList();
+        usersWithConsent.Should().HaveCount(1);
+        usersWithConsent.Should().Contain(user1);
+        usersWithConsent.Should().NotContain(user2, "user has different consent type");
+    }
+
+    [Fact]
+    public async Task GetUsersWithActiveConsentAsync_ReturnsDistinctUsers()
+    {
+        // Arrange
+        var user1 = 111111111UL;
+        await SeedUserAsync(user1);
+
+        var consentType = ConsentType.MessageLogging;
+
+        // User has multiple consent records (granted, revoked, granted again)
+        var oldConsent = new UserConsent
+        {
+            DiscordUserId = user1,
+            ConsentType = consentType,
+            GrantedAt = DateTime.UtcNow.AddDays(-60),
+            RevokedAt = DateTime.UtcNow.AddDays(-30),
+            GrantedVia = "WebUI",
+            RevokedVia = "WebUI"
+        };
+
+        var newConsent = new UserConsent
+        {
+            DiscordUserId = user1,
+            ConsentType = consentType,
+            GrantedAt = DateTime.UtcNow.AddDays(-10),
+            RevokedAt = null,
+            GrantedVia = "SlashCommand"
+        };
+
+        await _context.UserConsents.AddRangeAsync(oldConsent, newConsent);
+        await _context.SaveChangesAsync();
+
+        var userIdsToCheck = new[] { user1 };
+
+        // Act
+        var result = await _repository.GetUsersWithActiveConsentAsync(userIdsToCheck, consentType);
+
+        // Assert
+        var usersWithConsent = result.ToList();
+        usersWithConsent.Should().HaveCount(1, "should return user only once despite multiple consent records");
+        usersWithConsent.Should().Contain(user1);
+    }
+
+    [Fact]
+    public async Task GetUsersWithActiveConsentAsync_WithCancellationToken_CompletesSuccessfully()
+    {
+        // Arrange
+        var user1 = 111111111UL;
+        await SeedUserAsync(user1);
+
+        var consentType = ConsentType.MessageLogging;
+
+        var consent = new UserConsent
+        {
+            DiscordUserId = user1,
+            ConsentType = consentType,
+            GrantedAt = DateTime.UtcNow.AddDays(-30),
+            RevokedAt = null,
+            GrantedVia = "WebUI"
+        };
+
+        await _context.UserConsents.AddAsync(consent);
+        await _context.SaveChangesAsync();
+
+        var userIdsToCheck = new[] { user1 };
+
+        using var cts = new CancellationTokenSource();
+
+        // Act
+        var result = await _repository.GetUsersWithActiveConsentAsync(userIdsToCheck, consentType, cts.Token);
+
+        // Assert
+        result.Should().HaveCount(1);
+        result.Should().Contain(user1);
+    }
+
+    #endregion
 }

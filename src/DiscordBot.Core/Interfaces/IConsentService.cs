@@ -51,4 +51,38 @@ public interface IConsentService
         ulong discordUserId,
         ConsentType type,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Check if user has active consent for a specific type.
+    /// </summary>
+    /// <param name="discordUserId">Discord user ID.</param>
+    /// <param name="consentType">Type of consent to check.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if user has active consent, false otherwise.</returns>
+    Task<bool> HasConsentAsync(
+        ulong discordUserId,
+        ConsentType consentType,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Get all active consent types for a user.
+    /// </summary>
+    /// <param name="discordUserId">Discord user ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of active consent types.</returns>
+    Task<IEnumerable<ConsentType>> GetActiveConsentsAsync(
+        ulong discordUserId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Batch check consent for multiple users (for efficiency).
+    /// </summary>
+    /// <param name="discordUserIds">Collection of Discord user IDs to check.</param>
+    /// <param name="consentType">Type of consent to check.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Dictionary mapping user IDs to their consent status.</returns>
+    Task<IDictionary<ulong, bool>> HasConsentBatchAsync(
+        IEnumerable<ulong> discordUserIds,
+        ConsentType consentType,
+        CancellationToken cancellationToken = default);
 }

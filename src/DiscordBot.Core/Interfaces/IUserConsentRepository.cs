@@ -41,4 +41,16 @@ public interface IUserConsentRepository : IRepository<UserConsent>
         ulong discordUserId,
         ConsentType type,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Batch checks which users from a set have active consent for a specific type.
+    /// </summary>
+    /// <param name="discordUserIds">Collection of Discord user IDs to check.</param>
+    /// <param name="type">Type of consent to check.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of user IDs that have active consent.</returns>
+    Task<IEnumerable<ulong>> GetUsersWithActiveConsentAsync(
+        IEnumerable<ulong> discordUserIds,
+        ConsentType type,
+        CancellationToken cancellationToken = default);
 }
