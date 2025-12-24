@@ -44,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGuildRepository, GuildRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICommandLogRepository, CommandLogRepository>();
+        services.AddScoped<IMessageLogRepository, MessageLogRepository>();
         services.AddScoped<ISettingsRepository, SettingsRepository>();
         services.AddScoped<IUserConsentRepository, UserConsentRepository>();
 

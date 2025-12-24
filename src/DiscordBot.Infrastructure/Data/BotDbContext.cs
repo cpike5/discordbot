@@ -17,6 +17,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Guild> Guilds => Set<Guild>();
     public new DbSet<User> Users => Set<User>();
     public DbSet<CommandLog> CommandLogs => Set<CommandLog>();
+    public DbSet<MessageLog> MessageLogs => Set<MessageLog>();
     public DbSet<UserGuildAccess> UserGuildAccess => Set<UserGuildAccess>();
     public DbSet<UserActivityLog> UserActivityLogs => Set<UserActivityLog>();
     public DbSet<DiscordOAuthToken> DiscordOAuthTokens => Set<DiscordOAuthToken>();
