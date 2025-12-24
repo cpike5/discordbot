@@ -34,4 +34,9 @@ public class User
     /// Navigation property for command logs by this user.
     /// </summary>
     public ICollection<CommandLog> CommandLogs { get; set; } = new List<CommandLog>();
+
+    /// <summary>
+    /// Navigation property for message logs by this user.
+    /// </summary>
+    public ICollection<MessageLog> MessageLogs { get; set; } = new List<MessageLog>();
 }

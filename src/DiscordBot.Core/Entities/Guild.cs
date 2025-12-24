@@ -40,4 +40,9 @@ public class Guild
     /// Navigation property for command logs in this guild.
     /// </summary>
     public ICollection<CommandLog> CommandLogs { get; set; } = new List<CommandLog>();
+
+    /// <summary>
+    /// Navigation property for message logs in this guild.
+    /// </summary>
+    public ICollection<MessageLog> MessageLogs { get; set; } = new List<MessageLog>();
 }
