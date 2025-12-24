@@ -4,6 +4,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -16,14 +17,16 @@ namespace DiscordBot.Tests.Services;
 public class ConsentServiceTests
 {
     private readonly Mock<IUserConsentRepository> _mockRepository;
+    private readonly IMemoryCache _cache;
     private readonly Mock<ILogger<ConsentService>> _mockLogger;
     private readonly ConsentService _service;
 
     public ConsentServiceTests()
     {
         _mockRepository = new Mock<IUserConsentRepository>();
+        _cache = new MemoryCache(new MemoryCacheOptions());
         _mockLogger = new Mock<ILogger<ConsentService>>();
-        _service = new ConsentService(_mockRepository.Object, _mockLogger.Object);
+        _service = new ConsentService(_mockRepository.Object, _cache, _mockLogger.Object);
     }
 
     #region GetConsentStatusAsync Tests
@@ -851,6 +854,360 @@ public class ConsentServiceTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once,
             "should log error when exception occurs during grant");
+    }
+
+    #endregion
+
+    #region HasConsentAsync Tests
+
+    [Fact]
+    public async Task HasConsentAsync_ReturnsTrue_WhenActiveConsentExists()
+    {
+        // Arrange
+        var discordUserId = 123456789UL;
+        var consentType = ConsentType.MessageLogging;
+
+        _mockRepository
+            .Setup(r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _service.HasConsentAsync(discordUserId, consentType);
+
+        // Assert
+        result.Should().BeTrue();
+
+        _mockRepository.Verify(
+            r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "should query repository when cache is empty");
+    }
+
+    [Fact]
+    public async Task HasConsentAsync_ReturnsFalse_WhenNoConsent()
+    {
+        // Arrange
+        var discordUserId = 987654321UL;
+        var consentType = ConsentType.MessageLogging;
+
+        _mockRepository
+            .Setup(r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _service.HasConsentAsync(discordUserId, consentType);
+
+        // Assert
+        result.Should().BeFalse();
+
+        _mockRepository.Verify(
+            r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task HasConsentAsync_UsesCache_OnSubsequentCalls()
+    {
+        // Arrange
+        var discordUserId = 111222333UL;
+        var consentType = ConsentType.MessageLogging;
+
+        _mockRepository
+            .Setup(r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act - First call should query repository
+        var result1 = await _service.HasConsentAsync(discordUserId, consentType);
+
+        // Act - Second call should use cache
+        var result2 = await _service.HasConsentAsync(discordUserId, consentType);
+
+        // Assert
+        result1.Should().BeTrue();
+        result2.Should().BeTrue();
+
+        _mockRepository.Verify(
+            r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "repository should only be called once; second call should use cache");
+    }
+
+    #endregion
+
+    #region GetActiveConsentsAsync Tests
+
+    [Fact]
+    public async Task GetActiveConsentsAsync_ReturnsAllActiveConsentTypes()
+    {
+        // Arrange
+        var discordUserId = 123456789UL;
+        var userConsents = new List<UserConsent>
+        {
+            new UserConsent
+            {
+                Id = 1,
+                DiscordUserId = discordUserId,
+                ConsentType = ConsentType.MessageLogging,
+                GrantedAt = DateTime.UtcNow.AddDays(-5),
+                GrantedVia = "WebUI",
+                RevokedAt = null,
+                RevokedVia = null
+            }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetUserConsentsAsync(discordUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userConsents);
+
+        // Act
+        var result = await _service.GetActiveConsentsAsync(discordUserId);
+
+        // Assert
+        var activeConsents = result.ToList();
+        activeConsents.Should().HaveCount(1);
+        activeConsents.Should().Contain(ConsentType.MessageLogging);
+
+        _mockRepository.Verify(
+            r => r.GetUserConsentsAsync(discordUserId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetActiveConsentsAsync_ReturnsEmpty_WhenNoConsents()
+    {
+        // Arrange
+        var discordUserId = 987654321UL;
+        var userConsents = new List<UserConsent>();
+
+        _mockRepository
+            .Setup(r => r.GetUserConsentsAsync(discordUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userConsents);
+
+        // Act
+        var result = await _service.GetActiveConsentsAsync(discordUserId);
+
+        // Assert
+        var activeConsents = result.ToList();
+        activeConsents.Should().BeEmpty();
+
+        _mockRepository.Verify(
+            r => r.GetUserConsentsAsync(discordUserId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetActiveConsentsAsync_ExcludesRevokedConsents()
+    {
+        // Arrange
+        var discordUserId = 111222333UL;
+        var userConsents = new List<UserConsent>
+        {
+            new UserConsent
+            {
+                Id = 1,
+                DiscordUserId = discordUserId,
+                ConsentType = ConsentType.MessageLogging,
+                GrantedAt = DateTime.UtcNow.AddDays(-10),
+                GrantedVia = "WebUI",
+                RevokedAt = DateTime.UtcNow.AddDays(-5),
+                RevokedVia = "WebUI"
+            }
+        };
+
+        _mockRepository
+            .Setup(r => r.GetUserConsentsAsync(discordUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(userConsents);
+
+        // Act
+        var result = await _service.GetActiveConsentsAsync(discordUserId);
+
+        // Assert
+        var activeConsents = result.ToList();
+        activeConsents.Should().BeEmpty("revoked consents should not be included");
+
+        _mockRepository.Verify(
+            r => r.GetUserConsentsAsync(discordUserId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    #endregion
+
+    #region HasConsentBatchAsync Tests
+
+    [Fact]
+    public async Task HasConsentBatchAsync_ReturnsCorrectResults_ForMultipleUsers()
+    {
+        // Arrange
+        var user1 = 111111111UL;
+        var user2 = 222222222UL;
+        var user3 = 333333333UL;
+        var userIds = new List<ulong> { user1, user2, user3 };
+        var consentType = ConsentType.MessageLogging;
+
+        // Only user1 and user3 have consent
+        var usersWithConsent = new List<ulong> { user1, user3 };
+
+        _mockRepository
+            .Setup(r => r.GetUsersWithActiveConsentAsync(
+                It.IsAny<IEnumerable<ulong>>(),
+                consentType,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(usersWithConsent);
+
+        // Act
+        var result = await _service.HasConsentBatchAsync(userIds, consentType);
+
+        // Assert
+        result.Should().HaveCount(3);
+        result[user1].Should().BeTrue();
+        result[user2].Should().BeFalse();
+        result[user3].Should().BeTrue();
+
+        _mockRepository.Verify(
+            r => r.GetUsersWithActiveConsentAsync(
+                It.IsAny<IEnumerable<ulong>>(),
+                consentType,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task HasConsentBatchAsync_UsesCache_ForPreviouslyCheckedUsers()
+    {
+        // Arrange
+        var user1 = 111111111UL;
+        var user2 = 222222222UL;
+        var consentType = ConsentType.MessageLogging;
+
+        // First call - check user1
+        _mockRepository
+            .Setup(r => r.HasActiveConsentAsync(user1, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        await _service.HasConsentAsync(user1, consentType);
+
+        // Now batch check both users - only user2 should be queried
+        _mockRepository
+            .Setup(r => r.GetUsersWithActiveConsentAsync(
+                It.Is<IEnumerable<ulong>>(ids => ids.Contains(user2) && !ids.Contains(user1)),
+                consentType,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ulong> { user2 });
+
+        // Act
+        var result = await _service.HasConsentBatchAsync(new[] { user1, user2 }, consentType);
+
+        // Assert
+        result.Should().HaveCount(2);
+        result[user1].Should().BeTrue("should use cached value");
+        result[user2].Should().BeTrue();
+
+        // Verify user1 was not part of batch query (was cached)
+        _mockRepository.Verify(
+            r => r.GetUsersWithActiveConsentAsync(
+                It.Is<IEnumerable<ulong>>(ids => !ids.Contains(user1)),
+                consentType,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    #endregion
+
+    #region Cache Invalidation Tests
+
+    [Fact]
+    public async Task GrantConsentAsync_InvalidatesCache()
+    {
+        // Arrange
+        var discordUserId = 123456789UL;
+        var consentType = ConsentType.MessageLogging;
+
+        // First, populate cache by checking consent
+        _mockRepository
+            .Setup(r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        await _service.HasConsentAsync(discordUserId, consentType);
+
+        // Setup for grant
+        _mockRepository
+            .Setup(r => r.GetActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(It.IsAny<UserConsent>());
+
+        _mockRepository
+            .Setup(r => r.AddAsync(It.IsAny<UserConsent>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(It.IsAny<UserConsent>());
+
+        // Act - Grant consent (should invalidate cache)
+        await _service.GrantConsentAsync(discordUserId, consentType);
+
+        // Now check again - should query repository again since cache was invalidated
+        _mockRepository
+            .Setup(r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _service.HasConsentAsync(discordUserId, consentType);
+
+        // Assert
+        result.Should().BeTrue();
+
+        _mockRepository.Verify(
+            r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()),
+            Times.Exactly(2),
+            "should query repository twice: once before grant and once after (cache invalidated)");
+    }
+
+    [Fact]
+    public async Task RevokeConsentAsync_InvalidatesCache()
+    {
+        // Arrange
+        var discordUserId = 987654321UL;
+        var consentType = ConsentType.MessageLogging;
+
+        // First, populate cache by checking consent
+        _mockRepository
+            .Setup(r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        await _service.HasConsentAsync(discordUserId, consentType);
+
+        // Setup for revoke
+        var activeConsent = new UserConsent
+        {
+            Id = 1,
+            DiscordUserId = discordUserId,
+            ConsentType = consentType,
+            GrantedAt = DateTime.UtcNow.AddDays(-10),
+            GrantedVia = "WebUI",
+            RevokedAt = null,
+            RevokedVia = null
+        };
+
+        _mockRepository
+            .Setup(r => r.GetActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(activeConsent);
+
+        _mockRepository
+            .Setup(r => r.UpdateAsync(It.IsAny<UserConsent>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        // Act - Revoke consent (should invalidate cache)
+        await _service.RevokeConsentAsync(discordUserId, consentType);
+
+        // Now check again - should query repository again since cache was invalidated
+        _mockRepository
+            .Setup(r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _service.HasConsentAsync(discordUserId, consentType);
+
+        // Assert
+        result.Should().BeFalse();
+
+        _mockRepository.Verify(
+            r => r.HasActiveConsentAsync(discordUserId, consentType, It.IsAny<CancellationToken>()),
+            Times.Exactly(2),
+            "should query repository twice: once before revoke and once after (cache invalidated)");
     }
 
     #endregion
