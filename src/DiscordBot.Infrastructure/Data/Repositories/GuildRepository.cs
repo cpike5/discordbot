@@ -12,7 +12,8 @@ public class GuildRepository : Repository<Guild>, IGuildRepository
 {
     private readonly ILogger<GuildRepository> _logger;
 
-    public GuildRepository(BotDbContext context, ILogger<GuildRepository> logger) : base(context)
+    public GuildRepository(BotDbContext context, ILogger<GuildRepository> logger, ILogger<Repository<Guild>> baseLogger)
+        : base(context, baseLogger)
     {
         _logger = logger;
     }

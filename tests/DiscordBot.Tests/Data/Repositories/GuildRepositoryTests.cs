@@ -18,12 +18,14 @@ public class GuildRepositoryTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly GuildRepository _repository;
     private readonly Mock<ILogger<GuildRepository>> _mockLogger;
+    private readonly Mock<ILogger<Repository<Guild>>> _mockBaseLogger;
 
     public GuildRepositoryTests()
     {
         (_context, _connection) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<GuildRepository>>();
-        _repository = new GuildRepository(_context, _mockLogger.Object);
+        _mockBaseLogger = new Mock<ILogger<Repository<Guild>>>();
+        _repository = new GuildRepository(_context, _mockLogger.Object, _mockBaseLogger.Object);
     }
 
     public void Dispose()

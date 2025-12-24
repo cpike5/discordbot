@@ -12,7 +12,8 @@ public class UserRepository : Repository<User>, IUserRepository
 {
     private readonly ILogger<UserRepository> _logger;
 
-    public UserRepository(BotDbContext context, ILogger<UserRepository> logger) : base(context)
+    public UserRepository(BotDbContext context, ILogger<UserRepository> logger, ILogger<Repository<User>> baseLogger)
+        : base(context, baseLogger)
     {
         _logger = logger;
     }
