@@ -1,0 +1,91 @@
+@model DiscordBot.Bot.ViewModels.Components.SkeletonCardViewModel
+@{
+    var cardClass = $"card {Model.CssClass ?? ""}".Trim();
+}
+
+<div class="@cardClass">
+    @if (Model.ShowHeader)
+    {
+        <div class="card-header">
+            <div class="skeleton w-32 h-6 rounded"></div>
+        </div>
+    }
+
+    <div class="card-body">
+        @if (Model.Type == DiscordBot.Bot.ViewModels.Components.SkeletonCardType.Stats)
+        {
+            <!-- Stats Card: Icon + Value + Label -->
+            <div class="flex items-start gap-4">
+                <!-- Icon placeholder -->
+                <div class="skeleton w-12 h-12 rounded-lg flex-shrink-0"></div>
+
+                <!-- Stats content -->
+                <div class="flex-1 space-y-3">
+                    <div class="skeleton w-20 h-8 rounded"></div>
+                    <div class="skeleton w-24 h-4 rounded"></div>
+                </div>
+            </div>
+        }
+        else if (Model.Type == DiscordBot.Bot.ViewModels.Components.SkeletonCardType.Server)
+        {
+            <!-- Server Card: Avatar + Name + Stats Row -->
+            <div class="flex flex-col gap-4">
+                <!-- Server header -->
+                <div class="flex items-center gap-3">
+                    <div class="skeleton w-12 h-12 rounded-lg flex-shrink-0"></div>
+                    <div class="flex-1 space-y-2">
+                        <div class="skeleton w-32 h-5 rounded"></div>
+                        <div class="skeleton w-24 h-4 rounded"></div>
+                    </div>
+                </div>
+
+                <!-- Stats row -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="space-y-2">
+                        <div class="skeleton w-16 h-6 rounded"></div>
+                        <div class="skeleton w-20 h-3 rounded"></div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="skeleton w-16 h-6 rounded"></div>
+                        <div class="skeleton w-20 h-3 rounded"></div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="skeleton w-16 h-6 rounded"></div>
+                        <div class="skeleton w-20 h-3 rounded"></div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (Model.Type == DiscordBot.Bot.ViewModels.Components.SkeletonCardType.Activity)
+        {
+            <!-- Activity Feed: Icon + 2 Lines -->
+            <div class="space-y-4">
+                @for (int i = 0; i < 3; i++)
+                {
+                    <div class="flex items-start gap-3">
+                        <div class="skeleton w-10 h-10 rounded-full flex-shrink-0"></div>
+                        <div class="flex-1 space-y-2">
+                            <div class="skeleton w-full h-4 rounded"></div>
+                            <div class="skeleton w-3/4 h-3 rounded"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (Model.Type == DiscordBot.Bot.ViewModels.Components.SkeletonCardType.Table)
+        {
+            <!-- Table Row: Avatar + Name + Columns -->
+            <div class="space-y-3">
+                @for (int i = 0; i < 5; i++)
+                {
+                    <div class="flex items-center gap-4">
+                        <div class="skeleton w-10 h-10 rounded-full flex-shrink-0"></div>
+                        <div class="skeleton w-32 h-4 rounded"></div>
+                        <div class="skeleton w-24 h-4 rounded"></div>
+                        <div class="skeleton w-20 h-4 rounded ml-auto"></div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>

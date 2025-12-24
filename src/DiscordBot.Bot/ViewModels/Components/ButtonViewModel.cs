@@ -11,6 +11,7 @@ public record ButtonViewModel
     public string? IconRight { get; init; }
     public bool IsDisabled { get; init; } = false;
     public bool IsLoading { get; init; } = false;
+    public string? LoadingText { get; init; }  // Text to display when IsLoading is true
     public bool IsIconOnly { get; init; } = false;
     public string? AriaLabel { get; init; }
     public string? OnClick { get; init; } // JavaScript handler

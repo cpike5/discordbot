@@ -1,6 +1,7 @@
 /**
  * Guild Sync Functionality
  * Handles AJAX calls for syncing guild data from Discord to the database.
+ * Uses LoadingManager for consistent loading states.
  */
 
 /**
@@ -14,16 +15,20 @@ async function syncGuild(guildId, buttonElement) {
     return;
   }
 
-  const icon = buttonElement.querySelector('.sync-icon');
-  const spinner = buttonElement.querySelector('.sync-spinner');
-  const text = buttonElement.querySelector('.sync-text');
-
   try {
-    // Show loading state
-    buttonElement.disabled = true;
-    if (icon) icon.classList.add('hidden');
-    if (spinner) spinner.classList.remove('hidden');
-    if (text) text.textContent = 'Syncing...';
+    // Show loading state using LoadingManager
+    if (typeof LoadingManager !== 'undefined') {
+      LoadingManager.setButtonLoading(buttonElement, true, 'Syncing...');
+    } else {
+      // Fallback to manual loading state
+      buttonElement.disabled = true;
+      const icon = buttonElement.querySelector('.sync-icon');
+      const spinner = buttonElement.querySelector('.sync-spinner');
+      const text = buttonElement.querySelector('.sync-text');
+      if (icon) icon.classList.add('hidden');
+      if (spinner) spinner.classList.remove('hidden');
+      if (text) text.textContent = 'Syncing...';
+    }
 
     // Get CSRF token
     const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
@@ -53,14 +58,22 @@ async function syncGuild(guildId, buttonElement) {
       ToastManager.show('error', result.message || 'Failed to sync guild');
 
       // Reset button state
-      resetSyncButton(buttonElement, icon, spinner, text);
+      if (typeof LoadingManager !== 'undefined') {
+        LoadingManager.setButtonLoading(buttonElement, false);
+      } else {
+        resetSyncButton(buttonElement);
+      }
     }
   } catch (error) {
     console.error('Error syncing guild:', error);
     ToastManager.show('error', 'An error occurred while syncing the guild');
 
     // Reset button state
-    resetSyncButton(buttonElement, icon, spinner, text);
+    if (typeof LoadingManager !== 'undefined') {
+      LoadingManager.setButtonLoading(buttonElement, false);
+    } else {
+      resetSyncButton(buttonElement);
+    }
   }
 }
 
@@ -74,16 +87,24 @@ async function syncAllGuilds(buttonElement) {
     return;
   }
 
-  const icon = buttonElement.querySelector('.sync-icon');
-  const spinner = buttonElement.querySelector('.sync-spinner');
-  const text = buttonElement.querySelector('.sync-text');
-
   try {
-    // Show loading state
-    buttonElement.disabled = true;
-    if (icon) icon.classList.add('hidden');
-    if (spinner) spinner.classList.remove('hidden');
-    if (text) text.textContent = 'Syncing All...';
+    // Show page-level loading for sync all operation
+    if (typeof LoadingManager !== 'undefined') {
+      LoadingManager.showPageLoading('Syncing all guilds...', {
+        subMessage: 'This may take a moment',
+        timeout: 60000 // 60 second timeout for sync all
+      });
+      LoadingManager.setButtonLoading(buttonElement, true, 'Syncing All...');
+    } else {
+      // Fallback to manual loading state
+      buttonElement.disabled = true;
+      const icon = buttonElement.querySelector('.sync-icon');
+      const spinner = buttonElement.querySelector('.sync-spinner');
+      const text = buttonElement.querySelector('.sync-text');
+      if (icon) icon.classList.add('hidden');
+      if (spinner) spinner.classList.remove('hidden');
+      if (text) text.textContent = 'Syncing All...';
+    }
 
     // Get CSRF token
     const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
@@ -100,6 +121,11 @@ async function syncAllGuilds(buttonElement) {
 
     const result = await response.json();
 
+    // Hide page loading
+    if (typeof LoadingManager !== 'undefined') {
+      LoadingManager.hidePageLoading();
+    }
+
     if (result.success) {
       // Show success toast with count
       const message = result.message || `Successfully synced ${result.syncedCount || 0} guilds`;
@@ -114,24 +140,36 @@ async function syncAllGuilds(buttonElement) {
       ToastManager.show('error', result.message || 'Failed to sync guilds');
 
       // Reset button state
-      resetSyncButton(buttonElement, icon, spinner, text, 'Sync All');
+      if (typeof LoadingManager !== 'undefined') {
+        LoadingManager.setButtonLoading(buttonElement, false);
+      } else {
+        resetSyncButton(buttonElement);
+      }
     }
   } catch (error) {
     console.error('Error syncing all guilds:', error);
     ToastManager.show('error', 'An error occurred while syncing guilds');
 
-    // Reset button state
-    resetSyncButton(buttonElement, icon, spinner, text, 'Sync All');
+    // Hide page loading and reset button state
+    if (typeof LoadingManager !== 'undefined') {
+      LoadingManager.hidePageLoading();
+      LoadingManager.setButtonLoading(buttonElement, false);
+    } else {
+      resetSyncButton(buttonElement);
+    }
   }
 }
 
 /**
- * Reset sync button to normal state
+ * Reset sync button to normal state (fallback when LoadingManager not available)
  * @private
  */
-function resetSyncButton(buttonElement, icon, spinner, text, defaultText = 'Sync') {
+function resetSyncButton(buttonElement) {
   buttonElement.disabled = false;
+  const icon = buttonElement.querySelector('.sync-icon');
+  const spinner = buttonElement.querySelector('.sync-spinner');
+  const text = buttonElement.querySelector('.sync-text');
   if (icon) icon.classList.remove('hidden');
   if (spinner) spinner.classList.add('hidden');
-  if (text) text.textContent = defaultText;
+  if (text) text.textContent = 'Sync';
 }

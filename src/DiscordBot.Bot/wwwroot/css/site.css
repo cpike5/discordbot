@@ -525,6 +525,64 @@
   .dropdown-menu.active {
     @apply block opacity-100 translate-y-0;
   }
+
+  /* Skeleton loader base */
+  .skeleton {
+    background: linear-gradient(90deg, #2f3336 0%, #3f4447 50%, #2f3336 100%);
+    background-size: 200% 100%;
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-pulse {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Static skeleton (no animation) */
+  .skeleton-static {
+    background: #2f3336;
+    animation: none;
+  }
+
+  /* Reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      animation: none;
+      background: #2f3336;
+    }
+  }
+
+  /* Page loading overlay */
+  .loading-overlay {
+    @apply fixed inset-0 z-[1100] flex flex-col items-center justify-center gap-4;
+    background-color: rgba(29, 32, 34, 0.8);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 200ms ease, visibility 200ms ease;
+  }
+
+  .loading-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Container-scoped overlay */
+  .loading-container {
+    @apply relative;
+  }
+
+  .loading-container-overlay {
+    @apply absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg;
+    background-color: rgba(29, 32, 34, 0.8);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 200ms ease, visibility 200ms ease;
+  }
+
+  .loading-container-overlay.active {
+    opacity: 1;
+    visibility: visible;
+  }
 }
 
 /* Utility classes */
