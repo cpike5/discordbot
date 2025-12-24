@@ -45,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ICommandLogRepository, CommandLogRepository>();
         services.AddScoped<ISettingsRepository, SettingsRepository>();
+        services.AddScoped<IUserConsentRepository, UserConsentRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests

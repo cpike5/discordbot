@@ -22,6 +22,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DiscordOAuthToken> DiscordOAuthTokens => Set<DiscordOAuthToken>();
     public DbSet<VerificationCode> VerificationCodes => Set<VerificationCode>();
     public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>();
+    public DbSet<UserConsent> UserConsents => Set<UserConsent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
