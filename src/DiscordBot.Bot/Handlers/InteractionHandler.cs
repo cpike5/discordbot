@@ -5,6 +5,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Tracing;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Handlers;
@@ -126,12 +127,50 @@ public class InteractionHandler
         var stopwatch = Stopwatch.StartNew();
 
         string? commandName = null;
+        Activity? activity = null;
 
-        // Extract command name for metrics and track active commands
+        // Extract command name and start tracing activity
         if (interaction is SocketSlashCommand slashCommand)
         {
             commandName = slashCommand.CommandName;
             _botMetrics.IncrementActiveCommands(commandName);
+
+            // Start tracing activity for the command
+            activity = BotActivitySource.StartCommandActivity(
+                commandName: commandName,
+                guildId: interaction.GuildId,
+                userId: interaction.User.Id,
+                interactionId: interaction.Id,
+                correlationId: correlationId);
+        }
+        else if (interaction is SocketMessageComponent component)
+        {
+            // Start tracing activity for component interaction
+            var componentType = component.Data.Type switch
+            {
+                ComponentType.Button => "button",
+                ComponentType.SelectMenu => "select_menu",
+                _ => "unknown"
+            };
+
+            activity = BotActivitySource.StartComponentActivity(
+                componentType: componentType,
+                customId: component.Data.CustomId,
+                guildId: interaction.GuildId,
+                userId: interaction.User.Id,
+                interactionId: interaction.Id,
+                correlationId: correlationId);
+        }
+        else if (interaction is SocketModal modal)
+        {
+            // Start tracing activity for modal submission
+            activity = BotActivitySource.StartComponentActivity(
+                componentType: "modal",
+                customId: modal.Data.CustomId,
+                guildId: interaction.GuildId,
+                userId: interaction.User.Id,
+                interactionId: interaction.Id,
+                correlationId: correlationId);
         }
 
         // Store execution context for use in OnSlashCommandExecutedAsync
@@ -151,21 +190,29 @@ public class InteractionHandler
             using (_logger.BeginScope(new Dictionary<string, object>
             {
                 ["CorrelationId"] = correlationId,
-                ["InteractionId"] = interaction.Id
+                ["InteractionId"] = interaction.Id,
+                ["TraceId"] = activity?.TraceId.ToString() ?? "none"
             }))
             {
                 _logger.LogDebug(
-                    "Executing interaction {InteractionType} with correlation ID {CorrelationId}",
+                    "Executing interaction {InteractionType} with correlation ID {CorrelationId}, TraceId {TraceId}",
                     interaction.Type,
-                    correlationId);
+                    correlationId,
+                    activity?.TraceId.ToString() ?? "none");
 
                 // Execute the command
                 await _interactionService.ExecuteCommandAsync(context, _serviceProvider);
             }
+
+            // Mark activity as successful if no exceptions
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on the tracing activity
+            BotActivitySource.RecordException(activity, ex);
 
             // Record failure metric
             if (commandName != null)
@@ -179,9 +226,10 @@ public class InteractionHandler
 
             _logger.LogError(
                 ex,
-                "Error executing interaction {InteractionId}, CorrelationId: {CorrelationId}",
+                "Error executing interaction {InteractionId}, CorrelationId: {CorrelationId}, TraceId: {TraceId}",
                 interaction.Id,
-                correlationId);
+                correlationId,
+                activity?.TraceId.ToString() ?? "none");
 
             // If the interaction hasn't been responded to, send an error message
             if (interaction.Type == InteractionType.ApplicationCommand)
@@ -206,6 +254,9 @@ public class InteractionHandler
         }
         finally
         {
+            // Dispose the activity (completes the span)
+            activity?.Dispose();
+
             // Decrement active command count
             if (commandName != null)
             {

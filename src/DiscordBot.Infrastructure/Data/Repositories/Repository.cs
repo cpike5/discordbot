@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Linq.Expressions;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Tracing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -27,6 +28,13 @@ public class Repository<T> : IRepository<T> where T : class
 
     public virtual async Task<T?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
     {
+        // Start tracing activity
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "GetByIdAsync",
+            entityType: _entityTypeName,
+            dbOperation: "SELECT",
+            entityId: id?.ToString());
+
         var stopwatch = Stopwatch.StartNew();
         Logger.LogDebug("Repository<{EntityType}>.GetByIdAsync starting. Id={Id}", _entityTypeName, id);
 
@@ -46,11 +54,18 @@ public class Repository<T> : IRepository<T> where T : class
                     _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, id);
             }
 
+            // Complete tracing activity with success
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+
             return result;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on tracing activity
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
             Logger.LogError(ex,
                 "Repository<{EntityType}>.GetByIdAsync failed. Id={Id}, ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, id, stopwatch.ElapsedMilliseconds, ex.Message);
@@ -60,6 +75,12 @@ public class Repository<T> : IRepository<T> where T : class
 
     public virtual async Task<IReadOnlyList<T>> GetAllAsync(CancellationToken cancellationToken = default)
     {
+        // Start tracing activity
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "GetAllAsync",
+            entityType: _entityTypeName,
+            dbOperation: "SELECT");
+
         var stopwatch = Stopwatch.StartNew();
         Logger.LogDebug("Repository<{EntityType}>.GetAllAsync starting", _entityTypeName);
 
@@ -79,11 +100,18 @@ public class Repository<T> : IRepository<T> where T : class
                     _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, result.Count);
             }
 
+            // Complete tracing activity with success
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+
             return result;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on tracing activity
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
             Logger.LogError(ex,
                 "Repository<{EntityType}>.GetAllAsync failed. ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, stopwatch.ElapsedMilliseconds, ex.Message);
@@ -95,6 +123,12 @@ public class Repository<T> : IRepository<T> where T : class
         Expression<Func<T, bool>> predicate,
         CancellationToken cancellationToken = default)
     {
+        // Start tracing activity
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "FindAsync",
+            entityType: _entityTypeName,
+            dbOperation: "SELECT");
+
         var stopwatch = Stopwatch.StartNew();
         Logger.LogDebug("Repository<{EntityType}>.FindAsync starting. Predicate={Predicate}", _entityTypeName, predicate);
 
@@ -114,11 +148,18 @@ public class Repository<T> : IRepository<T> where T : class
                     _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, result.Count);
             }
 
+            // Complete tracing activity with success
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+
             return result;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on tracing activity
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
             Logger.LogError(ex,
                 "Repository<{EntityType}>.FindAsync failed. ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, stopwatch.ElapsedMilliseconds, ex.Message);
@@ -128,8 +169,16 @@ public class Repository<T> : IRepository<T> where T : class
 
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {
-        var stopwatch = Stopwatch.StartNew();
         var entityId = GetEntityId(entity);
+
+        // Start tracing activity
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "AddAsync",
+            entityType: _entityTypeName,
+            dbOperation: "INSERT",
+            entityId: entityId);
+
+        var stopwatch = Stopwatch.StartNew();
         Logger.LogDebug("Repository<{EntityType}>.AddAsync starting. EntityId={EntityId}", _entityTypeName, entityId);
 
         try
@@ -149,11 +198,18 @@ public class Repository<T> : IRepository<T> where T : class
                     _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, entityId);
             }
 
+            // Complete tracing activity with success
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+
             return entity;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on tracing activity
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
             Logger.LogError(ex,
                 "Repository<{EntityType}>.AddAsync failed. EntityId={EntityId}, ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, entityId, stopwatch.ElapsedMilliseconds, ex.Message);
@@ -163,8 +219,16 @@ public class Repository<T> : IRepository<T> where T : class
 
     public virtual async Task UpdateAsync(T entity, CancellationToken cancellationToken = default)
     {
-        var stopwatch = Stopwatch.StartNew();
         var entityId = GetEntityId(entity);
+
+        // Start tracing activity
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "UpdateAsync",
+            entityType: _entityTypeName,
+            dbOperation: "UPDATE",
+            entityId: entityId);
+
+        var stopwatch = Stopwatch.StartNew();
         Logger.LogDebug("Repository<{EntityType}>.UpdateAsync starting. EntityId={EntityId}", _entityTypeName, entityId);
 
         try
@@ -183,10 +247,17 @@ public class Repository<T> : IRepository<T> where T : class
                     "Repository<{EntityType}>.UpdateAsync slow operation. ElapsedMs={ElapsedMs}, Threshold={ThresholdMs}ms, EntityId={EntityId}",
                     _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, entityId);
             }
+
+            // Complete tracing activity with success
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on tracing activity
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
             Logger.LogError(ex,
                 "Repository<{EntityType}>.UpdateAsync failed. EntityId={EntityId}, ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, entityId, stopwatch.ElapsedMilliseconds, ex.Message);
@@ -196,8 +267,16 @@ public class Repository<T> : IRepository<T> where T : class
 
     public virtual async Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
     {
-        var stopwatch = Stopwatch.StartNew();
         var entityId = GetEntityId(entity);
+
+        // Start tracing activity
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "DeleteAsync",
+            entityType: _entityTypeName,
+            dbOperation: "DELETE",
+            entityId: entityId);
+
+        var stopwatch = Stopwatch.StartNew();
         Logger.LogDebug("Repository<{EntityType}>.DeleteAsync starting. EntityId={EntityId}", _entityTypeName, entityId);
 
         try
@@ -216,10 +295,17 @@ public class Repository<T> : IRepository<T> where T : class
                     "Repository<{EntityType}>.DeleteAsync slow operation. ElapsedMs={ElapsedMs}, Threshold={ThresholdMs}ms, EntityId={EntityId}",
                     _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, entityId);
             }
+
+            // Complete tracing activity with success
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on tracing activity
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
             Logger.LogError(ex,
                 "Repository<{EntityType}>.DeleteAsync failed. EntityId={EntityId}, ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, entityId, stopwatch.ElapsedMilliseconds, ex.Message);
@@ -231,6 +317,12 @@ public class Repository<T> : IRepository<T> where T : class
         Expression<Func<T, bool>> predicate,
         CancellationToken cancellationToken = default)
     {
+        // Start tracing activity
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "ExistsAsync",
+            entityType: _entityTypeName,
+            dbOperation: "EXISTS");
+
         var stopwatch = Stopwatch.StartNew();
         Logger.LogDebug("Repository<{EntityType}>.ExistsAsync starting. Predicate={Predicate}", _entityTypeName, predicate);
 
@@ -250,11 +342,18 @@ public class Repository<T> : IRepository<T> where T : class
                     _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs);
             }
 
+            // Complete tracing activity with success
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+
             return result;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on tracing activity
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
             Logger.LogError(ex,
                 "Repository<{EntityType}>.ExistsAsync failed. ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, stopwatch.ElapsedMilliseconds, ex.Message);
@@ -266,6 +365,12 @@ public class Repository<T> : IRepository<T> where T : class
         Expression<Func<T, bool>>? predicate = null,
         CancellationToken cancellationToken = default)
     {
+        // Start tracing activity
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "CountAsync",
+            entityType: _entityTypeName,
+            dbOperation: "COUNT");
+
         var stopwatch = Stopwatch.StartNew();
         Logger.LogDebug("Repository<{EntityType}>.CountAsync starting. HasPredicate={HasPredicate}",
             _entityTypeName, predicate != null);
@@ -288,11 +393,18 @@ public class Repository<T> : IRepository<T> where T : class
                     _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, result);
             }
 
+            // Complete tracing activity with success
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+
             return result;
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record exception on tracing activity
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+
             Logger.LogError(ex,
                 "Repository<{EntityType}>.CountAsync failed. ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, stopwatch.ElapsedMilliseconds, ex.Message);
