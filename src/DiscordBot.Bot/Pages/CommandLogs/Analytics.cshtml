@@ -367,9 +367,20 @@
     @{
         var chartData = new {
             usageOverTime = Model.ViewModel.UsageOverTime.Select(u => new { date = u.Date.ToString("yyyy-MM-dd"), count = u.Count }),
-            topCommands = Model.ViewModel.TopCommands,
-            successRate = new { success = Model.ViewModel.SuccessRateData.SuccessCount, failure = Model.ViewModel.SuccessRateData.FailureCount },
-            performance = Model.ViewModel.PerformanceData.Select(p => new { command = p.CommandName, avgMs = p.AvgResponseTimeMs })
+            topCommands = Model.ViewModel.TopCommands.Select(kvp => new {
+                commandName = kvp.Key,
+                count = kvp.Value,
+                percentage = Model.ViewModel.TotalCommands > 0 ? (double)kvp.Value / Model.ViewModel.TotalCommands * 100 : 0
+            }),
+            successRate = new {
+                successCount = Model.ViewModel.SuccessRateData.SuccessCount,
+                failureCount = Model.ViewModel.SuccessRateData.FailureCount,
+                successRate = Model.ViewModel.SuccessRateData.SuccessRate
+            },
+            responseTime = Model.ViewModel.PerformanceData.Select(p => new {
+                commandName = p.CommandName,
+                avgResponseTimeMs = p.AvgResponseTimeMs
+            })
         };
         var chartDataJson = System.Text.Json.JsonSerializer.Serialize(chartData);
     }
