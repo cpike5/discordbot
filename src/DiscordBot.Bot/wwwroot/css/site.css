@@ -273,6 +273,12 @@
   .sidebar-link.active {
     @apply text-text-primary bg-accent-orange/15 border-l-[3px] border-accent-orange;
   }
+  .sidebar-link-disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+  .sidebar-link-disabled:hover {
+    @apply text-text-secondary bg-transparent;
+  }
 
   .sidebar-icon {
     @apply w-5 h-5 flex-shrink-0;
