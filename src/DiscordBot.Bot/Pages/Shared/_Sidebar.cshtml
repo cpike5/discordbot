@@ -1,3 +1,4 @@
+@inject DiscordBot.Core.Interfaces.IVersionService VersionService
 <!-- Sidebar Navigation -->
 <aside
   id="sidebar"
@@ -127,7 +128,7 @@
       <div class="sidebar-status">
         <span class="sidebar-status-dot online status-pulse"></span>
         <span class="text-success font-medium">Bot Online</span>
-        <span class="ml-auto text-xs text-text-tertiary">v2.1.0</span>
+        <span class="ml-auto text-xs text-text-tertiary">@VersionService.GetVersion()</span>
       </div>
     </div>
   </nav>
