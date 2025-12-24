@@ -23,6 +23,30 @@ public class MessageLogRepository : Repository<MessageLog>, IMessageLogRepositor
         _logger = logger;
     }
 
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Overrides base implementation to include User and Guild navigation properties.
+    /// </remarks>
+    public override async Task<MessageLog?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving message log by ID: {Id}", id);
+
+        if (id is not long longId)
+        {
+            _logger.LogWarning("Invalid ID type for MessageLog: {IdType}", id?.GetType().Name ?? "null");
+            return null;
+        }
+
+        var result = await DbSet
+            .AsNoTracking()
+            .Include(m => m.User)
+            .Include(m => m.Guild)
+            .FirstOrDefaultAsync(m => m.Id == longId, cancellationToken);
+
+        _logger.LogDebug("Message log {Id} found: {Found}", id, result != null);
+        return result;
+    }
+
     public async Task<IEnumerable<MessageLog>> GetUserMessagesAsync(
         ulong authorId,
         DateTime? since = null,
@@ -160,7 +184,10 @@ public class MessageLogRepository : Repository<MessageLog>, IMessageLogRepositor
             "Retrieving paginated messages: Page {Page}, PageSize {PageSize}, AuthorId: {AuthorId}, GuildId: {GuildId}, ChannelId: {ChannelId}, Source: {Source}",
             query.Page, query.PageSize, query.AuthorId, query.GuildId, query.ChannelId, query.Source);
 
-        var dbQuery = DbSet.AsNoTracking();
+        IQueryable<MessageLog> dbQuery = DbSet
+            .AsNoTracking()
+            .Include(m => m.User)
+            .Include(m => m.Guild);
 
         // Apply filters
         if (query.AuthorId.HasValue)

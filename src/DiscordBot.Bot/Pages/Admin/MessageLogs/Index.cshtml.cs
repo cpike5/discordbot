@@ -56,6 +56,13 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnGetAsync()
     {
+        // Apply default date range (last 7 days) if no date filters specified
+        if (!StartDate.HasValue && !EndDate.HasValue)
+        {
+            StartDate = DateTime.UtcNow.Date.AddDays(-7);
+            EndDate = DateTime.UtcNow.Date.AddDays(1); // Include today's messages
+        }
+
         _logger.LogDebug("Loading message logs with filters: AuthorId={AuthorId}, GuildId={GuildId}, ChannelId={ChannelId}, Source={Source}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}, Page={Page}, PageSize={PageSize}",
             AuthorId, GuildId, ChannelId, Source, StartDate, EndDate, SearchTerm, CurrentPage, PageSize);
 
