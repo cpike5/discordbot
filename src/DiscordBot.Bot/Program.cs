@@ -140,6 +140,7 @@ try
     builder.Services.AddScoped<IClaimsTransformation, DiscordClaimsTransformation>();
 
     // Add application services
+    builder.Services.AddSingleton<IVersionService, VersionService>();
     builder.Services.AddScoped<IBotService, BotService>();
     builder.Services.AddScoped<IGuildService, GuildService>();
     builder.Services.AddScoped<ICommandLogService, CommandLogService>();
