@@ -1,0 +1,368 @@
+@page
+@model DiscordBot.Bot.Pages.SearchModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@{
+    ViewData["Title"] = "Search Results";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="flex flex-col gap-6 mb-6">
+        <!-- Header with Icon -->
+        <div class="flex items-center gap-3">
+            <div class="p-3 bg-bg-secondary border border-border-primary rounded-lg">
+                <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Search Results</h1>
+                @if (!string.IsNullOrWhiteSpace(Model.ViewModel.SearchTerm) && Model.ViewModel.HasResults)
+                {
+                    <p class="mt-1 text-text-secondary">
+                        @{
+                            var totalResults = Model.ViewModel.GuildResults.Count + Model.ViewModel.CommandLogResults.Count + Model.ViewModel.UserResults.Count;
+                        }
+                        Found @totalResults result@(totalResults != 1 ? "s" : "") for <span class="font-semibold text-text-primary">"@Model.ViewModel.SearchTerm"</span>
+                    </p>
+                }
+            </div>
+        </div>
+
+        <!-- Search Input -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <form method="get" class="flex flex-col sm:flex-row gap-3">
+                <div class="flex-1">
+                    <label for="SearchTerm" class="sr-only">Search</label>
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input type="search"
+                               id="SearchTerm"
+                               name="q"
+                               value="@Model.SearchTerm"
+                               placeholder="Search servers, commands, logs, or users..."
+                               class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                               autofocus />
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Search
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (string.IsNullOrWhiteSpace(Model.ViewModel.SearchTerm))
+    {
+        <!-- Empty State: No Search Term -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
+            @{
+                var startSearchingModel = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoResults,
+                    Title = "Start searching",
+                    Description = "Enter a search term above to find servers, command logs, or users.",
+                    Size = EmptyStateSize.Default
+                };
+            }
+            <partial name="Shared/Components/_EmptyState" model="startSearchingModel" />
+        </div>
+    }
+    else if (!Model.ViewModel.HasResults)
+    {
+        <!-- Empty State: No Results Found -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
+            @{
+                var noResultsModel = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoResults,
+                    Title = "No results found",
+                    Description = $"No servers, command logs, or users match \"{Model.ViewModel.SearchTerm}\". Try a different search term.",
+                    Size = EmptyStateSize.Default
+                };
+            }
+            <partial name="Shared/Components/_EmptyState" model="noResultsModel" />
+        </div>
+    }
+    else
+    {
+        <!-- Results Sections -->
+        <div class="space-y-6">
+            <!-- Servers Section -->
+            @if (Model.ViewModel.GuildResults.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                <h2 class="text-lg font-semibold text-text-primary">Servers</h2>
+                                @{
+                                    var guildCountBadge = new BadgeViewModel
+                                    {
+                                        Text = Model.ViewModel.GuildResults.Count.ToString(),
+                                        Variant = BadgeVariant.Default,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="guildCountBadge" />
+                            </div>
+                            @if (Model.ViewModel.TotalGuildResults > Model.ViewModel.GuildResults.Count)
+                            {
+                                <a asp-page="/Guilds/Index" asp-route-SearchTerm="@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @Model.ViewModel.TotalGuildResults results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Server Results Grid -->
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach (var guild in Model.ViewModel.GuildResults)
+                            {
+                                <a asp-page="/Guilds/Details" asp-route-id="@guild.Id" class="block bg-bg-primary border border-border-primary rounded-lg p-4 hover:border-accent-blue hover:bg-bg-hover transition-all">
+                                    <div class="flex items-start gap-3">
+                                        @if (!string.IsNullOrEmpty(guild.IconUrl))
+                                        {
+                                            <img src="@guild.IconUrl" alt="@guild.Name" class="w-12 h-12 rounded-full flex-shrink-0" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                            </div>
+                                        }
+                                        <div class="flex-1 min-w-0">
+                                            <h3 class="font-semibold text-text-primary truncate">@guild.Name</h3>
+                                            <div class="flex items-center gap-3 mt-1 text-xs text-text-secondary">
+                                                @if (guild.MemberCount.HasValue)
+                                                {
+                                                    <span class="flex items-center gap-1">
+                                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                                        </svg>
+                                                        @guild.MemberCount.Value.ToString("N0") members
+                                                    </span>
+                                                }
+                                                @{
+                                                    var statusModel = new StatusIndicatorViewModel
+                                                    {
+                                                        Status = guild.IsActive ? StatusType.Online : StatusType.Offline,
+                                                        Text = guild.IsActive ? "Active" : "Inactive",
+                                                        DisplayStyle = StatusDisplayStyle.DotWithText,
+                                                        Size = StatusSize.Small
+                                                    };
+                                                }
+                                                <partial name="Shared/Components/_StatusIndicator" model="statusModel" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Command Logs Section -->
+            @if (Model.ViewModel.CommandLogResults.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <h2 class="text-lg font-semibold text-text-primary">Command Logs</h2>
+                                @{
+                                    var commandLogCountBadge = new BadgeViewModel
+                                    {
+                                        Text = Model.ViewModel.CommandLogResults.Count.ToString(),
+                                        Variant = BadgeVariant.Default,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="commandLogCountBadge" />
+                            </div>
+                            @if (Model.ViewModel.TotalCommandLogResults > Model.ViewModel.CommandLogResults.Count)
+                            {
+                                <a asp-page="/CommandLogs/Index" asp-route-SearchTerm="@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @Model.ViewModel.TotalCommandLogResults results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Command Log Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var log in Model.ViewModel.CommandLogResults)
+                        {
+                            <a asp-page="/CommandLogs/Details" asp-route-id="@log.Id" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-3 flex-wrap">
+                                            <span class="font-mono text-sm font-semibold text-accent-blue">/@log.CommandName</span>
+                                            @{
+                                                BadgeViewModel logStatusBadge;
+                                                if (log.Success)
+                                                {
+                                                    logStatusBadge = new BadgeViewModel
+                                                    {
+                                                        Text = "Success",
+                                                        Variant = BadgeVariant.Success,
+                                                        Size = BadgeSize.Small
+                                                    };
+                                                }
+                                                else
+                                                {
+                                                    logStatusBadge = new BadgeViewModel
+                                                    {
+                                                        Text = "Failed",
+                                                        Variant = BadgeVariant.Error,
+                                                        Size = BadgeSize.Small
+                                                    };
+                                                }
+                                            }
+                                            <partial name="Shared/Components/_Badge" model="logStatusBadge" />
+                                        </div>
+                                        <div class="flex items-center gap-4 mt-1 text-xs text-text-secondary flex-wrap">
+                                            @if (!string.IsNullOrEmpty(log.GuildName))
+                                            {
+                                                <span class="flex items-center gap-1">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                    </svg>
+                                                    @log.GuildName
+                                                </span>
+                                            }
+                                            <span class="flex items-center gap-1">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                </svg>
+                                                @log.UserIdentifier
+                                            </span>
+                                            <span class="flex items-center gap-1">
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <time datetime="@log.ExecutedAt.ToString("s")">@log.ExecutedAt.ToString("MMM d, yyyy 'at' h:mm tt")</time>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <svg class="w-5 h-5 text-text-tertiary flex-shrink-0 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Users Section (Admin+ only) -->
+            @if (Model.ViewModel.CanViewUsers && Model.ViewModel.UserResults.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                </svg>
+                                <h2 class="text-lg font-semibold text-text-primary">Users</h2>
+                                @{
+                                    var userCountBadge = new BadgeViewModel
+                                    {
+                                        Text = Model.ViewModel.UserResults.Count.ToString(),
+                                        Variant = BadgeVariant.Default,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="userCountBadge" />
+                            </div>
+                            @if (Model.ViewModel.TotalUserResults > Model.ViewModel.UserResults.Count)
+                            {
+                                <a asp-page="/Admin/Users/Index" asp-route-SearchTerm="@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @Model.ViewModel.TotalUserResults results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- User Results Grid -->
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach (var user in Model.ViewModel.UserResults)
+                            {
+                                <a asp-page="/Admin/Users/Details" asp-route-id="@user.Id" class="block bg-bg-primary border border-border-primary rounded-lg p-4 hover:border-accent-blue hover:bg-bg-hover transition-all">
+                                    <div class="flex items-start gap-3">
+                                        @if (!string.IsNullOrEmpty(user.AvatarUrl))
+                                        {
+                                            <img src="@user.AvatarUrl" alt="@(user.DisplayName ?? user.Email)" class="w-12 h-12 rounded-full flex-shrink-0" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                @{
+                                                    var initials = !string.IsNullOrEmpty(user.DisplayName)
+                                                        ? (user.DisplayName.Length >= 2 ? user.DisplayName[..2].ToUpper() : user.DisplayName.ToUpper())
+                                                        : user.Email[0].ToString().ToUpper();
+                                                }
+                                                @initials
+                                            </div>
+                                        }
+                                        <div class="flex-1 min-w-0">
+                                            <h3 class="font-semibold text-text-primary truncate">@(user.DisplayName ?? user.Email)</h3>
+                                            <p class="text-xs text-text-tertiary truncate mt-0.5">@user.Email</p>
+                                            <div class="flex items-center gap-2 mt-2">
+                                                @{
+                                                    var roleBadgeVariant = user.Role switch
+                                                    {
+                                                        "SuperAdmin" => BadgeVariant.Orange,
+                                                        "Admin" => BadgeVariant.Blue,
+                                                        "Moderator" => BadgeVariant.Success,
+                                                        _ => BadgeVariant.Default
+                                                    };
+                                                    var userRoleBadge = new BadgeViewModel
+                                                    {
+                                                        Text = user.Role,
+                                                        Variant = roleBadgeVariant,
+                                                        Size = BadgeSize.Small
+                                                    };
+                                                }
+                                                <partial name="Shared/Components/_Badge" model="userRoleBadge" />
+                                                @if (!user.IsActive)
+                                                {
+                                                    var inactiveBadge = new BadgeViewModel
+                                                    {
+                                                        Text = "Inactive",
+                                                        Variant = BadgeVariant.Default,
+                                                        Size = BadgeSize.Small
+                                                    };
+                                                    <partial name="Shared/Components/_Badge" model="inactiveBadge" />
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
