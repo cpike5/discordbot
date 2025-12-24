@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Discord bot management system built with .NET 8 and Discord.NET. Combines a Discord bot hosted service with a Web API and Razor Pages admin UI for management.
 
-**Current version:** v0.1.0 (initial pre-release). See [#168](https://github.com/cpike5/discordbot/issues/168) for active UI polish work.
+**Current version:** v0.2.0 (pre-release). Version is centralized in `Directory.Build.props` at solution root. See [versioning-strategy.md](docs/articles/versioning-strategy.md) for release process.
 
 ## Prerequisites
 
@@ -113,6 +113,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
 | [log-aggregation.md](docs/articles/log-aggregation.md) | Seq centralized logging setup |
+| [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
 
 ## Discord.NET Specifics
 

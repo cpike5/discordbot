@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <Version>0.2.0</Version>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
+    <FileVersion>0.2.0.0</FileVersion>
+    <!-- InformationalVersion can be overridden during CI to include commit hash -->
+    <InformationalVersion>$(Version)</InformationalVersion>
+
+    <Authors>cpike5</Authors>
+    <Company>cpike5</Company>
+    <Product>DiscordBot</Product>
+    <Copyright>Copyright © 2024-2025</Copyright>
+    <RepositoryUrl>https://github.com/cpike5/discordbot</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+</Project>
