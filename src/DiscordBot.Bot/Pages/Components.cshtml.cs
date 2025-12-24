@@ -9,7 +9,7 @@ namespace DiscordBot.Bot.Pages;
 /// PageModel for the component showcase page.
 /// Creates sample ViewModels for all UI components to demonstrate their various states and variants.
 /// </summary>
-[Authorize(Policy = "RequireViewer")]
+[Authorize(Policy = "RequireAdmin")]
 public class ComponentsModel : PageModel
 {
     // Buttons
