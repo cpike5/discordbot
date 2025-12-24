@@ -19,6 +19,7 @@ public class MessageLogCleanupServiceTests
     private readonly Mock<IServiceProvider> _serviceProviderMock;
     private readonly Mock<IMessageLogService> _messageLogServiceMock;
     private readonly Mock<IOptions<MessageLogRetentionOptions>> _optionsMock;
+    private readonly Mock<IOptions<BackgroundServicesOptions>> _bgOptionsMock;
     private readonly Mock<ILogger<MessageLogCleanupService>> _loggerMock;
 
     public MessageLogCleanupServiceTests()
@@ -28,6 +29,7 @@ public class MessageLogCleanupServiceTests
         _serviceProviderMock = new Mock<IServiceProvider>();
         _messageLogServiceMock = new Mock<IMessageLogService>();
         _optionsMock = new Mock<IOptions<MessageLogRetentionOptions>>();
+        _bgOptionsMock = new Mock<IOptions<BackgroundServicesOptions>>();
         _loggerMock = new Mock<ILogger<MessageLogCleanupService>>();
 
         // Setup the service scope chain
@@ -35,6 +37,12 @@ public class MessageLogCleanupServiceTests
         _serviceScopeMock.Setup(x => x.ServiceProvider).Returns(_serviceProviderMock.Object);
         _serviceProviderMock.Setup(x => x.GetService(typeof(IMessageLogService)))
             .Returns(_messageLogServiceMock.Object);
+
+        // Setup default background services options
+        _bgOptionsMock.Setup(x => x.Value).Returns(new BackgroundServicesOptions
+        {
+            MessageLogCleanupInitialDelayMinutes = 5
+        });
     }
 
     [Fact]
@@ -52,6 +60,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -97,6 +106,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -146,6 +156,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -200,6 +211,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -246,6 +258,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -297,6 +310,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -346,6 +360,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -399,6 +414,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -438,6 +454,7 @@ public class MessageLogCleanupServiceTests
         var act = () => new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         // Assert
@@ -462,6 +479,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();
@@ -506,6 +524,7 @@ public class MessageLogCleanupServiceTests
         var service = new MessageLogCleanupService(
             _scopeFactoryMock.Object,
             _optionsMock.Object,
+            _bgOptionsMock.Object,
             _loggerMock.Object);
 
         using var cts = new CancellationTokenSource();

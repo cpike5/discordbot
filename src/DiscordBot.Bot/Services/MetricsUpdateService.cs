@@ -1,5 +1,7 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Metrics;
+using DiscordBot.Core.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -11,22 +13,26 @@ public class MetricsUpdateService : BackgroundService
 {
     private readonly DiscordSocketClient _client;
     private readonly BotMetrics _botMetrics;
+    private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly ILogger<MetricsUpdateService> _logger;
-    private readonly TimeSpan _updateInterval = TimeSpan.FromSeconds(30);
 
     public MetricsUpdateService(
         DiscordSocketClient client,
         BotMetrics botMetrics,
+        IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<MetricsUpdateService> logger)
     {
         _client = client;
         _botMetrics = botMetrics;
+        _bgOptions = bgOptions;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Metrics update service starting, will update every {Interval} seconds", _updateInterval.TotalSeconds);
+        var updateInterval = TimeSpan.FromSeconds(_bgOptions.Value.MetricsUpdateIntervalSeconds);
+
+        _logger.LogInformation("Metrics update service starting, will update every {Interval} seconds", updateInterval.TotalSeconds);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -39,7 +45,7 @@ public class MetricsUpdateService : BackgroundService
                 _logger.LogError(ex, "Error updating metrics");
             }
 
-            await Task.Delay(_updateInterval, stoppingToken);
+            await Task.Delay(updateInterval, stoppingToken);
         }
 
         _logger.LogInformation("Metrics update service stopping");

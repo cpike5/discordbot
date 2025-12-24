@@ -1,10 +1,11 @@
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Bot.Extensions;
@@ -18,7 +19,8 @@ public class IdentitySeederTests
     private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
     private readonly Mock<ILogger> _mockLogger;
     private readonly Mock<IServiceProvider> _mockServiceProvider;
-    private readonly Mock<IConfiguration> _mockConfiguration;
+    private readonly Mock<IOptions<IdentityConfigOptions>> _mockIdentityOptions;
+    private readonly IdentityConfigOptions _identityConfigOptions;
 
     public IdentitySeederTests()
     {
@@ -47,8 +49,10 @@ public class IdentitySeederTests
         // Setup logger mock
         _mockLogger = new Mock<ILogger>();
 
-        // Setup configuration mock
-        _mockConfiguration = new Mock<IConfiguration>();
+        // Setup identity options mock
+        _identityConfigOptions = new IdentityConfigOptions();
+        _mockIdentityOptions = new Mock<IOptions<IdentityConfigOptions>>();
+        _mockIdentityOptions.Setup(x => x.Value).Returns(_identityConfigOptions);
 
         // Setup service provider mock
         _mockServiceProvider = new Mock<IServiceProvider>();
@@ -56,8 +60,8 @@ public class IdentitySeederTests
             .Returns(_mockRoleManager.Object);
         _mockServiceProvider.Setup(sp => sp.GetService(typeof(UserManager<ApplicationUser>)))
             .Returns(_mockUserManager.Object);
-        _mockServiceProvider.Setup(sp => sp.GetService(typeof(IConfiguration)))
-            .Returns(_mockConfiguration.Object);
+        _mockServiceProvider.Setup(sp => sp.GetService(typeof(IOptions<IdentityConfigOptions>)))
+            .Returns(_mockIdentityOptions.Object);
     }
 
     [Fact]
@@ -73,8 +77,8 @@ public class IdentitySeederTests
             .Callback<IdentityRole>(role => createdRoles.Add(role.Name!))
             .ReturnsAsync(IdentityResult.Success);
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns((string?)null);
+        // No default admin configured
+        _identityConfigOptions.DefaultAdmin = null;
 
         // Act
         await IdentitySeeder.SeedIdentityAsync(_mockServiceProvider.Object, _mockLogger.Object);
@@ -94,8 +98,8 @@ public class IdentitySeederTests
         _mockRoleManager.Setup(rm => rm.RoleExistsAsync(It.IsAny<string>()))
             .ReturnsAsync(true); // All roles already exist
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns((string?)null);
+        // No default admin configured
+        _identityConfigOptions.DefaultAdmin = null;
 
         // Act
         await IdentitySeeder.SeedIdentityAsync(_mockServiceProvider.Object, _mockLogger.Object);
@@ -129,8 +133,8 @@ public class IdentitySeederTests
             .Callback<IdentityRole>(role => createdRoles.Add(role.Name!))
             .ReturnsAsync(IdentityResult.Success);
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns((string?)null);
+        // No default admin configured
+        _identityConfigOptions.DefaultAdmin = null;
 
         // Act
         await IdentitySeeder.SeedIdentityAsync(_mockServiceProvider.Object, _mockLogger.Object);
@@ -155,10 +159,11 @@ public class IdentitySeederTests
         _mockRoleManager.Setup(rm => rm.RoleExistsAsync(It.IsAny<string>()))
             .ReturnsAsync(true); // All roles exist
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns(adminEmail);
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Password"])
-            .Returns(adminPassword);
+        _identityConfigOptions.DefaultAdmin = new DefaultAdminOptions
+        {
+            Email = adminEmail,
+            Password = adminPassword
+        };
 
         _mockUserManager.Setup(um => um.FindByEmailAsync(adminEmail))
             .ReturnsAsync((ApplicationUser?)null); // User does not exist
@@ -204,10 +209,12 @@ public class IdentitySeederTests
         _mockRoleManager.Setup(rm => rm.RoleExistsAsync(It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns((string?)null); // No email configured
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Password"])
-            .Returns("SomePassword123!");
+        // No email configured
+        _identityConfigOptions.DefaultAdmin = new DefaultAdminOptions
+        {
+            Email = null,
+            Password = "SomePassword123!"
+        };
 
         // Act
         await IdentitySeeder.SeedIdentityAsync(_mockServiceProvider.Object, _mockLogger.Object);
@@ -226,10 +233,12 @@ public class IdentitySeederTests
         _mockRoleManager.Setup(rm => rm.RoleExistsAsync(It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns("admin@example.com");
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Password"])
-            .Returns((string?)null); // No password configured
+        // No password configured
+        _identityConfigOptions.DefaultAdmin = new DefaultAdminOptions
+        {
+            Email = "admin@example.com",
+            Password = null
+        };
 
         // Act
         await IdentitySeeder.SeedIdentityAsync(_mockServiceProvider.Object, _mockLogger.Object);
@@ -248,10 +257,12 @@ public class IdentitySeederTests
         _mockRoleManager.Setup(rm => rm.RoleExistsAsync(It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns("   "); // Whitespace only
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Password"])
-            .Returns("SomePassword123!");
+        // Whitespace-only email
+        _identityConfigOptions.DefaultAdmin = new DefaultAdminOptions
+        {
+            Email = "   ",
+            Password = "SomePassword123!"
+        };
 
         // Act
         await IdentitySeeder.SeedIdentityAsync(_mockServiceProvider.Object, _mockLogger.Object);
@@ -277,10 +288,11 @@ public class IdentitySeederTests
         _mockRoleManager.Setup(rm => rm.RoleExistsAsync(It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns(adminEmail);
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Password"])
-            .Returns("SecurePassword123!");
+        _identityConfigOptions.DefaultAdmin = new DefaultAdminOptions
+        {
+            Email = adminEmail,
+            Password = "SecurePassword123!"
+        };
 
         _mockUserManager.Setup(um => um.FindByEmailAsync(adminEmail))
             .ReturnsAsync(existingUser); // User already exists
@@ -309,10 +321,11 @@ public class IdentitySeederTests
         _mockRoleManager.Setup(rm => rm.RoleExistsAsync(It.IsAny<string>()))
             .ReturnsAsync(true);
 
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Email"])
-            .Returns(adminEmail);
-        _mockConfiguration.Setup(c => c["Identity:DefaultAdmin:Password"])
-            .Returns("SecurePassword123!");
+        _identityConfigOptions.DefaultAdmin = new DefaultAdminOptions
+        {
+            Email = adminEmail,
+            Password = "SecurePassword123!"
+        };
 
         _mockUserManager.Setup(um => um.FindByEmailAsync(adminEmail))
             .ReturnsAsync((ApplicationUser?)null);

@@ -83,6 +83,40 @@ dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
 
 See [Identity Configuration](docs/articles/identity-configuration.md) for detailed authentication setup and troubleshooting.
 
+## Configuration Options
+
+The application uses the `IOptions<T>` pattern for strongly-typed configuration. Options classes are located in `src/DiscordBot.Core/Configuration/`:
+
+| Options Class | appsettings Section | Purpose |
+|--------------|---------------------|---------|
+| `ApplicationOptions` | `Application` | App metadata (title, base URL, version) |
+| `DiscordOAuthOptions` | `Discord:OAuth` | OAuth client credentials (use user secrets) |
+| `CachingOptions` | `Caching` | Cache duration settings for various services |
+| `VerificationOptions` | `Verification` | Verification code generation settings |
+| `BackgroundServicesOptions` | `BackgroundServices` | Background task intervals and delays |
+| `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (use user secrets for DefaultAdmin) |
+| `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
+
+### Injecting Options
+
+Use `IOptions<T>` for static configuration or `IOptionsMonitor<T>` for runtime-reloadable options:
+
+```csharp
+public class MyService
+{
+    private readonly CachingOptions _options;
+
+    public MyService(IOptions<CachingOptions> options)
+    {
+        _options = options.Value;
+    }
+}
+```
+
+### Default Values
+
+All options have sensible defaults. You only need to configure values that differ from defaults. See `appsettings.json` for the default configuration structure.
+
 ## Architecture
 
 Three-layer clean architecture:

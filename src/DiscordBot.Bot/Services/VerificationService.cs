@@ -1,10 +1,12 @@
 using System.Security.Cryptography;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -16,21 +18,18 @@ public class VerificationService : IVerificationService
     private readonly BotDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<VerificationService> _logger;
-
-    // Character set excluding ambiguous characters (0, O, 1, I, L)
-    private const string CodeCharset = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private const int CodeLength = 6;
-    private static readonly TimeSpan CodeExpiry = TimeSpan.FromMinutes(15);
-    private const int MaxCodesPerHour = 3;
+    private readonly VerificationOptions _verificationOptions;
 
     public VerificationService(
         BotDbContext context,
         UserManager<ApplicationUser> userManager,
-        ILogger<VerificationService> logger)
+        ILogger<VerificationService> logger,
+        IOptions<VerificationOptions> verificationOptions)
     {
         _context = context;
         _userManager = userManager;
         _logger = logger;
+        _verificationOptions = verificationOptions.Value;
     }
 
     public async Task<VerificationInitiationResult> InitiateVerificationAsync(
@@ -67,7 +66,7 @@ public class VerificationService : IVerificationService
             Code = string.Empty, // Code generated when Discord user runs command
             Status = VerificationStatus.Pending,
             CreatedAt = DateTime.UtcNow,
-            ExpiresAt = DateTime.UtcNow.Add(CodeExpiry),
+            ExpiresAt = DateTime.UtcNow.Add(TimeSpan.FromMinutes(_verificationOptions.CodeExpiryMinutes)),
             IpAddress = ipAddress
         };
 
@@ -128,7 +127,7 @@ public class VerificationService : IVerificationService
         // Update the verification with Discord user and code
         pendingVerification.DiscordUserId = discordUserId;
         pendingVerification.Code = code;
-        pendingVerification.ExpiresAt = DateTime.UtcNow.Add(CodeExpiry);
+        pendingVerification.ExpiresAt = DateTime.UtcNow.Add(TimeSpan.FromMinutes(_verificationOptions.CodeExpiryMinutes));
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -275,7 +274,7 @@ public class VerificationService : IVerificationService
             .Where(v => v.CreatedAt >= oneHourAgo)
             .CountAsync(cancellationToken);
 
-        return recentCodeCount >= MaxCodesPerHour;
+        return recentCodeCount >= _verificationOptions.MaxCodesPerHour;
     }
 
     public async Task<VerificationCode?> GetPendingVerificationAsync(
@@ -307,8 +306,8 @@ public class VerificationService : IVerificationService
             _logger.LogDebug("Marked {Count} verification codes as expired", expiredCodes.Count);
         }
 
-        // Delete old completed/expired/cancelled codes (older than 24 hours)
-        var oldCutoff = DateTime.UtcNow.AddHours(-24);
+        // Delete old completed/expired/cancelled codes (older than configured threshold)
+        var oldCutoff = DateTime.UtcNow.AddHours(-_verificationOptions.OldCodeCleanupHours);
         var oldCodes = await _context.VerificationCodes
             .Where(v => v.Status != VerificationStatus.Pending)
             .Where(v => v.CreatedAt <= oldCutoff)
@@ -326,16 +325,16 @@ public class VerificationService : IVerificationService
 
     private string GenerateUniqueCode()
     {
-        var bytes = new byte[CodeLength];
+        var bytes = new byte[_verificationOptions.CodeLength];
         using (var rng = RandomNumberGenerator.Create())
         {
             rng.GetBytes(bytes);
         }
 
-        var chars = new char[CodeLength];
-        for (int i = 0; i < CodeLength; i++)
+        var chars = new char[_verificationOptions.CodeLength];
+        for (int i = 0; i < _verificationOptions.CodeLength; i++)
         {
-            chars[i] = CodeCharset[bytes[i] % CodeCharset.Length];
+            chars[i] = _verificationOptions.CodeCharset[bytes[i] % _verificationOptions.CodeCharset.Length];
         }
 
         return new string(chars);

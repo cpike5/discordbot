@@ -1,46 +1,43 @@
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
 /// Background service that proactively refreshes Discord OAuth tokens before they expire.
-/// Runs every 30 minutes and refreshes tokens expiring within 1 hour.
+/// Intervals and thresholds are configurable via BackgroundServicesOptions.
 /// </summary>
 public class DiscordTokenRefreshService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IConfiguration _configuration;
+    private readonly DiscordOAuthOptions _oauthOptions;
+    private readonly BackgroundServicesOptions _bgOptions;
     private readonly ILogger<DiscordTokenRefreshService> _logger;
-
-    // Run every 30 minutes
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(30);
-
-    // Refresh tokens expiring within 1 hour
-    private static readonly TimeSpan ExpirationThreshold = TimeSpan.FromHours(1);
-
-    // Rate limit: delay between individual token refreshes
-    private static readonly TimeSpan RefreshDelay = TimeSpan.FromSeconds(1);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordTokenRefreshService"/> class.
     /// </summary>
     /// <param name="scopeFactory">Factory for creating service scopes (needed for scoped services).</param>
     /// <param name="httpClientFactory">Factory for creating HTTP clients for Discord API calls.</param>
-    /// <param name="configuration">Application configuration for OAuth client credentials.</param>
+    /// <param name="oauthOptions">Discord OAuth configuration options.</param>
+    /// <param name="bgOptions">Background services configuration options.</param>
     /// <param name="logger">Logger for diagnostic information.</param>
     public DiscordTokenRefreshService(
         IServiceScopeFactory scopeFactory,
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration,
+        IOptions<DiscordOAuthOptions> oauthOptions,
+        IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<DiscordTokenRefreshService> logger)
     {
         _scopeFactory = scopeFactory;
         _httpClientFactory = httpClientFactory;
-        _configuration = configuration;
+        _oauthOptions = oauthOptions.Value;
+        _bgOptions = bgOptions.Value;
         _logger = logger;
     }
 
@@ -50,11 +47,14 @@ public class DiscordTokenRefreshService : BackgroundService
     /// <param name="stoppingToken">Cancellation token for graceful shutdown.</param>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var refreshInterval = TimeSpan.FromMinutes(_bgOptions.TokenRefreshIntervalMinutes);
+        var initialDelay = TimeSpan.FromMinutes(_bgOptions.TokenRefreshInitialDelayMinutes);
+
         _logger.LogInformation("Discord OAuth token refresh service started, checking every {Interval} minutes",
-            RefreshInterval.TotalMinutes);
+            refreshInterval.TotalMinutes);
 
         // Wait a bit before first run to allow application to fully start
-        await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
+        await Task.Delay(initialDelay, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -74,7 +74,7 @@ public class DiscordTokenRefreshService : BackgroundService
 
             try
             {
-                await Task.Delay(RefreshInterval, stoppingToken);
+                await Task.Delay(refreshInterval, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -92,8 +92,11 @@ public class DiscordTokenRefreshService : BackgroundService
     /// <param name="cancellationToken">Cancellation token.</param>
     private async Task RefreshExpiringTokensAsync(CancellationToken cancellationToken)
     {
+        var expirationThreshold = TimeSpan.FromHours(_bgOptions.TokenExpirationThresholdHours);
+        var refreshDelay = TimeSpan.FromSeconds(_bgOptions.TokenRefreshDelaySeconds);
+
         _logger.LogDebug("Starting token refresh cycle, checking for tokens expiring within {Threshold} hour(s)",
-            ExpirationThreshold.TotalHours);
+            expirationThreshold.TotalHours);
 
         // Create a scope to get scoped services
         using var scope = _scopeFactory.CreateScope();
@@ -102,7 +105,7 @@ public class DiscordTokenRefreshService : BackgroundService
         IReadOnlyList<DiscordOAuthToken> expiringTokens;
         try
         {
-            expiringTokens = await tokenService.GetExpiringTokensAsync(ExpirationThreshold, cancellationToken);
+            expiringTokens = await tokenService.GetExpiringTokensAsync(expirationThreshold, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -136,7 +139,7 @@ public class DiscordTokenRefreshService : BackgroundService
                 }
 
                 // Rate limit: small delay between refreshes to avoid hitting Discord API limits
-                await Task.Delay(RefreshDelay, cancellationToken);
+                await Task.Delay(refreshDelay, cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -171,9 +174,9 @@ public class DiscordTokenRefreshService : BackgroundService
 
         try
         {
-            // Get OAuth client credentials from configuration
-            var clientId = _configuration["Discord:OAuth:ClientId"];
-            var clientSecret = _configuration["Discord:OAuth:ClientSecret"];
+            // Get OAuth client credentials from options
+            var clientId = _oauthOptions.ClientId;
+            var clientSecret = _oauthOptions.ClientSecret;
 
             if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
             {

@@ -1,8 +1,10 @@
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -15,11 +17,9 @@ public class DiscordTokenService : IDiscordTokenService
     private readonly BotDbContext _context;
     private readonly IDataProtector _protector;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IConfiguration _configuration;
+    private readonly DiscordOAuthOptions _oauthOptions;
+    private readonly BackgroundServicesOptions _bgOptions;
     private readonly ILogger<DiscordTokenService> _logger;
-
-    // Refresh tokens if they expire within 5 minutes
-    private static readonly TimeSpan OnDemandRefreshThreshold = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordTokenService"/> class.
@@ -27,19 +27,22 @@ public class DiscordTokenService : IDiscordTokenService
     /// <param name="context">The database context for token storage.</param>
     /// <param name="dataProtectionProvider">Provider for creating data protectors for encryption.</param>
     /// <param name="httpClientFactory">Factory for creating HTTP clients for Discord API calls.</param>
-    /// <param name="configuration">Application configuration for OAuth client credentials.</param>
+    /// <param name="oauthOptions">Discord OAuth configuration options.</param>
+    /// <param name="bgOptions">Background services configuration options.</param>
     /// <param name="logger">Logger for diagnostic information.</param>
     public DiscordTokenService(
         BotDbContext context,
         IDataProtectionProvider dataProtectionProvider,
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration,
+        IOptions<DiscordOAuthOptions> oauthOptions,
+        IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<DiscordTokenService> logger)
     {
         _context = context;
         _protector = dataProtectionProvider.CreateProtector("DiscordOAuth.Tokens.v1");
         _httpClientFactory = httpClientFactory;
-        _configuration = configuration;
+        _oauthOptions = oauthOptions.Value;
+        _bgOptions = bgOptions.Value;
         _logger = logger;
     }
 
@@ -152,8 +155,8 @@ public class DiscordTokenService : IDiscordTokenService
                     return null;
                 }
             }
-            // Check if token is about to expire (within 5 minutes) and refresh proactively
-            else if (token.AccessTokenExpiresAt <= DateTime.UtcNow.Add(OnDemandRefreshThreshold))
+            // Check if token is about to expire and refresh proactively
+            else if (token.AccessTokenExpiresAt <= DateTime.UtcNow.Add(TimeSpan.FromMinutes(_bgOptions.OnDemandRefreshThresholdMinutes)))
             {
                 _logger.LogDebug("Access token for user {UserId} expires soon ({ExpiresAt}), attempting proactive refresh",
                     applicationUserId, token.AccessTokenExpiresAt);
@@ -294,9 +297,9 @@ public class DiscordTokenService : IDiscordTokenService
 
         try
         {
-            // Get OAuth client credentials from configuration
-            var clientId = _configuration["Discord:OAuth:ClientId"];
-            var clientSecret = _configuration["Discord:OAuth:ClientSecret"];
+            // Get OAuth client credentials from options
+            var clientId = _oauthOptions.ClientId;
+            var clientSecret = _oauthOptions.ClientSecret;
 
             if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
             {

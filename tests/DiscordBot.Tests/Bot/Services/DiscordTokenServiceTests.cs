@@ -1,12 +1,13 @@
 using System.Security.Cryptography;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Infrastructure.Data;
 using FluentAssertions;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Bot.Services;
@@ -20,7 +21,8 @@ public class DiscordTokenServiceTests : IDisposable
     private readonly Mock<IDataProtectionProvider> _mockDataProtectionProvider;
     private readonly Mock<IDataProtector> _mockDataProtector;
     private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
-    private readonly Mock<IConfiguration> _mockConfiguration;
+    private readonly Mock<IOptions<DiscordOAuthOptions>> _mockOAuthOptions;
+    private readonly Mock<IOptions<BackgroundServicesOptions>> _mockBgOptions;
     private readonly Mock<ILogger<DiscordTokenService>> _mockLogger;
     private readonly DiscordTokenService _service;
 
@@ -66,10 +68,24 @@ public class DiscordTokenServiceTests : IDisposable
         // Setup HTTP client factory mock
         _mockHttpClientFactory = new Mock<IHttpClientFactory>();
 
-        // Setup configuration mock
-        _mockConfiguration = new Mock<IConfiguration>();
-        _mockConfiguration.Setup(c => c["Discord:OAuth:ClientId"]).Returns("test-client-id");
-        _mockConfiguration.Setup(c => c["Discord:OAuth:ClientSecret"]).Returns("test-client-secret");
+        // Setup OAuth options mock
+        _mockOAuthOptions = new Mock<IOptions<DiscordOAuthOptions>>();
+        _mockOAuthOptions.Setup(o => o.Value).Returns(new DiscordOAuthOptions
+        {
+            ClientId = "test-client-id",
+            ClientSecret = "test-client-secret"
+        });
+
+        // Setup background services options mock
+        _mockBgOptions = new Mock<IOptions<BackgroundServicesOptions>>();
+        _mockBgOptions.Setup(o => o.Value).Returns(new BackgroundServicesOptions
+        {
+            OnDemandRefreshThresholdMinutes = 5,
+            TokenRefreshIntervalMinutes = 30,
+            TokenExpirationThresholdHours = 1,
+            TokenRefreshDelaySeconds = 1,
+            TokenRefreshInitialDelayMinutes = 1
+        });
 
         // Setup logger mock
         _mockLogger = new Mock<ILogger<DiscordTokenService>>();
@@ -79,7 +95,8 @@ public class DiscordTokenServiceTests : IDisposable
             _context,
             _mockDataProtectionProvider.Object,
             _mockHttpClientFactory.Object,
-            _mockConfiguration.Object,
+            _mockOAuthOptions.Object,
+            _mockBgOptions.Object,
             _mockLogger.Object);
     }
 

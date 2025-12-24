@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Infrastructure.Data;
@@ -6,6 +7,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Bot.Services;
@@ -19,6 +21,7 @@ public class VerificationServiceTests : IDisposable
     private readonly BotDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly Mock<ILogger<VerificationService>> _mockLogger;
+    private readonly Mock<IOptions<VerificationOptions>> _mockVerificationOptions;
     private readonly VerificationService _service;
 
     public VerificationServiceTests()
@@ -45,8 +48,10 @@ public class VerificationServiceTests : IDisposable
             new Mock<ILogger<UserManager<ApplicationUser>>>().Object);
 
         _mockLogger = new Mock<ILogger<VerificationService>>();
+        _mockVerificationOptions = new Mock<IOptions<VerificationOptions>>();
+        _mockVerificationOptions.Setup(x => x.Value).Returns(new VerificationOptions());
 
-        _service = new VerificationService(_context, _userManager, _mockLogger.Object);
+        _service = new VerificationService(_context, _userManager, _mockLogger.Object, _mockVerificationOptions.Object);
     }
 
     public void Dispose()

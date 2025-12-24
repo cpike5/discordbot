@@ -12,15 +12,18 @@ public class MessageLogCleanupService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<MessageLogRetentionOptions> _options;
+    private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly ILogger<MessageLogCleanupService> _logger;
 
     public MessageLogCleanupService(
         IServiceScopeFactory scopeFactory,
         IOptions<MessageLogRetentionOptions> options,
+        IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<MessageLogCleanupService> logger)
     {
         _scopeFactory = scopeFactory;
         _options = options;
+        _bgOptions = bgOptions;
         _logger = logger;
     }
 
@@ -41,8 +44,9 @@ public class MessageLogCleanupService : BackgroundService
             _options.Value.CleanupIntervalHours,
             _options.Value.CleanupBatchSize);
 
-        // Initial delay (5 minutes) to let the app start up
-        await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+        // Initial delay to let the app start up
+        var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.MessageLogCleanupInitialDelayMinutes);
+        await Task.Delay(initialDelay, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {

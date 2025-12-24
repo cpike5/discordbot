@@ -1,11 +1,13 @@
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Tests.Metrics;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Services;
@@ -21,6 +23,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
     private readonly Mock<IServiceProvider> _mockServiceProvider;
     private readonly Mock<ICommandLogRepository> _mockCommandLogRepository;
     private readonly Mock<IGuildRepository> _mockGuildRepository;
+    private readonly Mock<IOptions<BackgroundServicesOptions>> _mockBgOptions;
     private readonly Mock<ILogger<BusinessMetricsUpdateService>> _mockLogger;
     private readonly BusinessMetrics _businessMetrics;
     private readonly SloMetrics _sloMetrics;
@@ -33,6 +36,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
         _mockServiceProvider = new Mock<IServiceProvider>();
         _mockCommandLogRepository = new Mock<ICommandLogRepository>();
         _mockGuildRepository = new Mock<IGuildRepository>();
+        _mockBgOptions = new Mock<IOptions<BackgroundServicesOptions>>();
         _mockLogger = new Mock<ILogger<BusinessMetricsUpdateService>>();
 
         // Setup service scope factory
@@ -43,6 +47,13 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
         _mockServiceProvider.Setup(p => p.GetService(typeof(IGuildRepository)))
             .Returns(_mockGuildRepository.Object);
 
+        // Setup default background services options
+        _mockBgOptions.Setup(x => x.Value).Returns(new BackgroundServicesOptions
+        {
+            BusinessMetricsUpdateIntervalMinutes = 5,
+            BusinessMetricsInitialDelaySeconds = 30
+        });
+
         // Create real metrics instances for testing
         var meterFactory = new SimpleMeterFactory();
         _businessMetrics = new BusinessMetrics(meterFactory);
@@ -52,6 +63,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
             _mockScopeFactory.Object,
             _businessMetrics,
             _sloMetrics,
+            _mockBgOptions.Object,
             _mockLogger.Object);
     }
 
@@ -63,6 +75,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
             _mockScopeFactory.Object,
             _businessMetrics,
             _sloMetrics,
+            _mockBgOptions.Object,
             _mockLogger.Object);
 
         // Assert

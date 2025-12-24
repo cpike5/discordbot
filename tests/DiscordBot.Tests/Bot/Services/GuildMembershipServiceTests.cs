@@ -1,9 +1,11 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Bot.Services;
@@ -16,6 +18,7 @@ public class GuildMembershipServiceTests
     private readonly Mock<IDiscordUserInfoService> _mockUserInfoService;
     private readonly IMemoryCache _cache;
     private readonly Mock<ILogger<GuildMembershipService>> _mockLogger;
+    private readonly Mock<IOptions<CachingOptions>> _mockCachingOptions;
     private readonly GuildMembershipService _service;
 
     // Discord permission flags
@@ -27,11 +30,14 @@ public class GuildMembershipServiceTests
         _mockUserInfoService = new Mock<IDiscordUserInfoService>();
         _cache = new MemoryCache(new MemoryCacheOptions());
         _mockLogger = new Mock<ILogger<GuildMembershipService>>();
+        _mockCachingOptions = new Mock<IOptions<CachingOptions>>();
+        _mockCachingOptions.Setup(x => x.Value).Returns(new CachingOptions());
 
         _service = new GuildMembershipService(
             _mockUserInfoService.Object,
             _cache,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockCachingOptions.Object);
     }
 
     [Fact]

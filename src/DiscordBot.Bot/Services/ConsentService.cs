@@ -1,8 +1,10 @@
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -14,18 +16,20 @@ public class ConsentService : IConsentService
     private readonly IUserConsentRepository _consentRepository;
     private readonly IMemoryCache _cache;
     private readonly ILogger<ConsentService> _logger;
+    private readonly CachingOptions _cachingOptions;
 
     private const string WebUISource = "WebUI";
-    private const int CacheDurationMinutes = 5;
 
     public ConsentService(
         IUserConsentRepository consentRepository,
         IMemoryCache cache,
-        ILogger<ConsentService> logger)
+        ILogger<ConsentService> logger,
+        IOptions<CachingOptions> cachingOptions)
     {
         _consentRepository = consentRepository;
         _cache = cache;
         _logger = logger;
+        _cachingOptions = cachingOptions.Value;
     }
 
     public async Task<IEnumerable<ConsentStatusDto>> GetConsentStatusAsync(
@@ -309,7 +313,7 @@ public class ConsentService : IConsentService
 
         // Cache the result
         var cacheOptions = new MemoryCacheEntryOptions()
-            .SetAbsoluteExpiration(TimeSpan.FromMinutes(CacheDurationMinutes));
+            .SetAbsoluteExpiration(TimeSpan.FromMinutes(_cachingOptions.ConsentCacheDurationMinutes));
 
         _cache.Set(cacheKey, hasConsent, cacheOptions);
 
@@ -383,7 +387,7 @@ public class ConsentService : IConsentService
             var usersWithConsentSet = new HashSet<ulong>(usersWithConsent);
 
             var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(CacheDurationMinutes));
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(_cachingOptions.ConsentCacheDurationMinutes));
 
             // Add results to dictionary and cache
             foreach (var userId in uncachedUserIds)
