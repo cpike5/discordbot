@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Discord;
 using Discord.Interactions;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Core.Enums;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,9 +46,10 @@ public class RateLimitAttribute : PreconditionAttribute
         var userId = context.User.Id;
         var guildId = context.Guild?.Id;
 
-        // Get logger from service provider
+        // Get logger and metrics from service provider
         var loggerFactory = services.GetService<ILoggerFactory>();
         var logger = loggerFactory?.CreateLogger<RateLimitAttribute>();
+        var botMetrics = services.GetService<BotMetrics>();
 
         // Get or add the invocation list for this key
         var invocations = _invocations.GetOrAdd(key, _ => new List<DateTime>());
@@ -64,6 +66,11 @@ public class RateLimitAttribute : PreconditionAttribute
             {
                 var oldestInvocation = invocations.Min();
                 var timeUntilReset = _periodSeconds - (now - oldestInvocation).TotalSeconds;
+
+                // Record rate limit violation metric
+                botMetrics?.RecordRateLimitViolation(
+                    commandName,
+                    _target.ToString().ToLowerInvariant());
 
                 // Log rate limit violation at Warning level for abuse detection
                 logger?.LogWarning(

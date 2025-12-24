@@ -19,6 +19,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/health` | GET | Health check with database connectivity |
+| `/metrics` | GET | OpenTelemetry metrics (Prometheus format) |
 | `/api/bot/status` | GET | Bot status (uptime, latency, guilds) |
 | `/api/bot/guilds` | GET | Connected guilds from Discord |
 | `/api/bot/restart` | POST | Restart bot (not supported) |
@@ -63,6 +64,84 @@ Returns the health status of the application including database connectivity.
 **Status Values:**
 - `Healthy`: All checks passed
 - `Degraded`: One or more checks failed (still operational)
+
+---
+
+## Metrics Endpoints
+
+### GET /metrics
+
+Returns OpenTelemetry metrics in Prometheus text exposition format for monitoring and observability.
+
+**Response: 200 OK (text/plain)**
+
+**Content-Type:** `text/plain; version=0.0.4`
+
+**Response Format:** Prometheus text format
+
+```
+# HELP discordbot_command_count Total number of Discord commands executed
+# TYPE discordbot_command_count counter
+discordbot_command_count{command="ping",status="success"} 1250
+discordbot_command_count{command="status",status="success"} 85
+discordbot_command_count{command="verify",status="failure"} 12
+
+# HELP discordbot_command_duration Duration of command execution in milliseconds
+# TYPE discordbot_command_duration histogram
+discordbot_command_duration_bucket{command="ping",status="success",le="5"} 0
+discordbot_command_duration_bucket{command="ping",status="success",le="10"} 250
+discordbot_command_duration_bucket{command="ping",status="success",le="25"} 1200
+discordbot_command_duration_bucket{command="ping",status="success",le="+Inf"} 1250
+discordbot_command_duration_sum{command="ping",status="success"} 15234.5
+discordbot_command_duration_count{command="ping",status="success"} 1250
+
+# HELP discordbot_guilds_active Number of guilds the bot is connected to
+# TYPE discordbot_guilds_active gauge
+discordbot_guilds_active 5
+
+# HELP process_runtime_dotnet_gc_collections_count Number of garbage collections
+# TYPE process_runtime_dotnet_gc_collections_count counter
+process_runtime_dotnet_gc_collections_count{generation="gen0"} 42
+process_runtime_dotnet_gc_collections_count{generation="gen1"} 18
+process_runtime_dotnet_gc_collections_count{generation="gen2"} 3
+```
+
+**Metric Categories:**
+
+| Category | Prefix | Description |
+|----------|--------|-------------|
+| Bot Commands | `discordbot.command.*` | Command execution metrics |
+| Components | `discordbot.component.*` | Interactive component metrics |
+| API Requests | `discordbot.api.*` | HTTP request metrics |
+| Rate Limits | `discordbot.ratelimit.*` | Rate limit violation tracking |
+| Bot Status | `discordbot.guilds.*`, `discordbot.users.*` | Guild and user counts |
+| ASP.NET Core | `http.server.*` | Built-in HTTP server metrics |
+| Runtime | `process.runtime.dotnet.*` | .NET runtime metrics (GC, threads, etc.) |
+
+**Example Usage:**
+
+```bash
+# Fetch metrics directly
+curl http://localhost:5000/metrics
+
+# Use with Prometheus scrape configuration
+# See docs/articles/metrics.md for full setup guide
+```
+
+**Notes:**
+- Metrics are updated in real-time as bot operations occur
+- Prometheus scraping is recommended with 15-second intervals
+- See [Metrics Documentation](metrics.md) for complete metric definitions and Grafana dashboard setup
+- Observable gauges (guild count, user count) are updated every 30 seconds
+
+**Security Considerations:**
+- In production, consider protecting this endpoint with IP whitelisting or authentication
+- Metrics do not contain sensitive user data or message content
+- Guild IDs and user IDs are not included in metrics to prevent cardinality explosion
+
+**Related Documentation:**
+- [Metrics Documentation](metrics.md) - Complete metrics reference and setup guide
+- [APM Tracing Plan](apm-tracing-plan.md) - Distributed tracing (future implementation)
 
 ---
 
@@ -1167,6 +1246,7 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/sync" \
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2 | 2025-12-24 | Added `/metrics` endpoint documentation (Issue #104) |
 | 1.1 | 2024-12-09 | Added User Management Service interface documentation (Issue #66) |
 | 1.0 | 2024-12-08 | Initial API implementation (Phase 4 MVP) |
 
@@ -1174,6 +1254,7 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/sync" \
 
 ## Related Documentation
 
+- [Metrics Documentation](metrics.md) - OpenTelemetry metrics and Prometheus setup
 - [User Management Guide](user-management.md) - Comprehensive user administration guide
 - [MVP Implementation Plan](mvp-plan.md) - Full development roadmap
 - [Database Schema](database-schema.md) - Entity definitions and relationships
@@ -1183,4 +1264,4 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/sync" \
 
 ---
 
-*Last Updated: December 9, 2024*
+*Last Updated: December 24, 2025*
