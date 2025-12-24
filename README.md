@@ -1,5 +1,9 @@
 # Discord Bot Management System
 
+[![Version](https://img.shields.io/badge/version-v0.1.0-blue)](https://github.com/cpike5/discordbot/releases/tag/v0.1.0)
+[![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
+[![Discord.NET](https://img.shields.io/badge/Discord.NET-3.18.0-5865F2)](https://github.com/discord-net/Discord.Net)
+
 A Discord bot built with .NET 8 and Discord.NET that provides a foundation for managing Discord servers through slash commands, a REST API, and a Razor Pages admin UI. The system combines a hosted Discord bot service with a Web API and admin dashboard for management and monitoring.
 
 ## Table of Contents
@@ -124,15 +128,26 @@ For detailed architecture documentation, see [docs/articles/mvp-plan.md](docs/ar
 
 Check the bot's latency and responsiveness.
 
-**Usage:**
-```
-/ping
-```
+**Usage:** `/ping`
 
-**Response:**
-- Displays bot latency in milliseconds
-- Shows timestamp of response
-- Logs execution details to structured logs
+**Response:** Displays bot latency in milliseconds with timestamp.
+
+### /admin
+
+Server administration commands (requires admin permissions).
+
+**Subcommands:**
+- `/admin info` - Display server information
+- `/admin kick <user> [reason]` - Kick a user from the server
+- `/admin ban <user> [reason]` - Ban a user from the server
+
+### /verify
+
+Link your Discord account to a web admin account.
+
+**Usage:** `/verify`
+
+**Response:** Provides a verification code to enter in the admin UI under Account > Link Discord. See [bot-verification.md](docs/articles/bot-verification.md) for details.
 
 ## Logging
 
@@ -348,3 +363,5 @@ This project is for educational and development purposes.
 - [Identity Configuration](docs/articles/identity-configuration.md) - Authentication setup
 - [Authorization Policies](docs/articles/authorization-policies.md) - Role hierarchy and access control
 - [User Management](docs/articles/user-management.md) - Admin UI user management
+- [Bot Verification](docs/articles/bot-verification.md) - Discord account linking flow
+- [CLAUDE.md](CLAUDE.md) - Guidance for Claude Code AI assistant

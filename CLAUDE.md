@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Discord bot management system built with .NET 8 and Discord.NET. Combines a Discord bot hosted service with a Web API and Razor Pages admin UI for management.
 
+**Current version:** v0.1.0 (initial pre-release). See [#168](https://github.com/cpike5/discordbot/issues/168) for active UI polish work.
+
+## Prerequisites
+
+- .NET 8 SDK
+- Node.js (for Tailwind CSS build - runs automatically on `dotnet build`)
+
 ## Build & Run Commands
 
 ```bash
@@ -96,19 +103,15 @@ Three-layer clean architecture:
 
 ## Key Documentation
 
-Reference these docs for detailed specifications:
+Reference these docs for detailed specifications (build and serve locally with `.\build-docs.ps1 -Serve`):
 
-- [docs/articles/requirements.md](docs/articles/requirements.md) - Technology stack and architecture requirements
-- [docs/articles/mvp-plan.md](docs/articles/mvp-plan.md) - MVP implementation phases and file structure
-- [docs/articles/design-system.md](docs/articles/design-system.md) - UI design tokens, color palette, component specs
-- [docs/articles/api-endpoints.md](docs/articles/api-endpoints.md) - REST API documentation
-- [docs/articles/interactive-components.md](docs/articles/interactive-components.md) - Button/component patterns
-- [docs/articles/identity-configuration.md](docs/articles/identity-configuration.md) - Authentication setup and troubleshooting
-- [docs/articles/authorization-policies.md](docs/articles/authorization-policies.md) - Role hierarchy and guild access
-- [docs/articles/user-management.md](docs/articles/user-management.md) - Admin UI user management
-- [docs/articles/bot-verification.md](docs/articles/bot-verification.md) - Discord account linking flow
-
-Build and serve documentation locally with `.\build-docs.ps1 -Serve` to view the full documentation site.
+| Doc | Purpose |
+|-----|---------|
+| [design-system.md](docs/articles/design-system.md) | UI tokens, color palette, component specs |
+| [interactive-components.md](docs/articles/interactive-components.md) | Discord button/component patterns |
+| [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup, troubleshooting |
+| [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
+| [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
 
 ## Discord.NET Specifics
 
@@ -156,3 +159,16 @@ Located in `src/DiscordBot.Bot/Pages/`:
 - xUnit with FluentAssertions and Moq
 - Test project references Core and Infrastructure
 - Mock repositories for unit tests
+
+## Development Endpoints
+
+When running locally (`dotnet run --project src/DiscordBot.Bot`):
+- Admin UI: `https://localhost:5001`
+- Swagger API docs: `https://localhost:5001/swagger`
+- Logs: `logs/discordbot-YYYY-MM-DD.log`
+
+## Common Issues
+
+- **Commands not appearing**: Without `TestGuildId` configured, global commands take up to 1 hour to propagate
+- **Bot doesn't connect**: Check bot token in user secrets and that gateway intents are enabled in Discord Developer Portal
+- **OAuth fails**: Verify redirect URIs in Discord Developer Portal match your environment
