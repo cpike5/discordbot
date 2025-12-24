@@ -3,6 +3,7 @@ using Discord.Interactions;
 using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.Enums;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Moq;
 using System.Reflection;
 
@@ -319,4 +320,170 @@ public class RateLimitAttributeTests
         result.IsSuccess.Should().BeFalse();
         result.ErrorReason.Should().MatchRegex(@"Rate limit exceeded\. Please wait \d+\.\d seconds before using this command again\.");
     }
+
+    #region Logging Tests
+
+    [Fact]
+    public async Task CheckRequirementsAsync_WhenRateLimitExceeded_ShouldLogWarning()
+    {
+        // Arrange
+        var attribute = new RateLimitAttribute(times: 1, periodSeconds: 60, RateLimitTarget.User);
+
+        var mockUser = new Mock<IUser>();
+        mockUser.Setup(u => u.Id).Returns(123456789UL);
+
+        var mockGuild = new Mock<IGuild>();
+        mockGuild.Setup(g => g.Id).Returns(987654321UL);
+
+        _mockContext.Setup(c => c.User).Returns(mockUser.Object);
+        _mockContext.Setup(c => c.Guild).Returns(mockGuild.Object);
+        _mockCommandInfo.Setup(c => c.Name).Returns("testcommand");
+
+        var mockLogger = new Mock<ILogger<RateLimitAttribute>>();
+        var mockLoggerFactory = new Mock<ILoggerFactory>();
+        mockLoggerFactory
+            .Setup(f => f.CreateLogger(It.IsAny<string>()))
+            .Returns(mockLogger.Object);
+
+        _mockServiceProvider
+            .Setup(s => s.GetService(typeof(ILoggerFactory)))
+            .Returns(mockLoggerFactory.Object);
+
+        // Act - First call succeeds, second triggers rate limit
+        await attribute.CheckRequirementsAsync(
+            _mockContext.Object, _mockCommandInfo.Object, _mockServiceProvider.Object);
+        await attribute.CheckRequirementsAsync(
+            _mockContext.Object, _mockCommandInfo.Object, _mockServiceProvider.Object);
+
+        // Assert - Verify warning was logged
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Rate limit exceeded")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task CheckRequirementsAsync_WhenWithinRateLimit_ShouldLogTrace()
+    {
+        // Arrange
+        var attribute = new RateLimitAttribute(times: 3, periodSeconds: 60, RateLimitTarget.User);
+
+        var mockUser = new Mock<IUser>();
+        mockUser.Setup(u => u.Id).Returns(123456789UL);
+
+        _mockContext.Setup(c => c.User).Returns(mockUser.Object);
+        _mockCommandInfo.Setup(c => c.Name).Returns("testcommand");
+
+        var mockLogger = new Mock<ILogger<RateLimitAttribute>>();
+        var mockLoggerFactory = new Mock<ILoggerFactory>();
+        mockLoggerFactory
+            .Setup(f => f.CreateLogger(It.IsAny<string>()))
+            .Returns(mockLogger.Object);
+
+        _mockServiceProvider
+            .Setup(s => s.GetService(typeof(ILoggerFactory)))
+            .Returns(mockLoggerFactory.Object);
+
+        // Act
+        await attribute.CheckRequirementsAsync(
+            _mockContext.Object, _mockCommandInfo.Object, _mockServiceProvider.Object);
+
+        // Assert - Verify trace was logged
+        mockLogger.Verify(
+            x => x.Log(
+                LogLevel.Trace,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Rate limit check passed")),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task CheckRequirementsAsync_WhenNoLoggerFactory_ShouldNotThrow()
+    {
+        // Arrange
+        var attribute = new RateLimitAttribute(times: 1, periodSeconds: 60, RateLimitTarget.User);
+
+        var mockUser = new Mock<IUser>();
+        mockUser.Setup(u => u.Id).Returns(123456789UL);
+
+        _mockContext.Setup(c => c.User).Returns(mockUser.Object);
+        _mockCommandInfo.Setup(c => c.Name).Returns("testcommand");
+
+        // Service provider returns null for ILoggerFactory
+        _mockServiceProvider
+            .Setup(s => s.GetService(typeof(ILoggerFactory)))
+            .Returns(null!);
+
+        // Act & Assert - Should not throw
+        var result = await attribute.CheckRequirementsAsync(
+            _mockContext.Object, _mockCommandInfo.Object, _mockServiceProvider.Object);
+
+        result.Should().NotBeNull();
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CheckRequirementsAsync_RateLimitViolationLog_ContainsAllRequiredFields()
+    {
+        // Arrange
+        var attribute = new RateLimitAttribute(times: 1, periodSeconds: 60, RateLimitTarget.User);
+        var userId = 123456789UL;
+        var guildId = 987654321UL;
+        var commandName = "testcommand";
+
+        var mockUser = new Mock<IUser>();
+        mockUser.Setup(u => u.Id).Returns(userId);
+
+        var mockGuild = new Mock<IGuild>();
+        mockGuild.Setup(g => g.Id).Returns(guildId);
+
+        _mockContext.Setup(c => c.User).Returns(mockUser.Object);
+        _mockContext.Setup(c => c.Guild).Returns(mockGuild.Object);
+        _mockCommandInfo.Setup(c => c.Name).Returns(commandName);
+
+        string? loggedMessage = null;
+        var mockLogger = new Mock<ILogger<RateLimitAttribute>>();
+        mockLogger
+            .Setup(x => x.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.IsAny<It.IsAnyType>(),
+                It.IsAny<Exception?>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()))
+            .Callback<LogLevel, EventId, object, Exception?, Delegate>((level, eventId, state, ex, formatter) =>
+            {
+                loggedMessage = state?.ToString();
+            });
+
+        var mockLoggerFactory = new Mock<ILoggerFactory>();
+        mockLoggerFactory
+            .Setup(f => f.CreateLogger(It.IsAny<string>()))
+            .Returns(mockLogger.Object);
+
+        _mockServiceProvider
+            .Setup(s => s.GetService(typeof(ILoggerFactory)))
+            .Returns(mockLoggerFactory.Object);
+
+        // Act - Trigger rate limit
+        await attribute.CheckRequirementsAsync(
+            _mockContext.Object, _mockCommandInfo.Object, _mockServiceProvider.Object);
+        await attribute.CheckRequirementsAsync(
+            _mockContext.Object, _mockCommandInfo.Object, _mockServiceProvider.Object);
+
+        // Assert - Verify log contains all required fields per issue #103
+        loggedMessage.Should().NotBeNull();
+        loggedMessage.Should().Contain(userId.ToString(), "should contain User ID");
+        loggedMessage.Should().Contain(commandName, "should contain command name");
+        loggedMessage.Should().Contain("1", "should contain rate limit times");
+        loggedMessage.Should().Contain("60", "should contain period seconds");
+        loggedMessage.Should().Contain("Reset in", "should contain reset time");
+    }
+
+    #endregion
 }

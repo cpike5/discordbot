@@ -2,6 +2,7 @@ using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Utilities;
 
 namespace DiscordBot.Bot.Services;
 
@@ -174,6 +175,10 @@ public class GuildService : IGuildService
         if (request.Settings != null)
         {
             dbGuild.Settings = request.Settings;
+            _logger.LogDebug(
+                "Guild {GuildId} settings updated: {SanitizedSettings}",
+                guildId,
+                LogSanitizer.SanitizeString(request.Settings));
         }
 
         if (request.IsActive.HasValue)
