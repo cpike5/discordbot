@@ -2,6 +2,7 @@ using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
@@ -47,28 +48,47 @@ try
     // Add OpenTelemetry tracing
     builder.Services.AddOpenTelemetryTracing(builder.Configuration);
 
+    // Register configuration options classes
+    builder.Services.Configure<ApplicationOptions>(
+        builder.Configuration.GetSection(ApplicationOptions.SectionName));
+    builder.Services.Configure<DiscordOAuthOptions>(
+        builder.Configuration.GetSection(DiscordOAuthOptions.SectionName));
+    builder.Services.Configure<CachingOptions>(
+        builder.Configuration.GetSection(CachingOptions.SectionName));
+    builder.Services.Configure<VerificationOptions>(
+        builder.Configuration.GetSection(VerificationOptions.SectionName));
+    builder.Services.Configure<BackgroundServicesOptions>(
+        builder.Configuration.GetSection(BackgroundServicesOptions.SectionName));
+    builder.Services.Configure<IdentityConfigOptions>(
+        builder.Configuration.GetSection(IdentityConfigOptions.SectionName));
+
+    // Load Identity configuration for startup
+    var identityConfig = builder.Configuration
+        .GetSection(IdentityConfigOptions.SectionName)
+        .Get<IdentityConfigOptions>() ?? new IdentityConfigOptions();
+
     // Add ASP.NET Core Identity
     builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
         // Password settings
-        options.Password.RequireDigit = true;
-        options.Password.RequireLowercase = true;
-        options.Password.RequireUppercase = true;
-        options.Password.RequireNonAlphanumeric = true;
-        options.Password.RequiredLength = 8;
-        options.Password.RequiredUniqueChars = 1;
+        options.Password.RequireDigit = identityConfig.RequireDigit;
+        options.Password.RequireLowercase = identityConfig.RequireLowercase;
+        options.Password.RequireUppercase = identityConfig.RequireUppercase;
+        options.Password.RequireNonAlphanumeric = identityConfig.RequireNonAlphanumeric;
+        options.Password.RequiredLength = identityConfig.RequiredLength;
+        options.Password.RequiredUniqueChars = identityConfig.RequiredUniqueChars;
 
         // Lockout settings
-        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-        options.Lockout.MaxFailedAccessAttempts = 5;
-        options.Lockout.AllowedForNewUsers = true;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(identityConfig.LockoutTimeSpanMinutes);
+        options.Lockout.MaxFailedAccessAttempts = identityConfig.MaxFailedAccessAttempts;
+        options.Lockout.AllowedForNewUsers = identityConfig.LockoutAllowedForNewUsers;
 
         // User settings
-        options.User.RequireUniqueEmail = true;
+        options.User.RequireUniqueEmail = identityConfig.RequireUniqueEmail;
 
         // Sign-in settings
-        options.SignIn.RequireConfirmedAccount = false;
-        options.SignIn.RequireConfirmedEmail = false;
+        options.SignIn.RequireConfirmedAccount = identityConfig.RequireConfirmedAccount;
+        options.SignIn.RequireConfirmedEmail = identityConfig.RequireConfirmedEmail;
     })
     .AddEntityFrameworkStores<BotDbContext>()
     .AddDefaultTokenProviders();
@@ -79,25 +99,28 @@ try
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Lax;
-        options.ExpireTimeSpan = TimeSpan.FromDays(7);
-        options.SlidingExpiration = true;
-        options.LoginPath = "/Account/Login";
-        options.LogoutPath = "/Account/Logout";
-        options.AccessDeniedPath = "/Account/AccessDenied";
+        options.ExpireTimeSpan = TimeSpan.FromDays(identityConfig.CookieExpireDays);
+        options.SlidingExpiration = identityConfig.CookieSlidingExpiration;
+        options.LoginPath = identityConfig.LoginPath;
+        options.LogoutPath = identityConfig.LogoutPath;
+        options.AccessDeniedPath = identityConfig.AccessDeniedPath;
     });
 
+    // Load Discord OAuth configuration
+    var oauthOptions = builder.Configuration
+        .GetSection(DiscordOAuthOptions.SectionName)
+        .Get<DiscordOAuthOptions>() ?? new DiscordOAuthOptions();
+
     // Add Discord OAuth authentication (only if configured)
-    var discordClientId = builder.Configuration["Discord:OAuth:ClientId"];
-    var discordClientSecret = builder.Configuration["Discord:OAuth:ClientSecret"];
-    var isDiscordOAuthConfigured = !string.IsNullOrEmpty(discordClientId) && !string.IsNullOrEmpty(discordClientSecret);
+    var isDiscordOAuthConfigured = !string.IsNullOrEmpty(oauthOptions.ClientId) && !string.IsNullOrEmpty(oauthOptions.ClientSecret);
 
     if (isDiscordOAuthConfigured)
     {
         builder.Services.AddAuthentication()
             .AddDiscord(options =>
             {
-                options.ClientId = discordClientId!;
-                options.ClientSecret = discordClientSecret!;
+                options.ClientId = oauthOptions.ClientId!;
+                options.ClientSecret = oauthOptions.ClientSecret!;
                 options.Scope.Add("identify");
                 options.Scope.Add("email");
                 options.Scope.Add("guilds"); // Required for fetching user's guild list

@@ -1,6 +1,8 @@
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -16,10 +18,10 @@ public class DiscordUserInfoService : IDiscordUserInfoService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<DiscordUserInfoService> _logger;
+    private readonly CachingOptions _cachingOptions;
 
     private const string UserInfoCacheKeyPrefix = "discord:user:";
     private const string UserGuildsCacheKeyPrefix = "discord:guilds:";
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordUserInfoService"/> class.
@@ -28,16 +30,19 @@ public class DiscordUserInfoService : IDiscordUserInfoService
     /// <param name="httpClientFactory">Factory for creating HTTP clients.</param>
     /// <param name="cache">Memory cache for caching Discord API responses.</param>
     /// <param name="logger">Logger for diagnostic information.</param>
+    /// <param name="cachingOptions">Configuration options for caching durations.</param>
     public DiscordUserInfoService(
         IDiscordTokenService tokenService,
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
-        ILogger<DiscordUserInfoService> logger)
+        ILogger<DiscordUserInfoService> logger,
+        IOptions<CachingOptions> cachingOptions)
     {
         _tokenService = tokenService;
         _httpClientFactory = httpClientFactory;
         _cache = cache;
         _logger = logger;
+        _cachingOptions = cachingOptions.Value;
     }
 
     /// <inheritdoc />
@@ -106,7 +111,7 @@ public class DiscordUserInfoService : IDiscordUserInfoService
             // Cache the result
             _cache.Set(cacheKey, userInfo, new MemoryCacheEntryOptions
             {
-                SlidingExpiration = CacheDuration
+                SlidingExpiration = TimeSpan.FromMinutes(_cachingOptions.DiscordUserInfoDurationMinutes)
             });
 
             _logger.LogInformation("Successfully retrieved and cached user info for {UserId}, Discord user {DiscordUserId}",
@@ -192,7 +197,7 @@ public class DiscordUserInfoService : IDiscordUserInfoService
             // Cache the result
             _cache.Set(cacheKey, guilds, new MemoryCacheEntryOptions
             {
-                SlidingExpiration = CacheDuration
+                SlidingExpiration = TimeSpan.FromMinutes(_cachingOptions.DiscordUserInfoDurationMinutes)
             });
 
             _logger.LogInformation("Successfully retrieved and cached {Count} guilds for user {UserId}",

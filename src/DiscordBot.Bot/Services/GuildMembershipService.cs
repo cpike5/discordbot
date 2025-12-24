@@ -1,6 +1,8 @@
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -13,9 +15,9 @@ public class GuildMembershipService : IGuildMembershipService
     private readonly IDiscordUserInfoService _userInfoService;
     private readonly IMemoryCache _cache;
     private readonly ILogger<GuildMembershipService> _logger;
+    private readonly CachingOptions _cachingOptions;
 
     private const string MembershipCacheKeyPrefix = "guild:membership:";
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
 
     // Discord permission flags
     private const long AdministratorPermission = 0x8; // 1 << 3
@@ -27,14 +29,17 @@ public class GuildMembershipService : IGuildMembershipService
     /// <param name="userInfoService">Service for retrieving Discord user information.</param>
     /// <param name="cache">Memory cache for caching membership checks.</param>
     /// <param name="logger">Logger for diagnostic information.</param>
+    /// <param name="cachingOptions">Configuration options for caching durations.</param>
     public GuildMembershipService(
         IDiscordUserInfoService userInfoService,
         IMemoryCache cache,
-        ILogger<GuildMembershipService> logger)
+        ILogger<GuildMembershipService> logger,
+        IOptions<CachingOptions> cachingOptions)
     {
         _userInfoService = userInfoService;
         _cache = cache;
         _logger = logger;
+        _cachingOptions = cachingOptions.Value;
     }
 
     /// <inheritdoc />
@@ -64,7 +69,7 @@ public class GuildMembershipService : IGuildMembershipService
             // Cache the result
             _cache.Set(cacheKey, isMember, new MemoryCacheEntryOptions
             {
-                SlidingExpiration = CacheDuration
+                SlidingExpiration = TimeSpan.FromMinutes(_cachingOptions.GuildMembershipDurationMinutes)
             });
 
             _logger.LogDebug("User {UserId} is {Membership} guild {GuildId}",
@@ -110,7 +115,7 @@ public class GuildMembershipService : IGuildMembershipService
                     applicationUserId, guildId);
                 _cache.Set(cacheKey, false, new MemoryCacheEntryOptions
                 {
-                    SlidingExpiration = CacheDuration
+                    SlidingExpiration = TimeSpan.FromMinutes(_cachingOptions.GuildMembershipDurationMinutes)
                 });
                 return false;
             }
@@ -121,7 +126,7 @@ public class GuildMembershipService : IGuildMembershipService
             // Cache the result
             _cache.Set(cacheKey, isAdmin, new MemoryCacheEntryOptions
             {
-                SlidingExpiration = CacheDuration
+                SlidingExpiration = TimeSpan.FromMinutes(_cachingOptions.GuildMembershipDurationMinutes)
             });
 
             _logger.LogInformation("User {UserId} {AdminStatus} guild {GuildId} (Owner: {IsOwner}, Administrator: {HasAdministrator})",

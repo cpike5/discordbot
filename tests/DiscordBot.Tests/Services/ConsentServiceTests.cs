@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -6,6 +7,7 @@ using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Services;
@@ -19,6 +21,7 @@ public class ConsentServiceTests
     private readonly Mock<IUserConsentRepository> _mockRepository;
     private readonly IMemoryCache _cache;
     private readonly Mock<ILogger<ConsentService>> _mockLogger;
+    private readonly Mock<IOptions<CachingOptions>> _mockCachingOptions;
     private readonly ConsentService _service;
 
     public ConsentServiceTests()
@@ -26,7 +29,19 @@ public class ConsentServiceTests
         _mockRepository = new Mock<IUserConsentRepository>();
         _cache = new MemoryCache(new MemoryCacheOptions());
         _mockLogger = new Mock<ILogger<ConsentService>>();
-        _service = new ConsentService(_mockRepository.Object, _cache, _mockLogger.Object);
+
+        // Setup caching options with default values
+        _mockCachingOptions = new Mock<IOptions<CachingOptions>>();
+        _mockCachingOptions.Setup(o => o.Value).Returns(new CachingOptions
+        {
+            ConsentCacheDurationMinutes = 5
+        });
+
+        _service = new ConsentService(
+            _mockRepository.Object,
+            _cache,
+            _mockLogger.Object,
+            _mockCachingOptions.Object);
     }
 
     #region GetConsentStatusAsync Tests

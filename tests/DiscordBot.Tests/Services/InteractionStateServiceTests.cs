@@ -1,6 +1,8 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Services;
@@ -11,12 +13,15 @@ namespace DiscordBot.Tests.Services;
 public class InteractionStateServiceTests
 {
     private readonly Mock<ILogger<InteractionStateService>> _mockLogger;
+    private readonly Mock<IOptions<CachingOptions>> _mockCachingOptions;
     private readonly InteractionStateService _service;
 
     public InteractionStateServiceTests()
     {
         _mockLogger = new Mock<ILogger<InteractionStateService>>();
-        _service = new InteractionStateService(_mockLogger.Object);
+        _mockCachingOptions = new Mock<IOptions<CachingOptions>>();
+        _mockCachingOptions.Setup(x => x.Value).Returns(new CachingOptions());
+        _service = new InteractionStateService(_mockLogger.Object, _mockCachingOptions.Object);
     }
 
     [Fact]
@@ -304,7 +309,10 @@ public class InteractionStateServiceTests
     public void CleanupExpired_WithNoStates_ReturnsZero()
     {
         // Arrange
-        var freshService = new InteractionStateService(_mockLogger.Object);
+        var mockLogger = new Mock<ILogger<InteractionStateService>>();
+        var mockOptions = new Mock<IOptions<CachingOptions>>();
+        mockOptions.Setup(x => x.Value).Returns(new CachingOptions());
+        var freshService = new InteractionStateService(mockLogger.Object, mockOptions.Object);
 
         // Act
         var removedCount = freshService.CleanupExpired();

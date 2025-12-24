@@ -1,6 +1,8 @@
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -11,24 +13,28 @@ namespace DiscordBot.Bot.Services;
 public class InteractionStateCleanupService : BackgroundService
 {
     private readonly IInteractionStateService _stateService;
+    private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly ILogger<InteractionStateCleanupService> _logger;
-    private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(1);
 
     public InteractionStateCleanupService(
         IInteractionStateService stateService,
+        IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<InteractionStateCleanupService> logger)
     {
         _stateService = stateService;
+        _bgOptions = bgOptions;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var cleanupInterval = TimeSpan.FromMinutes(_bgOptions.Value.InteractionStateCleanupIntervalMinutes);
+
         _logger.LogInformation(
             "Interaction state cleanup service started, cleanup interval: {Interval}",
-            CleanupInterval);
+            cleanupInterval);
 
-        using var timer = new PeriodicTimer(CleanupInterval);
+        using var timer = new PeriodicTimer(cleanupInterval);
 
         try
         {

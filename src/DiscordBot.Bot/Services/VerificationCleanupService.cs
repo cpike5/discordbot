@@ -1,4 +1,6 @@
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -9,24 +11,28 @@ namespace DiscordBot.Bot.Services;
 public class VerificationCleanupService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly ILogger<VerificationCleanupService> _logger;
-    private static readonly TimeSpan CleanupInterval = TimeSpan.FromMinutes(5);
 
     public VerificationCleanupService(
         IServiceScopeFactory scopeFactory,
+        IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<VerificationCleanupService> logger)
     {
         _scopeFactory = scopeFactory;
+        _bgOptions = bgOptions;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var cleanupInterval = TimeSpan.FromMinutes(_bgOptions.Value.VerificationCleanupIntervalMinutes);
+
         _logger.LogInformation(
             "Verification cleanup service started, cleanup interval: {Interval}",
-            CleanupInterval);
+            cleanupInterval);
 
-        using var timer = new PeriodicTimer(CleanupInterval);
+        using var timer = new PeriodicTimer(cleanupInterval);
 
         try
         {

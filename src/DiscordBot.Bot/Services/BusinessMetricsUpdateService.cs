@@ -1,5 +1,7 @@
 using DiscordBot.Bot.Metrics;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -12,27 +14,32 @@ public class BusinessMetricsUpdateService : BackgroundService
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly BusinessMetrics _businessMetrics;
     private readonly SloMetrics _sloMetrics;
+    private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly ILogger<BusinessMetricsUpdateService> _logger;
-    private readonly TimeSpan _updateInterval = TimeSpan.FromMinutes(5);
 
     public BusinessMetricsUpdateService(
         IServiceScopeFactory serviceScopeFactory,
         BusinessMetrics businessMetrics,
         SloMetrics sloMetrics,
+        IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<BusinessMetricsUpdateService> logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
         _businessMetrics = businessMetrics;
         _sloMetrics = sloMetrics;
+        _bgOptions = bgOptions;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Business metrics update service starting, will update every {Interval} minutes", _updateInterval.TotalMinutes);
+        var updateInterval = TimeSpan.FromMinutes(_bgOptions.Value.BusinessMetricsUpdateIntervalMinutes);
+        var initialDelay = TimeSpan.FromSeconds(_bgOptions.Value.BusinessMetricsInitialDelaySeconds);
+
+        _logger.LogInformation("Business metrics update service starting, will update every {Interval} minutes", updateInterval.TotalMinutes);
 
         // Wait a bit before first execution to allow the application to fully start
-        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+        await Task.Delay(initialDelay, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -45,7 +52,7 @@ public class BusinessMetricsUpdateService : BackgroundService
                 _logger.LogError(ex, "Error updating business and SLO metrics");
             }
 
-            await Task.Delay(_updateInterval, stoppingToken);
+            await Task.Delay(updateInterval, stoppingToken);
         }
 
         _logger.LogInformation("Business metrics update service stopping");

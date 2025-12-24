@@ -1,5 +1,7 @@
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -28,7 +30,7 @@ public static class IdentitySeeder
     {
         var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        var identityOptions = serviceProvider.GetRequiredService<IOptions<IdentityConfigOptions>>();
 
         logger.LogInformation("Starting Identity seeding...");
 
@@ -36,7 +38,7 @@ public static class IdentitySeeder
         await SeedRolesAsync(roleManager, logger);
 
         // Optionally seed default admin user from configuration
-        await SeedDefaultAdminAsync(userManager, configuration, logger);
+        await SeedDefaultAdminAsync(userManager, identityOptions, logger);
 
         logger.LogInformation("Identity seeding completed successfully");
     }
@@ -71,11 +73,11 @@ public static class IdentitySeeder
 
     private static async Task SeedDefaultAdminAsync(
         UserManager<ApplicationUser> userManager,
-        IConfiguration configuration,
+        IOptions<IdentityConfigOptions> identityOptions,
         ILogger logger)
     {
-        var adminEmail = configuration["Identity:DefaultAdmin:Email"];
-        var adminPassword = configuration["Identity:DefaultAdmin:Password"];
+        var adminEmail = identityOptions.Value.DefaultAdmin?.Email;
+        var adminPassword = identityOptions.Value.DefaultAdmin?.Password;
 
         // Only seed if both email and password are configured
         if (string.IsNullOrWhiteSpace(adminEmail) || string.IsNullOrWhiteSpace(adminPassword))

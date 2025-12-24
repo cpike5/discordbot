@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -12,18 +14,21 @@ public class InteractionStateService : IInteractionStateService
 {
     private readonly ConcurrentDictionary<string, object> _states = new();
     private readonly ILogger<InteractionStateService> _logger;
-    private static readonly TimeSpan DefaultExpiry = TimeSpan.FromMinutes(15);
+    private readonly CachingOptions _cachingOptions;
 
-    public InteractionStateService(ILogger<InteractionStateService> logger)
+    public InteractionStateService(
+        ILogger<InteractionStateService> logger,
+        IOptions<CachingOptions> cachingOptions)
     {
         _logger = logger;
+        _cachingOptions = cachingOptions.Value;
     }
 
     /// <inheritdoc />
     public string CreateState<T>(ulong userId, T data, TimeSpan? expiry = null)
     {
         var correlationId = GenerateCorrelationId();
-        var expiryDuration = expiry ?? DefaultExpiry;
+        var expiryDuration = expiry ?? TimeSpan.FromMinutes(_cachingOptions.InteractionStateExpiryMinutes);
 
         var state = new InteractionState<T>
         {
