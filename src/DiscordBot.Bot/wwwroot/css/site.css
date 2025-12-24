@@ -544,11 +544,65 @@
     animation: none;
   }
 
-  /* Reduced motion preference */
+  /* Reduced motion preference - comprehensive support for accessibility */
   @media (prefers-reduced-motion: reduce) {
+    /* Disable all animations and transitions globally */
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    /* Skeleton loader - static background */
     .skeleton {
       animation: none;
       background: #2f3336;
+    }
+
+    /* Status pulse indicator */
+    .status-pulse {
+      animation: none;
+    }
+
+    /* Loading overlays */
+    .loading-overlay,
+    .loading-container-overlay {
+      transition: none;
+    }
+
+    /* Toast notifications */
+    .toast {
+      animation: none;
+    }
+
+    .toast.dismissing {
+      animation: none;
+    }
+
+    .toast-progress.animating {
+      animation: none;
+    }
+
+    /* Interactive elements */
+    .dropdown-menu {
+      transition: none;
+    }
+
+    .sidebar-link,
+    .navbar-link,
+    .btn,
+    .form-input,
+    .form-select,
+    .card-interactive {
+      transition: none;
+    }
+
+    /* Spinner animations */
+    .animate-spin {
+      animation: none;
     }
   }
 

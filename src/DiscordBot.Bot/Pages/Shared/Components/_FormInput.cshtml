@@ -24,6 +24,33 @@
     {
         inputClasses += " bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60";
     }
+
+    // Accessibility: Generate IDs for aria-describedby association
+    var helpTextId = $"{Model.Id}-help";
+    var errorId = $"{Model.Id}-error";
+    var successId = $"{Model.Id}-success";
+    var warningId = $"{Model.Id}-warning";
+
+    // Build aria-describedby based on current state
+    var describedByIds = new List<string>();
+    if (!string.IsNullOrEmpty(Model.HelpText) && Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.None)
+    {
+        describedByIds.Add(helpTextId);
+    }
+    if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Error && !string.IsNullOrEmpty(Model.ValidationMessage))
+    {
+        describedByIds.Add(errorId);
+    }
+    if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Success && !string.IsNullOrEmpty(Model.ValidationMessage))
+    {
+        describedByIds.Add(successId);
+    }
+    if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Warning && !string.IsNullOrEmpty(Model.ValidationMessage))
+    {
+        describedByIds.Add(warningId);
+    }
+    var ariaDescribedBy = describedByIds.Count > 0 ? string.Join(" ", describedByIds) : null;
+    var ariaInvalid = Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Error;
 }
 
 <div class="space-y-1.5">
@@ -63,7 +90,7 @@
             }
             @if (Model.IsRequired)
             {
-                @:required
+                @:required aria-required="true"
             }
             @if (Model.IsDisabled)
             {
@@ -76,6 +103,14 @@
             @if (Model.MaxLength.HasValue)
             {
                 @:maxlength="@Model.MaxLength.Value"
+            }
+            @if (!string.IsNullOrEmpty(ariaDescribedBy))
+            {
+                @:aria-describedby="@ariaDescribedBy"
+            }
+            @if (ariaInvalid)
+            {
+                @:aria-invalid="true"
             }
             @if (Model.AdditionalAttributes != null)
             {
@@ -98,13 +133,13 @@
 
     @if (!string.IsNullOrEmpty(Model.HelpText) && Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.None)
     {
-        <p class="text-xs text-text-secondary">@Model.HelpText</p>
+        <p id="@helpTextId" class="text-xs text-text-secondary">@Model.HelpText</p>
     }
 
     @if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Error && !string.IsNullOrEmpty(Model.ValidationMessage))
     {
-        <p class="flex items-center gap-1.5 text-xs text-error">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <p id="@errorId" class="flex items-center gap-1.5 text-xs text-error" role="alert">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             @Model.ValidationMessage
@@ -113,8 +148,8 @@
 
     @if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Success && !string.IsNullOrEmpty(Model.ValidationMessage))
     {
-        <p class="flex items-center gap-1.5 text-xs text-success">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <p id="@successId" class="flex items-center gap-1.5 text-xs text-success">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             @Model.ValidationMessage
@@ -123,8 +158,8 @@
 
     @if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Warning && !string.IsNullOrEmpty(Model.ValidationMessage))
     {
-        <p class="flex items-center gap-1.5 text-xs text-warning">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <p id="@warningId" class="flex items-center gap-1.5 text-xs text-warning" role="alert">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             @Model.ValidationMessage

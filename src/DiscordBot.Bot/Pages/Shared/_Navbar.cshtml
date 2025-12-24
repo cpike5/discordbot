@@ -28,18 +28,21 @@
   </div>
 
   <!-- Center Section: Search -->
-  <div class="hidden md:flex flex-1 max-w-md mx-8">
+  <form class="hidden md:flex flex-1 max-w-md mx-8" role="search" action="/search" method="get">
     <div class="relative w-full">
-      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
+      <label for="navbar-search" class="sr-only">Search servers, commands, logs</label>
       <input
         type="search"
+        id="navbar-search"
+        name="q"
         placeholder="Search servers, commands, logs..."
         class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
       />
     </div>
-  </div>
+  </form>
 
   <!-- Right Section: Actions & User Menu -->
   <div class="flex items-center gap-2">
@@ -69,10 +72,13 @@
       <!-- User Menu Dropdown -->
       <div class="relative">
         <button
+          id="userMenuButton"
           onclick="toggleUserMenu()"
           class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
           aria-label="User menu"
           aria-expanded="false"
+          aria-haspopup="menu"
+          aria-controls="userMenu"
         >
           @if (!string.IsNullOrEmpty(avatarUrl))
           {
@@ -84,25 +90,25 @@
               @initials
             </div>
           }
-          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
 
         <!-- Dropdown Menu -->
-        <div id="userMenu" class="dropdown-menu absolute right-0 mt-2 w-48 py-1 bg-bg-tertiary border border-border-primary rounded-lg shadow-xl">
+        <div id="userMenu" class="dropdown-menu absolute right-0 mt-2 w-48 py-1 bg-bg-tertiary border border-border-primary rounded-lg shadow-xl" role="menu" aria-label="User menu options">
           <div class="px-4 py-2 border-b border-border-primary">
             <p class="text-sm font-medium text-text-primary">@displayName</p>
             <p class="text-xs text-text-secondary">@user?.Email</p>
           </div>
-          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <a href="#" role="menuitem" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             Profile
           </a>
-          <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <a href="#" role="menuitem" class="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -110,8 +116,8 @@
           </a>
           <div class="border-t border-border-primary mt-1 pt-1">
             <form asp-page="/Account/Logout" asp-page-handler="Post" method="post" class="block">
-              <button type="submit" class="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <button type="submit" role="menuitem" class="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
                 Sign out
