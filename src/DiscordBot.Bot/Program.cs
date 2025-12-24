@@ -44,6 +44,9 @@ try
     // Add OpenTelemetry metrics
     builder.Services.AddOpenTelemetryMetrics(builder.Configuration);
 
+    // Add OpenTelemetry tracing
+    builder.Services.AddOpenTelemetryTracing(builder.Configuration);
+
     // Add ASP.NET Core Identity
     builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {

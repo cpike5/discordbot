@@ -40,5 +40,7 @@
   items:
     - name: Metrics
       href: metrics.md
-    - name: APM Tracing
+    - name: Distributed Tracing
+      href: tracing.md
+    - name: APM Tracing Plan
       href: apm-tracing-plan.md

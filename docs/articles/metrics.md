@@ -10,6 +10,8 @@
 
 The Discord Bot Management System implements comprehensive metrics collection using OpenTelemetry and exports metrics in Prometheus format. This provides observability into bot performance, command execution, API usage, and system health.
 
+Metrics work alongside [distributed tracing](tracing.md) to provide the complete observability picture: metrics tell you **what** is happening (rates, durations, counts), while tracing tells you **how** it's happening (request flows, dependencies, bottlenecks).
+
 ### Key Features
 
 - **Command Metrics**: Track Discord command execution rates, durations, and success/failure status
@@ -1062,10 +1064,64 @@ app.Use(async (context, next) =>
 
 ---
 
+## Observability: Metrics + Tracing
+
+Metrics and distributed tracing are complementary observability pillars that work together to provide comprehensive system insights.
+
+### When to Use Metrics vs. Tracing
+
+| Scenario | Use Metrics | Use Tracing |
+|----------|-------------|-------------|
+| "How many commands are executing?" | Yes - `discordbot.command.count` | No |
+| "What's the p95 latency of the ping command?" | Yes - `discordbot.command.duration` | No |
+| "Why is this specific command slow?" | No | Yes - view span hierarchy |
+| "Which database query is causing slowness?" | No | Yes - inspect child spans |
+| "What's the error rate over time?" | Yes - `discordbot.command.count{status="failure"}` | No |
+| "What caused this specific error?" | No | Yes - exception details in span |
+
+### Correlation Between Metrics and Traces
+
+Both metrics and traces include **correlation IDs**, enabling you to:
+
+1. **Identify anomalies in metrics** (e.g., spike in command duration)
+2. **Find representative traces** using Jaeger filters
+3. **Debug root cause** with span-level detail
+4. **Validate fix** by observing metrics return to baseline
+
+**Example Workflow:**
+
+```promql
+# 1. Detect anomaly in Grafana
+histogram_quantile(0.95, rate(discordbot_command_duration_bucket{command="verify"}[5m])) > 1000
+
+# 2. Find slow traces in Jaeger
+Service: discordbot
+Operation: discord.command verify
+Min Duration: 1000ms
+
+# 3. Analyze span attributes and timing
+# 4. Fix root cause (e.g., missing database index)
+# 5. Verify fix in metrics dashboard
+```
+
+### Three Pillars of Observability
+
+| Pillar | Purpose | Implementation |
+|--------|---------|----------------|
+| **Metrics** | Aggregated statistics over time | OpenTelemetry + Prometheus + Grafana |
+| **Tracing** | Request-level flow and timing | OpenTelemetry + Jaeger / Application Insights |
+| **Logging** | Detailed event context | Serilog with structured logging |
+
+**Integration:** All three share **correlation IDs**, enabling unified request tracking across logs, metrics, and traces.
+
+For distributed tracing implementation details, see [Distributed Tracing Documentation](tracing.md).
+
+---
+
 ## Related Documentation
 
+- [Distributed Tracing](tracing.md) - OpenTelemetry tracing with Jaeger (complementary observability pillar)
 - [API Endpoints Reference](api-endpoints.md) - REST API documentation including `/metrics` endpoint
-- [APM Tracing Plan](apm-tracing-plan.md) - Distributed tracing implementation (future)
 - [Authorization Policies](authorization-policies.md) - Role-based access control for admin UI
 - [Interactive Components](interactive-components.md) - Discord button and component patterns
 

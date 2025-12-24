@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Serilog.Context;
 
 namespace DiscordBot.Bot.Middleware;
@@ -67,9 +68,19 @@ public class CorrelationIdMiddleware
         // Add correlation ID to response headers
         context.Response.Headers[HeaderName] = correlationId;
 
-        // Push correlation ID to Serilog LogContext for structured logging
+        // Link correlation ID to current trace activity if one exists
+        var activity = Activity.Current;
+        if (activity != null)
+        {
+            activity.SetTag("correlation.id", correlationId);
+            activity.AddBaggage("correlation-id", correlationId);
+        }
+
+        // Push correlation ID and trace info to Serilog LogContext for structured logging
         // The using statement ensures the property is disposed after the request completes
         using (LogContext.PushProperty("CorrelationId", correlationId))
+        using (LogContext.PushProperty("TraceId", activity?.TraceId.ToString() ?? "none"))
+        using (LogContext.PushProperty("SpanId", activity?.SpanId.ToString() ?? "none"))
         {
             await _next(context);
         }
