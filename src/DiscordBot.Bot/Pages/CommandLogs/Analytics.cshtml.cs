@@ -51,9 +51,12 @@ public class AnalyticsModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken = default)
     {
-        // Default to last 30 days if no dates specified
-        var start = StartDate ?? DateTime.UtcNow.AddDays(-30).Date;
-        var end = EndDate ?? DateTime.UtcNow.Date.AddDays(1); // End of today
+        // Set defaults if not specified (so UI shows the actual filter values)
+        StartDate ??= DateTime.UtcNow.AddDays(-30).Date;
+        EndDate ??= DateTime.UtcNow.Date;
+
+        var start = StartDate.Value;
+        var end = EndDate.Value.AddDays(1); // End of the selected day
 
         _logger.LogDebug("Loading analytics for {Start} to {End}, GuildId: {GuildId}", start, end, GuildId);
 
