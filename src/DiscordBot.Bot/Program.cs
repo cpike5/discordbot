@@ -170,6 +170,9 @@ try
     builder.Services.AddScoped<IVerificationService, VerificationService>();
     builder.Services.AddHostedService<VerificationCleanupService>();
 
+    // Add Consent services
+    builder.Services.AddScoped<IConsentService, ConsentService>();
+
     // Add Metrics update background services
     builder.Services.AddHostedService<MetricsUpdateService>();
     builder.Services.AddHostedService<BusinessMetricsUpdateService>();

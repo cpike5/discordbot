@@ -1,0 +1,341 @@
+@page
+@model PrivacyModel
+@{
+    ViewData["Title"] = "Privacy & Consent";
+}
+
+<!-- Page Header -->
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-text-primary mb-2">Privacy & Consent</h1>
+    <p class="text-text-secondary">Manage your data privacy preferences and consent settings for the Discord bot</p>
+</div>
+
+<!-- Status Message -->
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="mb-6 p-4 rounded-lg flex items-start gap-3 @(Model.IsSuccess ? "bg-success-bg border border-success-border" : "bg-error-bg border border-error-border")" role="alert">
+        @if (Model.IsSuccess)
+        {
+            <!-- Success Icon -->
+            <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+        }
+        else
+        {
+            <!-- Error Icon -->
+            <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+        }
+        <div>
+            <p class="text-sm font-semibold @(Model.IsSuccess ? "text-success" : "text-error")">
+                @(Model.IsSuccess ? "Success" : "Error")
+            </p>
+            <p class="text-sm @(Model.IsSuccess ? "text-success" : "text-error") mt-1">
+                @Model.StatusMessage
+            </p>
+        </div>
+    </div>
+}
+
+@if (!Model.IsDiscordLinked)
+{
+    <!-- Discord Not Linked State -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg">
+        <div class="p-4 bg-warning-bg border border-warning-border rounded-md mb-6">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-warning flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                    <p class="text-sm font-semibold text-warning">Discord Account Required</p>
+                    <p class="text-sm text-warning/90 mt-1">
+                        You need to link your Discord account before managing consent preferences. Your consent settings are tied to your Discord user ID.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center py-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+                <svg class="w-10 h-10 text-text-secondary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+                </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-text-primary mb-2">Link Your Discord Account</h2>
+            <p class="text-text-secondary text-sm mb-6 max-w-md mx-auto">
+                To manage your privacy preferences, please link your Discord account first.
+            </p>
+
+            <a asp-page="./LinkDiscord" class="inline-flex items-center justify-center gap-2.5 py-2.5 px-6 text-sm font-semibold text-white bg-discord border border-discord rounded-md transition-colors hover:bg-discord-hover hover:border-discord-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-discord focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                </svg>
+                Link Discord Account
+            </a>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Discord Linked State -->
+    <!-- Connected Discord Account Info -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg mb-6">
+        <div class="flex items-center gap-4 pb-4 border-b border-border-primary mb-4">
+            <div class="w-12 h-12 rounded-full bg-bg-tertiary border-2 border-accent-blue flex items-center justify-center">
+                <svg class="w-6 h-6 text-text-secondary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-semibold text-text-primary">@(Model.DiscordUsername ?? "Discord User")</h2>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
+                        Linked
+                    </span>
+                </div>
+                @if (Model.DiscordUserId.HasValue)
+                {
+                    <p class="text-sm text-text-secondary font-mono">ID: @Model.DiscordUserId.Value</p>
+                }
+            </div>
+        </div>
+        <p class="text-sm text-text-secondary">
+            Your consent preferences are managed for this Discord account. Changes will apply to all servers where the bot is present.
+        </p>
+    </div>
+
+    @if (Model.ConsentStatuses.Any())
+    {
+        <!-- Consent Settings Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <div>
+                    <h3 class="text-lg font-semibold text-text-primary">Consent Settings</h3>
+                    <p class="text-sm text-text-secondary mt-1">Control what data the bot can collect and process</p>
+                </div>
+            </div>
+
+            <div class="p-6 space-y-6">
+                @foreach (var consent in Model.ConsentStatuses)
+                {
+                    <!-- Consent Item -->
+                    <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                        <label class="form-toggle cursor-pointer flex-shrink-0 pt-1">
+                            <form method="post" asp-page-handler="ToggleConsent" asp-route-type="@consent.Type" asp-route-grant="@(!consent.IsGranted)" onsubmit="return confirm('@(consent.IsGranted ? "Are you sure you want to revoke consent for " + consent.TypeDisplayName + "?" : "Are you sure you want to grant consent for " + consent.TypeDisplayName + "?")');">
+                                <input type="checkbox" class="form-toggle-input" checked="@consent.IsGranted" onchange="this.form.submit()" />
+                                <span class="form-toggle-track">
+                                    <span class="form-toggle-thumb"></span>
+                                </span>
+                            </form>
+                        </label>
+
+                        <div class="flex-1">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <label class="block text-base font-semibold text-text-primary cursor-pointer">
+                                        @consent.TypeDisplayName
+                                    </label>
+                                    <p class="text-sm text-text-secondary mt-1">
+                                        @consent.Description
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="mt-3 flex items-center gap-2">
+                                @if (consent.IsGranted)
+                                {
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
+                                        Enabled
+                                    </span>
+                                    @if (consent.GrantedAt.HasValue)
+                                    {
+                                        <span class="text-xs text-text-tertiary">Since @consent.GrantedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary">
+                                        Disabled
+                                    </span>
+                                    <span class="text-xs text-text-tertiary">Never enabled</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Empty State - No Consents -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center mb-6">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+                <svg class="w-10 h-10 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-text-primary mb-2">No Consent Preferences</h3>
+            <p class="text-text-secondary text-sm max-w-md mx-auto">
+                You haven't set any consent preferences yet. Consent preferences will appear here once you interact with bot features that require consent.
+            </p>
+        </div>
+    }
+
+    @if (Model.ConsentHistory.Any())
+    {
+        <!-- Consent History Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <div>
+                    <h3 class="text-lg font-semibold text-text-primary">Consent History</h3>
+                    <p class="text-sm text-text-secondary mt-1">A record of all consent changes for your account</p>
+                </div>
+            </div>
+
+            <div class="p-6">
+                <div class="space-y-0">
+                    @{
+                        var historyList = Model.ConsentHistory.ToList();
+                        for (int i = 0; i < historyList.Count; i++)
+                        {
+                            var entry = historyList[i];
+                            var isGranted = entry.Action.Equals("Granted", StringComparison.OrdinalIgnoreCase);
+                            var isLast = i == historyList.Count - 1;
+
+                            <!-- Timeline Item -->
+                            <div class="timeline-item relative pl-10 @(isLast ? "pb-0" : "pb-6")">
+                                <div class="absolute left-0 top-1 w-8 h-8 rounded-full @(isGranted ? "bg-success-bg border border-success-border" : "bg-error-bg border border-error-border") flex items-center justify-center">
+                                    @if (isGranted)
+                                    {
+                                        <svg class="w-4 h-4 text-success" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg class="w-4 h-4 text-error" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    }
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-sm font-semibold text-text-primary">@entry.TypeDisplayName</span>
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @(isGranted ? "bg-success-bg text-success" : "bg-error-bg text-error")">
+                                            @entry.Action
+                                        </span>
+                                    </div>
+                                    <p class="text-xs text-text-tertiary">@entry.Timestamp.ToLocalTime().ToString("MMMM d, yyyy 'at' h:mm tt")</p>
+                                    <p class="text-sm text-text-secondary mt-1">Consent @entry.Action.ToLower() via @entry.Source</p>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+                <p class="text-xs text-text-tertiary">
+                    Consent history is retained for compliance purposes. You can manage your consent preferences at any time.
+                </p>
+            </div>
+        </div>
+    }
+
+    <!-- Additional Info -->
+    <div class="mt-6 p-4 bg-info-bg border border-info-border rounded-md">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+            <div class="text-sm text-info">
+                <p class="font-semibold mb-1">Managing Consent via Discord</p>
+                <p class="text-info/90">
+                    You can also manage your consent preferences directly in Discord using the <code class="px-1.5 py-0.5 bg-info/20 rounded font-mono text-xs">/consent</code> slash command. Changes made via Discord will be reflected here.
+                </p>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* Toggle Switch Component */
+    .form-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .form-toggle-input {
+        position: absolute;
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .form-toggle-track {
+        position: relative;
+        display: inline-block;
+        width: 2.75rem;
+        height: 1.5rem;
+        background-color: #3f4447;
+        border-radius: 9999px;
+        flex-shrink: 0;
+        transition: background-color 0.2s ease-in-out;
+    }
+
+    .form-toggle-thumb {
+        position: absolute;
+        top: 0.125rem;
+        left: 0.125rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        background-color: #d7d3d0;
+        border-radius: 50%;
+        transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    }
+
+    .form-toggle:hover .form-toggle-track {
+        background-color: #4a4f52;
+    }
+
+    .form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
+        background-color: #e5591f;
+    }
+
+    .form-toggle-input:focus-visible + .form-toggle-track {
+        outline: 2px solid #098ecf;
+        outline-offset: 2px;
+    }
+
+    .form-toggle-input:checked + .form-toggle-track {
+        background-color: #cb4e1b;
+    }
+
+    .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+        transform: translateX(1.25rem);
+        background-color: white;
+    }
+
+    .form-toggle-input:disabled + .form-toggle-track {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* Timeline styles */
+    .timeline-item::before {
+        content: '';
+        position: absolute;
+        left: 1rem;
+        top: 2.25rem;
+        bottom: -0.5rem;
+        width: 2px;
+        background-color: #3f4447;
+    }
+
+    .timeline-item:last-child::before {
+        display: none;
+    }
+</style>
