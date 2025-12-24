@@ -1,5 +1,7 @@
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Configuration;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Infrastructure.Data.Interceptors;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -20,12 +22,22 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Register DbContext with SQLite
+        // Register configuration settings
+        services.Configure<DatabaseSettings>(configuration.GetSection(DatabaseSettings.SectionName));
+
+        // Register query performance interceptor as singleton
+        services.AddSingleton<QueryPerformanceInterceptor>();
+
+        // Register DbContext with SQLite and interceptor
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? "Data Source=discordbot.db";
 
-        services.AddDbContext<BotDbContext>(options =>
-            options.UseSqlite(connectionString));
+        services.AddDbContext<BotDbContext>((serviceProvider, options) =>
+        {
+            var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
+            options.UseSqlite(connectionString)
+                   .AddInterceptors(interceptor);
+        });
 
         // Register repositories
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
