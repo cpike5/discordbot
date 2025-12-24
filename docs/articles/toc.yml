@@ -38,5 +38,7 @@
       href: permissions.md
 - name: Operations
   items:
+    - name: Metrics
+      href: metrics.md
     - name: APM Tracing
       href: apm-tracing-plan.md

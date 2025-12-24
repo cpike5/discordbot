@@ -3,6 +3,7 @@ using System.Reflection;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Services;
 using Microsoft.Extensions.Options;
 
@@ -20,6 +21,7 @@ public class InteractionHandler
     private readonly BotConfiguration _config;
     private readonly ILogger<InteractionHandler> _logger;
     private readonly ICommandExecutionLogger _commandExecutionLogger;
+    private readonly BotMetrics _botMetrics;
 
     // AsyncLocal storage for tracking execution context across async calls
     private static readonly AsyncLocal<ExecutionContext> _executionContext = new();
@@ -30,7 +32,8 @@ public class InteractionHandler
         IServiceProvider serviceProvider,
         IOptions<BotConfiguration> config,
         ILogger<InteractionHandler> logger,
-        ICommandExecutionLogger commandExecutionLogger)
+        ICommandExecutionLogger commandExecutionLogger,
+        BotMetrics botMetrics)
     {
         _client = client;
         _interactionService = interactionService;
@@ -38,6 +41,7 @@ public class InteractionHandler
         _config = config.Value;
         _logger = logger;
         _commandExecutionLogger = commandExecutionLogger;
+        _botMetrics = botMetrics;
     }
 
     /// <summary>
@@ -121,11 +125,21 @@ public class InteractionHandler
         var correlationId = Guid.NewGuid().ToString("N")[..16];
         var stopwatch = Stopwatch.StartNew();
 
+        string? commandName = null;
+
+        // Extract command name for metrics and track active commands
+        if (interaction is SocketSlashCommand slashCommand)
+        {
+            commandName = slashCommand.CommandName;
+            _botMetrics.IncrementActiveCommands(commandName);
+        }
+
         // Store execution context for use in OnSlashCommandExecutedAsync
         _executionContext.Value = new ExecutionContext
         {
             CorrelationId = correlationId,
-            Stopwatch = stopwatch
+            Stopwatch = stopwatch,
+            CommandName = commandName
         };
 
         try
@@ -152,6 +166,16 @@ public class InteractionHandler
         catch (Exception ex)
         {
             stopwatch.Stop();
+
+            // Record failure metric
+            if (commandName != null)
+            {
+                _botMetrics.RecordCommandExecution(
+                    commandName,
+                    success: false,
+                    durationMs: stopwatch.Elapsed.TotalMilliseconds,
+                    guildId: interaction.GuildId);
+            }
 
             _logger.LogError(
                 ex,
@@ -182,6 +206,12 @@ public class InteractionHandler
         }
         finally
         {
+            // Decrement active command count
+            if (commandName != null)
+            {
+                _botMetrics.DecrementActiveCommands(commandName);
+            }
+
             // Clear execution context
             _executionContext.Value = null!;
         }
@@ -203,6 +233,13 @@ public class InteractionHandler
 
         var success = result.IsSuccess;
         var errorMessage = result.IsSuccess ? null : result.ErrorReason;
+
+        // Record command metrics
+        _botMetrics.RecordCommandExecution(
+            commandInfo.Name,
+            success,
+            executionTimeMs,
+            context.Guild?.Id);
 
         // Log with correlation ID
         using (_logger.BeginScope(new Dictionary<string, object>
@@ -288,6 +325,12 @@ public class InteractionHandler
         stopwatch?.Stop();
         var executionTimeMs = (int)(stopwatch?.ElapsedMilliseconds ?? 0);
 
+        // Record component metrics
+        _botMetrics.RecordComponentInteraction(
+            componentType: GetComponentType(context.Interaction),
+            success: result.IsSuccess,
+            durationMs: executionTimeMs);
+
         // Log with correlation ID
         using (_logger.BeginScope(new Dictionary<string, object>
         {
@@ -352,11 +395,31 @@ public class InteractionHandler
     }
 
     /// <summary>
+    /// Determines the component type from a Discord interaction.
+    /// </summary>
+    private static string GetComponentType(IDiscordInteraction interaction)
+    {
+        return interaction switch
+        {
+            IComponentInteraction { Type: InteractionType.MessageComponent } comp
+                => comp.Data.Type switch
+                {
+                    ComponentType.Button => "button",
+                    ComponentType.SelectMenu => "select_menu",
+                    _ => "unknown"
+                },
+            IModalInteraction => "modal",
+            _ => "unknown"
+        };
+    }
+
+    /// <summary>
     /// Holds execution context for tracking command execution across async calls.
     /// </summary>
     private class ExecutionContext
     {
         public string CorrelationId { get; set; } = string.Empty;
         public Stopwatch? Stopwatch { get; set; }
+        public string? CommandName { get; set; }
     }
 }

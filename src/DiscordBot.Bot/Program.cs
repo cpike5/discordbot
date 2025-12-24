@@ -41,6 +41,9 @@ try
     // Add Infrastructure services (database and repositories)
     builder.Services.AddInfrastructure(builder.Configuration);
 
+    // Add OpenTelemetry metrics
+    builder.Services.AddOpenTelemetryMetrics(builder.Configuration);
+
     // Add ASP.NET Core Identity
     builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     {
@@ -164,6 +167,9 @@ try
     builder.Services.AddScoped<IVerificationService, VerificationService>();
     builder.Services.AddHostedService<VerificationCleanupService>();
 
+    // Add Metrics update background service
+    builder.Services.AddHostedService<MetricsUpdateService>();
+
     // Add HttpClient for Discord API calls
     builder.Services.AddHttpClient("Discord", client =>
     {
@@ -201,6 +207,9 @@ try
     // Add correlation ID middleware (must be before Serilog request logging)
     app.UseCorrelationId();
 
+    // Add API metrics middleware (after correlation ID, before Serilog)
+    app.UseApiMetrics();
+
     app.UseSerilogRequestLogging();
 
     // Configure error handling
@@ -233,6 +242,9 @@ try
 
     app.MapControllers();
     app.MapRazorPages();
+
+    // Map Prometheus metrics endpoint
+    app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
     // Seed Identity roles and default admin user
     using (var scope = app.Services.CreateScope())
