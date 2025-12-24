@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Utilities;
 
 namespace DiscordBot.Bot.Services;
 
@@ -75,14 +76,18 @@ public class CommandExecutionLogger : ICommandExecutionLogger
                 executionTimeMs,
                 correlationId);
 
+            // Sanitize parameters to prevent sensitive data from being stored in logs
+            var sanitizedParameters = LogSanitizer.SanitizeString(parameters);
+            var sanitizedErrorMessage = LogSanitizer.SanitizeString(errorMessage);
+
             await commandLogRepository.LogCommandAsync(
                 context.Guild?.Id,
                 context.User.Id,
                 commandName,
-                parameters,
+                sanitizedParameters,
                 executionTimeMs,
                 success,
-                errorMessage,
+                sanitizedErrorMessage,
                 correlationId,
                 cancellationToken);
 

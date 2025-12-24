@@ -2,6 +2,8 @@ using System.Collections.Concurrent;
 using Discord;
 using Discord.Interactions;
 using DiscordBot.Core.Enums;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Bot.Preconditions;
 
@@ -39,6 +41,13 @@ public class RateLimitAttribute : PreconditionAttribute
     {
         var now = DateTime.UtcNow;
         var key = GetRateLimitKey(context, commandInfo);
+        var commandName = commandInfo.Name;
+        var userId = context.User.Id;
+        var guildId = context.Guild?.Id;
+
+        // Get logger from service provider
+        var loggerFactory = services.GetService<ILoggerFactory>();
+        var logger = loggerFactory?.CreateLogger<RateLimitAttribute>();
 
         // Get or add the invocation list for this key
         var invocations = _invocations.GetOrAdd(key, _ => new List<DateTime>());
@@ -48,11 +57,27 @@ public class RateLimitAttribute : PreconditionAttribute
             // Remove old invocations outside the time window
             invocations.RemoveAll(time => (now - time).TotalSeconds > _periodSeconds);
 
+            var currentCount = invocations.Count;
+
             // Check if rate limit is exceeded
-            if (invocations.Count >= _times)
+            if (currentCount >= _times)
             {
                 var oldestInvocation = invocations.Min();
                 var timeUntilReset = _periodSeconds - (now - oldestInvocation).TotalSeconds;
+
+                // Log rate limit violation at Warning level for abuse detection
+                logger?.LogWarning(
+                    "Rate limit exceeded for user {UserId} on command {CommandName} in guild {GuildId}. " +
+                    "Limit: {MaxTimes} per {PeriodSeconds}s. Reset in {ResetSeconds:F1}s. " +
+                    "Current invocations: {InvocationCount}. Target: {RateLimitTarget}",
+                    userId,
+                    commandName,
+                    guildId,
+                    _times,
+                    _periodSeconds,
+                    timeUntilReset,
+                    currentCount,
+                    _target);
 
                 return Task.FromResult(
                     PreconditionResult.FromError(
@@ -63,6 +88,16 @@ public class RateLimitAttribute : PreconditionAttribute
 
             // Add current invocation
             invocations.Add(now);
+
+            // Log successful rate limit check at Trace level
+            logger?.LogTrace(
+                "Rate limit check passed for user {UserId} on command {CommandName}. " +
+                "Invocations: {InvocationCount}/{MaxTimes} in {PeriodSeconds}s window",
+                userId,
+                commandName,
+                currentCount + 1,
+                _times,
+                _periodSeconds);
         }
 
         return Task.FromResult(PreconditionResult.FromSuccess());
