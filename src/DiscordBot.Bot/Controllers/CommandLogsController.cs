@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -71,7 +72,7 @@ public class CommandLogsController : ControllerBase
                 Message = "Invalid date range",
                 Detail = "Start date cannot be after end date.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.TraceIdentifier
+                TraceId = HttpContext.GetCorrelationId()
             });
         }
 

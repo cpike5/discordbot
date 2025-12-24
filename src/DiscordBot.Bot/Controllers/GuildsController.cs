@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -67,7 +68,7 @@ public class GuildsController : ControllerBase
                 Message = "Guild not found",
                 Detail = $"No guild with ID {id} exists in the database.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.TraceIdentifier
+                TraceId = HttpContext.GetCorrelationId()
             });
         }
 
@@ -103,7 +104,7 @@ public class GuildsController : ControllerBase
                 Message = "Invalid request",
                 Detail = "Request body cannot be null.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.TraceIdentifier
+                TraceId = HttpContext.GetCorrelationId()
             });
         }
 
@@ -118,7 +119,7 @@ public class GuildsController : ControllerBase
                 Message = "Guild not found",
                 Detail = $"No guild with ID {id} exists in the database.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.TraceIdentifier
+                TraceId = HttpContext.GetCorrelationId()
             });
         }
 
@@ -151,7 +152,7 @@ public class GuildsController : ControllerBase
                 Message = "Guild not found",
                 Detail = $"No guild with ID {id} is connected to the bot.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.TraceIdentifier
+                TraceId = HttpContext.GetCorrelationId()
             });
         }
 
