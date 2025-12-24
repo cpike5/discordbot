@@ -29,4 +29,5 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Permissions](permissions.md) - Permission system documentation
 
 ## Operations
+- [Environment Configuration](environment-configuration.md) - Environment-specific settings (Dev, Staging, Production)
 - [APM Tracing Plan](apm-tracing-plan.md) - Application performance monitoring

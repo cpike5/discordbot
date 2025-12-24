@@ -25,6 +25,10 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    // Log the current environment for configuration debugging
+    Log.Information("Environment: {Environment}", builder.Environment.EnvironmentName);
+    Log.Information("ContentRootPath: {ContentRootPath}", builder.Environment.ContentRootPath);
+
     // Configure Serilog from appsettings.json
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
