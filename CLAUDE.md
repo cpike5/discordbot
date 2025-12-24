@@ -112,6 +112,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup, troubleshooting |
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
+| [log-aggregation.md](docs/articles/log-aggregation.md) | Seq centralized logging setup |
 
 ## Discord.NET Specifics
 
@@ -165,6 +166,7 @@ Located in `src/DiscordBot.Bot/Pages/`:
 When running locally (`dotnet run --project src/DiscordBot.Bot`):
 - Admin UI: `https://localhost:5001`
 - Swagger API docs: `https://localhost:5001/swagger`
+- Seq UI: `http://localhost:5341` (when running Seq locally)
 - Logs: `logs/discordbot-YYYY-MM-DD.log`
 
 ## Common Issues
