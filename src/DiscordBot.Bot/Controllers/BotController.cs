@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -86,7 +87,7 @@ public class BotController : ControllerBase
                 Message = "Restart operation is not supported",
                 Detail = ex.Message,
                 StatusCode = StatusCodes.Status500InternalServerError,
-                TraceId = HttpContext.TraceIdentifier
+                TraceId = HttpContext.GetCorrelationId()
             });
         }
     }

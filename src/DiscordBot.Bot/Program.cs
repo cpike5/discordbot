@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Middleware;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -193,6 +194,9 @@ try
     var app = builder.Build();
 
     // Configure middleware pipeline
+    // Add correlation ID middleware (must be before Serilog request logging)
+    app.UseCorrelationId();
+
     app.UseSerilogRequestLogging();
 
     // Configure error handling
