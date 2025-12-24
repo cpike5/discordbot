@@ -90,19 +90,26 @@ function closeSidebar() {
 // User Menu Toggle
 function toggleUserMenu() {
   const menu = document.getElementById('userMenu');
-  if (!menu) return;
-  menu.classList.toggle('active');
+  const button = document.getElementById('userMenuButton');
+  if (!menu || !button) return;
+
+  const isExpanded = menu.classList.toggle('active');
+  button.setAttribute('aria-expanded', isExpanded.toString());
 }
 
 // Close dropdowns when clicking outside
 document.addEventListener('click', function(event) {
   const userMenu = document.getElementById('userMenu');
+  const userMenuButton = document.getElementById('userMenuButton');
   if (!userMenu) return;
 
   const userButton = event.target.closest('[aria-label="User menu"]');
 
   if (!userButton && !event.target.closest('#userMenu')) {
     userMenu.classList.remove('active');
+    if (userMenuButton) {
+      userMenuButton.setAttribute('aria-expanded', 'false');
+    }
   }
 });
 
@@ -130,8 +137,14 @@ document.addEventListener('keydown', function(event) {
   // Close menus on Escape
   if (event.key === 'Escape') {
     const userMenu = document.getElementById('userMenu');
+    const userMenuButton = document.getElementById('userMenuButton');
     if (userMenu) {
       userMenu.classList.remove('active');
+      if (userMenuButton) {
+        userMenuButton.setAttribute('aria-expanded', 'false');
+        // Return focus to the menu button for better keyboard navigation
+        userMenuButton.focus();
+      }
     }
 
     // Close mobile sidebar and return focus to toggle button

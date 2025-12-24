@@ -3,8 +3,8 @@
 
 <!-- Confirmation Modal -->
 <div id="@Model.Id" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="@(Model.Id)Title" aria-describedby="@(Model.Id)Desc">
-    <!-- Backdrop -->
-    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="window.quickActions?.hideConfirmationModal('@Model.Id')"></div>
+    <!-- Backdrop - aria-hidden prevents screen readers from announcing this decorative element -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="window.quickActions?.hideConfirmationModal('@Model.Id')" aria-hidden="true"></div>
 
     <!-- Modal Dialog -->
     <div class="fixed inset-0 flex items-center justify-center p-4">
