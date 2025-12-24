@@ -13,7 +13,8 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
 {
     private readonly ILogger<CommandLogRepository> _logger;
 
-    public CommandLogRepository(BotDbContext context, ILogger<CommandLogRepository> logger) : base(context)
+    public CommandLogRepository(BotDbContext context, ILogger<CommandLogRepository> logger, ILogger<Repository<CommandLog>> baseLogger)
+        : base(context, baseLogger)
     {
         _logger = logger;
     }

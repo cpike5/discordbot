@@ -18,12 +18,14 @@ public class CommandLogRepositoryTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly CommandLogRepository _repository;
     private readonly Mock<ILogger<CommandLogRepository>> _mockLogger;
+    private readonly Mock<ILogger<Repository<CommandLog>>> _mockBaseLogger;
 
     public CommandLogRepositoryTests()
     {
         (_context, _connection) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<CommandLogRepository>>();
-        _repository = new CommandLogRepository(_context, _mockLogger.Object);
+        _mockBaseLogger = new Mock<ILogger<Repository<CommandLog>>>();
+        _repository = new CommandLogRepository(_context, _mockLogger.Object, _mockBaseLogger.Object);
     }
 
     public void Dispose()
