@@ -28,11 +28,21 @@ public class CommandLogServiceTests
     public async Task GetLogsAsync_ShouldReturnPaginatedResults()
     {
         // Arrange
-        var logs = CreateTestCommandLogs(10);
+        var logs = CreateTestCommandLogs(5); // Only the items for the current page
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 10)); // 10 total items across all pages
 
         var query = new CommandLogQueryDto
         {
@@ -49,18 +59,27 @@ public class CommandLogServiceTests
         result.Page.Should().Be(1);
         result.PageSize.Should().Be(5);
         result.TotalCount.Should().Be(10, "there are 10 total logs");
-        result.Items.Should().BeInDescendingOrder(l => l.ExecutedAt, "logs should be ordered by ExecutedAt descending");
     }
 
     [Fact]
     public async Task GetLogsAsync_WithSecondPage_ShouldReturnNextPageOfResults()
     {
         // Arrange
-        var logs = CreateTestCommandLogs(15);
+        var logs = CreateTestCommandLogs(5); // 5 items for page 2
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                2, // page 2
+                5, // page size
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 15));
 
         var query = new CommandLogQueryDto
         {
@@ -79,21 +98,29 @@ public class CommandLogServiceTests
     }
 
     [Fact]
-    public async Task GetLogsAsync_WithGuildIdFilter_ShouldFilterByGuild()
+    public async Task GetLogsAsync_WithGuildIdFilter_ShouldPassGuildIdToRepository()
     {
         // Arrange
         var logs = new List<CommandLog>
         {
             CreateCommandLog(1, guildId: 111111111UL),
             CreateCommandLog(2, guildId: 111111111UL),
-            CreateCommandLog(3, guildId: 222222222UL),
-            CreateCommandLog(4, guildId: 111111111UL),
-            CreateCommandLog(5, guildId: 333333333UL)
+            CreateCommandLog(3, guildId: 111111111UL)
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                null,
+                111111111UL, // guildId
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 3));
 
         var query = new CommandLogQueryDto
         {
@@ -108,8 +135,21 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(3, "there are 3 logs for guild 111111111");
-        result.Items.Should().AllSatisfy(l => l.GuildId.Should().Be(111111111UL));
         result.TotalCount.Should().Be(3);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                null,
+                111111111UL,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -119,15 +159,23 @@ public class CommandLogServiceTests
         var logs = new List<CommandLog>
         {
             CreateCommandLog(1, userId: 987654321UL),
-            CreateCommandLog(2, userId: 123456789UL),
-            CreateCommandLog(3, userId: 987654321UL),
-            CreateCommandLog(4, userId: 987654321UL),
-            CreateCommandLog(5, userId: 555555555UL)
+            CreateCommandLog(2, userId: 987654321UL),
+            CreateCommandLog(3, userId: 987654321UL)
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                987654321UL, // userId
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 3));
 
         var query = new CommandLogQueryDto
         {
@@ -142,8 +190,21 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(3, "there are 3 logs for user 987654321");
-        result.Items.Should().AllSatisfy(l => l.UserId.Should().Be(987654321UL));
         result.TotalCount.Should().Be(3);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                987654321UL,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -153,15 +214,23 @@ public class CommandLogServiceTests
         var logs = new List<CommandLog>
         {
             CreateCommandLog(1, commandName: "ping"),
-            CreateCommandLog(2, commandName: "status"),
-            CreateCommandLog(3, commandName: "ping"),
-            CreateCommandLog(4, commandName: "help"),
-            CreateCommandLog(5, commandName: "PING") // Should match case-insensitively
+            CreateCommandLog(2, commandName: "ping"),
+            CreateCommandLog(3, commandName: "ping")
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                "ping", // commandName
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 3));
 
         var query = new CommandLogQueryDto
         {
@@ -175,9 +244,22 @@ public class CommandLogServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.Items.Should().HaveCount(3, "there are 3 logs for command 'ping' (case-insensitive)");
-        result.Items.Should().AllSatisfy(l => l.CommandName.ToLower().Should().Be("ping"));
+        result.Items.Should().HaveCount(3, "there are 3 logs for command 'ping'");
         result.TotalCount.Should().Be(3);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                "ping",
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -187,16 +269,24 @@ public class CommandLogServiceTests
         var baseDate = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var logs = new List<CommandLog>
         {
-            CreateCommandLog(1, executedAt: baseDate.AddDays(-5)),
-            CreateCommandLog(2, executedAt: baseDate.AddDays(-1)),
-            CreateCommandLog(3, executedAt: baseDate),
-            CreateCommandLog(4, executedAt: baseDate.AddDays(1)),
-            CreateCommandLog(5, executedAt: baseDate.AddDays(5))
+            CreateCommandLog(1, executedAt: baseDate),
+            CreateCommandLog(2, executedAt: baseDate.AddDays(1)),
+            CreateCommandLog(3, executedAt: baseDate.AddDays(5))
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                null,
+                baseDate, // startDate
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 3));
 
         var query = new CommandLogQueryDto
         {
@@ -211,8 +301,21 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(3, "there are 3 logs on or after the start date");
-        result.Items.Should().AllSatisfy(l => l.ExecutedAt.Should().BeOnOrAfter(baseDate));
         result.TotalCount.Should().Be(3);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                null,
+                baseDate,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -224,14 +327,22 @@ public class CommandLogServiceTests
         {
             CreateCommandLog(1, executedAt: baseDate.AddDays(-5)),
             CreateCommandLog(2, executedAt: baseDate.AddDays(-1)),
-            CreateCommandLog(3, executedAt: baseDate),
-            CreateCommandLog(4, executedAt: baseDate.AddDays(1)),
-            CreateCommandLog(5, executedAt: baseDate.AddDays(5))
+            CreateCommandLog(3, executedAt: baseDate)
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                null,
+                null,
+                baseDate, // endDate
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 3));
 
         var query = new CommandLogQueryDto
         {
@@ -246,8 +357,21 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(3, "there are 3 logs on or before the end date");
-        result.Items.Should().AllSatisfy(l => l.ExecutedAt.Should().BeOnOrBefore(baseDate));
         result.TotalCount.Should().Be(3);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                null,
+                null,
+                baseDate,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -257,15 +381,23 @@ public class CommandLogServiceTests
         var logs = new List<CommandLog>
         {
             CreateCommandLog(1, success: true),
-            CreateCommandLog(2, success: false),
-            CreateCommandLog(3, success: true),
-            CreateCommandLog(4, success: true),
-            CreateCommandLog(5, success: false)
+            CreateCommandLog(2, success: true),
+            CreateCommandLog(3, success: true)
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true, // successOnly
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 3));
 
         var query = new CommandLogQueryDto
         {
@@ -280,28 +412,46 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(3, "there are 3 successful logs");
-        result.Items.Should().AllSatisfy(l => l.Success.Should().BeTrue());
         result.TotalCount.Should().Be(3);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                true,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
     public async Task GetLogsAsync_WithMultipleFilters_ShouldApplyAllFilters()
     {
         // Arrange
-        var baseDate = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         var logs = new List<CommandLog>
         {
-            CreateCommandLog(1, guildId: 111111111UL, userId: 987654321UL, commandName: "ping", executedAt: baseDate, success: true),
-            CreateCommandLog(2, guildId: 111111111UL, userId: 987654321UL, commandName: "ping", executedAt: baseDate.AddDays(1), success: false),
-            CreateCommandLog(3, guildId: 111111111UL, userId: 987654321UL, commandName: "ping", executedAt: baseDate.AddDays(2), success: true),
-            CreateCommandLog(4, guildId: 111111111UL, userId: 123456789UL, commandName: "ping", executedAt: baseDate.AddDays(1), success: true),
-            CreateCommandLog(5, guildId: 222222222UL, userId: 987654321UL, commandName: "ping", executedAt: baseDate.AddDays(1), success: true),
-            CreateCommandLog(6, guildId: 111111111UL, userId: 987654321UL, commandName: "status", executedAt: baseDate.AddDays(1), success: true)
+            CreateCommandLog(1, guildId: 111111111UL, userId: 987654321UL, commandName: "ping", success: true),
+            CreateCommandLog(2, guildId: 111111111UL, userId: 987654321UL, commandName: "ping", success: true)
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                null,
+                111111111UL, // guildId
+                987654321UL, // userId
+                "ping", // commandName
+                null,
+                null,
+                true, // successOnly
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 2));
 
         var query = new CommandLogQueryDto
         {
@@ -319,25 +469,42 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(2, "only 2 logs match all filters");
-        result.Items.Should().AllSatisfy(l =>
-        {
-            l.GuildId.Should().Be(111111111UL);
-            l.UserId.Should().Be(987654321UL);
-            l.CommandName.ToLower().Should().Be("ping");
-            l.Success.Should().BeTrue();
-        });
         result.TotalCount.Should().Be(2);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                null,
+                111111111UL,
+                987654321UL,
+                "ping",
+                null,
+                null,
+                true,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
     public async Task GetLogsAsync_WithInvalidPage_ShouldDefaultToPage1()
     {
         // Arrange
-        var logs = CreateTestCommandLogs(10);
+        var logs = CreateTestCommandLogs(5);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                1, // corrected page
+                5,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 10));
 
         var query = new CommandLogQueryDto
         {
@@ -351,6 +518,20 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Page.Should().Be(1, "page should default to 1 when invalid");
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                1,
+                5,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -360,8 +541,18 @@ public class CommandLogServiceTests
         var logs = CreateTestCommandLogs(10);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                1,
+                50, // corrected page size
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 10));
 
         var queryTooSmall = new CommandLogQueryDto
         {
@@ -375,6 +566,20 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.PageSize.Should().Be(50, "page size should default to 50 when too small");
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -384,8 +589,18 @@ public class CommandLogServiceTests
         var logs = CreateTestCommandLogs(10);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                1,
+                50, // corrected page size
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 10));
 
         var queryTooLarge = new CommandLogQueryDto
         {
@@ -399,6 +614,20 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.PageSize.Should().Be(50, "page size should default to 50 when too large");
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -457,8 +686,18 @@ public class CommandLogServiceTests
         var cancellationToken = cancellationTokenSource.Token;
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<CommandLog>());
+            .Setup(r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                cancellationToken))
+            .ReturnsAsync((new List<CommandLog>().AsReadOnly(), 0));
 
         var query = new CommandLogQueryDto { Page = 1, PageSize = 50 };
 
@@ -467,7 +706,17 @@ public class CommandLogServiceTests
 
         // Assert
         _mockCommandLogRepository.Verify(
-            r => r.GetAllAsync(cancellationToken),
+            r => r.GetFilteredLogsAsync(
+                It.IsAny<string?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<ulong?>(),
+                It.IsAny<string?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<bool?>(),
+                It.IsAny<int>(),
+                It.IsAny<int>(),
+                cancellationToken),
             Times.Once,
             "the cancellation token should be passed to the repository");
     }
@@ -479,14 +728,22 @@ public class CommandLogServiceTests
         var logs = new List<CommandLog>
         {
             CreateCommandLog(1, commandName: "ping"),
-            CreateCommandLog(2, commandName: "status"),
-            CreateCommandLog(3, commandName: "pingpong"),
-            CreateCommandLog(4, commandName: "help")
+            CreateCommandLog(2, commandName: "pingpong")
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                "ping", // searchTerm
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 2));
 
         var query = new CommandLogQueryDto
         {
@@ -501,8 +758,21 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(2, "there are 2 commands containing 'ping'");
-        result.Items.Should().AllSatisfy(l => l.CommandName.Should().Contain("ping", "search term should match command name"));
         result.TotalCount.Should().Be(2);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                "ping",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -511,19 +781,25 @@ public class CommandLogServiceTests
         // Arrange
         var logs = new List<CommandLog>
         {
-            CreateCommandLog(1, userId: 111UL, commandName: "ping"),
-            CreateCommandLog(2, userId: 222UL, commandName: "status"),
-            CreateCommandLog(3, userId: 333UL, commandName: "help")
+            CreateCommandLog(1, userId: 111UL, commandName: "ping")
         };
 
-        // Modify usernames directly after creation
+        // Modify username directly after creation
         logs[0].User.Username = "Alice";
-        logs[1].User.Username = "Bob";
-        logs[2].User.Username = "Charlie";
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                "Alice", // searchTerm
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 1));
 
         var query = new CommandLogQueryDto
         {
@@ -540,6 +816,20 @@ public class CommandLogServiceTests
         result.Items.Should().HaveCount(1, "there is 1 user matching 'Alice'");
         result.Items.First().Username.Should().Be("Alice");
         result.TotalCount.Should().Be(1);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                "Alice",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -549,18 +839,26 @@ public class CommandLogServiceTests
         var logs = new List<CommandLog>
         {
             CreateCommandLog(1, guildId: 111UL, commandName: "ping"),
-            CreateCommandLog(2, guildId: 222UL, commandName: "status"),
-            CreateCommandLog(3, guildId: 333UL, commandName: "help")
+            CreateCommandLog(2, guildId: 333UL, commandName: "help")
         };
 
         // Modify guild names directly after creation
         logs[0].Guild!.Name = "Gaming Guild";
-        logs[1].Guild!.Name = "Dev Team";
-        logs[2].Guild!.Name = "Gaming Paradise";
+        logs[1].Guild!.Name = "Gaming Paradise";
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                "Gaming", // searchTerm
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 2));
 
         var query = new CommandLogQueryDto
         {
@@ -577,6 +875,20 @@ public class CommandLogServiceTests
         result.Items.Should().HaveCount(2, "there are 2 guilds containing 'Gaming'");
         result.Items.Should().AllSatisfy(l => l.GuildName.Should().Contain("Gaming"));
         result.TotalCount.Should().Be(2);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                "Gaming",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -587,13 +899,22 @@ public class CommandLogServiceTests
         {
             CreateCommandLog(1, commandName: "PING"),
             CreateCommandLog(2, commandName: "ping"),
-            CreateCommandLog(3, commandName: "Ping"),
-            CreateCommandLog(4, commandName: "status")
+            CreateCommandLog(3, commandName: "Ping")
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                "PiNg", // searchTerm
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 3));
 
         var query = new CommandLogQueryDto
         {
@@ -608,8 +929,21 @@ public class CommandLogServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(3, "search should be case-insensitive");
-        result.Items.Should().AllSatisfy(l => l.CommandName.ToLower().Should().Contain("ping"));
         result.TotalCount.Should().Be(3);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                "PiNg",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -619,18 +953,26 @@ public class CommandLogServiceTests
         var logs = new List<CommandLog>
         {
             CreateCommandLog(1, commandName: "test", userId: 111UL),
-            CreateCommandLog(2, commandName: "ping", guildId: 222UL),
-            CreateCommandLog(3, commandName: "status", userId: 333UL)
+            CreateCommandLog(2, commandName: "ping", guildId: 222UL)
         };
 
         // Set up so search term matches different fields
         logs[0].User.Username = "tester";  // Matches username
         logs[1].Guild!.Name = "Test Guild"; // Matches guild name
-        logs[2].User.Username = "admin";    // Doesn't match
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                "test", // searchTerm
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 2));
 
         var query = new CommandLogQueryDto
         {
@@ -646,6 +988,20 @@ public class CommandLogServiceTests
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(2, "search should match across command name, username, and guild name");
         result.TotalCount.Should().Be(2);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                "test",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -655,8 +1011,18 @@ public class CommandLogServiceTests
         var logs = CreateTestCommandLogs(5);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                null, // searchTerm
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 5));
 
         var query = new CommandLogQueryDto
         {
@@ -672,6 +1038,20 @@ public class CommandLogServiceTests
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(5, "null search term should return all logs");
         result.TotalCount.Should().Be(5);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -681,8 +1061,18 @@ public class CommandLogServiceTests
         var logs = CreateTestCommandLogs(5);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                "", // empty string passed as-is
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 5));
 
         var query = new CommandLogQueryDto
         {
@@ -698,6 +1088,20 @@ public class CommandLogServiceTests
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(5, "empty search term should return all logs");
         result.TotalCount.Should().Be(5);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                "",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -707,8 +1111,18 @@ public class CommandLogServiceTests
         var logs = CreateTestCommandLogs(5);
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                "   ", // whitespace passed as-is
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 5));
 
         var query = new CommandLogQueryDto
         {
@@ -724,6 +1138,20 @@ public class CommandLogServiceTests
         result.Should().NotBeNull();
         result.Items.Should().HaveCount(5, "whitespace-only search term should return all logs");
         result.TotalCount.Should().Be(5);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                "   ",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -732,15 +1160,22 @@ public class CommandLogServiceTests
         // Arrange
         var logs = new List<CommandLog>
         {
-            CreateCommandLog(1, guildId: 111UL, commandName: "ping", success: true),
-            CreateCommandLog(2, guildId: 111UL, commandName: "ping", success: false),
-            CreateCommandLog(3, guildId: 222UL, commandName: "ping", success: true),
-            CreateCommandLog(4, guildId: 111UL, commandName: "status", success: true)
+            CreateCommandLog(1, guildId: 111UL, commandName: "ping", success: true)
         };
 
         _mockCommandLogRepository
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(logs);
+            .Setup(r => r.GetFilteredLogsAsync(
+                "ping", // searchTerm
+                111UL, // guildId
+                null,
+                null,
+                null,
+                null,
+                true, // successOnly
+                1,
+                50,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs.AsReadOnly(), 1));
 
         var query = new CommandLogQueryDto
         {
@@ -761,6 +1196,20 @@ public class CommandLogServiceTests
         result.Items.First().GuildId.Should().Be(111UL);
         result.Items.First().Success.Should().BeTrue();
         result.TotalCount.Should().Be(1);
+
+        _mockCommandLogRepository.Verify(
+            r => r.GetFilteredLogsAsync(
+                "ping",
+                111UL,
+                null,
+                null,
+                null,
+                null,
+                true,
+                1,
+                50,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

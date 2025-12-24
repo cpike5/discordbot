@@ -248,4 +248,86 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
         _logger.LogInformation("Retrieved performance metrics for {CommandCount} commands", result.Count);
         return result;
     }
+
+    public async Task<(IReadOnlyList<CommandLog> Items, int TotalCount)> GetFilteredLogsAsync(
+        string? searchTerm = null,
+        ulong? guildId = null,
+        ulong? userId = null,
+        string? commandName = null,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        bool? successOnly = null,
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Retrieving filtered command logs: SearchTerm={SearchTerm}, GuildId={GuildId}, UserId={UserId}, CommandName={CommandName}, StartDate={StartDate}, EndDate={EndDate}, SuccessOnly={SuccessOnly}, Page={Page}, PageSize={PageSize}",
+            searchTerm, guildId, userId, commandName, startDate, endDate, successOnly, page, pageSize);
+
+        var query = DbSet
+            .Include(l => l.User)
+            .Include(l => l.Guild)
+            .AsQueryable();
+
+        // Apply search term filter (case-insensitive search across multiple fields)
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var searchLower = searchTerm.ToLowerInvariant();
+            query = query.Where(l =>
+                l.CommandName.ToLower().Contains(searchLower) ||
+                (l.User != null && l.User.Username != null && l.User.Username.ToLower().Contains(searchLower)) ||
+                (l.Guild != null && l.Guild.Name != null && l.Guild.Name.ToLower().Contains(searchLower)));
+        }
+
+        // Apply guild ID filter
+        if (guildId.HasValue)
+        {
+            query = query.Where(l => l.GuildId == guildId.Value);
+        }
+
+        // Apply user ID filter
+        if (userId.HasValue)
+        {
+            query = query.Where(l => l.UserId == userId.Value);
+        }
+
+        // Apply command name filter (case-insensitive exact match)
+        if (!string.IsNullOrWhiteSpace(commandName))
+        {
+            var commandNameLower = commandName.ToLowerInvariant();
+            query = query.Where(l => l.CommandName.ToLower() == commandNameLower);
+        }
+
+        // Apply date range filters
+        if (startDate.HasValue)
+        {
+            query = query.Where(l => l.ExecutedAt >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(l => l.ExecutedAt <= endDate.Value);
+        }
+
+        // Apply success filter
+        if (successOnly.HasValue)
+        {
+            query = query.Where(l => l.Success == successOnly.Value);
+        }
+
+        // Get total count for pagination
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Apply ordering and pagination
+        var items = await query
+            .OrderByDescending(l => l.ExecutedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug("Retrieved {Count} of {TotalCount} filtered command logs", items.Count, totalCount);
+
+        return (items, totalCount);
+    }
 }
