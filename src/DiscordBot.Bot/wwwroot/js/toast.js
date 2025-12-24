@@ -56,6 +56,34 @@ const ToastManager = {
 
     // Insert at beginning (newest on top)
     this.container.insertBefore(toastData.element, this.container.firstChild);
+
+    // Announce to screen readers via live region
+    this.announceToScreenReader(type, message, title);
+  },
+
+  /**
+   * Announce toast message to screen readers
+   * @private
+   */
+  announceToScreenReader(type, message, title) {
+    const liveRegion = document.getElementById('toastLiveRegion');
+    if (liveRegion) {
+      const typeLabels = {
+        success: 'Success',
+        error: 'Error',
+        warning: 'Warning',
+        info: 'Information'
+      };
+      const announcement = title
+        ? `${typeLabels[type]}: ${title}. ${message}`
+        : `${typeLabels[type]}: ${message}`;
+      liveRegion.textContent = announcement;
+
+      // Clear after a short delay to allow for repeated announcements
+      setTimeout(() => {
+        liveRegion.textContent = '';
+      }, 1000);
+    }
   },
 
   /**
