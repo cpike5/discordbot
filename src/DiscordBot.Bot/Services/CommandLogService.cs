@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -42,61 +43,38 @@ public class CommandLogService : ICommandLogService
             query.PageSize = 50;
         }
 
-        // Get all logs and apply filters in memory
-        // Note: For production, this should be done at the database level with proper filtering
-        var allLogs = await _commandLogRepository.GetAllAsync(cancellationToken);
+        // Execute database query with performance timing
+        var stopwatch = Stopwatch.StartNew();
 
-        var filteredLogs = allLogs.AsEnumerable();
+        var (items, totalCount) = await _commandLogRepository.GetFilteredLogsAsync(
+            searchTerm: query.SearchTerm,
+            guildId: query.GuildId,
+            userId: query.UserId,
+            commandName: query.CommandName,
+            startDate: query.StartDate,
+            endDate: query.EndDate,
+            successOnly: query.SuccessOnly,
+            page: query.Page,
+            pageSize: query.PageSize,
+            cancellationToken: cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        stopwatch.Stop();
+        var queryTimeMs = stopwatch.ElapsedMilliseconds;
+
+        // Log performance metrics
+        _logger.LogInformation(
+            "Retrieved {Count} of {TotalCount} command logs (Page {Page}/{TotalPages}) in {QueryTimeMs}ms",
+            items.Count, totalCount, query.Page, (int)Math.Ceiling((double)totalCount / query.PageSize), queryTimeMs);
+
+        // Warn if query took too long
+        if (queryTimeMs > 500)
         {
-            filteredLogs = filteredLogs.Where(l =>
-                l.CommandName.Contains(query.SearchTerm, StringComparison.OrdinalIgnoreCase) ||
-                (l.User?.Username != null && l.User.Username.Contains(query.SearchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                (l.Guild?.Name != null && l.Guild.Name.Contains(query.SearchTerm, StringComparison.OrdinalIgnoreCase)));
+            _logger.LogWarning(
+                "Command log query exceeded 500ms threshold: {QueryTimeMs}ms. Filters: SearchTerm={SearchTerm}, GuildId={GuildId}, UserId={UserId}, CommandName={CommandName}",
+                queryTimeMs, query.SearchTerm, query.GuildId, query.UserId, query.CommandName);
         }
 
-        if (query.GuildId.HasValue)
-        {
-            filteredLogs = filteredLogs.Where(l => l.GuildId == query.GuildId.Value);
-        }
-
-        if (query.UserId.HasValue)
-        {
-            filteredLogs = filteredLogs.Where(l => l.UserId == query.UserId.Value);
-        }
-
-        if (!string.IsNullOrWhiteSpace(query.CommandName))
-        {
-            filteredLogs = filteredLogs.Where(l => l.CommandName.Equals(query.CommandName, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (query.StartDate.HasValue)
-        {
-            filteredLogs = filteredLogs.Where(l => l.ExecutedAt >= query.StartDate.Value);
-        }
-
-        if (query.EndDate.HasValue)
-        {
-            filteredLogs = filteredLogs.Where(l => l.ExecutedAt <= query.EndDate.Value);
-        }
-
-        if (query.SuccessOnly.HasValue)
-        {
-            filteredLogs = filteredLogs.Where(l => l.Success == query.SuccessOnly.Value);
-        }
-
-        var totalCount = filteredLogs.Count();
-
-        var pagedLogs = filteredLogs
-            .OrderByDescending(l => l.ExecutedAt)
-            .Skip((query.Page - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .Select(MapToDto)
-            .ToList();
-
-        _logger.LogInformation("Retrieved {Count} of {TotalCount} command logs (Page {Page}/{TotalPages})",
-            pagedLogs.Count, totalCount, query.Page, (int)Math.Ceiling((double)totalCount / query.PageSize));
+        var pagedLogs = items.Select(MapToDto).ToList();
 
         return new PaginatedResponseDto<CommandLogDto>
         {

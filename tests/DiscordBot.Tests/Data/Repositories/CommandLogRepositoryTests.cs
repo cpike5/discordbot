@@ -391,4 +391,509 @@ public class CommandLogRepositoryTests : IDisposable
         result["ping"].Should().Be(1); // Only the recent ping command
         result["test"].Should().Be(1);
     }
+
+    #region GetFilteredLogsAsync Tests
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithNoFilters_ReturnsAllLogsPaginated()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        for (int i = 0; i < 10; i++)
+        {
+            await _repository.LogCommandAsync(123456789, 987654321, $"cmd{i}", null, 100, true);
+        }
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(page: 1, pageSize: 5);
+
+        // Assert
+        items.Should().HaveCount(5);
+        totalCount.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithGuildIdFilter_ReturnsFilteredLogs()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var guild2 = new Guild
+        {
+            Id = 111111111,
+            Name = "Guild 2",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+        await _context.Guilds.AddAsync(guild2);
+        await _context.SaveChangesAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "cmd1", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "cmd2", null, 100, true);
+        await _repository.LogCommandAsync(111111111, 987654321, "cmd3", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(guildId: 123456789);
+
+        // Assert
+        items.Should().HaveCount(2);
+        totalCount.Should().Be(2);
+        items.Should().AllSatisfy(log => log.GuildId.Should().Be(123456789));
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithUserIdFilter_ReturnsFilteredLogs()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var user2 = new User
+        {
+            Id = 111111111,
+            Username = "User2",
+            Discriminator = "5678",
+            FirstSeenAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        };
+        await _context.Users.AddAsync(user2);
+        await _context.SaveChangesAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "cmd1", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "cmd2", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 111111111, "cmd3", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(userId: 987654321);
+
+        // Assert
+        items.Should().HaveCount(2);
+        totalCount.Should().Be(2);
+        items.Should().AllSatisfy(log => log.UserId.Should().Be(987654321));
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithCommandNameFilter_ReturnsFilteredLogs()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "test", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(commandName: "ping");
+
+        // Assert
+        items.Should().HaveCount(2);
+        totalCount.Should().Be(2);
+        items.Should().AllSatisfy(log => log.CommandName.Should().Be("ping"));
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithCommandNameFilter_IsCaseInsensitive()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "PING", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "Ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(commandName: "PiNg");
+
+        // Assert
+        items.Should().HaveCount(3);
+        totalCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithDateRangeFilters_ReturnsFilteredLogs()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+
+        var oldLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "old",
+            ExecutedAt = now.AddDays(-10),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var recentLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "recent",
+            ExecutedAt = now.AddHours(-2),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var futureLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "future",
+            ExecutedAt = now.AddDays(1),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddRangeAsync(oldLog, recentLog, futureLog);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(
+            startDate: now.AddDays(-1),
+            endDate: now);
+
+        // Assert
+        items.Should().HaveCount(1);
+        totalCount.Should().Be(1);
+        items[0].CommandName.Should().Be("recent");
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithSuccessOnlyFilter_ReturnsFilteredLogs()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "success1", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "failed1", null, 100, false, "Error");
+        await _repository.LogCommandAsync(123456789, 987654321, "success2", null, 100, true);
+
+        // Act - Get only successful commands
+        var (successItems, successCount) = await _repository.GetFilteredLogsAsync(successOnly: true);
+
+        // Assert
+        successItems.Should().HaveCount(2);
+        successCount.Should().Be(2);
+        successItems.Should().AllSatisfy(log => log.Success.Should().BeTrue());
+
+        // Act - Get only failed commands
+        var (failedItems, failedCount) = await _repository.GetFilteredLogsAsync(successOnly: false);
+
+        // Assert
+        failedItems.Should().HaveCount(1);
+        failedCount.Should().Be(1);
+        failedItems.Should().AllSatisfy(log => log.Success.Should().BeFalse());
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithSearchTerm_SearchesAcrossCommandName()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "pingpong", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "status", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(searchTerm: "ping");
+
+        // Assert
+        items.Should().HaveCount(2);
+        totalCount.Should().Be(2);
+        items.Should().AllSatisfy(log => log.CommandName.ToLower().Should().Contain("ping"));
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithSearchTerm_SearchesAcrossUsername()
+    {
+        // Arrange
+        var guild = new Guild
+        {
+            Id = 123456789,
+            Name = "Test Guild",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        var user1 = new User
+        {
+            Id = 111111111,
+            Username = "Alice",
+            Discriminator = "0001",
+            FirstSeenAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        };
+
+        var user2 = new User
+        {
+            Id = 222222222,
+            Username = "Bob",
+            Discriminator = "0002",
+            FirstSeenAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        };
+
+        await _context.Guilds.AddAsync(guild);
+        await _context.Users.AddRangeAsync(user1, user2);
+        await _context.SaveChangesAsync();
+
+        await _repository.LogCommandAsync(123456789, 111111111, "ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 222222222, "ping", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(searchTerm: "Alice");
+
+        // Assert
+        items.Should().HaveCount(1);
+        totalCount.Should().Be(1);
+        items[0].User!.Username.Should().Be("Alice");
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithSearchTerm_SearchesAcrossGuildName()
+    {
+        // Arrange
+        var guild1 = new Guild
+        {
+            Id = 111111111,
+            Name = "Gaming Guild",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        var guild2 = new Guild
+        {
+            Id = 222222222,
+            Name = "Dev Team",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        var user = new User
+        {
+            Id = 987654321,
+            Username = "TestUser",
+            Discriminator = "1234",
+            FirstSeenAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        };
+
+        await _context.Guilds.AddRangeAsync(guild1, guild2);
+        await _context.Users.AddAsync(user);
+        await _context.SaveChangesAsync();
+
+        await _repository.LogCommandAsync(111111111, 987654321, "ping", null, 100, true);
+        await _repository.LogCommandAsync(222222222, 987654321, "ping", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(searchTerm: "Gaming");
+
+        // Assert
+        items.Should().HaveCount(1);
+        totalCount.Should().Be(1);
+        items[0].Guild!.Name.Should().Contain("Gaming");
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithSearchTerm_IsCaseInsensitive()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "PING", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "Ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(searchTerm: "PiNg");
+
+        // Assert
+        items.Should().HaveCount(3);
+        totalCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithMultipleFilters_ReturnsFilteredLogs()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var guild2 = new Guild
+        {
+            Id = 111111111,
+            Name = "Guild 2",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+        await _context.Guilds.AddAsync(guild2);
+        await _context.SaveChangesAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, false, "Error");
+        await _repository.LogCommandAsync(111111111, 987654321, "ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "test", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(
+            guildId: 123456789,
+            commandName: "ping",
+            successOnly: true);
+
+        // Assert
+        items.Should().HaveCount(1);
+        totalCount.Should().Be(1);
+        items[0].GuildId.Should().Be(123456789);
+        items[0].CommandName.Should().Be("ping");
+        items[0].Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_ReturnsOrderedByDateDescending()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+
+        var log1 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "first",
+            ExecutedAt = now.AddMinutes(-10),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var log2 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "second",
+            ExecutedAt = now.AddMinutes(-5),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var log3 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "third",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddRangeAsync(log1, log2, log3);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (items, _) = await _repository.GetFilteredLogsAsync();
+
+        // Assert
+        items.Should().HaveCount(3);
+        items[0].CommandName.Should().Be("third"); // Most recent first
+        items[1].CommandName.Should().Be("second");
+        items[2].CommandName.Should().Be("first");
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithPagination_ReturnsCorrectPage()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+        for (int i = 0; i < 15; i++)
+        {
+            var log = new CommandLog
+            {
+                Id = Guid.NewGuid(),
+                GuildId = 123456789,
+                UserId = 987654321,
+                CommandName = $"cmd{i:D2}",
+                ExecutedAt = now.AddMinutes(-i), // Creates ordered logs
+                ResponseTimeMs = 100,
+                Success = true
+            };
+            await _context.CommandLogs.AddAsync(log);
+        }
+        await _context.SaveChangesAsync();
+
+        // Act - Get page 2 with page size 5
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(page: 2, pageSize: 5);
+
+        // Assert
+        items.Should().HaveCount(5);
+        totalCount.Should().Be(15);
+        // Should skip first 5, so cmd05-cmd09
+        items[0].CommandName.Should().Be("cmd05");
+        items[4].CommandName.Should().Be("cmd09");
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_IncludesUserAndGuildRelations()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+
+        // Act
+        var (items, _) = await _repository.GetFilteredLogsAsync();
+
+        // Assert
+        items.Should().HaveCount(1);
+        items[0].User.Should().NotBeNull();
+        items[0].User!.Username.Should().Be("TestUser");
+        items[0].Guild.Should().NotBeNull();
+        items[0].Guild!.Name.Should().Be("Test Guild");
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithEmptySearchTerm_ReturnsAllLogs()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "test", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(searchTerm: "");
+
+        // Assert
+        items.Should().HaveCount(2);
+        totalCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetFilteredLogsAsync_WithWhitespaceSearchTerm_ReturnsAllLogs()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        await _repository.LogCommandAsync(123456789, 987654321, "ping", null, 100, true);
+        await _repository.LogCommandAsync(123456789, 987654321, "test", null, 100, true);
+
+        // Act
+        var (items, totalCount) = await _repository.GetFilteredLogsAsync(searchTerm: "   ");
+
+        // Assert
+        items.Should().HaveCount(2);
+        totalCount.Should().Be(2);
+    }
+
+    #endregion
 }
