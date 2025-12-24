@@ -1,0 +1,246 @@
+# Prometheus Alerting Rules for Discord Bot
+# Place this file in your Prometheus configuration directory and reference it in prometheus.yml:
+#
+# rule_files:
+#   - "prometheus-alerts.yml"
+#
+# These alerts monitor SLO compliance and business metrics for the Discord bot.
+
+groups:
+  - name: discordbot-slo-alerts
+    interval: 1m
+    rules:
+      - alert: CommandSuccessRateLow
+        expr: discordbot_slo_command_success_rate_24h < 99
+        for: 5m
+        labels:
+          severity: critical
+          service: discordbot
+          alert_type: slo_violation
+        annotations:
+          summary: "Command success rate below SLO (99%)"
+          description: "Current command success rate is {{ $value | humanizePercentage }}, which is below the 99% SLO target. This indicates a significant number of commands are failing."
+          dashboard: "https://grafana.example.com/d/discordbot-slo-dashboard"
+          runbook: "https://docs.example.com/runbooks/command-success-rate-low"
+
+      - alert: ApiSuccessRateLow
+        expr: discordbot_slo_api_success_rate_24h < 99.9
+        for: 5m
+        labels:
+          severity: critical
+          service: discordbot
+          alert_type: slo_violation
+        annotations:
+          summary: "API success rate below SLO (99.9%)"
+          description: "Current API success rate is {{ $value | humanizePercentage }}, which is below the 99.9% SLO target. API requests are experiencing elevated failure rates."
+          dashboard: "https://grafana.example.com/d/discordbot-slo-dashboard"
+          runbook: "https://docs.example.com/runbooks/api-success-rate-low"
+
+      - alert: HighCommandLatency
+        expr: discordbot_slo_command_p99_latency_1h > 1000
+        for: 5m
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: slo_violation
+        annotations:
+          summary: "Command p99 latency exceeds SLO (1000ms)"
+          description: "Current p99 command latency is {{ $value | humanizeDuration }}, which exceeds the 1000ms SLO target. Users are experiencing slow command responses."
+          dashboard: "https://grafana.example.com/d/discordbot-slo-dashboard"
+          runbook: "https://docs.example.com/runbooks/high-command-latency"
+
+      - alert: ErrorBudgetExhausted
+        expr: discordbot_slo_error_budget_remaining < 10
+        for: 1m
+        labels:
+          severity: critical
+          service: discordbot
+          alert_type: error_budget
+        annotations:
+          summary: "Error budget nearly exhausted"
+          description: "Only {{ $value | humanizePercentage }} of the error budget remains. Further SLO violations may require incident response and feature freeze."
+          dashboard: "https://grafana.example.com/d/discordbot-slo-dashboard"
+          runbook: "https://docs.example.com/runbooks/error-budget-exhausted"
+
+      - alert: ErrorBudgetWarning
+        expr: discordbot_slo_error_budget_remaining < 25
+        for: 5m
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: error_budget
+        annotations:
+          summary: "Error budget running low"
+          description: "{{ $value | humanizePercentage }} of the error budget remains. Monitor service quality closely to avoid exhaustion."
+          dashboard: "https://grafana.example.com/d/discordbot-slo-dashboard"
+
+      - alert: LowUptime
+        expr: discordbot_slo_uptime_percentage_30d < 99.9
+        for: 1m
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: availability
+        annotations:
+          summary: "30-day uptime below target"
+          description: "30-day uptime is {{ $value | humanizePercentage }}, below the 99.9% target. Recent downtime is affecting overall availability."
+          dashboard: "https://grafana.example.com/d/discordbot-slo-dashboard"
+
+  - name: discordbot-business-alerts
+    interval: 1m
+    rules:
+      - alert: NoGuildActivity
+        expr: discordbot_business_guilds_active_daily == 0
+        for: 1h
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: business_metric
+        annotations:
+          summary: "No guild activity in the last hour"
+          description: "No guilds have shown activity in the last hour. This may indicate a bot connectivity issue or widespread service disruption."
+          dashboard: "https://grafana.example.com/d/discordbot-business-dashboard"
+
+      - alert: GuildChurn
+        expr: increase(discordbot_business_guild_leave[1d]) > increase(discordbot_business_guild_join[1d])
+        for: 1d
+        labels:
+          severity: info
+          service: discordbot
+          alert_type: business_metric
+        annotations:
+          summary: "More guilds leaving than joining in the last 24 hours"
+          description: "Guild churn detected: {{ $value }} net guilds lost in the last 24 hours. Review bot functionality and user feedback."
+          dashboard: "https://grafana.example.com/d/discordbot-business-dashboard"
+
+      - alert: HighGuildChurn
+        expr: increase(discordbot_business_guild_leave[1d]) > (increase(discordbot_business_guild_join[1d]) * 2)
+        for: 6h
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: business_metric
+        annotations:
+          summary: "Significantly more guilds leaving than joining"
+          description: "Guild leave rate is more than double the join rate. This indicates a serious user satisfaction issue that requires immediate attention."
+          dashboard: "https://grafana.example.com/d/discordbot-business-dashboard"
+
+      - alert: LowActiveUsers
+        expr: |
+          discordbot_business_users_active_7d <
+          (avg_over_time(discordbot_business_users_active_7d[7d]) * 0.5)
+        for: 2h
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: business_metric
+        annotations:
+          summary: "7-day active users dropped significantly"
+          description: "Current 7-day active users ({{ $value }}) is less than 50% of the 7-day average. User engagement has declined sharply."
+          dashboard: "https://grafana.example.com/d/discordbot-business-dashboard"
+
+      - alert: NoCommandsExecuted
+        expr: discordbot_business_commands_today == 0
+        for: 30m
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: business_metric
+        annotations:
+          summary: "No commands executed in the last 30 minutes"
+          description: "No commands have been executed in the last 30 minutes. The bot may be offline or inaccessible."
+          dashboard: "https://grafana.example.com/d/discordbot-business-dashboard"
+
+  - name: discordbot-performance-alerts
+    interval: 1m
+    rules:
+      - alert: HighCommandErrorRate
+        expr: |
+          sum(rate(discordbot_command_count{status="failure"}[5m])) /
+          sum(rate(discordbot_command_count[5m])) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: performance
+        annotations:
+          summary: "High command error rate detected"
+          description: "Command error rate is {{ $value | humanizePercentage }}, exceeding the 5% threshold. Check logs for error patterns."
+          dashboard: "https://grafana.example.com/d/discordbot-metrics"
+
+      - alert: HighApiErrorRate
+        expr: |
+          sum(rate(discordbot_api_request_count{status_code=~"5.."}[5m])) /
+          sum(rate(discordbot_api_request_count[5m])) * 100 > 1
+        for: 5m
+        labels:
+          severity: critical
+          service: discordbot
+          alert_type: performance
+        annotations:
+          summary: "High API error rate detected"
+          description: "API 5xx error rate is {{ $value | humanizePercentage }}, exceeding the 1% threshold. Backend services may be experiencing issues."
+          dashboard: "https://grafana.example.com/d/discordbot-metrics"
+
+      - alert: ThreadPoolStarvation
+        expr: process_runtime_dotnet_thread_pool_queue_length > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: performance
+        annotations:
+          summary: "Thread pool queue is backing up"
+          description: "Thread pool queue length is {{ $value }}, indicating potential thread starvation. The bot may be overloaded or experiencing blocking operations."
+          dashboard: "https://grafana.example.com/d/discordbot-metrics"
+
+      - alert: ExcessiveGarbageCollection
+        expr: rate(process_runtime_dotnet_gc_collections_count{generation="2"}[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: performance
+        annotations:
+          summary: "Excessive Gen 2 garbage collections"
+          description: "Gen 2 GC rate is {{ $value }} collections/sec. This indicates high memory pressure and may impact performance."
+          dashboard: "https://grafana.example.com/d/discordbot-metrics"
+
+  - name: discordbot-availability-alerts
+    interval: 1m
+    rules:
+      - alert: BotDisconnected
+        expr: up{job="discordbot"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: discordbot
+          alert_type: availability
+        annotations:
+          summary: "Discord bot is down"
+          description: "The Discord bot has been unreachable for 2 minutes. Immediate investigation required."
+          runbook: "https://docs.example.com/runbooks/bot-disconnected"
+
+      - alert: NoActiveGuilds
+        expr: discordbot_guilds_active == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: discordbot
+          alert_type: availability
+        annotations:
+          summary: "Bot has no active guild connections"
+          description: "The bot is not connected to any guilds. Check Discord API connectivity and bot token validity."
+          runbook: "https://docs.example.com/runbooks/no-active-guilds"
+
+      - alert: HighRateLimitViolations
+        expr: sum(rate(discordbot_ratelimit_violations[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: discordbot
+          alert_type: availability
+        annotations:
+          summary: "High rate limit violation rate"
+          description: "Rate limit violations are occurring at {{ $value }} violations/sec. The bot may be making too many API requests."
+          dashboard: "https://grafana.example.com/d/discordbot-metrics"

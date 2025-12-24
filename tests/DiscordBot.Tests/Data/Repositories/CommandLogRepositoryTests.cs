@@ -896,4 +896,442 @@ public class CommandLogRepositoryTests : IDisposable
     }
 
     #endregion
+
+    #region Metrics Helper Methods Tests
+
+    [Fact]
+    public async Task GetUniqueUserCountAsync_ReturnsCorrectCount()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var user2 = new User
+        {
+            Id = 111111111,
+            Username = "User2",
+            Discriminator = "5678",
+            FirstSeenAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        };
+
+        var user3 = new User
+        {
+            Id = 222222222,
+            Username = "User3",
+            Discriminator = "9999",
+            FirstSeenAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        };
+
+        await _context.Users.AddRangeAsync(user2, user3);
+        await _context.SaveChangesAsync();
+
+        var now = DateTime.UtcNow;
+        var sevenDaysAgo = now.AddDays(-7);
+
+        // Add logs for different users with different timestamps
+        var oldLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "old",
+            ExecutedAt = now.AddDays(-10),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var recentLog1 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "recent1",
+            ExecutedAt = now.AddDays(-2),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var recentLog2 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 111111111,
+            CommandName = "recent2",
+            ExecutedAt = now.AddDays(-3),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var recentLog3 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 222222222,
+            CommandName = "recent3",
+            ExecutedAt = now.AddDays(-1),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        // Same user as recentLog1 - should not increase unique count
+        var recentLog4 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "recent4",
+            ExecutedAt = now.AddHours(-1),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddRangeAsync(oldLog, recentLog1, recentLog2, recentLog3, recentLog4);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetUniqueUserCountAsync(sevenDaysAgo);
+
+        // Assert
+        count.Should().Be(3, "there should be 3 unique users with commands in the last 7 days");
+    }
+
+    [Fact]
+    public async Task GetUniqueUserCountAsync_WithNoRecentUsers_ReturnsZero()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+        var oldLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "old",
+            ExecutedAt = now.AddDays(-30),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddAsync(oldLog);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetUniqueUserCountAsync(now.AddDays(-7));
+
+        // Assert
+        count.Should().Be(0, "there should be no users with commands in the last 7 days");
+    }
+
+    [Fact]
+    public async Task GetActiveGuildCountAsync_ReturnsCorrectCount()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var guild2 = new Guild
+        {
+            Id = 111111111,
+            Name = "Guild 2",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        var guild3 = new Guild
+        {
+            Id = 222222222,
+            Name = "Guild 3",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        await _context.Guilds.AddRangeAsync(guild2, guild3);
+        await _context.SaveChangesAsync();
+
+        var now = DateTime.UtcNow;
+        var startOfToday = now.Date;
+
+        // Add logs for different guilds
+        var oldLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "old",
+            ExecutedAt = now.AddDays(-2),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var todayLog1 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "today1",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var todayLog2 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 111111111,
+            UserId = 987654321,
+            CommandName = "today2",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        // Same guild as todayLog1 - should not increase count
+        var todayLog3 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "today3",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        // DM command (null guild) - should not be counted
+        var dmLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = null,
+            UserId = 987654321,
+            CommandName = "dm",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddRangeAsync(oldLog, todayLog1, todayLog2, todayLog3, dmLog);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetActiveGuildCountAsync(startOfToday);
+
+        // Assert
+        count.Should().Be(2, "there should be 2 guilds with command activity today");
+    }
+
+    [Fact]
+    public async Task GetActiveGuildCountAsync_WithNoRecentGuilds_ReturnsZero()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+        var oldLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "old",
+            ExecutedAt = now.AddDays(-10),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddAsync(oldLog);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetActiveGuildCountAsync(now.Date);
+
+        // Assert
+        count.Should().Be(0, "there should be no guilds with command activity today");
+    }
+
+    [Fact]
+    public async Task GetActiveGuildCountAsync_ExcludesDmCommands()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+
+        // DM commands only
+        var dmLog1 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = null,
+            UserId = 987654321,
+            CommandName = "dm1",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var dmLog2 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = null,
+            UserId = 987654321,
+            CommandName = "dm2",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddRangeAsync(dmLog1, dmLog2);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetActiveGuildCountAsync(now.Date);
+
+        // Assert
+        count.Should().Be(0, "DM commands should not be counted as guild activity");
+    }
+
+    [Fact]
+    public async Task GetCommandCountAsync_ReturnsCorrectCount()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+        var startOfToday = now.Date;
+
+        // Add commands from different times
+        var oldLog1 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "old1",
+            ExecutedAt = now.AddDays(-2),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var oldLog2 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "old2",
+            ExecutedAt = now.AddDays(-1),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var todayLog1 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "today1",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var todayLog2 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "today2",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var todayLog3 = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "today3",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddRangeAsync(oldLog1, oldLog2, todayLog1, todayLog2, todayLog3);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetCommandCountAsync(startOfToday);
+
+        // Assert
+        count.Should().Be(3, "there should be 3 commands executed today");
+    }
+
+    [Fact]
+    public async Task GetCommandCountAsync_WithNoRecentCommands_ReturnsZero()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+        var oldLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "old",
+            ExecutedAt = now.AddDays(-10),
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        await _context.CommandLogs.AddAsync(oldLog);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetCommandCountAsync(now.Date);
+
+        // Assert
+        count.Should().Be(0, "there should be no commands executed today");
+    }
+
+    [Fact]
+    public async Task GetCommandCountAsync_IncludesBothSuccessAndFailure()
+    {
+        // Arrange
+        await SeedTestDataAsync();
+
+        var now = DateTime.UtcNow;
+
+        var successLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "success",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = true
+        };
+
+        var failureLog = new CommandLog
+        {
+            Id = Guid.NewGuid(),
+            GuildId = 123456789,
+            UserId = 987654321,
+            CommandName = "failure",
+            ExecutedAt = now,
+            ResponseTimeMs = 100,
+            Success = false,
+            ErrorMessage = "Test error"
+        };
+
+        await _context.CommandLogs.AddRangeAsync(successLog, failureLog);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetCommandCountAsync(now.Date);
+
+        // Assert
+        count.Should().Be(2, "both successful and failed commands should be counted");
+    }
+
+    #endregion
 }

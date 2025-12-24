@@ -31,4 +31,20 @@ public interface IGuildRepository : IRepository<Guild>
     /// Creates or updates a guild record.
     /// </summary>
     Task<Guild> UpsertAsync(Guild guild, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the count of guilds that joined since a specified date.
+    /// </summary>
+    /// <param name="since">Start date for counting guild joins.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Count of guilds joined since the specified date.</returns>
+    Task<int> GetJoinedCountAsync(DateTime since, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the count of guilds that left (became inactive) since a specified date.
+    /// </summary>
+    /// <param name="since">Start date for counting guild leaves.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Count of guilds that left since the specified date.</returns>
+    Task<int> GetLeftCountAsync(DateTime since, CancellationToken cancellationToken = default);
 }

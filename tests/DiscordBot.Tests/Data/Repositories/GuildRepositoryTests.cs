@@ -314,4 +314,190 @@ public class GuildRepositoryTests : IDisposable
         var deletedGuild = await _context.Guilds.FindAsync(123456789UL);
         deletedGuild.Should().BeNull();
     }
+
+    [Fact]
+    public async Task GetJoinedCountAsync_ReturnsCorrectCount()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var startOfToday = now.Date;
+
+        var oldGuild = new Guild
+        {
+            Id = 111111111,
+            Name = "Old Guild",
+            JoinedAt = now.AddDays(-10),
+            IsActive = true
+        };
+
+        var todayGuild1 = new Guild
+        {
+            Id = 222222222,
+            Name = "Today Guild 1",
+            JoinedAt = now,
+            IsActive = true
+        };
+
+        var todayGuild2 = new Guild
+        {
+            Id = 333333333,
+            Name = "Today Guild 2",
+            JoinedAt = now.AddHours(-2),
+            IsActive = true
+        };
+
+        var yesterdayGuild = new Guild
+        {
+            Id = 444444444,
+            Name = "Yesterday Guild",
+            JoinedAt = now.AddDays(-1),
+            IsActive = true
+        };
+
+        await _context.Guilds.AddRangeAsync(oldGuild, todayGuild1, todayGuild2, yesterdayGuild);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetJoinedCountAsync(startOfToday);
+
+        // Assert
+        count.Should().Be(2, "there should be 2 guilds that joined today");
+    }
+
+    [Fact]
+    public async Task GetJoinedCountAsync_WithNoRecentJoins_ReturnsZero()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+
+        var oldGuild1 = new Guild
+        {
+            Id = 111111111,
+            Name = "Old Guild 1",
+            JoinedAt = now.AddDays(-30),
+            IsActive = true
+        };
+
+        var oldGuild2 = new Guild
+        {
+            Id = 222222222,
+            Name = "Old Guild 2",
+            JoinedAt = now.AddDays(-15),
+            IsActive = true
+        };
+
+        await _context.Guilds.AddRangeAsync(oldGuild1, oldGuild2);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetJoinedCountAsync(now.Date);
+
+        // Assert
+        count.Should().Be(0, "there should be no guilds that joined today");
+    }
+
+    [Fact]
+    public async Task GetJoinedCountAsync_IncludesBothActiveAndInactiveGuilds()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+
+        var activeGuild = new Guild
+        {
+            Id = 111111111,
+            Name = "Active Guild",
+            JoinedAt = now,
+            IsActive = true
+        };
+
+        var inactiveGuild = new Guild
+        {
+            Id = 222222222,
+            Name = "Inactive Guild",
+            JoinedAt = now.AddHours(-1),
+            IsActive = false
+        };
+
+        await _context.Guilds.AddRangeAsync(activeGuild, inactiveGuild);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetJoinedCountAsync(now.Date);
+
+        // Assert
+        count.Should().Be(2, "both active and inactive guilds that joined should be counted");
+    }
+
+    [Fact]
+    public async Task GetJoinedCountAsync_WithCustomDateRange_ReturnsCorrectCount()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var sevenDaysAgo = now.AddDays(-7);
+
+        var guild1 = new Guild
+        {
+            Id = 111111111,
+            Name = "Guild 1",
+            JoinedAt = now.AddDays(-2),
+            IsActive = true
+        };
+
+        var guild2 = new Guild
+        {
+            Id = 222222222,
+            Name = "Guild 2",
+            JoinedAt = now.AddDays(-5),
+            IsActive = true
+        };
+
+        var guild3 = new Guild
+        {
+            Id = 333333333,
+            Name = "Guild 3",
+            JoinedAt = now.AddDays(-10),
+            IsActive = true
+        };
+
+        await _context.Guilds.AddRangeAsync(guild1, guild2, guild3);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetJoinedCountAsync(sevenDaysAgo);
+
+        // Assert
+        count.Should().Be(2, "there should be 2 guilds that joined in the last 7 days");
+    }
+
+    [Fact]
+    public async Task GetLeftCountAsync_ReturnsZero()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+
+        var activeGuild = new Guild
+        {
+            Id = 111111111,
+            Name = "Active Guild",
+            JoinedAt = now.AddDays(-10),
+            IsActive = true
+        };
+
+        var inactiveGuild = new Guild
+        {
+            Id = 222222222,
+            Name = "Inactive Guild",
+            JoinedAt = now.AddDays(-5),
+            IsActive = false
+        };
+
+        await _context.Guilds.AddRangeAsync(activeGuild, inactiveGuild);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetLeftCountAsync(now.Date);
+
+        // Assert
+        count.Should().Be(0, "GetLeftCountAsync currently returns 0 as it requires schema changes to track LeftAt");
+    }
 }

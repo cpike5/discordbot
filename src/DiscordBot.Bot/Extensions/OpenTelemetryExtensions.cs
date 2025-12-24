@@ -29,6 +29,8 @@ public static class OpenTelemetryExtensions
         // Register custom metrics classes as singletons
         services.AddSingleton<BotMetrics>();
         services.AddSingleton<ApiMetrics>();
+        services.AddSingleton<BusinessMetrics>();
+        services.AddSingleton<SloMetrics>();
 
         // Configure OpenTelemetry
         services.AddOpenTelemetry()
@@ -42,6 +44,8 @@ public static class OpenTelemetryExtensions
                 // Add custom meters
                 metrics.AddMeter(BotMetrics.MeterName);
                 metrics.AddMeter(ApiMetrics.MeterName);
+                metrics.AddMeter(BusinessMetrics.MeterName);
+                metrics.AddMeter(SloMetrics.MeterName);
 
                 // Add ASP.NET Core instrumentation
                 metrics.AddAspNetCoreInstrumentation();

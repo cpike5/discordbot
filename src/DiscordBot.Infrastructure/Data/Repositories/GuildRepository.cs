@@ -74,4 +74,31 @@ public class GuildRepository : Repository<Guild>, IGuildRepository
         await Context.SaveChangesAsync(cancellationToken);
         return guild;
     }
+
+    public async Task<int> GetJoinedCountAsync(DateTime since, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving guild join count since {Since}", since);
+
+        var count = await DbSet
+            .AsNoTracking()
+            .Where(g => g.JoinedAt >= since)
+            .CountAsync(cancellationToken);
+
+        _logger.LogDebug("Found {Count} guilds joined since {Since}", count, since);
+        return count;
+    }
+
+    public async Task<int> GetLeftCountAsync(DateTime since, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving guild leave count since {Since}", since);
+
+        // For guilds that left, we track them by checking IsActive = false and assuming
+        // the last update time (which we don't track currently). This is a limitation
+        // and should ideally track a LeftAt field in the future.
+        // For now, we return 0 as we don't have a reliable way to track this without schema changes.
+        // TODO: Add LeftAt or LastModifiedAt column to Guild table for accurate tracking.
+
+        _logger.LogWarning("Guild leave tracking requires schema changes (LeftAt field) - returning 0 for now");
+        return 0;
+    }
 }

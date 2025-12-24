@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
+using DiscordBot.Bot.Metrics;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
@@ -13,6 +14,7 @@ public class BotHostedService : IHostedService
 {
     private readonly DiscordSocketClient _client;
     private readonly InteractionHandler _interactionHandler;
+    private readonly BusinessMetrics _businessMetrics;
     private readonly BotConfiguration _config;
     private readonly ILogger<BotHostedService> _logger;
     private readonly IHostApplicationLifetime _lifetime;
@@ -20,12 +22,14 @@ public class BotHostedService : IHostedService
     public BotHostedService(
         DiscordSocketClient client,
         InteractionHandler interactionHandler,
+        BusinessMetrics businessMetrics,
         IOptions<BotConfiguration> config,
         ILogger<BotHostedService> logger,
         IHostApplicationLifetime lifetime)
     {
         _client = client;
         _interactionHandler = interactionHandler;
+        _businessMetrics = businessMetrics;
         _config = config.Value;
         _logger = logger;
         _lifetime = lifetime;
@@ -41,6 +45,10 @@ public class BotHostedService : IHostedService
 
         // Wire Discord.NET logging to ILogger
         _client.Log += LogDiscordMessageAsync;
+
+        // Wire guild join/leave events to business metrics
+        _client.JoinedGuild += OnJoinedGuildAsync;
+        _client.LeftGuild += OnLeftGuildAsync;
 
         // Initialize interaction handler (discovers and registers commands)
         await _interactionHandler.InitializeAsync();
@@ -112,4 +120,24 @@ public class BotHostedService : IHostedService
         LogSeverity.Debug => LogLevel.Trace,
         _ => LogLevel.Information
     };
+
+    /// <summary>
+    /// Handles guild join events and records them in business metrics.
+    /// </summary>
+    private Task OnJoinedGuildAsync(SocketGuild guild)
+    {
+        _logger.LogInformation("Bot joined guild {GuildId} ({GuildName})", guild.Id, guild.Name);
+        _businessMetrics.RecordGuildJoin();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Handles guild leave events and records them in business metrics.
+    /// </summary>
+    private Task OnLeftGuildAsync(SocketGuild guild)
+    {
+        _logger.LogInformation("Bot left guild {GuildId} ({GuildName})", guild.Id, guild.Name);
+        _businessMetrics.RecordGuildLeave();
+        return Task.CompletedTask;
+    }
 }

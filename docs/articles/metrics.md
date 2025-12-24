@@ -1,6 +1,6 @@
 # OpenTelemetry Metrics Collection
 
-**Version:** 1.0
+**Version:** 1.1
 **Last Updated:** 2025-12-24
 **Target Framework:** .NET 8 with OpenTelemetry SDK
 
@@ -20,6 +20,8 @@ Metrics work alongside [distributed tracing](tracing.md) to provide the complete
 - **System Metrics**: Observe runtime metrics (GC, thread pool, memory)
 - **Rate Limit Tracking**: Count and analyze rate limit violations
 - **Guild & User Metrics**: Monitor active guilds and user counts
+- **Business Metrics**: Track guild growth, user engagement, and feature adoption (Issue #109)
+- **SLO Metrics**: Monitor service level objectives and error budget compliance (Issue #109)
 
 ### Architecture
 
@@ -354,6 +356,286 @@ max_over_time(discordbot_api_request_active[1h])
 ```
 
 **Usage:** Monitor API load, detect traffic spikes, capacity planning.
+
+---
+
+### Business Metrics (KPIs)
+
+**Meter Name:** `DiscordBot.Business`
+
+Business metrics track guild growth, user engagement, and feature adoption. These metrics are updated every 5 minutes by the `BusinessMetricsUpdateService`.
+
+#### discordbot.business.guilds.joined_today
+
+**Type:** ObservableGauge
+**Unit:** `{guilds}`
+**Description:** Number of guilds that joined today (since midnight UTC)
+
+**Update Frequency:** Every 5 minutes
+
+**Example Query (PromQL):**
+```promql
+# Guilds joined today
+discordbot_business_guilds_joined_today
+
+# Daily join rate trend
+delta(discordbot_business_guilds_joined_today[1d])
+```
+
+**Usage:** Track daily growth, detect unusual spikes in new guilds.
+
+---
+
+#### discordbot.business.guilds.left_today
+
+**Type:** ObservableGauge
+**Unit:** `{guilds}`
+**Description:** Number of guilds that left today (since midnight UTC)
+
+**Note:** Requires schema updates for accurate tracking. Currently returns 0.
+
+**Example Query (PromQL):**
+```promql
+# Guilds left today
+discordbot_business_guilds_left_today
+
+# Net guild growth
+discordbot_business_guilds_joined_today - discordbot_business_guilds_left_today
+```
+
+**Usage:** Track churn, identify retention issues.
+
+---
+
+#### discordbot.business.guilds.active_daily
+
+**Type:** ObservableGauge
+**Unit:** `{guilds}`
+**Description:** Number of guilds that executed at least one command today
+
+**Example Query (PromQL):**
+```promql
+# Active guilds today
+discordbot_business_guilds_active_daily
+
+# Active guild percentage
+discordbot_business_guilds_active_daily / discordbot_guilds_active * 100
+```
+
+**Usage:** Measure engagement, identify inactive guilds.
+
+---
+
+#### discordbot.business.users.active_7d
+
+**Type:** ObservableGauge
+**Unit:** `{users}`
+**Description:** Number of unique users who executed commands in the last 7 days
+
+**Example Query (PromQL):**
+```promql
+# 7-day active users
+discordbot_business_users_active_7d
+
+# User engagement trend
+delta(discordbot_business_users_active_7d[1w])
+```
+
+**Usage:** Measure user engagement, track retention trends.
+
+---
+
+#### discordbot.business.commands.today
+
+**Type:** ObservableGauge
+**Unit:** `{commands}`
+**Description:** Total number of commands executed today (since midnight UTC)
+
+**Example Query (PromQL):**
+```promql
+# Commands executed today
+discordbot_business_commands_today
+
+# Average commands per active guild
+discordbot_business_commands_today / discordbot_business_guilds_active_daily
+```
+
+**Usage:** Measure overall usage, detect anomalies.
+
+---
+
+#### discordbot.business.guild.join
+
+**Type:** Counter
+**Unit:** `{events}`
+**Description:** Real-time counter of guild join events
+
+**Labels:** None
+
+**Example Query (PromQL):**
+```promql
+# Guild joins per hour
+sum(increase(discordbot_business_guild_join[1h]))
+
+# Guild growth rate (joins - leaves)
+sum(increase(discordbot_business_guild_join[1d])) - sum(increase(discordbot_business_guild_leave[1d]))
+```
+
+**Usage:** Track real-time guild growth events.
+
+---
+
+#### discordbot.business.guild.leave
+
+**Type:** Counter
+**Unit:** `{events}`
+**Description:** Real-time counter of guild leave events
+
+**Labels:** None
+
+**Example Query (PromQL):**
+```promql
+# Guild leaves per hour
+sum(increase(discordbot_business_guild_leave[1h]))
+
+# Churn detection
+sum(increase(discordbot_business_guild_leave[1d])) > sum(increase(discordbot_business_guild_join[1d]))
+```
+
+**Usage:** Track real-time guild churn, detect mass exits.
+
+---
+
+#### discordbot.business.feature.usage
+
+**Type:** Counter
+**Unit:** `{usages}`
+**Description:** Feature usage tracking for adoption analysis
+
+**Labels:**
+- `feature` - Feature name (e.g., "verification", "moderation", "music")
+
+**Example Query (PromQL):**
+```promql
+# Feature usage by type
+sum(increase(discordbot_business_feature_usage[24h])) by (feature)
+
+# Top features
+topk(5, sum(increase(discordbot_business_feature_usage[7d])) by (feature))
+```
+
+**Usage:** Track feature adoption, prioritize development efforts.
+
+---
+
+### SLO Metrics (Service Level Objectives)
+
+**Meter Name:** `DiscordBot.SLO`
+
+SLO metrics track service level objective compliance. These are computed metrics updated every 5 minutes by the `BusinessMetricsUpdateService`.
+
+#### discordbot.slo.command.success_rate_24h
+
+**Type:** ObservableGauge
+**Unit:** `percent`
+**Description:** Command success rate over the last 24 hours
+
+**Target:** 99% (SLO)
+
+**Example Query (PromQL):**
+```promql
+# Current success rate
+discordbot_slo_command_success_rate_24h
+
+# SLO breach detection
+discordbot_slo_command_success_rate_24h < 99
+```
+
+**Usage:** Monitor SLO compliance, trigger alerts on breaches.
+
+---
+
+#### discordbot.slo.api.success_rate_24h
+
+**Type:** ObservableGauge
+**Unit:** `percent`
+**Description:** API success rate over the last 24 hours (based on command success as proxy)
+
+**Target:** 99.9% (SLO)
+
+**Example Query (PromQL):**
+```promql
+# Current API success rate
+discordbot_slo_api_success_rate_24h
+
+# SLO breach detection
+discordbot_slo_api_success_rate_24h < 99.9
+```
+
+**Usage:** Monitor API reliability, trigger alerts on breaches.
+
+---
+
+#### discordbot.slo.command.p99_latency_1h
+
+**Type:** ObservableGauge
+**Unit:** `ms` (milliseconds)
+**Description:** 99th percentile command latency over the last hour
+
+**Target:** < 1000ms (SLO)
+
+**Example Query (PromQL):**
+```promql
+# Current p99 latency
+discordbot_slo_command_p99_latency_1h
+
+# SLO breach detection
+discordbot_slo_command_p99_latency_1h > 1000
+```
+
+**Usage:** Monitor performance SLO, detect latency regressions.
+
+---
+
+#### discordbot.slo.error_budget.remaining
+
+**Type:** ObservableGauge
+**Unit:** `percent`
+**Description:** Remaining error budget based on 99.9% SLO target
+
+**Calculation:** `100 - ((100 - success_rate) / (100 - 99.9) * 100)`
+
+**Example Query (PromQL):**
+```promql
+# Remaining error budget
+discordbot_slo_error_budget_remaining
+
+# Error budget nearly exhausted
+discordbot_slo_error_budget_remaining < 10
+```
+
+**Usage:** Track error budget consumption, gate deployments when budget is low.
+
+---
+
+#### discordbot.slo.uptime.percentage_30d
+
+**Type:** ObservableGauge
+**Unit:** `percent`
+**Description:** Uptime percentage over the last 30 days (based on success rate as proxy)
+
+**Target:** 99.9% (SLO)
+
+**Example Query (PromQL):**
+```promql
+# 30-day uptime
+discordbot_slo_uptime_percentage_30d
+
+# Uptime trend
+delta(discordbot_slo_uptime_percentage_30d[1w])
+```
+
+**Usage:** Track long-term reliability, report to stakeholders.
 
 ---
 
@@ -1132,6 +1414,7 @@ For distributed tracing implementation details, see [Distributed Tracing Documen
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-24 | Initial metrics documentation (Issue #104) |
+| 1.1 | 2025-12-24 | Added Business Metrics and SLO Metrics (Issue #109) |
 
 ---
 
