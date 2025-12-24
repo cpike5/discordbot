@@ -330,4 +330,47 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
 
         return (items, totalCount);
     }
+
+    public async Task<int> GetUniqueUserCountAsync(DateTime since, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving unique user count since {Since}", since);
+
+        var count = await DbSet
+            .AsNoTracking()
+            .Where(l => l.ExecutedAt >= since)
+            .Select(l => l.UserId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        _logger.LogDebug("Found {Count} unique users since {Since}", count, since);
+        return count;
+    }
+
+    public async Task<int> GetActiveGuildCountAsync(DateTime since, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving active guild count since {Since}", since);
+
+        var count = await DbSet
+            .AsNoTracking()
+            .Where(l => l.ExecutedAt >= since && l.GuildId != null)
+            .Select(l => l.GuildId!.Value)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        _logger.LogDebug("Found {Count} active guilds since {Since}", count, since);
+        return count;
+    }
+
+    public async Task<int> GetCommandCountAsync(DateTime since, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving command count since {Since}", since);
+
+        var count = await DbSet
+            .AsNoTracking()
+            .Where(l => l.ExecutedAt >= since)
+            .CountAsync(cancellationToken);
+
+        _logger.LogDebug("Found {Count} commands executed since {Since}", count, since);
+        return count;
+    }
 }

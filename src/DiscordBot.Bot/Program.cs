@@ -170,8 +170,9 @@ try
     builder.Services.AddScoped<IVerificationService, VerificationService>();
     builder.Services.AddHostedService<VerificationCleanupService>();
 
-    // Add Metrics update background service
+    // Add Metrics update background services
     builder.Services.AddHostedService<MetricsUpdateService>();
+    builder.Services.AddHostedService<BusinessMetricsUpdateService>();
 
     // Add HttpClient for Discord API calls
     builder.Services.AddHttpClient("Discord", client =>

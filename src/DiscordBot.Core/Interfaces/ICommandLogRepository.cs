@@ -119,4 +119,28 @@ public interface ICommandLogRepository : IRepository<CommandLog>
         int page = 1,
         int pageSize = 50,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the count of unique users who have executed commands since a specified date.
+    /// </summary>
+    /// <param name="since">Start date for counting unique users.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Count of unique users.</returns>
+    Task<int> GetUniqueUserCountAsync(DateTime since, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the count of guilds with command activity since a specified date.
+    /// </summary>
+    /// <param name="since">Start date for counting active guilds.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Count of active guilds.</returns>
+    Task<int> GetActiveGuildCountAsync(DateTime since, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the total count of commands executed since a specified date.
+    /// </summary>
+    /// <param name="since">Start date for counting commands.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Total command count.</returns>
+    Task<int> GetCommandCountAsync(DateTime since, CancellationToken cancellationToken = default);
 }
