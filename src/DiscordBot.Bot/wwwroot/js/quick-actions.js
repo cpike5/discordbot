@@ -145,23 +145,26 @@
       return;
     }
 
-    // Disable button and show loading state
-    const originalText = buttonElement.querySelector('span')?.textContent || '';
+    // Use LoadingManager if available, otherwise fallback to manual loading
+    const useLoadingManager = typeof LoadingManager !== 'undefined';
     const iconContainer = buttonElement.querySelector('div');
-    buttonElement.disabled = true;
 
-    if (iconContainer) {
-      // Add a simple loading indicator
-      const originalHTML = iconContainer.innerHTML;
-      iconContainer.innerHTML = `
-        <svg class="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-      `;
+    if (useLoadingManager) {
+      LoadingManager.setButtonLoading(buttonElement, true);
+    } else {
+      // Fallback: Disable button and show loading state
+      buttonElement.disabled = true;
 
-      // Store original HTML for restore
-      buttonElement.dataset.originalHtml = originalHTML;
+      if (iconContainer) {
+        const originalHTML = iconContainer.innerHTML;
+        iconContainer.innerHTML = `
+          <svg class="w-6 h-6 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        `;
+        buttonElement.dataset.originalHtml = originalHTML;
+      }
     }
 
     try {
@@ -185,12 +188,15 @@
       console.error('Quick action error:', error);
       showToast('An error occurred. Please try again.', 'error');
     } finally {
-      // Re-enable button and restore icon
-      buttonElement.disabled = false;
-
-      if (iconContainer && buttonElement.dataset.originalHtml) {
-        iconContainer.innerHTML = buttonElement.dataset.originalHtml;
-        delete buttonElement.dataset.originalHtml;
+      // Reset button state
+      if (useLoadingManager) {
+        LoadingManager.setButtonLoading(buttonElement, false);
+      } else {
+        buttonElement.disabled = false;
+        if (iconContainer && buttonElement.dataset.originalHtml) {
+          iconContainer.innerHTML = buttonElement.dataset.originalHtml;
+          delete buttonElement.dataset.originalHtml;
+        }
       }
     }
   }

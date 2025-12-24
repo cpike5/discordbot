@@ -1,0 +1,33 @@
+@model DiscordBot.Bot.ViewModels.Components.PageLoadingOverlayViewModel
+@{
+    var spinnerModel = new DiscordBot.Bot.ViewModels.Components.LoadingSpinnerViewModel
+    {
+        Variant = Model.Variant,
+        Size = Model.Size,
+        Message = Model.Message,
+        SubMessage = Model.SubMessage,
+        Color = DiscordBot.Bot.ViewModels.Components.SpinnerColor.White
+    };
+}
+
+<!-- Page Loading Overlay -->
+<div id="@Model.Id"
+     class="loading-overlay hidden"
+     role="alert"
+     aria-live="polite"
+     aria-busy="true">
+
+    <!-- Spinner and Messages -->
+    @await Html.PartialAsync("Components/_LoadingSpinner", spinnerModel)
+
+    <!-- Optional Cancel Button -->
+    @if (Model.ShowCancelButton)
+    {
+        <button type="button"
+                class="btn btn-secondary btn-sm mt-4"
+                id="@(Model.Id)CancelBtn"
+                aria-label="@Model.CancelText">
+            @Model.CancelText
+        </button>
+    }
+</div>

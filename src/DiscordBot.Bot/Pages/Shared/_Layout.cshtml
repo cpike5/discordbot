@@ -32,8 +32,12 @@
         </div>
     </main>
 
+    <!-- Page Loading Overlay -->
+    @await Html.PartialAsync("Components/_PageLoadingOverlay", new DiscordBot.Bot.ViewModels.Components.PageLoadingOverlayViewModel())
+
     <!-- JavaScript for Navigation -->
     <script src="~/js/navigation.js" asp-append-version="true"></script>
+    <script src="~/js/loading-manager.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

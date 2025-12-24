@@ -1,0 +1,27 @@
+@model DiscordBot.Bot.ViewModels.Components.SkeletonViewModel
+@{
+    // Determine base classes based on type
+    var (defaultWidth, defaultHeight, defaultRounded) = Model.Type switch
+    {
+        DiscordBot.Bot.ViewModels.Components.SkeletonType.Text => ("w-full", "h-4", "rounded"),
+        DiscordBot.Bot.ViewModels.Components.SkeletonType.Title => ("w-full", "h-6", "rounded"),
+        DiscordBot.Bot.ViewModels.Components.SkeletonType.Avatar => ("w-10", "h-10", "rounded-full"),
+        DiscordBot.Bot.ViewModels.Components.SkeletonType.AvatarSmall => ("w-8", "h-8", "rounded-full"),
+        DiscordBot.Bot.ViewModels.Components.SkeletonType.AvatarLarge => ("w-16", "h-16", "rounded-full"),
+        DiscordBot.Bot.ViewModels.Components.SkeletonType.Button => ("w-24", "h-10", "rounded-md"),
+        DiscordBot.Bot.ViewModels.Components.SkeletonType.Card => ("w-full", "h-32", "rounded-lg"),
+        DiscordBot.Bot.ViewModels.Components.SkeletonType.Rectangle => ("w-full", "h-20", "rounded-md"),
+        _ => ("w-full", "h-4", "rounded")
+    };
+
+    // Apply overrides if provided
+    var width = Model.Width ?? defaultWidth;
+    var height = Model.Height ?? defaultHeight;
+    var rounded = Model.Rounded ? defaultRounded : "";
+    var animateClass = Model.Animate ? "skeleton" : "skeleton-static";
+    var additionalClass = Model.CssClass ?? "";
+
+    var allClasses = $"{width} {height} {rounded} {animateClass} {additionalClass}".Trim();
+}
+
+<div class="@allClasses" aria-hidden="true"></div>

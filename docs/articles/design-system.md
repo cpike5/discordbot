@@ -1,7 +1,7 @@
 # Discord Bot Admin UI - Design System
 
-**Version:** 1.0
-**Last Updated:** 2025-12-07
+**Version:** 1.1
+**Last Updated:** 2025-12-23
 **Target Framework:** .NET Blazor / HTML/CSS Prototypes
 
 ---
@@ -1449,7 +1449,565 @@ Following Tailwind CSS conventions (base unit: 0.25rem = 4px):
 
 ---
 
-## 5. Icon Usage
+## 5. Loading States
+
+Loading states provide visual feedback during asynchronous operations, enhancing user experience by indicating progress and preventing confusion during wait times. The system includes spinners, page overlays, skeleton loaders, and button loading states.
+
+### Spinner Components
+
+**Component:** `_LoadingSpinner.cshtml`
+
+Three spinner variants are available for different loading contexts:
+
+#### Spinner Variants
+
+```csharp
+// Simple Spinner - Rotating circle (default)
+SpinnerVariant.Simple
+
+// Dots Spinner - Three bouncing dots
+SpinnerVariant.Dots
+
+// Pulse Spinner - Expanding circle with pulse effect
+SpinnerVariant.Pulse
+```
+
+#### Spinner Sizes
+
+```csharp
+// Small - 24px (w-6 h-6)
+SpinnerSize.Small
+
+// Medium - 40px (w-10 h-10) [default]
+SpinnerSize.Medium
+
+// Large - 64px (w-16 h-16)
+SpinnerSize.Large
+```
+
+#### Spinner Colors
+
+```csharp
+// Blue - Primary loading color
+SpinnerColor.Blue
+
+// Orange - Accent loading color
+SpinnerColor.Orange
+
+// White - For dark overlays
+SpinnerColor.White
+```
+
+#### Usage Example
+
+```html
+@{
+    var spinnerModel = new LoadingSpinnerViewModel
+    {
+        Variant = SpinnerVariant.Simple,
+        Size = SpinnerSize.Medium,
+        Color = SpinnerColor.Blue,
+        Message = "Loading data...",
+        SubMessage = "Please wait",
+        IsOverlay = false
+    };
+}
+
+@await Html.PartialAsync("Components/_LoadingSpinner", spinnerModel)
+```
+
+**Visual Specifications:**
+- **Simple Spinner:** Circular border with animated top segment
+- **Dots Spinner:** Three circles with staggered bounce animation (delays: -0.32s, -0.16s, 0s)
+- **Pulse Spinner:** Outer ring with ping animation + inner circle with pulse animation
+
+---
+
+### Page Loading Overlay
+
+**Component:** `_PageLoadingOverlay.cshtml`
+
+Full-screen loading overlay that blocks all interaction during critical operations.
+
+#### Specifications
+
+```css
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;                           /* Above all content */
+  background-color: rgba(29, 32, 34, 0.8); /* Semi-transparent backdrop */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms ease, visibility 200ms ease;
+}
+
+.loading-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+```
+
+#### JavaScript API
+
+```javascript
+// Show page loading overlay
+LoadingManager.showPageLoading('Processing request...', {
+  subMessage: 'This may take a few moments',
+  showCancel: true,
+  cancelCallback: () => {
+    console.log('User cancelled operation');
+  },
+  timeout: 30000  // Auto-hide after 30 seconds
+});
+
+// Hide page loading overlay
+LoadingManager.hidePageLoading();
+```
+
+#### Features
+
+- **Body Scroll Locking:** Prevents scrolling when overlay is active
+- **Optional Cancel Button:** Allow users to cancel long-running operations
+- **Timeout Protection:** Auto-hide after configurable timeout (default: 30s)
+- **Customizable Messages:** Primary and secondary message support
+- **Keyboard Accessible:** Proper ARIA attributes for screen readers
+
+#### Accessibility Attributes
+
+```html
+<div class="loading-overlay"
+     role="alert"
+     aria-live="polite"
+     aria-busy="true">
+  <!-- Spinner and messages -->
+</div>
+```
+
+---
+
+### Skeleton Loaders
+
+**Components:** `_Skeleton.cshtml` and `_SkeletonCard.cshtml`
+
+Skeleton loaders provide content placeholders that mimic the layout of the actual content, reducing perceived loading time.
+
+#### CSS Animation
+
+```css
+.skeleton {
+  background: linear-gradient(90deg, #2f3336 0%, #3f4447 50%, #2f3336 100%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Static variant (no animation) */
+.skeleton-static {
+  background: #2f3336;
+  animation: none;
+}
+```
+
+**Gradient Colors:**
+- Start/End: `#2f3336` (bg-tertiary)
+- Mid-point: `#3f4447` (border-primary)
+- Animation Duration: 1.5s ease-in-out infinite
+
+#### Skeleton Types
+
+```csharp
+// Text - Single line text placeholder (w-full h-4)
+SkeletonType.Text
+
+// Title - Larger heading placeholder (w-full h-6)
+SkeletonType.Title
+
+// Avatar - Circular avatar placeholder (w-10 h-10)
+SkeletonType.Avatar
+
+// AvatarSmall - Small avatar (w-8 h-8)
+SkeletonType.AvatarSmall
+
+// AvatarLarge - Large avatar (w-16 h-16)
+SkeletonType.AvatarLarge
+
+// Button - Button-shaped placeholder (w-24 h-10)
+SkeletonType.Button
+
+// Card - Card-shaped placeholder (w-full h-32)
+SkeletonType.Card
+
+// Rectangle - Generic rectangle (w-full h-20)
+SkeletonType.Rectangle
+```
+
+#### Basic Skeleton Usage
+
+```html
+@{
+    var textSkeleton = new SkeletonViewModel
+    {
+        Type = SkeletonType.Text,
+        Width = "w-3/4",      // Override default width
+        Height = null,         // Use default height
+        Rounded = true,        // Apply rounded corners
+        Animate = true,        // Enable shimmer animation
+        CssClass = "mb-2"      // Additional CSS classes
+    };
+}
+
+@await Html.PartialAsync("Components/_Skeleton", textSkeleton)
+```
+
+#### Composite Skeleton Cards
+
+**Component:** `_SkeletonCard.cshtml`
+
+Pre-built skeleton patterns for common card layouts:
+
+```csharp
+// Stats Card - Icon + Value + Label
+SkeletonCardType.Stats
+
+// Server Card - Avatar + Name + Stats Row
+SkeletonCardType.Server
+
+// Activity Feed - Icon + 2 Lines (3 items)
+SkeletonCardType.Activity
+
+// Table Row - Avatar + Name + Columns (5 rows)
+SkeletonCardType.Table
+```
+
+**Example: Stats Card Skeleton**
+
+```html
+@{
+    var statsSkeletonModel = new SkeletonCardViewModel
+    {
+        Type = SkeletonCardType.Stats,
+        ShowHeader = true,
+        CssClass = "mb-4"
+    };
+}
+
+@await Html.PartialAsync("Components/_SkeletonCard", statsSkeletonModel)
+```
+
+**Renders:**
+```html
+<div class="card mb-4">
+  <div class="card-header">
+    <div class="skeleton w-32 h-6 rounded"></div>
+  </div>
+  <div class="card-body">
+    <div class="flex items-start gap-4">
+      <div class="skeleton w-12 h-12 rounded-lg"></div>
+      <div class="flex-1 space-y-3">
+        <div class="skeleton w-20 h-8 rounded"></div>
+        <div class="skeleton w-24 h-4 rounded"></div>
+      </div>
+    </div>
+  </div>
+</div>
+```
+
+#### JavaScript API for Skeleton Content Swapping
+
+```javascript
+// Container structure with skeleton and content
+<div id="userListContainer">
+  <div data-skeleton>
+    <!-- Skeleton cards -->
+  </div>
+  <div data-content class="hidden">
+    <!-- Actual content (hidden initially) -->
+  </div>
+</div>
+
+// Show skeleton, hide content
+LoadingManager.showSkeleton('userListContainer');
+
+// Hide skeleton, show content (after data loads)
+LoadingManager.hideSkeleton('userListContainer');
+```
+
+**Requirements:**
+- Container must have an `id`
+- Skeleton wrapper must have `data-skeleton` attribute
+- Content wrapper must have `data-content` attribute
+
+---
+
+### Button Loading States
+
+Buttons can display inline loading indicators with optional custom text.
+
+#### JavaScript API
+
+```javascript
+// Set button to loading state
+const submitBtn = document.getElementById('submitBtn');
+LoadingManager.setButtonLoading(submitBtn, true, 'Saving...');
+
+// Or by button ID
+LoadingManager.setButtonLoading('submitBtn', true, 'Saving...');
+
+// Restore button to normal state
+LoadingManager.setButtonLoading(submitBtn, false);
+```
+
+#### Visual State
+
+**Before Loading:**
+```html
+<button id="submitBtn" class="btn btn-primary">
+  Save Changes
+</button>
+```
+
+**During Loading:**
+```html
+<button id="submitBtn" class="btn btn-primary" disabled aria-busy="true">
+  <svg class="animate-spin w-4 h-4"><!-- spinner --></svg>
+  <span>Saving...</span>
+</button>
+```
+
+**Features:**
+- Button disabled during loading
+- Original text restored after loading
+- Spinner icon positioned before text
+- ARIA attributes for accessibility (`aria-busy`, `aria-disabled`)
+
+#### C# ViewModel Approach
+
+```csharp
+// ButtonViewModel supports IsLoading property
+var buttonModel = new ButtonViewModel
+{
+    Text = "Submit Form",
+    Type = ButtonType.Primary,
+    Size = ButtonSize.Medium,
+    IsLoading = Model.IsProcessing,
+    LoadingText = "Submitting..."
+};
+```
+
+---
+
+### Container Loading Overlays
+
+Apply loading overlays to specific containers instead of the entire page.
+
+#### CSS Classes
+
+```css
+.loading-container {
+  position: relative;  /* Required for absolute overlay positioning */
+}
+
+.loading-container-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background-color: rgba(29, 32, 34, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  border-radius: inherit;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 200ms ease, visibility 200ms ease;
+}
+
+.loading-container-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+```
+
+#### JavaScript API
+
+```javascript
+// Show loading overlay on specific container
+LoadingManager.showContainerLoading('statsCardContainer', 'Refreshing stats...');
+
+// Hide container loading overlay
+LoadingManager.hideContainerLoading('statsCardContainer');
+```
+
+**Features:**
+- Overlays specific containers, not the whole page
+- Automatically disables all interactive elements within container
+- Restores disabled state after hiding
+- Inherits border-radius from parent container
+- Spinner + optional message
+
+#### Usage Example
+
+```html
+<div id="statsCardContainer" class="card">
+  <div class="card-header">
+    <h3>Server Statistics</h3>
+    <button onclick="refreshStats()">Refresh</button>
+  </div>
+  <div class="card-body">
+    <!-- Stats content -->
+  </div>
+</div>
+
+<script>
+function refreshStats() {
+  LoadingManager.showContainerLoading('statsCardContainer', 'Refreshing...');
+
+  fetch('/api/stats')
+    .then(response => response.json())
+    .then(data => {
+      updateStatsUI(data);
+      LoadingManager.hideContainerLoading('statsCardContainer');
+    })
+    .catch(error => {
+      console.error(error);
+      LoadingManager.hideContainerLoading('statsCardContainer');
+    });
+}
+</script>
+```
+
+---
+
+### Form Submission Helper
+
+**JavaScript API** for automatic form submission handling:
+
+```javascript
+LoadingManager.handleFormSubmit('myForm', {
+  buttonSelector: '[type="submit"]',
+  loadingText: 'Submitting...',
+  onSuccess: async (response) => {
+    console.log('Form submitted successfully');
+    window.location.href = '/success';
+  },
+  onError: async (error) => {
+    console.error('Form submission failed', error);
+    alert('Submission failed. Please try again.');
+  }
+});
+```
+
+**Automatic behavior:**
+- Submit button shows loading state on submit
+- Form data sent via Fetch API
+- Success/error callbacks invoked based on response
+- Button loading state automatically cleared
+
+---
+
+### Accessibility Features
+
+All loading components follow WCAG 2.1 AA accessibility standards:
+
+#### ARIA Attributes
+
+```html
+<!-- Loading overlays -->
+<div role="alert" aria-live="polite" aria-busy="true">
+  <!-- Spinner and messages -->
+</div>
+
+<!-- Loading buttons -->
+<button aria-busy="true" aria-disabled="true" disabled>
+  <!-- Spinner and text -->
+</button>
+
+<!-- Skeleton loaders -->
+<div aria-hidden="true" class="skeleton">
+  <!-- Decorative placeholder -->
+</div>
+```
+
+#### Reduced Motion Support
+
+Users with `prefers-reduced-motion` preference see static loading states:
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: #2f3336;
+  }
+}
+```
+
+**Impact:**
+- Skeleton shimmer animation disabled
+- Spinner animations may continue (essential for indicating loading state)
+- Transitions remain for smooth state changes
+
+#### Screen Reader Announcements
+
+- `role="alert"` ensures loading overlays are announced
+- `aria-live="polite"` prevents interrupting user's current activity
+- `aria-busy="true"` indicates active loading state
+- `aria-hidden="true"` hides decorative skeleton elements from screen readers
+
+---
+
+### Loading State Guidelines
+
+#### When to Use Each Loading Type
+
+| Loading Type | Use Case | Example |
+|--------------|----------|---------|
+| **Page Overlay** | Full-page operations that block all interaction | Login, form submission, critical operations |
+| **Container Overlay** | Refreshing specific sections without blocking page | Refreshing stats card, reloading table data |
+| **Skeleton Loaders** | Initial page load or navigation | Loading dashboard, user profile, data lists |
+| **Button Loading** | Individual button actions | Save, delete, submit actions |
+| **Inline Spinner** | Small content areas or inline messages | Loading notification count, updating status |
+
+#### Best Practices
+
+1. **Choose appropriate feedback:**
+   - Use skeleton loaders for initial content loads
+   - Use overlays for user-initiated actions
+   - Provide clear messaging for long operations
+
+2. **Timeout protection:**
+   - Always set reasonable timeouts for overlays (default: 30s)
+   - Show error messages if operations fail
+   - Provide cancel options for long operations
+
+3. **Performance:**
+   - Skeleton loaders reduce perceived loading time
+   - Show loading states immediately (no delay)
+   - Hide loading states promptly when complete
+
+4. **Accessibility:**
+   - Always include ARIA attributes
+   - Respect reduced motion preferences
+   - Provide text alternatives for visual indicators
+
+5. **User experience:**
+   - Don't show loading states for operations under 300ms
+   - Provide progress indication for operations over 3 seconds
+   - Avoid nested or overlapping loading states
+
+---
+
+## 6. Icon Usage
 
 ### Recommended Icon Library
 
@@ -1542,7 +2100,7 @@ Following Tailwind CSS conventions (base unit: 0.25rem = 4px):
 
 ---
 
-## 6. Shadows & Elevation
+## 7. Shadows & Elevation
 
 ```css
 /* Shadow scale */
@@ -1567,7 +2125,7 @@ Following Tailwind CSS conventions (base unit: 0.25rem = 4px):
 
 ---
 
-## 7. Border Radius
+## 8. Border Radius
 
 ```css
 --radius-sm: 0.25rem;   /* 4px - small elements */
@@ -1579,7 +2137,7 @@ Following Tailwind CSS conventions (base unit: 0.25rem = 4px):
 
 ---
 
-## 8. Tailwind CSS Configuration
+## 9. Tailwind CSS Configuration
 
 Add this configuration to your `tailwind.config.js` to extend Tailwind with the custom design tokens:
 
@@ -1714,7 +2272,7 @@ module.exports = {
 
 ---
 
-## 9. Accessibility Guidelines
+## 10. Accessibility Guidelines
 
 ### WCAG 2.1 AA Compliance Checklist
 
@@ -1755,7 +2313,7 @@ module.exports = {
 
 ---
 
-## 10. Responsive Design Strategy
+## 11. Responsive Design Strategy
 
 ### Mobile-First Approach
 
@@ -1817,7 +2375,7 @@ Start with mobile styles, then enhance for larger screens:
 
 ---
 
-## 11. Implementation Guidelines
+## 12. Implementation Guidelines
 
 ### CSS Organization
 
@@ -1851,7 +2409,7 @@ Start with mobile styles, then enhance for larger screens:
 
 ---
 
-## 12. Code Examples & Quick Reference
+## 13. Code Examples & Quick Reference
 
 ### Basic Page Layout
 
@@ -1952,6 +2510,16 @@ Start with mobile styles, then enhance for larger screens:
 
 ## Changelog
 
+### Version 1.1 (2025-12-23)
+- Added comprehensive Loading States section (Section 5)
+  - Documented spinner components with variants (Simple, Dots, Pulse)
+  - Documented page loading overlay with JavaScript API
+  - Documented skeleton loaders with CSS animation details
+  - Documented button loading states
+  - Documented container loading overlays
+  - Added accessibility guidelines for loading states
+  - Added loading state usage guidelines and best practices
+
 ### Version 1.0 (2025-12-07)
 - Initial design system release
 - Defined color palette, typography, spacing
@@ -1975,5 +2543,5 @@ Start with mobile styles, then enhance for larger screens:
 For questions, updates, or contributions to this design system, please contact the design team or create an issue in the project repository.
 
 **Maintained by:** Design & UI Team
-**Last Review:** 2025-12-07
+**Last Review:** 2025-12-23
 **Next Review:** Quarterly
