@@ -30,6 +30,12 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{id}/sync` | POST | Sync guild from Discord to DB |
 | `/api/commandlogs` | GET | Query command logs (filtered, paginated) |
 | `/api/commandlogs/stats` | GET | Command usage statistics |
+| `/api/messages` | GET | Query message logs (filtered, paginated) |
+| `/api/messages/{id}` | GET | Get specific message log by ID |
+| `/api/messages/stats` | GET | Message statistics |
+| `/api/messages/user/{userId}` | DELETE | Delete all messages for a user (GDPR) |
+| `/api/messages/cleanup` | POST | Manually trigger message cleanup |
+| `/api/messages/export` | GET | Export messages to CSV |
 
 ---
 
@@ -581,6 +587,372 @@ Dictionary mapping command names (string) to usage counts (integer).
 - Returns all commands that have been executed
 - Counts include both successful and failed executions
 - Empty object `{}` returned if no commands match filter
+
+---
+
+## Message Log Endpoints
+
+### GET /api/messages
+
+Retrieves message logs with optional filtering and pagination. Provides access to logged Discord messages for analytics and moderation.
+
+**Authorization:** Admin+
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `authorId` | ulong? | null | Filter by message author ID |
+| `guildId` | ulong? | null | Filter by guild ID |
+| `channelId` | ulong? | null | Filter by channel ID |
+| `source` | MessageSource? | null | Filter by source (DirectMessage or ServerChannel) |
+| `startDate` | datetime? | null | Filter messages after this date (inclusive) |
+| `endDate` | datetime? | null | Filter messages before this date (inclusive) |
+| `searchTerm` | string? | null | Search message content (case-insensitive) |
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 25 | Items per page (max: 100) |
+
+**Example Request:**
+
+```
+GET /api/messages?guildId=123456789012345678&page=1&pageSize=50&startDate=2024-12-01T00:00:00Z
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "discordMessageId": 1234567890123456789,
+      "authorId": 987654321098765432,
+      "authorUsername": "JohnDoe#1234",
+      "channelId": 111222333444555666,
+      "channelName": "general",
+      "guildId": 123456789012345678,
+      "guildName": "My Awesome Server",
+      "source": "ServerChannel",
+      "content": "Hello, world!",
+      "timestamp": "2024-12-08T15:30:00Z",
+      "loggedAt": "2024-12-08T15:30:01Z",
+      "hasAttachments": false,
+      "hasEmbeds": false,
+      "replyToMessageId": null
+    },
+    {
+      "id": 2,
+      "discordMessageId": 9876543210987654321,
+      "authorId": 111222333444555666,
+      "authorUsername": "JaneSmith#5678",
+      "channelId": 111222333444555666,
+      "channelName": "announcements",
+      "guildId": 123456789012345678,
+      "guildName": "My Awesome Server",
+      "source": "ServerChannel",
+      "content": "Check out this cool link!",
+      "timestamp": "2024-12-08T15:25:00Z",
+      "loggedAt": "2024-12-08T15:25:00Z",
+      "hasAttachments": true,
+      "hasEmbeds": true,
+      "replyToMessageId": 1234567890123456789
+    }
+  ],
+  "page": 1,
+  "pageSize": 50,
+  "totalCount": 2,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "hasPreviousPage": false
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | array | Array of MessageLogDto objects |
+| `page` | integer | Current page number (1-based) |
+| `pageSize` | integer | Items per page |
+| `totalCount` | integer | Total number of items across all pages |
+| `totalPages` | integer | Total number of pages |
+| `hasNextPage` | boolean | Whether there are more pages |
+| `hasPreviousPage` | boolean | Whether there are previous pages |
+
+**MessageLogDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | long | Unique database identifier |
+| `discordMessageId` | ulong | Discord snowflake message ID |
+| `authorId` | ulong | User who authored the message |
+| `authorUsername` | string? | Username for display (nullable) |
+| `channelId` | ulong | Channel ID where message was sent |
+| `channelName` | string? | Channel name for display (nullable) |
+| `guildId` | ulong? | Guild ID (null for DMs) |
+| `guildName` | string? | Guild name for display (nullable) |
+| `source` | MessageSource | DirectMessage or ServerChannel |
+| `content` | string | Message content/text |
+| `timestamp` | datetime | When message was sent on Discord |
+| `loggedAt` | datetime | When message was logged to database |
+| `hasAttachments` | boolean | Whether message has attachments |
+| `hasEmbeds` | boolean | Whether message has embeds |
+| `replyToMessageId` | ulong? | ID of message this is replying to (nullable) |
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid date range",
+  "detail": "Start date cannot be after end date.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### GET /api/messages/{id}
+
+Returns detailed information for a specific message log by ID.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | long | Message log database ID |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": 1,
+  "discordMessageId": 1234567890123456789,
+  "authorId": 987654321098765432,
+  "authorUsername": "JohnDoe#1234",
+  "channelId": 111222333444555666,
+  "channelName": "general",
+  "guildId": 123456789012345678,
+  "guildName": "My Awesome Server",
+  "source": "ServerChannel",
+  "content": "Hello, world!",
+  "timestamp": "2024-12-08T15:30:00Z",
+  "loggedAt": "2024-12-08T15:30:01Z",
+  "hasAttachments": false,
+  "hasEmbeds": false,
+  "replyToMessageId": null
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Message not found",
+  "detail": "No message log with ID 1 exists in the database.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### GET /api/messages/stats
+
+Returns comprehensive message statistics including counts, breakdowns by source, and daily trends.
+
+**Authorization:** Admin+
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `guildId` | ulong? | null | Filter stats by guild (null = global statistics) |
+
+**Example Request:**
+
+```
+GET /api/messages/stats?guildId=123456789012345678
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "totalMessages": 15420,
+  "dmMessages": 250,
+  "serverMessages": 15170,
+  "uniqueAuthors": 156,
+  "messagesByDay": [
+    {
+      "date": "2024-12-08",
+      "count": 450
+    },
+    {
+      "date": "2024-12-07",
+      "count": 380
+    },
+    {
+      "date": "2024-12-06",
+      "count": 420
+    }
+  ],
+  "oldestMessage": "2024-11-01T08:15:00Z",
+  "newestMessage": "2024-12-08T15:30:00Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalMessages` | long | Total number of messages logged |
+| `dmMessages` | long | Count of direct messages |
+| `serverMessages` | long | Count of server channel messages |
+| `uniqueAuthors` | long | Number of unique message authors |
+| `messagesByDay` | array | Daily message counts for last 7 days |
+| `oldestMessage` | datetime? | Timestamp of oldest message (null if none) |
+| `newestMessage` | datetime? | Timestamp of newest message (null if none) |
+
+**DailyMessageCount Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `date` | DateOnly | The date for this count |
+| `count` | long | Number of messages on this date |
+
+**Notes:**
+- `messagesByDay` contains the last 7 days of data
+- If `guildId` is specified, statistics are filtered to that guild only
+- Null timestamps indicate no messages exist
+
+---
+
+### DELETE /api/messages/user/{userId}
+
+Deletes all message logs for a specific user. Used for GDPR compliance and user data deletion requests.
+
+**Authorization:** SuperAdmin only
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `userId` | ulong | Discord user ID whose messages should be deleted |
+
+**Response: 200 OK**
+
+```json
+{
+  "deletedCount": 42
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `deletedCount` | integer | Number of message logs deleted |
+
+**Notes:**
+- This operation is permanent and cannot be undone
+- All messages authored by the specified user are deleted
+- Used for GDPR "right to be forgotten" compliance
+- Operation is logged for audit purposes
+
+---
+
+### POST /api/messages/cleanup
+
+Manually triggers cleanup of old message logs according to the configured retention policy. Deletes messages older than the retention period in batches.
+
+**Authorization:** SuperAdmin only
+
+**Response: 200 OK**
+
+```json
+{
+  "deletedCount": 1250
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `deletedCount` | integer | Total number of message logs deleted |
+
+**Notes:**
+- Cleanup is normally performed automatically by a background service
+- This endpoint allows manual triggering for administrative purposes
+- Messages are deleted in batches to avoid database overload
+- Only messages older than the configured retention period are deleted
+- Operation is logged for audit purposes
+
+---
+
+### GET /api/messages/export
+
+Exports message logs matching the query criteria to a CSV file for external analysis or archival.
+
+**Authorization:** Admin+
+
+**Query Parameters:**
+
+Uses the same query parameters as `GET /api/messages`:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `authorId` | ulong? | null | Filter by message author ID |
+| `guildId` | ulong? | null | Filter by guild ID |
+| `channelId` | ulong? | null | Filter by channel ID |
+| `source` | MessageSource? | null | Filter by source (DirectMessage or ServerChannel) |
+| `startDate` | datetime? | null | Filter messages after this date (inclusive) |
+| `endDate` | datetime? | null | Filter messages before this date (inclusive) |
+| `searchTerm` | string? | null | Search message content (case-insensitive) |
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 25 | Items per page (max: 100) |
+
+**Example Request:**
+
+```
+GET /api/messages/export?guildId=123456789012345678&startDate=2024-12-01T00:00:00Z
+```
+
+**Response: 200 OK**
+
+```csv
+Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildName,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId
+1,1234567890123456789,987654321098765432,JohnDoe#1234,111222333444555666,general,123456789012345678,My Awesome Server,ServerChannel,"Hello, world!",2024-12-08T15:30:00Z,2024-12-08T15:30:01Z,false,false,
+2,9876543210987654321,111222333444555666,JaneSmith#5678,111222333444555666,announcements,123456789012345678,My Awesome Server,ServerChannel,Check out this cool link!,2024-12-08T15:25:00Z,2024-12-08T15:25:00Z,true,true,1234567890123456789
+```
+
+**Response Headers:**
+
+| Header | Value |
+|--------|-------|
+| `Content-Type` | text/csv |
+| `Content-Disposition` | attachment; filename="message-logs-yyyyMMddHHmmss.csv" |
+
+**Notes:**
+- Filename includes UTC timestamp for uniqueness
+- CSV includes all fields from MessageLogDto
+- Export respects the same filters as the GET endpoint
+- Large exports may take time to generate
+- Consider using pagination to limit export size
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid date range",
+  "detail": "Start date cannot be after end date.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
 
 ---
 
@@ -1186,6 +1558,71 @@ Task<bool> CanManageUserAsync(
 }
 ```
 
+### MessageLogDto
+
+```csharp
+{
+  "id": long,                       // Unique database identifier
+  "discordMessageId": ulong,        // Discord snowflake message ID
+  "authorId": ulong,                // User who authored the message
+  "authorUsername": string?,        // Username for display (nullable)
+  "channelId": ulong,               // Channel ID where message was sent
+  "channelName": string?,           // Channel name for display (nullable)
+  "guildId": ulong?,                // Guild ID (null for DMs)
+  "guildName": string?,             // Guild name for display (nullable)
+  "source": MessageSource,          // DirectMessage or ServerChannel
+  "content": string,                // Message content/text
+  "timestamp": DateTime,            // When message was sent on Discord
+  "loggedAt": DateTime,             // When message was logged to database
+  "hasAttachments": bool,           // Whether message has attachments
+  "hasEmbeds": bool,                // Whether message has embeds
+  "replyToMessageId": ulong?        // ID of message this is replying to (nullable)
+}
+```
+
+**MessageSource Enum:**
+- `DirectMessage` - Message sent in a DM
+- `ServerChannel` - Message sent in a guild channel
+
+### MessageLogQueryDto
+
+```csharp
+{
+  "authorId": ulong?,          // Filter by author ID
+  "guildId": ulong?,           // Filter by guild ID
+  "channelId": ulong?,         // Filter by channel ID
+  "source": MessageSource?,    // Filter by source
+  "startDate": DateTime?,      // Filter by start date
+  "endDate": DateTime?,        // Filter by end date
+  "searchTerm": string?,       // Search message content
+  "page": int,                 // Page number (default: 1)
+  "pageSize": int              // Page size (default: 25, max: 100)
+}
+```
+
+### MessageLogStatsDto
+
+```csharp
+{
+  "totalMessages": long,                        // Total number of messages logged
+  "dmMessages": long,                           // Count of direct messages
+  "serverMessages": long,                       // Count of server channel messages
+  "uniqueAuthors": long,                        // Number of unique message authors
+  "messagesByDay": List<DailyMessageCount>,     // Daily message counts for last 7 days
+  "oldestMessage": DateTime?,                   // Timestamp of oldest message (nullable)
+  "newestMessage": DateTime?                    // Timestamp of newest message (nullable)
+}
+```
+
+### DailyMessageCount
+
+```csharp
+{
+  "date": DateOnly,            // The date for this count
+  "count": long                // Number of messages on this date
+}
+```
+
 ### ApiErrorDto
 
 ```csharp
@@ -1240,12 +1677,54 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/sync" \
   -H "accept: application/json"
 ```
 
+### Example: Query Message Logs
+
+```bash
+curl -X GET "http://localhost:5000/api/messages?guildId=123456789012345678&page=1&pageSize=50&startDate=2024-12-01T00:00:00Z" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-token-here"
+```
+
+### Example: Get Message Statistics
+
+```bash
+curl -X GET "http://localhost:5000/api/messages/stats?guildId=123456789012345678" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-token-here"
+```
+
+### Example: Export Messages to CSV
+
+```bash
+curl -X GET "http://localhost:5000/api/messages/export?guildId=123456789012345678&startDate=2024-12-01T00:00:00Z" \
+  -H "accept: text/csv" \
+  -H "Authorization: Bearer your-token-here" \
+  --output messages.csv
+```
+
+### Example: Delete User Messages (GDPR)
+
+```bash
+curl -X DELETE "http://localhost:5000/api/messages/user/987654321098765432" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-superadmin-token-here"
+```
+
+### Example: Manually Trigger Cleanup
+
+```bash
+curl -X POST "http://localhost:5000/api/messages/cleanup" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-superadmin-token-here"
+```
+
 ---
 
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.3 | 2025-12-24 | Added Message Log endpoints documentation (Issue #140) |
 | 1.2 | 2025-12-24 | Added `/metrics` endpoint documentation (Issue #104) |
 | 1.1 | 2024-12-09 | Added User Management Service interface documentation (Issue #66) |
 | 1.0 | 2024-12-08 | Initial API implementation (Phase 4 MVP) |

@@ -1,0 +1,304 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.MessageLogs.IndexModel
+@{
+    ViewData["Title"] = "Message Logs";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Message Logs</h1>
+            <p class="mt-1 text-sm text-text-secondary">View and search logged Discord messages</p>
+        </div>
+        <a asp-page="/Api/MessageLogs/Export" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+        </a>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-text-primary">Filters</h2>
+        </div>
+
+        <form method="get" class="space-y-4">
+            <!-- Row 1: User ID, Guild ID, Channel ID -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Author ID -->
+                <div>
+                    <label for="authorId" class="block text-sm font-medium text-text-primary mb-1">User ID</label>
+                    <input
+                        type="text"
+                        id="authorId"
+                        name="AuthorId"
+                        value="@Model.AuthorId"
+                        placeholder="Enter Discord User ID..."
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+
+                <!-- Guild ID -->
+                <div>
+                    <label for="guildId" class="block text-sm font-medium text-text-primary mb-1">Guild ID</label>
+                    <input
+                        type="text"
+                        id="guildId"
+                        name="GuildId"
+                        value="@Model.GuildId"
+                        placeholder="Enter Guild ID..."
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+
+                <!-- Channel ID -->
+                <div>
+                    <label for="channelId" class="block text-sm font-medium text-text-primary mb-1">Channel ID</label>
+                    <input
+                        type="text"
+                        id="channelId"
+                        name="ChannelId"
+                        value="@Model.ChannelId"
+                        placeholder="Enter Channel ID..."
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            <!-- Row 2: Date Range -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- From Date -->
+                <div>
+                    <label for="startDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                    <input
+                        type="date"
+                        id="startDate"
+                        name="StartDate"
+                        value="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+
+                <!-- To Date -->
+                <div>
+                    <label for="endDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                    <input
+                        type="date"
+                        id="endDate"
+                        name="EndDate"
+                        value="@Model.EndDate?.ToString("yyyy-MM-dd")"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            <!-- Row 3: Source Type -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-2">Source Type</label>
+                <div class="flex flex-wrap items-center gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="Source" value="" checked="@(string.IsNullOrEmpty(Model.Source))" class="w-4 h-4">
+                        <span class="text-sm text-text-primary">All</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="Source" value="DirectMessage" checked="@(Model.Source == "DirectMessage")" class="w-4 h-4">
+                        <span class="text-sm text-text-primary">DMs Only</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="Source" value="ServerChannel" checked="@(Model.Source == "ServerChannel")" class="w-4 h-4">
+                        <span class="text-sm text-text-primary">Server Only</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Row 4: Content Search -->
+            <div>
+                <label for="searchTerm" class="block text-sm font-medium text-text-primary mb-1">Content Search</label>
+                <input
+                    type="text"
+                    id="searchTerm"
+                    name="SearchTerm"
+                    value="@Model.SearchTerm"
+                    placeholder="Search message content..."
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                />
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                <a asp-page="Index" class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
+                    Clear Filters
+                </a>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                    <span class="flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        Apply Filters
+                    </span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Results Summary -->
+    @if (Model.ViewModel.Messages.Any())
+    {
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">@((Model.ViewModel.Page - 1) * Model.ViewModel.PageSize + 1)-@Math.Min(Model.ViewModel.Page * Model.ViewModel.PageSize, Model.ViewModel.TotalCount)</span> of <span class="font-medium text-text-primary">@Model.ViewModel.TotalCount</span> messages
+            </p>
+        </div>
+    }
+
+    <!-- Table -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-border-primary">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Author</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Guild</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Channel</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Source</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Content</th>
+                        <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @if (Model.ViewModel.Messages.Any())
+                    {
+                        @foreach (var message in Model.ViewModel.Messages)
+                        {
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                    @message.Timestamp.ToString("MMM d, yyyy h:mm tt")
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="h-8 w-8 rounded-full bg-accent-blue flex items-center justify-center">
+                                            <span class="text-white font-medium text-xs">
+                                                @if (!string.IsNullOrEmpty(message.AuthorUsername))
+                                                {
+                                                    @message.AuthorUsername.Substring(0, Math.Min(2, message.AuthorUsername.Length)).ToUpper()
+                                                }
+                                                else
+                                                {
+                                                    @("?")
+                                                }
+                                            </span>
+                                        </div>
+                                        <div class="ml-3">
+                                            <div class="text-sm font-medium text-text-primary">
+                                                @(message.AuthorUsername ?? "(Unknown)")
+                                            </div>
+                                            <div class="text-xs text-text-tertiary font-mono">@message.AuthorId</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
+                                    @if (message.GuildId.HasValue)
+                                    {
+                                        @(message.GuildName ?? message.GuildId.ToString())
+                                    }
+                                    else
+                                    {
+                                        <span class="text-text-tertiary">(DM)</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                    @if (message.GuildId.HasValue)
+                                    {
+                                        @(message.ChannelName ?? $"#{message.ChannelId}")
+                                    }
+                                    else
+                                    {
+                                        <span class="text-text-tertiary">-</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if (message.Source == DiscordBot.Core.Enums.MessageSource.DirectMessage)
+                                    {
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                                            DM
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                            Server
+                                        </span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">
+                                    @message.Content
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <a asp-page="Details" asp-route-id="@message.Id" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                        <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center">
+                                @{
+                                    var emptyTitle = !string.IsNullOrEmpty(Model.SearchTerm) || Model.AuthorId.HasValue || Model.GuildId.HasValue || Model.ChannelId.HasValue
+                                        ? "No messages found"
+                                        : "No messages logged yet";
+                                    var emptyDesc = !string.IsNullOrEmpty(Model.SearchTerm) || Model.AuthorId.HasValue || Model.GuildId.HasValue || Model.ChannelId.HasValue
+                                        ? "Try adjusting your search or filters"
+                                        : "Messages will appear here as they are logged";
+                                }
+                                <partial name="Shared/Components/_EmptyState" model="new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
+                                    Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
+                                    Title = emptyTitle,
+                                    Description = emptyDesc
+                                }" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        @if (Model.ViewModel.TotalPages > 1)
+        {
+            <div class="px-6 py-4 border-t border-border-primary">
+                @{
+                    var queryParams = new Dictionary<string, string>();
+                    if (Model.AuthorId.HasValue) queryParams["AuthorId"] = Model.AuthorId.Value.ToString();
+                    if (Model.GuildId.HasValue) queryParams["GuildId"] = Model.GuildId.Value.ToString();
+                    if (Model.ChannelId.HasValue) queryParams["ChannelId"] = Model.ChannelId.Value.ToString();
+                    if (!string.IsNullOrEmpty(Model.Source)) queryParams["Source"] = Model.Source;
+                    if (Model.StartDate.HasValue) queryParams["StartDate"] = Model.StartDate.Value.ToString("yyyy-MM-dd");
+                    if (Model.EndDate.HasValue) queryParams["EndDate"] = Model.EndDate.Value.ToString("yyyy-MM-dd");
+                    if (!string.IsNullOrEmpty(Model.SearchTerm)) queryParams["SearchTerm"] = Model.SearchTerm;
+
+                    var baseUrl = Url.Page("Index", queryParams) ?? string.Empty;
+                }
+                <partial name="Shared/Components/_Pagination" model="new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
+                    CurrentPage = Model.ViewModel.Page,
+                    TotalPages = Model.ViewModel.TotalPages,
+                    TotalItems = Model.ViewModel.TotalCount,
+                    PageSize = Model.ViewModel.PageSize,
+                    BaseUrl = baseUrl,
+                    ShowPageSizeSelector = true,
+                    ShowItemCount = false,
+                    ShowFirstLast = true
+                }" />
+            </div>
+        }
+    </div>
+</div>

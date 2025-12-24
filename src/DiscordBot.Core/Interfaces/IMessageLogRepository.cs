@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 
 namespace DiscordBot.Core.Interfaces;
@@ -71,4 +72,72 @@ public interface IMessageLogRepository : IRepository<MessageLog>
         ulong? authorId = null,
         ulong? guildId = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets paginated message logs with filtering based on query parameters.
+    /// </summary>
+    /// <param name="query">Query parameters for filtering and pagination.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A tuple containing the filtered message logs and the total count of matching records.</returns>
+    Task<(IEnumerable<MessageLog> Items, int TotalCount)> GetPaginatedAsync(
+        MessageLogQueryDto query,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all message logs for a specific user.
+    /// Used for GDPR compliance and user data deletion requests.
+    /// </summary>
+    /// <param name="userId">The Discord user ID whose messages should be deleted.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of message logs deleted.</returns>
+    Task<int> DeleteByUserIdAsync(ulong userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets basic statistics about message logs including total counts and unique authors.
+    /// </summary>
+    /// <param name="guildId">Optional guild ID to filter statistics. If null, returns global statistics.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A tuple containing (TotalMessages, DmCount, ServerCount, UniqueAuthors).</returns>
+    Task<(long Total, long DmCount, long ServerCount, long UniqueAuthors)> GetBasicStatsAsync(
+        ulong? guildId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets message count breakdown by day for trend analysis.
+    /// </summary>
+    /// <param name="days">Number of days to include (default 7).</param>
+    /// <param name="guildId">Optional guild ID to filter results. If null, returns global data.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of (Date, Count) tuples ordered by date.</returns>
+    Task<IEnumerable<(DateOnly Date, long Count)>> GetMessagesByDayAsync(
+        int days = 7,
+        ulong? guildId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes a batch of message logs older than the specified cutoff date.
+    /// Used to prevent long-running transactions during cleanup operations.
+    /// </summary>
+    /// <param name="cutoff">Cutoff date - messages logged before this date will be deleted.</param>
+    /// <param name="batchSize">Maximum number of records to delete in this batch.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of messages deleted in this batch.</returns>
+    Task<int> DeleteBatchOlderThanAsync(
+        DateTime cutoff,
+        int batchSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the timestamp of the oldest message in the database.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Timestamp of the oldest message, or null if no messages exist.</returns>
+    Task<DateTime?> GetOldestMessageDateAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the timestamp of the newest message in the database.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Timestamp of the newest message, or null if no messages exist.</returns>
+    Task<DateTime?> GetNewestMessageDateAsync(CancellationToken cancellationToken = default);
 }

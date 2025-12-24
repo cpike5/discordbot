@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message #12345 - Discord Bot Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: {
+                            primary: '#1d2022',
+                            secondary: '#262a2d',
+                            tertiary: '#2f3336',
+                            hover: '#363a3e',
+                        },
+                        text: {
+                            primary: '#d7d3d0',
+                            secondary: '#a8a5a3',
+                            tertiary: '#7a7876',
+                            inverse: '#1d2022',
+                        },
+                        accent: {
+                            orange: {
+                                DEFAULT: '#cb4e1b',
+                                hover: '#e5591f',
+                                active: '#b04517',
+                                muted: '#cb4e1b33',
+                            },
+                            blue: {
+                                DEFAULT: '#098ecf',
+                                hover: '#0ba3ea',
+                                active: '#0879b3',
+                                muted: '#098ecf33',
+                            },
+                        },
+                        success: {
+                            DEFAULT: '#10b981',
+                            bg: '#10b98120',
+                            border: '#10b98150',
+                        },
+                        warning: {
+                            DEFAULT: '#f59e0b',
+                            bg: '#f59e0b20',
+                            border: '#f59e0b50',
+                        },
+                        error: {
+                            DEFAULT: '#ef4444',
+                            bg: '#ef444420',
+                            border: '#ef444450',
+                        },
+                        info: {
+                            DEFAULT: '#06b6d4',
+                            bg: '#06b6d420',
+                            border: '#06b6d450',
+                        },
+                        border: {
+                            primary: '#3f4447',
+                            secondary: '#2f3336',
+                            focus: '#098ecf',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2022;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f4447;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f5457;
+        }
+
+        /* Copy button animation */
+        .copy-btn.copied {
+            color: #10b981;
+        }
+        .copy-btn.copied svg {
+            animation: check-pop 0.3s ease;
+        }
+        @keyframes check-pop {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Users</a>
+                        <a href="index.html" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Message Logs</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex items-center gap-2 text-sm">
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li>
+                    <a href="index.html" class="text-text-secondary hover:text-accent-blue transition-colors">Message Logs</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li class="text-text-primary font-medium">Message #12345</li>
+            </ol>
+        </nav>
+
+        <!-- Back Button -->
+        <div class="mb-6">
+            <a href="index.html" class="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Message Logs
+            </a>
+        </div>
+
+        <!-- Main Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <!-- Card Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-xl font-bold text-text-primary">Message Details</h1>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                        Server
+                    </span>
+                </div>
+            </div>
+
+            <!-- Card Body -->
+            <div class="p-6 space-y-6">
+
+                <!-- Message Info Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Message Info</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                        <!-- Discord Message ID -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Discord Message ID</span>
+                            <div class="flex items-center gap-2">
+                                <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">1234567890123456789</code>
+                                <button onclick="copyToClipboard('1234567890123456789', this)" class="copy-btn p-1 text-text-tertiary hover:text-accent-blue transition-colors" title="Copy to clipboard">
+                                    <svg class="w-4 h-4 copy-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                    <svg class="w-4 h-4 check-icon hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Timestamp -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Timestamp</span>
+                            <span class="text-sm text-text-primary">December 24, 2025 at 10:30:45 AM EST</span>
+                        </div>
+                        <!-- Logged At -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Logged At</span>
+                            <span class="text-sm text-text-primary">December 24, 2025 at 10:30:46 AM EST</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Author Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Author</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                        <!-- Author Info with Avatar -->
+                        <div class="flex items-center gap-4">
+                            <div class="h-12 w-12 rounded-full bg-accent-blue flex items-center justify-center">
+                                <span class="text-white font-medium text-lg">JD</span>
+                            </div>
+                            <div>
+                                <div class="text-base font-medium text-text-primary">JohnDoe#1234</div>
+                                <div class="text-sm text-text-secondary">Discord User</div>
+                            </div>
+                        </div>
+                        <!-- Author ID -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Author ID</span>
+                            <div class="flex items-center gap-2">
+                                <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">123456789012345678</code>
+                                <button onclick="copyToClipboard('123456789012345678', this)" class="copy-btn p-1 text-text-tertiary hover:text-accent-blue transition-colors" title="Copy to clipboard">
+                                    <svg class="w-4 h-4 copy-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                    <svg class="w-4 h-4 check-icon hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Username -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Username</span>
+                            <span class="text-sm text-text-primary">JohnDoe#1234</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Location Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Location</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                        <!-- Guild ID -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Guild ID</span>
+                            <div class="flex items-center gap-2">
+                                <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">987654321098765432</code>
+                                <button onclick="copyToClipboard('987654321098765432', this)" class="copy-btn p-1 text-text-tertiary hover:text-accent-blue transition-colors" title="Copy to clipboard">
+                                    <svg class="w-4 h-4 copy-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                    <svg class="w-4 h-4 check-icon hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Guild Name -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Guild Name</span>
+                            <span class="text-sm text-text-primary">Gaming Hub</span>
+                        </div>
+                        <!-- Channel ID -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Channel ID</span>
+                            <div class="flex items-center gap-2">
+                                <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">876543210987654321</code>
+                                <button onclick="copyToClipboard('876543210987654321', this)" class="copy-btn p-1 text-text-tertiary hover:text-accent-blue transition-colors" title="Copy to clipboard">
+                                    <svg class="w-4 h-4 copy-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                    <svg class="w-4 h-4 check-icon hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Channel Name -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Channel Name</span>
+                            <span class="text-sm text-text-primary">#general</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Content Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Content</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                        <p class="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">Hey everyone! Just wanted to share this amazing discovery I made today while playing the new game update. The developers really outdid themselves with the new features.
+
+I found a secret area in the map that has some incredible loot. If you head north from the main spawn point and follow the river, you'll find a hidden cave entrance behind the waterfall.
+
+Has anyone else found this spot yet? Let me know what you think!</p>
+                    </div>
+                </section>
+
+                <!-- Metadata Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Metadata</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <!-- Has Attachments -->
+                            <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                <span class="text-sm text-text-secondary">Has Attachments</span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                                    No
+                                </span>
+                            </div>
+                            <!-- Has Embeds -->
+                            <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                <span class="text-sm text-text-secondary">Has Embeds</span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                                    No
+                                </span>
+                            </div>
+                            <!-- Is Reply -->
+                            <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                <span class="text-sm text-text-secondary">Is Reply</span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                                    No
+                                </span>
+                            </div>
+                            <!-- Reply To -->
+                            <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                <span class="text-sm text-text-secondary">Reply To Message ID</span>
+                                <span class="text-sm text-text-tertiary">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+
+            <!-- Card Footer -->
+            <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+                <a href="index.html" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to List
+                </a>
+            </div>
+        </div>
+
+        <!-- Example: DM Message Card -->
+        <div class="mt-8">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Example: DM Message</h2>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <!-- Card Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                    <div class="flex items-center gap-3">
+                        <h3 class="text-xl font-bold text-text-primary">Message Details</h3>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                            DM
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Card Body -->
+                <div class="p-6 space-y-6">
+
+                    <!-- Message Info Section -->
+                    <section>
+                        <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Message Info</h2>
+                        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Discord Message ID</span>
+                                <div class="flex items-center gap-2">
+                                    <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">9876543210987654321</code>
+                                    <button onclick="copyToClipboard('9876543210987654321', this)" class="copy-btn p-1 text-text-tertiary hover:text-accent-blue transition-colors" title="Copy to clipboard">
+                                        <svg class="w-4 h-4 copy-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        <svg class="w-4 h-4 check-icon hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Timestamp</span>
+                                <span class="text-sm text-text-primary">December 24, 2025 at 10:28:15 AM EST</span>
+                            </div>
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Logged At</span>
+                                <span class="text-sm text-text-primary">December 24, 2025 at 10:28:16 AM EST</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Author Section -->
+                    <section>
+                        <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Author</h2>
+                        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                            <div class="flex items-center gap-4">
+                                <div class="h-12 w-12 rounded-full bg-accent-orange flex items-center justify-center">
+                                    <span class="text-white font-medium text-lg">AS</span>
+                                </div>
+                                <div>
+                                    <div class="text-base font-medium text-text-primary">AliceSmith#5678</div>
+                                    <div class="text-sm text-text-secondary">Discord User</div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Author ID</span>
+                                <div class="flex items-center gap-2">
+                                    <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">234567890123456789</code>
+                                    <button onclick="copyToClipboard('234567890123456789', this)" class="copy-btn p-1 text-text-tertiary hover:text-accent-blue transition-colors" title="Copy to clipboard">
+                                        <svg class="w-4 h-4 copy-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        </svg>
+                                        <svg class="w-4 h-4 check-icon hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Username</span>
+                                <span class="text-sm text-text-primary">AliceSmith#5678</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Location Section (DM) -->
+                    <section>
+                        <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Location</h2>
+                        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-accent-blue/20 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="text-base font-medium text-text-primary">Direct Message</div>
+                                    <div class="text-sm text-text-secondary">This message was sent via DM to the bot</div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Content Section -->
+                    <section>
+                        <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Content</h2>
+                        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                            <p class="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">Hi! I need help with setting up the bot. Can you guide me through the configuration process? I've already invited the bot to my server but I'm not sure how to set up the moderation features.</p>
+                        </div>
+                    </section>
+
+                    <!-- Metadata Section -->
+                    <section>
+                        <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Metadata</h2>
+                        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                    <span class="text-sm text-text-secondary">Has Attachments</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                        Yes
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                    <span class="text-sm text-text-secondary">Has Embeds</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                                        No
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                    <span class="text-sm text-text-secondary">Is Reply</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                        Yes
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                    <span class="text-sm text-text-secondary">Reply To Message ID</span>
+                                    <code class="text-xs font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">1111222233334444555</code>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        function copyToClipboard(text, button) {
+            navigator.clipboard.writeText(text).then(() => {
+                // Toggle icons
+                const copyIcon = button.querySelector('.copy-icon');
+                const checkIcon = button.querySelector('.check-icon');
+
+                copyIcon.classList.add('hidden');
+                checkIcon.classList.remove('hidden');
+                button.classList.add('copied');
+
+                // Reset after 2 seconds
+                setTimeout(() => {
+                    copyIcon.classList.remove('hidden');
+                    checkIcon.classList.add('hidden');
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+    </script>
+</body>
+</html>

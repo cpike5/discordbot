@@ -1,0 +1,258 @@
+@page "{id:long}"
+@model DiscordBot.Bot.Pages.Admin.MessageLogs.DetailsModel
+@{
+    ViewData["Title"] = $"Message #{Model.ViewModel.Message.Id}";
+    var isDM = Model.ViewModel.Message.Source == DiscordBot.Core.Enums.MessageSource.DirectMessage;
+}
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Back Button -->
+    <div class="mb-6">
+        <a asp-page="Index" class="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Message Logs
+        </a>
+    </div>
+
+    <!-- Main Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <!-- Card Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+                <h1 class="text-xl font-bold text-text-primary">Message Details</h1>
+                @if (isDM)
+                {
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                        DM
+                    </span>
+                }
+                else
+                {
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                        Server
+                    </span>
+                }
+            </div>
+        </div>
+
+        <!-- Card Body -->
+        <div class="p-6 space-y-6">
+
+            <!-- Message Info Section -->
+            <section>
+                <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Message Info</h2>
+                <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                    <!-- Discord Message ID -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span class="text-sm text-text-secondary">Discord Message ID</span>
+                        <div class="flex items-center gap-2">
+                            <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Model.ViewModel.Message.DiscordMessageId</code>
+                        </div>
+                    </div>
+                    <!-- Timestamp -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span class="text-sm text-text-secondary">Timestamp</span>
+                        <span class="text-sm text-text-primary">@Model.ViewModel.Message.Timestamp.ToString("MMMM dd, yyyy 'at' h:mm:ss tt")</span>
+                    </div>
+                    <!-- Logged At -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span class="text-sm text-text-secondary">Logged At</span>
+                        <span class="text-sm text-text-primary">@Model.ViewModel.Message.LoggedAt.ToString("MMMM dd, yyyy 'at' h:mm:ss tt")</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Author Section -->
+            <section>
+                <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Author</h2>
+                <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                    <!-- Author Info with Avatar -->
+                    <div class="flex items-center gap-4">
+                        <div class="h-12 w-12 rounded-full bg-accent-blue flex items-center justify-center">
+                            <span class="text-white font-medium text-lg">
+                                @if (!string.IsNullOrEmpty(Model.ViewModel.Message.AuthorUsername))
+                                {
+                                    @Model.ViewModel.Message.AuthorUsername.Substring(0, Math.Min(2, Model.ViewModel.Message.AuthorUsername.Length)).ToUpper()
+                                }
+                                else
+                                {
+                                    @("?")
+                                }
+                            </span>
+                        </div>
+                        <div>
+                            <div class="text-base font-medium text-text-primary">
+                                @(Model.ViewModel.Message.AuthorUsername ?? "(Unknown)")
+                            </div>
+                            <div class="text-sm text-text-secondary">Discord User</div>
+                        </div>
+                    </div>
+                    <!-- Author ID -->
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <span class="text-sm text-text-secondary">Author ID</span>
+                        <div class="flex items-center gap-2">
+                            <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Model.ViewModel.Message.AuthorId</code>
+                        </div>
+                    </div>
+                    <!-- Username -->
+                    @if (!string.IsNullOrEmpty(Model.ViewModel.Message.AuthorUsername))
+                    {
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Username</span>
+                            <span class="text-sm text-text-primary">@Model.ViewModel.Message.AuthorUsername</span>
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <!-- Location Section -->
+            <section>
+                <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Location</h2>
+                @if (isDM)
+                {
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-accent-blue/20 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="text-base font-medium text-text-primary">Direct Message</div>
+                                <div class="text-sm text-text-secondary">This message was sent via DM to the bot</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                        <!-- Guild ID -->
+                        @if (Model.ViewModel.Message.GuildId.HasValue)
+                        {
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Guild ID</span>
+                                <div class="flex items-center gap-2">
+                                    <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Model.ViewModel.Message.GuildId.Value</code>
+                                </div>
+                            </div>
+                        }
+                        <!-- Guild Name -->
+                        @if (!string.IsNullOrEmpty(Model.ViewModel.Message.GuildName))
+                        {
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Guild Name</span>
+                                <span class="text-sm text-text-primary">@Model.ViewModel.Message.GuildName</span>
+                            </div>
+                        }
+                        <!-- Channel ID -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Channel ID</span>
+                            <div class="flex items-center gap-2">
+                                <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Model.ViewModel.Message.ChannelId</code>
+                            </div>
+                        </div>
+                        <!-- Channel Name -->
+                        @if (!string.IsNullOrEmpty(Model.ViewModel.Message.ChannelName))
+                        {
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Channel Name</span>
+                                <span class="text-sm text-text-primary">@Model.ViewModel.Message.ChannelName</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+
+            <!-- Content Section -->
+            <section>
+                <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Content</h2>
+                <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                    <p class="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">@Model.ViewModel.Message.Content</p>
+                </div>
+            </section>
+
+            <!-- Metadata Section -->
+            <section>
+                <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Metadata</h2>
+                <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- Has Attachments -->
+                        <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                            <span class="text-sm text-text-secondary">Has Attachments</span>
+                            @if (Model.ViewModel.Message.HasAttachments)
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                    Yes
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                                    No
+                                </span>
+                            }
+                        </div>
+                        <!-- Has Embeds -->
+                        <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                            <span class="text-sm text-text-secondary">Has Embeds</span>
+                            @if (Model.ViewModel.Message.HasEmbeds)
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                    Yes
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                                    No
+                                </span>
+                            }
+                        </div>
+                        <!-- Is Reply -->
+                        <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                            <span class="text-sm text-text-secondary">Is Reply</span>
+                            @if (Model.ViewModel.Message.ReplyToMessageId.HasValue)
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                    Yes
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                                    No
+                                </span>
+                            }
+                        </div>
+                        <!-- Reply To -->
+                        <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                            <span class="text-sm text-text-secondary">Reply To Message ID</span>
+                            @if (Model.ViewModel.Message.ReplyToMessageId.HasValue)
+                            {
+                                <code class="text-xs font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Model.ViewModel.Message.ReplyToMessageId.Value</code>
+                            }
+                            else
+                            {
+                                <span class="text-sm text-text-tertiary">-</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Card Footer -->
+        <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+            <a asp-page="Index" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to List
+            </a>
+        </div>
+    </div>
+</div>
