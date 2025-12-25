@@ -52,11 +52,14 @@ public class AnalyticsModel : PageModel
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken = default)
     {
         // Set defaults if not specified (so UI shows the actual filter values)
-        StartDate ??= DateTime.UtcNow.AddDays(-30).Date;
-        EndDate ??= DateTime.UtcNow.Date;
+        // Use Date property to normalize to midnight UTC (00:00:00)
+        StartDate = StartDate.HasValue ? StartDate.Value.Date : DateTime.UtcNow.AddDays(-30).Date;
+        EndDate = EndDate.HasValue ? EndDate.Value.Date : DateTime.UtcNow.Date;
 
+        // Query range: start at beginning of StartDate (00:00:00) and end at beginning of day after EndDate (00:00:00)
+        // This ensures we include all records from the entire EndDate day (up to 23:59:59.999)
         var start = StartDate.Value;
-        var end = EndDate.Value.AddDays(1); // End of the selected day
+        var end = EndDate.Value.AddDays(1);
 
         _logger.LogDebug("Loading analytics for {Start} to {End}, GuildId: {GuildId}", start, end, GuildId);
 

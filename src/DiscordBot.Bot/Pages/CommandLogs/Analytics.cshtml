@@ -80,9 +80,12 @@
                         <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
                         @{
                             var today = DateTime.UtcNow.Date;
-                            var isToday = Model.StartDate?.Date == today && Model.EndDate?.Date == today;
-                            var is7Days = Model.StartDate?.Date == today.AddDays(-7) && Model.EndDate?.Date == today;
-                            var is30Days = Model.StartDate?.Date == today.AddDays(-30) && Model.EndDate?.Date == today;
+                            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
+                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
+                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
 
                             string GetPresetClass(bool isActive) => isActive
                                 ? "px-3 py-1.5 text-xs font-medium bg-accent-blue text-white border border-accent-blue rounded-md hover:bg-accent-blue/90 transition-colors"
@@ -438,6 +441,9 @@
 
             startDateInput.value = startDate.toISOString().split('T')[0];
             endDateInput.value = today.toISOString().split('T')[0];
+
+            // Auto-submit the form after setting dates
+            document.getElementById('filterForm').submit();
         }
     </script>
 
