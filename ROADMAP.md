@@ -2,11 +2,11 @@
 
 This document outlines the development roadmap for the Discord Bot Management System. It provides a high-level view of completed work, current focus areas, and future enhancements.
 
-**Current Version:** v0.1.0 (initial pre-release)
+**Current Version:** v0.2.0 (pre-release)
 
 ---
 
-## Completed (v0.1.0)
+## Completed (v0.2.0)
 
 ### Core Foundation
 - [x] Discord bot with slash command framework (Discord.NET 3.18.0)
@@ -50,99 +50,89 @@ This document outlines the development roadmap for the Discord Bot Management Sy
 - [x] Loading states for async operations ([#88](https://github.com/cpike5/discordbot/issues/88))
 - [x] WCAG 2.1 AA accessibility compliance ([#89](https://github.com/cpike5/discordbot/issues/89))
 
+### UI Polish ([#168](https://github.com/cpike5/discordbot/issues/168))
+- [x] Remove/fix placeholder navigation links in sidebar ([#161](https://github.com/cpike5/discordbot/issues/161))
+- [x] Fix placeholder links in user dropdown menu ([#162](https://github.com/cpike5/discordbot/issues/162))
+- [x] Remove or implement global search ([#163](https://github.com/cpike5/discordbot/issues/163))
+- [x] Fix placeholder links on login page ([#164](https://github.com/cpike5/discordbot/issues/164))
+- [x] Make bot version in sidebar dynamic ([#165](https://github.com/cpike5/discordbot/issues/165))
+- [x] Remove/replace decorative notifications bell ([#166](https://github.com/cpike5/discordbot/issues/166))
+- [x] Restrict Components showcase to developers ([#167](https://github.com/cpike5/discordbot/issues/167))
+
+### Observability Enhancement ([#159](https://github.com/cpike5/discordbot/issues/159))
+Comprehensive logging, metrics, and distributed tracing for production readiness.
+
+- [x] Repository logging with performance tracking ([#99](https://github.com/cpike5/discordbot/issues/99))
+- [x] Correlation ID middleware for API requests ([#100](https://github.com/cpike5/discordbot/issues/100))
+- [x] EF Core query performance logging ([#101](https://github.com/cpike5/discordbot/issues/101))
+- [x] Log sanitization for sensitive data ([#102](https://github.com/cpike5/discordbot/issues/102))
+- [x] Rate limit logging for abuse detection ([#103](https://github.com/cpike5/discordbot/issues/103))
+- [x] OpenTelemetry metrics collection ([#104](https://github.com/cpike5/discordbot/issues/104))
+- [x] Distributed tracing with OpenTelemetry ([#105](https://github.com/cpike5/discordbot/issues/105))
+- [x] Centralized log aggregation - Seq ([#106](https://github.com/cpike5/discordbot/issues/106))
+- [x] CommandLogService optimization ([#107](https://github.com/cpike5/discordbot/issues/107))
+- [x] Environment-specific configuration ([#108](https://github.com/cpike5/discordbot/issues/108))
+- [x] Advanced metrics and business KPIs ([#109](https://github.com/cpike5/discordbot/issues/109))
+
+### User Consent & Privacy ([#130](https://github.com/cpike5/discordbot/issues/130))
+GDPR-compliant privacy framework with user consent management.
+
+- [x] Consent domain model & repository ([#132](https://github.com/cpike5/discordbot/issues/132))
+- [x] Consent slash commands - `/consent`, `/privacy` ([#133](https://github.com/cpike5/discordbot/issues/133))
+- [x] Consent check service integration ([#135](https://github.com/cpike5/discordbot/issues/135))
+- [x] Consent web UI management ([#134](https://github.com/cpike5/discordbot/issues/134))
+
+### Message Logging System ([#136](https://github.com/cpike5/discordbot/issues/136))
+Event-driven message capture with consent integration.
+
+- [x] Message log domain model & repository ([#137](https://github.com/cpike5/discordbot/issues/137))
+- [x] Message received event handler ([#138](https://github.com/cpike5/discordbot/issues/138))
+- [x] Message log admin UI ([#139](https://github.com/cpike5/discordbot/issues/139))
+- [x] Message log API endpoints ([#140](https://github.com/cpike5/discordbot/issues/140))
+- [x] Message log retention & cleanup ([#141](https://github.com/cpike5/discordbot/issues/141))
+
+### APM & Tracing ([#92](https://github.com/cpike5/discordbot/issues/92))
+Application Performance Monitoring with Elastic APM integration.
+
+- [x] APM foundation setup ([#93](https://github.com/cpike5/discordbot/issues/93))
+- [x] Discord interaction tracing ([#94](https://github.com/cpike5/discordbot/issues/94))
+- [x] Service layer span instrumentation ([#95](https://github.com/cpike5/discordbot/issues/95))
+- [x] Bot lifecycle event tracing ([#96](https://github.com/cpike5/discordbot/issues/96))
+- [x] Custom metrics collection ([#97](https://github.com/cpike5/discordbot/issues/97))
+- [x] Production optimization & alerting ([#98](https://github.com/cpike5/discordbot/issues/98))
+
+### Infrastructure & Documentation
+- [x] Strongly-typed configuration options classes ([#131](https://github.com/cpike5/discordbot/issues/131))
+- [x] Versioning strategy for builds and releases ([#175](https://github.com/cpike5/discordbot/issues/175))
+- [x] DocFX API documentation setup ([#111](https://github.com/cpike5/discordbot/issues/111))
+- [x] Component API usage guide ([#115](https://github.com/cpike5/discordbot/issues/115))
+
 ---
 
 ## In Progress
 
-### UI Polish ([#168](https://github.com/cpike5/discordbot/issues/168))
-Fixing broken links, placeholders, and incomplete features before stable release.
-
-| Issue | Description | Priority |
-|-------|-------------|----------|
-| [#161](https://github.com/cpike5/discordbot/issues/161) | Remove/fix placeholder navigation links in sidebar | High |
-| [#162](https://github.com/cpike5/discordbot/issues/162) | Fix placeholder links in user dropdown menu | High |
-| [#163](https://github.com/cpike5/discordbot/issues/163) | Remove or implement global search | Medium |
-| [#164](https://github.com/cpike5/discordbot/issues/164) | Fix placeholder links on login page | Medium |
-| [#165](https://github.com/cpike5/discordbot/issues/165) | Make bot version in sidebar dynamic | Low |
-| [#166](https://github.com/cpike5/discordbot/issues/166) | Remove/replace decorative notifications bell | Low |
-| [#167](https://github.com/cpike5/discordbot/issues/167) | Restrict Components showcase to developers | Low |
+No features currently in progress. All planned v0.2.0 features have been completed.
 
 ---
 
-## Planned Features
+## Planned Features (v0.3.0+)
 
-### Phase 1: Observability Enhancement ([#159](https://github.com/cpike5/discordbot/issues/159))
-Comprehensive logging, metrics, and distributed tracing for production readiness.
+The following features are prioritized for the next development cycle:
 
-**Foundation (Critical):**
-| Issue | Description |
-|-------|-------------|
-| [#99](https://github.com/cpike5/discordbot/issues/99) | Repository logging with performance tracking |
-| [#100](https://github.com/cpike5/discordbot/issues/100) | Correlation ID middleware for API requests |
-| [#101](https://github.com/cpike5/discordbot/issues/101) | EF Core query performance logging |
+### Production Readiness
+- **Docker Support** - Containerized deployment with docker-compose
+- **Health Checks** - Kubernetes/orchestration readiness and liveness probes
+- **Configuration Hot Reload** - Apply settings changes without restart
 
-**Security & Abuse Detection (High):**
-| Issue | Description |
-|-------|-------------|
-| [#102](https://github.com/cpike5/discordbot/issues/102) | Log sanitization for sensitive data |
-| [#103](https://github.com/cpike5/discordbot/issues/103) | Rate limit logging for abuse detection |
+### Bot Enhancements
+- **Auto-moderation** - Configurable rules for spam, profanity, raid detection
+- **Scheduled Messages** - Timed announcements and reminders
+- **Welcome System** - Configurable join messages and role assignment
 
-**Advanced Observability (Medium):**
-| Issue | Description |
-|-------|-------------|
-| [#104](https://github.com/cpike5/discordbot/issues/104) | OpenTelemetry metrics collection |
-| [#105](https://github.com/cpike5/discordbot/issues/105) | Distributed tracing with OpenTelemetry |
-| [#106](https://github.com/cpike5/discordbot/issues/106) | Centralized log aggregation (Seq/Application Insights) |
-| [#107](https://github.com/cpike5/discordbot/issues/107) | CommandLogService optimization |
-| [#108](https://github.com/cpike5/discordbot/issues/108) | Environment-specific configuration |
-| [#109](https://github.com/cpike5/discordbot/issues/109) | Advanced metrics and business KPIs |
-
----
-
-### Phase 2: User Consent & Privacy ([#130](https://github.com/cpike5/discordbot/issues/130))
-GDPR-compliant privacy framework with user consent management.
-
-| Issue | Description | Priority |
-|-------|-------------|----------|
-| [#132](https://github.com/cpike5/discordbot/issues/132) | Consent domain model & repository | High |
-| [#133](https://github.com/cpike5/discordbot/issues/133) | Consent slash commands (`/consent`, `/privacy`) | High |
-| [#135](https://github.com/cpike5/discordbot/issues/135) | Consent check service integration | High |
-| [#134](https://github.com/cpike5/discordbot/issues/134) | Consent web UI management | Medium |
-
-**Key Features:**
-- User opt-in/opt-out for data collection
-- Privacy preference storage per guild
-- Data deletion requests
-- Consent audit trail
-
----
-
-### Phase 3: Message Logging System ([#136](https://github.com/cpike5/discordbot/issues/136))
-Event-driven message capture with consent integration.
-
-| Issue | Description | Priority |
-|-------|-------------|----------|
-| [#137](https://github.com/cpike5/discordbot/issues/137) | Message log domain model & repository | Medium |
-| [#138](https://github.com/cpike5/discordbot/issues/138) | Message received event handler | Medium |
-| [#139](https://github.com/cpike5/discordbot/issues/139) | Message log admin UI | Medium |
-| [#140](https://github.com/cpike5/discordbot/issues/140) | Message log API endpoints | Medium |
-| [#141](https://github.com/cpike5/discordbot/issues/141) | Message log retention & cleanup | Low |
-
-**Prerequisites:** Consent system must be implemented first.
-
----
-
-### Phase 4: APM & Tracing ([#92](https://github.com/cpike5/discordbot/issues/92))
-Application Performance Monitoring with Elastic APM integration.
-
-| Issue | Description | Priority |
-|-------|-------------|----------|
-| [#93](https://github.com/cpike5/discordbot/issues/93) | APM foundation setup | High |
-| [#94](https://github.com/cpike5/discordbot/issues/94) | Discord interaction tracing | High |
-| [#95](https://github.com/cpike5/discordbot/issues/95) | Service layer span instrumentation | Medium |
-| [#96](https://github.com/cpike5/discordbot/issues/96) | Bot lifecycle event tracing | Medium |
-| [#97](https://github.com/cpike5/discordbot/issues/97) | Custom metrics collection | Medium |
-| [#98](https://github.com/cpike5/discordbot/issues/98) | Production optimization & alerting | Low |
+### Admin UI Enhancements
+- **Real-time Dashboard** - SignalR/WebSocket live updates
+- **Audit Log Viewer** - Detailed activity history with filtering
+- **Guild Configuration UI** - Per-guild settings management
 
 ---
 
@@ -152,16 +142,10 @@ The following features are candidates for future development but not yet formall
 
 ### Bot Functionality
 - **Moderation Queue** - Review and approve/reject flagged messages
-- **Auto-moderation** - Configurable rules for spam, profanity, raid detection
-- **Scheduled Messages** - Timed announcements and reminders
 - **Custom Commands** - Guild-specific custom slash commands via admin UI
 - **Reaction Roles** - Self-assignable roles via message reactions
-- **Welcome System** - Configurable join messages and role assignment
 
 ### Admin UI Enhancements
-- **Real-time Dashboard** - SignalR/WebSocket live updates
-- **Audit Log Viewer** - Detailed activity history with filtering
-- **Guild Configuration UI** - Per-guild settings management
 - **Backup & Restore** - Export/import guild configurations
 - **Multi-language Support** - Localization for admin UI
 
@@ -172,10 +156,7 @@ The following features are candidates for future development but not yet formall
 - **Rate Limiting API** - Configurable throttling per endpoint
 
 ### Infrastructure
-- **Docker Support** - Containerized deployment
-- **Health Checks** - Kubernetes/orchestration readiness probes
 - **Database Migrations UI** - Admin interface for schema updates
-- **Configuration Hot Reload** - Apply settings without restart
 
 ### Analytics & Reporting
 - **Usage Reports** - Scheduled email summaries
@@ -189,6 +170,7 @@ The following features are candidates for future development but not yet formall
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v0.2.0 | 2025-12 | Observability, consent system, message logging, APM tracing, UI polish |
 | v0.1.0 | 2025-12 | Initial pre-release: core bot, admin UI, authentication, API |
 
 ---
