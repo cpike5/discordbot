@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Dashboard - Discord Bot Admin</title>
+  <style>
+    /* CSS Custom Properties - Design System Tokens */
+    :root {
+      /* Background Layers */
+      --color-bg-primary: #1d2022;
+      --color-bg-secondary: #262a2d;
+      --color-bg-tertiary: #2f3336;
+      --color-bg-hover: #363a3e;
+
+      /* Text Colors */
+      --color-text-primary: #d7d3d0;
+      --color-text-secondary: #a8a5a3;
+      --color-text-tertiary: #7a7876;
+
+      /* Brand Accent Colors */
+      --color-accent-orange: #cb4e1b;
+      --color-accent-orange-hover: #e5591f;
+      --color-accent-blue: #098ecf;
+      --color-accent-blue-hover: #0ba3ea;
+
+      /* Semantic Colors */
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-error: #ef4444;
+      --color-info: #06b6d4;
+
+      /* Border */
+      --color-border-primary: #3f4447;
+
+      /* Font Stack */
+      --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+      --font-family-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    /* Reset & Base Styles */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family-sans);
+      background-color: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      background-color: var(--color-bg-secondary);
+      border-bottom: 1px solid var(--color-border-primary);
+    }
+
+    .header-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .header-title svg {
+      width: 1.5rem;
+      height: 1.5rem;
+      color: var(--color-accent-orange);
+    }
+
+    /* Connection Status Pill */
+    .connection-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background-color: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+    }
+
+    .connection-status .dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .connection-status.connected .dot {
+      background-color: var(--color-success);
+    }
+
+    .connection-status.connected .dot::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background-color: var(--color-success);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .connection-status.reconnecting .dot {
+      background-color: var(--color-warning);
+      animation: blink 1s ease-in-out infinite;
+    }
+
+    .connection-status.disconnected .dot {
+      background-color: var(--color-error);
+    }
+
+    .connection-status.connected { color: var(--color-success); }
+    .connection-status.reconnecting { color: var(--color-warning); }
+    .connection-status.disconnected { color: var(--color-error); }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(2); opacity: 0; }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* Main Container */
+    .main-container {
+      padding: 1.5rem;
+      max-width: 1536px;
+      margin: 0 auto;
+    }
+
+    /* Stats Cards Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(1, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (min-width: 640px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    /* Stat Card */
+    .stat-card {
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .stat-card-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .stat-card-icon svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    .stat-card-icon.online {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--color-success);
+    }
+
+    .stat-card-icon.guilds {
+      background-color: rgba(9, 142, 207, 0.15);
+      color: var(--color-accent-blue);
+    }
+
+    .stat-card-icon.users {
+      background-color: rgba(203, 78, 27, 0.15);
+      color: var(--color-accent-orange);
+    }
+
+    .stat-card-icon.commands {
+      background-color: rgba(6, 182, 212, 0.15);
+      color: var(--color-info);
+    }
+
+    .stat-card-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .stat-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-card-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .stat-card-trend {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
+    }
+
+    .stat-card-trend.up {
+      color: var(--color-success);
+      background-color: rgba(16, 185, 129, 0.15);
+    }
+
+    .stat-card-trend.down {
+      color: var(--color-error);
+      background-color: rgba(239, 68, 68, 0.15);
+    }
+
+    .stat-card-trend svg {
+      width: 0.75rem;
+      height: 0.75rem;
+    }
+
+    .stat-card-label {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-card-secondary {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .stat-card-secondary .latency {
+      color: var(--color-success);
+    }
+
+    .stat-card-sparkline {
+      height: 1.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .stat-card-sparkline svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Two Column Layout */
+    .two-column-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    @media (min-width: 1024px) {
+      .two-column-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    /* Card Component */
+    .card {
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--color-border-primary);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-title svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      color: var(--color-text-secondary);
+    }
+
+    .card-body {
+      padding: 1rem 1.5rem;
+    }
+
+    .card-body.no-padding {
+      padding: 0;
+    }
+
+    /* Toggle Button */
+    .btn-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      background-color: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+    }
+
+    .btn-toggle:hover {
+      background-color: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+
+    .btn-toggle.active {
+      background-color: var(--color-accent-orange);
+      border-color: var(--color-accent-orange);
+      color: white;
+    }
+
+    .btn-toggle svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    /* Activity Feed */
+    .activity-feed {
+      max-height: 20rem;
+      overflow-y: auto;
+    }
+
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--color-border-primary);
+      transition: background-color 0.15s ease-in-out;
+    }
+
+    .activity-item:last-child {
+      border-bottom: none;
+    }
+
+    .activity-item:hover {
+      background-color: var(--color-bg-tertiary);
+    }
+
+    .activity-timestamp {
+      font-size: 0.75rem;
+      font-family: var(--font-family-mono);
+      color: var(--color-text-tertiary);
+      white-space: nowrap;
+    }
+
+    .activity-icon {
+      font-size: 1rem;
+      width: 1.5rem;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .activity-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .activity-description {
+      font-size: 0.875rem;
+      color: var(--color-text-primary);
+    }
+
+    .activity-description .user {
+      color: var(--color-accent-blue);
+      font-weight: 500;
+    }
+
+    .activity-description .command {
+      font-family: var(--font-family-mono);
+      font-size: 0.8125rem;
+      color: var(--color-accent-orange);
+    }
+
+    .activity-guild {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+      margin-top: 0.125rem;
+    }
+
+    .activity-paused-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      background-color: var(--color-bg-tertiary);
+      color: var(--color-text-secondary);
+      font-size: 0.875rem;
+    }
+
+    .activity-paused-indicator svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    /* Chart Placeholder */
+    .chart-container {
+      height: 10rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .chart-placeholder {
+      width: 100%;
+      height: 100%;
+    }
+
+    .chart-placeholder svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* System Health */
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .health-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .health-item {
+      text-align: center;
+    }
+
+    .health-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .health-gauge {
+      position: relative;
+      width: 5rem;
+      height: 5rem;
+      margin: 0 auto 0.5rem;
+    }
+
+    .health-gauge svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+
+    .health-gauge circle {
+      fill: none;
+      stroke-width: 8;
+    }
+
+    .health-gauge .bg {
+      stroke: var(--color-bg-tertiary);
+    }
+
+    .health-gauge .progress {
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.3s ease-in-out;
+    }
+
+    .health-gauge .progress.success { stroke: var(--color-success); }
+    .health-gauge .progress.warning { stroke: var(--color-warning); }
+    .health-gauge .progress.error { stroke: var(--color-error); }
+
+    .health-gauge-value {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .health-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .health-status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .health-status-indicator .dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+    }
+
+    .health-status-indicator.success .dot { background-color: var(--color-success); }
+    .health-status-indicator.success { color: var(--color-success); }
+    .health-status-indicator.warning .dot { background-color: var(--color-warning); }
+    .health-status-indicator.warning { color: var(--color-warning); }
+    .health-status-indicator.error .dot { background-color: var(--color-error); }
+    .health-status-indicator.error { color: var(--color-error); }
+
+    .health-value {
+      font-size: 0.875rem;
+      color: var(--color-text-primary);
+      font-weight: 500;
+    }
+
+    /* Demo Section */
+    .demo-section {
+      margin-top: 2rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--color-border-primary);
+    }
+
+    .demo-section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .demo-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    /* Skeleton Loading */
+    .skeleton {
+      background: linear-gradient(90deg, #2f3336 0%, #3f4447 50%, #2f3336 100%);
+      background-size: 200% 100%;
+      animation: skeleton-shimmer 1.5s ease-in-out infinite;
+      border-radius: 0.25rem;
+    }
+
+    @keyframes skeleton-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .skeleton-stat-card {
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .skeleton-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.5rem;
+    }
+
+    .skeleton-content {
+      flex: 1;
+    }
+
+    .skeleton-value {
+      width: 4rem;
+      height: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .skeleton-label {
+      width: 6rem;
+      height: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .skeleton-sparkline {
+      width: 100%;
+      height: 1.5rem;
+    }
+
+    /* Stale Data Indicator */
+    .stale-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.75rem;
+      color: var(--color-warning);
+      background-color: rgba(245, 158, 11, 0.1);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      margin-top: 0.5rem;
+    }
+
+    .stale-indicator svg {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    /* Connection Lost Message */
+    .connection-lost-message {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      background-color: rgba(239, 68, 68, 0.1);
+      color: var(--color-error);
+      font-size: 0.875rem;
+    }
+
+    .connection-lost-message svg {
+      width: 1rem;
+      height: 1rem;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* Focus States */
+    *:focus-visible {
+      outline: 2px solid var(--color-accent-blue);
+      outline-offset: 2px;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 0.5rem;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--color-bg-tertiary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--color-border-primary);
+      border-radius: 0.25rem;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-text-tertiary);
+    }
+
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton {
+        animation: none;
+        background: var(--color-bg-tertiary);
+      }
+
+      .connection-status.connected .dot::before {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1 class="header-title">
+      <!-- Activity Icon -->
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
+      </svg>
+      Real-Time Dashboard
+    </h1>
+
+    <!-- Connection Status -->
+    <div class="connection-status connected">
+      <span class="dot"></span>
+      <span>Connected</span>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-container">
+    <!-- Live Stats Cards -->
+    <section class="stats-grid">
+      <!-- Bot Status Card -->
+      <div class="stat-card">
+        <div class="stat-card-icon online">
+          <!-- Signal Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.348 14.652a3.75 3.75 0 010-5.304m5.304 0a3.75 3.75 0 010 5.304m-7.425 2.121a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.788m13.788 0c3.808 3.808 3.808 9.98 0 13.788M12 12h.008v.008H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+          </svg>
+        </div>
+        <div class="stat-card-content">
+          <div class="stat-card-header">
+            <span class="stat-card-value">Online</span>
+          </div>
+          <div class="stat-card-label">Bot Status</div>
+          <div class="stat-card-secondary">
+            <span>Uptime: 14d 3h 22m</span>
+            <span class="latency">42ms</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Guilds Card -->
+      <div class="stat-card">
+        <div class="stat-card-icon guilds">
+          <!-- Server Stack Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 019 14.437V9.564z" />
+          </svg>
+        </div>
+        <div class="stat-card-content">
+          <div class="stat-card-header">
+            <span class="stat-card-value">127</span>
+            <span class="stat-card-trend up">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" />
+              </svg>
+              +3
+            </span>
+          </div>
+          <div class="stat-card-label">Active Guilds</div>
+          <div class="stat-card-sparkline">
+            <svg viewBox="0 0 100 24" preserveAspectRatio="none">
+              <polyline
+                fill="none"
+                stroke="#098ecf"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                points="0,18 10,16 20,17 30,14 40,15 50,12 60,10 70,11 80,8 90,7 100,6"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Users Card -->
+      <div class="stat-card">
+        <div class="stat-card-icon users">
+          <!-- Users Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+          </svg>
+        </div>
+        <div class="stat-card-content">
+          <div class="stat-card-header">
+            <span class="stat-card-value">1,842</span>
+          </div>
+          <div class="stat-card-label">Active Users</div>
+          <div class="stat-card-secondary">
+            <span>Peak: 2,104</span>
+          </div>
+          <div class="stat-card-sparkline">
+            <svg viewBox="0 0 100 24" preserveAspectRatio="none">
+              <polyline
+                fill="none"
+                stroke="#cb4e1b"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                points="0,12 10,14 20,10 30,16 40,8 50,12 60,6 70,10 80,8 90,12 100,10"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Commands Today Card -->
+      <div class="stat-card">
+        <div class="stat-card-icon commands">
+          <!-- Command Line Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+        </div>
+        <div class="stat-card-content">
+          <div class="stat-card-header">
+            <span class="stat-card-value">3,847</span>
+            <span class="stat-card-trend up">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z" clip-rule="evenodd" />
+              </svg>
+              +12%
+            </span>
+          </div>
+          <div class="stat-card-label">Commands Today</div>
+          <div class="stat-card-sparkline">
+            <svg viewBox="0 0 100 24" preserveAspectRatio="none">
+              <polyline
+                fill="none"
+                stroke="#06b6d4"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                points="0,20 10,18 20,16 30,17 40,14 50,12 60,10 70,8 80,6 90,5 100,4"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two Column Section: Activity Feed + Charts -->
+    <section class="two-column-grid">
+      <!-- Activity Feed Panel -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <!-- Activity Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+            Live Activity
+          </h2>
+          <button class="btn-toggle" id="pauseBtn" onclick="togglePause()">
+            <!-- Pause Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" id="pauseIcon">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+            </svg>
+            <!-- Play Icon (hidden by default) -->
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" id="playIcon" style="display: none;">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+            </svg>
+            <span id="pauseBtnText">Pause</span>
+          </button>
+        </div>
+        <div class="card-body no-padding">
+          <!-- Paused Indicator (hidden by default) -->
+          <div class="activity-paused-indicator" id="pausedIndicator" style="display: none;">
+            <!-- Pause Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25v13.5m-7.5-13.5v13.5" />
+            </svg>
+            Feed paused - click Resume to continue
+          </div>
+          <div class="activity-feed" id="activityFeed">
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:56</span>
+              <span class="activity-icon">&#128295;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  <span class="command">/help</span> executed by <span class="user">@User123</span>
+                </div>
+                <div class="activity-guild">My Server</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:52</span>
+              <span class="activity-icon">&#10133;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  <span class="user">@NewMember</span> joined the server
+                </div>
+                <div class="activity-guild">Welcome Guild</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:48</span>
+              <span class="activity-icon">&#128172;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  Message deleted in <span class="command">#general</span>
+                </div>
+                <div class="activity-guild">My Server</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:45</span>
+              <span class="activity-icon">&#128295;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  <span class="command">/stats</span> executed by <span class="user">@Admin</span>
+                </div>
+                <div class="activity-guild">Test Server</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:40</span>
+              <span class="activity-icon">&#10134;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  <span class="user">@OldMember</span> left the server
+                </div>
+                <div class="activity-guild">Test Guild</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:35</span>
+              <span class="activity-icon">&#128295;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  <span class="command">/ban</span> executed by <span class="user">@Moderator</span>
+                </div>
+                <div class="activity-guild">Gaming Community</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:30</span>
+              <span class="activity-icon">&#10133;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  <span class="user">@CoolUser99</span> joined the server
+                </div>
+                <div class="activity-guild">My Server</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:25</span>
+              <span class="activity-icon">&#128172;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  Message edited in <span class="command">#announcements</span>
+                </div>
+                <div class="activity-guild">Official Server</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:20</span>
+              <span class="activity-icon">&#128295;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  <span class="command">/config</span> executed by <span class="user">@ServerOwner</span>
+                </div>
+                <div class="activity-guild">Private Server</div>
+              </div>
+            </div>
+            <div class="activity-item">
+              <span class="activity-timestamp">12:34:15</span>
+              <span class="activity-icon">&#10133;</span>
+              <div class="activity-content">
+                <div class="activity-description">
+                  <span class="user">@FirstTimer</span> joined the server
+                </div>
+                <div class="activity-guild">Welcome Guild</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Panel -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">
+            <!-- Chart Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+            </svg>
+            Live Charts (24h)
+          </h2>
+        </div>
+        <div class="card-body">
+          <!-- Commands per Hour Chart -->
+          <div style="margin-bottom: 1.5rem;">
+            <div style="font-size: 0.875rem; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Commands per Hour</div>
+            <div class="chart-container">
+              <div class="chart-placeholder">
+                <svg viewBox="0 0 400 100" preserveAspectRatio="none">
+                  <!-- Grid lines -->
+                  <line x1="0" y1="25" x2="400" y2="25" stroke="#3f4447" stroke-width="1" stroke-dasharray="4" />
+                  <line x1="0" y1="50" x2="400" y2="50" stroke="#3f4447" stroke-width="1" stroke-dasharray="4" />
+                  <line x1="0" y1="75" x2="400" y2="75" stroke="#3f4447" stroke-width="1" stroke-dasharray="4" />
+                  <!-- Area fill -->
+                  <path
+                    fill="url(#commandGradient)"
+                    d="M0,80 L17,75 L33,70 L50,72 L67,65 L83,60 L100,55 L117,50 L133,45 L150,48 L167,42 L183,38 L200,35 L217,32 L233,28 L250,30 L267,25 L283,22 L300,18 L317,20 L333,15 L350,12 L367,10 L383,8 L400,5 L400,100 L0,100 Z"
+                  />
+                  <!-- Line -->
+                  <polyline
+                    fill="none"
+                    stroke="#06b6d4"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    points="0,80 17,75 33,70 50,72 67,65 83,60 100,55 117,50 133,45 150,48 167,42 183,38 200,35 217,32 233,28 250,30 267,25 283,22 300,18 317,20 333,15 350,12 367,10 383,8 400,5"
+                  />
+                  <defs>
+                    <linearGradient id="commandGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.3" />
+                      <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Messages per Hour Chart -->
+          <div>
+            <div style="font-size: 0.875rem; font-weight: 500; color: var(--color-text-secondary); margin-bottom: 0.5rem;">Messages per Hour</div>
+            <div class="chart-container">
+              <div class="chart-placeholder">
+                <svg viewBox="0 0 400 100" preserveAspectRatio="none">
+                  <!-- Grid lines -->
+                  <line x1="0" y1="25" x2="400" y2="25" stroke="#3f4447" stroke-width="1" stroke-dasharray="4" />
+                  <line x1="0" y1="50" x2="400" y2="50" stroke="#3f4447" stroke-width="1" stroke-dasharray="4" />
+                  <line x1="0" y1="75" x2="400" y2="75" stroke="#3f4447" stroke-width="1" stroke-dasharray="4" />
+                  <!-- Area fill -->
+                  <path
+                    fill="url(#messageGradient)"
+                    d="M0,60 L17,55 L33,58 L50,50 L67,45 L83,48 L100,40 L117,35 L133,38 L150,30 L167,28 L183,32 L200,25 L217,22 L233,28 L250,20 L267,18 L283,22 L300,15 L317,12 L333,18 L350,10 L367,8 L383,12 L400,5 L400,100 L0,100 Z"
+                  />
+                  <!-- Line -->
+                  <polyline
+                    fill="none"
+                    stroke="#cb4e1b"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    points="0,60 17,55 33,58 50,50 67,45 83,48 100,40 117,35 133,38 150,30 167,28 183,32 200,25 217,22 233,28 250,20 267,18 283,22 300,15 317,12 333,18 350,10 367,8 383,12 400,5"
+                  />
+                  <defs>
+                    <linearGradient id="messageGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stop-color="#cb4e1b" stop-opacity="0.3" />
+                      <stop offset="100%" stop-color="#cb4e1b" stop-opacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- System Health Panel -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">
+          <!-- Heart Icon -->
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+          </svg>
+          System Health
+        </h2>
+      </div>
+      <div class="card-body">
+        <div class="health-grid">
+          <!-- Memory Usage -->
+          <div class="health-item">
+            <div class="health-label">Memory</div>
+            <div class="health-gauge">
+              <svg viewBox="0 0 36 36">
+                <circle class="bg" cx="18" cy="18" r="15.915" />
+                <circle
+                  class="progress warning"
+                  cx="18"
+                  cy="18"
+                  r="15.915"
+                  stroke-dasharray="68, 100"
+                />
+              </svg>
+              <div class="health-gauge-value">68%</div>
+            </div>
+            <div class="health-value">2.7 GB / 4 GB</div>
+          </div>
+
+          <!-- CPU Usage -->
+          <div class="health-item">
+            <div class="health-label">CPU</div>
+            <div class="health-gauge">
+              <svg viewBox="0 0 36 36">
+                <circle class="bg" cx="18" cy="18" r="15.915" />
+                <circle
+                  class="progress success"
+                  cx="18"
+                  cy="18"
+                  r="15.915"
+                  stroke-dasharray="23, 100"
+                />
+              </svg>
+              <div class="health-gauge-value">23%</div>
+            </div>
+            <div class="health-value">Low utilization</div>
+          </div>
+
+          <!-- Database Status -->
+          <div class="health-item">
+            <div class="health-label">Database</div>
+            <div class="health-status">
+              <div class="health-status-indicator success">
+                <span class="dot"></span>
+                Connected
+              </div>
+            </div>
+            <div class="health-value">SQLite</div>
+          </div>
+
+          <!-- API Latency -->
+          <div class="health-item">
+            <div class="health-label">API Latency</div>
+            <div class="health-status">
+              <div class="health-status-indicator success">
+                <span class="dot"></span>
+                42ms
+              </div>
+            </div>
+            <div class="health-value">Excellent</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Demo Section: Loading/Skeleton States -->
+    <section class="demo-section">
+      <h3 class="demo-section-title">Loading / Skeleton States Demo</h3>
+      <div class="demo-grid">
+        <!-- Skeleton Stats Cards -->
+        <div>
+          <div style="font-size: 0.875rem; color: var(--color-text-secondary); margin-bottom: 0.75rem;">Skeleton Loading State</div>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+            <div class="skeleton-stat-card">
+              <div class="skeleton skeleton-icon"></div>
+              <div class="skeleton-content">
+                <div class="skeleton skeleton-value"></div>
+                <div class="skeleton skeleton-label"></div>
+                <div class="skeleton skeleton-sparkline"></div>
+              </div>
+            </div>
+            <div class="skeleton-stat-card">
+              <div class="skeleton skeleton-icon"></div>
+              <div class="skeleton-content">
+                <div class="skeleton skeleton-value"></div>
+                <div class="skeleton skeleton-label"></div>
+                <div class="skeleton skeleton-sparkline"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Disconnection State Demo -->
+        <div>
+          <div style="font-size: 0.875rem; color: var(--color-text-secondary); margin-bottom: 0.75rem;">Disconnection State Demo</div>
+
+          <!-- Connection Status Pills Demo -->
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem;">
+            <div class="connection-status reconnecting">
+              <span class="dot"></span>
+              <span>Reconnecting...</span>
+            </div>
+            <div class="connection-status disconnected">
+              <span class="dot"></span>
+              <span>Disconnected</span>
+            </div>
+          </div>
+
+          <!-- Stale Data Card Example -->
+          <div class="stat-card" style="margin-bottom: 1rem;">
+            <div class="stat-card-icon guilds">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9.563C9 9.252 9.252 9 9.563 9h4.874c.311 0 .563.252.563.563v4.874c0 .311-.252.563-.563.563H9.564A.562.562 0 019 14.437V9.564z" />
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <div class="stat-card-header">
+                <span class="stat-card-value" style="color: var(--color-text-tertiary);">127</span>
+              </div>
+              <div class="stat-card-label">Active Guilds</div>
+              <div class="stale-indicator">
+                <!-- Warning Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                Data may be stale
+              </div>
+            </div>
+          </div>
+
+          <!-- Connection Lost Activity Message -->
+          <div class="card">
+            <div class="card-body no-padding">
+              <div class="connection-lost-message">
+                <!-- Spinner Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                </svg>
+                Connection lost... attempting to reconnect
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Activity Feed Pause/Resume Toggle
+    let isPaused = false;
+
+    function togglePause() {
+      isPaused = !isPaused;
+
+      const pauseBtn = document.getElementById('pauseBtn');
+      const pauseIcon = document.getElementById('pauseIcon');
+      const playIcon = document.getElementById('playIcon');
+      const pauseBtnText = document.getElementById('pauseBtnText');
+      const pausedIndicator = document.getElementById('pausedIndicator');
+
+      if (isPaused) {
+        pauseBtn.classList.add('active');
+        pauseIcon.style.display = 'none';
+        playIcon.style.display = 'block';
+        pauseBtnText.textContent = 'Resume';
+        pausedIndicator.style.display = 'flex';
+      } else {
+        pauseBtn.classList.remove('active');
+        pauseIcon.style.display = 'block';
+        playIcon.style.display = 'none';
+        pauseBtnText.textContent = 'Pause';
+        pausedIndicator.style.display = 'none';
+      }
+    }
+
+    // Simulate real-time activity (for demo purposes)
+    const activities = [
+      { icon: '&#128295;', command: '/ping', user: '@Player1', guild: 'Gaming Hub' },
+      { icon: '&#10133;', command: null, user: '@Newcomer', guild: 'Support Server', action: 'joined the server' },
+      { icon: '&#128172;', command: '#memes', user: null, guild: 'Fun Zone', action: 'Message posted in' },
+      { icon: '&#128295;', command: '/roll 1d20', user: '@DungeonMaster', guild: 'RPG Server' },
+      { icon: '&#10134;', command: null, user: '@AFKUser', guild: 'General Chat', action: 'left the server' },
+      { icon: '&#128295;', command: '/mute', user: '@Moderator', guild: 'Official Discord' },
+    ];
+
+    function getTimestamp() {
+      const now = new Date();
+      return now.toTimeString().split(' ')[0];
+    }
+
+    function createActivityItem(activity) {
+      const item = document.createElement('div');
+      item.className = 'activity-item';
+
+      let description = '';
+      if (activity.command && activity.user) {
+        description = `<span class="command">${activity.command}</span> executed by <span class="user">${activity.user}</span>`;
+      } else if (activity.action && activity.user) {
+        description = `<span class="user">${activity.user}</span> ${activity.action}`;
+      } else if (activity.action && activity.command) {
+        description = `${activity.action} <span class="command">${activity.command}</span>`;
+      }
+
+      item.innerHTML = `
+        <span class="activity-timestamp">${getTimestamp()}</span>
+        <span class="activity-icon">${activity.icon}</span>
+        <div class="activity-content">
+          <div class="activity-description">${description}</div>
+          <div class="activity-guild">${activity.guild}</div>
+        </div>
+      `;
+
+      return item;
+    }
+
+    // Add new activity every 3-5 seconds (demo only)
+    setInterval(() => {
+      if (!isPaused) {
+        const feed = document.getElementById('activityFeed');
+        const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+        const newItem = createActivityItem(randomActivity);
+
+        // Add with fade-in effect
+        newItem.style.opacity = '0';
+        newItem.style.transform = 'translateY(-10px)';
+        newItem.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+
+        feed.insertBefore(newItem, feed.firstChild);
+
+        // Trigger animation
+        requestAnimationFrame(() => {
+          newItem.style.opacity = '1';
+          newItem.style.transform = 'translateY(0)';
+        });
+
+        // Remove oldest items if more than 15
+        while (feed.children.length > 15) {
+          feed.removeChild(feed.lastChild);
+        }
+      }
+    }, 3000 + Math.random() * 2000);
+  </script>
+</body>
+</html>
