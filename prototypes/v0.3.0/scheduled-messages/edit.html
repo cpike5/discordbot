@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Scheduled Message - Discord Bot Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: {
+                            primary: '#1d2022',
+                            secondary: '#262a2d',
+                            tertiary: '#2f3336',
+                            hover: '#363a3e',
+                        },
+                        text: {
+                            primary: '#d7d3d0',
+                            secondary: '#a8a5a3',
+                            tertiary: '#7a7876',
+                            inverse: '#1d2022',
+                        },
+                        accent: {
+                            orange: {
+                                DEFAULT: '#cb4e1b',
+                                hover: '#e5591f',
+                                active: '#b04517',
+                                muted: '#cb4e1b33',
+                            },
+                            blue: {
+                                DEFAULT: '#098ecf',
+                                hover: '#0ba3ea',
+                                active: '#0879b3',
+                                muted: '#098ecf33',
+                            },
+                        },
+                        success: {
+                            DEFAULT: '#10b981',
+                            bg: '#10b98120',
+                            border: '#10b98150',
+                        },
+                        warning: {
+                            DEFAULT: '#f59e0b',
+                            bg: '#f59e0b20',
+                            border: '#f59e0b50',
+                        },
+                        error: {
+                            DEFAULT: '#ef4444',
+                            bg: '#ef444420',
+                            border: '#ef444450',
+                        },
+                        info: {
+                            DEFAULT: '#06b6d4',
+                            bg: '#06b6d420',
+                            border: '#06b6d450',
+                        },
+                        border: {
+                            primary: '#3f4447',
+                            secondary: '#2f3336',
+                            focus: '#098ecf',
+                        },
+                        discord: {
+                            DEFAULT: '#5865F2',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* ========================================
+           Scrollbar Styling
+           ======================================== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2022;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f4447;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f5457;
+        }
+
+        /* ========================================
+           Form Input Focus Styles
+           ======================================== */
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: #098ecf;
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        .form-input:disabled,
+        .form-select:disabled,
+        .form-textarea:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #2f3336;
+        }
+
+        /* ========================================
+           Radio Button Group Styles
+           ======================================== */
+        .schedule-type-option {
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+        }
+        .schedule-type-option:hover {
+            border-color: #3f4447;
+            background-color: #2f3336;
+        }
+        .schedule-type-option.selected {
+            border-color: #cb4e1b;
+            background-color: rgba(203, 78, 27, 0.1);
+        }
+        .schedule-type-option input[type="radio"] {
+            display: none;
+        }
+
+        /* ========================================
+           Day Checkbox Styles
+           ======================================== */
+        .day-checkbox {
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+        }
+        .day-checkbox:hover {
+            border-color: #098ecf;
+        }
+        .day-checkbox.selected {
+            background-color: #cb4e1b;
+            border-color: #cb4e1b;
+            color: white;
+        }
+        .day-checkbox input[type="checkbox"] {
+            display: none;
+        }
+
+        /* ========================================
+           Toggle Switch Styles
+           ======================================== */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 2.75rem;
+            height: 1.5rem;
+            flex-shrink: 0;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #3f4447;
+            border-radius: 9999px;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .toggle-slider::before {
+            content: "";
+            position: absolute;
+            top: 0.125rem;
+            left: 0.125rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            background-color: #d7d3d0;
+            border-radius: 50%;
+            transition: transform 0.2s ease-in-out;
+        }
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #cb4e1b;
+        }
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(1.25rem);
+        }
+        .toggle-switch input:focus-visible + .toggle-slider {
+            outline: 2px solid #098ecf;
+            outline-offset: 2px;
+        }
+
+        /* ========================================
+           Cron Expression Segments
+           ======================================== */
+        .cron-segment:focus-within {
+            border-color: #098ecf;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- ========================================
+         Navigation Header
+         ======================================== -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <!-- Logo -->
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <!-- Navigation Links -->
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Users</a>
+                        <a href="index.html" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Scheduled Messages</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <!-- User Avatar -->
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========================================
+         Main Content
+         ======================================== -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex items-center gap-2 text-sm">
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">My Server</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li>
+                    <a href="index.html" class="text-text-secondary hover:text-accent-blue transition-colors">Scheduled Messages</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li class="text-text-primary font-medium">Edit</li>
+            </ol>
+        </nav>
+
+        <!-- Page Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">Edit Scheduled Message</h1>
+                <p class="mt-1 text-sm text-text-secondary">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success mr-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-success mr-1"></span>
+                        Active
+                    </span>
+                    Created Dec 15, 2025 &bull; Last modified Dec 20, 2025
+                </p>
+            </div>
+            <button
+                onclick="showDeleteModal()"
+                class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-error bg-error/10 border border-error/30 rounded-md hover:bg-error/20 transition-colors"
+            >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete
+            </button>
+        </div>
+
+        <!-- Form -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- ========================================
+                 Form Column (2/3 width)
+                 ======================================== -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Message Content Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Message Content</h2>
+
+                    <!-- Message Textarea -->
+                    <div class="mb-4">
+                        <label for="message-content" class="block text-sm font-medium text-text-primary mb-2">
+                            Message
+                        </label>
+                        <textarea
+                            id="message-content"
+                            rows="4"
+                            class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary"
+                            placeholder="Enter your message..."
+                            oninput="updateCharCount(); updatePreview();"
+                            maxlength="2000"
+                        >Weekly reminder: Team meeting starts in 30 minutes! Join us in the voice channel for our weekly sync.</textarea>
+                        <div class="flex items-center justify-between mt-2">
+                            <p class="text-xs text-text-tertiary">Supports Discord markdown formatting</p>
+                            <p class="text-xs text-text-secondary">
+                                <span id="char-count">102</span>/2000
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Channel Selector -->
+                    <div>
+                        <label for="channel-select" class="block text-sm font-medium text-text-primary mb-2">
+                            Target Channel
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                </svg>
+                            </div>
+                            <select
+                                id="channel-select"
+                                class="form-select w-full py-2.5 pl-10 pr-10 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none"
+                            >
+                                <option value="">Select a channel...</option>
+                                <option value="announcements" selected>announcements</option>
+                                <option value="general">general</option>
+                                <option value="news">news</option>
+                                <option value="events">events</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Schedule Configuration Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Schedule</h2>
+
+                    <!-- Schedule Type Selector -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-text-primary mb-3">
+                            Schedule Type
+                        </label>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                            <label class="schedule-type-option border border-border-secondary rounded-lg p-3 text-center" onclick="selectScheduleType('one-time')">
+                                <input type="radio" name="schedule-type" value="one-time">
+                                <svg class="w-6 h-6 mx-auto mb-2 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span class="text-xs font-medium text-text-primary">One-time</span>
+                            </label>
+                            <label class="schedule-type-option border border-border-secondary rounded-lg p-3 text-center" onclick="selectScheduleType('daily')">
+                                <input type="radio" name="schedule-type" value="daily">
+                                <svg class="w-6 h-6 mx-auto mb-2 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-xs font-medium text-text-primary">Daily</span>
+                            </label>
+                            <label class="schedule-type-option selected border border-border-secondary rounded-lg p-3 text-center" onclick="selectScheduleType('weekly')">
+                                <input type="radio" name="schedule-type" value="weekly" checked>
+                                <svg class="w-6 h-6 mx-auto mb-2 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                <span class="text-xs font-medium text-text-primary">Weekly</span>
+                            </label>
+                            <label class="schedule-type-option border border-border-secondary rounded-lg p-3 text-center" onclick="selectScheduleType('monthly')">
+                                <input type="radio" name="schedule-type" value="monthly">
+                                <svg class="w-6 h-6 mx-auto mb-2 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <span class="text-xs font-medium text-text-primary">Monthly</span>
+                            </label>
+                            <label class="schedule-type-option border border-border-secondary rounded-lg p-3 text-center" onclick="selectScheduleType('custom')">
+                                <input type="radio" name="schedule-type" value="custom">
+                                <svg class="w-6 h-6 mx-auto mb-2 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span class="text-xs font-medium text-text-primary">Custom</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- One-Time Options (hidden by default) -->
+                    <div id="one-time-options" class="hidden space-y-4">
+                        <div>
+                            <label for="one-time-date" class="block text-sm font-medium text-text-primary mb-2">
+                                Date & Time
+                            </label>
+                            <input
+                                type="datetime-local"
+                                id="one-time-date"
+                                class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                                value="2025-12-30T09:00"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Daily Options (hidden by default) -->
+                    <div id="daily-options" class="hidden space-y-4">
+                        <div>
+                            <label for="daily-time" class="block text-sm font-medium text-text-primary mb-2">
+                                Time
+                            </label>
+                            <input
+                                type="time"
+                                id="daily-time"
+                                class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                                value="09:00"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Weekly Options (shown - this is the current schedule) -->
+                    <div id="weekly-options" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-3">
+                                Days of Week
+                            </label>
+                            <div class="flex flex-wrap gap-2">
+                                <label class="day-checkbox w-10 h-10 flex items-center justify-center rounded-lg border border-border-primary text-sm font-medium text-text-secondary" onclick="toggleDay(this)">
+                                    <input type="checkbox" name="days" value="sun">
+                                    S
+                                </label>
+                                <label class="day-checkbox selected w-10 h-10 flex items-center justify-center rounded-lg border border-border-primary text-sm font-medium text-text-secondary" onclick="toggleDay(this)">
+                                    <input type="checkbox" name="days" value="mon" checked>
+                                    M
+                                </label>
+                                <label class="day-checkbox w-10 h-10 flex items-center justify-center rounded-lg border border-border-primary text-sm font-medium text-text-secondary" onclick="toggleDay(this)">
+                                    <input type="checkbox" name="days" value="tue">
+                                    T
+                                </label>
+                                <label class="day-checkbox w-10 h-10 flex items-center justify-center rounded-lg border border-border-primary text-sm font-medium text-text-secondary" onclick="toggleDay(this)">
+                                    <input type="checkbox" name="days" value="wed">
+                                    W
+                                </label>
+                                <label class="day-checkbox w-10 h-10 flex items-center justify-center rounded-lg border border-border-primary text-sm font-medium text-text-secondary" onclick="toggleDay(this)">
+                                    <input type="checkbox" name="days" value="thu">
+                                    T
+                                </label>
+                                <label class="day-checkbox w-10 h-10 flex items-center justify-center rounded-lg border border-border-primary text-sm font-medium text-text-secondary" onclick="toggleDay(this)">
+                                    <input type="checkbox" name="days" value="fri">
+                                    F
+                                </label>
+                                <label class="day-checkbox w-10 h-10 flex items-center justify-center rounded-lg border border-border-primary text-sm font-medium text-text-secondary" onclick="toggleDay(this)">
+                                    <input type="checkbox" name="days" value="sat">
+                                    S
+                                </label>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="weekly-time" class="block text-sm font-medium text-text-primary mb-2">
+                                Time
+                            </label>
+                            <input
+                                type="time"
+                                id="weekly-time"
+                                class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                                value="09:00"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Monthly Options (hidden by default) -->
+                    <div id="monthly-options" class="hidden space-y-4">
+                        <div>
+                            <label for="monthly-day" class="block text-sm font-medium text-text-primary mb-2">
+                                Day of Month
+                            </label>
+                            <select
+                                id="monthly-day"
+                                class="form-select w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none"
+                            >
+                                <option value="1" selected>1st</option>
+                                <option value="2">2nd</option>
+                                <option value="3">3rd</option>
+                                <option value="15">15th</option>
+                                <option value="last">Last day</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="monthly-time" class="block text-sm font-medium text-text-primary mb-2">
+                                Time
+                            </label>
+                            <input
+                                type="time"
+                                id="monthly-time"
+                                class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                                value="10:00"
+                            >
+                        </div>
+                    </div>
+
+                    <!-- Custom Cron Options (hidden by default) -->
+                    <div id="custom-options" class="hidden space-y-4">
+                        <div>
+                            <label for="cron-expression" class="block text-sm font-medium text-text-primary mb-2">
+                                Cron Expression
+                            </label>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <div class="cron-segment flex flex-col items-center p-2 bg-bg-primary border border-border-primary rounded-md">
+                                    <input
+                                        type="text"
+                                        class="w-12 text-center text-sm text-text-primary bg-transparent border-none focus:outline-none"
+                                        value="0"
+                                        placeholder="*"
+                                    >
+                                    <span class="text-xs text-text-tertiary mt-1">Min</span>
+                                </div>
+                                <div class="cron-segment flex flex-col items-center p-2 bg-bg-primary border border-border-primary rounded-md">
+                                    <input
+                                        type="text"
+                                        class="w-12 text-center text-sm text-text-primary bg-transparent border-none focus:outline-none"
+                                        value="9"
+                                        placeholder="*"
+                                    >
+                                    <span class="text-xs text-text-tertiary mt-1">Hour</span>
+                                </div>
+                                <div class="cron-segment flex flex-col items-center p-2 bg-bg-primary border border-border-primary rounded-md">
+                                    <input
+                                        type="text"
+                                        class="w-12 text-center text-sm text-text-primary bg-transparent border-none focus:outline-none"
+                                        value="*"
+                                        placeholder="*"
+                                    >
+                                    <span class="text-xs text-text-tertiary mt-1">Day</span>
+                                </div>
+                                <div class="cron-segment flex flex-col items-center p-2 bg-bg-primary border border-border-primary rounded-md">
+                                    <input
+                                        type="text"
+                                        class="w-12 text-center text-sm text-text-primary bg-transparent border-none focus:outline-none"
+                                        value="*"
+                                        placeholder="*"
+                                    >
+                                    <span class="text-xs text-text-tertiary mt-1">Month</span>
+                                </div>
+                                <div class="cron-segment flex flex-col items-center p-2 bg-bg-primary border border-border-primary rounded-md">
+                                    <input
+                                        type="text"
+                                        class="w-12 text-center text-sm text-text-primary bg-transparent border-none focus:outline-none"
+                                        value="1"
+                                        placeholder="*"
+                                    >
+                                    <span class="text-xs text-text-tertiary mt-1">Weekday</span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-text-secondary">
+                                Current expression: <code class="px-1.5 py-0.5 bg-bg-tertiary rounded text-accent-blue font-mono">0 9 * * 1</code>
+                                <span class="text-text-tertiary">(At 09:00 on Monday)</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Timezone Selector -->
+                    <div class="mt-6 pt-6 border-t border-border-secondary">
+                        <label for="timezone" class="block text-sm font-medium text-text-primary mb-2">
+                            Timezone
+                        </label>
+                        <select
+                            id="timezone"
+                            class="form-select w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none"
+                        >
+                            <option value="America/New_York">Eastern Time (ET)</option>
+                            <option value="America/Chicago">Central Time (CT)</option>
+                            <option value="America/Denver">Mountain Time (MT)</option>
+                            <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                            <option value="UTC" selected>UTC</option>
+                            <option value="Europe/London">London (GMT/BST)</option>
+                            <option value="Europe/Paris">Paris (CET/CEST)</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range (Optional) -->
+                    <div class="mt-6 pt-6 border-t border-border-secondary">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <label class="text-sm font-medium text-text-primary">Schedule Duration</label>
+                                <p class="text-xs text-text-secondary mt-0.5">Optionally set start and end dates</p>
+                            </div>
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <span class="text-sm text-text-secondary">Enable</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="enable-date-range" onchange="toggleDateRange()">
+                                    <span class="toggle-slider" aria-hidden="true"></span>
+                                </div>
+                            </label>
+                        </div>
+                        <div id="date-range-fields" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="start-date" class="block text-sm font-medium text-text-primary mb-2">
+                                    Start Date
+                                </label>
+                                <input
+                                    type="date"
+                                    id="start-date"
+                                    class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                                    value="2025-12-15"
+                                >
+                            </div>
+                            <div>
+                                <label for="end-date" class="block text-sm font-medium text-text-primary mb-2">
+                                    End Date (Optional)
+                                </label>
+                                <input
+                                    type="date"
+                                    id="end-date"
+                                    class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                                >
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Toggle -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label for="enable-message" class="text-sm font-semibold text-text-primary">Active</label>
+                            <p class="text-xs text-text-secondary mt-1">Enable or disable this scheduled message</p>
+                        </div>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="enable-message" checked>
+                            <span class="toggle-slider" aria-hidden="true"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button
+                        type="button"
+                        onclick="saveMessage()"
+                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Changes
+                    </button>
+                    <a
+                        href="index.html"
+                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    >
+                        Cancel
+                    </a>
+                </div>
+            </div>
+
+            <!-- ========================================
+                 Preview Column (1/3 width)
+                 ======================================== -->
+            <div class="lg:col-span-1">
+                <div class="lg:sticky lg:top-8 space-y-6">
+                    <!-- Next Occurrences Preview -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Next 5 Occurrences</h3>
+                            <p class="text-xs text-text-secondary mt-1" id="schedule-description">Every Monday at 9:00 AM</p>
+                        </div>
+                        <div class="p-4">
+                            <ul id="next-occurrences" class="space-y-2">
+                                <li class="flex items-center gap-3 p-2 bg-bg-tertiary rounded-md">
+                                    <svg class="w-4 h-4 text-success flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-sm text-text-primary">Dec 30, 2025 9:00 AM</span>
+                                </li>
+                                <li class="flex items-center gap-3 p-2 bg-bg-tertiary rounded-md">
+                                    <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-sm text-text-secondary">Jan 6, 2026 9:00 AM</span>
+                                </li>
+                                <li class="flex items-center gap-3 p-2 bg-bg-tertiary rounded-md">
+                                    <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-sm text-text-secondary">Jan 13, 2026 9:00 AM</span>
+                                </li>
+                                <li class="flex items-center gap-3 p-2 bg-bg-tertiary rounded-md">
+                                    <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-sm text-text-secondary">Jan 20, 2026 9:00 AM</span>
+                                </li>
+                                <li class="flex items-center gap-3 p-2 bg-bg-tertiary rounded-md">
+                                    <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span class="text-sm text-text-secondary">Jan 27, 2026 9:00 AM</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Message Preview -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Message Preview</h3>
+                        </div>
+                        <div class="p-4">
+                            <!-- Discord-styled Message Preview -->
+                            <div class="bg-[#36393f] rounded-md p-3">
+                                <div class="flex gap-3">
+                                    <!-- Bot Avatar -->
+                                    <div class="flex-shrink-0">
+                                        <div class="w-10 h-10 rounded-full bg-discord flex items-center justify-center">
+                                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <!-- Message Content -->
+                                    <div class="flex-1 min-w-0">
+                                        <!-- Username and Timestamp -->
+                                        <div class="flex items-center gap-1 mb-1">
+                                            <span class="font-medium text-white text-sm">Bot</span>
+                                            <span class="bg-discord text-white text-[10px] px-1 py-0.5 rounded uppercase font-semibold">BOT</span>
+                                            <span class="text-[#72767d] text-xs ml-1">Today at 9:00 AM</span>
+                                        </div>
+                                        <!-- Message Text -->
+                                        <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">
+                                            Weekly reminder: Team meeting starts in 30 minutes! Join us in the voice channel for our weekly sync.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Execution History -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Recent Executions</h3>
+                        </div>
+                        <div class="p-4">
+                            <ul class="space-y-2">
+                                <li class="flex items-center justify-between p-2 bg-bg-tertiary rounded-md">
+                                    <span class="text-sm text-text-secondary">Dec 23, 2025 9:00 AM</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                        Sent
+                                    </span>
+                                </li>
+                                <li class="flex items-center justify-between p-2 bg-bg-tertiary rounded-md">
+                                    <span class="text-sm text-text-secondary">Dec 16, 2025 9:00 AM</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                        Sent
+                                    </span>
+                                </li>
+                                <li class="flex items-center justify-between p-2 bg-bg-tertiary rounded-md">
+                                    <span class="text-sm text-text-secondary">Dec 9, 2025 9:00 AM</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                        Sent
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================
+         Delete Confirmation Modal
+         ======================================== -->
+    <div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Background overlay -->
+            <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" aria-hidden="true" onclick="hideDeleteModal()"></div>
+
+            <!-- Center modal -->
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal content -->
+            <div class="inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border-primary">
+                <div class="px-6 py-5">
+                    <div class="flex items-start gap-4">
+                        <!-- Warning Icon -->
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <!-- Content -->
+                        <div class="flex-1">
+                            <h3 id="modal-title" class="text-lg font-semibold text-text-primary">
+                                Delete Scheduled Message
+                            </h3>
+                            <p class="mt-2 text-sm text-text-secondary">
+                                Are you sure you want to delete this scheduled message? This action cannot be undone.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="px-6 py-4 bg-bg-primary flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                    <button
+                        type="button"
+                        onclick="hideDeleteModal()"
+                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onclick="confirmDelete()"
+                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-error border border-error rounded-md hover:bg-red-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================
+         JavaScript
+         ======================================== -->
+    <script>
+        // ========================================
+        // Character Count
+        // ========================================
+        function updateCharCount() {
+            const textarea = document.getElementById('message-content');
+            const charCount = document.getElementById('char-count');
+            charCount.textContent = textarea.value.length;
+        }
+
+        // ========================================
+        // Update Preview
+        // ========================================
+        function updatePreview() {
+            const textarea = document.getElementById('message-content');
+            const preview = document.getElementById('preview-message');
+            preview.textContent = textarea.value || 'Enter a message to preview...';
+        }
+
+        // ========================================
+        // Schedule Type Selection
+        // ========================================
+        function selectScheduleType(type) {
+            // Remove selected class from all options
+            document.querySelectorAll('.schedule-type-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            // Add selected class to clicked option
+            const selectedOption = document.querySelector(`input[value="${type}"]`).parentElement;
+            selectedOption.classList.add('selected');
+
+            // Hide all option panels
+            document.getElementById('one-time-options').classList.add('hidden');
+            document.getElementById('daily-options').classList.add('hidden');
+            document.getElementById('weekly-options').classList.add('hidden');
+            document.getElementById('monthly-options').classList.add('hidden');
+            document.getElementById('custom-options').classList.add('hidden');
+
+            // Show selected panel
+            document.getElementById(`${type}-options`).classList.remove('hidden');
+
+            // Update description
+            updateScheduleDescription(type);
+        }
+
+        // ========================================
+        // Update Schedule Description
+        // ========================================
+        function updateScheduleDescription(type) {
+            const descriptions = {
+                'one-time': 'One-time on Dec 30, 2025 at 9:00 AM',
+                'daily': 'Every day at 9:00 AM',
+                'weekly': 'Every Monday at 9:00 AM',
+                'monthly': '1st of every month at 10:00 AM',
+                'custom': 'At 09:00 on Monday'
+            };
+            document.getElementById('schedule-description').textContent = descriptions[type] || '';
+        }
+
+        // ========================================
+        // Toggle Day Selection (Weekly)
+        // ========================================
+        function toggleDay(element) {
+            element.classList.toggle('selected');
+            const checkbox = element.querySelector('input[type="checkbox"]');
+            checkbox.checked = element.classList.contains('selected');
+        }
+
+        // ========================================
+        // Toggle Date Range
+        // ========================================
+        function toggleDateRange() {
+            const checkbox = document.getElementById('enable-date-range');
+            const fields = document.getElementById('date-range-fields');
+
+            if (checkbox.checked) {
+                fields.classList.remove('hidden');
+            } else {
+                fields.classList.add('hidden');
+            }
+        }
+
+        // ========================================
+        // Save Message
+        // ========================================
+        function saveMessage() {
+            const message = document.getElementById('message-content').value;
+            const channel = document.getElementById('channel-select').value;
+            const scheduleType = document.querySelector('input[name="schedule-type"]:checked').value;
+            const isActive = document.getElementById('enable-message').checked;
+
+            console.log('Saving message:', { message, channel, scheduleType, isActive });
+            alert('Changes saved! (Prototype - redirecting to list)');
+            window.location.href = 'index.html';
+        }
+
+        // ========================================
+        // Delete Modal
+        // ========================================
+        function showDeleteModal() {
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function confirmDelete() {
+            console.log('Deleting message...');
+            alert('Message deleted! (Prototype - redirecting to list)');
+            window.location.href = 'index.html';
+        }
+
+        // ========================================
+        // Initialize
+        // ========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCharCount();
+            updatePreview();
+        });
+
+        // ========================================
+        // Keyboard handler for modal
+        // ========================================
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.getElementById('delete-modal').classList.contains('hidden')) {
+                hideDeleteModal();
+            }
+        });
+    </script>
+</body>
+</html>
