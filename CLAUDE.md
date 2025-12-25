@@ -142,6 +142,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | Doc | Purpose |
 |-----|---------|
 | [design-system.md](docs/articles/design-system.md) | UI tokens, color palette, component specs |
+| [commands-page.md](docs/articles/commands-page.md) | Commands page feature and metadata service |
 | [interactive-components.md](docs/articles/interactive-components.md) | Discord button/component patterns |
 | [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup, troubleshooting |
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
@@ -173,6 +174,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 
 Located in `src/DiscordBot.Bot/Pages/`:
 - Dashboard (`Index.cshtml`) - Bot status, guild stats, command stats cards
+- Commands (`Pages/Commands/Index.cshtml`) - View registered slash commands, modules, parameters, preconditions
 - Account pages - Login, logout, Discord OAuth flow, account linking
 - Admin/Users - Full CRUD for user management (SuperAdmin only)
 
