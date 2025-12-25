@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for better versioning
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/DiscordBot.Bot/package.json
+
+    - name: Display .NET version
+      run: dotnet --version
+
+    - name: Display Node.js version
+      run: node --version
+
+    - name: Restore .NET dependencies
+      run: dotnet restore
+
+    - name: Install Node.js dependencies
+      run: npm ci
+      working-directory: src/DiscordBot.Bot
+
+    - name: Build solution
+      run: |
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          # Include git commit hash in PR builds
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          dotnet build --configuration Release --no-restore /p:InformationalVersion="0.1.0-pr.${{ github.event.pull_request.number }}+${COMMIT_SHA}"
+        else
+          dotnet build --configuration Release --no-restore
+        fi
+
+    - name: Run tests
+      run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx" --collect:"XPlat Code Coverage"
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: '**/TestResults/*.trx'
+        retention-days: 30
+
+    - name: Upload coverage reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports
+        path: '**/TestResults/*/coverage.cobertura.xml'
+        retention-days: 30
+
+    - name: Test Summary
+      if: always()
+      run: |
+        echo "### Test Results :test_tube:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Build configuration: Release" >> $GITHUB_STEP_SUMMARY
+        echo "Tests completed for commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY

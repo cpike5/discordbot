@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v0.1.0, v1.2.3
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for changelog generation
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/DiscordBot.Bot/package.json
+
+    - name: Extract version from tag
+      id: extract_version
+      run: |
+        # Remove 'v' prefix from tag (e.g., v1.2.3 -> 1.2.3)
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        echo "Extracted version: $VERSION"
+
+    - name: Get commit SHA
+      id: git_info
+      run: |
+        COMMIT_SHA=$(git rev-parse --short HEAD)
+        echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+        echo "Commit SHA: $COMMIT_SHA"
+
+    - name: Display build information
+      run: |
+        echo "Building version: ${{ steps.extract_version.outputs.version }}"
+        echo "Commit SHA: ${{ steps.git_info.outputs.commit_sha }}"
+        echo ".NET version: ${{ env.DOTNET_VERSION }}"
+        echo "Node.js version: ${{ env.NODE_VERSION }}"
+
+    - name: Restore .NET dependencies
+      run: dotnet restore
+
+    - name: Install Node.js dependencies
+      run: npm ci
+      working-directory: src/DiscordBot.Bot
+
+    - name: Build solution
+      run: |
+        # Build with version and commit hash in InformationalVersion
+        dotnet build --configuration Release --no-restore \
+          /p:Version=${{ steps.extract_version.outputs.version }} \
+          /p:InformationalVersion="${{ steps.extract_version.outputs.version }}+${{ steps.git_info.outputs.commit_sha }}"
+
+    - name: Run tests
+      run: dotnet test --configuration Release --no-build --verbosity normal
+
+    - name: Publish Bot application
+      run: |
+        dotnet publish src/DiscordBot.Bot/DiscordBot.Bot.csproj \
+          --configuration Release \
+          --output ./publish/bot \
+          --no-build \
+          /p:Version=${{ steps.extract_version.outputs.version }} \
+          /p:InformationalVersion="${{ steps.extract_version.outputs.version }}+${{ steps.git_info.outputs.commit_sha }}"
+
+    - name: Create release archive
+      run: |
+        cd publish/bot
+        zip -r ../../discordbot-${{ steps.extract_version.outputs.version }}.zip .
+        cd ../..
+
+    - name: Generate checksums
+      run: |
+        sha256sum discordbot-${{ steps.extract_version.outputs.version }}.zip > checksums.txt
+        cat checksums.txt
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.extract_version.outputs.tag }}
+        release_name: Release ${{ steps.extract_version.outputs.tag }}
+        body: |
+          ## Discord Bot Release ${{ steps.extract_version.outputs.version }}
+
+          **Build Information**
+          - Version: `${{ steps.extract_version.outputs.version }}`
+          - Commit: `${{ github.sha }}`
+          - Build Date: `${{ github.event.repository.updated_at }}`
+
+          **Changes**
+          See the [commit history](https://github.com/${{ github.repository }}/commits/${{ steps.extract_version.outputs.tag }}) for details.
+
+          **Installation**
+          1. Download `discordbot-${{ steps.extract_version.outputs.version }}.zip`
+          2. Extract to your deployment directory
+          3. Configure user secrets or environment variables
+          4. Run with `dotnet DiscordBot.Bot.dll`
+
+          **Requirements**
+          - .NET 8.0 Runtime or later
+          - Discord Bot Token (configured via user secrets or environment variables)
+
+          **Checksums**
+          ```
+          $(cat checksums.txt)
+          ```
+        draft: false
+        prerelease: ${{ contains(steps.extract_version.outputs.version, '-') }}
+
+    - name: Upload release archive
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./discordbot-${{ steps.extract_version.outputs.version }}.zip
+        asset_name: discordbot-${{ steps.extract_version.outputs.version }}.zip
+        asset_content_type: application/zip
+
+    - name: Upload checksums
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./checksums.txt
+        asset_name: checksums.txt
+        asset_content_type: text/plain
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: discordbot-${{ steps.extract_version.outputs.version }}
+        path: publish/bot/
+        retention-days: 90
+        compression-level: 6
+
+    - name: Release Summary
+      run: |
+        echo "### Release Created Successfully :rocket:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ steps.extract_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Tag:** ${{ steps.extract_version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** ${{ steps.git_info.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Release URL:** ${{ steps.create_release.outputs.html_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Artifacts:**" >> $GITHUB_STEP_SUMMARY
+        echo "- discordbot-${{ steps.extract_version.outputs.version }}.zip" >> $GITHUB_STEP_SUMMARY
+        echo "- checksums.txt" >> $GITHUB_STEP_SUMMARY
