@@ -82,14 +82,27 @@
                     <!-- Quick Date Presets -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                        @{
+                            var today = DateTime.UtcNow.Date;
+                            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
+                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
+                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
+
+                            string GetPresetClass(bool isActive) => isActive
+                                ? "px-3 py-1.5 text-xs font-medium bg-accent-blue text-white border border-accent-blue rounded-md hover:bg-accent-blue/90 transition-colors"
+                                : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
+                        }
                         <div class="flex flex-wrap gap-2">
-                            <button type="button" onclick="setDatePreset('today')" class="px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                            <button type="button" onclick="setDatePreset('today')" class="@GetPresetClass(isToday)">
                                 Today
                             </button>
-                            <button type="button" onclick="setDatePreset('7days')" class="px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                            <button type="button" onclick="setDatePreset('7days')" class="@GetPresetClass(is7Days)">
                                 Last 7 Days
                             </button>
-                            <button type="button" onclick="setDatePreset('30days')" class="px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                            <button type="button" onclick="setDatePreset('30days')" class="@GetPresetClass(is30Days)">
                                 Last 30 Days
                             </button>
                         </div>
@@ -472,6 +485,9 @@
 
             startDateInput.value = startDate.toISOString().split('T')[0];
             endDateInput.value = today.toISOString().split('T')[0];
+
+            // Auto-submit the form after setting the date preset
+            document.getElementById('filterForm').submit();
         }
     </script>
 }

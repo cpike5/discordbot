@@ -94,6 +94,16 @@ public class IndexModel : PageModel
         // Load guilds for dropdown
         AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
 
+        // Set default date filter to "Today" if no filters are provided
+        // This prevents showing all historical logs on first page load
+        if (!StartDate.HasValue && !EndDate.HasValue && string.IsNullOrWhiteSpace(SearchTerm) &&
+            !GuildId.HasValue && string.IsNullOrWhiteSpace(CommandName) && !StatusFilter.HasValue)
+        {
+            var today = DateTime.UtcNow.Date;
+            StartDate = today;
+            EndDate = today;
+        }
+
         var query = new CommandLogQueryDto
         {
             SearchTerm = SearchTerm,

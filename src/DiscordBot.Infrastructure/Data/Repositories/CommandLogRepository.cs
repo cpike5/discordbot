@@ -19,6 +19,28 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
         _logger = logger;
     }
 
+    /// <summary>
+    /// Gets a command log by ID with User and Guild navigation properties included.
+    /// </summary>
+    /// <param name="id">The command log ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The command log with related entities, or null if not found.</returns>
+    public override async Task<CommandLog?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
+    {
+        if (id is not Guid guidId)
+        {
+            _logger.LogWarning("GetByIdAsync called with non-Guid ID: {Id}", id);
+            return null;
+        }
+
+        _logger.LogDebug("Retrieving command log with ID {Id} including User and Guild", id);
+
+        return await DbSet
+            .Include(l => l.User)
+            .Include(l => l.Guild)
+            .FirstOrDefaultAsync(l => l.Id == guidId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<CommandLog>> GetByGuildAsync(
         ulong guildId,
         int limit = 100,
@@ -307,7 +329,11 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
 
         if (endDate.HasValue)
         {
-            query = query.Where(l => l.ExecutedAt <= endDate.Value);
+            // Add one day and use < instead of <= to include the entire end date
+            // This ensures that when filtering by end date, commands executed
+            // throughout the entire day are included (not just up to midnight)
+            var endOfDay = endDate.Value.Date.AddDays(1);
+            query = query.Where(l => l.ExecutedAt < endOfDay);
         }
 
         // Apply success filter
