@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for the Discord Bot Management System. It provides a high-level view of completed work, current focus areas, and future enhancements.
 
-**Current Version:** v0.2.0 (pre-release)
+**Current Version:** v0.2.1 (pre-release)
 
 ---
 
@@ -109,15 +109,89 @@ Application Performance Monitoring with Elastic APM integration.
 
 ---
 
-## In Progress
+## In Progress (v0.3.0)
 
-No features currently in progress. All planned v0.2.0 features have been completed.
+The following features are actively being developed for the v0.3.0 release. UI prototypes for all major features have been completed.
+
+### Welcome System ([#216](https://github.com/cpike5/discordbot/issues/216))
+Configurable welcome messages and role assignment for new members.
+
+- [x] UI Prototype ([#212](https://github.com/cpike5/discordbot/issues/212))
+- [ ] Entity and database schema ([#224](https://github.com/cpike5/discordbot/issues/224))
+- [ ] Repository ([#225](https://github.com/cpike5/discordbot/issues/225))
+- [ ] DTOs ([#226](https://github.com/cpike5/discordbot/issues/226))
+- [ ] WelcomeService ([#227](https://github.com/cpike5/discordbot/issues/227))
+- [ ] Event handler ([#228](https://github.com/cpike5/discordbot/issues/228))
+- [ ] API controller ([#229](https://github.com/cpike5/discordbot/issues/229))
+- [ ] Admin configuration page ([#230](https://github.com/cpike5/discordbot/issues/230))
+- [ ] `/welcome` slash command ([#231](https://github.com/cpike5/discordbot/issues/231))
+- [ ] Tests ([#232](https://github.com/cpike5/discordbot/issues/232))
+
+### Scheduled Messages ([#217](https://github.com/cpike5/discordbot/issues/217))
+Timed announcements and recurring message scheduling.
+
+- [x] UI Prototype ([#213](https://github.com/cpike5/discordbot/issues/213))
+- [ ] Entity and database schema ([#233](https://github.com/cpike5/discordbot/issues/233))
+- [ ] Repository ([#234](https://github.com/cpike5/discordbot/issues/234))
+- [ ] DTOs ([#235](https://github.com/cpike5/discordbot/issues/235))
+- [ ] ScheduledMessageService ([#236](https://github.com/cpike5/discordbot/issues/236))
+- [ ] Background executor service ([#237](https://github.com/cpike5/discordbot/issues/237))
+- [ ] API controller ([#238](https://github.com/cpike5/discordbot/issues/238))
+- [ ] List admin page ([#239](https://github.com/cpike5/discordbot/issues/239))
+- [ ] Create/edit admin pages ([#240](https://github.com/cpike5/discordbot/issues/240))
+- [ ] `/schedule` slash commands ([#241](https://github.com/cpike5/discordbot/issues/241))
+- [ ] Tests ([#242](https://github.com/cpike5/discordbot/issues/242))
+
+### Real-time Dashboard ([#218](https://github.com/cpike5/discordbot/issues/218))
+SignalR-powered live updates for dashboard statistics.
+
+- [x] UI Prototype ([#214](https://github.com/cpike5/discordbot/issues/214))
+- [ ] SignalR infrastructure ([#243](https://github.com/cpike5/discordbot/issues/243))
+- [ ] DTOs ([#244](https://github.com/cpike5/discordbot/issues/244))
+- [ ] Dashboard update service ([#245](https://github.com/cpike5/discordbot/issues/245))
+- [ ] Bot event integration ([#246](https://github.com/cpike5/discordbot/issues/246))
+- [ ] SignalR JavaScript client ([#247](https://github.com/cpike5/discordbot/issues/247))
+- [ ] Dashboard page updates ([#248](https://github.com/cpike5/discordbot/issues/248))
+- [ ] Stats API endpoint ([#249](https://github.com/cpike5/discordbot/issues/249))
+- [ ] Tests ([#250](https://github.com/cpike5/discordbot/issues/250))
+
+### Audit Log Viewer ([#219](https://github.com/cpike5/discordbot/issues/219))
+Comprehensive activity tracking with filtering and search.
+
+- [x] UI Prototype ([#215](https://github.com/cpike5/discordbot/issues/215))
+- [ ] Entity and database schema ([#251](https://github.com/cpike5/discordbot/issues/251))
+- [ ] Repository ([#252](https://github.com/cpike5/discordbot/issues/252))
+- [ ] DTOs ([#253](https://github.com/cpike5/discordbot/issues/253))
+- [ ] AuditLogService with fluent builder ([#254](https://github.com/cpike5/discordbot/issues/254))
+- [ ] Integration into existing services ([#255](https://github.com/cpike5/discordbot/issues/255))
+- [ ] API controller ([#256](https://github.com/cpike5/discordbot/issues/256))
+- [ ] Index admin page ([#257](https://github.com/cpike5/discordbot/issues/257))
+- [ ] Details admin page ([#258](https://github.com/cpike5/discordbot/issues/258))
+- [ ] Dashboard widget ([#259](https://github.com/cpike5/discordbot/issues/259))
+- [ ] Retention background service ([#260](https://github.com/cpike5/discordbot/issues/260))
+- [ ] Tests ([#261](https://github.com/cpike5/discordbot/issues/261))
+
+### Commands Page ([#202](https://github.com/cpike5/discordbot/issues/202))
+Admin UI page to display loaded bot command modules.
+
+- [ ] Design specification ([#203](https://github.com/cpike5/discordbot/issues/203))
+- [ ] Core layer DTOs and interfaces ([#204](https://github.com/cpike5/discordbot/issues/204))
+- [ ] CommandMetadataService ([#205](https://github.com/cpike5/discordbot/issues/205))
+- [ ] ViewModels ([#206](https://github.com/cpike5/discordbot/issues/206))
+- [ ] Razor Page implementation ([#207](https://github.com/cpike5/discordbot/issues/207))
+- [ ] Sidebar navigation update ([#208](https://github.com/cpike5/discordbot/issues/208))
+- [ ] Unit tests ([#209](https://github.com/cpike5/discordbot/issues/209))
+- [ ] Documentation ([#210](https://github.com/cpike5/discordbot/issues/210))
+
+### Bug Fixes
+- [ ] Command Logs: Date filter issues ([#201](https://github.com/cpike5/discordbot/issues/201))
+- [ ] Command Analytics: Quick date range auto-apply ([#200](https://github.com/cpike5/discordbot/issues/200))
 
 ---
 
-## Planned Features (v0.3.0+)
+## Planned Features (v0.4.0+)
 
-The following features are prioritized for the next development cycle:
+The following features are prioritized for future development:
 
 ### Production Readiness
 - **Docker Support** - Containerized deployment with docker-compose
@@ -126,12 +200,8 @@ The following features are prioritized for the next development cycle:
 
 ### Bot Enhancements
 - **Auto-moderation** - Configurable rules for spam, profanity, raid detection
-- **Scheduled Messages** - Timed announcements and reminders
-- **Welcome System** - Configurable join messages and role assignment
 
 ### Admin UI Enhancements
-- **Real-time Dashboard** - SignalR/WebSocket live updates
-- **Audit Log Viewer** - Detailed activity history with filtering
 - **Guild Configuration UI** - Per-guild settings management
 
 ---
@@ -170,6 +240,8 @@ The following features are candidates for future development but not yet formall
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| v0.3.0 | TBD | Welcome system, scheduled messages, real-time dashboard, audit log viewer |
+| v0.2.1 | 2025-12 | Bug fixes, UI prototype preparation for v0.3.0 features |
 | v0.2.0 | 2025-12 | Observability, consent system, message logging, APM tracing, UI polish |
 | v0.1.0 | 2025-12 | Initial pre-release: core bot, admin UI, authentication, API |
 
