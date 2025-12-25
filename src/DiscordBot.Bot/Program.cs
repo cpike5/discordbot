@@ -179,6 +179,7 @@ try
     builder.Services.AddScoped<IGuildService, GuildService>();
     builder.Services.AddScoped<ICommandLogService, CommandLogService>();
     builder.Services.AddScoped<ICommandAnalyticsService, CommandAnalyticsService>();
+    builder.Services.AddScoped<ICommandMetadataService, CommandMetadataService>();
     builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
     // Add Discord OAuth services
