@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Logs - Discord Bot Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: {
+                            primary: '#1d2022',
+                            secondary: '#262a2d',
+                            tertiary: '#2f3336',
+                            hover: '#363a3e',
+                        },
+                        text: {
+                            primary: '#d7d3d0',
+                            secondary: '#a8a5a3',
+                            tertiary: '#7a7876',
+                            inverse: '#1d2022',
+                        },
+                        accent: {
+                            orange: {
+                                DEFAULT: '#cb4e1b',
+                                hover: '#e5591f',
+                                active: '#b04517',
+                                muted: '#cb4e1b33',
+                            },
+                            blue: {
+                                DEFAULT: '#098ecf',
+                                hover: '#0ba3ea',
+                                active: '#0879b3',
+                                muted: '#098ecf33',
+                            },
+                        },
+                        success: {
+                            DEFAULT: '#10b981',
+                            bg: '#10b98120',
+                            border: '#10b98150',
+                        },
+                        warning: {
+                            DEFAULT: '#f59e0b',
+                            bg: '#f59e0b20',
+                            border: '#f59e0b50',
+                        },
+                        error: {
+                            DEFAULT: '#ef4444',
+                            bg: '#ef444420',
+                            border: '#ef444450',
+                        },
+                        info: {
+                            DEFAULT: '#06b6d4',
+                            bg: '#06b6d420',
+                            border: '#06b6d450',
+                        },
+                        border: {
+                            primary: '#3f4447',
+                            secondary: '#2f3336',
+                            focus: '#098ecf',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Custom styles for form elements */
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #098ecf;
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        /* Custom date input styling */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+            cursor: pointer;
+        }
+
+        /* Checkbox styling */
+        input[type="checkbox"] {
+            accent-color: #cb4e1b;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2022;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f4447;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f5457;
+        }
+
+        /* Expandable row animation */
+        .expand-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .expand-content.expanded {
+            max-height: 200px;
+        }
+
+        /* Chevron rotation */
+        .chevron-icon {
+            transition: transform 0.2s ease;
+        }
+        .chevron-icon.rotated {
+            transform: rotate(90deg);
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Users</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Message Logs</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Audit Logs</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex items-center gap-2 text-sm">
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li class="text-text-primary font-medium">Audit Logs</li>
+            </ol>
+        </nav>
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">Audit Logs</h1>
+                <p class="mt-1 text-sm text-text-secondary">Track administrative actions and changes across your bot</p>
+            </div>
+            <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Export audit logs to CSV">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+            </button>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                    <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    Filters
+                </h2>
+                <button id="toggleFilters" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1" aria-expanded="true" aria-controls="filtersForm">
+                    <span id="toggleFiltersText">Hide Filters</span>
+                    <svg id="toggleFiltersIcon" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                    </svg>
+                </button>
+            </div>
+
+            <form id="filtersForm" class="space-y-4">
+                <!-- Row 1: Date Range -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- From Date -->
+                    <div>
+                        <label for="fromDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                        <input
+                            type="date"
+                            id="fromDate"
+                            name="fromDate"
+                            value="2025-12-24"
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                        />
+                    </div>
+
+                    <!-- To Date -->
+                    <div>
+                        <label for="toDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                        <input
+                            type="date"
+                            id="toDate"
+                            name="toDate"
+                            value="2025-12-24"
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                        />
+                    </div>
+                </div>
+
+                <!-- Row 2: Action Types (Checkboxes) -->
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-2">Action Types</label>
+                    <div class="flex flex-wrap items-center gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="actionType" value="created" checked class="w-4 h-4 rounded">
+                            <span class="text-sm text-text-primary flex items-center gap-1.5">
+                                <span class="inline-block w-2 h-2 rounded-full bg-success"></span>
+                                Created
+                            </span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="actionType" value="updated" checked class="w-4 h-4 rounded">
+                            <span class="text-sm text-text-primary flex items-center gap-1.5">
+                                <span class="inline-block w-2 h-2 rounded-full bg-accent-blue"></span>
+                                Updated
+                            </span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="actionType" value="deleted" checked class="w-4 h-4 rounded">
+                            <span class="text-sm text-text-primary flex items-center gap-1.5">
+                                <span class="inline-block w-2 h-2 rounded-full bg-error"></span>
+                                Deleted
+                            </span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" name="actionType" value="accessed" checked class="w-4 h-4 rounded">
+                            <span class="text-sm text-text-primary flex items-center gap-1.5">
+                                <span class="inline-block w-2 h-2 rounded-full bg-bg-tertiary"></span>
+                                Accessed
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Row 3: Actor and Target Type -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Actor Filter -->
+                    <div>
+                        <label for="actor" class="block text-sm font-medium text-text-primary mb-1">Actor</label>
+                        <input
+                            type="text"
+                            id="actor"
+                            name="actor"
+                            placeholder="Search by username..."
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+                        />
+                    </div>
+
+                    <!-- Target Type Dropdown -->
+                    <div>
+                        <label for="targetType" class="block text-sm font-medium text-text-primary mb-1">Target Type</label>
+                        <select
+                            id="targetType"
+                            name="targetType"
+                            class="form-select w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                        >
+                            <option value="">All Types</option>
+                            <option value="user">User</option>
+                            <option value="guild">Guild</option>
+                            <option value="settings">Settings</option>
+                            <option value="message">Message</option>
+                            <option value="scheduled_message">Scheduled Message</option>
+                            <option value="verification">Verification Rule</option>
+                            <option value="bot_config">Bot Configuration</option>
+                            <option value="audit_log">Audit Logs</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Row 4: Content Search -->
+                <div>
+                    <label for="contentSearch" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                    <input
+                        type="text"
+                        id="contentSearch"
+                        name="contentSearch"
+                        placeholder="Search in details..."
+                        class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+                    />
+                </div>
+
+                <!-- Actions -->
+                <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                    <button type="button" onclick="clearFilters()" class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                        Clear Filters
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                        <span class="flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            Apply Filters
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Filter Status (role="alert" for accessibility) -->
+        <div id="filterStatus" role="alert" aria-live="polite" class="hidden mb-4">
+            <div class="flex items-center gap-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md px-3 py-2">
+                <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="filterStatusText">Filters applied</span>
+            </div>
+        </div>
+
+        <!-- LOADING STATE PLACEHOLDER -->
+        <!--
+            Loading state would go here. Example:
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 mb-6">
+                <div class="flex flex-col items-center justify-center gap-4">
+                    <div class="animate-spin w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full"></div>
+                    <p class="text-sm text-text-secondary">Loading audit logs...</p>
+                </div>
+            </div>
+        -->
+
+        <!-- EMPTY STATE PLACEHOLDER -->
+        <!--
+            Empty state would go here when no results. Example:
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+                <svg class="w-12 h-12 mx-auto text-text-tertiary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h3 class="text-lg font-medium text-text-primary mb-2">No audit logs found</h3>
+                <p class="text-sm text-text-secondary">Try adjusting your filters or check back later.</p>
+            </div>
+        -->
+
+        <!-- Results Summary -->
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">1-7</span> of <span class="font-medium text-text-primary">7</span> entries
+            </p>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col" class="w-10 px-3 py-3"></th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Action</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actor</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Target</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Details</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Guild</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        <!-- Row 1 - Updated -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="1">
+                            <td class="px-3 py-4">
+                                <button class="expand-btn p-1 hover:bg-bg-hover rounded transition-colors" aria-label="Expand row details" aria-expanded="false">
+                                    <svg class="chevron-icon w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 14:32</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                                    Updated
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-7 w-7 rounded-full bg-accent-orange flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">AU</span>
+                                    </div>
+                                    <span class="ml-2 text-sm text-text-primary">@AdminUser</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Guild Settings</td>
+                            <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">Changed welcome message</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Gaming Hub</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html?id=1" class="text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View details for this audit entry">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        <!-- Expandable content for Row 1 -->
+                        <tr class="expand-content-row hidden" data-parent-id="1">
+                            <td colspan="8" class="px-6 py-0">
+                                <div class="expand-content bg-bg-primary border-l-2 border-accent-blue pl-4 py-3 my-2 rounded-r-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="text-text-tertiary">Entry ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">audit-001-abc123</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">IP Address:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">192.168.1.100</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">Changes:</span>
+                                            <span class="ml-2 text-text-secondary">WelcomeMessage, WelcomeEnabled</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 2 - Created -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="2">
+                            <td class="px-3 py-4">
+                                <button class="expand-btn p-1 hover:bg-bg-hover rounded transition-colors" aria-label="Expand row details" aria-expanded="false">
+                                    <svg class="chevron-icon w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 14:30</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                    Created
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-7 w-7 rounded-full bg-accent-orange flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">AU</span>
+                                    </div>
+                                    <span class="ml-2 text-sm text-text-primary">@AdminUser</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Scheduled Message</td>
+                            <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">"Weekly reminder..."</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Gaming Hub</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html?id=2" class="text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View details for this audit entry">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        <!-- Expandable content for Row 2 -->
+                        <tr class="expand-content-row hidden" data-parent-id="2">
+                            <td colspan="8" class="px-6 py-0">
+                                <div class="expand-content bg-bg-primary border-l-2 border-success pl-4 py-3 my-2 rounded-r-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="text-text-tertiary">Entry ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">audit-002-def456</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">IP Address:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">192.168.1.100</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">Resource ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">sched-msg-789</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 3 - Deleted -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="3">
+                            <td class="px-3 py-4">
+                                <button class="expand-btn p-1 hover:bg-bg-hover rounded transition-colors" aria-label="Expand row details" aria-expanded="false">
+                                    <svg class="chevron-icon w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 14:25</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error text-white">
+                                    Deleted
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-7 w-7 rounded-full bg-accent-blue flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">MU</span>
+                                    </div>
+                                    <span class="ml-2 text-sm text-text-primary">@ModUser</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">User Account</td>
+                            <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">Removed @SpamBot</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Tech Community</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html?id=3" class="text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View details for this audit entry">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        <!-- Expandable content for Row 3 -->
+                        <tr class="expand-content-row hidden" data-parent-id="3">
+                            <td colspan="8" class="px-6 py-0">
+                                <div class="expand-content bg-bg-primary border-l-2 border-error pl-4 py-3 my-2 rounded-r-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="text-text-tertiary">Entry ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">audit-003-ghi789</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">IP Address:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">192.168.1.105</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">Deleted User ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">987654321098765432</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 4 - Accessed -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="4">
+                            <td class="px-3 py-4">
+                                <button class="expand-btn p-1 hover:bg-bg-hover rounded transition-colors" aria-label="Expand row details" aria-expanded="false">
+                                    <svg class="chevron-icon w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 14:20</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-bg-tertiary text-text-secondary">
+                                    Accessed
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-7 w-7 rounded-full bg-bg-tertiary flex items-center justify-center">
+                                        <span class="text-text-secondary font-medium text-xs">VW</span>
+                                    </div>
+                                    <span class="ml-2 text-sm text-text-primary">@Viewer</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Audit Logs</td>
+                            <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">Viewed audit log page</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Gaming Hub</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html?id=4" class="text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View details for this audit entry">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        <!-- Expandable content for Row 4 -->
+                        <tr class="expand-content-row hidden" data-parent-id="4">
+                            <td colspan="8" class="px-6 py-0">
+                                <div class="expand-content bg-bg-primary border-l-2 border-bg-tertiary pl-4 py-3 my-2 rounded-r-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="text-text-tertiary">Entry ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">audit-004-jkl012</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">IP Address:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">192.168.1.110</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">Page:</span>
+                                            <span class="ml-2 text-text-secondary">/admin/audit-logs</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 5 - Updated -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="5">
+                            <td class="px-3 py-4">
+                                <button class="expand-btn p-1 hover:bg-bg-hover rounded transition-colors" aria-label="Expand row details" aria-expanded="false">
+                                    <svg class="chevron-icon w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 14:15</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                                    Updated
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-7 w-7 rounded-full bg-error flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">SA</span>
+                                    </div>
+                                    <span class="ml-2 text-sm text-text-primary">@SuperAdmin</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Bot Configuration</td>
+                            <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">Updated command prefix</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Art & Design</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html?id=5" class="text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View details for this audit entry">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        <!-- Expandable content for Row 5 -->
+                        <tr class="expand-content-row hidden" data-parent-id="5">
+                            <td colspan="8" class="px-6 py-0">
+                                <div class="expand-content bg-bg-primary border-l-2 border-accent-blue pl-4 py-3 my-2 rounded-r-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="text-text-tertiary">Entry ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">audit-005-mno345</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">IP Address:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">192.168.1.1</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">Changes:</span>
+                                            <span class="ml-2 text-text-secondary">CommandPrefix</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 6 - Created -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="6">
+                            <td class="px-3 py-4">
+                                <button class="expand-btn p-1 hover:bg-bg-hover rounded transition-colors" aria-label="Expand row details" aria-expanded="false">
+                                    <svg class="chevron-icon w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 14:10</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                    Created
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-7 w-7 rounded-full bg-accent-blue flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">MU</span>
+                                    </div>
+                                    <span class="ml-2 text-sm text-text-primary">@ModUser</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Verification Rule</td>
+                            <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">Added phone verification</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Tech Community</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html?id=6" class="text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View details for this audit entry">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        <!-- Expandable content for Row 6 -->
+                        <tr class="expand-content-row hidden" data-parent-id="6">
+                            <td colspan="8" class="px-6 py-0">
+                                <div class="expand-content bg-bg-primary border-l-2 border-success pl-4 py-3 my-2 rounded-r-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="text-text-tertiary">Entry ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">audit-006-pqr678</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">IP Address:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">192.168.1.105</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">Rule Type:</span>
+                                            <span class="ml-2 text-text-secondary">Phone Verification</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 7 - Deleted -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="7">
+                            <td class="px-3 py-4">
+                                <button class="expand-btn p-1 hover:bg-bg-hover rounded transition-colors" aria-label="Expand row details" aria-expanded="false">
+                                    <svg class="chevron-icon w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 24, 2025 14:05</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error text-white">
+                                    Deleted
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-7 w-7 rounded-full bg-accent-orange flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">AU</span>
+                                    </div>
+                                    <span class="ml-2 text-sm text-text-primary">@AdminUser</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Scheduled Message</td>
+                            <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">Removed old announcement</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Music Lovers</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <a href="details.html?id=7" class="text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View details for this audit entry">
+                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        <!-- Expandable content for Row 7 -->
+                        <tr class="expand-content-row hidden" data-parent-id="7">
+                            <td colspan="8" class="px-6 py-0">
+                                <div class="expand-content bg-bg-primary border-l-2 border-error pl-4 py-3 my-2 rounded-r-md">
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <div>
+                                            <span class="text-text-tertiary">Entry ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">audit-007-stu901</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">IP Address:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">192.168.1.100</span>
+                                        </div>
+                                        <div>
+                                            <span class="text-text-tertiary">Deleted Message ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">sched-msg-456</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="px-6 py-4 border-t border-border-primary">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <label for="pageSize" class="text-sm text-text-secondary">Show:</label>
+                        <select id="pageSize" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue focus:outline-none">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <nav aria-label="Pagination" class="flex items-center gap-1">
+                        <!-- First Page -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="First page" aria-disabled="true">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                        </a>
+                        <!-- Previous -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="Previous page" aria-disabled="true">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </a>
+                        <!-- Page Numbers -->
+                        <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">1</span>
+                        <!-- Next -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="Next page" aria-disabled="true">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                        <!-- Last Page -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="Last page" aria-disabled="true">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Toggle filters visibility
+        document.getElementById('toggleFilters').addEventListener('click', function() {
+            const form = document.getElementById('filtersForm');
+            const text = document.getElementById('toggleFiltersText');
+            const icon = document.getElementById('toggleFiltersIcon');
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+            form.classList.toggle('hidden');
+            this.setAttribute('aria-expanded', !isExpanded);
+            text.textContent = isExpanded ? 'Show Filters' : 'Hide Filters';
+            icon.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+        });
+
+        // Clear filters function
+        function clearFilters() {
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            document.getElementById('actor').value = '';
+            document.getElementById('targetType').value = '';
+            document.getElementById('contentSearch').value = '';
+
+            // Reset all checkboxes to checked
+            document.querySelectorAll('input[name="actionType"]').forEach(cb => cb.checked = true);
+
+            // Hide filter status
+            document.getElementById('filterStatus').classList.add('hidden');
+        }
+
+        // Form submit handler
+        document.getElementById('filtersForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Gather filter values
+            const filters = {
+                fromDate: document.getElementById('fromDate').value,
+                toDate: document.getElementById('toDate').value,
+                actor: document.getElementById('actor').value,
+                targetType: document.getElementById('targetType').value,
+                contentSearch: document.getElementById('contentSearch').value,
+                actionTypes: Array.from(document.querySelectorAll('input[name="actionType"]:checked')).map(cb => cb.value)
+            };
+
+            console.log('Filters applied:', filters);
+
+            // Show filter status
+            const filterStatus = document.getElementById('filterStatus');
+            const filterStatusText = document.getElementById('filterStatusText');
+
+            // Count active filters
+            let activeFilters = 0;
+            if (filters.fromDate) activeFilters++;
+            if (filters.toDate) activeFilters++;
+            if (filters.actor) activeFilters++;
+            if (filters.targetType) activeFilters++;
+            if (filters.contentSearch) activeFilters++;
+            if (filters.actionTypes.length < 4) activeFilters++;
+
+            if (activeFilters > 0) {
+                filterStatusText.textContent = `${activeFilters} filter${activeFilters > 1 ? 's' : ''} applied`;
+                filterStatus.classList.remove('hidden');
+            } else {
+                filterStatus.classList.add('hidden');
+            }
+        });
+
+        // Expandable rows functionality
+        document.querySelectorAll('.expand-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('.audit-row');
+                const rowId = row.dataset.rowId;
+                const expandRow = document.querySelector(`.expand-content-row[data-parent-id="${rowId}"]`);
+                const chevron = this.querySelector('.chevron-icon');
+                const expandContent = expandRow.querySelector('.expand-content');
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+                // Toggle visibility
+                expandRow.classList.toggle('hidden');
+                chevron.classList.toggle('rotated');
+                this.setAttribute('aria-expanded', !isExpanded);
+
+                // Animate expand content
+                if (!isExpanded) {
+                    setTimeout(() => {
+                        expandContent.classList.add('expanded');
+                    }, 10);
+                } else {
+                    expandContent.classList.remove('expanded');
+                }
+            });
+        });
+
+        // Keyboard accessibility for expand buttons
+        document.querySelectorAll('.expand-btn').forEach(btn => {
+            btn.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
