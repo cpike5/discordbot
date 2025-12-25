@@ -1,6 +1,7 @@
 # Discord Bot Management System
 
-[![Version](https://img.shields.io/badge/version-v0.1.0-blue)](https://github.com/cpike5/discordbot/releases/tag/v0.1.0)
+[![Version](https://img.shields.io/badge/version-v0.2.0-blue)](https://github.com/cpike5/discordbot/releases)
+[![CI](https://github.com/cpike5/discordbot/actions/workflows/ci.yml/badge.svg)](https://github.com/cpike5/discordbot/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
 [![Discord.NET](https://img.shields.io/badge/Discord.NET-3.18.0-5865F2)](https://github.com/discord-net/Discord.Net)
 
@@ -364,4 +365,5 @@ This project is for educational and development purposes.
 - [Authorization Policies](docs/articles/authorization-policies.md) - Role hierarchy and access control
 - [User Management](docs/articles/user-management.md) - Admin UI user management
 - [Bot Verification](docs/articles/bot-verification.md) - Discord account linking flow
+- [Versioning Strategy](docs/articles/versioning-strategy.md) - SemVer versioning, CI/CD, release process
 - [CLAUDE.md](CLAUDE.md) - Guidance for Claude Code AI assistant
