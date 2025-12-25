@@ -464,7 +464,7 @@
     .health-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 1rem;
+      gap: 1.5rem;
     }
 
     @media (min-width: 640px) {
@@ -480,87 +480,178 @@
     .health-label {
       font-size: 0.75rem;
       color: var(--color-text-secondary);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      font-weight: 600;
     }
 
+    /* Semi-circular Gauge */
     .health-gauge {
       position: relative;
-      width: 5rem;
-      height: 5rem;
-      margin: 0 auto 0.5rem;
+      width: 120px;
+      height: 70px;
+      margin: 0 auto 0.75rem;
+      overflow: visible;
     }
 
     .health-gauge svg {
       width: 100%;
       height: 100%;
-      transform: rotate(-90deg);
+      overflow: visible;
     }
 
-    .health-gauge circle {
+    .health-gauge-bg {
       fill: none;
-      stroke-width: 8;
-    }
-
-    .health-gauge .bg {
       stroke: var(--color-bg-tertiary);
-    }
-
-    .health-gauge .progress {
+      stroke-width: 10;
       stroke-linecap: round;
-      transition: stroke-dashoffset 0.3s ease-in-out;
     }
 
-    .health-gauge .progress.success { stroke: var(--color-success); }
-    .health-gauge .progress.warning { stroke: var(--color-warning); }
-    .health-gauge .progress.error { stroke: var(--color-error); }
+    .health-gauge-progress {
+      fill: none;
+      stroke-width: 10;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      filter: drop-shadow(0 0 6px currentColor);
+    }
+
+    .health-gauge-progress.success { stroke: url(#gaugeGradientSuccess); }
+    .health-gauge-progress.warning { stroke: url(#gaugeGradientWarning); }
+    .health-gauge-progress.error { stroke: url(#gaugeGradientError); }
+
+    .health-gauge-ticks {
+      stroke: var(--color-text-tertiary);
+      stroke-width: 1;
+      opacity: 0.5;
+    }
 
     .health-gauge-value {
       position: absolute;
-      inset: 0;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      font-size: 1rem;
-      font-weight: 700;
     }
 
-    .health-status {
+    .health-gauge-value .value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--color-text-primary);
+    }
+
+    .health-gauge-value .value.success { color: var(--color-success); }
+    .health-gauge-value .value.warning { color: var(--color-warning); }
+    .health-gauge-value .value.error { color: var(--color-error); }
+
+    .health-gauge-value .unit {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+      font-weight: 500;
+    }
+
+    .health-gauge-range {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 8px;
+    }
+
+    .health-gauge-range span {
+      font-size: 0.625rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .health-detail {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      margin-top: 0.25rem;
+    }
+
+    /* Status Card Style */
+    .health-status-card {
+      background: var(--color-bg-tertiary);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 5rem;
-      margin-bottom: 0.5rem;
+      min-height: 120px;
     }
 
-    .health-status-indicator {
+    .health-status-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
       display: flex;
       align-items: center;
-      gap: 0.375rem;
-      font-size: 0.875rem;
-      font-weight: 600;
+      justify-content: center;
+      margin-bottom: 0.75rem;
     }
 
-    .health-status-indicator .dot {
-      width: 0.5rem;
-      height: 0.5rem;
-      border-radius: 50%;
+    .health-status-icon.success {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--color-success);
     }
 
-    .health-status-indicator.success .dot { background-color: var(--color-success); }
-    .health-status-indicator.success { color: var(--color-success); }
-    .health-status-indicator.warning .dot { background-color: var(--color-warning); }
-    .health-status-indicator.warning { color: var(--color-warning); }
-    .health-status-indicator.error .dot { background-color: var(--color-error); }
-    .health-status-indicator.error { color: var(--color-error); }
+    .health-status-icon.warning {
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--color-warning);
+    }
 
-    .health-value {
-      font-size: 0.875rem;
+    .health-status-icon.error {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--color-error);
+    }
+
+    .health-status-icon svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    .health-status-value {
+      font-size: 1.125rem;
+      font-weight: 700;
       color: var(--color-text-primary);
-      font-weight: 500;
+      margin-bottom: 0.25rem;
     }
+
+    .health-status-value.success { color: var(--color-success); }
+    .health-status-value.warning { color: var(--color-warning); }
+    .health-status-value.error { color: var(--color-error); }
+
+    .health-status-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    /* Latency bar indicator */
+    .latency-bar {
+      width: 100%;
+      max-width: 80px;
+      height: 4px;
+      background: var(--color-bg-primary);
+      border-radius: 2px;
+      margin: 0.5rem auto 0;
+      overflow: hidden;
+    }
+
+    .latency-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .latency-bar-fill.success { background: var(--color-success); }
+    .latency-bar-fill.warning { background: var(--color-warning); }
+    .latency-bar-fill.error { background: var(--color-error); }
 
     /* Demo Section */
     .demo-section {
@@ -1084,6 +1175,24 @@
       </div>
     </section>
 
+    <!-- SVG Gradient Definitions (hidden) -->
+    <svg style="position: absolute; width: 0; height: 0; overflow: hidden;">
+      <defs>
+        <linearGradient id="gaugeGradientSuccess" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#059669" />
+          <stop offset="100%" stop-color="#10b981" />
+        </linearGradient>
+        <linearGradient id="gaugeGradientWarning" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#d97706" />
+          <stop offset="100%" stop-color="#f59e0b" />
+        </linearGradient>
+        <linearGradient id="gaugeGradientError" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#dc2626" />
+          <stop offset="100%" stop-color="#ef4444" />
+        </linearGradient>
+      </defs>
+    </svg>
+
     <!-- System Health Panel -->
     <section class="card">
       <div class="card-header">
@@ -1097,66 +1206,123 @@
       </div>
       <div class="card-body">
         <div class="health-grid">
-          <!-- Memory Usage -->
+          <!-- Memory Usage - Semi-circular Gauge -->
           <div class="health-item">
             <div class="health-label">Memory</div>
             <div class="health-gauge">
-              <svg viewBox="0 0 36 36">
-                <circle class="bg" cx="18" cy="18" r="15.915" />
-                <circle
-                  class="progress warning"
-                  cx="18"
-                  cy="18"
-                  r="15.915"
-                  stroke-dasharray="68, 100"
+              <svg viewBox="0 0 120 70">
+                <!-- Tick marks -->
+                <g class="health-gauge-ticks">
+                  <line x1="10" y1="65" x2="10" y2="60" />
+                  <line x1="25" y1="42" x2="28" y2="46" />
+                  <line x1="60" y1="10" x2="60" y2="15" />
+                  <line x1="95" y1="42" x2="92" y2="46" />
+                  <line x1="110" y1="65" x2="110" y2="60" />
+                </g>
+                <!-- Background arc -->
+                <path
+                  class="health-gauge-bg"
+                  d="M 10 65 A 50 50 0 0 1 110 65"
+                  fill="none"
                 />
+                <!-- Progress arc (68% of 180deg = ~122deg) -->
+                <path
+                  class="health-gauge-progress warning"
+                  d="M 10 65 A 50 50 0 0 1 110 65"
+                  fill="none"
+                  stroke-dasharray="157"
+                  stroke-dashoffset="50"
+                  style="--progress: 68;"
+                />
+                <!-- Needle indicator -->
+                <g transform="rotate(52.4, 60, 65)">
+                  <line x1="60" y1="65" x2="60" y2="22" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" />
+                  <circle cx="60" cy="65" r="6" fill="var(--color-bg-secondary)" stroke="#f59e0b" stroke-width="2" />
+                  <circle cx="60" cy="65" r="3" fill="#f59e0b" />
+                </g>
               </svg>
-              <div class="health-gauge-value">68%</div>
+              <div class="health-gauge-value">
+                <span class="value warning">68</span>
+                <span class="unit">%</span>
+              </div>
             </div>
-            <div class="health-value">2.7 GB / 4 GB</div>
+            <div class="health-detail">2.7 GB / 4 GB</div>
           </div>
 
-          <!-- CPU Usage -->
+          <!-- CPU Usage - Semi-circular Gauge -->
           <div class="health-item">
             <div class="health-label">CPU</div>
             <div class="health-gauge">
-              <svg viewBox="0 0 36 36">
-                <circle class="bg" cx="18" cy="18" r="15.915" />
-                <circle
-                  class="progress success"
-                  cx="18"
-                  cy="18"
-                  r="15.915"
-                  stroke-dasharray="23, 100"
+              <svg viewBox="0 0 120 70">
+                <!-- Tick marks -->
+                <g class="health-gauge-ticks">
+                  <line x1="10" y1="65" x2="10" y2="60" />
+                  <line x1="25" y1="42" x2="28" y2="46" />
+                  <line x1="60" y1="10" x2="60" y2="15" />
+                  <line x1="95" y1="42" x2="92" y2="46" />
+                  <line x1="110" y1="65" x2="110" y2="60" />
+                </g>
+                <!-- Background arc -->
+                <path
+                  class="health-gauge-bg"
+                  d="M 10 65 A 50 50 0 0 1 110 65"
+                  fill="none"
                 />
+                <!-- Progress arc (23% of 180deg = ~41deg) -->
+                <path
+                  class="health-gauge-progress success"
+                  d="M 10 65 A 50 50 0 0 1 110 65"
+                  fill="none"
+                  stroke-dasharray="157"
+                  stroke-dashoffset="121"
+                  style="--progress: 23;"
+                />
+                <!-- Needle indicator -->
+                <g transform="rotate(-48.6, 60, 65)">
+                  <line x1="60" y1="65" x2="60" y2="22" stroke="#10b981" stroke-width="2" stroke-linecap="round" />
+                  <circle cx="60" cy="65" r="6" fill="var(--color-bg-secondary)" stroke="#10b981" stroke-width="2" />
+                  <circle cx="60" cy="65" r="3" fill="#10b981" />
+                </g>
               </svg>
-              <div class="health-gauge-value">23%</div>
+              <div class="health-gauge-value">
+                <span class="value success">23</span>
+                <span class="unit">%</span>
+              </div>
             </div>
-            <div class="health-value">Low utilization</div>
+            <div class="health-detail">Low utilization</div>
           </div>
 
-          <!-- Database Status -->
+          <!-- Database Status - Card Style -->
           <div class="health-item">
             <div class="health-label">Database</div>
-            <div class="health-status">
-              <div class="health-status-indicator success">
-                <span class="dot"></span>
-                Connected
+            <div class="health-status-card">
+              <div class="health-status-icon success">
+                <!-- Database Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+                </svg>
               </div>
+              <div class="health-status-value success">Connected</div>
+              <div class="health-status-label">SQLite</div>
             </div>
-            <div class="health-value">SQLite</div>
           </div>
 
-          <!-- API Latency -->
+          <!-- API Latency - Card Style with Bar -->
           <div class="health-item">
             <div class="health-label">API Latency</div>
-            <div class="health-status">
-              <div class="health-status-indicator success">
-                <span class="dot"></span>
-                42ms
+            <div class="health-status-card">
+              <div class="health-status-icon success">
+                <!-- Signal Icon -->
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 010 1.954l-7.108 4.061A1.125 1.125 0 013 16.811V8.69zM12.75 8.689c0-.864.933-1.406 1.683-.977l7.108 4.061a1.125 1.125 0 010 1.954l-7.108 4.061a1.125 1.125 0 01-1.683-.977V8.69z" />
+                </svg>
+              </div>
+              <div class="health-status-value success">42ms</div>
+              <div class="health-status-label">Excellent</div>
+              <div class="latency-bar">
+                <div class="latency-bar-fill success" style="width: 8%;"></div>
               </div>
             </div>
-            <div class="health-value">Excellent</div>
           </div>
         </div>
       </div>
