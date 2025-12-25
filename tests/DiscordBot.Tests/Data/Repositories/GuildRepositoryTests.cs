@@ -334,7 +334,7 @@ public class GuildRepositoryTests : IDisposable
         {
             Id = 222222222,
             Name = "Today Guild 1",
-            JoinedAt = now,
+            JoinedAt = startOfToday.AddHours(2),  // 2am today - always after midnight
             IsActive = true
         };
 
@@ -342,7 +342,7 @@ public class GuildRepositoryTests : IDisposable
         {
             Id = 333333333,
             Name = "Today Guild 2",
-            JoinedAt = now.AddHours(-2),
+            JoinedAt = startOfToday.AddHours(1),  // 1am today - always after midnight
             IsActive = true
         };
 
