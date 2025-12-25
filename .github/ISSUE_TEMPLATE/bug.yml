@@ -1,0 +1,114 @@
+name: Bug Report
+description: Report a defect or incorrect behavior
+labels: ["bug", "priority:medium"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Bug Report Template
+        Use this template to report defects. Please provide as much detail as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug
+      placeholder: Describe what's happening incorrectly...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should have happened?
+      placeholder: Describe what you expected to happen...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is affected?
+      multiple: true
+      options:
+        - Bot (Discord bot service)
+        - API (REST controllers)
+        - Data (Persistence layer)
+        - UI (Razor Pages)
+        - Infrastructure (Deployment/config)
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Relevant environment details
+      placeholder: |
+        - OS: Windows 11 / Ubuntu 22.04 / macOS 14
+        - .NET Version: 8.0
+        - Bot Version: v0.2.1
+        - Browser (if UI): Chrome 120
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Messages
+      description: Any relevant log output or error messages
+      placeholder: Paste logs or error messages here...
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If applicable, add screenshots to help explain the problem
+      placeholder: Drag and drop images here...
+    validations:
+      required: false
+
+  - type: input
+    id: related-feature
+    attributes:
+      label: Related Feature
+      description: Link to related feature issue (if discovered during development)
+      placeholder: "#87"
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround
+      description: Is there a known workaround?
+      placeholder: Describe any workaround if known...
+    validations:
+      required: false

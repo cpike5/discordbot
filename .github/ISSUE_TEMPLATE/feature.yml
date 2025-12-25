@@ -1,0 +1,96 @@
+name: Feature
+description: A new feature or capability that delivers user value
+labels: ["feature", "priority:medium"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feature Template
+        Use this template for new functionality that can be broken down into tasks.
+
+  - type: input
+    id: parent-epic
+    attributes:
+      label: Parent Epic
+      description: Link to the parent epic (if applicable)
+      placeholder: "#42"
+    validations:
+      required: false
+
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: Describe the feature from the user's perspective
+      placeholder: |
+        As a [type of user],
+        I want [goal/desire],
+        So that [benefit/value].
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Detailed description of the feature
+      placeholder: Provide more context about what this feature should do...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Specific conditions that must be met for this feature to be complete
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: Break down the feature into implementation tasks (link to task issues when created)
+      placeholder: |
+        - [ ] #__ - Task 1 description
+        - [ ] #__ - Task 2 description
+        - [ ] #__ - Task 3 description
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component(s) does this feature affect?
+      multiple: true
+      options:
+        - Bot (Discord bot service)
+        - API (REST controllers)
+        - Data (Persistence layer)
+        - UI (Razor Pages)
+        - Infrastructure (Deployment/config)
+    validations:
+      required: false
+
+  - type: textarea
+    id: design-notes
+    attributes:
+      label: Design Notes
+      description: Technical approach, architecture decisions, or design considerations
+      placeholder: Any technical notes or design decisions...
+    validations:
+      required: false
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope
+      description: Explicitly list what is NOT included in this feature
+      placeholder: What this feature will NOT do...
+    validations:
+      required: false

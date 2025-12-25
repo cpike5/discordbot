@@ -1,0 +1,69 @@
+name: Epic
+description: A major initiative spanning multiple features (e.g., version release)
+labels: ["epic", "priority:medium"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Epic Template
+        Use this template for major initiatives that span multiple features, typically aligned with a version release.
+
+  - type: textarea
+    id: overview
+    attributes:
+      label: Overview
+      description: High-level description of this epic and its business/technical goals
+      placeholder: Describe what this epic aims to achieve...
+    validations:
+      required: true
+
+  - type: textarea
+    id: success-criteria
+    attributes:
+      label: Success Criteria
+      description: How do we know this epic is complete?
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+        - [ ] Criterion 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: features
+    attributes:
+      label: Features
+      description: List the features that make up this epic (link to feature issues when created)
+      placeholder: |
+        - [ ] #__ - Feature 1 description
+        - [ ] #__ - Feature 2 description
+        - [ ] #__ - Feature 3 description
+    validations:
+      required: false
+
+  - type: input
+    id: target-version
+    attributes:
+      label: Target Version
+      description: The version this epic is targeting (if applicable)
+      placeholder: "v1.0.0"
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: External dependencies, blockers, or prerequisites
+      placeholder: List any dependencies or blockers...
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Any other relevant information
+      placeholder: Additional context, links, references...
+    validations:
+      required: false

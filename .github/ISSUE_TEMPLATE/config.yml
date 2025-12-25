@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/cpike5/discordbot/blob/main/docs/articles/issue-tracking-process.md
+    about: Read our issue tracking process documentation before creating an issue

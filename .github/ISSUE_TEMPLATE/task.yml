@@ -1,0 +1,97 @@
+name: Task
+description: Specific implementation work (coding, prototyping, research, docs)
+labels: ["task", "priority:medium"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Task Template
+        Use this template for specific, actionable implementation work.
+
+  - type: input
+    id: parent-feature
+    attributes:
+      label: Parent Feature
+      description: Link to the parent feature (if applicable)
+      placeholder: "#87"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What needs to be done?
+      placeholder: Describe the specific work to be completed...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: task-type
+    attributes:
+      label: Task Type
+      description: What kind of work is this?
+      options:
+        - Implementation
+        - Prototyping
+        - Research/Investigation
+        - Documentation
+        - Refactoring
+        - Testing
+        - Configuration
+    validations:
+      required: true
+
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements
+      description: Specific requirements or conditions for this task
+      placeholder: |
+        - Requirement 1
+        - Requirement 2
+        - Requirement 3
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Notes
+      description: Technical details, approach, or guidance for implementation
+      placeholder: |
+        Files to modify:
+        - path/to/file.cs
+
+        Approach:
+        - Step 1
+        - Step 2
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component does this task affect?
+      multiple: true
+      options:
+        - Bot (Discord bot service)
+        - API (REST controllers)
+        - Data (Persistence layer)
+        - UI (Razor Pages)
+        - Infrastructure (Deployment/config)
+    validations:
+      required: false
+
+  - type: textarea
+    id: definition-of-done
+    attributes:
+      label: Definition of Done
+      description: How do we know this task is complete?
+      placeholder: |
+        - [ ] Code implemented
+        - [ ] Tests passing
+        - [ ] PR reviewed and merged
+    validations:
+      required: false

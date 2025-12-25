@@ -148,6 +148,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
 | [log-aggregation.md](docs/articles/log-aggregation.md) | Seq centralized logging setup |
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
+| [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | Issue hierarchy, labels, GitHub workflow |
 
 ## Discord.NET Specifics
 
