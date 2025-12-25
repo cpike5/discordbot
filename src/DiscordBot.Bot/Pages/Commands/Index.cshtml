@@ -1,0 +1,162 @@
+@page
+@model DiscordBot.Bot.Pages.Commands.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@{
+    ViewData["Title"] = "Commands";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Commands</h1>
+            <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = Model.ViewModel.TotalCommandCount.ToString(), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
+        </div>
+        <div class="flex items-center gap-3">
+            <span class="text-sm text-text-secondary">
+                @Model.ViewModel.ModuleCount module@(Model.ViewModel.ModuleCount != 1 ? "s" : "") registered
+            </span>
+        </div>
+    </div>
+
+    @if (Model.ViewModel.HasModules)
+    {
+        <!-- Command Modules -->
+        <div class="space-y-4">
+            @foreach (var module in Model.ViewModel.Modules)
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" id="module-@module.ModuleId">
+                    <!-- Module Header (clickable to expand/collapse) -->
+                    <button type="button"
+                            class="w-full flex items-center justify-between px-6 py-4 hover:bg-bg-hover/50 transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
+                            onclick="toggleModule('@module.ModuleId')"
+                            aria-expanded="true"
+                            aria-controls="commands-@module.ModuleId">
+                        <div class="flex items-center gap-3">
+                            <!-- Module Icon -->
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div class="text-left">
+                                <h2 class="text-lg font-semibold text-text-primary">
+                                    @module.DisplayName
+                                    @if (module.IsSlashGroup && !string.IsNullOrEmpty(module.GroupName))
+                                    {
+                                        <span class="text-text-tertiary font-normal text-sm ml-2">/@module.GroupName</span>
+                                    }
+                                </h2>
+                                @if (!string.IsNullOrEmpty(module.Description))
+                                {
+                                    <p class="text-sm text-text-secondary">@module.Description</p>
+                                }
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-text-tertiary">@module.CommandCount command@(module.CommandCount != 1 ? "s" : "")</span>
+                            <svg class="w-5 h-5 text-text-tertiary transition-transform duration-200 module-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" data-module="@module.ModuleId">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </button>
+
+                    <!-- Command List (collapsible) -->
+                    <div id="commands-@module.ModuleId" class="border-t border-border-primary">
+                        <div class="divide-y divide-border-secondary">
+                            @foreach (var command in module.Commands)
+                            {
+                                <div class="px-6 py-4 hover:bg-bg-hover/30 transition-colors">
+                                    <div class="flex flex-col lg:flex-row lg:items-start gap-3">
+                                        <!-- Command Name and Parameters -->
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex flex-wrap items-center gap-2 mb-1">
+                                                <code class="text-accent-orange font-mono font-semibold text-sm">@command.FullDisplayName</code>
+                                                @if (!string.IsNullOrEmpty(command.ParametersDisplay))
+                                                {
+                                                    <code class="text-text-tertiary font-mono text-sm">@command.ParametersDisplay</code>
+                                                }
+                                            </div>
+                                            <p class="text-sm text-text-secondary">@command.Description</p>
+
+                                            <!-- Parameters Details (if any) -->
+                                            @if (command.HasParameters)
+                                            {
+                                                <div class="mt-3 space-y-2">
+                                                    @foreach (var param in command.Parameters)
+                                                    {
+                                                        <div class="flex items-start gap-2 text-sm">
+                                                            <span class="font-mono text-text-primary">@param.Name</span>
+                                                            <span class="text-text-tertiary">(@param.Type@(param.IsRequired ? ", required" : ", optional"))</span>
+                                                            @if (!string.IsNullOrEmpty(param.Description))
+                                                            {
+                                                                <span class="text-text-secondary">- @param.Description</span>
+                                                            }
+                                                        </div>
+                                                        @if (param.HasChoices)
+                                                        {
+                                                            <div class="ml-4 text-xs text-text-tertiary">
+                                                                Choices: @string.Join(", ", param.Choices!)
+                                                            </div>
+                                                        }
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <!-- Precondition Badges -->
+                                        @if (command.HasPreconditions)
+                                        {
+                                            <div class="flex flex-wrap gap-2 lg:flex-shrink-0">
+                                                @foreach (var badge in command.PreconditionBadges)
+                                                {
+                                                    <partial name="Shared/Components/_Badge" model="badge" />
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Empty State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
+            @{
+                var emptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = "No commands loaded",
+                    Description = "The bot hasn't loaded any command modules yet. Commands will appear once the bot has connected to Discord."
+                };
+            }
+            <partial name="Shared/Components/_EmptyState" model="emptyState" />
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        function toggleModule(moduleId) {
+            const commandsContainer = document.getElementById('commands-' + moduleId);
+            const chevron = document.querySelector('.module-chevron[data-module="' + moduleId + '"]');
+            const button = commandsContainer.parentElement.querySelector('button');
+
+            if (commandsContainer.classList.contains('hidden')) {
+                commandsContainer.classList.remove('hidden');
+                chevron.classList.remove('rotate-180');
+                button.setAttribute('aria-expanded', 'true');
+            } else {
+                commandsContainer.classList.add('hidden');
+                chevron.classList.add('rotate-180');
+                button.setAttribute('aria-expanded', 'false');
+            }
+        }
+    </script>
+}
