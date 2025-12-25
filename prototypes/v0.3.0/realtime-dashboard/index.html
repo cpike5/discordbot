@@ -577,23 +577,22 @@
     .health-status-card {
       background: var(--color-bg-tertiary);
       border-radius: 0.5rem;
-      padding: 1rem;
-      height: 100%;
+      padding: 1.25rem 1rem;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      min-height: 120px;
+      min-height: 95px;
     }
 
     .health-status-icon {
-      width: 2.5rem;
-      height: 2.5rem;
+      width: 2rem;
+      height: 2rem;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
     }
 
     .health-status-icon.success {
@@ -612,15 +611,15 @@
     }
 
     .health-status-icon svg {
-      width: 1.25rem;
-      height: 1.25rem;
+      width: 1rem;
+      height: 1rem;
     }
 
     .health-status-value {
-      font-size: 1.125rem;
+      font-size: 1.25rem;
       font-weight: 700;
       color: var(--color-text-primary);
-      margin-bottom: 0.25rem;
+      line-height: 1.2;
     }
 
     .health-status-value.success { color: var(--color-success); }
@@ -628,18 +627,19 @@
     .health-status-value.error { color: var(--color-error); }
 
     .health-status-label {
-      font-size: 0.75rem;
-      color: var(--color-text-secondary);
+      font-size: 0.6875rem;
+      color: var(--color-text-tertiary);
+      margin-top: 0.125rem;
     }
 
     /* Latency bar indicator */
     .latency-bar {
       width: 100%;
-      max-width: 80px;
-      height: 4px;
+      max-width: 60px;
+      height: 3px;
       background: var(--color-bg-primary);
       border-radius: 2px;
-      margin: 0.5rem auto 0;
+      margin: 0.375rem auto 0;
       overflow: hidden;
     }
 
