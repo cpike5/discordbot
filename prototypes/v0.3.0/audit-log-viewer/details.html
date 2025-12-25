@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Entry Details - Discord Bot Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: {
+                            primary: '#1d2022',
+                            secondary: '#262a2d',
+                            tertiary: '#2f3336',
+                            hover: '#363a3e',
+                        },
+                        text: {
+                            primary: '#d7d3d0',
+                            secondary: '#a8a5a3',
+                            tertiary: '#7a7876',
+                            inverse: '#1d2022',
+                        },
+                        accent: {
+                            orange: {
+                                DEFAULT: '#cb4e1b',
+                                hover: '#e5591f',
+                                active: '#b04517',
+                                muted: '#cb4e1b33',
+                            },
+                            blue: {
+                                DEFAULT: '#098ecf',
+                                hover: '#0ba3ea',
+                                active: '#0879b3',
+                                muted: '#098ecf33',
+                            },
+                        },
+                        success: {
+                            DEFAULT: '#10b981',
+                            bg: '#10b98120',
+                            border: '#10b98150',
+                        },
+                        warning: {
+                            DEFAULT: '#f59e0b',
+                            bg: '#f59e0b20',
+                            border: '#f59e0b50',
+                        },
+                        error: {
+                            DEFAULT: '#ef4444',
+                            bg: '#ef444420',
+                            border: '#ef444450',
+                        },
+                        info: {
+                            DEFAULT: '#06b6d4',
+                            bg: '#06b6d420',
+                            border: '#06b6d450',
+                        },
+                        border: {
+                            primary: '#3f4447',
+                            secondary: '#2f3336',
+                            focus: '#098ecf',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2022;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f4447;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f5457;
+        }
+
+        /* Diff styling */
+        .diff-removed {
+            background-color: rgba(239, 68, 68, 0.15);
+            border-left: 3px solid #ef4444;
+        }
+        .diff-added {
+            background-color: rgba(16, 185, 129, 0.15);
+            border-left: 3px solid #10b981;
+        }
+
+        /* JSON expand/collapse */
+        .json-collapsed {
+            max-height: 100px;
+            overflow: hidden;
+            position: relative;
+        }
+        .json-collapsed::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: linear-gradient(transparent, #262a2d);
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Users</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Message Logs</a>
+                        <a href="index.html" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Audit Logs</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex items-center gap-2 text-sm">
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li>
+                    <a href="index.html" class="text-text-secondary hover:text-accent-blue transition-colors">Audit Logs</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li class="text-text-primary font-medium">Entry Details</li>
+            </ol>
+        </nav>
+
+        <!-- Header with Back Button -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div class="flex items-center gap-4">
+                <a href="index.html" class="inline-flex items-center justify-center w-10 h-10 text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Back to audit logs">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                </a>
+                <div>
+                    <h1 class="text-2xl font-bold text-text-primary">Audit Entry Details</h1>
+                    <p class="mt-1 text-sm text-text-secondary">Entry ID: <span class="font-mono">audit-001-abc123</span></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-accent-blue text-white">
+                    Updated
+                </span>
+            </div>
+        </div>
+
+        <!-- LOADING STATE PLACEHOLDER -->
+        <!--
+            Loading state would go here. Example:
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                <div class="flex flex-col items-center justify-center gap-4">
+                    <div class="animate-spin w-8 h-8 border-2 border-accent-blue border-t-transparent rounded-full"></div>
+                    <p class="text-sm text-text-secondary">Loading audit entry details...</p>
+                </div>
+            </div>
+        -->
+
+        <!-- EMPTY/NOT FOUND STATE PLACEHOLDER -->
+        <!--
+            Not found state would go here. Example:
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+                <svg class="w-12 h-12 mx-auto text-text-tertiary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 class="text-lg font-medium text-text-primary mb-2">Audit entry not found</h3>
+                <p class="text-sm text-text-secondary mb-4">The requested audit log entry could not be found.</p>
+                <a href="index.html" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                    Back to Audit Logs
+                </a>
+            </div>
+        -->
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column - Metadata -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Actor Information Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary">
+                        <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                            <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Actor Information
+                        </h2>
+                    </div>
+                    <div class="p-4">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="h-12 w-12 rounded-full bg-accent-orange flex items-center justify-center">
+                                <span class="text-white font-bold text-lg">AU</span>
+                            </div>
+                            <div>
+                                <p class="text-base font-medium text-text-primary">@AdminUser</p>
+                                <p class="text-sm text-text-secondary">Administrator</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3 pt-3 border-t border-border-secondary">
+                            <div class="flex justify-between">
+                                <span class="text-sm text-text-tertiary">User ID</span>
+                                <span class="text-sm font-mono text-text-secondary">123456789012345678</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-sm text-text-tertiary">Role</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-accent-orange/20 text-accent-orange">
+                                    Admin
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Target Resource Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary">
+                        <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                            <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Target Resource
+                        </h2>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">Type</span>
+                            <span class="text-sm text-text-primary">Guild Settings</span>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">Resource ID</span>
+                            <span class="text-sm font-mono text-text-secondary">guild-settings-789</span>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">Guild</span>
+                            <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
+                                Gaming Hub
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                            </a>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">Guild ID</span>
+                            <span class="text-sm font-mono text-text-secondary">987654321098765432</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Request Metadata Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary">
+                        <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                            <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            Request Metadata
+                        </h2>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">Timestamp</span>
+                            <div class="text-right">
+                                <p class="text-sm text-text-primary">Dec 24, 2025 14:32:45</p>
+                                <p class="text-xs text-text-tertiary">UTC-5 (Eastern)</p>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">IP Address</span>
+                            <span class="text-sm font-mono text-text-secondary">192.168.1.100</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-sm text-text-tertiary">User Agent</span>
+                            <p class="text-xs font-mono text-text-secondary bg-bg-primary rounded px-2 py-1.5 break-all">
+                                Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36
+                            </p>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">Request ID</span>
+                            <span class="text-sm font-mono text-text-secondary">req-xyz-789-abc</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Changes Diff -->
+            <div class="lg:col-span-2">
+                <!-- Changes Diff Panel -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                            <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                            Changes
+                        </h2>
+                        <div class="flex items-center gap-2">
+                            <button id="toggleDiffView" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                                </svg>
+                                <span id="diffViewText">Inline View</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-4">
+                        <!-- Summary -->
+                        <div class="flex items-center gap-4 mb-4 pb-4 border-b border-border-secondary">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-text-tertiary">Fields changed:</span>
+                                <span class="text-sm font-medium text-text-primary">2</span>
+                            </div>
+                        </div>
+
+                        <!-- Diff Content - Side by Side View (default) -->
+                        <div id="sideBySideView" class="space-y-6">
+                            <!-- Field 1: WelcomeMessage -->
+                            <div class="rounded-lg border border-border-primary overflow-hidden">
+                                <div class="px-3 py-2 bg-bg-tertiary border-b border-border-primary">
+                                    <h3 class="text-sm font-medium text-text-primary flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                        </svg>
+                                        WelcomeMessage
+                                        <span class="text-xs text-text-tertiary font-normal">(string)</span>
+                                    </h3>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border-primary">
+                                    <!-- Before -->
+                                    <div class="p-3">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="text-xs font-medium text-error uppercase tracking-wide">Before</span>
+                                            <span class="w-2 h-2 rounded-full bg-error"></span>
+                                        </div>
+                                        <div class="diff-removed rounded px-3 py-2 font-mono text-sm text-text-primary">
+                                            "Welcome to the server!"
+                                        </div>
+                                    </div>
+                                    <!-- After -->
+                                    <div class="p-3">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="text-xs font-medium text-success uppercase tracking-wide">After</span>
+                                            <span class="w-2 h-2 rounded-full bg-success"></span>
+                                        </div>
+                                        <div class="diff-added rounded px-3 py-2 font-mono text-sm text-text-primary">
+                                            "Welcome to {server}, {user}!"
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Field 2: WelcomeEnabled -->
+                            <div class="rounded-lg border border-border-primary overflow-hidden">
+                                <div class="px-3 py-2 bg-bg-tertiary border-b border-border-primary">
+                                    <h3 class="text-sm font-medium text-text-primary flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        WelcomeEnabled
+                                        <span class="text-xs text-text-tertiary font-normal">(boolean)</span>
+                                    </h3>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border-primary">
+                                    <!-- Before -->
+                                    <div class="p-3">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="text-xs font-medium text-error uppercase tracking-wide">Before</span>
+                                            <span class="w-2 h-2 rounded-full bg-error"></span>
+                                        </div>
+                                        <div class="diff-removed rounded px-3 py-2 font-mono text-sm">
+                                            <span class="text-error">false</span>
+                                        </div>
+                                    </div>
+                                    <!-- After -->
+                                    <div class="p-3">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="text-xs font-medium text-success uppercase tracking-wide">After</span>
+                                            <span class="w-2 h-2 rounded-full bg-success"></span>
+                                        </div>
+                                        <div class="diff-added rounded px-3 py-2 font-mono text-sm">
+                                            <span class="text-success">true</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Diff Content - Inline View (hidden by default) -->
+                        <div id="inlineView" class="hidden space-y-4">
+                            <!-- Field 1: WelcomeMessage (Inline) -->
+                            <div class="rounded-lg border border-border-primary overflow-hidden">
+                                <div class="px-3 py-2 bg-bg-tertiary border-b border-border-primary">
+                                    <h3 class="text-sm font-medium text-text-primary flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                        </svg>
+                                        WelcomeMessage
+                                        <span class="text-xs text-text-tertiary font-normal">(string)</span>
+                                    </h3>
+                                </div>
+                                <div class="p-3 space-y-2">
+                                    <div class="diff-removed rounded px-3 py-2 font-mono text-sm flex items-center gap-2">
+                                        <span class="text-error font-bold">-</span>
+                                        <span class="text-text-primary">"Welcome to the server!"</span>
+                                    </div>
+                                    <div class="diff-added rounded px-3 py-2 font-mono text-sm flex items-center gap-2">
+                                        <span class="text-success font-bold">+</span>
+                                        <span class="text-text-primary">"Welcome to {server}, {user}!"</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Field 2: WelcomeEnabled (Inline) -->
+                            <div class="rounded-lg border border-border-primary overflow-hidden">
+                                <div class="px-3 py-2 bg-bg-tertiary border-b border-border-primary">
+                                    <h3 class="text-sm font-medium text-text-primary flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        WelcomeEnabled
+                                        <span class="text-xs text-text-tertiary font-normal">(boolean)</span>
+                                    </h3>
+                                </div>
+                                <div class="p-3 space-y-2">
+                                    <div class="diff-removed rounded px-3 py-2 font-mono text-sm flex items-center gap-2">
+                                        <span class="text-error font-bold">-</span>
+                                        <span class="text-error">false</span>
+                                    </div>
+                                    <div class="diff-added rounded px-3 py-2 font-mono text-sm flex items-center gap-2">
+                                        <span class="text-success font-bold">+</span>
+                                        <span class="text-success">true</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Raw Data Panel (Expandable for JSON objects) -->
+                <div class="mt-6 bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary flex items-center justify-between">
+                        <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                            <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                            </svg>
+                            Raw Change Data
+                        </h2>
+                        <button id="toggleRawData" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1" aria-expanded="false">
+                            <span id="rawDataToggleText">Expand</span>
+                            <svg id="rawDataToggleIcon" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="rawDataContent" class="json-collapsed relative">
+                        <pre class="p-4 text-xs font-mono text-text-secondary overflow-x-auto">{
+  "entryId": "audit-001-abc123",
+  "timestamp": "2025-12-24T14:32:45.000Z",
+  "action": "Updated",
+  "actor": {
+    "id": "123456789012345678",
+    "username": "AdminUser",
+    "role": "Admin"
+  },
+  "target": {
+    "type": "GuildSettings",
+    "id": "guild-settings-789",
+    "guildId": "987654321098765432",
+    "guildName": "Gaming Hub"
+  },
+  "changes": [
+    {
+      "field": "WelcomeMessage",
+      "type": "string",
+      "before": "Welcome to the server!",
+      "after": "Welcome to {server}, {user}!"
+    },
+    {
+      "field": "WelcomeEnabled",
+      "type": "boolean",
+      "before": false,
+      "after": true
+    }
+  ],
+  "metadata": {
+    "ipAddress": "192.168.1.100",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "requestId": "req-xyz-789-abc"
+  }
+}</pre>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="mt-6 flex flex-wrap gap-3">
+                    <a href="index.html" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Audit Logs
+                    </a>
+                    <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Copy entry ID to clipboard">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy Entry ID
+                    </button>
+                    <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Export this entry as JSON">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export JSON
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Toggle between side-by-side and inline diff view
+        document.getElementById('toggleDiffView').addEventListener('click', function() {
+            const sideBySide = document.getElementById('sideBySideView');
+            const inline = document.getElementById('inlineView');
+            const text = document.getElementById('diffViewText');
+
+            if (sideBySide.classList.contains('hidden')) {
+                sideBySide.classList.remove('hidden');
+                inline.classList.add('hidden');
+                text.textContent = 'Inline View';
+            } else {
+                sideBySide.classList.add('hidden');
+                inline.classList.remove('hidden');
+                text.textContent = 'Side by Side';
+            }
+        });
+
+        // Toggle raw data expand/collapse
+        document.getElementById('toggleRawData').addEventListener('click', function() {
+            const content = document.getElementById('rawDataContent');
+            const text = document.getElementById('rawDataToggleText');
+            const icon = document.getElementById('rawDataToggleIcon');
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+            if (isExpanded) {
+                content.classList.add('json-collapsed');
+                text.textContent = 'Expand';
+                icon.style.transform = 'rotate(0deg)';
+                this.setAttribute('aria-expanded', 'false');
+            } else {
+                content.classList.remove('json-collapsed');
+                text.textContent = 'Collapse';
+                icon.style.transform = 'rotate(180deg)';
+                this.setAttribute('aria-expanded', 'true');
+            }
+        });
+
+        // Copy Entry ID functionality
+        document.querySelectorAll('button[aria-label="Copy entry ID to clipboard"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const entryId = 'audit-001-abc123';
+                navigator.clipboard.writeText(entryId).then(() => {
+                    const originalText = this.innerHTML;
+                    this.innerHTML = `
+                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Copied!
+                    `;
+                    setTimeout(() => {
+                        this.innerHTML = originalText;
+                    }, 2000);
+                });
+            });
+        });
+
+        // Export JSON functionality
+        document.querySelectorAll('button[aria-label="Export this entry as JSON"]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const jsonData = {
+                    entryId: "audit-001-abc123",
+                    timestamp: "2025-12-24T14:32:45.000Z",
+                    action: "Updated",
+                    actor: {
+                        id: "123456789012345678",
+                        username: "AdminUser",
+                        role: "Admin"
+                    },
+                    target: {
+                        type: "GuildSettings",
+                        id: "guild-settings-789",
+                        guildId: "987654321098765432",
+                        guildName: "Gaming Hub"
+                    },
+                    changes: [
+                        {
+                            field: "WelcomeMessage",
+                            type: "string",
+                            before: "Welcome to the server!",
+                            after: "Welcome to {server}, {user}!"
+                        },
+                        {
+                            field: "WelcomeEnabled",
+                            type: "boolean",
+                            before: false,
+                            after: true
+                        }
+                    ],
+                    metadata: {
+                        ipAddress: "192.168.1.100",
+                        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                        requestId: "req-xyz-789-abc"
+                    }
+                };
+
+                const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'audit-entry-001-abc123.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            });
+        });
+    </script>
+</body>
+</html>
