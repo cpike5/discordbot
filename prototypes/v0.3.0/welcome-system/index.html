@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome System - Discord Bot Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: {
+                            primary: '#1d2022',
+                            secondary: '#262a2d',
+                            tertiary: '#2f3336',
+                            hover: '#363a3e',
+                        },
+                        text: {
+                            primary: '#d7d3d0',
+                            secondary: '#a8a5a3',
+                            tertiary: '#7a7876',
+                            inverse: '#1d2022',
+                        },
+                        accent: {
+                            orange: {
+                                DEFAULT: '#cb4e1b',
+                                hover: '#e5591f',
+                                active: '#b04517',
+                                muted: '#cb4e1b33',
+                            },
+                            blue: {
+                                DEFAULT: '#098ecf',
+                                hover: '#0ba3ea',
+                                active: '#0879b3',
+                                muted: '#098ecf33',
+                            },
+                        },
+                        success: {
+                            DEFAULT: '#10b981',
+                            bg: '#10b98120',
+                            border: '#10b98150',
+                        },
+                        warning: {
+                            DEFAULT: '#f59e0b',
+                            bg: '#f59e0b20',
+                            border: '#f59e0b50',
+                        },
+                        error: {
+                            DEFAULT: '#ef4444',
+                            bg: '#ef444420',
+                            border: '#ef444450',
+                        },
+                        info: {
+                            DEFAULT: '#06b6d4',
+                            bg: '#06b6d420',
+                            border: '#06b6d450',
+                        },
+                        border: {
+                            primary: '#3f4447',
+                            secondary: '#2f3336',
+                            focus: '#098ecf',
+                        },
+                        discord: {
+                            DEFAULT: '#5865F2',
+                            mention: '#404675',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+                        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        /* ========================================
+           Custom Toggle Switch Styles
+           ======================================== */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 2.75rem;
+            height: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #3f4447;
+            border-radius: 9999px;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .toggle-slider::before {
+            content: "";
+            position: absolute;
+            top: 0.125rem;
+            left: 0.125rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            background-color: #d7d3d0;
+            border-radius: 50%;
+            transition: transform 0.2s ease-in-out;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #cb4e1b;
+        }
+
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(1.25rem);
+        }
+
+        .toggle-switch input:focus-visible + .toggle-slider {
+            outline: 2px solid #098ecf;
+            outline-offset: 2px;
+        }
+
+        .toggle-switch input:disabled + .toggle-slider {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* ========================================
+           Form Input Focus Styles
+           ======================================== */
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: #098ecf;
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        .form-input:disabled,
+        .form-select:disabled,
+        .form-textarea:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background-color: #2f3336;
+        }
+
+        .form-input.error {
+            border-color: #ef4444;
+        }
+
+        .form-input.error:focus {
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+        }
+
+        /* ========================================
+           Discord Message Preview Styles
+           ======================================== */
+        .discord-message {
+            background-color: #36393f;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        .discord-mention {
+            background-color: #404675;
+            color: #dee0fc;
+            padding: 0 2px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+
+        .discord-mention:hover {
+            background-color: #5865f2;
+            color: white;
+        }
+
+        .discord-bot-badge {
+            background-color: #5865f2;
+            color: white;
+            font-size: 0.625rem;
+            padding: 0.0625rem 0.25rem;
+            border-radius: 0.1875rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            vertical-align: middle;
+            margin-left: 0.25rem;
+        }
+
+        .discord-timestamp {
+            color: #72767d;
+            font-size: 0.75rem;
+            margin-left: 0.25rem;
+        }
+
+        /* ========================================
+           Collapsible Panel Styles
+           ======================================== */
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.open {
+            max-height: 500px;
+        }
+
+        /* ========================================
+           Token Button Styles
+           ======================================== */
+        .token-btn {
+            transition: all 0.15s ease-in-out;
+        }
+
+        .token-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .token-btn:active {
+            transform: translateY(0);
+        }
+
+        /* ========================================
+           Tab Styles
+           ======================================== */
+        .tab-btn {
+            position: relative;
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: #cb4e1b;
+        }
+
+        /* ========================================
+           Scrollbar Styling
+           ======================================== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2022;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f4447;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f5457;
+        }
+
+        /* ========================================
+           Disabled Form Section Overlay
+           ======================================== */
+        .form-section-disabled {
+            position: relative;
+        }
+
+        .form-section-disabled::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-color: rgba(29, 32, 34, 0.6);
+            border-radius: 0.5rem;
+            pointer-events: none;
+        }
+
+        .form-section-disabled > * {
+            pointer-events: none;
+        }
+
+        /* Channel dropdown icon */
+        .channel-icon {
+            color: #72767d;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- ========================================
+         Navigation Header
+         ======================================== -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <!-- Logo -->
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <!-- Navigation Links -->
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Users</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Welcome System</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <!-- User Avatar -->
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========================================
+         Main Content
+         ======================================== -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex items-center gap-2 text-sm">
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
+                </li>
+                <li class="text-text-tertiary">/</li>
+                <li class="text-text-primary font-medium">Welcome System</li>
+            </ol>
+        </nav>
+
+        <!-- Header with Tabs -->
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-text-primary">Welcome System</h1>
+            <p class="mt-1 text-sm text-text-secondary">Configure automatic welcome messages for new members</p>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="border-b border-border-primary mb-6">
+            <nav class="flex gap-4" aria-label="Tabs">
+                <button
+                    id="tab-dashboard"
+                    class="tab-btn active px-1 py-3 text-sm font-medium text-accent-orange focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    onclick="switchTab('dashboard')"
+                    aria-selected="true"
+                    role="tab"
+                >
+                    Dashboard
+                </button>
+                <button
+                    id="tab-edit"
+                    class="tab-btn px-1 py-3 text-sm font-medium text-text-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    onclick="switchTab('edit')"
+                    aria-selected="false"
+                    role="tab"
+                >
+                    Edit Configuration
+                </button>
+            </nav>
+        </div>
+
+        <!-- ========================================
+             Dashboard View (Tab Panel 1)
+             ======================================== -->
+        <div id="panel-dashboard" class="tab-panel" role="tabpanel" aria-labelledby="tab-dashboard">
+            <!-- Status Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="flex items-center gap-4">
+                        <!-- Status Indicator -->
+                        <div id="dashboard-status-icon" class="w-12 h-12 rounded-lg bg-success/20 flex items-center justify-center">
+                            <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-semibold text-text-primary">Welcome Messages</h2>
+                            <p id="dashboard-status-text" class="text-sm text-success font-medium">Enabled</p>
+                        </div>
+                    </div>
+                    <!-- Master Toggle -->
+                    <label class="flex items-center gap-3 cursor-pointer">
+                        <span class="text-sm text-text-secondary">Enable</span>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="dashboard-toggle" checked onchange="toggleDashboardStatus()">
+                            <span class="toggle-slider" aria-hidden="true"></span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Summary Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Welcome Channel Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm text-text-secondary mb-1">Welcome Channel</p>
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                </svg>
+                                <span class="text-lg font-semibold text-text-primary">welcome</span>
+                            </div>
+                        </div>
+                        <div class="p-2 bg-discord/20 rounded-lg">
+                            <svg class="w-5 h-5 text-discord" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DM Status Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm text-text-secondary mb-1">Welcome DMs</p>
+                            <div class="flex items-center gap-2">
+                                <span id="dashboard-dm-status" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-bg-tertiary text-text-secondary">
+                                    Disabled
+                                </span>
+                            </div>
+                        </div>
+                        <div class="p-2 bg-bg-tertiary rounded-lg">
+                            <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Banner Image Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-sm text-text-secondary mb-1">Banner Image</p>
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-bg-tertiary text-text-secondary">
+                                    Not Set
+                                </span>
+                            </div>
+                        </div>
+                        <div class="p-2 bg-bg-tertiary rounded-lg">
+                            <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <p class="text-sm text-text-secondary mb-1">Messages Today</p>
+                    <p class="text-3xl font-bold text-text-primary">12</p>
+                </div>
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <p class="text-sm text-text-secondary mb-1">Messages This Week</p>
+                    <p class="text-3xl font-bold text-text-primary">87</p>
+                </div>
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <p class="text-sm text-text-secondary mb-1">Total Messages Sent</p>
+                    <p class="text-3xl font-bold text-text-primary">1,234</p>
+                </div>
+            </div>
+
+            <!-- Message Preview Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+                <div class="px-6 py-4 border-b border-border-primary">
+                    <h3 class="text-sm font-semibold text-text-primary">Current Message Template</h3>
+                </div>
+                <div class="p-6">
+                    <p class="text-sm text-text-secondary line-clamp-3">
+                        Welcome to {server}, {user}! You are member #{memberCount}. Please read the rules in #rules and introduce yourself!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button
+                    onclick="switchTab('edit')"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit Configuration
+                </button>
+                <button
+                    onclick="sendTestMessage()"
+                    class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    Send Test Message
+                </button>
+            </div>
+        </div>
+
+        <!-- ========================================
+             Edit View (Tab Panel 2)
+             ======================================== -->
+        <div id="panel-edit" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-edit">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- ========================================
+                     Configuration Form Column
+                     ======================================== -->
+                <div class="space-y-6">
+                    <!-- Enable Welcome Messages Toggle -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label for="enable-welcome" class="text-sm font-semibold text-text-primary">Enable Welcome Messages</label>
+                                <p class="text-xs text-text-secondary mt-1">Send a message when new members join the server</p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="enable-welcome" checked onchange="toggleWelcomeEnabled()">
+                                <span class="toggle-slider" aria-hidden="true"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Configuration Form -->
+                    <div id="welcome-config-form" class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+                        <!-- Welcome Channel Selector -->
+                        <div>
+                            <label for="welcome-channel" class="block text-sm font-medium text-text-primary mb-2">Welcome Channel</label>
+                            <div class="relative">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <svg class="w-5 h-5 channel-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                    </svg>
+                                </div>
+                                <select
+                                    id="welcome-channel"
+                                    class="form-select w-full py-2.5 pl-10 pr-10 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none"
+                                    onchange="updatePreview()"
+                                >
+                                    <option value="">Select a channel...</option>
+                                    <option value="welcome" selected>welcome</option>
+                                    <option value="general">general</option>
+                                    <option value="lobby">lobby</option>
+                                    <option value="introductions">introductions</option>
+                                    <option value="new-members">new-members</option>
+                                </select>
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <p class="text-xs text-text-secondary mt-1">Select the channel where welcome messages will be sent</p>
+                        </div>
+
+                        <!-- Uncomment below to see expanded dropdown state -->
+                        <!--
+                        <div class="relative">
+                            <div class="absolute top-full left-0 right-0 mt-1 bg-bg-tertiary border border-border-primary rounded-md shadow-lg z-10">
+                                <div class="py-1">
+                                    <div class="px-3 py-2 hover:bg-bg-hover cursor-pointer flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                        </svg>
+                                        <span class="text-sm text-text-primary">welcome</span>
+                                    </div>
+                                    <div class="px-3 py-2 hover:bg-bg-hover cursor-pointer flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                        </svg>
+                                        <span class="text-sm text-text-primary">general</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        -->
+
+                        <!-- Welcome Message Template -->
+                        <div>
+                            <label for="welcome-message" class="block text-sm font-medium text-text-primary mb-2">Welcome Message Template</label>
+
+                            <!-- Token Insertion Toolbar -->
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                <button
+                                    type="button"
+                                    onclick="insertToken('{user}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
+                                    title="Insert user mention"
+                                >
+                                    {user}
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="insertToken('{username}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
+                                    title="Insert username"
+                                >
+                                    {username}
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="insertToken('{server}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
+                                    title="Insert server name"
+                                >
+                                    {server}
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="insertToken('{memberCount}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
+                                    title="Insert member count"
+                                >
+                                    {memberCount}
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="insertToken('{date}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
+                                    title="Insert current date"
+                                >
+                                    {date}
+                                </button>
+                            </div>
+
+                            <textarea
+                                id="welcome-message"
+                                rows="4"
+                                class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary"
+                                placeholder="Enter your welcome message..."
+                                oninput="updatePreview()"
+                            >Welcome to {server}, {user}! You are member #{memberCount}. Please read the rules in #rules and introduce yourself!</textarea>
+                            <p class="text-xs text-text-secondary mt-1">Use tokens to personalize your message. Click a token above to insert it.</p>
+                        </div>
+
+                        <!-- Banner Image URL -->
+                        <div>
+                            <label for="banner-url" class="block text-sm font-medium text-text-primary mb-2">Banner Image URL (Optional)</label>
+                            <input
+                                type="url"
+                                id="banner-url"
+                                class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary"
+                                placeholder="https://example.com/welcome-banner.png"
+                                oninput="updatePreview()"
+                            >
+                            <p class="text-xs text-text-secondary mt-1">Enter a URL for an image to display with welcome messages</p>
+
+                            <!-- Error state example (hidden by default) -->
+                            <div id="banner-url-error" class="hidden mt-2 flex items-center gap-1.5 text-xs text-error">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>Please enter a valid URL</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Enable Welcome DM Toggle -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label for="enable-dm" class="text-sm font-semibold text-text-primary">Enable Welcome DM</label>
+                                <p class="text-xs text-text-secondary mt-1">Send a private message to new members</p>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="enable-dm" onchange="toggleDmEnabled()">
+                                <span class="toggle-slider" aria-hidden="true"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DM Message Template (shown when DM enabled) -->
+                    <div id="dm-config-form" class="bg-bg-secondary border border-border-primary rounded-lg p-6 hidden">
+                        <label for="dm-message" class="block text-sm font-medium text-text-primary mb-2">DM Message Template</label>
+
+                        <!-- Token Insertion Toolbar for DM -->
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <button
+                                type="button"
+                                onclick="insertTokenDm('{username}')"
+                                class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
+                            >
+                                {username}
+                            </button>
+                            <button
+                                type="button"
+                                onclick="insertTokenDm('{server}')"
+                                class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
+                            >
+                                {server}
+                            </button>
+                            <button
+                                type="button"
+                                onclick="insertTokenDm('{date}')"
+                                class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue"
+                            >
+                                {date}
+                            </button>
+                        </div>
+
+                        <textarea
+                            id="dm-message"
+                            rows="4"
+                            class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary"
+                            placeholder="Enter your DM message..."
+                        >Hey {username}! Welcome to {server}. Feel free to ask any questions in the help channel!</textarea>
+                        <p class="text-xs text-text-secondary mt-1">Note: {user} mention is not available in DMs</p>
+                    </div>
+
+                    <!-- Token Help Panel -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <button
+                            type="button"
+                            onclick="toggleTokenHelp()"
+                            class="w-full px-6 py-4 flex items-center justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-inset"
+                            aria-expanded="true"
+                            aria-controls="token-help-content"
+                        >
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span class="text-sm font-semibold text-text-primary">Available Tokens</span>
+                            </div>
+                            <svg id="token-help-chevron" class="w-5 h-5 text-text-tertiary transform rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div id="token-help-content" class="collapsible-content open">
+                            <div class="px-6 pb-4">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b border-border-secondary">
+                                            <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Token</th>
+                                            <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Description</th>
+                                            <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Example</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border-secondary">
+                                        <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{user}')" title="Click to insert">
+                                            <td class="py-2">
+                                                <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{user}</code>
+                                            </td>
+                                            <td class="py-2 text-text-secondary">Mentions the new member</td>
+                                            <td class="py-2 text-text-tertiary">@NewMember</td>
+                                        </tr>
+                                        <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{username}')" title="Click to insert">
+                                            <td class="py-2">
+                                                <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{username}</code>
+                                            </td>
+                                            <td class="py-2 text-text-secondary">Member's display name</td>
+                                            <td class="py-2 text-text-tertiary">NewMember</td>
+                                        </tr>
+                                        <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{server}')" title="Click to insert">
+                                            <td class="py-2">
+                                                <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{server}</code>
+                                            </td>
+                                            <td class="py-2 text-text-secondary">Server name</td>
+                                            <td class="py-2 text-text-tertiary">My Awesome Server</td>
+                                        </tr>
+                                        <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{memberCount}')" title="Click to insert">
+                                            <td class="py-2">
+                                                <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{memberCount}</code>
+                                            </td>
+                                            <td class="py-2 text-text-secondary">Total member count</td>
+                                            <td class="py-2 text-text-tertiary">1,234</td>
+                                        </tr>
+                                        <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{date}')" title="Click to insert">
+                                            <td class="py-2">
+                                                <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{date}</code>
+                                            </td>
+                                            <td class="py-2 text-text-secondary">Current date</td>
+                                            <td class="py-2 text-text-tertiary">December 24, 2025</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p class="text-xs text-text-tertiary mt-3 flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                    </svg>
+                                    Click any row to insert the token into your message
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <button
+                            type="button"
+                            onclick="saveConfiguration()"
+                            class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                        >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Save Configuration
+                        </button>
+                        <button
+                            type="button"
+                            onclick="switchTab('dashboard')"
+                            class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ========================================
+                     Live Preview Column
+                     ======================================== -->
+                <div class="lg:sticky lg:top-8 lg:self-start">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Live Preview</h3>
+                            <p class="text-xs text-text-secondary mt-1">See how your welcome message will appear</p>
+                        </div>
+                        <div class="p-6">
+                            <!-- Discord-styled Message Preview -->
+                            <div class="discord-message" id="discord-preview">
+                                <!-- Bot Avatar and Message -->
+                                <div class="flex gap-4">
+                                    <!-- Bot Avatar -->
+                                    <div class="flex-shrink-0">
+                                        <div class="w-10 h-10 rounded-full bg-discord flex items-center justify-center">
+                                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <!-- Message Content -->
+                                    <div class="flex-1 min-w-0">
+                                        <!-- Username and Timestamp -->
+                                        <div class="flex items-center gap-1 mb-1">
+                                            <span class="font-medium text-white">WelcomeBot</span>
+                                            <span class="discord-bot-badge">BOT</span>
+                                            <span class="discord-timestamp">Today at 3:42 PM</span>
+                                        </div>
+                                        <!-- Message Text -->
+                                        <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">
+                                            Welcome to <strong>My Awesome Server</strong>, <span class="discord-mention">@NewMember</span>! You are member #<strong>1,234</strong>. Please read the rules in #rules and introduce yourself!
+                                        </div>
+                                        <!-- Banner Image Preview Area -->
+                                        <div id="preview-banner" class="hidden mt-3">
+                                            <div class="relative rounded-md overflow-hidden bg-bg-tertiary max-w-sm">
+                                                <img id="preview-banner-img" src="" alt="Banner preview" class="w-full h-auto">
+                                                <div id="preview-banner-placeholder" class="flex items-center justify-center h-32 text-text-tertiary">
+                                                    <div class="text-center">
+                                                        <svg class="w-8 h-8 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                        </svg>
+                                                        <span class="text-xs">Banner Preview</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sample Data Reference -->
+                            <div class="mt-4 pt-4 border-t border-border-secondary">
+                                <p class="text-xs text-text-tertiary mb-2">Sample data used for preview:</p>
+                                <ul class="text-xs text-text-tertiary space-y-1">
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{user}</code> = @NewMember</li>
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{username}</code> = NewMember</li>
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{server}</code> = My Awesome Server</li>
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{memberCount}</code> = 1,234</li>
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{date}</code> = December 24, 2025</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Disabled State Example (hidden by default, for reference) -->
+                    <!--
+                    <div class="mt-6 bg-bg-secondary border border-border-primary rounded-lg overflow-hidden opacity-50">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Live Preview</h3>
+                            <p class="text-xs text-text-secondary mt-1">Welcome messages are currently disabled</p>
+                        </div>
+                        <div class="p-6 flex items-center justify-center h-48">
+                            <div class="text-center text-text-tertiary">
+                                <svg class="w-12 h-12 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                </svg>
+                                <p class="text-sm">Preview disabled</p>
+                            </div>
+                        </div>
+                    </div>
+                    -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- ========================================
+         JavaScript
+         ======================================== -->
+    <script>
+        // ========================================
+        // Tab Switching
+        // ========================================
+        function switchTab(tab) {
+            const dashboardTab = document.getElementById('tab-dashboard');
+            const editTab = document.getElementById('tab-edit');
+            const dashboardPanel = document.getElementById('panel-dashboard');
+            const editPanel = document.getElementById('panel-edit');
+
+            if (tab === 'dashboard') {
+                dashboardTab.classList.add('active', 'text-accent-orange');
+                dashboardTab.classList.remove('text-text-secondary');
+                dashboardTab.setAttribute('aria-selected', 'true');
+
+                editTab.classList.remove('active', 'text-accent-orange');
+                editTab.classList.add('text-text-secondary');
+                editTab.setAttribute('aria-selected', 'false');
+
+                dashboardPanel.classList.remove('hidden');
+                editPanel.classList.add('hidden');
+            } else {
+                editTab.classList.add('active', 'text-accent-orange');
+                editTab.classList.remove('text-text-secondary');
+                editTab.setAttribute('aria-selected', 'true');
+
+                dashboardTab.classList.remove('active', 'text-accent-orange');
+                dashboardTab.classList.add('text-text-secondary');
+                dashboardTab.setAttribute('aria-selected', 'false');
+
+                editPanel.classList.remove('hidden');
+                dashboardPanel.classList.add('hidden');
+            }
+        }
+
+        // ========================================
+        // Toggle Welcome Messages Enabled
+        // ========================================
+        function toggleWelcomeEnabled() {
+            const checkbox = document.getElementById('enable-welcome');
+            const configForm = document.getElementById('welcome-config-form');
+
+            if (checkbox.checked) {
+                configForm.classList.remove('form-section-disabled');
+            } else {
+                configForm.classList.add('form-section-disabled');
+            }
+
+            updatePreview();
+        }
+
+        // ========================================
+        // Toggle DM Enabled
+        // ========================================
+        function toggleDmEnabled() {
+            const checkbox = document.getElementById('enable-dm');
+            const dmForm = document.getElementById('dm-config-form');
+
+            if (checkbox.checked) {
+                dmForm.classList.remove('hidden');
+            } else {
+                dmForm.classList.add('hidden');
+            }
+        }
+
+        // ========================================
+        // Toggle Dashboard Status
+        // ========================================
+        function toggleDashboardStatus() {
+            const checkbox = document.getElementById('dashboard-toggle');
+            const statusIcon = document.getElementById('dashboard-status-icon');
+            const statusText = document.getElementById('dashboard-status-text');
+
+            if (checkbox.checked) {
+                statusIcon.className = 'w-12 h-12 rounded-lg bg-success/20 flex items-center justify-center';
+                statusIcon.innerHTML = '<svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>';
+                statusText.className = 'text-sm text-success font-medium';
+                statusText.textContent = 'Enabled';
+            } else {
+                statusIcon.className = 'w-12 h-12 rounded-lg bg-bg-tertiary flex items-center justify-center';
+                statusIcon.innerHTML = '<svg class="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>';
+                statusText.className = 'text-sm text-text-tertiary font-medium';
+                statusText.textContent = 'Disabled';
+            }
+
+            // Sync with edit view toggle
+            document.getElementById('enable-welcome').checked = checkbox.checked;
+            toggleWelcomeEnabled();
+        }
+
+        // ========================================
+        // Token Insertion for Welcome Message
+        // ========================================
+        function insertToken(token) {
+            const textarea = document.getElementById('welcome-message');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+
+            textarea.value = text.substring(0, start) + token + text.substring(end);
+            textarea.focus();
+            textarea.setSelectionRange(start + token.length, start + token.length);
+
+            updatePreview();
+        }
+
+        // ========================================
+        // Token Insertion for DM Message
+        // ========================================
+        function insertTokenDm(token) {
+            const textarea = document.getElementById('dm-message');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+
+            textarea.value = text.substring(0, start) + token + text.substring(end);
+            textarea.focus();
+            textarea.setSelectionRange(start + token.length, start + token.length);
+        }
+
+        // ========================================
+        // Toggle Token Help Panel
+        // ========================================
+        function toggleTokenHelp() {
+            const content = document.getElementById('token-help-content');
+            const chevron = document.getElementById('token-help-chevron');
+            const button = content.previousElementSibling;
+
+            content.classList.toggle('open');
+            chevron.classList.toggle('rotate-180');
+
+            const isExpanded = content.classList.contains('open');
+            button.setAttribute('aria-expanded', isExpanded);
+        }
+
+        // ========================================
+        // Update Live Preview
+        // ========================================
+        function updatePreview() {
+            const messageInput = document.getElementById('welcome-message');
+            const bannerInput = document.getElementById('banner-url');
+            const previewMessage = document.getElementById('preview-message');
+            const previewBanner = document.getElementById('preview-banner');
+            const previewBannerImg = document.getElementById('preview-banner-img');
+            const previewBannerPlaceholder = document.getElementById('preview-banner-placeholder');
+            const welcomeEnabled = document.getElementById('enable-welcome').checked;
+
+            if (!welcomeEnabled) {
+                previewMessage.innerHTML = '<span class="text-[#72767d] italic">Welcome messages are disabled</span>';
+                previewBanner.classList.add('hidden');
+                return;
+            }
+
+            let message = messageInput.value;
+
+            // Replace tokens with sample data
+            message = message
+                .replace(/\{user\}/g, '<span class="discord-mention">@NewMember</span>')
+                .replace(/\{username\}/g, '<strong>NewMember</strong>')
+                .replace(/\{server\}/g, '<strong>My Awesome Server</strong>')
+                .replace(/\{memberCount\}/g, '<strong>1,234</strong>')
+                .replace(/\{date\}/g, '<strong>December 24, 2025</strong>');
+
+            // Handle newlines
+            message = message.replace(/\n/g, '<br>');
+
+            previewMessage.innerHTML = message || '<span class="text-[#72767d] italic">Enter a message to see preview</span>';
+
+            // Handle banner preview
+            const bannerUrl = bannerInput.value.trim();
+            if (bannerUrl) {
+                previewBanner.classList.remove('hidden');
+                previewBannerImg.src = bannerUrl;
+                previewBannerImg.classList.remove('hidden');
+                previewBannerPlaceholder.classList.add('hidden');
+
+                // Handle image load error
+                previewBannerImg.onerror = function() {
+                    previewBannerImg.classList.add('hidden');
+                    previewBannerPlaceholder.classList.remove('hidden');
+                };
+
+                previewBannerImg.onload = function() {
+                    previewBannerImg.classList.remove('hidden');
+                    previewBannerPlaceholder.classList.add('hidden');
+                };
+            } else {
+                previewBanner.classList.add('hidden');
+            }
+        }
+
+        // ========================================
+        // Validate Banner URL
+        // ========================================
+        function validateBannerUrl() {
+            const input = document.getElementById('banner-url');
+            const error = document.getElementById('banner-url-error');
+            const url = input.value.trim();
+
+            if (url && !isValidUrl(url)) {
+                input.classList.add('error');
+                error.classList.remove('hidden');
+                return false;
+            } else {
+                input.classList.remove('error');
+                error.classList.add('hidden');
+                return true;
+            }
+        }
+
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        // ========================================
+        // Save Configuration
+        // ========================================
+        function saveConfiguration() {
+            // Validate banner URL
+            if (!validateBannerUrl()) {
+                alert('Please fix the errors before saving.');
+                return;
+            }
+
+            const config = {
+                enabled: document.getElementById('enable-welcome').checked,
+                channel: document.getElementById('welcome-channel').value,
+                message: document.getElementById('welcome-message').value,
+                bannerUrl: document.getElementById('banner-url').value,
+                dmEnabled: document.getElementById('enable-dm').checked,
+                dmMessage: document.getElementById('dm-message').value
+            };
+
+            console.log('Saving configuration:', config);
+            alert('Configuration saved! (Prototype - no actual save)');
+            switchTab('dashboard');
+        }
+
+        // ========================================
+        // Send Test Message
+        // ========================================
+        function sendTestMessage() {
+            if (!document.getElementById('dashboard-toggle').checked) {
+                alert('Welcome messages are disabled. Enable them first to send a test message.');
+                return;
+            }
+
+            alert('Test message sent! (Prototype - no actual message sent)');
+        }
+
+        // ========================================
+        // Initialize on Page Load
+        // ========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePreview();
+
+            // Add banner URL validation on blur
+            document.getElementById('banner-url').addEventListener('blur', validateBannerUrl);
+        });
+
+        // ========================================
+        // Keyboard Navigation for Tabs
+        // ========================================
+        document.addEventListener('keydown', function(e) {
+            const tabs = document.querySelectorAll('.tab-btn');
+            const currentTab = document.activeElement;
+
+            if (!currentTab.classList.contains('tab-btn')) return;
+
+            const tabArray = Array.from(tabs);
+            const currentIndex = tabArray.indexOf(currentTab);
+
+            if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                let newIndex;
+
+                if (e.key === 'ArrowRight') {
+                    newIndex = (currentIndex + 1) % tabArray.length;
+                } else {
+                    newIndex = (currentIndex - 1 + tabArray.length) % tabArray.length;
+                }
+
+                tabArray[newIndex].focus();
+                tabArray[newIndex].click();
+            }
+        });
+    </script>
+</body>
+</html>
