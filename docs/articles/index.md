@@ -5,7 +5,9 @@ This section contains conceptual documentation and developer guides for the Disc
 ## Getting Started
 - [Discord Bot Setup](discord-bot-setup.md) - How to obtain a bot token and configure your Discord bot
 - [Requirements](requirements.md) - Technology stack and architecture requirements
-- [MVP Plan](mvp-plan.md) - Implementation phases and roadmap
+
+## Reference
+- [Architecture History](architecture-history.md) - Original implementation plan (historical)
 
 ## Architecture & Design
 - [Database Schema](database-schema.md) - Entity definitions and relationships

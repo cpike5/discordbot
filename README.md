@@ -1,6 +1,6 @@
 # Discord Bot Management System
 
-[![Version](https://img.shields.io/badge/version-v0.2.0-blue)](https://github.com/cpike5/discordbot/releases)
+[![Version](https://img.shields.io/badge/version-v0.3.0-blue)](https://github.com/cpike5/discordbot/releases)
 [![CI](https://github.com/cpike5/discordbot/actions/workflows/ci.yml/badge.svg)](https://github.com/cpike5/discordbot/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
 [![Discord.NET](https://img.shields.io/badge/Discord.NET-3.18.0-5865F2)](https://github.com/discord-net/Discord.Net)
@@ -121,7 +121,7 @@ The solution follows a three-layer clean architecture pattern:
 - **Razor Pages**: Admin UI with Tailwind CSS for user/guild management
 - **Identity System**: ASP.NET Core Identity with Discord OAuth external login
 
-For detailed architecture documentation, see [docs/articles/mvp-plan.md](docs/articles/mvp-plan.md).
+For detailed architecture documentation, see [docs/articles/architecture-history.md](docs/articles/architecture-history.md).
 
 ## Commands
 
@@ -356,7 +356,7 @@ This project is for educational and development purposes.
 
 ## Related Documentation
 
-- [MVP Implementation Plan](docs/articles/mvp-plan.md) - Detailed architecture and roadmap
+- [Architecture History](docs/articles/architecture-history.md) - Original implementation plan
 - [Requirements](docs/articles/requirements.md) - Technology stack and specifications
 - [Design System](docs/articles/design-system.md) - UI design tokens and components
 - [API Endpoints](docs/articles/api-endpoints.md) - REST API documentation

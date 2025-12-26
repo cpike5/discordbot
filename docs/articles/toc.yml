@@ -4,8 +4,10 @@
   items:
     - name: Requirements
       href: requirements.md
-    - name: MVP Plan
-      href: mvp-plan.md
+- name: Reference
+  items:
+    - name: Architecture History
+      href: architecture-history.md
 - name: Architecture
   items:
     - name: Database Schema

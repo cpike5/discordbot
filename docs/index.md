@@ -6,7 +6,7 @@ Welcome to the Discord Bot Management System documentation. This site provides c
 
 ### Getting Started
 - [Requirements](articles/requirements.md) - Technology stack and architecture
-- [MVP Plan](articles/mvp-plan.md) - Implementation roadmap
+- [ROADMAP](../ROADMAP.md) - Current development roadmap
 
 ### API Reference
 - API Documentation (see [API Reference](/api/index.html) after building docs)

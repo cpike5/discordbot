@@ -1,5 +1,7 @@
 # Discordbot Project Setup
 
+> **Note:** This is a historical document capturing the initial project setup notes. All items documented here have been completed. For current development status, see [ROADMAP.md](../../ROADMAP.md).
+
 I'm going to be creating a discord bot using a similar design as a pervious never-finished version I built. But first let's draft the project setup. 
 
 

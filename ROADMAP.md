@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for the Discord Bot Management System. It provides a high-level view of completed work, current focus areas, and future enhancements.
 
-**Current Version:** v0.2.1 (pre-release)
+**Current Version:** v0.3.0 (pre-release)
 
 ---
 
@@ -262,5 +262,5 @@ To propose a new feature:
 
 - [README.md](README.md) - Project overview and quick start
 - [CLAUDE.md](CLAUDE.md) - AI assistant guidance
-- [docs/articles/mvp-plan.md](docs/articles/mvp-plan.md) - Original MVP implementation plan
+- [docs/articles/architecture-history.md](docs/articles/architecture-history.md) - Original implementation plan (historical)
 - [docs/articles/requirements.md](docs/articles/requirements.md) - Technical requirements
