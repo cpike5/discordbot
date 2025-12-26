@@ -121,7 +121,7 @@
     <!-- Guild Information Card -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
         <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Information</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-6">
             <!-- Members -->
             <div>
                 <div class="flex items-center gap-2 mb-1">
@@ -179,6 +179,25 @@
                     else
                     {
                         <span class="text-error">Inactive</span>
+                    }
+                </p>
+            </div>
+            <!-- Welcome Messages -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Welcome</span>
+                </div>
+                <p class="text-xl font-bold">
+                    @if (Model.WelcomeEnabled)
+                    {
+                        <span class="text-success">Enabled</span>
+                    }
+                    else
+                    {
+                        <span class="text-text-secondary">Disabled</span>
                     }
                 </p>
             </div>

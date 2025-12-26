@@ -1,6 +1,7 @@
 @page "{id:long}"
 @model DiscordBot.Bot.Pages.Guilds.WelcomeModel
 @using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
 @{
     ViewData["Title"] = $"Welcome Settings - {Model.ViewModel.GuildName}";
 }
@@ -124,7 +125,16 @@
                                 <option value="">Select a channel...</option>
                                 @foreach (var channel in Model.AvailableChannels)
                                 {
-                                    <option value="@channel.Id" selected="@(Model.Input.WelcomeChannelId == channel.Id)">@channel.Name</option>
+                                    var prefix = channel.Type switch
+                                    {
+                                        ChannelDisplayType.Text => "#",
+                                        ChannelDisplayType.Voice => "🔊",
+                                        ChannelDisplayType.Announcement => "📢",
+                                        ChannelDisplayType.Stage => "🎭",
+                                        ChannelDisplayType.Forum => "💬",
+                                        _ => "#"
+                                    };
+                                    <option value="@channel.Id" selected="@(Model.Input.WelcomeChannelId == channel.Id)">@prefix @channel.Name</option>
                                 }
                             </select>
                             <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">

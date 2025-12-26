@@ -201,7 +201,8 @@ public class WelcomeModel : PageModel
     }
 
     /// <summary>
-    /// Gets the list of text channels for a guild from Discord.
+    /// Gets the list of text-capable channels for a guild from Discord.
+    /// Includes text channels, voice channels (with text chat), and announcement channels.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
     /// <returns>A list of channel select items sorted by position.</returns>
@@ -214,20 +215,55 @@ public class WelcomeModel : PageModel
             return new List<ChannelSelectItem>();
         }
 
-        var textChannels = guild.TextChannels
-            .Where(c => c != null)
-            .OrderBy(c => c.Position)
-            .Select(c => new ChannelSelectItem
+        var channels = new List<ChannelSelectItem>();
+
+        // Add text channels (regular and announcement/news)
+        foreach (var channel in guild.TextChannels.Where(c => c != null))
+        {
+            // Check if it's an announcement/news channel by checking the concrete type
+            var displayType = channel is SocketNewsChannel
+                ? ChannelDisplayType.Announcement
+                : ChannelDisplayType.Text;
+
+            channels.Add(new ChannelSelectItem
             {
-                Id = c.Id,
-                Name = c.Name,
-                Position = c.Position
-            })
-            .ToList();
+                Id = channel.Id,
+                Name = channel.Name,
+                Position = channel.Position,
+                Type = displayType
+            });
+        }
 
-        _logger.LogDebug("Retrieved {ChannelCount} text channels for guild {GuildId}", textChannels.Count, guildId);
+        // Add voice channels (they have text chat capability now)
+        foreach (var channel in guild.VoiceChannels.Where(c => c != null))
+        {
+            channels.Add(new ChannelSelectItem
+            {
+                Id = channel.Id,
+                Name = channel.Name,
+                Position = channel.Position,
+                Type = ChannelDisplayType.Voice
+            });
+        }
 
-        return textChannels;
+        // Add stage channels (they also have text chat)
+        foreach (var channel in guild.StageChannels.Where(c => c != null))
+        {
+            channels.Add(new ChannelSelectItem
+            {
+                Id = channel.Id,
+                Name = channel.Name,
+                Position = channel.Position,
+                Type = ChannelDisplayType.Stage
+            });
+        }
+
+        // Sort by position
+        var sortedChannels = channels.OrderBy(c => c.Position).ToList();
+
+        _logger.LogDebug("Retrieved {ChannelCount} text-capable channels for guild {GuildId}", sortedChannels.Count, guildId);
+
+        return sortedChannels;
     }
 
     /// <summary>

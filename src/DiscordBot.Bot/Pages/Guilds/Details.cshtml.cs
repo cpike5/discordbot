@@ -15,6 +15,7 @@ public class DetailsModel : PageModel
 {
     private readonly IGuildService _guildService;
     private readonly ICommandLogService _commandLogService;
+    private readonly IWelcomeService _welcomeService;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
@@ -22,10 +23,12 @@ public class DetailsModel : PageModel
     public DetailsModel(
         IGuildService guildService,
         ICommandLogService commandLogService,
+        IWelcomeService welcomeService,
         ILogger<DetailsModel> logger)
     {
         _guildService = guildService;
         _commandLogService = commandLogService;
+        _welcomeService = welcomeService;
         _logger = logger;
     }
 
@@ -33,6 +36,16 @@ public class DetailsModel : PageModel
     /// Gets the view model containing guild details.
     /// </summary>
     public GuildDetailViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// Gets whether welcome messages are enabled for this guild.
+    /// </summary>
+    public bool WelcomeEnabled { get; set; }
+
+    /// <summary>
+    /// Gets the welcome channel name if configured.
+    /// </summary>
+    public string? WelcomeChannelName { get; set; }
 
     /// <summary>
     /// Success message from TempData.
@@ -61,8 +74,12 @@ public class DetailsModel : PageModel
         };
         var recentCommandsResponse = await _commandLogService.GetLogsAsync(commandQuery, cancellationToken);
 
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands",
-            id, recentCommandsResponse.Items.Count);
+        // Fetch welcome configuration status
+        var welcomeConfig = await _welcomeService.GetConfigurationAsync(id, cancellationToken);
+        WelcomeEnabled = welcomeConfig?.IsEnabled ?? false;
+
+        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}",
+            id, recentCommandsResponse.Items.Count, WelcomeEnabled);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);
