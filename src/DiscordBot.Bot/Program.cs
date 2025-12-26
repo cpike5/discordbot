@@ -181,6 +181,7 @@ try
     builder.Services.AddScoped<ICommandAnalyticsService, CommandAnalyticsService>();
     builder.Services.AddScoped<ICommandMetadataService, CommandMetadataService>();
     builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+    builder.Services.AddScoped<IWelcomeService, WelcomeService>();
 
     // Add Discord OAuth services
     builder.Services.AddScoped<IDiscordTokenService, DiscordTokenService>();
