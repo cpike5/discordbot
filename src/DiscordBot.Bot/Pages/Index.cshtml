@@ -11,6 +11,9 @@
         <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Dashboard</h1>
         <p class="mt-1 text-text-secondary">Welcome back! Here's an overview of your bot's performance.</p>
     </div>
+    <div>
+        <partial name="Shared/Components/_ConnectionStatus" model="@(new DiscordBot.Bot.ViewModels.Components.ConnectionStatusViewModel())" />
+    </div>
 </div>
 
 <!-- Quick Actions Section -->
@@ -37,6 +40,11 @@
     <partial name="Shared/Components/_RecentActivityCard" model="Model.RecentActivity" />
 </div>
 
+<!-- Live Activity Feed Section -->
+<div class="mb-8">
+    <partial name="Shared/Components/_ActivityFeed" model="@(new DiscordBot.Bot.ViewModels.Components.ActivityFeedViewModel())" />
+</div>
+
 <!-- Confirmation Modals (hidden by default) -->
 @{
     var restartBotModal = new ConfirmationModalViewModel
@@ -58,7 +66,9 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="~/js/bot-status-refresh.js" asp-append-version="true"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    <script src="~/js/dashboard-realtime.js" asp-append-version="true"></script>
     <script src="~/js/command-stats-chart.js" asp-append-version="true"></script>
     <script src="~/js/quick-actions.js" asp-append-version="true"></script>
 }

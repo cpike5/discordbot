@@ -643,6 +643,91 @@
     opacity: 1;
     visibility: visible;
   }
+
+  /* Connection Status Indicator */
+  .connection-status[data-state="connected"] .connection-dot {
+    @apply bg-success;
+  }
+  .connection-status[data-state="connected"] .connection-dot::before {
+    content: "";
+    @apply absolute inset-0 rounded-full bg-success;
+    animation: connection-pulse 2s ease-in-out infinite;
+  }
+  .connection-status[data-state="connected"] .connection-text {
+    @apply text-success;
+  }
+
+  .connection-status[data-state="connecting"] .connection-dot,
+  .connection-status[data-state="reconnecting"] .connection-dot {
+    @apply bg-warning;
+    animation: connection-blink 1s ease-in-out infinite;
+  }
+  .connection-status[data-state="connecting"] .connection-text,
+  .connection-status[data-state="reconnecting"] .connection-text {
+    @apply text-warning;
+  }
+
+  .connection-status[data-state="disconnected"] .connection-dot {
+    @apply bg-error;
+  }
+  .connection-status[data-state="disconnected"] .connection-text {
+    @apply text-error;
+  }
+
+  @keyframes connection-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(2); opacity: 0; }
+  }
+
+  @keyframes connection-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Card update pulse effect */
+  .card-update-pulse {
+    animation: update-pulse 0.6s ease-out;
+  }
+
+  @keyframes update-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(9, 142, 207, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(9, 142, 207, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(9, 142, 207, 0); }
+  }
+
+  /* Activity item entrance animation */
+  .activity-item-enter {
+    animation: slide-in-from-top 0.3s ease-out;
+  }
+
+  @keyframes slide-in-from-top {
+    0% { opacity: 0; transform: translateY(-10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Activity feed toggle button */
+  .btn-toggle {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium;
+    @apply text-text-secondary bg-bg-tertiary border border-border-primary rounded-md;
+    @apply transition-all duration-150 ease-in-out cursor-pointer;
+  }
+  .btn-toggle:hover {
+    @apply bg-bg-hover text-text-primary;
+  }
+  .btn-toggle.active {
+    @apply bg-accent-orange border-accent-orange text-white;
+  }
+
+  /* Respect reduced motion preferences */
+  @media (prefers-reduced-motion: reduce) {
+    .connection-status[data-state="connected"] .connection-dot::before,
+    .connection-status[data-state="connecting"] .connection-dot,
+    .connection-status[data-state="reconnecting"] .connection-dot,
+    .card-update-pulse,
+    .activity-item-enter {
+      animation: none;
+    }
+  }
 }
 
 /* Utility classes */
