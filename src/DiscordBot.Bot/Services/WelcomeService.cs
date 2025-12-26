@@ -96,18 +96,6 @@ public class WelcomeService : IWelcomeService
             _logger.LogInformation("Welcome configuration updated for guild {GuildId}", guildId);
         }
 
-        // Verify the save by reading back
-        var verification = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
-        if (verification == null)
-        {
-            _logger.LogError("VERIFICATION FAILED: Welcome configuration for guild {GuildId} was not found after save!", guildId);
-        }
-        else
-        {
-            _logger.LogInformation("VERIFICATION: Guild {GuildId} config read back - IsEnabled={IsEnabled}, ChannelId={ChannelId}",
-                guildId, verification.IsEnabled, verification.WelcomeChannelId);
-        }
-
         return MapToDto(config);
     }
 
