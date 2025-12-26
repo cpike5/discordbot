@@ -24,6 +24,8 @@
       href: api-endpoints.md
     - name: Interactive Components
       href: interactive-components.md
+    - name: SignalR Real-Time Dashboard
+      href: signalr-realtime.md
 - name: Security & Authentication
   items:
     - name: Identity Configuration
