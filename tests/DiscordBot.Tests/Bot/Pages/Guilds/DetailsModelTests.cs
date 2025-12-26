@@ -20,6 +20,7 @@ public class DetailsModelTests
 {
     private readonly Mock<IGuildService> _mockGuildService;
     private readonly Mock<ICommandLogService> _mockCommandLogService;
+    private readonly Mock<IWelcomeService> _mockWelcomeService;
     private readonly Mock<ILogger<DetailsModel>> _mockLogger;
     private readonly DetailsModel _detailsModel;
 
@@ -27,11 +28,13 @@ public class DetailsModelTests
     {
         _mockGuildService = new Mock<IGuildService>();
         _mockCommandLogService = new Mock<ICommandLogService>();
+        _mockWelcomeService = new Mock<IWelcomeService>();
         _mockLogger = new Mock<ILogger<DetailsModel>>();
 
         _detailsModel = new DetailsModel(
             _mockGuildService.Object,
             _mockCommandLogService.Object,
+            _mockWelcomeService.Object,
             _mockLogger.Object);
 
         // Setup PageContext
@@ -588,6 +591,7 @@ public class DetailsModelTests
         var detailsModel = new DetailsModel(
             _mockGuildService.Object,
             _mockCommandLogService.Object,
+            _mockWelcomeService.Object,
             _mockLogger.Object);
 
         // Assert
