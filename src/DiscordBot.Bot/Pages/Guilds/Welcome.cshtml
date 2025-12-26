@@ -1,4 +1,4 @@
-@page "/Guilds/{id:long}/Welcome"
+@page "{id:long}/Welcome"
 @model DiscordBot.Bot.Pages.Guilds.WelcomeModel
 @using DiscordBot.Bot.ViewModels.Components
 @{
@@ -83,8 +83,8 @@
         </div>
     }
 
-    <form method="post">
-        <input type="hidden" name="Input.GuildId" value="@Model.Input.GuildId" />
+    <form method="post" asp-page="Welcome" asp-route-id="@Model.Input.GuildId">
+        <input type="hidden" asp-for="Input.GuildId" />
         <div asp-validation-summary="ModelOnly" class="text-error text-sm mb-4"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
