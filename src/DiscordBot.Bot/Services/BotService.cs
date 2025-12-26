@@ -14,6 +14,7 @@ public class BotService : IBotService
 {
     private readonly DiscordSocketClient _client;
     private readonly IHostApplicationLifetime _lifetime;
+    private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly ILogger<BotService> _logger;
     private readonly BotConfiguration _config;
     private static readonly DateTime _startTime = DateTime.UtcNow;
@@ -23,16 +24,19 @@ public class BotService : IBotService
     /// </summary>
     /// <param name="client">The Discord socket client.</param>
     /// <param name="lifetime">The application lifetime.</param>
+    /// <param name="dashboardUpdateService">The dashboard update service.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="config">The bot configuration.</param>
     public BotService(
         DiscordSocketClient client,
         IHostApplicationLifetime lifetime,
+        IDashboardUpdateService dashboardUpdateService,
         ILogger<BotService> logger,
         IOptions<BotConfiguration> config)
     {
         _client = client;
         _lifetime = lifetime;
+        _dashboardUpdateService = dashboardUpdateService;
         _logger = logger;
         _config = config.Value;
     }
@@ -98,6 +102,9 @@ public class BotService : IBotService
         await _client.StartAsync();
 
         _logger.LogInformation("Bot reconnected successfully");
+
+        // Broadcast updated bot status after restart (fire-and-forget, failure tolerant)
+        _ = BroadcastBotStatusAsync();
     }
 
     /// <inheritdoc/>
@@ -143,5 +150,31 @@ public class BotService : IBotService
             DefaultRateLimitInvokes = _config.DefaultRateLimitInvokes,
             DefaultRateLimitPeriodSeconds = _config.DefaultRateLimitPeriodSeconds
         };
+    }
+
+    /// <summary>
+    /// Broadcasts current bot status to dashboard clients.
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    private async Task BroadcastBotStatusAsync()
+    {
+        try
+        {
+            var status = new BotStatusUpdateDto
+            {
+                ConnectionState = _client.ConnectionState.ToString(),
+                Latency = _client.Latency,
+                GuildCount = _client.Guilds.Count,
+                Uptime = DateTime.UtcNow - _startTime,
+                Timestamp = DateTime.UtcNow
+            };
+
+            await _dashboardUpdateService.BroadcastBotStatusAsync(status);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't throw - this is fire-and-forget
+            _logger.LogWarning(ex, "Failed to broadcast bot status update, but continuing normal operation");
+        }
     }
 }

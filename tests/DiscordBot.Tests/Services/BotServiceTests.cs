@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -19,12 +20,14 @@ namespace DiscordBot.Tests.Services;
 public class BotServiceTests
 {
     private readonly Mock<IHostApplicationLifetime> _mockLifetime;
+    private readonly Mock<IDashboardUpdateService> _mockDashboardUpdateService;
     private readonly Mock<ILogger<BotService>> _mockLogger;
     private readonly Mock<IOptions<BotConfiguration>> _mockConfig;
 
     public BotServiceTests()
     {
         _mockLifetime = new Mock<IHostApplicationLifetime>();
+        _mockDashboardUpdateService = new Mock<IDashboardUpdateService>();
         _mockLogger = new Mock<ILogger<BotService>>();
         _mockConfig = new Mock<IOptions<BotConfiguration>>();
         _mockConfig.Setup(c => c.Value).Returns(new BotConfiguration
@@ -118,7 +121,7 @@ public class BotServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockDashboardUpdateService.Object, _mockLogger.Object, _mockConfig.Object);
 
         // Act
         await service.ShutdownAsync();
@@ -138,7 +141,7 @@ public class BotServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockDashboardUpdateService.Object, _mockLogger.Object, _mockConfig.Object);
 
         // Act
         await service.ShutdownAsync();
@@ -163,7 +166,7 @@ public class BotServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockDashboardUpdateService.Object, _mockLogger.Object, _mockConfig.Object);
         var cancellationTokenSource = new CancellationTokenSource();
 
         // Act
@@ -184,7 +187,7 @@ public class BotServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockDashboardUpdateService.Object, _mockLogger.Object, _mockConfig.Object);
 
         // Act
         // Note: RestartAsync now performs a soft restart (disconnect/reconnect)
@@ -218,7 +221,7 @@ public class BotServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new BotService(client, _mockLifetime.Object, _mockLogger.Object, _mockConfig.Object);
+        var service = new BotService(client, _mockLifetime.Object, _mockDashboardUpdateService.Object, _mockLogger.Object, _mockConfig.Object);
 
         // Act
         var config = service.GetConfiguration();
