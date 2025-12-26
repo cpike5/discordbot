@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
@@ -175,6 +176,7 @@ try
 
     // Add application services
     builder.Services.AddSingleton<IVersionService, VersionService>();
+    builder.Services.AddSingleton<IDashboardNotifier, DashboardNotifier>();
     builder.Services.AddScoped<IBotService, BotService>();
     builder.Services.AddScoped<IGuildService, GuildService>();
     builder.Services.AddScoped<ICommandLogService, CommandLogService>();
@@ -219,6 +221,15 @@ try
     builder.Services.AddControllers();
     builder.Services.AddRazorPages();
     builder.Services.AddEndpointsApiExplorer();
+
+    // Add SignalR for real-time dashboard updates
+    builder.Services.AddSignalR(options =>
+    {
+        options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+        options.HandshakeTimeout = TimeSpan.FromSeconds(15);
+    });
 
     // Configure Swagger/OpenAPI
     builder.Services.AddSwaggerGen(c =>
@@ -280,6 +291,9 @@ try
 
     app.MapControllers();
     app.MapRazorPages();
+
+    // Map SignalR hub for real-time dashboard
+    app.MapHub<DashboardHub>("/hubs/dashboard");
 
     // Map Prometheus metrics endpoint
     app.UseOpenTelemetryPrometheusScrapingEndpoint();

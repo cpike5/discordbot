@@ -38,6 +38,13 @@
     <!-- Toast Notifications Container -->
     @await Html.PartialAsync("_ToastContainer")
 
+    <!-- SignalR Client Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"
+            integrity="sha512-7rhBJh1vn+Fs27RkAMXvjgL+WJiMUjYqMOl5E2V+8rLfUypXbprEWQGZGxKgaEHR4TKZJaBoVpchN8SWdKv+jg=="
+            crossorigin="anonymous"
+            referrerpolicy="no-referrer"></script>
+    <!-- Dashboard Hub Connection Manager -->
+    <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
     <!-- JavaScript for Navigation -->
     <script src="~/js/navigation.js" asp-append-version="true"></script>
     <!-- JavaScript for Toast Notifications -->
