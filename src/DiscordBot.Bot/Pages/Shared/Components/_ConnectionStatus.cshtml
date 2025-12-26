@@ -1,0 +1,23 @@
+@model DiscordBot.Bot.ViewModels.Components.ConnectionStatusViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+@{
+    var stateStr = Model.State.ToString().ToLowerInvariant();
+    var displayText = Model.CustomText ?? Model.State switch
+    {
+        ConnectionState.Connected => "Connected",
+        ConnectionState.Connecting => "Connecting...",
+        ConnectionState.Reconnecting => "Reconnecting...",
+        ConnectionState.Disconnected => "Disconnected",
+        _ => "Unknown"
+    };
+}
+
+<div id="connection-status"
+     class="connection-status inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-bg-tertiary border border-border-primary"
+     data-state="@stateStr"
+     role="status"
+     aria-live="polite">
+    <span class="connection-dot relative w-2 h-2 rounded-full"></span>
+    <span class="connection-text">@displayText</span>
+</div>
