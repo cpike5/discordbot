@@ -24,6 +24,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<VerificationCode> VerificationCodes => Set<VerificationCode>();
     public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
+    public DbSet<WelcomeConfiguration> WelcomeConfigurations => Set<WelcomeConfiguration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
