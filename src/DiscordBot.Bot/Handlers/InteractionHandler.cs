@@ -6,6 +6,8 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Handlers;
@@ -22,6 +24,7 @@ public class InteractionHandler
     private readonly BotConfiguration _config;
     private readonly ILogger<InteractionHandler> _logger;
     private readonly ICommandExecutionLogger _commandExecutionLogger;
+    private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly BotMetrics _botMetrics;
 
     // AsyncLocal storage for tracking execution context across async calls
@@ -34,6 +37,7 @@ public class InteractionHandler
         IOptions<BotConfiguration> config,
         ILogger<InteractionHandler> logger,
         ICommandExecutionLogger commandExecutionLogger,
+        IDashboardUpdateService dashboardUpdateService,
         BotMetrics botMetrics)
     {
         _client = client;
@@ -42,6 +46,7 @@ public class InteractionHandler
         _config = config.Value;
         _logger = logger;
         _commandExecutionLogger = commandExecutionLogger;
+        _dashboardUpdateService = dashboardUpdateService;
         _botMetrics = botMetrics;
     }
 
@@ -360,6 +365,37 @@ public class InteractionHandler
             success,
             errorMessage,
             correlationId);
+
+        // Broadcast command execution update to dashboard (fire-and-forget, failure tolerant)
+        _ = BroadcastCommandExecutedAsync(commandInfo.Name, context, success);
+    }
+
+    /// <summary>
+    /// Broadcasts command execution update to dashboard clients.
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    private async Task BroadcastCommandExecutedAsync(string commandName, IInteractionContext context, bool success)
+    {
+        try
+        {
+            var update = new CommandExecutedUpdateDto
+            {
+                CommandName = commandName,
+                GuildId = context.Guild?.Id,
+                GuildName = context.Guild?.Name,
+                UserId = context.User.Id,
+                Username = context.User.Username,
+                Success = success,
+                Timestamp = DateTime.UtcNow
+            };
+
+            await _dashboardUpdateService.BroadcastCommandExecutedAsync(update);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't throw - this is fire-and-forget
+            _logger.LogWarning(ex, "Failed to broadcast command executed update for {CommandName}, but continuing normal operation", commandName);
+        }
     }
 
     /// <summary>
