@@ -141,7 +141,8 @@ public class WelcomeModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("User submitting welcome configuration for guild {GuildId}", Input.GuildId);
+        _logger.LogWarning("POST RECEIVED - GuildId={GuildId}, IsEnabled={IsEnabled}, ChannelId={ChannelId}, UseEmbed={UseEmbed}",
+            Input.GuildId, Input.IsEnabled, Input.WelcomeChannelId, Input.UseEmbed);
 
         if (!ModelState.IsValid)
         {

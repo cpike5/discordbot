@@ -43,7 +43,8 @@ public class WelcomeService : IWelcomeService
             return null;
         }
 
-        _logger.LogDebug("Retrieved welcome configuration for guild {GuildId}", guildId);
+        _logger.LogInformation("Retrieved welcome configuration for guild {GuildId}: IsEnabled={IsEnabled}, ChannelId={ChannelId}, Message={Message}",
+            guildId, config.IsEnabled, config.WelcomeChannelId, config.WelcomeMessage?.Substring(0, Math.Min(50, config.WelcomeMessage?.Length ?? 0)));
 
         return MapToDto(config);
     }
