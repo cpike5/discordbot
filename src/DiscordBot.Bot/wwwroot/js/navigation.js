@@ -4,6 +4,12 @@
 // Track sidebar state
 let sidebarOpen = false;
 
+// Track viewport mode to detect threshold crossings
+let isDesktopMode = window.innerWidth >= 1024;
+
+// Debounce utility for resize handler
+let resizeTimeout = null;
+
 // Get all focusable elements within the sidebar
 function getSidebarFocusableElements() {
   const sidebar = document.getElementById('sidebar');
@@ -119,27 +125,41 @@ document.addEventListener('click', function(event) {
   }
 });
 
-// Handle sidebar state on window resize
+// Handle sidebar state on window resize with debouncing
 window.addEventListener('resize', function() {
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
-  const toggleButton = document.getElementById('sidebarToggle');
-
-  if (!sidebar || !overlay || !toggleButton) return;
-
-  if (window.innerWidth >= 1024) {
-    // Desktop: show sidebar, hide overlay, reset state
-    sidebarOpen = false;
-    sidebar.classList.remove('-translate-x-full');
-    overlay.classList.add('hidden');
-    toggleButton.setAttribute('aria-expanded', 'false');
-  } else {
-    // Mobile: ensure sidebar is hidden if not explicitly opened
-    if (!sidebarOpen) {
-      sidebar.classList.add('-translate-x-full');
-      overlay.classList.add('hidden');
-    }
+  // Debounce resize events to prevent rapid-fire updates
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout);
   }
+
+  resizeTimeout = setTimeout(function() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggleButton = document.getElementById('sidebarToggle');
+
+    if (!sidebar || !overlay || !toggleButton) return;
+
+    const nowDesktop = window.innerWidth >= 1024;
+
+    // Only act when crossing the mobile/desktop threshold
+    if (nowDesktop !== isDesktopMode) {
+      isDesktopMode = nowDesktop;
+
+      if (nowDesktop) {
+        // Crossed TO desktop: reset mobile state, hide overlay
+        // Don't touch -translate-x-full - CSS lg:translate-x-0 handles visibility
+        sidebarOpen = false;
+        overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
+      } else {
+        // Crossed TO mobile: ensure sidebar is properly hidden
+        sidebarOpen = false;
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+        toggleButton.setAttribute('aria-expanded', 'false');
+      }
+    }
+  }, 100); // 100ms debounce delay
 });
 
 // Keyboard navigation for accessibility
