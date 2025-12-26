@@ -177,6 +177,7 @@ try
     // Add application services
     builder.Services.AddSingleton<IVersionService, VersionService>();
     builder.Services.AddSingleton<IDashboardNotifier, DashboardNotifier>();
+    builder.Services.AddSingleton<IDashboardUpdateService, DashboardUpdateService>();
     builder.Services.AddScoped<IBotService, BotService>();
     builder.Services.AddScoped<IGuildService, GuildService>();
     builder.Services.AddScoped<ICommandLogService, CommandLogService>();
