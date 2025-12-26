@@ -29,7 +29,7 @@ public static class DiscordServiceExtensions
         {
             var config = new DiscordSocketConfig
             {
-                GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent | GatewayIntents.DirectMessages,
+                GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent | GatewayIntents.DirectMessages | GatewayIntents.GuildMembers,
                 LogLevel = LogSeverity.Info,
                 AlwaysDownloadUsers = false,
                 MessageCacheSize = 100
@@ -62,6 +62,9 @@ public static class DiscordServiceExtensions
 
         // Register MessageLoggingHandler as singleton
         services.AddSingleton<MessageLoggingHandler>();
+
+        // Register WelcomeHandler as singleton
+        services.AddSingleton<WelcomeHandler>();
 
         // Register BotHostedService as hosted service
         services.AddHostedService<BotHostedService>();

@@ -15,6 +15,7 @@ public class BotHostedService : IHostedService
     private readonly DiscordSocketClient _client;
     private readonly InteractionHandler _interactionHandler;
     private readonly MessageLoggingHandler _messageLoggingHandler;
+    private readonly WelcomeHandler _welcomeHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly BotConfiguration _config;
     private readonly ILogger<BotHostedService> _logger;
@@ -24,6 +25,7 @@ public class BotHostedService : IHostedService
         DiscordSocketClient client,
         InteractionHandler interactionHandler,
         MessageLoggingHandler messageLoggingHandler,
+        WelcomeHandler welcomeHandler,
         BusinessMetrics businessMetrics,
         IOptions<BotConfiguration> config,
         ILogger<BotHostedService> logger,
@@ -32,6 +34,7 @@ public class BotHostedService : IHostedService
         _client = client;
         _interactionHandler = interactionHandler;
         _messageLoggingHandler = messageLoggingHandler;
+        _welcomeHandler = welcomeHandler;
         _businessMetrics = businessMetrics;
         _config = config.Value;
         _logger = logger;
@@ -55,6 +58,9 @@ public class BotHostedService : IHostedService
 
         // Wire message logging handler
         _client.MessageReceived += _messageLoggingHandler.HandleMessageReceivedAsync;
+
+        // Wire welcome handler for new member joins
+        _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
 
         // Initialize interaction handler (discovers and registers commands)
         await _interactionHandler.InitializeAsync();
@@ -94,6 +100,7 @@ public class BotHostedService : IHostedService
         {
             // Unsubscribe from events
             _client.MessageReceived -= _messageLoggingHandler.HandleMessageReceivedAsync;
+            _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
 
             await _client.StopAsync();
             await _client.LogoutAsync();
