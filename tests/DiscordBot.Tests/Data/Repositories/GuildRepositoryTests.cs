@@ -400,13 +400,15 @@ public class GuildRepositoryTests : IDisposable
     public async Task GetJoinedCountAsync_IncludesBothActiveAndInactiveGuilds()
     {
         // Arrange
-        var now = DateTime.UtcNow;
+        // Use today at noon to avoid flaky timing issues near midnight
+        var today = DateTime.UtcNow.Date;
+        var noonToday = today.AddHours(12);
 
         var activeGuild = new Guild
         {
             Id = 111111111,
             Name = "Active Guild",
-            JoinedAt = now,
+            JoinedAt = noonToday,
             IsActive = true
         };
 
@@ -414,7 +416,7 @@ public class GuildRepositoryTests : IDisposable
         {
             Id = 222222222,
             Name = "Inactive Guild",
-            JoinedAt = now.AddHours(-1),
+            JoinedAt = noonToday.AddHours(-1),
             IsActive = false
         };
 
@@ -422,7 +424,7 @@ public class GuildRepositoryTests : IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        var count = await _repository.GetJoinedCountAsync(now.Date);
+        var count = await _repository.GetJoinedCountAsync(today);
 
         // Assert
         count.Should().Be(2, "both active and inactive guilds that joined should be counted");
