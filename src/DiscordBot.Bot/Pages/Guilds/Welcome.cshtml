@@ -98,16 +98,11 @@
                             <p class="text-xs text-text-secondary mt-1">Send a message when new members join the server</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="hidden" name="Input.IsEnabled" value="false" />
-                            <input type="checkbox"
-                                   id="Input_IsEnabled"
-                                   name="Input.IsEnabled"
-                                   value="true"
+                            <input asp-for="Input.IsEnabled"
                                    onchange="toggleWelcomeEnabled()"
                                    class="sr-only peer" />
                             <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
                         </label>
-                        <script>document.getElementById('Input_IsEnabled').checked = @(Model.Input.IsEnabled ? "true" : "false");</script>
                     </div>
                 </div>
 
@@ -192,16 +187,11 @@
                             <p class="text-xs text-text-tertiary mt-0.5">Display the user's avatar in the welcome message</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="hidden" name="Input.IncludeAvatar" value="false" />
-                            <input type="checkbox"
-                                   id="Input_IncludeAvatar"
-                                   name="Input.IncludeAvatar"
-                                   value="true"
+                            <input asp-for="Input.IncludeAvatar"
                                    onchange="updatePreview()"
                                    class="sr-only peer" />
                             <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
                         </label>
-                        <script>document.getElementById('Input_IncludeAvatar').checked = @(Model.Input.IncludeAvatar ? "true" : "false");</script>
                     </div>
 
                     <!-- Use Embed Toggle -->
@@ -211,16 +201,11 @@
                             <p class="text-xs text-text-tertiary mt-0.5">Send welcome message as a rich embed instead of plain text</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="hidden" name="Input.UseEmbed" value="false" />
-                            <input type="checkbox"
-                                   id="Input_UseEmbed"
-                                   name="Input.UseEmbed"
-                                   value="true"
+                            <input asp-for="Input.UseEmbed"
                                    onchange="toggleEmbedOptions()"
                                    class="sr-only peer" />
                             <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
                         </label>
-                        <script>document.getElementById('Input_UseEmbed').checked = @(Model.Input.UseEmbed ? "true" : "false");</script>
                     </div>
 
                     <!-- Embed Color Picker (shown when UseEmbed is true) -->
