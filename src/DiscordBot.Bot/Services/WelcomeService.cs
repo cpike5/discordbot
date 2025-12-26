@@ -61,7 +61,8 @@ public class WelcomeService : IWelcomeService
         // If configuration doesn't exist, create a new one
         if (config == null)
         {
-            _logger.LogInformation("Creating new welcome configuration for guild {GuildId}", guildId);
+            _logger.LogInformation("Creating new welcome configuration for guild {GuildId}. IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                guildId, updateDto.IsEnabled, updateDto.WelcomeChannelId);
 
             config = new WelcomeConfiguration
             {
@@ -73,12 +74,18 @@ public class WelcomeService : IWelcomeService
             // Apply all non-null fields from the update DTO
             ApplyUpdate(config, updateDto);
 
+            _logger.LogDebug("After ApplyUpdate: IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                config.IsEnabled, config.WelcomeChannelId);
+
             await _repository.AddAsync(config, cancellationToken);
 
             _logger.LogInformation("Welcome configuration created for guild {GuildId}", guildId);
         }
         else
         {
+            _logger.LogInformation("Updating existing welcome configuration for guild {GuildId}. IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                guildId, updateDto.IsEnabled, updateDto.WelcomeChannelId);
+
             // Update existing configuration
             ApplyUpdate(config, updateDto);
             config.UpdatedAt = DateTime.UtcNow;
@@ -86,6 +93,18 @@ public class WelcomeService : IWelcomeService
             await _repository.UpdateAsync(config, cancellationToken);
 
             _logger.LogInformation("Welcome configuration updated for guild {GuildId}", guildId);
+        }
+
+        // Verify the save by reading back
+        var verification = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
+        if (verification == null)
+        {
+            _logger.LogError("VERIFICATION FAILED: Welcome configuration for guild {GuildId} was not found after save!", guildId);
+        }
+        else
+        {
+            _logger.LogInformation("VERIFICATION: Guild {GuildId} config read back - IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                guildId, verification.IsEnabled, verification.WelcomeChannelId);
         }
 
         return MapToDto(config);
