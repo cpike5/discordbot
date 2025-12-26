@@ -145,10 +145,10 @@ const LoadingManager = {
     }
 
     if (isLoading) {
-      // Store original state
+      // Store original state including full HTML structure
       if (!this.activeButtons.has(button)) {
         this.activeButtons.set(button, {
-          text: button.textContent,
+          html: button.innerHTML,
           disabled: button.disabled,
           ariaDisabled: button.getAttribute('aria-disabled')
         });
@@ -167,15 +167,15 @@ const LoadingManager = {
         </svg>
       `;
 
-      // Update button content
-      const textToShow = loadingText || this.activeButtons.get(button).text;
+      // Update button content with spinner and loading text
+      const textToShow = loadingText || button.textContent.trim();
       button.innerHTML = `${spinnerHtml}<span>${textToShow}</span>`;
 
     } else {
-      // Restore original state
+      // Restore original state including full HTML structure
       const originalState = this.activeButtons.get(button);
       if (originalState) {
-        button.textContent = originalState.text;
+        button.innerHTML = originalState.html;
         button.disabled = originalState.disabled;
 
         if (originalState.ariaDisabled !== null) {
