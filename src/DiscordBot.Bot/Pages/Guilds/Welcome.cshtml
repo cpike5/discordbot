@@ -1,0 +1,597 @@
+@page "{id:long}"
+@model DiscordBot.Bot.Pages.Guilds.WelcomeModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"Welcome Settings - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Welcome Settings</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-4">
+            @if (!string.IsNullOrEmpty(Model.ViewModel.GuildIconUrl))
+            {
+                <img src="@Model.ViewModel.GuildIconUrl" alt="@Model.ViewModel.GuildName" class="w-12 h-12 rounded-full flex-shrink-0" />
+            }
+            else
+            {
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                    @(Model.ViewModel.GuildName.Length >= 2 ? Model.ViewModel.GuildName[..2].ToUpper() : Model.ViewModel.GuildName.ToUpper())
+                </div>
+            }
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">Welcome Settings</h1>
+                <p class="mt-1 text-sm text-text-secondary">Configure automatic welcome messages for @Model.ViewModel.GuildName</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <form method="post">
+        <input type="hidden" name="Input.GuildId" value="@Model.Input.GuildId" />
+        <div asp-validation-summary="ModelOnly" class="text-error text-sm mb-4"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Configuration Form Column -->
+            <div class="space-y-6">
+                <!-- Enable Welcome Messages Toggle -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label for="Input_IsEnabled" class="text-sm font-semibold text-text-primary">Enable Welcome Messages</label>
+                            <p class="text-xs text-text-secondary mt-1">Send a message when new members join the server</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input asp-for="Input.IsEnabled"
+                                   onchange="toggleWelcomeEnabled()"
+                                   class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Main Configuration Form -->
+                <div id="welcome-config-form" class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6 @(!Model.Input.IsEnabled ? "form-section-disabled" : "")">
+                    <!-- Welcome Channel Selector -->
+                    <div>
+                        <label for="Input_WelcomeChannelId" class="block text-sm font-medium text-text-primary mb-2">Welcome Channel</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                </svg>
+                            </div>
+                            <select id="Input_WelcomeChannelId"
+                                    name="Input.WelcomeChannelId"
+                                    class="form-select w-full py-2.5 pl-10 pr-10 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                                    onchange="updatePreview()">
+                                <option value="">Select a channel...</option>
+                                @foreach (var channel in Model.AvailableChannels)
+                                {
+                                    <option value="@channel.Id" selected="@(Model.Input.WelcomeChannelId == channel.Id)">@channel.Name</option>
+                                }
+                            </select>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="text-xs text-text-secondary mt-1">Select the channel where welcome messages will be sent</p>
+                        <span asp-validation-for="Input.WelcomeChannelId" class="text-error text-xs"></span>
+                    </div>
+
+                    <!-- Welcome Message Template -->
+                    <div>
+                        <label for="Input_WelcomeMessage" class="block text-sm font-medium text-text-primary mb-2">Welcome Message Template</label>
+
+                        <!-- Token Insertion Toolbar -->
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <button type="button"
+                                    onclick="insertToken('{user}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue transition-all"
+                                    title="Insert user mention">
+                                {user}
+                            </button>
+                            <button type="button"
+                                    onclick="insertToken('{username}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue transition-all"
+                                    title="Insert username">
+                                {username}
+                            </button>
+                            <button type="button"
+                                    onclick="insertToken('{server}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue transition-all"
+                                    title="Insert server name">
+                                {server}
+                            </button>
+                            <button type="button"
+                                    onclick="insertToken('{memberCount}')"
+                                    class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue transition-all"
+                                    title="Insert member count">
+                                {memberCount}
+                            </button>
+                        </div>
+
+                        <textarea id="Input_WelcomeMessage"
+                                  name="Input.WelcomeMessage"
+                                  rows="4"
+                                  class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                                  placeholder="Enter your welcome message..."
+                                  oninput="updatePreview()"
+                                  maxlength="2000">@Model.Input.WelcomeMessage</textarea>
+                        <p class="text-xs text-text-secondary mt-1">Use tokens to personalize your message. Click a token above to insert it.</p>
+                        <span asp-validation-for="Input.WelcomeMessage" class="text-error text-xs"></span>
+                    </div>
+
+                    <!-- Include Avatar Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_IncludeAvatar" class="text-sm font-medium text-text-primary">Include User Avatar</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Display the user's avatar in the welcome message</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input asp-for="Input.IncludeAvatar"
+                                   onchange="updatePreview()"
+                                   class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+
+                    <!-- Use Embed Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_UseEmbed" class="text-sm font-medium text-text-primary">Use Embed</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Send welcome message as a rich embed instead of plain text</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input asp-for="Input.UseEmbed"
+                                   onchange="toggleEmbedOptions()"
+                                   class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+
+                    <!-- Embed Color Picker (shown when UseEmbed is true) -->
+                    <div id="embed-color-container" class="@(!Model.Input.UseEmbed ? "hidden" : "")">
+                        <label for="Input_EmbedColor" class="block text-sm font-medium text-text-primary mb-2">Embed Color</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   id="embed-color-picker"
+                                   value="@(Model.Input.EmbedColor ?? "#5865F2")"
+                                   onchange="updateEmbedColorHex(this.value)"
+                                   class="w-12 h-10 rounded border border-border-primary cursor-pointer" />
+                            <input type="text"
+                                   id="Input_EmbedColor"
+                                   name="Input.EmbedColor"
+                                   value="@Model.Input.EmbedColor"
+                                   oninput="updateEmbedColorPicker(this.value)"
+                                   pattern="^#[0-9A-Fa-f]{6}$"
+                                   class="form-input flex-1 py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary font-mono focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                                   placeholder="#5865F2"
+                                   maxlength="7" />
+                        </div>
+                        <p class="text-xs text-text-secondary mt-1">Choose a color for the embed border (hex format, e.g., #5865F2)</p>
+                        <span asp-validation-for="Input.EmbedColor" class="text-error text-xs"></span>
+                    </div>
+                </div>
+
+                <!-- Token Help Panel -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <button type="button"
+                            onclick="toggleTokenHelp()"
+                            class="w-full px-6 py-4 flex items-center justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-inset"
+                            aria-expanded="true"
+                            aria-controls="token-help-content">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-sm font-semibold text-text-primary">Available Tokens</span>
+                        </div>
+                        <svg id="token-help-chevron" class="w-5 h-5 text-text-tertiary transform rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div id="token-help-content" class="collapsible-content open">
+                        <div class="px-6 pb-4">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-border-secondary">
+                                        <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Token</th>
+                                        <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Description</th>
+                                        <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Example</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-border-secondary">
+                                    <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{user}')" title="Click to insert">
+                                        <td class="py-2">
+                                            <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{user}</code>
+                                        </td>
+                                        <td class="py-2 text-text-secondary">Mentions the new member</td>
+                                        <td class="py-2 text-text-tertiary">@@NewMember</td>
+                                    </tr>
+                                    <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{username}')" title="Click to insert">
+                                        <td class="py-2">
+                                            <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{username}</code>
+                                        </td>
+                                        <td class="py-2 text-text-secondary">Member's display name</td>
+                                        <td class="py-2 text-text-tertiary">NewMember</td>
+                                    </tr>
+                                    <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{server}')" title="Click to insert">
+                                        <td class="py-2">
+                                            <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{server}</code>
+                                        </td>
+                                        <td class="py-2 text-text-secondary">Server name</td>
+                                        <td class="py-2 text-text-tertiary">@Model.ViewModel.GuildName</td>
+                                    </tr>
+                                    <tr class="hover:bg-bg-hover cursor-pointer" onclick="insertToken('{memberCount}')" title="Click to insert">
+                                        <td class="py-2">
+                                            <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">{memberCount}</code>
+                                        </td>
+                                        <td class="py-2 text-text-secondary">Total member count</td>
+                                        <td class="py-2 text-text-tertiary">1,234</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p class="text-xs text-text-tertiary mt-3 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                                Click any row to insert the token into your message
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button type="submit"
+                            class="btn btn-primary inline-flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Configuration
+                    </button>
+                    <a asp-page="Details" asp-route-id="@Model.ViewModel.GuildId"
+                       class="btn btn-secondary inline-flex items-center justify-center gap-2">
+                        Cancel
+                    </a>
+                </div>
+            </div>
+
+            <!-- Live Preview Column -->
+            <div class="lg:sticky lg:top-8 lg:self-start">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h3 class="text-sm font-semibold text-text-primary">Live Preview</h3>
+                        <p class="text-xs text-text-secondary mt-1">See how your welcome message will appear</p>
+                    </div>
+                    <div class="p-6">
+                        <!-- Discord-styled Message Preview -->
+                        <div class="discord-message" id="discord-preview">
+                            <!-- Bot Avatar and Message -->
+                            <div class="flex gap-4" id="preview-content">
+                                <!-- Bot Avatar -->
+                                <div class="flex-shrink-0" id="preview-avatar">
+                                    <div class="w-10 h-10 rounded-full bg-discord flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <!-- Message Content -->
+                                <div class="flex-1 min-w-0">
+                                    <!-- Username and Timestamp -->
+                                    <div class="flex items-center gap-1 mb-1">
+                                        <span class="font-medium text-white">WelcomeBot</span>
+                                        <span class="discord-bot-badge">BOT</span>
+                                        <span class="discord-timestamp">Today at @DateTime.Now.ToString("h:mm tt")</span>
+                                    </div>
+                                    <!-- Message Text -->
+                                    <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">
+                                        <!-- Preview will be updated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sample Data Reference -->
+                        <div class="mt-4 pt-4 border-t border-border-secondary">
+                            <p class="text-xs text-text-tertiary mb-2">Sample data used for preview:</p>
+                            <ul class="text-xs text-text-tertiary space-y-1">
+                                <li><code class="px-1 bg-bg-tertiary rounded">{user}</code> = @@NewMember</li>
+                                <li><code class="px-1 bg-bg-tertiary rounded">{username}</code> = NewMember</li>
+                                <li><code class="px-1 bg-bg-tertiary rounded">{server}</code> = @Model.ViewModel.GuildName</li>
+                                <li><code class="px-1 bg-bg-tertiary rounded">{memberCount}</code> = 1,234</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <style>
+        /* ========================================
+           Form Section Disabled Overlay
+           ======================================== */
+        .form-section-disabled {
+            position: relative;
+        }
+
+        .form-section-disabled::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-color: rgba(29, 32, 34, 0.6);
+            border-radius: 0.5rem;
+            pointer-events: none;
+        }
+
+        .form-section-disabled > * {
+            pointer-events: none;
+        }
+
+        /* ========================================
+           Discord Message Preview Styles
+           ======================================== */
+        .discord-message {
+            background-color: #36393f;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        .discord-mention {
+            background-color: #404675;
+            color: #dee0fc;
+            padding: 0 2px;
+            border-radius: 3px;
+            font-weight: 500;
+        }
+
+        .discord-mention:hover {
+            background-color: #5865f2;
+            color: white;
+        }
+
+        .discord-bot-badge {
+            background-color: #5865f2;
+            color: white;
+            font-size: 0.625rem;
+            padding: 0.0625rem 0.25rem;
+            border-radius: 0.1875rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            vertical-align: middle;
+            margin-left: 0.25rem;
+        }
+
+        .discord-timestamp {
+            color: #72767d;
+            font-size: 0.75rem;
+            margin-left: 0.25rem;
+        }
+
+        /* ========================================
+           Collapsible Panel Styles
+           ======================================== */
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.open {
+            max-height: 500px;
+        }
+
+        /* ========================================
+           Token Button Styles
+           ======================================== */
+        .token-btn {
+            transition: all 0.15s ease-in-out;
+        }
+
+        .token-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .token-btn:active {
+            transform: translateY(0);
+        }
+    </style>
+
+    <script>
+        // ========================================
+        // Toggle Welcome Messages Enabled
+        // ========================================
+        function toggleWelcomeEnabled() {
+            const checkbox = document.getElementById('Input_IsEnabled');
+            const configForm = document.getElementById('welcome-config-form');
+
+            if (checkbox.checked) {
+                configForm.classList.remove('form-section-disabled');
+            } else {
+                configForm.classList.add('form-section-disabled');
+            }
+
+            updatePreview();
+        }
+
+        // ========================================
+        // Toggle Embed Options
+        // ========================================
+        function toggleEmbedOptions() {
+            const checkbox = document.getElementById('Input_UseEmbed');
+            const embedColorContainer = document.getElementById('embed-color-container');
+
+            if (checkbox.checked) {
+                embedColorContainer.classList.remove('hidden');
+            } else {
+                embedColorContainer.classList.add('hidden');
+            }
+
+            updatePreview();
+        }
+
+        // ========================================
+        // Sync Color Picker and Hex Input
+        // ========================================
+        function updateEmbedColorHex(color) {
+            document.getElementById('Input_EmbedColor').value = color.toUpperCase();
+            updatePreview();
+        }
+
+        function updateEmbedColorPicker(hex) {
+            const colorPicker = document.getElementById('embed-color-picker');
+            if (/^#[0-9A-Fa-f]{6}$/.test(hex)) {
+                colorPicker.value = hex;
+                updatePreview();
+            }
+        }
+
+        // ========================================
+        // Token Insertion
+        // ========================================
+        function insertToken(token) {
+            const textarea = document.getElementById('Input_WelcomeMessage');
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = textarea.value;
+
+            textarea.value = text.substring(0, start) + token + text.substring(end);
+            textarea.focus();
+            textarea.setSelectionRange(start + token.length, start + token.length);
+
+            updatePreview();
+        }
+
+        // ========================================
+        // Toggle Token Help Panel
+        // ========================================
+        function toggleTokenHelp() {
+            const content = document.getElementById('token-help-content');
+            const chevron = document.getElementById('token-help-chevron');
+            const button = content.previousElementSibling;
+
+            content.classList.toggle('open');
+            chevron.classList.toggle('rotate-180');
+
+            const isExpanded = content.classList.contains('open');
+            button.setAttribute('aria-expanded', isExpanded);
+        }
+
+        // ========================================
+        // Update Live Preview
+        // ========================================
+        function updatePreview() {
+            const messageInput = document.getElementById('Input_WelcomeMessage');
+            const previewMessage = document.getElementById('preview-message');
+            const welcomeEnabled = document.getElementById('Input_IsEnabled').checked;
+            const useEmbed = document.getElementById('Input_UseEmbed').checked;
+            const embedColor = document.getElementById('Input_EmbedColor')?.value || '#5865F2';
+            const previewContent = document.getElementById('preview-content');
+
+            if (!welcomeEnabled) {
+                previewMessage.innerHTML = '<span class="text-[#72767d] italic">Welcome messages are disabled</span>';
+                previewContent.style.borderLeft = 'none';
+                previewContent.style.paddingLeft = '0';
+                return;
+            }
+
+            let message = messageInput.value;
+
+            // Replace tokens with sample data
+            message = message
+                .replace(/\{user\}/g, '<span class="discord-mention">@@NewMember</span>')
+                .replace(/\{username\}/g, '<strong>NewMember</strong>')
+                .replace(/\{server\}/g, '<strong>@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(Model.ViewModel.GuildName))</strong>')
+                .replace(/\{memberCount\}/g, '<strong>1,234</strong>');
+
+            // Handle newlines
+            message = message.replace(/\n/g, '<br>');
+
+            previewMessage.innerHTML = message || '<span class="text-[#72767d] italic">Enter a message to see preview</span>';
+
+            // Update embed styling
+            if (useEmbed && /^#[0-9A-Fa-f]{6}$/.test(embedColor)) {
+                previewContent.style.borderLeft = `4px solid ${embedColor}`;
+                previewContent.style.paddingLeft = '0.75rem';
+            } else {
+                previewContent.style.borderLeft = 'none';
+                previewContent.style.paddingLeft = '0';
+            }
+        }
+
+        // ========================================
+        // Initialize on Page Load
+        // ========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleWelcomeEnabled();
+            toggleEmbedOptions();
+            updatePreview();
+        });
+    </script>
+}

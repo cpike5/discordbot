@@ -43,7 +43,8 @@ public class WelcomeService : IWelcomeService
             return null;
         }
 
-        _logger.LogDebug("Retrieved welcome configuration for guild {GuildId}", guildId);
+        _logger.LogInformation("Retrieved welcome configuration for guild {GuildId}: IsEnabled={IsEnabled}, ChannelId={ChannelId}, Message={Message}",
+            guildId, config.IsEnabled, config.WelcomeChannelId, config.WelcomeMessage?.Substring(0, Math.Min(50, config.WelcomeMessage?.Length ?? 0)));
 
         return MapToDto(config);
     }
@@ -61,7 +62,8 @@ public class WelcomeService : IWelcomeService
         // If configuration doesn't exist, create a new one
         if (config == null)
         {
-            _logger.LogInformation("Creating new welcome configuration for guild {GuildId}", guildId);
+            _logger.LogInformation("Creating new welcome configuration for guild {GuildId}. IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                guildId, updateDto.IsEnabled, updateDto.WelcomeChannelId);
 
             config = new WelcomeConfiguration
             {
@@ -73,12 +75,18 @@ public class WelcomeService : IWelcomeService
             // Apply all non-null fields from the update DTO
             ApplyUpdate(config, updateDto);
 
+            _logger.LogDebug("After ApplyUpdate: IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                config.IsEnabled, config.WelcomeChannelId);
+
             await _repository.AddAsync(config, cancellationToken);
 
             _logger.LogInformation("Welcome configuration created for guild {GuildId}", guildId);
         }
         else
         {
+            _logger.LogInformation("Updating existing welcome configuration for guild {GuildId}. IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                guildId, updateDto.IsEnabled, updateDto.WelcomeChannelId);
+
             // Update existing configuration
             ApplyUpdate(config, updateDto);
             config.UpdatedAt = DateTime.UtcNow;
