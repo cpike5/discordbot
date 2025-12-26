@@ -51,8 +51,14 @@ function toggleSidebar() {
 
   sidebarOpen = !sidebarOpen;
 
-  sidebar.classList.toggle('-translate-x-full');
-  overlay.classList.toggle('hidden');
+  // Use explicit state-based class manipulation to avoid CSS/JS state desync
+  if (sidebarOpen) {
+    sidebar.classList.remove('-translate-x-full');
+    overlay.classList.remove('hidden');
+  } else {
+    sidebar.classList.add('-translate-x-full');
+    overlay.classList.add('hidden');
+  }
 
   // Update aria-expanded state
   toggleButton.setAttribute('aria-expanded', sidebarOpen.toString());
@@ -113,7 +119,7 @@ document.addEventListener('click', function(event) {
   }
 });
 
-// Close sidebar on window resize (if desktop)
+// Handle sidebar state on window resize
 window.addEventListener('resize', function() {
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
@@ -122,10 +128,17 @@ window.addEventListener('resize', function() {
   if (!sidebar || !overlay || !toggleButton) return;
 
   if (window.innerWidth >= 1024) {
+    // Desktop: show sidebar, hide overlay, reset state
     sidebarOpen = false;
     sidebar.classList.remove('-translate-x-full');
     overlay.classList.add('hidden');
     toggleButton.setAttribute('aria-expanded', 'false');
+  } else {
+    // Mobile: ensure sidebar is hidden if not explicitly opened
+    if (!sidebarOpen) {
+      sidebar.classList.add('-translate-x-full');
+      overlay.classList.add('hidden');
+    }
   }
 });
 
