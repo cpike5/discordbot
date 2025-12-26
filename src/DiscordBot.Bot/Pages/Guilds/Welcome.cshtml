@@ -103,11 +103,11 @@
                                    id="Input_IsEnabled"
                                    name="Input.IsEnabled"
                                    value="true"
-                                   @(Model.Input.IsEnabled ? "checked" : "")
                                    onchange="toggleWelcomeEnabled()"
                                    class="sr-only peer" />
                             <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
                         </label>
+                        <script>document.getElementById('Input_IsEnabled').checked = @(Model.Input.IsEnabled ? "true" : "false");</script>
                     </div>
                 </div>
 
@@ -197,11 +197,11 @@
                                    id="Input_IncludeAvatar"
                                    name="Input.IncludeAvatar"
                                    value="true"
-                                   @(Model.Input.IncludeAvatar ? "checked" : "")
                                    onchange="updatePreview()"
                                    class="sr-only peer" />
                             <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
                         </label>
+                        <script>document.getElementById('Input_IncludeAvatar').checked = @(Model.Input.IncludeAvatar ? "true" : "false");</script>
                     </div>
 
                     <!-- Use Embed Toggle -->
@@ -216,11 +216,11 @@
                                    id="Input_UseEmbed"
                                    name="Input.UseEmbed"
                                    value="true"
-                                   @(Model.Input.UseEmbed ? "checked" : "")
                                    onchange="toggleEmbedOptions()"
                                    class="sr-only peer" />
                             <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
                         </label>
+                        <script>document.getElementById('Input_UseEmbed').checked = @(Model.Input.UseEmbed ? "true" : "false");</script>
                     </div>
 
                     <!-- Embed Color Picker (shown when UseEmbed is true) -->
@@ -604,6 +604,8 @@
         // Initialize on Page Load
         // ========================================
         document.addEventListener('DOMContentLoaded', function() {
+            toggleWelcomeEnabled();
+            toggleEmbedOptions();
             updatePreview();
         });
     </script>
