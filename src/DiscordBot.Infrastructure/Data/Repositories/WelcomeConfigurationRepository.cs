@@ -1,5 +1,6 @@
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Infrastructure.Data.Repositories;
@@ -23,6 +24,7 @@ public class WelcomeConfigurationRepository : Repository<WelcomeConfiguration>, 
     public async Task<WelcomeConfiguration?> GetByGuildIdAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Retrieving welcome configuration for guild {GuildId}", guildId);
-        return await DbSet.FindAsync(new object[] { guildId }, cancellationToken);
+        // Use FirstOrDefaultAsync instead of FindAsync to ensure proper value conversion for ulong keys
+        return await DbSet.FirstOrDefaultAsync(w => w.GuildId == guildId, cancellationToken);
     }
 }
