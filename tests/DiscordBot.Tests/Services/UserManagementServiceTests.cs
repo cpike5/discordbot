@@ -2,8 +2,11 @@ using System.Security.Claims;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
+using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +24,8 @@ public class UserManagementServiceTests : IDisposable
     private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
     private readonly Mock<RoleManager<IdentityRole>> _mockRoleManager;
     private readonly Mock<ILogger<UserManagementService>> _mockLogger;
+    private readonly Mock<IAuditLogService> _mockAuditLogService;
+    private readonly Mock<IHttpContextAccessor> _mockHttpContextAccessor;
     private readonly BotDbContext _dbContext;
     private readonly UserManagementService _service;
     private readonly SqliteConnection _connection;
@@ -61,12 +66,33 @@ public class UserManagementServiceTests : IDisposable
             new Mock<ILogger<RoleManager<IdentityRole>>>().Object);
 
         _mockLogger = new Mock<ILogger<UserManagementService>>();
+        _mockAuditLogService = new Mock<IAuditLogService>();
+        _mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
+
+        // Setup audit log service to return a builder that returns itself for fluent API
+        var mockBuilder = new Mock<IAuditLogBuilder>();
+        mockBuilder.Setup(x => x.ForCategory(It.IsAny<AuditLogCategory>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithAction(It.IsAny<AuditLogAction>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByUser(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.BySystem()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByBot()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.OnTarget(It.IsAny<string>(), It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.InGuild(It.IsAny<ulong>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<Dictionary<string, object?>>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<object>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.FromIpAddress(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithCorrelationId(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        _mockAuditLogService.Setup(x => x.CreateBuilder()).Returns(mockBuilder.Object);
 
         _service = new UserManagementService(
             _mockUserManager.Object,
             _mockRoleManager.Object,
             _dbContext,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockAuditLogService.Object,
+            _mockHttpContextAccessor.Object);
     }
 
     #region Self-Protection Tests

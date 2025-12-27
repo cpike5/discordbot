@@ -2,6 +2,8 @@ using System.Security.Claims;
 using DiscordBot.Bot.Pages.Account;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
+using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
@@ -25,6 +27,7 @@ public class LoginModelTests
     private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
     private readonly Mock<ILogger<LoginModel>> _mockLogger;
     private readonly DiscordOAuthSettings _discordOAuthSettings;
+    private readonly Mock<IAuditLogService> _mockAuditLogService;
     private readonly LoginModel _loginModel;
     private readonly Mock<IAuthenticationService> _mockAuthService;
     private readonly Mock<IServiceProvider> _mockServiceProvider;
@@ -62,6 +65,26 @@ public class LoginModelTests
         // Setup Discord OAuth settings (configured by default for tests)
         _discordOAuthSettings = new DiscordOAuthSettings { IsConfigured = true };
 
+        // Setup audit log service mock
+        _mockAuditLogService = new Mock<IAuditLogService>();
+
+        // Setup audit log service to return a builder that returns itself for fluent API
+        var mockBuilder = new Mock<IAuditLogBuilder>();
+        mockBuilder.Setup(x => x.ForCategory(It.IsAny<AuditLogCategory>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithAction(It.IsAny<AuditLogAction>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByUser(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.BySystem()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByBot()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.OnTarget(It.IsAny<string>(), It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.InGuild(It.IsAny<ulong>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<Dictionary<string, object?>>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<object>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.FromIpAddress(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithCorrelationId(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        _mockAuditLogService.Setup(x => x.CreateBuilder()).Returns(mockBuilder.Object);
+
         // Setup authentication service mock
         _mockAuthService = new Mock<IAuthenticationService>();
 
@@ -75,7 +98,8 @@ public class LoginModelTests
             _mockSignInManager.Object,
             _mockUserManager.Object,
             _mockLogger.Object,
-            _discordOAuthSettings);
+            _discordOAuthSettings,
+            _mockAuditLogService.Object);
 
         // Setup HttpContext
         var httpContext = new DefaultHttpContext
@@ -442,7 +466,8 @@ public class LoginModelTests
             _mockSignInManager.Object,
             _mockUserManager.Object,
             _mockLogger.Object,
-            oauthSettings);
+            oauthSettings,
+            _mockAuditLogService.Object);
 
         // Setup URL helper for the new instance
         var urlHelper = new Mock<IUrlHelper>();

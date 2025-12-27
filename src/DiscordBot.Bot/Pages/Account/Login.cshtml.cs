@@ -1,5 +1,7 @@
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
+using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -18,17 +20,20 @@ public class LoginModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<LoginModel> _logger;
     private readonly DiscordOAuthSettings _discordOAuthSettings;
+    private readonly IAuditLogService _auditLogService;
 
     public LoginModel(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
         ILogger<LoginModel> logger,
-        DiscordOAuthSettings discordOAuthSettings)
+        DiscordOAuthSettings discordOAuthSettings,
+        IAuditLogService auditLogService)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _logger = logger;
         _discordOAuthSettings = discordOAuthSettings;
+        _auditLogService = auditLogService;
     }
 
     /// <summary>
@@ -137,6 +142,24 @@ public class LoginModel : PageModel
             {
                 user.LastLoginAt = DateTime.UtcNow;
                 await _userManager.UpdateAsync(user);
+
+                // Audit log for successful login
+                try
+                {
+                    var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                    _auditLogService.CreateBuilder()
+                        .ForCategory(AuditLogCategory.Security)
+                        .WithAction(AuditLogAction.Login)
+                        .ByUser(user.Id)
+                        .OnTarget("User", user.Id)
+                        .FromIpAddress(ipAddress ?? "Unknown")
+                        .WithDetails(new { email = user.Email, method = "Password" })
+                        .Enqueue();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to log audit entry for login {Email}", Input.Email);
+                }
             }
 
             return LocalRedirect(returnUrl);
@@ -156,6 +179,25 @@ public class LoginModel : PageModel
 
         // Login failed
         _logger.LogWarning("Invalid login attempt for {Email}", Input.Email);
+
+        // Audit log for failed login
+        try
+        {
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Security)
+                .WithAction(AuditLogAction.Login)
+                .BySystem()
+                .OnTarget("User", "Unknown")
+                .FromIpAddress(ipAddress ?? "Unknown")
+                .WithDetails(new { email = Input.Email, success = false, reason = "Invalid credentials" })
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for failed login {Email}", Input.Email);
+        }
+
         ModelState.AddModelError(string.Empty, "Invalid email or password. Please try again.");
         return Page();
     }

@@ -1,6 +1,7 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -18,11 +19,30 @@ public class GuildServiceSyncAllTests
 {
     private readonly Mock<IGuildRepository> _mockGuildRepository;
     private readonly Mock<ILogger<GuildService>> _mockLogger;
+    private readonly Mock<IAuditLogService> _mockAuditLogService;
 
     public GuildServiceSyncAllTests()
     {
         _mockGuildRepository = new Mock<IGuildRepository>();
         _mockLogger = new Mock<ILogger<GuildService>>();
+        _mockAuditLogService = new Mock<IAuditLogService>();
+
+        // Setup audit log service to return a builder that returns itself for fluent API
+        var mockBuilder = new Mock<IAuditLogBuilder>();
+        mockBuilder.Setup(x => x.ForCategory(It.IsAny<AuditLogCategory>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithAction(It.IsAny<AuditLogAction>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByUser(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.BySystem()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByBot()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.OnTarget(It.IsAny<string>(), It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.InGuild(It.IsAny<ulong>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<Dictionary<string, object?>>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<object>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.FromIpAddress(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithCorrelationId(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        _mockAuditLogService.Setup(x => x.CreateBuilder()).Returns(mockBuilder.Object);
     }
 
     /// <summary>
@@ -83,7 +103,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
 
         // Act
         var result = await service.SyncAllGuildsAsync();
@@ -117,7 +137,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
         var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
 
@@ -148,7 +168,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
 
         // Act
         await service.SyncAllGuildsAsync();
@@ -173,7 +193,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
 
         // Act
         await service.SyncAllGuildsAsync();
@@ -282,7 +302,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
 
         // Act
         var result = await service.SyncAllGuildsAsync(); // Using default CancellationToken

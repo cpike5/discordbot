@@ -1,5 +1,6 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
@@ -17,6 +18,8 @@ public class UserManagementService : IUserManagementService
     private readonly RoleManager<IdentityRole> _roleManager;
     private readonly BotDbContext _dbContext;
     private readonly ILogger<UserManagementService> _logger;
+    private readonly IAuditLogService _auditLogService;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
 
     private static readonly string[] AllRoles = { "SuperAdmin", "Admin", "Moderator", "Viewer" };
 
@@ -24,12 +27,16 @@ public class UserManagementService : IUserManagementService
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
         BotDbContext dbContext,
-        ILogger<UserManagementService> logger)
+        ILogger<UserManagementService> logger,
+        IAuditLogService auditLogService,
+        IHttpContextAccessor? httpContextAccessor = null)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _dbContext = dbContext;
         _logger = logger;
+        _auditLogService = auditLogService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     /// <inheritdoc />
@@ -236,6 +243,25 @@ public class UserManagementService : IUserManagementService
             JsonSerializer.Serialize(new { Email = user.Email, Role = request.Role }),
             ipAddress);
 
+        // Audit log
+        try
+        {
+            var correlationId = GetCorrelationId();
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.User)
+                .WithAction(AuditLogAction.Created)
+                .ByUser(actorUserId)
+                .OnTarget("User", user.Id)
+                .WithDetails(new { email = user.Email, role = request.Role })
+                .FromIpAddress(ipAddress ?? "Unknown")
+                .WithCorrelationId(correlationId)
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for user creation {UserId}", user.Id);
+        }
+
         _logger.LogInformation("Successfully created user {UserId} with email {Email}",
             user.Id, user.Email);
 
@@ -320,6 +346,25 @@ public class UserManagementService : IUserManagementService
                 UserActivityAction.UserUpdated,
                 JsonSerializer.Serialize(changes),
                 ipAddress);
+
+            // Audit log
+            try
+            {
+                var correlationId = GetCorrelationId();
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.User)
+                    .WithAction(AuditLogAction.Updated)
+                    .ByUser(actorUserId)
+                    .OnTarget("User", userId)
+                    .WithDetails(new { changes })
+                    .FromIpAddress(ipAddress ?? "Unknown")
+                    .WithCorrelationId(correlationId)
+                    .Enqueue();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log audit entry for user update {UserId}", userId);
+            }
         }
 
         // Handle role change
@@ -397,6 +442,25 @@ public class UserManagementService : IUserManagementService
             isActive ? UserActivityAction.UserEnabled : UserActivityAction.UserDisabled,
             null,
             ipAddress);
+
+        // Audit log
+        try
+        {
+            var correlationId = GetCorrelationId();
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.User)
+                .WithAction(AuditLogAction.Updated)
+                .ByUser(actorUserId)
+                .OnTarget("User", userId)
+                .WithDetails(new { isActive, action = isActive ? "enabled" : "disabled" })
+                .FromIpAddress(ipAddress ?? "Unknown")
+                .WithCorrelationId(correlationId)
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for user active status change {UserId}", userId);
+        }
 
         _logger.LogInformation("Successfully set user {UserId} active status to {IsActive}", userId, isActive);
 
@@ -489,6 +553,25 @@ public class UserManagementService : IUserManagementService
             JsonSerializer.Serialize(new { OldRole = oldRole, NewRole = role }),
             ipAddress);
 
+        // Audit log
+        try
+        {
+            var correlationId = GetCorrelationId();
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Security)
+                .WithAction(AuditLogAction.RoleAssigned)
+                .ByUser(actorUserId)
+                .OnTarget("User", userId)
+                .WithDetails(new { oldRole, newRole = role })
+                .FromIpAddress(ipAddress ?? "Unknown")
+                .WithCorrelationId(correlationId)
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for role assignment {UserId}", userId);
+        }
+
         _logger.LogInformation("Successfully assigned role {Role} to user {UserId}", role, userId);
 
         var newRoles = await _userManager.GetRolesAsync(user);
@@ -545,6 +628,25 @@ public class UserManagementService : IUserManagementService
             JsonSerializer.Serialize(new { RemovedRole = role }),
             ipAddress);
 
+        // Audit log
+        try
+        {
+            var correlationId = GetCorrelationId();
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Security)
+                .WithAction(AuditLogAction.RoleRemoved)
+                .ByUser(actorUserId)
+                .OnTarget("User", userId)
+                .WithDetails(new { removedRole = role })
+                .FromIpAddress(ipAddress ?? "Unknown")
+                .WithCorrelationId(correlationId)
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for role removal {UserId}", userId);
+        }
+
         _logger.LogInformation("Successfully removed role {Role} from user {UserId}", role, userId);
 
         var newRoles = await _userManager.GetRolesAsync(user);
@@ -589,6 +691,25 @@ public class UserManagementService : IUserManagementService
             UserActivityAction.PasswordReset,
             null, // Never log passwords
             ipAddress);
+
+        // Audit log
+        try
+        {
+            var correlationId = GetCorrelationId();
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Security)
+                .WithAction(AuditLogAction.Updated)
+                .ByUser(actorUserId)
+                .OnTarget("User", userId)
+                .WithDetails(new { action = "password_reset", targetUserId = userId })
+                .FromIpAddress(ipAddress ?? "Unknown")
+                .WithCorrelationId(correlationId)
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for password reset {UserId}", userId);
+        }
 
         _logger.LogInformation("Successfully reset password for user {UserId}", userId);
 
@@ -640,6 +761,25 @@ public class UserManagementService : IUserManagementService
             UserActivityAction.DiscordUnlinked,
             JsonSerializer.Serialize(new { PreviousUsername = oldDiscordUsername }),
             ipAddress);
+
+        // Audit log
+        try
+        {
+            var correlationId = GetCorrelationId();
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.User)
+                .WithAction(AuditLogAction.Updated)
+                .ByUser(actorUserId)
+                .OnTarget("User", userId)
+                .WithDetails(new { action = "discord_unlinked", previousUsername = oldDiscordUsername })
+                .FromIpAddress(ipAddress ?? "Unknown")
+                .WithCorrelationId(correlationId)
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for Discord unlink {UserId}", userId);
+        }
 
         _logger.LogInformation("Successfully unlinked Discord account for user {UserId}", userId);
 
@@ -825,6 +965,30 @@ public class UserManagementService : IUserManagementService
         }
 
         return new string(password);
+    }
+
+    private string GetCorrelationId()
+    {
+        // Try to get correlation ID from HttpContext if available
+        if (_httpContextAccessor?.HttpContext != null)
+        {
+            var context = _httpContextAccessor.HttpContext;
+
+            // Check for X-Correlation-ID header
+            if (context.Request.Headers.TryGetValue("X-Correlation-ID", out var headerValue))
+            {
+                return headerValue.ToString();
+            }
+
+            // Check for CorrelationId in Items
+            if (context.Items.TryGetValue("CorrelationId", out var itemValue) && itemValue is string correlationId)
+            {
+                return correlationId;
+            }
+        }
+
+        // Generate a new correlation ID
+        return Guid.NewGuid().ToString();
     }
 
     #endregion

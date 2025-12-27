@@ -20,6 +20,7 @@ public class ScheduledMessageServiceTests
     private readonly Mock<IScheduledMessageRepository> _mockRepository;
     private readonly Mock<DiscordSocketClient> _mockDiscordClient;
     private readonly Mock<ILogger<ScheduledMessageService>> _mockLogger;
+    private readonly Mock<IAuditLogService> _mockAuditLogService;
     private readonly ScheduledMessageService _service;
 
     public ScheduledMessageServiceTests()
@@ -27,10 +28,30 @@ public class ScheduledMessageServiceTests
         _mockRepository = new Mock<IScheduledMessageRepository>();
         _mockDiscordClient = new Mock<DiscordSocketClient>();
         _mockLogger = new Mock<ILogger<ScheduledMessageService>>();
+        _mockAuditLogService = new Mock<IAuditLogService>();
+
+        // Setup audit log service to return a builder that returns itself for fluent API
+        var mockBuilder = new Mock<IAuditLogBuilder>();
+        mockBuilder.Setup(x => x.ForCategory(It.IsAny<AuditLogCategory>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithAction(It.IsAny<AuditLogAction>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByUser(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.BySystem()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByBot()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.OnTarget(It.IsAny<string>(), It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.InGuild(It.IsAny<ulong>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<Dictionary<string, object?>>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<object>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.FromIpAddress(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithCorrelationId(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        _mockAuditLogService.Setup(x => x.CreateBuilder()).Returns(mockBuilder.Object);
+
         _service = new ScheduledMessageService(
             _mockRepository.Object,
             _mockDiscordClient.Object,
-            _mockLogger.Object);
+            _mockLogger.Object,
+            _mockAuditLogService.Object);
     }
 
     #region Helper Methods
