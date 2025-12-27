@@ -90,4 +90,12 @@ public class BackgroundServicesOptions
     /// Default is 5 minutes.
     /// </summary>
     public int MessageLogCleanupInitialDelayMinutes { get; set; } = 5;
+
+    // Audit Log Cleanup Service
+
+    /// <summary>
+    /// Gets or sets the initial delay (in minutes) before the first audit log cleanup operation.
+    /// Default is 5 minutes.
+    /// </summary>
+    public int AuditLogCleanupInitialDelayMinutes { get; set; } = 5;
 }
