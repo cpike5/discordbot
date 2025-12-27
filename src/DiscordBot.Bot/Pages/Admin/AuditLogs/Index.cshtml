@@ -1,0 +1,450 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.AuditLogs.IndexModel
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = "Audit Logs";
+}
+
+<style>
+    /* Expandable row animation */
+    .expand-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    .expand-content.expanded {
+        max-height: 200px;
+    }
+
+    /* Chevron rotation */
+    .chevron-icon {
+        transition: transform 0.2s ease;
+    }
+    .chevron-icon.rotated {
+        transform: rotate(90deg);
+    }
+</style>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
+            </li>
+            <li class="text-text-tertiary">/</li>
+            <li class="text-text-primary font-medium">Audit Logs</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Audit Logs</h1>
+            <p class="mt-1 text-sm text-text-secondary">Track administrative actions and changes across your bot</p>
+        </div>
+        <a asp-page-handler="Export"
+           asp-route-Category="@Model.Category"
+           asp-route-Action="@Model.Action"
+           asp-route-ActorId="@Model.ActorId"
+           asp-route-TargetType="@Model.TargetType"
+           asp-route-GuildId="@Model.GuildId"
+           asp-route-StartDate="@Model.StartDate?.ToString("yyyy-MM-dd")"
+           asp-route-EndDate="@Model.EndDate?.ToString("yyyy-MM-dd")"
+           asp-route-SearchTerm="@Model.SearchTerm"
+           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors"
+           aria-label="Export audit logs to CSV">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+        </a>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+            </h2>
+            <button id="toggleFilters" type="button" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1" aria-expanded="@Model.ViewModel.Filters.ShowFilters.ToString().ToLower()" aria-controls="filtersForm">
+                <span id="toggleFiltersText">@(Model.ViewModel.Filters.ShowFilters ? "Hide Filters" : "Show Filters")</span>
+                <svg id="toggleFiltersIcon" class="w-4 h-4 transition-transform @(Model.ViewModel.Filters.ShowFilters ? "" : "rotate-180")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                </svg>
+            </button>
+        </div>
+
+        <form id="filtersForm" method="get" class="space-y-4 @(Model.ViewModel.Filters.ShowFilters ? "" : "hidden")">
+            <!-- Row 1: Date Range -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- From Date -->
+                <div>
+                    <label for="startDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                    <input
+                        type="date"
+                        id="startDate"
+                        name="StartDate"
+                        value="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+
+                <!-- To Date -->
+                <div>
+                    <label for="endDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                    <input
+                        type="date"
+                        id="endDate"
+                        name="EndDate"
+                        value="@Model.EndDate?.ToString("yyyy-MM-dd")"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            <!-- Row 2: Category and Action -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Category Filter -->
+                <div>
+                    <label for="category" class="block text-sm font-medium text-text-primary mb-1">Category</label>
+                    <select
+                        id="category"
+                        name="Category"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    >
+                        <option value="">All Categories</option>
+                        @foreach (var category in Enum.GetValues<AuditLogCategory>())
+                        {
+                            <option value="@((int)category)" selected="@(Model.Category == category)">@category</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Action Filter -->
+                <div>
+                    <label for="action" class="block text-sm font-medium text-text-primary mb-1">Action</label>
+                    <select
+                        id="action"
+                        name="Action"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    >
+                        <option value="">All Actions</option>
+                        @foreach (var action in Enum.GetValues<AuditLogAction>())
+                        {
+                            <option value="@((int)action)" selected="@(Model.Action == action)">@action</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 3: Actor and Target Type -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Actor Filter -->
+                <div>
+                    <label for="actorId" class="block text-sm font-medium text-text-primary mb-1">Actor ID</label>
+                    <input
+                        type="text"
+                        id="actorId"
+                        name="ActorId"
+                        value="@Model.ActorId"
+                        placeholder="Search by actor ID or username..."
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+
+                <!-- Target Type Dropdown -->
+                <div>
+                    <label for="targetType" class="block text-sm font-medium text-text-primary mb-1">Target Type</label>
+                    <select
+                        id="targetType"
+                        name="TargetType"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    >
+                        <option value="">All Types</option>
+                        <option value="User" selected="@(Model.TargetType == "User")">User</option>
+                        <option value="Guild" selected="@(Model.TargetType == "Guild")">Guild</option>
+                        <option value="Settings" selected="@(Model.TargetType == "Settings")">Settings</option>
+                        <option value="Message" selected="@(Model.TargetType == "Message")">Message</option>
+                        <option value="ScheduledMessage" selected="@(Model.TargetType == "ScheduledMessage")">Scheduled Message</option>
+                        <option value="Verification" selected="@(Model.TargetType == "Verification")">Verification Rule</option>
+                        <option value="BotConfig" selected="@(Model.TargetType == "BotConfig")">Bot Configuration</option>
+                        <option value="AuditLog" selected="@(Model.TargetType == "AuditLog")">Audit Logs</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 4: Guild and Search -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Guild Filter -->
+                <div>
+                    <label for="guildId" class="block text-sm font-medium text-text-primary mb-1">Guild</label>
+                    <select
+                        id="guildId"
+                        name="GuildId"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    >
+                        <option value="">All Guilds</option>
+                        @foreach (var guild in Model.AvailableGuilds)
+                        {
+                            <option value="@guild.Id" selected="@(Model.GuildId == guild.Id)">@guild.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Content Search -->
+                <div>
+                    <label for="searchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                    <input
+                        type="text"
+                        id="searchTerm"
+                        name="SearchTerm"
+                        value="@Model.SearchTerm"
+                        placeholder="Search in details..."
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                <a asp-page="Index" class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
+                    Clear Filters
+                </a>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange/80 transition-colors">
+                    <span class="flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        Apply Filters
+                    </span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Filter Status -->
+    @if (Model.ViewModel.Filters.HasActiveFilters)
+    {
+        <div role="alert" aria-live="polite" class="mb-4">
+            <div class="flex items-center gap-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md px-3 py-2">
+                <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Active filters applied</span>
+            </div>
+        </div>
+    }
+
+    <!-- Results Summary -->
+    @if (Model.ViewModel.Logs.Any())
+    {
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">@((Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1)-@Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount)</span> of <span class="font-medium text-text-primary">@Model.ViewModel.TotalCount</span> entries
+            </p>
+        </div>
+    }
+
+    <!-- Table -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-border-primary">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col" class="w-10 px-3 py-3"></th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Action</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actor</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Target</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Details</th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Guild</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @if (Model.ViewModel.Logs.Any())
+                    {
+                        @foreach (var log in Model.ViewModel.Logs)
+                        {
+                            <!-- Main Row -->
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="@log.Id">
+                                <td class="px-3 py-4">
+                                    <button type="button" class="expand-btn p-1 hover:bg-bg-hover rounded transition-colors" aria-label="Expand row details" aria-expanded="false">
+                                        <svg class="chevron-icon w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </button>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                    @log.Timestamp.ToString("MMM d, yyyy h:mm tt")
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @log.ActionBadgeClass">
+                                        @log.Action
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="h-7 w-7 rounded-full @log.ActorAvatarClass flex items-center justify-center">
+                                            <span class="font-medium text-xs">@log.ActorInitials</span>
+                                        </div>
+                                        <span class="ml-2 text-sm text-text-primary">@log.ActorName</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
+                                    @log.TargetType
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate">
+                                    @log.DetailsSummary
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
+                                    @(log.GuildName ?? "-")
+                                </td>
+                            </tr>
+                            <!-- Expandable content row -->
+                            <tr class="expand-content-row hidden" data-parent-id="@log.Id">
+                                <td colspan="7" class="px-6 py-0">
+                                    <div class="expand-content bg-bg-primary border-l-2 @log.ActionBorderClass pl-4 py-3 my-2 rounded-r-md">
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                            <div>
+                                                <span class="text-text-tertiary">Entry ID:</span>
+                                                <span class="ml-2 font-mono text-text-secondary">@log.Id</span>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(log.IpAddress))
+                                            {
+                                                <div>
+                                                    <span class="text-text-tertiary">IP Address:</span>
+                                                    <span class="ml-2 font-mono text-text-secondary">@log.IpAddress</span>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(log.CorrelationId))
+                                            {
+                                                <div>
+                                                    <span class="text-text-tertiary">Correlation ID:</span>
+                                                    <span class="ml-2 font-mono text-text-secondary">@log.CorrelationId</span>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(log.TargetId))
+                                            {
+                                                <div>
+                                                    <span class="text-text-tertiary">Target ID:</span>
+                                                    <span class="ml-2 font-mono text-text-secondary">@log.TargetId</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center">
+                                @{
+                                    var emptyTitle = Model.ViewModel.Filters.HasActiveFilters
+                                        ? "No audit logs found"
+                                        : "No audit logs yet";
+                                    var emptyDesc = Model.ViewModel.Filters.HasActiveFilters
+                                        ? "Try adjusting your filters or check back later"
+                                        : "Audit logs will appear here as actions are performed";
+                                }
+                                <partial name="Shared/Components/_EmptyState" model="new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
+                                    Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
+                                    Title = emptyTitle,
+                                    Description = emptyDesc
+                                }" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        @if (Model.ViewModel.TotalPages > 1)
+        {
+            <div class="px-6 py-4 border-t border-border-primary">
+                @{
+                    var queryParams = new Dictionary<string, string>();
+                    if (Model.Category.HasValue) queryParams["Category"] = ((int)Model.Category.Value).ToString();
+                    if (Model.Action.HasValue) queryParams["Action"] = ((int)Model.Action.Value).ToString();
+                    if (!string.IsNullOrEmpty(Model.ActorId)) queryParams["ActorId"] = Model.ActorId;
+                    if (!string.IsNullOrEmpty(Model.TargetType)) queryParams["TargetType"] = Model.TargetType;
+                    if (Model.GuildId.HasValue) queryParams["GuildId"] = Model.GuildId.Value.ToString();
+                    if (Model.StartDate.HasValue) queryParams["StartDate"] = Model.StartDate.Value.ToString("yyyy-MM-dd");
+                    if (Model.EndDate.HasValue) queryParams["EndDate"] = Model.EndDate.Value.ToString("yyyy-MM-dd");
+                    if (!string.IsNullOrEmpty(Model.SearchTerm)) queryParams["SearchTerm"] = Model.SearchTerm;
+
+                    var baseUrl = Url.Page("Index", queryParams) ?? string.Empty;
+                }
+                <partial name="Shared/Components/_Pagination" model="new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
+                    CurrentPage = Model.ViewModel.CurrentPage,
+                    TotalPages = Model.ViewModel.TotalPages,
+                    TotalItems = Model.ViewModel.TotalCount,
+                    PageSize = Model.ViewModel.PageSize,
+                    BaseUrl = baseUrl,
+                    ShowPageSizeSelector = true,
+                    ShowItemCount = false,
+                    ShowFirstLast = true
+                }" />
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Toggle filters visibility
+        document.getElementById('toggleFilters')?.addEventListener('click', function() {
+            const form = document.getElementById('filtersForm');
+            const text = document.getElementById('toggleFiltersText');
+            const icon = document.getElementById('toggleFiltersIcon');
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+            form?.classList.toggle('hidden');
+            this.setAttribute('aria-expanded', (!isExpanded).toString());
+            if (text) text.textContent = isExpanded ? 'Show Filters' : 'Hide Filters';
+            icon?.classList.toggle('rotate-180');
+        });
+
+        // Expandable rows functionality
+        document.querySelectorAll('.expand-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('.audit-row');
+                const rowId = row?.dataset.rowId;
+                const expandRow = document.querySelector(`.expand-content-row[data-parent-id="${rowId}"]`);
+                const chevron = this.querySelector('.chevron-icon');
+                const expandContent = expandRow?.querySelector('.expand-content');
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+                // Toggle visibility
+                expandRow?.classList.toggle('hidden');
+                chevron?.classList.toggle('rotated');
+                this.setAttribute('aria-expanded', (!isExpanded).toString());
+
+                // Animate expand content
+                if (!isExpanded && expandContent) {
+                    setTimeout(() => {
+                        expandContent.classList.add('expanded');
+                    }, 10);
+                } else if (expandContent) {
+                    expandContent.classList.remove('expanded');
+                }
+            });
+        });
+
+        // Keyboard accessibility for expand buttons
+        document.querySelectorAll('.expand-btn').forEach(btn => {
+            btn.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+    </script>
+}
