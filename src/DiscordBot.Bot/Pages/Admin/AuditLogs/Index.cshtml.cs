@@ -87,6 +87,12 @@ public class IndexModel : PageModel
             // Load available guilds for filter dropdown
             AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
 
+            // Adjust dates for proper filtering:
+            // - StartDate: Use start of day in UTC
+            // - EndDate: Use end of day (23:59:59.999) in UTC to include all events on that day
+            var queryStartDate = StartDate?.Date.ToUniversalTime();
+            var queryEndDate = EndDate?.Date.AddDays(1).AddTicks(-1).ToUniversalTime();
+
             // Build query
             var query = new AuditLogQueryDto
             {
@@ -95,8 +101,8 @@ public class IndexModel : PageModel
                 ActorId = ActorId,
                 TargetType = TargetType,
                 GuildId = GuildId,
-                StartDate = StartDate,
-                EndDate = EndDate,
+                StartDate = queryStartDate,
+                EndDate = queryEndDate,
                 SearchTerm = SearchTerm,
                 Page = CurrentPage,
                 PageSize = PageSize
@@ -153,6 +159,10 @@ public class IndexModel : PageModel
             _logger.LogInformation("Exporting audit logs with filters: Category={Category}, Action={Action}, ActorId={ActorId}, TargetType={TargetType}, GuildId={GuildId}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}",
                 Category, Action, ActorId, TargetType, GuildId, StartDate, EndDate, SearchTerm);
 
+            // Adjust dates for proper filtering (same as OnGetAsync)
+            var queryStartDate = StartDate?.Date.ToUniversalTime();
+            var queryEndDate = EndDate?.Date.AddDays(1).AddTicks(-1).ToUniversalTime();
+
             // Build query with no pagination (get all matching logs)
             var query = new AuditLogQueryDto
             {
@@ -161,8 +171,8 @@ public class IndexModel : PageModel
                 ActorId = ActorId,
                 TargetType = TargetType,
                 GuildId = GuildId,
-                StartDate = StartDate,
-                EndDate = EndDate,
+                StartDate = queryStartDate,
+                EndDate = queryEndDate,
                 SearchTerm = SearchTerm,
                 Page = 1,
                 PageSize = int.MaxValue // Get all results for export
