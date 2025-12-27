@@ -37,4 +37,11 @@ public class CachingOptions
     /// Default is 5 minutes.
     /// </summary>
     public int ConsentCacheDurationMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the cache duration (in seconds) for dashboard statistics.
+    /// Used to reduce load when fetching aggregated dashboard data.
+    /// Default is 5 seconds.
+    /// </summary>
+    public int DashboardStatsCacheDurationSeconds { get; set; } = 5;
 }
