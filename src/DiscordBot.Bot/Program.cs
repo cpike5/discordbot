@@ -211,6 +211,12 @@ try
     builder.Services.AddHostedService<MetricsUpdateService>();
     builder.Services.AddHostedService<BusinessMetricsUpdateService>();
 
+    // Add Scheduled Messages services
+    builder.Services.Configure<ScheduledMessagesOptions>(
+        builder.Configuration.GetSection(ScheduledMessagesOptions.SectionName));
+    builder.Services.AddScoped<IScheduledMessageService, ScheduledMessageService>();
+    builder.Services.AddHostedService<ScheduledMessageExecutionService>();
+
     // Add HttpClient for Discord API calls
     builder.Services.AddHttpClient("Discord", client =>
     {
