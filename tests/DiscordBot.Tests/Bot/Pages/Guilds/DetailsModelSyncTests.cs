@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Pages.Guilds;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -21,6 +22,7 @@ public class DetailsModelSyncTests
     private readonly Mock<IGuildService> _mockGuildService;
     private readonly Mock<ICommandLogService> _mockCommandLogService;
     private readonly Mock<IWelcomeService> _mockWelcomeService;
+    private readonly Mock<IScheduledMessageService> _mockScheduledMessageService;
     private readonly Mock<ILogger<DetailsModel>> _mockLogger;
     private readonly DetailsModel _detailsModel;
 
@@ -29,12 +31,19 @@ public class DetailsModelSyncTests
         _mockGuildService = new Mock<IGuildService>();
         _mockCommandLogService = new Mock<ICommandLogService>();
         _mockWelcomeService = new Mock<IWelcomeService>();
+        _mockScheduledMessageService = new Mock<IScheduledMessageService>();
         _mockLogger = new Mock<ILogger<DetailsModel>>();
+
+        // Setup default scheduled message service behavior
+        _mockScheduledMessageService.Setup(s => s.GetByGuildIdAsync(
+            It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Enumerable.Empty<ScheduledMessageDto>(), 0));
 
         _detailsModel = new DetailsModel(
             _mockGuildService.Object,
             _mockCommandLogService.Object,
             _mockWelcomeService.Object,
+            _mockScheduledMessageService.Object,
             _mockLogger.Object);
 
         SetupPageContext(isAjax: false);

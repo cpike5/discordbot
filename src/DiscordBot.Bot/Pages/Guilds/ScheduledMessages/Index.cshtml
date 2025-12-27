@@ -162,7 +162,17 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="text-sm @(message.NextRunDisplay == "--" ? "text-text-tertiary" : "text-text-primary")">@message.NextRunDisplay</span>
+                                    @if (message.NextExecutionAt.HasValue && message.IsEnabled && !(message.Frequency == ScheduleFrequency.Once && message.LastExecutedAt.HasValue))
+                                    {
+                                        @* Ensure UTC datetime has Z suffix for correct JavaScript parsing *@
+                                        <time class="text-sm text-text-primary local-time" datetime="@(message.NextExecutionAt.Value.ToString("yyyy-MM-ddTHH:mm:ss") + "Z")">
+                                            @message.NextRunDisplay
+                                        </time>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-text-tertiary">--</span>
+                                    }
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-1 row-actions">
@@ -182,7 +192,7 @@
                                         @if (message.StatusDisplay != "Expired")
                                         {
                                             <!-- Pause/Resume Button -->
-                                            <form method="post" asp-page-handler="Toggle" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-messageId="@message.Id" asp-route-page="@Model.ViewModel.Page" asp-route-pageSize="@Model.ViewModel.PageSize" class="inline">
+                                            <form method="post" asp-page="Index" asp-page-handler="Toggle" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-messageId="@message.Id" class="inline">
                                                 <button
                                                     type="submit"
                                                     class="p-2 text-text-secondary @(message.IsEnabled ? "hover:text-warning hover:bg-warning/10" : "hover:text-success hover:bg-success/10") rounded-md transition-colors"
@@ -210,7 +220,7 @@
                                         <!-- Delete Button -->
                                         <button
                                             type="button"
-                                            onclick="showDeleteModal('@message.Id')"
+                                            onclick="showDeleteModal('@message.Id', '@Html.Raw(message.MessagePreview?.Replace("'", "\\'").Replace("\r", "").Replace("\n", " "))')"
                                             class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
                                             title="Delete"
                                         >
@@ -337,7 +347,7 @@
                             Delete Scheduled Message
                         </h3>
                         <p class="mt-2 text-sm text-text-secondary">
-                            Are you sure you want to delete this scheduled message? This action cannot be undone.
+                            Are you sure you want to delete "<span id="delete-message-preview" class="font-medium"></span>"? This action cannot be undone.
                         </p>
                     </div>
                 </div>
@@ -350,7 +360,7 @@
                 >
                     Cancel
                 </button>
-                <form id="delete-form" method="post" asp-page-handler="Delete" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-page="@Model.ViewModel.Page" asp-route-pageSize="@Model.ViewModel.PageSize">
+                <form id="delete-form" method="post" asp-page="Index" asp-page-handler="Delete" asp-route-guildId="@Model.ViewModel.GuildId">
                     <input type="hidden" id="delete-message-id" name="messageId" value="" />
                     <button
                         type="submit"
@@ -400,9 +410,10 @@
         // ========================================
         // Show Delete Modal
         // ========================================
-        function showDeleteModal(messageId) {
+        function showDeleteModal(messageId, messagePreview) {
             deleteMessageId = messageId;
             document.getElementById('delete-message-id').value = messageId;
+            document.getElementById('delete-message-preview').textContent = messagePreview || 'this message';
             document.getElementById('delete-modal').classList.remove('hidden');
             document.body.style.overflow = 'hidden';
         }
@@ -423,6 +434,28 @@
             if (e.key === 'Escape' && !document.getElementById('delete-modal').classList.contains('hidden')) {
                 hideDeleteModal();
             }
+        });
+
+        // ========================================
+        // Convert UTC times to local time
+        // ========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const timeElements = document.querySelectorAll('.local-time');
+            timeElements.forEach(function(el) {
+                const datetime = el.getAttribute('datetime');
+                if (datetime) {
+                    const date = new Date(datetime);
+                    const options = {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    };
+                    el.textContent = date.toLocaleDateString('en-US', options);
+                }
+            });
         });
     </script>
 }

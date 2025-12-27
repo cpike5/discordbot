@@ -375,7 +375,10 @@
                                     </svg>
                                     <div class="flex-1">
                                         <p class="text-xs text-text-tertiary">Next Run</p>
-                                        <p class="text-sm text-text-primary font-medium">@Model.Input.NextExecutionAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+                                        @* Input.NextExecutionAt is already in local time (converted in OnGetAsync) *@
+                                        <p class="text-sm text-text-primary font-medium">
+                                            @Model.Input.NextExecutionAt.Value.ToString("MMM d, yyyy h:mm tt")
+                                        </p>
                                     </div>
                                 </div>
                             }
@@ -443,7 +446,7 @@
                 >
                     Cancel
                 </button>
-                <form method="post" asp-page-handler="Delete" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-id="@Model.MessageId">
+                <form method="post" asp-page="Edit" asp-page-handler="Delete" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-id="@Model.MessageId">
                     <button
                         type="submit"
                         class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-error border border-error rounded-md hover:bg-red-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
@@ -595,6 +598,24 @@
                     cronContainer.classList.add('hidden');
                 }
             }
+
+            // Convert UTC times to local time
+            const timeElements = document.querySelectorAll('.local-time');
+            timeElements.forEach(function(el) {
+                const datetime = el.getAttribute('datetime');
+                if (datetime) {
+                    const date = new Date(datetime);
+                    const options = {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    };
+                    el.textContent = date.toLocaleDateString('en-US', options);
+                }
+            });
         });
 
         // ========================================

@@ -1,5 +1,6 @@
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,7 @@ public class DetailsModel : PageModel
     private readonly IGuildService _guildService;
     private readonly ICommandLogService _commandLogService;
     private readonly IWelcomeService _welcomeService;
+    private readonly IScheduledMessageService _scheduledMessageService;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
@@ -24,11 +26,13 @@ public class DetailsModel : PageModel
         IGuildService guildService,
         ICommandLogService commandLogService,
         IWelcomeService welcomeService,
+        IScheduledMessageService scheduledMessageService,
         ILogger<DetailsModel> logger)
     {
         _guildService = guildService;
         _commandLogService = commandLogService;
         _welcomeService = welcomeService;
+        _scheduledMessageService = scheduledMessageService;
         _logger = logger;
     }
 
@@ -52,6 +56,31 @@ public class DetailsModel : PageModel
     /// </summary>
     [TempData]
     public string? SuccessMessage { get; set; }
+
+    /// <summary>
+    /// Gets the total count of scheduled messages for this guild.
+    /// </summary>
+    public int ScheduledMessagesTotal { get; set; }
+
+    /// <summary>
+    /// Gets the count of active (enabled) scheduled messages.
+    /// </summary>
+    public int ScheduledMessagesActive { get; set; }
+
+    /// <summary>
+    /// Gets the count of paused (disabled) scheduled messages.
+    /// </summary>
+    public int ScheduledMessagesPaused { get; set; }
+
+    /// <summary>
+    /// Gets the next scheduled message execution time (UTC).
+    /// </summary>
+    public DateTime? NextScheduledExecution { get; set; }
+
+    /// <summary>
+    /// Gets the title of the next scheduled message.
+    /// </summary>
+    public string? NextScheduledMessageTitle { get; set; }
 
     public async Task<IActionResult> OnGetAsync(ulong id, CancellationToken cancellationToken)
     {
@@ -78,8 +107,28 @@ public class DetailsModel : PageModel
         var welcomeConfig = await _welcomeService.GetConfigurationAsync(id, cancellationToken);
         WelcomeEnabled = welcomeConfig?.IsEnabled ?? false;
 
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}",
-            id, recentCommandsResponse.Items.Count, WelcomeEnabled);
+        // Fetch scheduled messages summary
+        var (scheduledMessages, totalCount) = await _scheduledMessageService.GetByGuildIdAsync(id, 1, 100, cancellationToken);
+        var messagesList = scheduledMessages.ToList();
+
+        ScheduledMessagesTotal = totalCount;
+        ScheduledMessagesActive = messagesList.Count(m => m.IsEnabled);
+        ScheduledMessagesPaused = messagesList.Count(m => !m.IsEnabled);
+
+        // Find the next scheduled execution
+        var nextMessage = messagesList
+            .Where(m => m.IsEnabled && m.NextExecutionAt.HasValue && m.NextExecutionAt.Value > DateTime.UtcNow)
+            .OrderBy(m => m.NextExecutionAt)
+            .FirstOrDefault();
+
+        if (nextMessage != null)
+        {
+            NextScheduledExecution = nextMessage.NextExecutionAt;
+            NextScheduledMessageTitle = nextMessage.Title;
+        }
+
+        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}",
+            id, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);

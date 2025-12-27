@@ -125,12 +125,22 @@ public class CreateModel : PageModel
         };
 
         // Populate form input model with defaults
+        // Use local time for the datetime-local input, rounded to the next 5 minutes
+        var now = DateTime.Now;
+        var minutes = now.Minute;
+        var roundedMinutes = ((minutes / 5) + 1) * 5; // Round up to next 5-minute mark
+        var defaultTime = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0).AddMinutes(roundedMinutes);
+        if (defaultTime <= now)
+        {
+            defaultTime = defaultTime.AddMinutes(5);
+        }
+
         Input = new InputModel
         {
             GuildId = guildId,
             IsEnabled = true,
             Frequency = ScheduleFrequency.Daily,
-            NextExecutionAt = DateTime.UtcNow.Date.AddDays(1).AddHours(9) // Tomorrow at 9 AM UTC
+            NextExecutionAt = defaultTime
         };
 
         return Page();
@@ -188,8 +198,13 @@ public class CreateModel : PageModel
         // Get current user identifier for CreatedBy field
         var userId = User.Identity?.Name ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "Unknown";
 
-        _logger.LogDebug("Creating scheduled message with Title={Title}, Frequency={Frequency}, NextExecution={NextExecution}, CreatedBy={UserId}",
-            Input.Title, Input.Frequency, Input.NextExecutionAt, userId);
+        // Convert the NextExecutionAt from local time to UTC
+        // The datetime-local input sends time in local timezone without timezone info
+        // Treat it as local time and convert to UTC for storage
+        var nextExecutionUtc = DateTime.SpecifyKind(Input.NextExecutionAt.Value, DateTimeKind.Local).ToUniversalTime();
+
+        _logger.LogDebug("Creating scheduled message with Title={Title}, Frequency={Frequency}, NextExecution={NextExecution} (local: {LocalTime}), CreatedBy={UserId}",
+            Input.Title, Input.Frequency, nextExecutionUtc, Input.NextExecutionAt, userId);
 
         // Create the scheduled message DTO
         var createDto = new ScheduledMessageCreateDto
@@ -201,7 +216,7 @@ public class CreateModel : PageModel
             Frequency = Input.Frequency,
             CronExpression = Input.Frequency == ScheduleFrequency.Custom ? Input.CronExpression : null,
             IsEnabled = Input.IsEnabled,
-            NextExecutionAt = Input.NextExecutionAt.Value,
+            NextExecutionAt = nextExecutionUtc,
             CreatedBy = userId
         };
 

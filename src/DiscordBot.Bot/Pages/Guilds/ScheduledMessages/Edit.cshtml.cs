@@ -170,6 +170,11 @@ public class EditModel : PageModel
         };
 
         // Populate form input model with existing values
+        // Convert NextExecutionAt from UTC to local time for the datetime-local input
+        var localNextExecution = message.NextExecutionAt.HasValue
+            ? DateTime.SpecifyKind(message.NextExecutionAt.Value, DateTimeKind.Utc).ToLocalTime()
+            : (DateTime?)null;
+
         Input = new InputModel
         {
             GuildId = guildId,
@@ -179,7 +184,7 @@ public class EditModel : PageModel
             Frequency = message.Frequency,
             CronExpression = message.CronExpression,
             IsEnabled = message.IsEnabled,
-            NextExecutionAt = message.NextExecutionAt
+            NextExecutionAt = localNextExecution
         };
 
         return Page();
@@ -234,8 +239,13 @@ public class EditModel : PageModel
             return Page();
         }
 
-        _logger.LogDebug("Updating scheduled message {MessageId} with Title={Title}, Frequency={Frequency}, NextExecution={NextExecution}",
-            id, Input.Title, Input.Frequency, Input.NextExecutionAt);
+        // Convert the NextExecutionAt from local time to UTC
+        // The datetime-local input sends time in local timezone without timezone info
+        // Treat it as local time and convert to UTC for storage
+        var nextExecutionUtc = DateTime.SpecifyKind(Input.NextExecutionAt.Value, DateTimeKind.Local).ToUniversalTime();
+
+        _logger.LogDebug("Updating scheduled message {MessageId} with Title={Title}, Frequency={Frequency}, NextExecution={NextExecution} (local: {LocalTime})",
+            id, Input.Title, Input.Frequency, nextExecutionUtc, Input.NextExecutionAt);
 
         // Create the update DTO
         var updateDto = new ScheduledMessageUpdateDto
@@ -246,7 +256,7 @@ public class EditModel : PageModel
             Frequency = Input.Frequency,
             CronExpression = Input.Frequency == ScheduleFrequency.Custom ? Input.CronExpression : null,
             IsEnabled = Input.IsEnabled,
-            NextExecutionAt = Input.NextExecutionAt.Value
+            NextExecutionAt = nextExecutionUtc
         };
 
         try
