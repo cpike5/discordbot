@@ -5,6 +5,26 @@
     ViewData["Title"] = "Audit Logs";
 }
 
+<style>
+    /* Expandable row animation */
+    .expand-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    .expand-content.expanded {
+        max-height: 200px;
+    }
+
+    /* Chevron rotation */
+    .chevron-icon {
+        transition: transform 0.2s ease;
+    }
+    .chevron-icon.rotated {
+        transform: rotate(90deg);
+    }
+</style>
+
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Breadcrumb -->
     <nav aria-label="Breadcrumb" class="mb-6">
@@ -375,28 +395,6 @@
         }
     </div>
 </div>
-
-@section Styles {
-    <style>
-        /* Expandable row animation */
-        .expand-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-        .expand-content.expanded {
-            max-height: 200px;
-        }
-
-        /* Chevron rotation */
-        .chevron-icon {
-            transition: transform 0.2s ease;
-        }
-        .chevron-icon.rotated {
-            transform: rotate(90deg);
-        }
-    </style>
-}
 
 @section Scripts {
     <script>
