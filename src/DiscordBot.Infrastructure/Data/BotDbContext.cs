@@ -25,6 +25,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
     public DbSet<WelcomeConfiguration> WelcomeConfigurations => Set<WelcomeConfiguration>();
+    public DbSet<ScheduledMessage> ScheduledMessages => Set<ScheduledMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
