@@ -15,23 +15,27 @@ public class IndexModel : PageModel
     private readonly IBotService _botService;
     private readonly IGuildService _guildService;
     private readonly ICommandLogService _commandLogService;
+    private readonly IAuditLogService _auditLogService;
 
     public BotStatusViewModel BotStatus { get; private set; } = default!;
     public GuildStatsViewModel GuildStats { get; private set; } = default!;
     public CommandStatsViewModel CommandStats { get; private set; } = default!;
     public RecentActivityViewModel RecentActivity { get; private set; } = default!;
     public QuickActionsCardViewModel QuickActions { get; private set; } = default!;
+    public AuditLogCardViewModel? AuditLog { get; private set; }
 
     public IndexModel(
         ILogger<IndexModel> logger,
         IBotService botService,
         IGuildService guildService,
-        ICommandLogService commandLogService)
+        ICommandLogService commandLogService,
+        IAuditLogService auditLogService)
     {
         _logger = logger;
         _botService = botService;
         _guildService = guildService;
         _commandLogService = commandLogService;
+        _auditLogService = auditLogService;
     }
 
     public async Task OnGetAsync()
@@ -70,8 +74,22 @@ public class IndexModel : PageModel
         _logger.LogDebug("Recent activity retrieved: {ActivityCount} items",
             RecentActivity.Activities.Count);
 
-        // Build Quick Actions
+        // Get recent audit logs (only for Admin or SuperAdmin users)
         var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+        if (isAdmin)
+        {
+            var auditLogsResponse = await _auditLogService.GetLogsAsync(new AuditLogQueryDto
+            {
+                Page = 1,
+                PageSize = 5
+            });
+            AuditLog = AuditLogCardViewModel.FromLogs(auditLogsResponse.Items);
+
+            _logger.LogDebug("Recent audit logs retrieved: {LogCount} items",
+                AuditLog.Logs.Count);
+        }
+
+        // Build Quick Actions
         QuickActions = new QuickActionsCardViewModel
         {
             UserIsAdmin = isAdmin,

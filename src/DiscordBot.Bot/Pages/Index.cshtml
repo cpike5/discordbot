@@ -40,6 +40,14 @@
     <partial name="Shared/Components/_RecentActivityCard" model="Model.RecentActivity" />
 </div>
 
+<!-- Audit Log Section (Admin only) -->
+@if (Model.AuditLog != null && (User.IsInRole("Admin") || User.IsInRole("SuperAdmin")))
+{
+    <div class="mb-8">
+        <partial name="Shared/Components/_AuditLogCard" model="Model.AuditLog" />
+    </div>
+}
+
 <!-- Live Activity Feed Section -->
 <div class="mb-8">
     <partial name="Shared/Components/_ActivityFeed" model="@(new DiscordBot.Bot.ViewModels.Components.ActivityFeedViewModel())" />

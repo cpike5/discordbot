@@ -1,0 +1,91 @@
+@model DiscordBot.Bot.ViewModels.Components.AuditLogCardViewModel
+
+<!-- Audit Log Card -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+    <!-- Card Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-accent-purple/10 rounded-lg">
+                <svg class="w-5 h-5 text-accent-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            </div>
+            <h2 class="text-lg font-semibold text-text-primary">Recent Audit Logs</h2>
+        </div>
+        <a
+            href="/Admin/AuditLogs"
+            class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-primary rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary"
+            aria-label="View all audit logs"
+            title="View all audit logs"
+        >
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+        </a>
+    </div>
+
+    @if (Model.Logs.Any())
+    {
+        <!-- Audit Log List -->
+        <div class="max-h-[400px] overflow-y-auto">
+            <ul class="divide-y divide-border-primary">
+                @foreach (var log in Model.Logs)
+                {
+                    <li class="px-5 py-3 hover:bg-bg-primary/30 transition-colors">
+                        <div class="flex items-start gap-3">
+                            <!-- Category Icon -->
+                            <div class="flex-shrink-0 mt-0.5">
+                                <div class="p-1.5 bg-accent-purple/10 rounded-lg" title="@log.CategoryName">
+                                    <svg class="w-4 h-4 text-accent-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@log.CategoryIcon" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- Log Details -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-baseline gap-2 flex-wrap">
+                                    <span class="font-medium text-sm text-text-primary">@log.ActionName</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-accent-purple/10 text-accent-purple">
+                                        @log.CategoryName
+                                    </span>
+                                </div>
+                                <p class="mt-1 text-sm text-text-secondary truncate" title="@log.Description">
+                                    @log.Description
+                                </p>
+                                <div class="mt-1 flex items-center gap-2 text-xs text-text-tertiary">
+                                    @if (!string.IsNullOrEmpty(log.GuildName))
+                                    {
+                                        <span class="truncate">@log.GuildName</span>
+                                        <span aria-hidden="true">•</span>
+                                    }
+                                    <span class="flex-shrink-0">@log.RelativeTime</span>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <!-- Card Footer -->
+        <div class="px-5 py-3 border-t border-border-primary bg-bg-primary/30">
+            <a href="/Admin/AuditLogs" class="text-sm font-medium text-accent-purple hover:text-accent-purple/80 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary rounded px-2 py-1">
+                View all audit logs
+            </a>
+        </div>
+    }
+    else
+    {
+        <!-- Empty State -->
+        <div class="px-5 py-12">
+            <div class="text-center">
+                <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p class="text-text-secondary font-medium">No audit logs yet</p>
+                <p class="text-sm text-text-tertiary mt-1">System and user actions will appear here</p>
+            </div>
+        </div>
+    }
+</div>

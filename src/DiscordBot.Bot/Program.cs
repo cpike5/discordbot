@@ -211,6 +211,9 @@ try
     builder.Services.AddSingleton<IAuditLogQueue, AuditLogQueue>();
     builder.Services.AddScoped<IAuditLogService, AuditLogService>();
     builder.Services.AddHostedService<AuditLogQueueProcessor>();
+    builder.Services.Configure<DiscordBot.Core.Configuration.AuditLogRetentionOptions>(
+        builder.Configuration.GetSection("AuditLogRetention"));
+    builder.Services.AddHostedService<AuditLogRetentionService>();
 
     // Add Metrics update background services
     builder.Services.AddHostedService<MetricsUpdateService>();
