@@ -281,6 +281,10 @@ public class ScheduledMessageService : IScheduledMessageService
                 return false;
             }
 
+            // Store the original scheduled time BEFORE updating it
+            // This is used to calculate the next execution time to prevent drift
+            var originalScheduledTime = message.NextExecutionAt;
+
             // Send the message to Discord
             await channel.SendMessageAsync(message.Content);
 
@@ -299,10 +303,25 @@ public class ScheduledMessageService : IScheduledMessageService
             }
             else
             {
+                // Use the ORIGINAL scheduled time as the base for calculating the next execution,
+                // NOT the actual execution time. This prevents time drift when execution is
+                // slightly early or late (e.g., scheduled for 10:58 but runs at 10:56).
+                var baseTime = originalScheduledTime ?? message.LastExecutedAt;
+
                 var nextExecution = await CalculateNextExecutionAsync(
                     message.Frequency,
                     message.CronExpression,
-                    message.LastExecutedAt);
+                    baseTime);
+
+                // If the calculated next time is in the past (e.g., we missed executions),
+                // keep adding intervals until we get a future time
+                while (nextExecution.HasValue && nextExecution.Value <= DateTime.UtcNow)
+                {
+                    nextExecution = await CalculateNextExecutionAsync(
+                        message.Frequency,
+                        message.CronExpression,
+                        nextExecution.Value);
+                }
 
                 if (nextExecution.HasValue)
                 {

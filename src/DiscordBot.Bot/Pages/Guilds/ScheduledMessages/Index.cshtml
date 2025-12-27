@@ -1,0 +1,461 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.ScheduledMessages.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = $"Scheduled Messages - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Scheduled Messages</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Scheduled Messages</h1>
+            <p class="mt-1 text-sm text-text-secondary">Manage automated messages to be sent at scheduled times</p>
+        </div>
+        <a
+            asp-page="Create"
+            asp-route-guildId="@Model.ViewModel.GuildId"
+            class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+        >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            Create New
+        </a>
+    </div>
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    @if (Model.ViewModel.TotalCount > 0)
+    {
+        <!-- Scheduled Messages Table -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <!-- Table -->
+            <div class="table-container overflow-x-auto">
+                <table class="w-full min-w-[800px]">
+                    <thead class="bg-bg-tertiary border-b border-border-primary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Status
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Message Preview
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Channel
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Schedule
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Next Run
+                            </th>
+                            <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var message in Model.ViewModel.Messages)
+                        {
+                            var rowOpacity = message.StatusDisplay == "Expired" ? "opacity-60" : "";
+                            <tr class="table-row hover:bg-bg-hover transition-colors @rowOpacity">
+                                <td class="px-6 py-4">
+                                    @{
+                                        var badgeVariant = message.StatusDisplay switch
+                                        {
+                                            "Active" => BadgeVariant.Success,
+                                            "Paused" => BadgeVariant.Warning,
+                                            "Expired" => BadgeVariant.Default,
+                                            _ => BadgeVariant.Default
+                                        };
+
+                                        var dotColor = message.StatusDisplay switch
+                                        {
+                                            "Active" => "bg-success",
+                                            "Paused" => "bg-warning",
+                                            "Expired" => "bg-text-tertiary",
+                                            _ => "bg-text-tertiary"
+                                        };
+                                    }
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @(message.StatusDisplay == "Active" ? "bg-success/20 text-success" : message.StatusDisplay == "Paused" ? "bg-warning/20 text-warning" : "bg-bg-tertiary text-text-tertiary")">
+                                        <span class="w-1.5 h-1.5 rounded-full @dotColor mr-1.5"></span>
+                                        @message.StatusDisplay
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="max-w-xs">
+                                        <p class="text-sm text-text-primary truncate">@message.MessagePreview</p>
+                                        <p class="text-xs text-text-tertiary mt-0.5">Created @message.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</p>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2 text-sm text-text-primary">
+                                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                        </svg>
+                                        @message.ChannelName
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="text-sm text-text-primary">@message.ScheduleDescription</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    @if (message.NextExecutionAt.HasValue && message.IsEnabled && !(message.Frequency == ScheduleFrequency.Once && message.LastExecutedAt.HasValue))
+                                    {
+                                        @* Ensure UTC datetime has Z suffix for correct JavaScript parsing *@
+                                        <time class="text-sm text-text-primary local-time" datetime="@(message.NextExecutionAt.Value.ToString("yyyy-MM-ddTHH:mm:ss") + "Z")">
+                                            @message.NextRunDisplay
+                                        </time>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-text-tertiary">--</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-end gap-1 row-actions">
+                                        <!-- Edit Button -->
+                                        <a
+                                            asp-page="Edit"
+                                            asp-route-guildId="@Model.ViewModel.GuildId"
+                                            asp-route-id="@message.Id"
+                                            class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
+                                            title="Edit"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                            </svg>
+                                        </a>
+
+                                        @if (message.StatusDisplay != "Expired")
+                                        {
+                                            <!-- Pause/Resume Button -->
+                                            <form method="post" asp-page="Index" asp-page-handler="Toggle" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-messageId="@message.Id" class="inline">
+                                                <button
+                                                    type="submit"
+                                                    class="p-2 text-text-secondary @(message.IsEnabled ? "hover:text-warning hover:bg-warning/10" : "hover:text-success hover:bg-success/10") rounded-md transition-colors"
+                                                    title="@(message.IsEnabled ? "Pause" : "Resume")"
+                                                >
+                                                    @if (message.IsEnabled)
+                                                    {
+                                                        <!-- Pause Icon -->
+                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    }
+                                                    else
+                                                    {
+                                                        <!-- Resume Icon -->
+                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    }
+                                                </button>
+                                            </form>
+                                        }
+
+                                        <!-- Delete Button -->
+                                        <button
+                                            type="button"
+                                            onclick="showDeleteModal('@message.Id', '@Html.Raw(message.MessagePreview?.Replace("'", "\\'").Replace("\r", "").Replace("\n", " "))')"
+                                            class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
+                                            title="Delete"
+                                        >
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="px-6 py-4 border-t border-border-primary flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p class="text-sm text-text-secondary">
+                    Showing <span class="font-medium text-text-primary">@Model.ViewModel.FirstItemIndex</span> to <span class="font-medium text-text-primary">@Model.ViewModel.LastItemIndex</span> of <span class="font-medium text-text-primary">@Model.ViewModel.TotalCount</span> results
+                </p>
+                <div class="flex items-center gap-1">
+                    @if (Model.ViewModel.HasPreviousPage)
+                    {
+                        <a
+                            asp-page="Index"
+                            asp-route-guildId="@Model.ViewModel.GuildId"
+                            asp-route-page="@(Model.ViewModel.Page - 1)"
+                            asp-route-pageSize="@Model.ViewModel.PageSize"
+                            class="px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors"
+                        >
+                            Previous
+                        </a>
+                    }
+                    else
+                    {
+                        <button
+                            class="px-3 py-1.5 text-sm text-text-tertiary bg-bg-tertiary border border-border-primary rounded-md cursor-not-allowed"
+                            disabled
+                        >
+                            Previous
+                        </button>
+                    }
+
+                    <button
+                        class="px-3 py-1.5 text-sm text-white bg-accent-orange rounded-md"
+                    >
+                        @Model.ViewModel.Page
+                    </button>
+
+                    @if (Model.ViewModel.HasNextPage)
+                    {
+                        <a
+                            asp-page="Index"
+                            asp-route-guildId="@Model.ViewModel.GuildId"
+                            asp-route-page="@(Model.ViewModel.Page + 1)"
+                            asp-route-pageSize="@Model.ViewModel.PageSize"
+                            class="px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors"
+                        >
+                            Next
+                        </a>
+                    }
+                    else
+                    {
+                        <button
+                            class="px-3 py-1.5 text-sm text-text-tertiary bg-bg-tertiary border border-border-primary rounded-md cursor-not-allowed"
+                            disabled
+                        >
+                            Next
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Empty State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-tertiary flex items-center justify-center">
+                <svg class="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">No Scheduled Messages</h3>
+            <p class="text-sm text-text-secondary mb-6 max-w-sm mx-auto">
+                You haven't created any scheduled messages yet. Create your first one to automate messages in your server.
+            </p>
+            <a
+                asp-page="Create"
+                asp-route-guildId="@Model.ViewModel.GuildId"
+                class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
+            >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Create First Message
+            </a>
+        </div>
+    }
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="modal-overlay fixed inset-0 transition-opacity" aria-hidden="true" onclick="hideDeleteModal()"></div>
+
+        <!-- Center modal -->
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <!-- Modal content -->
+        <div class="inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border-primary">
+            <div class="px-6 py-5">
+                <div class="flex items-start gap-4">
+                    <!-- Warning Icon -->
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <!-- Content -->
+                    <div class="flex-1">
+                        <h3 id="modal-title" class="text-lg font-semibold text-text-primary">
+                            Delete Scheduled Message
+                        </h3>
+                        <p class="mt-2 text-sm text-text-secondary">
+                            Are you sure you want to delete "<span id="delete-message-preview" class="font-medium"></span>"? This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-bg-primary flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button
+                    type="button"
+                    onclick="hideDeleteModal()"
+                    class="inline-flex justify-center px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                >
+                    Cancel
+                </button>
+                <form id="delete-form" method="post" asp-page="Index" asp-page-handler="Delete" asp-route-guildId="@Model.ViewModel.GuildId">
+                    <input type="hidden" id="delete-message-id" name="messageId" value="" />
+                    <button
+                        type="submit"
+                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-error border border-error rounded-md hover:bg-red-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    >
+                        Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <style>
+        /* ========================================
+           Modal Overlay
+           ======================================== */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+        }
+
+        /* ========================================
+           Table Row Hover Actions
+           ======================================== */
+        .table-row .row-actions {
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+        .table-row:hover .row-actions {
+            opacity: 1;
+        }
+
+        /* ========================================
+           Responsive Table Container
+           ======================================== */
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+
+    <script>
+        let deleteMessageId = null;
+
+        // ========================================
+        // Show Delete Modal
+        // ========================================
+        function showDeleteModal(messageId, messagePreview) {
+            deleteMessageId = messageId;
+            document.getElementById('delete-message-id').value = messageId;
+            document.getElementById('delete-message-preview').textContent = messagePreview || 'this message';
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        // ========================================
+        // Hide Delete Modal
+        // ========================================
+        function hideDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+            deleteMessageId = null;
+        }
+
+        // ========================================
+        // Keyboard handler for modal
+        // ========================================
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.getElementById('delete-modal').classList.contains('hidden')) {
+                hideDeleteModal();
+            }
+        });
+
+        // ========================================
+        // Convert UTC times to local time
+        // ========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const timeElements = document.querySelectorAll('.local-time');
+            timeElements.forEach(function(el) {
+                const datetime = el.getAttribute('datetime');
+                if (datetime) {
+                    const date = new Date(datetime);
+                    const options = {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                    };
+                    el.textContent = date.toLocaleDateString('en-US', options);
+                }
+            });
+        });
+    </script>
+}

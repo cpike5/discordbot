@@ -21,6 +21,7 @@ public class DetailsModelTests
     private readonly Mock<IGuildService> _mockGuildService;
     private readonly Mock<ICommandLogService> _mockCommandLogService;
     private readonly Mock<IWelcomeService> _mockWelcomeService;
+    private readonly Mock<IScheduledMessageService> _mockScheduledMessageService;
     private readonly Mock<ILogger<DetailsModel>> _mockLogger;
     private readonly DetailsModel _detailsModel;
 
@@ -29,12 +30,19 @@ public class DetailsModelTests
         _mockGuildService = new Mock<IGuildService>();
         _mockCommandLogService = new Mock<ICommandLogService>();
         _mockWelcomeService = new Mock<IWelcomeService>();
+        _mockScheduledMessageService = new Mock<IScheduledMessageService>();
         _mockLogger = new Mock<ILogger<DetailsModel>>();
+
+        // Setup default scheduled message service behavior
+        _mockScheduledMessageService.Setup(s => s.GetByGuildIdAsync(
+            It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Enumerable.Empty<ScheduledMessageDto>(), 0));
 
         _detailsModel = new DetailsModel(
             _mockGuildService.Object,
             _mockCommandLogService.Object,
             _mockWelcomeService.Object,
+            _mockScheduledMessageService.Object,
             _mockLogger.Object);
 
         // Setup PageContext
@@ -592,6 +600,7 @@ public class DetailsModelTests
             _mockGuildService.Object,
             _mockCommandLogService.Object,
             _mockWelcomeService.Object,
+            _mockScheduledMessageService.Object,
             _mockLogger.Object);
 
         // Assert
