@@ -111,6 +111,11 @@ public record AuditLogListItem
     public string ActionBadgeClass { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the CSS class for the action border color (used in expandable rows).
+    /// </summary>
+    public string ActionBorderClass { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the display name of the actor who performed the action.
     /// </summary>
     public string ActorName { get; init; } = string.Empty;
@@ -167,17 +172,19 @@ public record AuditLogListItem
         var actorAvatarClass = GetActorAvatarClass(dto.ActorType);
         var categoryBadgeClass = GetCategoryBadgeClass(dto.Category);
         var actionBadgeClass = GetActionBadgeClass(dto.Action);
+        var actionBorderClass = GetActionBorderClass(dto.Action);
         var detailsSummary = GetDetailsSummary(dto.Details);
 
         return new AuditLogListItem
         {
             Id = dto.Id,
             Timestamp = dto.Timestamp,
-            FormattedTimestamp = dto.Timestamp.ToString("yyyy-MM-dd HH:mm:ss"),
+            FormattedTimestamp = dto.Timestamp.ToLocalTime().ToString("MMM d, yyyy h:mm tt"),
             Category = dto.CategoryName,
             CategoryBadgeClass = categoryBadgeClass,
             Action = dto.ActionName,
             ActionBadgeClass = actionBadgeClass,
+            ActionBorderClass = actionBorderClass,
             ActorName = actorName,
             ActorInitials = actorInitials,
             ActorAvatarClass = actorAvatarClass,
@@ -260,6 +267,32 @@ public record AuditLogListItem
             AuditLogAction.RoleAssigned => "bg-success text-white",
             AuditLogAction.RoleRemoved => "bg-accent-orange text-white",
             _ => "bg-bg-tertiary text-text-secondary"
+        };
+    }
+
+    /// <summary>
+    /// Gets the CSS border class for an action (used in expandable row styling).
+    /// </summary>
+    private static string GetActionBorderClass(AuditLogAction action)
+    {
+        return action switch
+        {
+            AuditLogAction.Created => "border-success",
+            AuditLogAction.Updated => "border-accent-blue",
+            AuditLogAction.Deleted => "border-error",
+            AuditLogAction.Login => "border-success",
+            AuditLogAction.Logout => "border-border-primary",
+            AuditLogAction.PermissionChanged => "border-accent-orange",
+            AuditLogAction.SettingChanged => "border-accent-orange",
+            AuditLogAction.CommandExecuted => "border-accent-blue",
+            AuditLogAction.MessageDeleted => "border-error",
+            AuditLogAction.MessageEdited => "border-accent-blue",
+            AuditLogAction.UserBanned => "border-error",
+            AuditLogAction.UserUnbanned => "border-success",
+            AuditLogAction.UserKicked => "border-accent-orange",
+            AuditLogAction.RoleAssigned => "border-success",
+            AuditLogAction.RoleRemoved => "border-accent-orange",
+            _ => "border-border-primary"
         };
     }
 

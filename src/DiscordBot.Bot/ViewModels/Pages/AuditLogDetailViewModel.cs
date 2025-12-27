@@ -175,7 +175,7 @@ public record AuditLogDetailViewModel
         {
             Id = dto.Id,
             Timestamp = dto.Timestamp,
-            FormattedTimestamp = dto.Timestamp.ToString("yyyy-MM-dd HH:mm:ss UTC"),
+            FormattedTimestamp = dto.Timestamp.ToLocalTime().ToString("MMM d, yyyy h:mm:ss tt"),
             Category = dto.CategoryName,
             Action = dto.ActionName,
             ActionBadgeClass = actionBadgeClass,
