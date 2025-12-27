@@ -207,6 +207,11 @@ try
         builder.Configuration.GetSection("MessageLogRetention"));
     builder.Services.AddHostedService<MessageLogCleanupService>();
 
+    // Add Audit Log services
+    builder.Services.AddSingleton<IAuditLogQueue, AuditLogQueue>();
+    builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+    builder.Services.AddHostedService<AuditLogQueueProcessor>();
+
     // Add Metrics update background services
     builder.Services.AddHostedService<MetricsUpdateService>();
     builder.Services.AddHostedService<BusinessMetricsUpdateService>();

@@ -16,6 +16,7 @@ public class ScheduledMessageService : IScheduledMessageService
     private readonly IScheduledMessageRepository _repository;
     private readonly DiscordSocketClient _client;
     private readonly ILogger<ScheduledMessageService> _logger;
+    private readonly IAuditLogService _auditLogService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScheduledMessageService"/> class.
@@ -23,14 +24,17 @@ public class ScheduledMessageService : IScheduledMessageService
     /// <param name="repository">The scheduled message repository.</param>
     /// <param name="client">The Discord socket client.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="auditLogService">The audit log service.</param>
     public ScheduledMessageService(
         IScheduledMessageRepository repository,
         DiscordSocketClient client,
-        ILogger<ScheduledMessageService> logger)
+        ILogger<ScheduledMessageService> logger,
+        IAuditLogService auditLogService)
     {
         _repository = repository;
         _client = client;
         _logger = logger;
+        _auditLogService = auditLogService;
     }
 
     /// <inheritdoc/>
@@ -112,6 +116,40 @@ public class ScheduledMessageService : IScheduledMessageService
         };
 
         await _repository.AddAsync(message, cancellationToken);
+
+        // Audit log
+        try
+        {
+            var builder = _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Message)
+                .WithAction(AuditLogAction.Created)
+                .InGuild(dto.GuildId)
+                .OnTarget("ScheduledMessage", message.Id.ToString())
+                .WithDetails(new
+                {
+                    title = dto.Title,
+                    channelId = dto.ChannelId,
+                    frequency = dto.Frequency.ToString(),
+                    isEnabled = dto.IsEnabled,
+                    guildId = dto.GuildId
+                });
+
+            // Use ByUser if CreatedBy is provided, otherwise BySystem
+            if (!string.IsNullOrEmpty(dto.CreatedBy))
+            {
+                builder.ByUser(dto.CreatedBy);
+            }
+            else
+            {
+                builder.BySystem();
+            }
+
+            builder.Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for scheduled message creation {MessageId}", message.Id);
+        }
 
         _logger.LogInformation("Scheduled message {MessageId} created successfully for guild {GuildId}",
             message.Id, dto.GuildId);
@@ -201,6 +239,30 @@ public class ScheduledMessageService : IScheduledMessageService
 
         await _repository.UpdateAsync(message, cancellationToken);
 
+        // Audit log
+        try
+        {
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Message)
+                .WithAction(AuditLogAction.Updated)
+                .BySystem()
+                .InGuild(message.GuildId)
+                .OnTarget("ScheduledMessage", id.ToString())
+                .WithDetails(new
+                {
+                    title = message.Title,
+                    channelId = message.ChannelId,
+                    frequency = message.Frequency.ToString(),
+                    isEnabled = message.IsEnabled,
+                    guildId = message.GuildId
+                })
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for scheduled message update {MessageId}", id);
+        }
+
         _logger.LogInformation("Scheduled message {MessageId} updated successfully", id);
 
         return MapToDto(message);
@@ -218,7 +280,28 @@ public class ScheduledMessageService : IScheduledMessageService
             return false;
         }
 
+        // Capture details before deletion
+        var guildId = message.GuildId;
+        var title = message.Title;
+
         await _repository.DeleteAsync(message, cancellationToken);
+
+        // Audit log
+        try
+        {
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Message)
+                .WithAction(AuditLogAction.Deleted)
+                .BySystem()
+                .InGuild(guildId)
+                .OnTarget("ScheduledMessage", id.ToString())
+                .WithDetails(new { title, guildId })
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for scheduled message deletion {MessageId}", id);
+        }
 
         _logger.LogInformation("Scheduled message {MessageId} deleted successfully", id);
 
@@ -290,6 +373,29 @@ public class ScheduledMessageService : IScheduledMessageService
 
             _logger.LogInformation("Scheduled message {MessageId} sent successfully to channel {ChannelId}",
                 id, message.ChannelId);
+
+            // Audit log
+            try
+            {
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.Message)
+                    .WithAction(AuditLogAction.CommandExecuted)
+                    .BySystem()
+                    .InGuild(message.GuildId)
+                    .OnTarget("ScheduledMessage", id.ToString())
+                    .WithDetails(new
+                    {
+                        title = message.Title,
+                        channelId = message.ChannelId,
+                        guildId = message.GuildId,
+                        action = "message_executed"
+                    })
+                    .Enqueue();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log audit entry for scheduled message execution {MessageId}", id);
+            }
 
             // Update execution state
             message.LastExecutedAt = DateTime.UtcNow;

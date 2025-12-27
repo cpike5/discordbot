@@ -2,6 +2,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,7 @@ public class WelcomeServiceTests : IAsyncDisposable
     private readonly Mock<IWelcomeConfigurationRepository> _mockRepository;
     private readonly DiscordSocketClient _client;
     private readonly Mock<ILogger<WelcomeService>> _mockLogger;
+    private readonly Mock<IAuditLogService> _mockAuditLogService;
     private readonly WelcomeService _service;
 
     public WelcomeServiceTests()
@@ -29,7 +31,26 @@ public class WelcomeServiceTests : IAsyncDisposable
         _mockRepository = new Mock<IWelcomeConfigurationRepository>();
         _client = new DiscordSocketClient();
         _mockLogger = new Mock<ILogger<WelcomeService>>();
-        _service = new WelcomeService(_mockRepository.Object, _client, _mockLogger.Object);
+        _mockAuditLogService = new Mock<IAuditLogService>();
+
+        // Setup audit log service to return a builder that returns itself for fluent API
+        var mockBuilder = new Mock<IAuditLogBuilder>();
+        mockBuilder.Setup(x => x.ForCategory(It.IsAny<AuditLogCategory>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithAction(It.IsAny<AuditLogAction>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByUser(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.BySystem()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.ByBot()).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.OnTarget(It.IsAny<string>(), It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.InGuild(It.IsAny<ulong>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<Dictionary<string, object?>>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithDetails(It.IsAny<object>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.FromIpAddress(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.WithCorrelationId(It.IsAny<string>())).Returns(mockBuilder.Object);
+        mockBuilder.Setup(x => x.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
+        _mockAuditLogService.Setup(x => x.CreateBuilder()).Returns(mockBuilder.Object);
+
+        _service = new WelcomeService(_mockRepository.Object, _client, _mockLogger.Object, _mockAuditLogService.Object);
     }
 
     public async ValueTask DisposeAsync()

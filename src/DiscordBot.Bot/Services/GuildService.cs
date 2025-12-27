@@ -1,6 +1,7 @@
 using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Utilities;
 
@@ -14,6 +15,7 @@ public class GuildService : IGuildService
     private readonly IGuildRepository _guildRepository;
     private readonly DiscordSocketClient _client;
     private readonly ILogger<GuildService> _logger;
+    private readonly IAuditLogService _auditLogService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GuildService"/> class.
@@ -21,14 +23,17 @@ public class GuildService : IGuildService
     /// <param name="guildRepository">The guild repository.</param>
     /// <param name="client">The Discord socket client.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="auditLogService">The audit log service.</param>
     public GuildService(
         IGuildRepository guildRepository,
         DiscordSocketClient client,
-        ILogger<GuildService> logger)
+        ILogger<GuildService> logger,
+        IAuditLogService auditLogService)
     {
         _guildRepository = guildRepository;
         _client = client;
         _logger = logger;
+        _auditLogService = auditLogService;
     }
 
     /// <inheritdoc/>
@@ -166,14 +171,19 @@ public class GuildService : IGuildService
             return null;
         }
 
+        // Track changes for audit logging
+        var changes = new Dictionary<string, object?>();
+
         // Apply updates only for non-null fields
         if (request.Prefix != null)
         {
+            changes["prefix"] = new { old = dbGuild.Prefix, @new = request.Prefix };
             dbGuild.Prefix = request.Prefix;
         }
 
         if (request.Settings != null)
         {
+            changes["settings"] = new { changed = true };
             dbGuild.Settings = request.Settings;
             _logger.LogDebug(
                 "Guild {GuildId} settings updated: {SanitizedSettings}",
@@ -183,10 +193,31 @@ public class GuildService : IGuildService
 
         if (request.IsActive.HasValue)
         {
+            changes["isActive"] = new { old = dbGuild.IsActive, @new = request.IsActive.Value };
             dbGuild.IsActive = request.IsActive.Value;
         }
 
         await _guildRepository.UpdateAsync(dbGuild, cancellationToken);
+
+        // Audit log
+        if (changes.Count > 0)
+        {
+            try
+            {
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.Guild)
+                    .WithAction(AuditLogAction.SettingChanged)
+                    .BySystem()
+                    .InGuild(guildId)
+                    .OnTarget("Guild", guildId.ToString())
+                    .WithDetails(changes)
+                    .Enqueue();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log audit entry for guild update {GuildId}", guildId);
+            }
+        }
 
         _logger.LogInformation("Guild {GuildId} updated successfully", guildId);
 
@@ -215,6 +246,23 @@ public class GuildService : IGuildService
         };
 
         await _guildRepository.UpsertAsync(guild, cancellationToken);
+
+        // Audit log
+        try
+        {
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Guild)
+                .WithAction(AuditLogAction.Updated)
+                .BySystem()
+                .InGuild(guildId)
+                .OnTarget("Guild", guildId.ToString())
+                .WithDetails(new { action = "guild_sync", guildName = guild.Name })
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for guild sync {GuildId}", guildId);
+        }
 
         _logger.LogInformation("Guild {GuildId} synced successfully: {GuildName}", guildId, guild.Name);
 
@@ -259,6 +307,22 @@ public class GuildService : IGuildService
         }
 
         _logger.LogInformation("Synced {SyncedCount} of {TotalCount} guilds successfully", syncedCount, connectedGuilds.Count);
+
+        // Audit log
+        try
+        {
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.System)
+                .WithAction(AuditLogAction.Updated)
+                .BySystem()
+                .OnTarget("System", "GuildSync")
+                .WithDetails(new { action = "sync_all_guilds", syncedCount, totalCount = connectedGuilds.Count })
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for sync all guilds");
+        }
 
         return syncedCount;
     }

@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Services;
@@ -14,6 +15,7 @@ public class WelcomeService : IWelcomeService
     private readonly IWelcomeConfigurationRepository _repository;
     private readonly DiscordSocketClient _client;
     private readonly ILogger<WelcomeService> _logger;
+    private readonly IAuditLogService _auditLogService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="WelcomeService"/> class.
@@ -21,14 +23,17 @@ public class WelcomeService : IWelcomeService
     /// <param name="repository">The welcome configuration repository.</param>
     /// <param name="client">The Discord socket client.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="auditLogService">The audit log service.</param>
     public WelcomeService(
         IWelcomeConfigurationRepository repository,
         DiscordSocketClient client,
-        ILogger<WelcomeService> logger)
+        ILogger<WelcomeService> logger,
+        IAuditLogService auditLogService)
     {
         _repository = repository;
         _client = client;
         _logger = logger;
+        _auditLogService = auditLogService;
     }
 
     /// <inheritdoc/>
@@ -80,6 +85,28 @@ public class WelcomeService : IWelcomeService
 
             await _repository.AddAsync(config, cancellationToken);
 
+            // Audit log for creation
+            try
+            {
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.Configuration)
+                    .WithAction(AuditLogAction.Created)
+                    .BySystem()
+                    .InGuild(guildId)
+                    .OnTarget("WelcomeConfiguration", guildId.ToString())
+                    .WithDetails(new
+                    {
+                        isEnabled = config.IsEnabled,
+                        welcomeChannelId = config.WelcomeChannelId,
+                        hasMessage = !string.IsNullOrEmpty(config.WelcomeMessage)
+                    })
+                    .Enqueue();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log audit entry for welcome config creation {GuildId}", guildId);
+            }
+
             _logger.LogInformation("Welcome configuration created for guild {GuildId}", guildId);
         }
         else
@@ -92,6 +119,28 @@ public class WelcomeService : IWelcomeService
             config.UpdatedAt = DateTime.UtcNow;
 
             await _repository.UpdateAsync(config, cancellationToken);
+
+            // Audit log for update
+            try
+            {
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.Configuration)
+                    .WithAction(AuditLogAction.Updated)
+                    .BySystem()
+                    .InGuild(guildId)
+                    .OnTarget("WelcomeConfiguration", guildId.ToString())
+                    .WithDetails(new
+                    {
+                        isEnabled = config.IsEnabled,
+                        welcomeChannelId = config.WelcomeChannelId,
+                        hasMessage = !string.IsNullOrEmpty(config.WelcomeMessage)
+                    })
+                    .Enqueue();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log audit entry for welcome config update {GuildId}", guildId);
+            }
 
             _logger.LogInformation("Welcome configuration updated for guild {GuildId}", guildId);
         }

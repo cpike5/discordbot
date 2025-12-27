@@ -1,4 +1,5 @@
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -19,17 +20,20 @@ public class ExternalLoginModel : PageModel
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IDiscordTokenService _tokenService;
     private readonly ILogger<ExternalLoginModel> _logger;
+    private readonly IAuditLogService _auditLogService;
 
     public ExternalLoginModel(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
         IDiscordTokenService tokenService,
-        ILogger<ExternalLoginModel> logger)
+        ILogger<ExternalLoginModel> logger,
+        IAuditLogService auditLogService)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _tokenService = tokenService;
         _logger = logger;
+        _auditLogService = auditLogService;
     }
 
     /// <summary>
@@ -113,6 +117,29 @@ public class ExternalLoginModel : PageModel
             if (info.LoginProvider == "Discord")
             {
                 await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+            }
+
+            // Audit log for successful OAuth login
+            try
+            {
+                var user = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+                if (user != null)
+                {
+                    var discordUsername = info.Principal.FindFirstValue(ClaimTypes.Name);
+                    var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+                    _auditLogService.CreateBuilder()
+                        .ForCategory(AuditLogCategory.Security)
+                        .WithAction(AuditLogAction.Login)
+                        .ByUser(user.Id)
+                        .OnTarget("User", user.Id)
+                        .FromIpAddress(ipAddress ?? "Unknown")
+                        .WithDetails(new { email = user.Email, method = "Discord", discordUsername })
+                        .Enqueue();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log audit entry for Discord OAuth login");
             }
 
             return LocalRedirect(returnUrl);
@@ -281,6 +308,27 @@ public class ExternalLoginModel : PageModel
 
         _logger.LogInformation("Created new user {Email} via {Provider} OAuth", email, info.LoginProvider);
 
+        // Get common audit details once
+        var auditDiscordUsername = info.Principal.FindFirstValue(ClaimTypes.Name);
+        var auditIpAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+
+        // Audit log for user creation via OAuth
+        try
+        {
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.User)
+                .WithAction(AuditLogAction.Created)
+                .ByUser(user.Id)
+                .OnTarget("User", user.Id)
+                .FromIpAddress(auditIpAddress ?? "Unknown")
+                .WithDetails(new { email, method = "Discord", discordUsername = auditDiscordUsername })
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for user creation via Discord OAuth");
+        }
+
         // Store OAuth tokens BEFORE signing in if this is a Discord login
         if (info.LoginProvider == "Discord")
         {
@@ -289,6 +337,23 @@ public class ExternalLoginModel : PageModel
 
         // Sign in the new user
         await _signInManager.SignInAsync(user, isPersistent: true);
+
+        // Audit log for successful OAuth login after user creation
+        try
+        {
+            _auditLogService.CreateBuilder()
+                .ForCategory(AuditLogCategory.Security)
+                .WithAction(AuditLogAction.Login)
+                .ByUser(user.Id)
+                .OnTarget("User", user.Id)
+                .FromIpAddress(auditIpAddress ?? "Unknown")
+                .WithDetails(new { email, method = "Discord", discordUsername = auditDiscordUsername })
+                .Enqueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to log audit entry for Discord OAuth login after user creation");
+        }
 
         return LocalRedirect(returnUrl);
     }
