@@ -1,0 +1,609 @@
+@page "{guildId:long}/{id:guid}"
+@model DiscordBot.Bot.Pages.Guilds.ScheduledMessages.EditModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = $"Edit Scheduled Message - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">Scheduled Messages</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Edit</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Edit Scheduled Message</h1>
+            <p class="mt-1 text-sm text-text-secondary">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold @Model.GetStatusBadgeClass() mr-2">
+                    <span class="w-1.5 h-1.5 rounded-full @Model.GetStatusDotClass() mr-1.5"></span>
+                    @Model.GetStatusDisplay()
+                </span>
+                Created @Model.CreatedAt.ToLocalTime().ToString("MMM d, yyyy") &bull; Last modified @Model.UpdatedAt.ToLocalTime().ToString("MMM d, yyyy")
+            </p>
+        </div>
+        <button
+            type="button"
+            onclick="showDeleteModal()"
+            class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-error bg-error/10 border border-error/30 rounded-md hover:bg-error/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+        >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Delete
+        </button>
+    </div>
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <form method="post">
+        <input type="hidden" name="Input.GuildId" value="@Model.Input.GuildId" />
+        <div asp-validation-summary="ModelOnly" class="text-error text-sm mb-4"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Form Column (2/3 width) -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Message Content Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Message Content</h2>
+
+                    <!-- Title Field -->
+                    <div class="mb-4">
+                        <label for="Input_Title" class="block text-sm font-medium text-text-primary mb-2">
+                            Title
+                        </label>
+                        <input
+                            type="text"
+                            id="Input_Title"
+                            name="Input.Title"
+                            value="@Model.Input.Title"
+                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                            placeholder="Enter a descriptive title..."
+                            maxlength="200"
+                        />
+                        <p class="text-xs text-text-tertiary mt-1">A short title to identify this scheduled message</p>
+                        <span asp-validation-for="Input.Title" class="text-error text-xs"></span>
+                    </div>
+
+                    <!-- Message Textarea -->
+                    <div class="mb-4">
+                        <label for="Input_Content" class="block text-sm font-medium text-text-primary mb-2">
+                            Message
+                        </label>
+                        <textarea
+                            id="Input_Content"
+                            name="Input.Content"
+                            rows="4"
+                            class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                            placeholder="Enter your message..."
+                            oninput="updateCharCount(); updatePreview();"
+                            maxlength="2000">@Model.Input.Content</textarea>
+                        <div class="flex items-center justify-between mt-2">
+                            <p class="text-xs text-text-tertiary">Supports Discord markdown formatting</p>
+                            <p class="text-xs text-text-secondary">
+                                <span id="char-count">@(Model.Input.Content?.Length ?? 0)</span>/2000
+                            </p>
+                        </div>
+                        <span asp-validation-for="Input.Content" class="text-error text-xs"></span>
+                    </div>
+
+                    <!-- Channel Selector -->
+                    <div>
+                        <label for="Input_ChannelId" class="block text-sm font-medium text-text-primary mb-2">
+                            Target Channel
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                </svg>
+                            </div>
+                            <select
+                                id="Input_ChannelId"
+                                name="Input.ChannelId"
+                                class="form-select w-full py-2.5 pl-10 pr-10 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                            >
+                                <option value="">Select a channel...</option>
+                                @foreach (var channel in Model.AvailableChannels)
+                                {
+                                    var prefix = channel.Type switch
+                                    {
+                                        ChannelDisplayType.Text => "#",
+                                        ChannelDisplayType.Voice => "🔊",
+                                        ChannelDisplayType.Announcement => "📢",
+                                        ChannelDisplayType.Stage => "🎭",
+                                        ChannelDisplayType.Forum => "💬",
+                                        _ => "#"
+                                    };
+                                    <option value="@channel.Id" selected="@(Model.Input.ChannelId == channel.Id)">@prefix @channel.Name</option>
+                                }
+                            </select>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="text-xs text-text-secondary mt-1">Select the channel where this message will be sent</p>
+                        <span asp-validation-for="Input.ChannelId" class="text-error text-xs"></span>
+                    </div>
+                </div>
+
+                <!-- Schedule Configuration Card -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Schedule</h2>
+
+                    <!-- Schedule Type Selector -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-text-primary mb-3">
+                            Schedule Type
+                        </label>
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                            @foreach (var freq in Enum.GetValues<ScheduleFrequency>())
+                            {
+                                var isSelected = Model.Input.Frequency == freq;
+                                var icon = freq switch
+                                {
+                                    ScheduleFrequency.Once => "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+                                    ScheduleFrequency.Hourly => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+                                    ScheduleFrequency.Daily => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+                                    ScheduleFrequency.Weekly => "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+                                    ScheduleFrequency.Monthly => "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+                                    ScheduleFrequency.Custom => "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+                                    _ => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                };
+                                var label = freq switch
+                                {
+                                    ScheduleFrequency.Once => "One-time",
+                                    ScheduleFrequency.Hourly => "Hourly",
+                                    ScheduleFrequency.Daily => "Daily",
+                                    ScheduleFrequency.Weekly => "Weekly",
+                                    ScheduleFrequency.Monthly => "Monthly",
+                                    ScheduleFrequency.Custom => "Custom",
+                                    _ => freq.ToString()
+                                };
+                                <label class="schedule-type-option @(isSelected ? "selected" : "") border border-border-secondary rounded-lg p-3 text-center cursor-pointer hover:border-border-primary hover:bg-bg-tertiary transition-colors" onclick="selectScheduleType('@freq.ToString().ToLower()', @((int)freq))">
+                                    <input type="radio" name="Input.Frequency" value="@((int)freq)" checked="@isSelected" class="hidden">
+                                    <svg class="w-6 h-6 mx-auto mb-2 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@icon" />
+                                    </svg>
+                                    <span class="text-xs font-medium text-text-primary">@label</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Next Execution Time -->
+                    <div class="mb-4">
+                        <label for="Input_NextExecutionAt" class="block text-sm font-medium text-text-primary mb-2">
+                            Next Execution Time
+                        </label>
+                        <input
+                            type="datetime-local"
+                            id="Input_NextExecutionAt"
+                            name="Input.NextExecutionAt"
+                            value="@(Model.Input.NextExecutionAt?.ToString("yyyy-MM-ddTHH:mm"))"
+                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                        />
+                        <p class="text-xs text-text-secondary mt-1">When should this message next be sent? (Your local time)</p>
+                        <span asp-validation-for="Input.NextExecutionAt" class="text-error text-xs"></span>
+                    </div>
+
+                    <!-- Cron Expression (shown for Custom frequency) -->
+                    <div id="cron-expression-container" class="@(Model.Input.Frequency != ScheduleFrequency.Custom ? "hidden" : "")">
+                        <label for="Input_CronExpression" class="block text-sm font-medium text-text-primary mb-2">
+                            Cron Expression
+                        </label>
+                        <input
+                            type="text"
+                            id="Input_CronExpression"
+                            name="Input.CronExpression"
+                            value="@Model.Input.CronExpression"
+                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary font-mono focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                            placeholder="0 9 * * 1"
+                        />
+                        <p class="text-xs text-text-secondary mt-1">
+                            Standard cron format: minute hour day month weekday
+                            <a href="https://crontab.guru/" target="_blank" class="text-accent-blue hover:underline">Learn more</a>
+                        </p>
+                        <span asp-validation-for="Input.CronExpression" class="text-error text-xs"></span>
+                    </div>
+                </div>
+
+                <!-- Status Toggle -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label for="Input_IsEnabled" class="text-sm font-semibold text-text-primary">Active</label>
+                            <p class="text-xs text-text-secondary mt-1">Enable or disable this scheduled message</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input
+                                asp-for="Input.IsEnabled"
+                                class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button
+                        type="submit"
+                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Changes
+                    </button>
+                    <a
+                        asp-page="Index"
+                        asp-route-guildId="@Model.ViewModel.GuildId"
+                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    >
+                        Cancel
+                    </a>
+                </div>
+            </div>
+
+            <!-- Preview Column (1/3 width) -->
+            <div class="lg:col-span-1">
+                <div class="lg:sticky lg:top-8 space-y-6">
+                    <!-- Message Preview -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Message Preview</h3>
+                        </div>
+                        <div class="p-4">
+                            <!-- Discord-styled Message Preview -->
+                            <div class="bg-[#36393f] rounded-md p-3">
+                                <div class="flex gap-3">
+                                    <!-- Bot Avatar -->
+                                    <div class="flex-shrink-0">
+                                        <div class="w-10 h-10 rounded-full bg-discord flex items-center justify-center">
+                                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <!-- Message Content -->
+                                    <div class="flex-1 min-w-0">
+                                        <!-- Username and Timestamp -->
+                                        <div class="flex items-center gap-1 mb-1">
+                                            <span class="font-medium text-white text-sm">Bot</span>
+                                            <span class="bg-discord text-white text-[10px] px-1 py-0.5 rounded uppercase font-semibold">BOT</span>
+                                            <span class="text-[#72767d] text-xs ml-1">Today at @DateTime.Now.ToString("h:mm tt")</span>
+                                        </div>
+                                        <!-- Message Text -->
+                                        <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">
+                                            @if (!string.IsNullOrWhiteSpace(Model.Input.Content))
+                                            {
+                                                @Model.Input.Content
+                                            }
+                                            else
+                                            {
+                                                <span class="text-[#72767d] italic">Enter a message to see preview...</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Info -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Schedule Information</h3>
+                        </div>
+                        <div class="p-4 space-y-3">
+                            <div class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-text-tertiary mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div class="flex-1">
+                                    <p class="text-xs text-text-tertiary">Frequency</p>
+                                    <p id="schedule-frequency-display" class="text-sm text-text-primary font-medium">
+                                        @(Model.Input.Frequency switch
+                                        {
+                                            ScheduleFrequency.Once => "One-time",
+                                            ScheduleFrequency.Hourly => "Every hour",
+                                            ScheduleFrequency.Daily => "Daily",
+                                            ScheduleFrequency.Weekly => "Weekly",
+                                            ScheduleFrequency.Monthly => "Monthly",
+                                            ScheduleFrequency.Custom => "Custom schedule",
+                                            _ => "Not set"
+                                        })
+                                    </p>
+                                </div>
+                            </div>
+                            @if (Model.Input.NextExecutionAt.HasValue)
+                            {
+                                <div class="flex items-start gap-2">
+                                    <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <div class="flex-1">
+                                        <p class="text-xs text-text-tertiary">Next Run</p>
+                                        <p class="text-sm text-text-primary font-medium">@Model.Input.NextExecutionAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    @if (Model.LastExecutedAt.HasValue)
+                    {
+                        <!-- Recent Executions -->
+                        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-border-primary">
+                                <h3 class="text-sm font-semibold text-text-primary">Recent Executions</h3>
+                            </div>
+                            <div class="p-4">
+                                <div class="flex items-center justify-between p-2 bg-bg-tertiary rounded-md">
+                                    <span class="text-sm text-text-secondary">@Model.LastExecutedAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                        Sent
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <!-- Background overlay -->
+        <div class="modal-overlay fixed inset-0 transition-opacity" aria-hidden="true" onclick="hideDeleteModal()"></div>
+
+        <!-- Center modal -->
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <!-- Modal content -->
+        <div class="inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border-primary">
+            <div class="px-6 py-5">
+                <div class="flex items-start gap-4">
+                    <!-- Warning Icon -->
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <!-- Content -->
+                    <div class="flex-1">
+                        <h3 id="modal-title" class="text-lg font-semibold text-text-primary">
+                            Delete Scheduled Message
+                        </h3>
+                        <p class="mt-2 text-sm text-text-secondary">
+                            Are you sure you want to delete this scheduled message? This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-bg-primary flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button
+                    type="button"
+                    onclick="hideDeleteModal()"
+                    class="inline-flex justify-center px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                >
+                    Cancel
+                </button>
+                <form method="post" asp-page-handler="Delete" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-id="@Model.MessageId">
+                    <button
+                        type="submit"
+                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-error border border-error rounded-md hover:bg-red-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                    >
+                        Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <style>
+        /* ========================================
+           Schedule Type Option Styles
+           ======================================== */
+        .schedule-type-option.selected {
+            border-color: #cb4e1b;
+            background-color: rgba(203, 78, 27, 0.1);
+        }
+
+        /* ========================================
+           Form Input Focus Styles
+           ======================================== */
+        .form-input:focus,
+        .form-select:focus,
+        .form-textarea:focus {
+            outline: none;
+            border-color: #098ecf;
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        /* ========================================
+           Modal Overlay
+           ======================================== */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+        }
+    </style>
+
+    <script>
+        // ========================================
+        // Character Count
+        // ========================================
+        function updateCharCount() {
+            const textarea = document.getElementById('Input_Content');
+            const charCount = document.getElementById('char-count');
+            if (textarea && charCount) {
+                charCount.textContent = textarea.value.length;
+            }
+        }
+
+        // ========================================
+        // Update Preview
+        // ========================================
+        function updatePreview() {
+            const textarea = document.getElementById('Input_Content');
+            const preview = document.getElementById('preview-message');
+            if (textarea && preview) {
+                if (textarea.value.trim()) {
+                    // Replace newlines with <br> for preview
+                    const content = textarea.value.replace(/\n/g, '<br>');
+                    preview.innerHTML = content;
+                } else {
+                    preview.innerHTML = '<span class="text-[#72767d] italic">Enter a message to see preview...</span>';
+                }
+            }
+        }
+
+        // ========================================
+        // Schedule Type Selection
+        // ========================================
+        function selectScheduleType(type, value) {
+            // Update all radio buttons
+            const radios = document.querySelectorAll('input[name="Input.Frequency"]');
+            radios.forEach(radio => {
+                radio.checked = radio.value === value.toString();
+            });
+
+            // Update visual selection
+            document.querySelectorAll('.schedule-type-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+
+            // Show/hide cron expression field
+            const cronContainer = document.getElementById('cron-expression-container');
+            if (cronContainer) {
+                if (value === @((int)ScheduleFrequency.Custom)) {
+                    cronContainer.classList.remove('hidden');
+                } else {
+                    cronContainer.classList.add('hidden');
+                }
+            }
+
+            // Update frequency display
+            updateScheduleFrequencyDisplay(value);
+        }
+
+        // ========================================
+        // Update Schedule Frequency Display
+        // ========================================
+        function updateScheduleFrequencyDisplay(value) {
+            const display = document.getElementById('schedule-frequency-display');
+            if (display) {
+                const labels = {
+                    '@((int)ScheduleFrequency.Once)': 'One-time',
+                    '@((int)ScheduleFrequency.Hourly)': 'Every hour',
+                    '@((int)ScheduleFrequency.Daily)': 'Daily',
+                    '@((int)ScheduleFrequency.Weekly)': 'Weekly',
+                    '@((int)ScheduleFrequency.Monthly)': 'Monthly',
+                    '@((int)ScheduleFrequency.Custom)': 'Custom schedule'
+                };
+                display.textContent = labels[value.toString()] || 'Not set';
+            }
+        }
+
+        // ========================================
+        // Delete Modal
+        // ========================================
+        function showDeleteModal() {
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // ========================================
+        // Initialize on Page Load
+        // ========================================
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCharCount();
+            updatePreview();
+
+            // Initialize cron expression visibility
+            const cronContainer = document.getElementById('cron-expression-container');
+            const selectedFrequency = document.querySelector('input[name="Input.Frequency"]:checked');
+            if (cronContainer && selectedFrequency) {
+                if (selectedFrequency.value === '@((int)ScheduleFrequency.Custom)') {
+                    cronContainer.classList.remove('hidden');
+                } else {
+                    cronContainer.classList.add('hidden');
+                }
+            }
+        });
+
+        // ========================================
+        // Keyboard handler for modal
+        // ========================================
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.getElementById('delete-modal').classList.contains('hidden')) {
+                hideDeleteModal();
+            }
+        });
+    </script>
+}
