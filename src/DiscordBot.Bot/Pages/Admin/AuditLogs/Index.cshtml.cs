@@ -2,6 +2,7 @@ using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -60,6 +61,9 @@ public class IndexModel : PageModel
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = 25;
 
+    [BindProperty(SupportsGet = true)]
+    public string? UserTimezone { get; set; }
+
     // View data
     public AuditLogListViewModel ViewModel { get; set; } = new();
     public IReadOnlyList<GuildDto> AvailableGuilds { get; set; } = Array.Empty<GuildDto>();
@@ -87,11 +91,28 @@ public class IndexModel : PageModel
             // Load available guilds for filter dropdown
             AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
 
-            // Adjust dates for proper filtering:
-            // - StartDate: Use start of day in UTC
-            // - EndDate: Use end of day (23:59:59.999) in UTC to include all events on that day
-            var queryStartDate = StartDate?.Date.ToUniversalTime();
-            var queryEndDate = EndDate?.Date.AddDays(1).AddTicks(-1).ToUniversalTime();
+            // Convert date filters from user timezone to UTC
+            // The user submits dates in their local timezone, we need to convert to UTC for querying
+            DateTime? queryStartDate = null;
+            DateTime? queryEndDate = null;
+
+            if (StartDate.HasValue)
+            {
+                // Start of day in user's timezone, converted to UTC
+                var startOfDay = StartDate.Value.Date;
+                queryStartDate = TimezoneHelper.ConvertToUtc(startOfDay, UserTimezone);
+                _logger.LogDebug("Converted StartDate from {LocalDate} in {Timezone} to {UtcDate} UTC",
+                    startOfDay, UserTimezone ?? "UTC", queryStartDate);
+            }
+
+            if (EndDate.HasValue)
+            {
+                // End of day (23:59:59.999) in user's timezone, converted to UTC
+                var endOfDay = EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                queryEndDate = TimezoneHelper.ConvertToUtc(endOfDay, UserTimezone);
+                _logger.LogDebug("Converted EndDate from {LocalDate} in {Timezone} to {UtcDate} UTC",
+                    endOfDay, UserTimezone ?? "UTC", queryEndDate);
+            }
 
             // Build query
             var query = new AuditLogQueryDto
@@ -159,9 +180,21 @@ public class IndexModel : PageModel
             _logger.LogInformation("Exporting audit logs with filters: Category={Category}, Action={Action}, ActorId={ActorId}, TargetType={TargetType}, GuildId={GuildId}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}",
                 Category, Action, ActorId, TargetType, GuildId, StartDate, EndDate, SearchTerm);
 
-            // Adjust dates for proper filtering (same as OnGetAsync)
-            var queryStartDate = StartDate?.Date.ToUniversalTime();
-            var queryEndDate = EndDate?.Date.AddDays(1).AddTicks(-1).ToUniversalTime();
+            // Convert date filters from user timezone to UTC (same as OnGetAsync)
+            DateTime? queryStartDate = null;
+            DateTime? queryEndDate = null;
+
+            if (StartDate.HasValue)
+            {
+                var startOfDay = StartDate.Value.Date;
+                queryStartDate = TimezoneHelper.ConvertToUtc(startOfDay, UserTimezone);
+            }
+
+            if (EndDate.HasValue)
+            {
+                var endOfDay = EndDate.Value.Date.AddDays(1).AddTicks(-1);
+                queryEndDate = TimezoneHelper.ConvertToUtc(endOfDay, UserTimezone);
+            }
 
             // Build query with no pagination (get all matching logs)
             var query = new AuditLogQueryDto

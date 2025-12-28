@@ -79,6 +79,7 @@
         </div>
 
         <form id="filtersForm" method="get" class="space-y-4 @(Model.ViewModel.Filters.ShowFilters ? "" : "hidden")">
+            <input type="hidden" name="UserTimezone" id="UserTimezone" value="" />
             <!-- Row 1: Date Range -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- From Date -->

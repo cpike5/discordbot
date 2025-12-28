@@ -69,6 +69,7 @@
 
     <form method="post">
         <input type="hidden" name="Input.GuildId" value="@Model.Input.GuildId" />
+        <input type="hidden" name="Input.UserTimezone" id="Input_UserTimezone" value="" />
         <div asp-validation-summary="ModelOnly" class="text-error text-sm mb-4"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -216,7 +217,9 @@
                             value="@(Model.Input.NextExecutionAt?.ToString("yyyy-MM-ddTHH:mm"))"
                             class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
                         />
-                        <p class="text-xs text-text-secondary mt-1">When should this message first be sent? (Your local time)</p>
+                        <p class="text-xs text-text-tertiary mt-1">
+                            Your timezone: <span class="timezone-indicator font-medium">Detecting...</span>
+                        </p>
                         <span asp-validation-for="Input.NextExecutionAt" class="text-error text-xs"></span>
                     </div>
 
@@ -486,6 +489,12 @@
                 } else {
                     cronContainer.classList.add('hidden');
                 }
+            }
+
+            // Set default datetime to 5 minutes from now, rounded to next 5-minute mark
+            // This is set by JavaScript to ensure it's in the user's local timezone
+            if (window.timezoneUtils) {
+                timezoneUtils.setDefaultDateTime('Input_NextExecutionAt', 5);
             }
         });
     </script>
