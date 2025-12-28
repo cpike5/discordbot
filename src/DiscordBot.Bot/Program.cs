@@ -38,6 +38,9 @@ try
         .ReadFrom.Services(services)
         .Enrich.FromLogContext());
 
+    // Enable systemd integration (only activates when running under systemd)
+    builder.Host.UseSystemd();
+
     // Add Discord bot services
     builder.Services.AddDiscordBot(builder.Configuration);
 

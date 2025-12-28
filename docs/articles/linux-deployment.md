@@ -8,7 +8,14 @@
 
 ## Overview
 
-This guide covers deploying the Discord Bot Management System to a Linux VPS using systemd for service management. The deployment follows security best practices: secrets are stored as environment variables in the systemd service file, not in configuration files.
+This guide covers deploying the Discord Bot Management System to a Linux VPS using systemd for service management. The deployment follows security best practices: secrets are stored in a separate environment file with restrictive permissions.
+
+The application includes native systemd integration via `Microsoft.Extensions.Hosting.Systemd`, which provides:
+
+- **Startup notification** - systemd knows when the application is ready
+- **Graceful shutdown** - proper handling of SIGTERM for clean disconnection
+- **Watchdog support** - health monitoring integration with systemd
+- **journald integration** - logs forwarded to the system journal
 
 ### What This Guide Covers
 
@@ -222,7 +229,59 @@ sudo chmod 640 /opt/discordbot/appsettings.Production.json
 
 ## Step 5: Create Systemd Service
 
-### Create Service File
+The application includes a sample service file in the `deployment/` directory. This section explains how to configure it.
+
+### Create Environment File (Secrets)
+
+First, create the environment file for secrets. A template is provided in `deployment/discordbot.env.template`:
+
+```bash
+# Create secrets directory
+sudo mkdir -p /etc/discordbot
+
+# Copy template and edit with your values
+sudo cp /tmp/discordbot/deployment/discordbot.env.template /etc/discordbot/discordbot.env
+sudo nano /etc/discordbot/discordbot.env
+```
+
+Edit the file with your actual secrets:
+
+```bash
+# Discord Bot Token (REQUIRED)
+Discord__Token=YOUR_BOT_TOKEN_HERE
+
+# Discord OAuth (REQUIRED for admin UI login)
+Discord__OAuth__ClientId=YOUR_CLIENT_ID_HERE
+Discord__OAuth__ClientSecret=YOUR_CLIENT_SECRET_HERE
+
+# Default Admin User (optional - created on first run)
+Identity__DefaultAdmin__Email=admin@example.com
+Identity__DefaultAdmin__Password=ChangeThisPassword123!
+
+# Optional: Discord Test Guild ID (for instant command registration)
+# Discord__TestGuildId=123456789012345678
+
+# Optional: Seq API Key (for centralized logging)
+# Serilog__WriteTo__2__Args__apiKey=YOUR_SEQ_API_KEY
+```
+
+Secure the secrets file:
+
+```bash
+sudo chmod 700 /etc/discordbot
+sudo chmod 600 /etc/discordbot/discordbot.env
+sudo chown root:discordbot /etc/discordbot/discordbot.env
+```
+
+### Install Service File
+
+Copy the sample service file from the deployment directory:
+
+```bash
+sudo cp /tmp/discordbot/deployment/discordbot.service /etc/systemd/system/discordbot.service
+```
+
+Or create it manually:
 
 ```bash
 sudo nano /etc/systemd/system/discordbot.service
@@ -236,28 +295,39 @@ After=network.target
 Wants=network-online.target
 
 [Service]
-Type=exec
+# Type=notify enables proper startup notification with .NET systemd integration
+# The application will notify systemd when it's ready to accept connections
+Type=notify
+
 User=discordbot
 Group=discordbot
 WorkingDirectory=/opt/discordbot
 ExecStart=/usr/bin/dotnet /opt/discordbot/DiscordBot.Bot.dll
+
+# Restart policy
 Restart=always
 RestartSec=10
-TimeoutStartSec=60
+
+# Timeouts
+NotifyAccess=main
+TimeoutStartSec=120
+TimeoutStopSec=30
+
+# Process management
 KillMode=mixed
 
-# Security hardening (optional - comment out if causing issues)
+# Security hardening
 NoNewPrivileges=true
 PrivateTmp=true
-# ProtectSystem=strict
-# ProtectHome=true
-# ReadWritePaths=/var/lib/discordbot /var/log/discordbot
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/discordbot /var/log/discordbot
 
-# Resource limits (optional)
+# Resource limits (optional - uncomment and adjust as needed)
 # MemoryMax=512M
 # CPUQuota=80%
 
-# Logging
+# Logging - forward to journald
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=discordbot
@@ -267,84 +337,33 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
 Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
 
-# ===========================================
-# SECRETS - Edit these values!
-# ===========================================
-
-# Discord Bot Token (REQUIRED)
-Environment=Discord__Token=YOUR_BOT_TOKEN_HERE
-
-# Discord Test Guild ID (optional - for instant command registration)
-# Environment=Discord__TestGuildId=123456789012345678
-
-# Discord OAuth (REQUIRED for admin UI login)
-Environment=Discord__OAuth__ClientId=YOUR_CLIENT_ID_HERE
-Environment=Discord__OAuth__ClientSecret=YOUR_CLIENT_SECRET_HERE
-
-# Default Admin User (optional - created on first run)
-Environment=Identity__DefaultAdmin__Email=admin@example.com
-Environment=Identity__DefaultAdmin__Password=ChangeThisPassword123!
-
-# Seq API Key (optional - if using Seq for log aggregation)
-# Environment=Serilog__WriteTo__2__Args__apiKey=YOUR_SEQ_API_KEY
-
-# OpenTelemetry OTLP Endpoint (optional - if using Jaeger/etc)
-# Environment=OpenTelemetry__Tracing__OtlpEndpoint=http://jaeger:4317
+# Load secrets from environment file
+EnvironmentFile=/etc/discordbot/discordbot.env
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-### Secure the Service File
+> **Note:** The service uses `Type=notify` which requires the `Microsoft.Extensions.Hosting.Systemd` NuGet package. This is already included in the application and configured in `Program.cs` via `UseSystemd()`. The application automatically notifies systemd when it's ready to accept connections.
 
-The service file contains secrets, so restrict access:
+### Alternative: Inline Secrets (Less Secure)
 
-```bash
-sudo chmod 600 /etc/systemd/system/discordbot.service
-```
-
-### Alternative: Use Environment File (More Secure)
-
-For better security, store secrets in a separate file:
-
-```bash
-sudo nano /etc/discordbot/secrets.env
-```
-
-```bash
-# Discord Bot Token (REQUIRED)
-Discord__Token=YOUR_BOT_TOKEN_HERE
-
-# Discord OAuth (REQUIRED for admin UI login)
-Discord__OAuth__ClientId=YOUR_CLIENT_ID_HERE
-Discord__OAuth__ClientSecret=YOUR_CLIENT_SECRET_HERE
-
-# Default Admin User
-Identity__DefaultAdmin__Email=admin@example.com
-Identity__DefaultAdmin__Password=ChangeThisPassword123!
-
-# Optional: Discord Test Guild ID
-# Discord__TestGuildId=123456789012345678
-
-# Optional: Seq API Key
-# Serilog__WriteTo__2__Args__apiKey=YOUR_SEQ_API_KEY
-```
-
-Secure the secrets file:
-
-```bash
-sudo mkdir -p /etc/discordbot
-sudo chmod 700 /etc/discordbot
-sudo chmod 600 /etc/discordbot/secrets.env
-sudo chown root:root /etc/discordbot/secrets.env
-```
-
-Then modify the service file to reference it (remove individual `Environment=` lines for secrets):
+If you prefer to keep secrets in the service file itself (not recommended for production):
 
 ```ini
 [Service]
 # ... other settings ...
-EnvironmentFile=/etc/discordbot/secrets.env
+
+# Replace EnvironmentFile line with individual Environment lines:
+Environment=Discord__Token=YOUR_BOT_TOKEN_HERE
+Environment=Discord__OAuth__ClientId=YOUR_CLIENT_ID_HERE
+Environment=Discord__OAuth__ClientSecret=YOUR_CLIENT_SECRET_HERE
+```
+
+Then restrict the service file permissions:
+
+```bash
+sudo chmod 600 /etc/systemd/system/discordbot.service
 ```
 
 ---
@@ -621,7 +640,7 @@ sudo /opt/discordbot/update.sh
 
 2. **Verify token:**
    ```bash
-   sudo grep -i token /etc/discordbot/secrets.env
+   sudo grep -i token /etc/discordbot/discordbot.env
    ```
 
 3. **Check permissions:**
@@ -648,7 +667,7 @@ sudo /opt/discordbot/update.sh
    - Development: `https://localhost:5001/signin-discord`
    - Production: `https://your-domain.com/signin-discord`
 
-2. **Invalid client secret:** Verify secret in `/etc/discordbot/secrets.env` matches Discord Developer Portal
+2. **Invalid client secret:** Verify secret in `/etc/discordbot/discordbot.env` matches Discord Developer Portal
 
 ### Database Errors
 
@@ -661,6 +680,37 @@ sudo /opt/discordbot/update.sh
    ```bash
    sudo mkdir -p /var/lib/discordbot
    sudo chown discordbot:discordbot /var/lib/discordbot
+   ```
+
+### Systemd Integration Issues
+
+If using `Type=notify` and the service times out on startup:
+
+1. **Verify systemd integration is active:**
+   ```bash
+   sudo journalctl -u discordbot | grep -i "systemd"
+   ```
+
+   You should see a log message like: "Application started. Press Ctrl+C to shut down."
+
+2. **Check service status shows correct state:**
+   ```bash
+   sudo systemctl status discordbot
+   ```
+
+   With `Type=notify`, the service should show `Active: active (running)` only after the application signals it's ready.
+
+3. **If startup times out:**
+   - Increase `TimeoutStartSec` in the service file (default is 120 seconds)
+   - Check for slow database migrations or Discord connection issues
+   - Verify the application is actually calling `UseSystemd()` in Program.cs
+
+4. **Fallback to simple service type:**
+   If `Type=notify` doesn't work, you can change to `Type=exec` (but you'll lose proper startup notification):
+   ```ini
+   [Service]
+   Type=exec
+   # Remove NotifyAccess line if present
    ```
 
 ### Memory Issues
@@ -716,7 +766,7 @@ If the dashboard's real-time features aren't working (bot status not updating, c
 ## Security Checklist
 
 - [ ] Created dedicated `discordbot` system user
-- [ ] Secrets stored in `/etc/discordbot/secrets.env` with `600` permissions
+- [ ] Secrets stored in `/etc/discordbot/discordbot.env` with `600` permissions
 - [ ] Service file has `NoNewPrivileges=true` and other hardening options
 - [ ] Firewall enabled with only necessary ports open
 - [ ] Using HTTPS via reverse proxy for admin UI
