@@ -1,0 +1,73 @@
+# Discord Bot Management System - systemd Service Unit File
+#
+# Installation:
+#   1. Copy this file to /etc/systemd/system/discordbot.service
+#   2. Create environment file at /etc/discordbot/discordbot.env (see discordbot.env.template)
+#   3. Set permissions: sudo chmod 600 /etc/discordbot/discordbot.env
+#   4. Reload systemd: sudo systemctl daemon-reload
+#   5. Enable service: sudo systemctl enable discordbot
+#   6. Start service: sudo systemctl start discordbot
+#
+# This service uses Type=notify which requires the Microsoft.Extensions.Hosting.Systemd
+# NuGet package. The application includes this package and calls UseSystemd() on startup.
+#
+# For more information, see: docs/articles/linux-deployment.md
+
+[Unit]
+Description=Discord Bot Management System
+Documentation=https://github.com/cpike5/discordbot
+After=network.target
+Wants=network-online.target
+
+[Service]
+# Type=notify enables proper startup notification with .NET systemd integration
+# The application will notify systemd when it's ready to accept connections
+Type=notify
+
+User=discordbot
+Group=discordbot
+WorkingDirectory=/opt/discordbot
+ExecStart=/usr/bin/dotnet /opt/discordbot/DiscordBot.Bot.dll
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Timeouts
+# NotifyAccess is required for Type=notify services
+NotifyAccess=main
+# Give the application time to initialize (database migrations, etc.)
+TimeoutStartSec=120
+# Graceful shutdown timeout - allows Discord.NET to disconnect cleanly
+TimeoutStopSec=30
+
+# Process management
+KillMode=mixed
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/discordbot /var/log/discordbot
+
+# Resource limits (optional - uncomment and adjust as needed)
+# MemoryMax=512M
+# CPUQuota=80%
+
+# Logging - forward to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=discordbot
+
+# Environment
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://localhost:5000
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+# Load secrets from environment file (RECOMMENDED)
+# Create this file with your secrets - see discordbot.env.template
+EnvironmentFile=/etc/discordbot/discordbot.env
+
+[Install]
+WantedBy=multi-user.target
