@@ -95,17 +95,17 @@ When the Discord bot is deployed to a VPS in a different region than the user, s
 
 **Deliverables:**
 
-1. **Update `prototypes/v0.3.0/scheduled-messages/create.html`**
+1. **Update `docs/prototypes/features/v0.3.0/scheduled-messages/create.html`**
    - Add hidden `userTimezone` input field
    - Add timezone indicator below datetime-local input
    - Add JavaScript for timezone detection using `Intl.DateTimeFormat().resolvedOptions().timeZone`
 
-2. **Update `prototypes/v0.3.0/scheduled-messages/edit.html`**
+2. **Update `docs/prototypes/features/v0.3.0/scheduled-messages/edit.html`**
    - Same changes as create page
    - Show stored timezone vs. current detected timezone if different
 
 3. **Create timezone display component prototype**
-   - Location: `prototypes/v0.3.0/components/timezone-indicator.html`
+   - Location: `docs/prototypes/features/v0.3.0/components/timezone-indicator.html`
    - Shows detected timezone name and abbreviation
    - Optional warning if browser timezone differs from stored preference
 
@@ -596,8 +596,8 @@ This fix does not introduce new pages. Navigation updates are not required.
 | `tests/DiscordBot.Tests/Utilities/TimezoneHelperTests.cs` | Create | Unit tests for TimezoneHelper |
 | `docs/articles/timezone-handling.md` | Create | Timezone handling documentation |
 | `docs/articles/design-system.md` | Update | Add timezone input patterns |
-| `prototypes/v0.3.0/scheduled-messages/create.html` | Update | Add timezone detection prototype |
-| `prototypes/v0.3.0/scheduled-messages/edit.html` | Update | Add timezone detection prototype |
+| `docs/prototypes/features/v0.3.0/scheduled-messages/create.html` | Update | Add timezone detection prototype |
+| `docs/prototypes/features/v0.3.0/scheduled-messages/edit.html` | Update | Add timezone detection prototype |
 
 ---
 
