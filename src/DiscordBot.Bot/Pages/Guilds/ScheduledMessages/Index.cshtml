@@ -165,9 +165,7 @@
                                     @if (!string.IsNullOrEmpty(message.NextRunUtcIso))
                                     {
                                         @* Use data-utc pattern for JavaScript timezone conversion *@
-                                        <span class="text-sm text-text-primary" data-utc="@message.NextRunUtcIso">
-                                            @message.NextRunDisplay
-                                        </span>
+                                        <span class="text-sm text-text-primary" data-utc="@message.NextRunUtcIso" data-format="datetime-short"></span>
                                     }
                                     else
                                     {
