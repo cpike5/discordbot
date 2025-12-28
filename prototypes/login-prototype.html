@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In - Discord Bot Admin</title>
+  <link rel="stylesheet" href="/css/app.css" />
+  <style>
+    /* ============================================
+       LOGIN PAGE STYLES
+       Discord Bot Admin - Modern Login Design
+       ============================================ */
+
+    /* CSS Reset & Base */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Screen reader only utility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    /* Main Container */
+    .login-container {
+      display: flex;
+      min-height: 100vh;
+      background-color: #262a2d;
+    }
+
+    /* ============================================
+       LEFT PANEL: BRAND EXPERIENCE
+       ============================================ */
+
+    .login-brand-panel {
+      width: 40%;
+      min-width: 480px;
+      max-width: 600px;
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(135deg, #1d2022 0%, #2f3336 100%);
+    }
+
+    /* Animated gradient overlay */
+    .login-brand-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        circle at 30% 20%,
+        rgba(203, 78, 27, 0.15) 0%,
+        transparent 50%
+      ),
+      radial-gradient(
+        circle at 70% 80%,
+        rgba(9, 142, 207, 0.12) 0%,
+        transparent 50%
+      );
+      animation: gradient-shift 8s ease-in-out infinite alternate;
+      z-index: 1;
+    }
+
+    @keyframes gradient-shift {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 0.8;
+      }
+      100% {
+        transform: translate(20px, -20px) scale(1.1);
+        opacity: 1;
+      }
+    }
+
+    /* Floating particles */
+    .login-particles {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .particle {
+      position: absolute;
+      width: 4px;
+      height: 4px;
+      background: radial-gradient(circle, #cb4e1b 0%, transparent 70%);
+      border-radius: 50%;
+      opacity: 0.3;
+      animation: float-particle 15s infinite ease-in-out;
+    }
+
+    .particle:nth-child(1) { left: 10%; animation-delay: 0s; }
+    .particle:nth-child(2) { left: 30%; animation-delay: 2s; }
+    .particle:nth-child(3) { left: 50%; animation-delay: 4s; }
+    .particle:nth-child(4) { left: 70%; animation-delay: 6s; }
+    .particle:nth-child(5) { left: 90%; animation-delay: 8s; }
+
+    @keyframes float-particle {
+      0%, 100% {
+        transform: translateY(100vh) scale(0.5);
+        opacity: 0;
+      }
+      10% {
+        opacity: 0.3;
+      }
+      90% {
+        opacity: 0.3;
+      }
+      50% {
+        transform: translateY(-10vh) scale(1);
+        opacity: 0.5;
+      }
+    }
+
+    .login-brand-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+
+    /* Logo */
+    .login-brand-logo {
+      width: 140px;
+      height: 140px;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+
+    .login-brand-logo-container {
+      width: 140px;
+      height: 140px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #cb4e1b 0%, #e5591f 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        0 10px 40px rgba(203, 78, 27, 0.3),
+        0 0 60px rgba(203, 78, 27, 0.15);
+      animation: logo-pulse 3s ease-in-out infinite;
+      position: relative;
+    }
+
+    @keyframes logo-pulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow:
+          0 10px 40px rgba(203, 78, 27, 0.3),
+          0 0 60px rgba(203, 78, 27, 0.15);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow:
+          0 15px 50px rgba(203, 78, 27, 0.4),
+          0 0 80px rgba(203, 78, 27, 0.2);
+      }
+    }
+
+    .login-brand-logo-icon {
+      width: 88px;
+      height: 88px;
+      color: #ffffff;
+    }
+
+    /* Title */
+    .login-brand-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+      color: #d7d3d0;
+      margin-bottom: 1rem;
+      background: linear-gradient(135deg, #d7d3d0 0%, #a8a5a3 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Tagline */
+    .login-brand-tagline {
+      font-size: 1.125rem;
+      font-weight: 400;
+      line-height: 1.6;
+      color: #a8a5a3;
+      margin-bottom: 3rem;
+      max-width: 400px;
+    }
+
+    /* Feature list */
+    .login-brand-features {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+      max-width: 360px;
+    }
+
+    .login-brand-feature {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.9375rem;
+      color: #a8a5a3;
+      transition: color 0.2s ease;
+    }
+
+    .login-brand-feature:hover {
+      color: #d7d3d0;
+    }
+
+    .login-brand-feature-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      color: #cb4e1b;
+      flex-shrink: 0;
+    }
+
+    /* ============================================
+       RIGHT PANEL: LOGIN FORM
+       ============================================ */
+
+    .login-form-panel {
+      flex: 1;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+      background-color: #262a2d;
+    }
+
+    .login-form-container {
+      width: 100%;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    /* Staggered entrance animation */
+    .login-form-container > * {
+      opacity: 0;
+      transform: translateY(12px);
+      animation: fade-in-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .login-form-container > *:nth-child(1) { animation-delay: 0.1s; }
+    .login-form-container > *:nth-child(2) { animation-delay: 0.15s; }
+    .login-form-container > *:nth-child(3) { animation-delay: 0.2s; }
+    .login-form-container > *:nth-child(4) { animation-delay: 0.25s; }
+    .login-form-container > *:nth-child(5) { animation-delay: 0.3s; }
+    .login-form-container > *:nth-child(6) { animation-delay: 0.35s; }
+
+    @keyframes fade-in-up {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Form Header */
+    .login-form-header {
+      margin-bottom: 2.5rem;
+      text-align: center;
+    }
+
+    .login-form-title {
+      font-size: 1.875rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #d7d3d0;
+      margin-bottom: 0.5rem;
+    }
+
+    .login-form-subtitle {
+      font-size: 0.9375rem;
+      color: #a8a5a3;
+    }
+
+    /* ============================================
+       ERROR ALERT
+       ============================================ */
+
+    .login-error-alert {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: linear-gradient(
+        135deg,
+        rgba(239, 68, 68, 0.1) 0%,
+        rgba(239, 68, 68, 0.05) 100%
+      );
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-left: 4px solid #ef4444;
+      border-radius: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      animation: slide-down 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes slide-down {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .login-error-alert.shake {
+      animation: shake 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+      20%, 40%, 60%, 80% { transform: translateX(4px); }
+    }
+
+    .login-error-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      color: #ef4444;
+      flex-shrink: 0;
+      margin-top: 0.125rem;
+    }
+
+    .login-error-content {
+      flex: 1;
+    }
+
+    .login-error-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #ef4444;
+      margin-bottom: 0.25rem;
+    }
+
+    .login-error-message {
+      font-size: 0.875rem;
+      color: #ef4444;
+      line-height: 1.5;
+      opacity: 0.9;
+    }
+
+    /* ============================================
+       DISCORD OAUTH BUTTON
+       ============================================ */
+
+    .btn-discord-oauth {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      padding: 1rem 1.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: #ffffff;
+      background: linear-gradient(135deg, #5865F2 0%, #4752C4 100%);
+      border: 1px solid #5865F2;
+      border-radius: 8px;
+      box-shadow:
+        0 4px 12px rgba(88, 101, 242, 0.3),
+        0 0 0 0 rgba(88, 101, 242, 0.4);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-discord-oauth:hover {
+      background: linear-gradient(135deg, #6674F4 0%, #5865F2 100%);
+      border-color: #6674F4;
+      box-shadow:
+        0 6px 16px rgba(88, 101, 242, 0.4),
+        0 0 0 0 rgba(88, 101, 242, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .btn-discord-oauth:active {
+      transform: translateY(0);
+      box-shadow:
+        0 2px 8px rgba(88, 101, 242, 0.4),
+        0 0 0 0 rgba(88, 101, 242, 0.4);
+    }
+
+    .btn-discord-oauth:focus-visible {
+      outline: none;
+      box-shadow:
+        0 4px 12px rgba(88, 101, 242, 0.3),
+        0 0 0 3px rgba(9, 142, 207, 0.4);
+    }
+
+    .btn-discord-oauth:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Shimmer effect */
+    .btn-discord-oauth::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.15) 50%,
+        transparent 100%
+      );
+      transform: translateX(-100%);
+      transition: transform 0.6s ease;
+    }
+
+    .btn-discord-oauth:hover::before {
+      transform: translateX(100%);
+    }
+
+    .btn-discord-oauth-icon {
+      width: 1.5rem;
+      height: 1.5rem;
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+
+    .btn-discord-oauth:hover .btn-discord-oauth-icon {
+      transform: scale(1.1);
+    }
+
+    /* Loading state */
+    .btn-discord-oauth.loading {
+      pointer-events: none;
+    }
+
+    .btn-discord-oauth.loading .btn-discord-oauth-icon {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* ============================================
+       DIVIDER
+       ============================================ */
+
+    .login-divider {
+      position: relative;
+      margin: 2rem 0;
+      text-align: center;
+    }
+
+    .login-divider::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        transparent 0%,
+        #3f4447 20%,
+        #3f4447 80%,
+        transparent 100%
+      );
+    }
+
+    .login-divider-text {
+      position: relative;
+      display: inline-block;
+      padding: 0 1rem;
+      background-color: #262a2d;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #7a7876;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ============================================
+       FORM INPUTS (FLOATING LABEL)
+       ============================================ */
+
+    .form-group-floating {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-input-floating {
+      width: 100%;
+      padding: 1.25rem 1rem 0.5rem 1rem;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 8px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .form-input-floating::placeholder {
+      color: transparent;
+    }
+
+    .form-input-floating:hover {
+      border-color: #098ecf;
+    }
+
+    .form-input-floating:focus {
+      border-color: #098ecf;
+      background-color: #262a2d;
+      box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.1),
+        0 0 0 3px rgba(9, 142, 207, 0.15);
+      animation: input-glow 0.6s ease-out;
+    }
+
+    @keyframes input-glow {
+      0% {
+        box-shadow:
+          inset 0 1px 2px rgba(0, 0, 0, 0.1),
+          0 0 0 0 rgba(9, 142, 207, 0);
+      }
+      50% {
+        box-shadow:
+          inset 0 1px 2px rgba(0, 0, 0, 0.1),
+          0 0 0 6px rgba(9, 142, 207, 0.15);
+      }
+      100% {
+        box-shadow:
+          inset 0 1px 2px rgba(0, 0, 0, 0.1),
+          0 0 0 3px rgba(9, 142, 207, 0.15);
+      }
+    }
+
+    .form-label-floating {
+      position: absolute;
+      top: 1rem;
+      left: 1rem;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: #7a7876;
+      background-color: transparent;
+      pointer-events: none;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-origin: left center;
+    }
+
+    .form-input-floating:focus + .form-label-floating,
+    .form-input-floating:not(:placeholder-shown) + .form-label-floating {
+      transform: translateY(-0.625rem) scale(0.85);
+      color: #098ecf;
+      font-weight: 600;
+    }
+
+    /* Error state */
+    .form-input-floating.error {
+      border-color: #ef4444;
+      background-color: rgba(239, 68, 68, 0.05);
+    }
+
+    .form-input-floating.error:focus {
+      box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.1),
+        0 0 0 3px rgba(239, 68, 68, 0.15);
+    }
+
+    .form-input-floating.error + .form-label-floating {
+      color: #ef4444;
+    }
+
+    .form-error {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.8125rem;
+      color: #ef4444;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: all 0.2s ease;
+    }
+
+    .form-input-floating.error ~ .form-error {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Success state */
+    .form-input-floating.success {
+      border-color: #10b981;
+    }
+
+    .form-input-floating.success:focus {
+      box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.1),
+        0 0 0 3px rgba(16, 185, 129, 0.15);
+    }
+
+    /* ============================================
+       PASSWORD FIELD WITH TOGGLE
+       ============================================ */
+
+    .password-group {
+      position: relative;
+    }
+
+    .password-group .form-input-floating {
+      padding-right: 3rem;
+    }
+
+    .password-toggle {
+      position: absolute;
+      top: 50%;
+      right: 0.75rem;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      padding: 0.5rem;
+      cursor: pointer;
+      color: #7a7876;
+      transition: color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+    }
+
+    .password-toggle:hover {
+      color: #a8a5a3;
+      background-color: rgba(122, 120, 118, 0.1);
+    }
+
+    .password-toggle:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+      color: #098ecf;
+    }
+
+    .password-toggle-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      transition: opacity 0.15s ease;
+    }
+
+    .password-toggle-icon.hidden {
+      display: none;
+    }
+
+    /* ============================================
+       REMEMBER ME CHECKBOX
+       ============================================ */
+
+    .remember-me-container {
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+    }
+
+    .remember-me-checkbox {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .remember-me-checkbox-custom {
+      width: 1.25rem;
+      height: 1.25rem;
+      border: 2px solid #3f4447;
+      border-radius: 4px;
+      background-color: #1d2022;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .remember-me-checkbox:hover + .remember-me-checkbox-custom {
+      border-color: #098ecf;
+    }
+
+    .remember-me-checkbox:focus-visible + .remember-me-checkbox-custom {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    .remember-me-checkbox:checked + .remember-me-checkbox-custom {
+      background-color: #cb4e1b;
+      border-color: #cb4e1b;
+    }
+
+    .remember-me-checkmark {
+      width: 0.875rem;
+      height: 0.875rem;
+      color: #ffffff;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .remember-me-checkbox:checked + .remember-me-checkbox-custom .remember-me-checkmark {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    .remember-me-label {
+      font-size: 0.875rem;
+      color: #a8a5a3;
+      cursor: pointer;
+      user-select: none;
+      transition: color 0.2s ease;
+    }
+
+    .remember-me-label:hover {
+      color: #d7d3d0;
+    }
+
+    /* ============================================
+       SUBMIT BUTTON
+       ============================================ */
+
+    .btn-submit-login {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.875rem 1.5rem;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: #ffffff;
+      background: linear-gradient(135deg, #cb4e1b 0%, #e5591f 100%);
+      border: 1px solid #cb4e1b;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(203, 78, 27, 0.3);
+      transition: all 0.2s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-submit-login:hover {
+      background: linear-gradient(135deg, #e5591f 0%, #cb4e1b 100%);
+      box-shadow: 0 4px 12px rgba(203, 78, 27, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-submit-login:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 4px rgba(203, 78, 27, 0.3);
+    }
+
+    .btn-submit-login:focus-visible {
+      outline: none;
+      box-shadow:
+        0 2px 8px rgba(203, 78, 27, 0.3),
+        0 0 0 3px rgba(9, 142, 207, 0.4);
+    }
+
+    .btn-submit-login:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Loading state */
+    .btn-submit-login.loading {
+      pointer-events: none;
+    }
+
+    .btn-submit-login.loading .btn-text {
+      visibility: hidden;
+    }
+
+    .btn-submit-login.loading::after {
+      content: "";
+      position: absolute;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid #ffffff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* Ripple effect */
+    .btn-ripple {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-ripple::before {
+      content: "";
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .btn-ripple:active::before {
+      transform: translate(-50%, -50%) scale(2);
+      opacity: 1;
+      transition: transform 0.5s ease, opacity 0.3s ease;
+    }
+
+    /* ============================================
+       RESPONSIVE STYLES
+       ============================================ */
+
+    /* Tablet: 768px - 1023px */
+    @media (min-width: 768px) and (max-width: 1023px) {
+      .login-brand-panel {
+        width: 35%;
+        min-width: 360px;
+      }
+    }
+
+    /* Mobile: < 768px */
+    @media (max-width: 767px) {
+      .login-container {
+        flex-direction: column;
+      }
+
+      .login-brand-panel {
+        width: 100%;
+        min-width: auto;
+        max-width: 100%;
+        min-height: auto;
+        max-height: 25vh;
+        min-height: 180px;
+        padding: 2rem 1.5rem;
+      }
+
+      .login-brand-content {
+        min-height: auto;
+        padding: 0;
+        flex-direction: row;
+        gap: 1.5rem;
+        text-align: left;
+      }
+
+      .login-brand-logo {
+        margin-bottom: 0;
+        width: auto;
+        height: auto;
+      }
+
+      .login-brand-logo-container {
+        width: 80px;
+        height: 80px;
+        border-radius: 16px;
+      }
+
+      .login-brand-logo-icon {
+        width: 50px;
+        height: 50px;
+      }
+
+      .login-brand-title {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .login-brand-tagline {
+        font-size: 0.875rem;
+        margin-bottom: 0;
+      }
+
+      .login-brand-features {
+        display: none;
+      }
+
+      .login-particles {
+        display: none;
+      }
+
+      .login-form-panel {
+        min-height: auto;
+        padding: 2rem 1.5rem;
+        flex: 1;
+      }
+
+      .login-form-header {
+        margin-bottom: 1.5rem;
+      }
+
+      .login-form-title {
+        font-size: 1.5rem;
+      }
+
+      .login-form-subtitle {
+        font-size: 0.875rem;
+      }
+    }
+
+    /* Large Desktop: 1440px and up */
+    @media (min-width: 1440px) {
+      .login-brand-panel {
+        max-width: 600px;
+      }
+    }
+
+    /* ============================================
+       REDUCED MOTION
+       ============================================ */
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+
+      /* Keep essential loading animations */
+      .btn-submit-login.loading::after,
+      .btn-discord-oauth.loading .btn-discord-oauth-icon {
+        animation-duration: 1s !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+
+    <!-- Left Panel: Brand Experience -->
+    <aside class="login-brand-panel">
+      <!-- Floating particles -->
+      <div class="login-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+      </div>
+
+      <div class="login-brand-content">
+
+        <!-- Logo -->
+        <div class="login-brand-logo">
+          <div class="login-brand-logo-container">
+            <svg class="login-brand-logo-icon" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="login-brand-text">
+          <!-- Title & Tagline -->
+          <h1 class="login-brand-title">Discord Bot Admin</h1>
+          <p class="login-brand-tagline">
+            Powerful bot management at your fingertips
+          </p>
+
+          <!-- Feature List -->
+          <ul class="login-brand-features">
+            <li class="login-brand-feature">
+              <svg class="login-brand-feature-icon" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Powerful bot management</span>
+            </li>
+            <li class="login-brand-feature">
+              <svg class="login-brand-feature-icon" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Real-time analytics</span>
+            </li>
+            <li class="login-brand-feature">
+              <svg class="login-brand-feature-icon" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+              </svg>
+              <span>Secure Discord integration</span>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- Right Panel: Login Form -->
+    <main class="login-form-panel">
+      <div class="login-form-container">
+
+        <!-- Form Header -->
+        <header class="login-form-header">
+          <h2 class="login-form-title">Welcome back</h2>
+          <p class="login-form-subtitle">Sign in to access your dashboard</p>
+        </header>
+
+        <!-- Error Alert (sample - shown by default for demo) -->
+        <div class="login-error-alert" role="alert" aria-live="polite" id="error-alert">
+          <svg class="login-error-icon" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+          <div class="login-error-content">
+            <p class="login-error-title">Login failed</p>
+            <p class="login-error-message">Invalid email or password. Please try again.</p>
+          </div>
+        </div>
+
+        <!-- Discord OAuth Button (Primary CTA) -->
+        <form method="post" action="#">
+          <input type="hidden" name="returnUrl" value="/" />
+          <button type="submit" class="btn-discord-oauth btn-ripple" id="discord-btn">
+            <svg class="btn-discord-oauth-icon" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+            </svg>
+            <span class="btn-text">Continue with Discord</span>
+          </button>
+        </form>
+
+        <!-- Divider -->
+        <div class="login-divider">
+          <span class="login-divider-text">Or use your email</span>
+        </div>
+
+        <!-- Email/Password Form -->
+        <form method="post" action="#" id="login-form">
+          <input type="hidden" name="returnUrl" value="/" />
+
+          <!-- Email Field -->
+          <div class="form-group-floating">
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="form-input-floating"
+              placeholder=" "
+              autocomplete="email"
+              required
+              aria-required="true"
+              aria-describedby="email-error"
+            />
+            <label for="email" class="form-label-floating">Email address</label>
+            <span id="email-error" class="form-error" role="alert"></span>
+          </div>
+
+          <!-- Password Field -->
+          <div class="form-group-floating password-group">
+            <input
+              type="password"
+              id="password"
+              name="password"
+              class="form-input-floating"
+              placeholder=" "
+              autocomplete="current-password"
+              required
+              aria-required="true"
+              aria-describedby="password-error"
+            />
+            <label for="password" class="form-label-floating">Password</label>
+            <button
+              type="button"
+              class="password-toggle"
+              aria-label="Show password"
+              aria-pressed="false"
+            >
+              <svg class="password-toggle-icon password-show" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <svg class="password-toggle-icon password-hide hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              </svg>
+            </button>
+            <span id="password-error" class="form-error" role="alert"></span>
+          </div>
+
+          <!-- Remember Me -->
+          <div class="remember-me-container">
+            <input
+              type="checkbox"
+              id="remember-me"
+              name="rememberMe"
+              class="remember-me-checkbox"
+            />
+            <label for="remember-me" class="remember-me-checkbox-custom">
+              <svg class="remember-me-checkmark" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+              </svg>
+            </label>
+            <label for="remember-me" class="remember-me-label">Remember me</label>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" class="btn-submit-login btn-ripple" id="submit-btn">
+            <span class="btn-text">Sign in with Email</span>
+          </button>
+
+        </form>
+
+      </div>
+    </main>
+
+  </div>
+
+  <script>
+    // ============================================
+    // LOGIN PAGE JAVASCRIPT
+    // ============================================
+
+    document.addEventListener('DOMContentLoaded', function() {
+
+      // ============================================
+      // PASSWORD VISIBILITY TOGGLE
+      // ============================================
+
+      document.querySelectorAll('.password-toggle').forEach(button => {
+        button.addEventListener('click', function() {
+          const input = this.parentElement.querySelector('input');
+          const showIcon = this.querySelector('.password-show');
+          const hideIcon = this.querySelector('.password-hide');
+
+          if (input.type === 'password') {
+            input.type = 'text';
+            showIcon.classList.add('hidden');
+            hideIcon.classList.remove('hidden');
+            this.setAttribute('aria-label', 'Hide password');
+            this.setAttribute('aria-pressed', 'true');
+          } else {
+            input.type = 'password';
+            showIcon.classList.remove('hidden');
+            hideIcon.classList.add('hidden');
+            this.setAttribute('aria-label', 'Show password');
+            this.setAttribute('aria-pressed', 'false');
+          }
+        });
+      });
+
+      // ============================================
+      // FORM VALIDATION
+      // ============================================
+
+      const loginForm = document.getElementById('login-form');
+      const emailInput = document.getElementById('email');
+      const passwordInput = document.getElementById('password');
+      const emailError = document.getElementById('email-error');
+      const passwordError = document.getElementById('password-error');
+
+      // Validate email on blur
+      emailInput.addEventListener('blur', function() {
+        validateEmail();
+      });
+
+      // Validate password on blur
+      passwordInput.addEventListener('blur', function() {
+        validatePassword();
+      });
+
+      // Clear error on focus
+      emailInput.addEventListener('focus', function() {
+        clearError(emailInput, emailError);
+      });
+
+      passwordInput.addEventListener('focus', function() {
+        clearError(passwordInput, passwordError);
+      });
+
+      function validateEmail() {
+        const email = emailInput.value.trim();
+        if (!email) {
+          setError(emailInput, emailError, 'Email address is required');
+          return false;
+        }
+        if (!isValidEmail(email)) {
+          setError(emailInput, emailError, 'Please enter a valid email address');
+          return false;
+        }
+        clearError(emailInput, emailError);
+        return true;
+      }
+
+      function validatePassword() {
+        const password = passwordInput.value;
+        if (!password) {
+          setError(passwordInput, passwordError, 'Password is required');
+          return false;
+        }
+        clearError(passwordInput, passwordError);
+        return true;
+      }
+
+      function isValidEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      }
+
+      function setError(input, errorElement, message) {
+        input.classList.add('error');
+        input.setAttribute('aria-invalid', 'true');
+        errorElement.textContent = message;
+      }
+
+      function clearError(input, errorElement) {
+        input.classList.remove('error');
+        input.setAttribute('aria-invalid', 'false');
+        errorElement.textContent = '';
+      }
+
+      // Form submission
+      loginForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const isEmailValid = validateEmail();
+        const isPasswordValid = validatePassword();
+
+        if (isEmailValid && isPasswordValid) {
+          // Show loading state
+          const submitBtn = document.getElementById('submit-btn');
+          submitBtn.classList.add('loading');
+          submitBtn.disabled = true;
+
+          // Simulate API call (remove in production)
+          setTimeout(function() {
+            submitBtn.classList.remove('loading');
+            submitBtn.disabled = false;
+            // Show shake animation on error alert
+            const errorAlert = document.getElementById('error-alert');
+            errorAlert.classList.remove('shake');
+            void errorAlert.offsetWidth; // Trigger reflow
+            errorAlert.classList.add('shake');
+          }, 1500);
+        }
+      });
+
+      // ============================================
+      // DISCORD BUTTON LOADING STATE DEMO
+      // ============================================
+
+      const discordBtn = document.getElementById('discord-btn');
+      discordBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        this.classList.add('loading');
+        this.disabled = true;
+
+        // Simulate redirect (remove in production)
+        setTimeout(() => {
+          this.classList.remove('loading');
+          this.disabled = false;
+        }, 2000);
+      });
+
+      // ============================================
+      // ERROR ALERT CLOSE (OPTIONAL)
+      // ============================================
+
+      // Uncomment to enable dismiss functionality
+      /*
+      const errorAlert = document.getElementById('error-alert');
+      errorAlert.addEventListener('click', function() {
+        this.style.display = 'none';
+      });
+      */
+
+    });
+  </script>
+
+</body>
+</html>
