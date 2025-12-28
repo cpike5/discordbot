@@ -33,7 +33,7 @@
                 </button>
             }
             <span class="text-xs text-text-tertiary hidden lg:block">
-                Last updated: <time datetime="@DateTime.UtcNow.ToString("s")">@DateTime.UtcNow.ToString("MMM d, yyyy 'at' h:mm tt")</time>
+                Last updated: <span data-utc="@DateTime.UtcNow.ToString("o")" data-format="datetime-short"></span>
             </span>
         </div>
     </div>
@@ -180,7 +180,7 @@
                                 </td>
                                 <!-- Join Date (desktop only) -->
                                 <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
-                                    <time datetime="@guild.JoinedAt.ToString("s")">@guild.JoinedAt.ToString("MMM d, yyyy")</time>
+                                    <span data-utc="@guild.JoinedAtUtcIso" data-format="date"></span>
                                 </td>
                                 <!-- Actions -->
                                 <td class="px-6 py-4 text-right">
@@ -280,7 +280,7 @@
                         </div>
                         <div>
                             <span class="text-text-tertiary">Joined:</span>
-                            <span class="text-text-primary ml-1">@guild.JoinedAt.ToString("MMM d, yyyy")</span>
+                            <span class="text-text-primary ml-1" data-utc="@guild.JoinedAtUtcIso" data-format="date"></span>
                         </div>
                     </div>
 

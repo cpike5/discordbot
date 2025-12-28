@@ -352,7 +352,7 @@
                                     <div class="flex items-center gap-1 mb-1">
                                         <span class="font-medium text-white">WelcomeBot</span>
                                         <span class="discord-bot-badge">BOT</span>
-                                        <span class="discord-timestamp">Today at @DateTime.Now.ToString("h:mm tt")</span>
+                                        <span class="discord-timestamp">Today at <span data-utc="@DateTime.UtcNow.ToString("o")" data-format="time">--:--</span></span>
                                     </div>
                                     <!-- Message Text -->
                                     <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">

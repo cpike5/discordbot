@@ -11,7 +11,11 @@ public class UserDto
     public bool IsActive { get; set; }
     public bool EmailConfirmed { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string CreatedAtUtcIso => DateTime.SpecifyKind(CreatedAt, DateTimeKind.Utc).ToString("o");
     public DateTime? LastLoginAt { get; set; }
+    public string? LastLoginAtUtcIso => LastLoginAt.HasValue
+        ? DateTime.SpecifyKind(LastLoginAt.Value, DateTimeKind.Utc).ToString("o")
+        : null;
     public bool IsLockedOut { get; set; }
     public DateTimeOffset? LockoutEnd { get; set; }
 

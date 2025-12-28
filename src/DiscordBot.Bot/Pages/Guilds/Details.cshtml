@@ -146,8 +146,7 @@
                     </svg>
                     <span class="text-sm text-text-tertiary font-medium">Bot Joined</span>
                 </div>
-                <p class="text-xl font-bold text-text-primary">
-                    <time datetime="@guild.JoinedAt.ToString("s")">@guild.JoinedAt.ToString("MMM d, yyyy")</time>
+                <p class="text-xl font-bold text-text-primary" data-utc="@guild.JoinedAtUtcIso" data-format="date">
                 </p>
             </div>
             <!-- Prefix -->
@@ -296,9 +295,7 @@
                     </div>
                     @if (Model.NextScheduledExecution.HasValue)
                     {
-                        <time class="text-sm font-bold text-text-primary local-time" datetime="@(Model.NextScheduledExecution.Value.ToString("yyyy-MM-ddTHH:mm:ss") + "Z")">
-                            @Model.NextScheduledExecution.Value.ToLocalTime().ToString("MMM d, h:mm tt")
-                        </time>
+                        <span class="text-sm font-bold text-text-primary" data-utc="@Model.NextScheduledExecutionUtcIso" data-format="datetime-short">Loading...</span>
                         <p class="text-xs text-text-tertiary truncate mt-1" title="@Model.NextScheduledMessageTitle">@Model.NextScheduledMessageTitle</p>
                     }
                     else
@@ -357,9 +354,9 @@
                                     @cmd.Username
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                    <time datetime="@cmd.ExecutedAt.ToString("s")" title="@cmd.ExecutedAt.ToString("f")">
+                                    <span data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">
                                         @GetRelativeTime(cmd.ExecutedAt)
-                                    </time>
+                                    </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
                                     @cmd.ResponseTimeMs ms
@@ -405,10 +402,8 @@
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-text-tertiary">Time:</span>
-                                <span class="text-text-secondary">
-                                    <time datetime="@cmd.ExecutedAt.ToString("s")" title="@cmd.ExecutedAt.ToString("f")">
-                                        @GetRelativeTime(cmd.ExecutedAt)
-                                    </time>
+                                <span class="text-text-secondary" data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">
+                                    @GetRelativeTime(cmd.ExecutedAt)
                                 </span>
                             </div>
                             <div class="flex justify-between">

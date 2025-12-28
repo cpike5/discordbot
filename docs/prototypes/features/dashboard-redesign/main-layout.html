@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Main Layout - Discord Bot Admin Redesign</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Layout Structure Variables */
+    :root {
+      --navbar-height: 64px;
+      --sidebar-width: 256px;
+      --sidebar-collapsed-width: 72px;
+    }
+
+    /* Enhanced Navbar */
+    .navbar-redesign {
+      height: var(--navbar-height);
+      background: linear-gradient(180deg, #262a2d 0%, #262a2d 100%);
+      border-bottom: 1px solid var(--color-border-primary);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Enhanced Sidebar */
+    .sidebar-redesign {
+      width: var(--sidebar-width);
+      background-color: var(--color-bg-secondary);
+      border-right: 1px solid var(--color-border-primary);
+      transition: width 0.2s ease-out, transform 0.2s ease-out;
+    }
+
+    .sidebar-redesign.collapsed {
+      width: var(--sidebar-collapsed-width);
+    }
+
+    /* Sidebar Link Redesign */
+    .sidebar-link-redesign {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      border-radius: 0.5rem;
+      transition: all 0.15s ease-in-out;
+      position: relative;
+    }
+
+    .sidebar-link-redesign:hover {
+      color: var(--color-text-primary);
+      background-color: var(--color-bg-hover);
+    }
+
+    .sidebar-link-redesign.active {
+      color: var(--color-text-primary);
+      background-color: rgba(203, 78, 27, 0.12);
+    }
+
+    .sidebar-link-redesign.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 24px;
+      background-color: var(--color-accent-orange);
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* Sidebar Section Header */
+    .sidebar-section-header {
+      padding: 0.5rem 1rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Sidebar Badge */
+    .sidebar-badge-redesign {
+      margin-left: auto;
+      padding: 0.125rem 0.5rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      background-color: var(--color-border-primary);
+      border-radius: 9999px;
+      min-width: 1.25rem;
+      text-align: center;
+    }
+
+    /* Notification Dot */
+    .notification-dot {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 8px;
+      height: 8px;
+      background-color: var(--color-accent-orange);
+      border-radius: 50%;
+      border: 2px solid var(--color-bg-secondary);
+    }
+
+    /* User Menu Dropdown */
+    .user-menu-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 0.5rem);
+      width: 240px;
+      background-color: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.15s ease-out;
+      z-index: var(--z-popover);
+    }
+
+    .user-menu-dropdown.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    /* Content Area */
+    .main-content-redesign {
+      margin-left: var(--sidebar-width);
+      margin-top: var(--navbar-height);
+      min-height: calc(100vh - var(--navbar-height));
+      background-color: var(--color-bg-primary);
+      transition: margin-left 0.2s ease-out;
+    }
+
+    @media (max-width: 1023px) {
+      .main-content-redesign {
+        margin-left: 0;
+      }
+    }
+
+    /* Bot Status Indicator */
+    .bot-status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .bot-status-indicator.online {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--color-success);
+    }
+
+    .bot-status-indicator.offline {
+      background-color: rgba(239, 68, 68, 0.15);
+      color: var(--color-error);
+    }
+
+    .bot-status-indicator.connecting {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: var(--color-warning);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+
+    .status-dot.pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* Mobile Overlay */
+    .mobile-overlay {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+      z-index: calc(var(--z-fixed) - 1);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s ease-out;
+    }
+
+    .mobile-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Collapsed Sidebar Text */
+    .sidebar-redesign.collapsed .sidebar-link-text,
+    .sidebar-redesign.collapsed .sidebar-badge-redesign,
+    .sidebar-redesign.collapsed .sidebar-section-header,
+    .sidebar-redesign.collapsed .bot-status-text {
+      display: none;
+    }
+
+    .sidebar-redesign.collapsed .sidebar-link-redesign {
+      justify-content: center;
+      padding: 0.75rem;
+    }
+
+    .sidebar-redesign.collapsed .sidebar-logo-text {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="mobileOverlay" class="mobile-overlay lg:hidden" onclick="toggleMobileSidebar()"></div>
+
+  <!-- Top Navigation Bar (64px) -->
+  <nav class="navbar-redesign fixed top-0 left-0 right-0 flex items-center justify-between px-4 lg:px-6" style="z-index: var(--z-fixed);">
+
+    <!-- Left Section: Menu Toggle & Logo -->
+    <div class="flex items-center gap-4">
+      <!-- Mobile Menu Toggle -->
+      <button
+        id="mobileMenuToggle"
+        onclick="toggleMobileSidebar()"
+        class="lg:hidden p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle sidebar menu"
+        aria-expanded="false"
+        aria-controls="sidebar"
+      >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <!-- Desktop Sidebar Collapse Toggle -->
+      <button
+        id="sidebarCollapseToggle"
+        onclick="toggleSidebarCollapse()"
+        class="hidden lg:flex p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle sidebar"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <!-- Logo & App Name -->
+      <a href="dashboard.html" class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-accent-orange flex items-center justify-center shadow-lg shadow-accent-orange/20">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.36-.687.772-1.341 1.225-1.962a.077.077 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+      </a>
+    </div>
+
+    <!-- Center Section: Search (Desktop) -->
+    <div class="hidden md:flex flex-1 max-w-lg mx-8">
+      <div class="relative w-full">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search servers, commands, logs..."
+          class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-2 focus:ring-border-focus/20 transition-all"
+        />
+        <kbd class="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center px-2 py-0.5 text-xs font-medium text-text-tertiary bg-bg-tertiary border border-border-primary rounded">
+          <span class="text-xs">Ctrl</span>
+          <span class="mx-0.5">+</span>
+          <span>K</span>
+        </kbd>
+      </div>
+    </div>
+
+    <!-- Right Section: Actions & User Menu -->
+    <div class="flex items-center gap-2">
+      <!-- Mobile Search Toggle -->
+      <button class="md:hidden p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Search">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </button>
+
+      <!-- Bot Status (Desktop) -->
+      <div class="hidden lg:flex bot-status-indicator online">
+        <span class="status-dot pulse"></span>
+        <span>Online</span>
+      </div>
+
+      <!-- Notifications -->
+      <button class="relative p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span class="notification-dot"></span>
+      </button>
+
+      <!-- User Menu -->
+      <div class="relative">
+        <button
+          onclick="toggleUserMenu()"
+          class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
+          aria-label="User menu"
+          aria-expanded="false"
+          aria-haspopup="true"
+        >
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-accent-blue to-accent-blue-active flex items-center justify-center text-white font-semibold text-sm ring-2 ring-bg-secondary">
+            AD
+          </div>
+          <svg class="hidden sm:block w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- User Dropdown Menu -->
+        <div id="userMenuDropdown" class="user-menu-dropdown">
+          <div class="px-4 py-3 border-b border-border-primary">
+            <p class="text-sm font-semibold text-text-primary">Admin User</p>
+            <p class="text-xs text-text-secondary mt-0.5">admin@example.com</p>
+          </div>
+          <div class="py-1">
+            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Profile
+            </a>
+            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Settings
+            </a>
+            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Help & Support
+            </a>
+          </div>
+          <div class="py-1 border-t border-border-primary">
+            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm text-error hover:bg-error-bg transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Sidebar Navigation (256px) -->
+  <aside
+    id="sidebar"
+    class="sidebar-redesign fixed top-16 left-0 h-[calc(100vh-64px)] transform -translate-x-full lg:translate-x-0 overflow-y-auto overflow-x-hidden"
+    style="z-index: var(--z-fixed);"
+  >
+    <nav class="flex flex-col h-full p-3">
+
+      <!-- Main Navigation -->
+      <div class="space-y-1">
+        <a href="dashboard.html" class="sidebar-link-redesign active">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          <span class="sidebar-link-text">Dashboard</span>
+        </a>
+
+        <a href="#" class="sidebar-link-redesign">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          <span class="sidebar-link-text">Servers</span>
+          <span class="sidebar-badge-redesign">12</span>
+        </a>
+
+        <a href="#" class="sidebar-link-redesign">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span class="sidebar-link-text">Commands</span>
+        </a>
+
+        <a href="#" class="sidebar-link-redesign">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span class="sidebar-link-text">Members</span>
+        </a>
+
+        <a href="#" class="sidebar-link-redesign">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          <span class="sidebar-link-text">Activity Logs</span>
+          <span class="relative flex-shrink-0 ml-auto">
+            <span class="w-2 h-2 bg-accent-orange rounded-full block animate-pulse"></span>
+          </span>
+        </a>
+      </div>
+
+      <!-- Divider -->
+      <div class="my-4 border-t border-border-secondary"></div>
+
+      <!-- Moderation Section -->
+      <div>
+        <p class="sidebar-section-header">Moderation</p>
+        <div class="mt-2 space-y-1">
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span class="sidebar-link-text">Warnings</span>
+            <span class="sidebar-badge-redesign">3</span>
+          </a>
+
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+            <span class="sidebar-link-text">Bans</span>
+          </a>
+
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <span class="sidebar-link-text">Message Logs</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="my-4 border-t border-border-secondary"></div>
+
+      <!-- Configuration Section -->
+      <div>
+        <p class="sidebar-section-header">Configuration</p>
+        <div class="mt-2 space-y-1">
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span class="sidebar-link-text">Settings</span>
+          </a>
+
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span class="sidebar-link-text">Permissions</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Spacer -->
+      <div class="flex-1"></div>
+
+      <!-- Support Section -->
+      <div class="mt-4 pt-4 border-t border-border-secondary">
+        <a href="#" class="sidebar-link-redesign">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          <span class="sidebar-link-text">Documentation</span>
+        </a>
+      </div>
+
+      <!-- Bot Status Footer -->
+      <div class="mt-4 p-3 bg-bg-primary/50 rounded-lg">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-success/15 flex items-center justify-center">
+            <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <div class="bot-status-text flex-1 min-w-0">
+            <p class="text-sm font-medium text-text-primary">Bot Online</p>
+            <p class="text-xs text-text-tertiary">v0.3.1 - Uptime: 14d 3h</p>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-content-redesign">
+    <div class="p-6 lg:p-8">
+
+      <!-- Breadcrumb -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Dashboard</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Dashboard</h1>
+          <p class="mt-1 text-text-secondary">Welcome back! Here's an overview of your bot's performance.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-text-tertiary" id="lastUpdated">Last updated: just now</span>
+          <button class="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors shadow-lg shadow-accent-orange/20">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add Server
+          </button>
+        </div>
+      </div>
+
+      <!-- Sample Content Area -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+        <div class="max-w-md mx-auto">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-accent-blue/10 flex items-center justify-center">
+            <svg class="w-8 h-8 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+            </svg>
+          </div>
+          <h2 class="text-lg font-semibold text-text-primary mb-2">Main Layout Prototype</h2>
+          <p class="text-sm text-text-secondary mb-6">
+            This prototype demonstrates the redesigned main layout structure with a 64px navbar, 256px collapsible sidebar, and responsive content area.
+          </p>
+          <div class="flex flex-wrap justify-center gap-3">
+            <a href="dashboard.html" class="inline-flex items-center gap-2 px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white font-medium text-sm rounded-lg transition-colors">
+              View Dashboard
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </a>
+            <a href="../../component-showcase.html" class="inline-flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-hover text-text-primary font-medium text-sm rounded-lg border border-border-primary transition-colors">
+              Component Library
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layout Specifications -->
+      <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg bg-accent-orange/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-text-primary">Navbar</h3>
+          </div>
+          <ul class="text-sm text-text-secondary space-y-1">
+            <li>Height: 64px</li>
+            <li>Fixed position</li>
+            <li>Search + notifications</li>
+            <li>User menu dropdown</li>
+          </ul>
+        </div>
+
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg bg-accent-blue/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-text-primary">Sidebar</h3>
+          </div>
+          <ul class="text-sm text-text-secondary space-y-1">
+            <li>Width: 256px (expanded)</li>
+            <li>Width: 72px (collapsed)</li>
+            <li>Slide-out on mobile</li>
+            <li>Section headers + badges</li>
+          </ul>
+        </div>
+
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+              <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 class="font-semibold text-text-primary">Responsive</h3>
+          </div>
+          <ul class="text-sm text-text-secondary space-y-1">
+            <li>Mobile: slide-out sidebar</li>
+            <li>Tablet: collapsed sidebar</li>
+            <li>Desktop: full sidebar</li>
+            <li>Keyboard accessible</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript for Interactivity -->
+  <script>
+    // State
+    let sidebarCollapsed = false;
+    let mobileSidebarOpen = false;
+
+    // DOM Elements
+    const sidebar = document.getElementById('sidebar');
+    const mobileOverlay = document.getElementById('mobileOverlay');
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const userMenuDropdown = document.getElementById('userMenuDropdown');
+    const mainContent = document.querySelector('.main-content-redesign');
+
+    // Toggle mobile sidebar
+    function toggleMobileSidebar() {
+      mobileSidebarOpen = !mobileSidebarOpen;
+
+      if (mobileSidebarOpen) {
+        sidebar.classList.remove('-translate-x-full');
+        mobileOverlay.classList.add('active');
+        mobileMenuToggle.setAttribute('aria-expanded', 'true');
+        // Focus first link in sidebar
+        const firstLink = sidebar.querySelector('a');
+        if (firstLink) firstLink.focus();
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        mobileOverlay.classList.remove('active');
+        mobileMenuToggle.setAttribute('aria-expanded', 'false');
+        mobileMenuToggle.focus();
+      }
+    }
+
+    // Toggle sidebar collapse (desktop)
+    function toggleSidebarCollapse() {
+      sidebarCollapsed = !sidebarCollapsed;
+
+      if (sidebarCollapsed) {
+        sidebar.classList.add('collapsed');
+        mainContent.style.marginLeft = 'var(--sidebar-collapsed-width)';
+      } else {
+        sidebar.classList.remove('collapsed');
+        mainContent.style.marginLeft = 'var(--sidebar-width)';
+      }
+    }
+
+    // Toggle user menu
+    function toggleUserMenu() {
+      userMenuDropdown.classList.toggle('active');
+    }
+
+    // Close user menu when clicking outside
+    document.addEventListener('click', function(event) {
+      const userButton = event.target.closest('[aria-label="User menu"]');
+      const dropdown = event.target.closest('.user-menu-dropdown');
+
+      if (!userButton && !dropdown) {
+        userMenuDropdown.classList.remove('active');
+      }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      if (window.innerWidth >= 1024) {
+        // Desktop: close mobile sidebar
+        mobileSidebarOpen = false;
+        mobileOverlay.classList.remove('active');
+        sidebar.classList.remove('-translate-x-full');
+        mobileMenuToggle.setAttribute('aria-expanded', 'false');
+
+        // Apply collapsed state if set
+        if (sidebarCollapsed) {
+          mainContent.style.marginLeft = 'var(--sidebar-collapsed-width)';
+        } else {
+          mainContent.style.marginLeft = 'var(--sidebar-width)';
+        }
+      } else {
+        // Mobile: reset to slide-out behavior
+        mainContent.style.marginLeft = '0';
+        if (!mobileSidebarOpen) {
+          sidebar.classList.add('-translate-x-full');
+        }
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(event) {
+      // Escape key closes menus
+      if (event.key === 'Escape') {
+        userMenuDropdown.classList.remove('active');
+
+        if (mobileSidebarOpen && window.innerWidth < 1024) {
+          toggleMobileSidebar();
+        }
+      }
+
+      // Ctrl+K for search focus
+      if (event.ctrlKey && event.key === 'k') {
+        event.preventDefault();
+        const searchInput = document.querySelector('input[type="search"]');
+        if (searchInput) searchInput.focus();
+      }
+    });
+
+    // Update last updated time
+    function updateLastUpdatedTime() {
+      const now = new Date();
+      const options = { hour: 'numeric', minute: '2-digit', hour12: true };
+      const timeStr = now.toLocaleTimeString('en-US', options);
+      document.getElementById('lastUpdated').textContent = `Last updated: ${timeStr}`;
+    }
+
+    // Initialize
+    updateLastUpdatedTime();
+    setInterval(updateLastUpdatedTime, 60000);
+  </script>
+
+</body>
+</html>

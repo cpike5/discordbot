@@ -98,14 +98,14 @@
                 <div class="space-y-3 border-t border-border-primary pt-4">
                     <div class="flex justify-between text-sm">
                         <span class="text-text-secondary">Member Since</span>
-                        <span class="text-text-primary font-medium">@user.CreatedAt.ToString("MMM d, yyyy")</span>
+                        <span class="text-text-primary font-medium" data-utc="@user.CreatedAtUtcIso" data-format="date"></span>
                     </div>
                     <div class="flex justify-between text-sm">
                         <span class="text-text-secondary">Last Login</span>
                         <span class="text-text-primary font-medium">
                             @if (user.LastLoginAt.HasValue)
                             {
-                                @user.LastLoginAt.Value.ToString("MMM d, yyyy")
+                                <span data-utc="@user.LastLoginAtUtcIso" data-format="date"></span>
                             }
                             else
                             {
@@ -218,7 +218,7 @@
                                             }
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                            @activity.Timestamp.ToString("MMM d, yyyy h:mm tt")
+                                            <span data-utc="@activity.TimestampUtcIso" data-format="datetime-short"></span>
                                         </td>
                                     </tr>
                                 }

@@ -78,6 +78,13 @@ public class DetailsModel : PageModel
     public DateTime? NextScheduledExecution { get; set; }
 
     /// <summary>
+    /// Gets the next scheduled execution time in ISO format for client-side timezone conversion.
+    /// </summary>
+    public string? NextScheduledExecutionUtcIso => NextScheduledExecution.HasValue
+        ? DateTime.SpecifyKind(NextScheduledExecution.Value, DateTimeKind.Utc).ToString("o")
+        : null;
+
+    /// <summary>
     /// Gets the title of the next scheduled message.
     /// </summary>
     public string? NextScheduledMessageTitle { get; set; }

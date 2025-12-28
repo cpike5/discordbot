@@ -54,12 +54,12 @@
                     <!-- Timestamp -->
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <span class="text-sm text-text-secondary">Timestamp</span>
-                        <span class="text-sm text-text-primary">@Model.ViewModel.Message.Timestamp.ToString("MMMM dd, yyyy 'at' h:mm:ss tt")</span>
+                        <span class="text-sm text-text-primary" data-utc="@Model.ViewModel.Message.TimestampUtcIso" data-format="datetime-seconds"></span>
                     </div>
                     <!-- Logged At -->
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <span class="text-sm text-text-secondary">Logged At</span>
-                        <span class="text-sm text-text-primary">@Model.ViewModel.Message.LoggedAt.ToString("MMMM dd, yyyy 'at' h:mm:ss tt")</span>
+                        <span class="text-sm text-text-primary" data-utc="@Model.ViewModel.Message.LoggedAtUtcIso" data-format="datetime-seconds"></span>
                     </div>
                 </div>
             </section>

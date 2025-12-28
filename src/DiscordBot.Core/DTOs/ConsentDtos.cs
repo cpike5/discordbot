@@ -31,6 +31,13 @@ public class ConsentStatusDto
     public DateTime? GrantedAt { get; set; }
 
     /// <summary>
+    /// Timestamp in ISO 8601 format for client-side timezone conversion.
+    /// </summary>
+    public string? GrantedAtUtcIso => GrantedAt.HasValue
+        ? DateTime.SpecifyKind(GrantedAt.Value, DateTimeKind.Utc).ToString("o")
+        : null;
+
+    /// <summary>
     /// Source through which consent was granted (e.g., "SlashCommand", "WebUI").
     /// </summary>
     public string? GrantedVia { get; set; }
@@ -60,6 +67,11 @@ public class ConsentHistoryEntryDto
     /// Timestamp when the action occurred.
     /// </summary>
     public DateTime Timestamp { get; set; }
+
+    /// <summary>
+    /// Timestamp in ISO 8601 format for client-side timezone conversion.
+    /// </summary>
+    public string TimestampUtcIso => DateTime.SpecifyKind(Timestamp, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Source through which the action was performed (e.g., "SlashCommand", "WebUI").

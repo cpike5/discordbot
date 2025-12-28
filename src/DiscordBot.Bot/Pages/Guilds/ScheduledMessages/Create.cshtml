@@ -307,7 +307,7 @@
                                         <div class="flex items-center gap-1 mb-1">
                                             <span class="font-medium text-white text-sm">Bot</span>
                                             <span class="bg-discord text-white text-[10px] px-1 py-0.5 rounded uppercase font-semibold">BOT</span>
-                                            <span class="text-[#72767d] text-xs ml-1">Today at @DateTime.Now.ToString("h:mm tt")</span>
+                                            <span class="text-[#72767d] text-xs ml-1">Today at <span data-utc="@DateTime.UtcNow.ToString("o")" data-format="time">--:--</span></span>
                                         </div>
                                         <!-- Message Text -->
                                         <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">
@@ -360,7 +360,7 @@
                                     </svg>
                                     <div class="flex-1">
                                         <p class="text-xs text-text-tertiary">Next Run</p>
-                                        <p class="text-sm text-text-primary font-medium">@Model.Input.NextExecutionAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</p>
+                                        <p class="text-sm text-text-primary font-medium" id="next-run-display" data-utc="@Model.Input.NextExecutionAtUtcIso" data-format="datetime-short"></p>
                                     </div>
                                 </div>
                             }

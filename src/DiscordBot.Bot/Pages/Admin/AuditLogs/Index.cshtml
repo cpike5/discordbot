@@ -279,8 +279,7 @@
                                         </svg>
                                     </button>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                    @log.Timestamp.ToString("MMM d, yyyy h:mm tt")
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary" data-utc="@log.TimestampUtcIso" data-format="datetime-seconds">
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @log.ActionBadgeClass">

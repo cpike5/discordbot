@@ -142,7 +142,7 @@
                                 <td class="px-6 py-4">
                                     <div class="max-w-xs">
                                         <p class="text-sm text-text-primary truncate">@message.MessagePreview</p>
-                                        <p class="text-xs text-text-tertiary mt-0.5">Created @message.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</p>
+                                        <p class="text-xs text-text-tertiary mt-0.5">Created <span data-utc="@message.CreatedAtUtcIso" data-format="date">...</span></p>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
@@ -165,9 +165,7 @@
                                     @if (!string.IsNullOrEmpty(message.NextRunUtcIso))
                                     {
                                         @* Use data-utc pattern for JavaScript timezone conversion *@
-                                        <span class="text-sm text-text-primary" data-utc="@message.NextRunUtcIso">
-                                            @message.NextRunDisplay
-                                        </span>
+                                        <span class="text-sm text-text-primary" data-utc="@message.NextRunUtcIso" data-format="datetime-short"></span>
                                     }
                                     else
                                     {

@@ -39,6 +39,11 @@ public record GuildDetailViewModel
     public DateTime JoinedAt { get; init; }
 
     /// <summary>
+    /// Gets the joined at timestamp in ISO 8601 format for client-side timezone conversion.
+    /// </summary>
+    public string JoinedAtUtcIso => DateTime.SpecifyKind(JoinedAt, DateTimeKind.Utc).ToString("o");
+
+    /// <summary>
     /// Gets the custom command prefix for the guild.
     /// </summary>
     public string? Prefix { get; init; }
@@ -106,6 +111,11 @@ public record RecentCommandLogItem
     /// Gets the timestamp when the command was executed.
     /// </summary>
     public DateTime ExecutedAt { get; init; }
+
+    /// <summary>
+    /// Gets the executed at timestamp in ISO 8601 format for client-side timezone conversion.
+    /// </summary>
+    public string ExecutedAtUtcIso => DateTime.SpecifyKind(ExecutedAt, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Gets the response time in milliseconds.
