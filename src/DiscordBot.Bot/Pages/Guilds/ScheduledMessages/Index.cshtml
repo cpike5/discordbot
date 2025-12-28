@@ -142,7 +142,7 @@
                                 <td class="px-6 py-4">
                                     <div class="max-w-xs">
                                         <p class="text-sm text-text-primary truncate">@message.MessagePreview</p>
-                                        <p class="text-xs text-text-tertiary mt-0.5">Created @message.CreatedAt.ToLocalTime().ToString("MMM d, yyyy")</p>
+                                        <p class="text-xs text-text-tertiary mt-0.5">Created <span data-utc="@message.CreatedAtUtcIso" data-format="date">...</span></p>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">

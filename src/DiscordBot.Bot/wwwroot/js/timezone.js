@@ -83,8 +83,25 @@
                         case 'date':
                             options = { year: 'numeric', month: 'short', day: 'numeric' };
                             break;
+                        case 'date-short':
+                            options = { month: 'short', day: 'numeric' };
+                            break;
+                        case 'datetime-short':
+                            options = { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+                            break;
                         case 'time':
                             options = { hour: 'numeric', minute: '2-digit', hour12: true };
+                            break;
+                        case 'datetime-seconds':
+                            options = {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: true
+                            };
                             break;
                         default:
                             options = {
@@ -117,7 +134,7 @@
         },
 
         /**
-         * Sets the default datetime-local value to now + offset minutes
+         * Sets the default datetime-local value to now + offset minutes in LOCAL time
          * @param {string} inputId - The input element ID
          * @param {number} offsetMinutes - Minutes to add to current time
          */
@@ -130,7 +147,14 @@
                 now.setMinutes(Math.ceil(now.getMinutes() / 5) * 5);
                 now.setSeconds(0);
                 now.setMilliseconds(0);
-                input.value = now.toISOString().slice(0, 16);
+                // Format as local datetime string (YYYY-MM-DDTHH:mm)
+                // datetime-local inputs expect LOCAL time, not UTC
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                input.value = `${year}-${month}-${day}T${hours}:${minutes}`;
             }
         }
     };

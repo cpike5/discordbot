@@ -20,9 +20,10 @@ public record AuditLogDetailViewModel
     public DateTime Timestamp { get; init; }
 
     /// <summary>
-    /// Gets the formatted timestamp for display.
+    /// Gets the UTC timestamp in ISO 8601 format for client-side timezone conversion.
+    /// Use with data-utc attribute in HTML elements.
     /// </summary>
-    public string FormattedTimestamp { get; init; } = string.Empty;
+    public string TimestampUtcIso { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the category name for display.
@@ -175,7 +176,7 @@ public record AuditLogDetailViewModel
         {
             Id = dto.Id,
             Timestamp = dto.Timestamp,
-            FormattedTimestamp = dto.Timestamp.ToLocalTime().ToString("MMM d, yyyy h:mm:ss tt"),
+            TimestampUtcIso = dto.Timestamp.ToString("o"),
             Category = dto.CategoryName,
             Action = dto.ActionName,
             ActionBadgeClass = actionBadgeClass,

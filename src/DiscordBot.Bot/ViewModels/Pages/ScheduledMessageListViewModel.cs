@@ -154,6 +154,11 @@ public class ScheduledMessageListItem
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
+    /// Gets the created at UTC time in ISO format for JavaScript conversion.
+    /// </summary>
+    public string CreatedAtUtcIso => CreatedAt.ToString("o");
+
+    /// <summary>
     /// Gets or sets the timestamp when this message was last executed.
     /// </summary>
     public DateTime? LastExecutedAt { get; set; }

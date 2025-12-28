@@ -296,9 +296,7 @@
                     </div>
                     @if (Model.NextScheduledExecution.HasValue)
                     {
-                        <time class="text-sm font-bold text-text-primary local-time" datetime="@(Model.NextScheduledExecution.Value.ToString("yyyy-MM-ddTHH:mm:ss") + "Z")">
-                            @Model.NextScheduledExecution.Value.ToLocalTime().ToString("MMM d, h:mm tt")
-                        </time>
+                        <span class="text-sm font-bold text-text-primary" data-utc="@Model.NextScheduledExecutionUtcIso" data-format="datetime-short">Loading...</span>
                         <p class="text-xs text-text-tertiary truncate mt-1" title="@Model.NextScheduledMessageTitle">@Model.NextScheduledMessageTitle</p>
                     }
                     else

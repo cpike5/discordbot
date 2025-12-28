@@ -46,6 +46,11 @@ public class VerificationCode
     public DateTime ExpiresAt { get; set; }
 
     /// <summary>
+    /// ExpiresAt in ISO 8601 format for client-side timezone conversion.
+    /// </summary>
+    public string ExpiresAtUtcIso => ExpiresAt.ToString("o");
+
+    /// <summary>
     /// When the verification was completed (if successful).
     /// </summary>
     public DateTime? CompletedAt { get; set; }

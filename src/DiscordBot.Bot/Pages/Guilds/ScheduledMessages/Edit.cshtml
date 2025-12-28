@@ -58,7 +58,7 @@
                     <span class="w-1.5 h-1.5 rounded-full @Model.GetStatusDotClass() mr-1.5"></span>
                     @Model.GetStatusDisplay()
                 </span>
-                Created @Model.CreatedAt.ToLocalTime().ToString("MMM d, yyyy") &bull; Last modified @Model.UpdatedAt.ToLocalTime().ToString("MMM d, yyyy")
+                Created <span data-utc="@Model.CreatedAtUtcIso" data-format="date">...</span> &bull; Last modified <span data-utc="@Model.UpdatedAtUtcIso" data-format="date">...</span>
             </p>
         </div>
         <button
@@ -325,7 +325,7 @@
                                         <div class="flex items-center gap-1 mb-1">
                                             <span class="font-medium text-white text-sm">Bot</span>
                                             <span class="bg-discord text-white text-[10px] px-1 py-0.5 rounded uppercase font-semibold">BOT</span>
-                                            <span class="text-[#72767d] text-xs ml-1">Today at @DateTime.Now.ToString("h:mm tt")</span>
+                                            <span class="text-[#72767d] text-xs ml-1">Today at <span data-utc="@DateTime.UtcNow.ToString("o")" data-format="time">--:--</span></span>
                                         </div>
                                         <!-- Message Text -->
                                         <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">
@@ -397,7 +397,7 @@
                             </div>
                             <div class="p-4">
                                 <div class="flex items-center justify-between p-2 bg-bg-tertiary rounded-md">
-                                    <span class="text-sm text-text-secondary">@Model.LastExecutedAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</span>
+                                    <span class="text-sm text-text-secondary" data-utc="@Model.LastExecutedAtUtcIso">Loading...</span>
                                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
                                         Sent
                                     </span>

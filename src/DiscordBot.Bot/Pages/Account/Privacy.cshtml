@@ -150,7 +150,7 @@ else
                                     </span>
                                     @if (consent.GrantedAt.HasValue)
                                     {
-                                        <span class="text-xs text-text-tertiary">Since @consent.GrantedAt.Value.ToLocalTime().ToString("MMM d, yyyy")</span>
+                                        <span class="text-xs text-text-tertiary">Since <span data-utc="@consent.GrantedAtUtcIso" data-format="date">...</span></span>
                                     }
                                 }
                                 else
@@ -227,7 +227,7 @@ else
                                             @entry.Action
                                         </span>
                                     </div>
-                                    <p class="text-xs text-text-tertiary">@entry.Timestamp.ToLocalTime().ToString("MMMM d, yyyy 'at' h:mm tt")</p>
+                                    <p class="text-xs text-text-tertiary" data-utc="@entry.TimestampUtcIso">Loading...</p>
                                     <p class="text-sm text-text-secondary mt-1">Consent @entry.Action.ToLower() via @entry.Source</p>
                                 </div>
                             </div>

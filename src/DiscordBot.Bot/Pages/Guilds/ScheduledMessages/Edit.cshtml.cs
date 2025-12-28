@@ -69,14 +69,29 @@ public class EditModel : PageModel
     public DateTime CreatedAt { get; set; }
 
     /// <summary>
+    /// Created date in ISO format for client-side timezone conversion.
+    /// </summary>
+    public string CreatedAtUtcIso => CreatedAt.ToString("o");
+
+    /// <summary>
     /// Updated date for display.
     /// </summary>
     public DateTime UpdatedAt { get; set; }
 
     /// <summary>
+    /// Updated date in ISO format for client-side timezone conversion.
+    /// </summary>
+    public string UpdatedAtUtcIso => UpdatedAt.ToString("o");
+
+    /// <summary>
     /// Last executed date for display.
     /// </summary>
     public DateTime? LastExecutedAt { get; set; }
+
+    /// <summary>
+    /// Last executed date in ISO format for client-side timezone conversion.
+    /// </summary>
+    public string? LastExecutedAtUtcIso => LastExecutedAt?.ToString("o");
 
     /// <summary>
     /// Input model for form binding with validation attributes.
