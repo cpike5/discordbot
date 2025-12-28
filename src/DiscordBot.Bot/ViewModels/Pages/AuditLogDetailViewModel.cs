@@ -176,7 +176,7 @@ public record AuditLogDetailViewModel
         {
             Id = dto.Id,
             Timestamp = dto.Timestamp,
-            TimestampUtcIso = dto.Timestamp.ToString("o"),
+            TimestampUtcIso = DateTime.SpecifyKind(dto.Timestamp, DateTimeKind.Utc).ToString("o"),
             Category = dto.CategoryName,
             Action = dto.ActionName,
             ActionBadgeClass = actionBadgeClass,

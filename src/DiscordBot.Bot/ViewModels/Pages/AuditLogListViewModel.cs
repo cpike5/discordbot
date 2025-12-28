@@ -180,7 +180,7 @@ public record AuditLogListItem
         {
             Id = dto.Id,
             Timestamp = dto.Timestamp,
-            TimestampUtcIso = dto.Timestamp.ToString("o"),
+            TimestampUtcIso = DateTime.SpecifyKind(dto.Timestamp, DateTimeKind.Utc).ToString("o"),
             Category = dto.CategoryName,
             CategoryBadgeClass = categoryBadgeClass,
             Action = dto.ActionName,
