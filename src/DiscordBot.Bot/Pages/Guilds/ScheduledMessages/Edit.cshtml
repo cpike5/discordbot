@@ -608,7 +608,8 @@
                 <text>
                 if (window.timezoneUtils) {
                     // Convert UTC to local for the datetime-local input
-                    const utcIsoString = '@Model.Input.NextExecutionAt.Value.ToString("o")';
+                    // Use NextExecutionAtUtcIso which has the Z suffix to indicate UTC
+                    const utcIsoString = '@Model.Input.NextExecutionAtUtcIso';
                     timezoneUtils.setDateTimeLocalFromUtc('Input_NextExecutionAt', utcIsoString);
                 }
                 </text>

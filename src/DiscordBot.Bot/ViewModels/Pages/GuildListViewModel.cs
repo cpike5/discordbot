@@ -165,7 +165,7 @@ public record GuildSummaryItem
     /// <summary>
     /// Gets the joined at timestamp in ISO 8601 format for client-side timezone conversion.
     /// </summary>
-    public string JoinedAtUtcIso => JoinedAt.ToString("o");
+    public string JoinedAtUtcIso => DateTime.SpecifyKind(JoinedAt, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Creates a <see cref="GuildSummaryItem"/> from a <see cref="GuildDto"/>.

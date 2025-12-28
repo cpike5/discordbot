@@ -71,7 +71,7 @@ public class EditModel : PageModel
     /// <summary>
     /// Created date in ISO format for client-side timezone conversion.
     /// </summary>
-    public string CreatedAtUtcIso => CreatedAt.ToString("o");
+    public string CreatedAtUtcIso => DateTime.SpecifyKind(CreatedAt, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Updated date for display.
@@ -81,7 +81,7 @@ public class EditModel : PageModel
     /// <summary>
     /// Updated date in ISO format for client-side timezone conversion.
     /// </summary>
-    public string UpdatedAtUtcIso => UpdatedAt.ToString("o");
+    public string UpdatedAtUtcIso => DateTime.SpecifyKind(UpdatedAt, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Last executed date for display.
@@ -91,7 +91,9 @@ public class EditModel : PageModel
     /// <summary>
     /// Last executed date in ISO format for client-side timezone conversion.
     /// </summary>
-    public string? LastExecutedAtUtcIso => LastExecutedAt?.ToString("o");
+    public string? LastExecutedAtUtcIso => LastExecutedAt.HasValue
+        ? DateTime.SpecifyKind(LastExecutedAt.Value, DateTimeKind.Utc).ToString("o")
+        : null;
 
     /// <summary>
     /// Input model for form binding with validation attributes.
@@ -132,7 +134,9 @@ public class EditModel : PageModel
         /// <summary>
         /// Gets the next execution time in ISO 8601 format for client-side timezone conversion.
         /// </summary>
-        public string? NextExecutionAtUtcIso => NextExecutionAt?.ToString("o");
+        public string? NextExecutionAtUtcIso => NextExecutionAt.HasValue
+            ? DateTime.SpecifyKind(NextExecutionAt.Value, DateTimeKind.Utc).ToString("o")
+            : null;
 
         [Display(Name = "User Timezone")]
         public string? UserTimezone { get; set; }

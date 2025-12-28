@@ -15,6 +15,6 @@ public class UserActivityLogDto
     public UserActivityAction Action { get; set; }
     public string? Details { get; set; }
     public DateTime Timestamp { get; set; }
-    public string TimestampUtcIso => Timestamp.ToString("o");
+    public string TimestampUtcIso => DateTime.SpecifyKind(Timestamp, DateTimeKind.Utc).ToString("o");
     public string? IpAddress { get; set; }
 }

@@ -97,7 +97,9 @@ public class CreateModel : PageModel
         /// <summary>
         /// Gets the next execution time in ISO 8601 format for client-side timezone conversion.
         /// </summary>
-        public string? NextExecutionAtUtcIso => NextExecutionAt?.ToString("o");
+        public string? NextExecutionAtUtcIso => NextExecutionAt.HasValue
+            ? DateTime.SpecifyKind(NextExecutionAt.Value, DateTimeKind.Utc).ToString("o")
+            : null;
 
         [Display(Name = "User Timezone")]
         public string? UserTimezone { get; set; }

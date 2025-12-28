@@ -102,7 +102,7 @@ public record CommandLogListItem
     /// <summary>
     /// Gets the executed at timestamp in ISO 8601 format for client-side timezone conversion.
     /// </summary>
-    public string ExecutedAtUtcIso => ExecutedAt.ToString("o");
+    public string ExecutedAtUtcIso => DateTime.SpecifyKind(ExecutedAt, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Gets whether the command executed successfully.

@@ -156,7 +156,7 @@ public class ScheduledMessageListItem
     /// <summary>
     /// Gets the created at UTC time in ISO format for JavaScript conversion.
     /// </summary>
-    public string CreatedAtUtcIso => CreatedAt.ToString("o");
+    public string CreatedAtUtcIso => DateTime.SpecifyKind(CreatedAt, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Gets or sets the timestamp when this message was last executed.
@@ -251,8 +251,10 @@ public class ScheduledMessageListItem
             if (Frequency == ScheduleFrequency.Once && LastExecutedAt.HasValue)
                 return null;
 
-            // Return UTC time in ISO 8601 format for JavaScript to convert
-            return NextExecutionAt.Value.ToString("o");
+            // Ensure DateTime is marked as UTC so ToString("o") includes the Z suffix
+            // Without this, JavaScript treats the datetime as local time instead of UTC
+            var utcTime = DateTime.SpecifyKind(NextExecutionAt.Value, DateTimeKind.Utc);
+            return utcTime.ToString("o");
         }
     }
 

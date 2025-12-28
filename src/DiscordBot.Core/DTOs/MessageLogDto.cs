@@ -66,7 +66,7 @@ public class MessageLogDto
     /// <summary>
     /// Gets the timestamp in ISO 8601 format for client-side timezone conversion.
     /// </summary>
-    public string TimestampUtcIso => Timestamp.ToString("o");
+    public string TimestampUtcIso => DateTime.SpecifyKind(Timestamp, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Gets or sets the timestamp when the message was logged to the database.
@@ -76,7 +76,7 @@ public class MessageLogDto
     /// <summary>
     /// Gets the logged at timestamp in ISO 8601 format for client-side timezone conversion.
     /// </summary>
-    public string LoggedAtUtcIso => LoggedAt.ToString("o");
+    public string LoggedAtUtcIso => DateTime.SpecifyKind(LoggedAt, DateTimeKind.Utc).ToString("o");
 
     /// <summary>
     /// Gets or sets whether the message has attachments (images, files, etc.).
