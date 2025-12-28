@@ -11,6 +11,7 @@ using DiscordBot.Infrastructure.Extensions;
 using DiscordBot.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -48,6 +49,16 @@ try
 
     // Add OpenTelemetry tracing
     builder.Services.AddOpenTelemetryTracing(builder.Configuration);
+
+    // Configure forwarded headers for reverse proxy (nginx, Cloudflare, etc.)
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        // Clear known networks/proxies to accept headers from any proxy
+        // This is necessary when running behind multiple proxies (e.g., Cloudflare -> nginx)
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
 
     // Register configuration options classes
     builder.Services.Configure<ApplicationOptions>(
@@ -269,6 +280,10 @@ try
     var app = builder.Build();
 
     // Configure middleware pipeline
+    // Handle forwarded headers from reverse proxy (must be FIRST in pipeline)
+    // Required for SignalR WebSocket connections behind nginx/Cloudflare
+    app.UseForwardedHeaders();
+
     // Add correlation ID middleware (must be before Serilog request logging)
     app.UseCorrelationId();
 

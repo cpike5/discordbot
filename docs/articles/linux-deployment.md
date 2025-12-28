@@ -451,6 +451,7 @@ server {
     listen 80;
     server_name your-domain.com;
 
+    # General proxy settings
     location / {
         proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
@@ -461,6 +462,30 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
+    }
+
+    # SignalR WebSocket endpoints - requires special configuration
+    location /hubs/ {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+
+        # WebSocket support - REQUIRED for SignalR
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        # Forward client information
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Long timeout for WebSocket connections (24 hours)
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+
+        # Disable buffering for real-time communication
+        proxy_buffering off;
+        proxy_cache off;
     }
 }
 ```
@@ -475,6 +500,27 @@ sudo systemctl reload nginx
 # Get Let's Encrypt certificate
 sudo certbot --nginx -d your-domain.com
 ```
+
+### Cloudflare Configuration (If Using Cloudflare)
+
+If your domain is proxied through Cloudflare, you must configure it to support WebSocket connections:
+
+1. **Enable WebSockets:**
+   - Go to your Cloudflare dashboard
+   - Navigate to **Network** settings
+   - Enable **WebSockets** toggle
+
+2. **SSL/TLS Mode:**
+   - Navigate to **SSL/TLS** > **Overview**
+   - Set encryption mode to **Full** or **Full (strict)**
+   - This ensures end-to-end encryption between Cloudflare and your origin server
+
+3. **Caching Rules (Optional but Recommended):**
+   - Navigate to **Caching** > **Cache Rules**
+   - Create a rule to bypass cache for `/hubs/*` paths
+   - This ensures SignalR connections aren't cached
+
+**Note:** The application is configured to handle forwarded headers from Cloudflare and nginx automatically via the `UseForwardedHeaders()` middleware.
 
 ### Update Discord OAuth Redirect URI
 
@@ -631,6 +677,39 @@ Then reload:
 sudo systemctl daemon-reload
 sudo systemctl restart discordbot
 ```
+
+### SignalR/WebSocket Connection Failures
+
+If the dashboard's real-time features aren't working (bot status not updating, connection errors in browser console):
+
+1. **Check browser console for errors:**
+   - Open Developer Tools (F12) → Console tab
+   - Look for errors like "WebSocket failed to connect" or "SignalR" errors
+
+2. **Verify nginx WebSocket configuration:**
+   - Ensure the `/hubs/` location block has `Connection "upgrade"` (not `keep-alive`)
+   - Check that `proxy_read_timeout` and `proxy_send_timeout` are set for long-lived connections
+
+3. **If using Cloudflare:**
+   - Enable WebSockets in Cloudflare Network settings
+   - Set SSL/TLS mode to "Full" or "Full (strict)"
+   - Ensure `/hubs/*` paths bypass Cloudflare caching
+
+4. **Test nginx configuration:**
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+5. **Check application logs for SignalR errors:**
+   ```bash
+   sudo journalctl -u discordbot -f | grep -i signalr
+   ```
+
+6. **Common error messages:**
+   - `"The connection could not be found on the server"` → Usually indicates missing WebSocket upgrade headers in nginx
+   - `"Handshake was canceled"` → Often caused by SSL/TLS misconfiguration between Cloudflare and nginx
+   - `"No Connection with that ID: Status code '404'"` → Proxy is not forwarding WebSocket connections correctly
 
 ---
 
