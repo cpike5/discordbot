@@ -27,6 +27,13 @@
     // Show modal
     modal.classList.remove('hidden');
 
+    // Setup AJAX form submission handler if not already attached
+    const form = modal.querySelector('form');
+    if (form && !form.dataset.ajaxHandlerAttached) {
+      form.dataset.ajaxHandlerAttached = 'true';
+      form.addEventListener('submit', handleConfirmationFormSubmit);
+    }
+
     // Setup focus trap
     setupFocusTrap(modal);
 
@@ -115,6 +122,61 @@
       if (visibleModal) {
         hideConfirmationModal(visibleModal.id);
       }
+    }
+  }
+
+  /**
+   * Handle confirmation modal form submission via AJAX
+   * @param {Event} e - The submit event
+   */
+  async function handleConfirmationFormSubmit(e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const modal = form.closest('[role="alertdialog"]');
+    const confirmBtn = form.querySelector('button[type="submit"]');
+    const btnText = confirmBtn?.querySelector('.confirm-btn-text');
+    const spinner = confirmBtn?.querySelector('.confirm-btn-spinner');
+
+    // Show loading state
+    if (confirmBtn) confirmBtn.disabled = true;
+    if (btnText) btnText.classList.add('hidden');
+    if (spinner) spinner.classList.remove('hidden');
+
+    try {
+      const formData = new FormData(form);
+      const handler = formData.get('handler');
+      const token = formData.get('__RequestVerificationToken');
+
+      const response = await fetch(`?handler=${handler}`, {
+        method: 'POST',
+        headers: {
+          'RequestVerificationToken': token
+        },
+        body: formData
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        showToast(data.message || 'Action completed successfully', 'success');
+        if (modal) {
+          hideConfirmationModal(modal.id);
+        }
+      } else {
+        showToast(data.message || 'Action failed. Please try again.', 'error');
+        // Reset button state
+        if (confirmBtn) confirmBtn.disabled = false;
+        if (btnText) btnText.classList.remove('hidden');
+        if (spinner) spinner.classList.add('hidden');
+      }
+    } catch (error) {
+      console.error('Form submission error:', error);
+      showToast('An error occurred. Please try again.', 'error');
+      // Reset button state
+      if (confirmBtn) confirmBtn.disabled = false;
+      if (btnText) btnText.classList.remove('hidden');
+      if (spinner) spinner.classList.add('hidden');
     }
   }
 

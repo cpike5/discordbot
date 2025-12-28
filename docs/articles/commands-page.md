@@ -59,6 +59,54 @@ Preconditions are displayed as color-coded badges for quick identification:
 
 When no commands are registered, the page displays a helpful message indicating the bot hasn't registered any slash commands yet.
 
+### Clear & Re-register Commands Globally
+
+**Access:** Admin and SuperAdmin roles only
+
+An administrative feature that allows clearing all existing slash commands and re-registering them globally. This feature is accessible via a button in the Commands page header (right side).
+
+#### Use Case
+
+This feature resolves issues where duplicate commands appear in Discord due to running multiple bot instances with different registration strategies. Common scenarios include:
+
+- Running a development instance with `TestGuildId` configured (guild-specific registration) alongside a production instance without `TestGuildId` (global registration)
+- Migrating from guild-specific to global command registration
+- Cleaning up orphaned commands from previous bot configurations
+
+#### What It Does
+
+When triggered, the operation performs three steps in sequence:
+
+1. **Clear Global Commands**: Removes all globally-registered slash commands
+2. **Clear Guild Commands**: Removes guild-specific commands from all guilds the bot is currently in
+3. **Re-register Globally**: Registers all commands globally for Discord-wide availability
+
+#### Important Considerations
+
+- **Propagation Delay**: Global commands take up to 1 hour to propagate across Discord's infrastructure. Users may experience a brief period where commands are unavailable.
+- **Confirmation Required**: The operation requires explicit confirmation via a modal dialog to prevent accidental execution.
+- **Guild-Specific Removal**: Guild commands are only cleared from guilds the bot is currently a member of. If the bot was previously in guilds it has since left, those commands will remain until manually cleaned up or the bot rejoins and triggers another clear operation.
+- **Permission Required**: Only users with Admin or SuperAdmin roles can access this feature.
+
+#### User Workflow
+
+1. Navigate to `/Commands` in the admin UI
+2. Locate the "Clear & Re-register Commands Globally" button in the page header (right side)
+3. Click the button to open the confirmation modal
+4. Review the warning about propagation delay
+5. Confirm the operation
+6. Wait for the operation to complete (typically 2-5 seconds)
+7. Monitor Discord for commands to become available (up to 1 hour)
+
+#### Technical Implementation
+
+The feature is implemented as a Razor Page handler method in the Commands IndexModel:
+
+- **Handler Method**: `OnPostClearAndReregisterAsync()`
+- **Authorization**: Checks user has Admin or SuperAdmin role
+- **Discord API**: Uses `BulkOverwriteGlobalApplicationCommandsAsync()` and `BulkOverwriteGuildApplicationCommandsAsync()`
+- **Logging**: Logs operation start, guild processing, and completion
+
 ---
 
 ## Technical Architecture
@@ -383,6 +431,21 @@ The architecture supports future enhancements:
 - Verify command modules inherit from `InteractionModuleBase<SocketInteractionContext>`
 - Ensure `[SlashCommand]` attributes are properly configured
 - Restart the bot to trigger fresh command registration
+
+### Duplicate Commands in Discord
+
+**Symptom:** Same command appears multiple times in Discord's slash command autocomplete
+
+**Possible Causes:**
+1. Running multiple bot instances with different registration strategies (e.g., dev with `TestGuildId` + production without)
+2. Commands registered both globally and guild-specifically
+3. Orphaned commands from previous bot configurations
+
+**Solutions:**
+- Use the "Clear & Re-register Commands Globally" feature (Admin/SuperAdmin only) to remove all commands and re-register globally
+- Wait up to 1 hour for global command propagation to complete
+- Ensure only one bot instance is running, or coordinate registration strategy across instances
+- If problem persists, manually clear commands via Discord Developer Portal
 
 ### Missing Parameter Information
 
