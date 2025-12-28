@@ -58,6 +58,11 @@ public record CommandLogDetailViewModel
     public DateTime ExecutedAt { get; init; }
 
     /// <summary>
+    /// Gets the executed at timestamp in ISO 8601 format for client-side timezone conversion.
+    /// </summary>
+    public string ExecutedAtUtcIso => ExecutedAt.ToString("o");
+
+    /// <summary>
     /// Gets the response time in milliseconds.
     /// </summary>
     public int ResponseTimeMs { get; init; }

@@ -378,9 +378,8 @@
                                     </svg>
                                     <div class="flex-1">
                                         <p class="text-xs text-text-tertiary">Next Run</p>
-                                        @* Input.NextExecutionAt is already in local time (converted in OnGetAsync) *@
-                                        <p class="text-sm text-text-primary font-medium">
-                                            @Model.Input.NextExecutionAt.Value.ToString("MMM d, yyyy h:mm tt")
+                                        @* NextExecutionAt is in UTC - JavaScript will convert to local *@
+                                        <p class="text-sm text-text-primary font-medium" data-utc="@Model.Input.NextExecutionAtUtcIso" data-format="datetime-short">
                                         </p>
                                     </div>
                                 </div>

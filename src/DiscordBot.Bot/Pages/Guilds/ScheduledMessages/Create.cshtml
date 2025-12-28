@@ -360,7 +360,7 @@
                                     </svg>
                                     <div class="flex-1">
                                         <p class="text-xs text-text-tertiary">Next Run</p>
-                                        <p class="text-sm text-text-primary font-medium" id="next-run-display">@Model.Input.NextExecutionAt.Value.ToString("MMM d, yyyy h:mm tt")</p>
+                                        <p class="text-sm text-text-primary font-medium" id="next-run-display" data-utc="@Model.Input.NextExecutionAtUtcIso" data-format="datetime-short"></p>
                                     </div>
                                 </div>
                             }

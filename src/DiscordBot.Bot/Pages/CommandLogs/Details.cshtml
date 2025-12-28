@@ -89,10 +89,9 @@
                     </svg>
                     <span class="text-sm text-text-tertiary font-medium">Executed At</span>
                 </div>
-                <p class="text-xl font-bold text-text-primary">
-                    <time datetime="@log.ExecutedAt.ToString("s")">@log.ExecutedAt.ToString("MMM d, yyyy")</time>
+                <p class="text-xl font-bold text-text-primary" data-utc="@log.ExecutedAtUtcIso" data-format="date">
                 </p>
-                <p class="text-sm text-text-secondary mt-1">@log.ExecutedAt.ToString("HH:mm:ss") UTC</p>
+                <p class="text-sm text-text-secondary mt-1" data-utc="@log.ExecutedAtUtcIso" data-format="time"></p>
             </div>
 
             <!-- Log ID -->

@@ -11,7 +11,9 @@ public class UserDto
     public bool IsActive { get; set; }
     public bool EmailConfirmed { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string CreatedAtUtcIso => CreatedAt.ToString("o");
     public DateTime? LastLoginAt { get; set; }
+    public string? LastLoginAtUtcIso => LastLoginAt?.ToString("o");
     public bool IsLockedOut { get; set; }
     public DateTimeOffset? LockoutEnd { get; set; }
 

@@ -129,6 +129,11 @@ public class EditModel : PageModel
         [Display(Name = "Next Execution Time")]
         public DateTime? NextExecutionAt { get; set; }
 
+        /// <summary>
+        /// Gets the next execution time in ISO 8601 format for client-side timezone conversion.
+        /// </summary>
+        public string? NextExecutionAtUtcIso => NextExecutionAt?.ToString("o");
+
         [Display(Name = "User Timezone")]
         public string? UserTimezone { get; set; }
     }

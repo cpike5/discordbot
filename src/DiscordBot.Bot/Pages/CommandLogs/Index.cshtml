@@ -238,10 +238,7 @@
                             <tr class="hover:bg-bg-hover/50 transition-colors">
                                 <!-- Timestamp -->
                                 <td class="px-6 py-4 text-text-secondary text-sm whitespace-nowrap">
-                                    <time datetime="@log.ExecutedAt.ToString("s")">
-                                        @log.ExecutedAt.ToString("MMM d, yyyy")
-                                        <span class="text-text-tertiary">@log.ExecutedAt.ToString("HH:mm:ss")</span>
-                                    </time>
+                                    <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-seconds"></span>
                                 </td>
                                 <!-- Command -->
                                 <td class="px-6 py-4">
@@ -325,8 +322,7 @@
                     <div class="flex items-start justify-between mb-3">
                         <div>
                             <span class="font-mono text-sm text-accent-blue">/@log.CommandName</span>
-                            <p class="text-xs text-text-tertiary mt-1">
-                                <time datetime="@log.ExecutedAt.ToString("s")">@log.ExecutedAt.ToString("MMM d, yyyy HH:mm:ss")</time>
+                            <p class="text-xs text-text-tertiary mt-1" data-utc="@log.ExecutedAtUtcIso" data-format="datetime-seconds">
                             </p>
                         </div>
                         @if (log.Success)
