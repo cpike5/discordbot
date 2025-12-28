@@ -151,6 +151,25 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
 | [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | Issue hierarchy, labels, GitHub workflow |
 
+
+## HTML Prototypes
+
+All HTML prototypes are located in `docs/prototypes/`. Open them directly in a browser to preview UI components.
+
+| Folder | Purpose |
+|--------|---------|
+| `docs/prototypes/` | Component showcases, feedback patterns, dashboard layouts |
+| `docs/prototypes/components/` | Data display components (cards, tables, lists, badges) |
+| `docs/prototypes/forms/` | Form components and validation patterns |
+| `docs/prototypes/pages/` | Full page prototypes (servers, settings, commands) |
+| `docs/prototypes/features/` | Issue-specific feature prototypes organized by version/feature |
+| `docs/prototypes/css/` | Shared CSS infrastructure and Tailwind config |
+
+**When creating new prototypes:**
+- Place new prototypes in `docs/prototypes/features/` organized by issue or feature
+- Use shared CSS from `docs/prototypes/css/`
+- Follow existing patterns in `docs/prototypes/component-showcase.html`
+
 ## Discord.NET Specifics
 
 - Using Discord.NET 3.18.0
