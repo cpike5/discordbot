@@ -47,13 +47,23 @@ public class CommandMetadataService : ICommandMetadataService
         foreach (var module in modules)
         {
             var moduleDto = MapModuleToDto(module);
-            moduleDtos.Add(moduleDto);
 
             _logger.LogDebug(
                 "Mapped module {ModuleName} with {CommandCount} commands (IsSlashGroup: {IsSlashGroup})",
                 moduleDto.Name,
                 moduleDto.CommandCount,
                 moduleDto.IsSlashGroup);
+
+            // Filter out modules with no slash commands (e.g., component handler modules)
+            if (moduleDto.CommandCount == 0)
+            {
+                _logger.LogDebug(
+                    "Excluding module {ModuleName} from results (no slash commands)",
+                    moduleDto.Name);
+                continue;
+            }
+
+            moduleDtos.Add(moduleDto);
         }
 
         _logger.LogInformation("Extracted metadata for {ModuleCount} modules with {CommandCount} total commands",

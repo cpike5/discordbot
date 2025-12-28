@@ -414,6 +414,35 @@ public class CommandMetadataServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetAllModulesAsync_WithComponentHandlerModule_ExcludesModulesWithNoCommands()
+    {
+        // Arrange - Register both a command module and a component handler module
+        await _interactionService.AddModuleAsync<TestSimpleModule>(_serviceProvider);
+        await _interactionService.AddModuleAsync<TestComponentHandlerModule>(_serviceProvider);
+
+        // Act
+        var result = await _service.GetAllModulesAsync();
+
+        // Assert - Only the module with commands should be returned
+        result.Should().HaveCount(1);
+        result.Should().Contain(m => m.Name == "TestSimpleModule");
+        result.Should().NotContain(m => m.Name == "TestComponentHandlerModule");
+    }
+
+    [Fact]
+    public async Task GetAllModulesAsync_WithOnlyComponentHandlerModules_ReturnsEmptyList()
+    {
+        // Arrange - Register only component handler modules (no slash commands)
+        await _interactionService.AddModuleAsync<TestComponentHandlerModule>(_serviceProvider);
+
+        // Act
+        var result = await _service.GetAllModulesAsync();
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetAllModulesAsync_WithCancellationToken_CompletesSuccessfully()
     {
         // Arrange
@@ -542,6 +571,16 @@ public class CommandMetadataServiceTests : IAsyncLifetime
         [SlashCommand("with-extra", "Command with extra precondition")]
         [RateLimit(3, 30, RateLimitTarget.Guild)]
         public Task WithExtraAsync() => Task.CompletedTask;
+    }
+
+    // Component handler module with no slash commands (only button/select handlers)
+    public class TestComponentHandlerModule : InteractionModuleBase<SocketInteractionContext>
+    {
+        [ComponentInteraction("button:*")]
+        public Task HandleButtonAsync() => Task.CompletedTask;
+
+        [ComponentInteraction("select:*")]
+        public Task HandleSelectAsync() => Task.CompletedTask;
     }
 
     #endregion
