@@ -17,6 +17,17 @@
             <span class="text-sm text-text-secondary">
                 @Model.ViewModel.ModuleCount module@(Model.ViewModel.ModuleCount != 1 ? "s" : "") registered
             </span>
+            @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+            {
+                <button type="button"
+                        onclick="window.quickActions?.showConfirmationModal('clearCommandsModal')"
+                        class="flex items-center gap-2 px-4 py-2 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Clear & Re-register Globally
+                </button>
+            }
         </div>
     </div>
 
@@ -141,7 +152,14 @@
     }
 </div>
 
+<!-- Modals -->
+@if (Model.ClearCommandsModal != null)
+{
+    <partial name="Shared/Components/_ConfirmationModal" model="Model.ClearCommandsModal" />
+}
+
 @section Scripts {
+    <script src="~/js/quick-actions.js"></script>
     <script>
         function toggleModule(moduleId) {
             const commandsContainer = document.getElementById('commands-' + moduleId);
