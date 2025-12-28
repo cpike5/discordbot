@@ -1,7 +1,7 @@
 # Discord Bot Admin UI - Design System
 
-**Version:** 1.1
-**Last Updated:** 2025-12-23
+**Version:** 1.2
+**Last Updated:** 2025-12-27
 **Target Framework:** .NET Blazor / HTML/CSS Prototypes
 
 ---
@@ -893,6 +893,137 @@ Following Tailwind CSS conventions (base unit: 0.25rem = 4px):
   color: #d7d3d0;
 }
 ```
+
+#### Timezone-Aware Inputs
+
+**Feature Reference:** [Timezone Handling Documentation](timezone-handling.md)
+
+Timezone-aware inputs automatically handle the conversion between the user's local timezone and UTC storage. The system uses JavaScript for browser timezone detection and C# `TimezoneHelper` for server-side conversion.
+
+**Pattern Components:**
+
+1. `datetime-local` input for user's local time
+2. Hidden timezone field (auto-populated by JavaScript)
+3. Timezone indicator showing user's timezone
+4. `data-utc` attributes for displaying stored UTC timestamps
+
+**Usage Example:**
+
+```html
+<div class="form-group">
+  <label for="scheduled-time" class="form-label">Schedule For</label>
+
+  <!-- datetime-local input shows local time -->
+  <input
+    type="datetime-local"
+    id="scheduled-time"
+    name="Input.ScheduledAt"
+    class="form-input"
+  />
+
+  <!-- Hidden timezone field (auto-populated) -->
+  <input
+    type="hidden"
+    name="Input.UserTimezone"
+  />
+
+  <!-- Timezone indicator (auto-populated) -->
+  <span class="form-help timezone-indicator"></span>
+</div>
+
+<!-- Load timezone utilities -->
+<script src="~/js/timezone.js"></script>
+<script>
+  // Optional: Set default time to 5 minutes from now
+  timezoneUtils.setDefaultDateTime('scheduled-time', 5);
+</script>
+```
+
+**CSS Styling:**
+
+```css
+.timezone-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: #a8a5a3;
+  margin-top: 0.25rem;
+}
+
+.timezone-indicator::before {
+  content: "🌍";
+  font-size: 0.875rem;
+}
+```
+
+**Displaying UTC Timestamps:**
+
+Use the `data-utc` attribute pattern to automatically convert stored UTC timestamps to the user's local timezone:
+
+```html
+<!-- Full datetime display -->
+<span data-utc="2025-12-27T15:30:00Z">
+  Dec 27, 2025, 10:30 AM
+</span>
+
+<!-- Date only -->
+<span data-utc="2025-12-27T15:30:00Z" data-format="date">
+  Dec 27, 2025
+</span>
+
+<!-- Time only -->
+<span data-utc="2025-12-27T15:30:00Z" data-format="time">
+  10:30 AM
+</span>
+```
+
+**Format Options (via `data-format` attribute):**
+
+| Format | Output Example |
+|--------|----------------|
+| `datetime` (default) | "Dec 27, 2025, 10:30 AM" |
+| `date` | "Dec 27, 2025" |
+| `time` | "10:30 AM" |
+
+**Behavior:**
+
+- JavaScript automatically detects user's timezone on page load
+- Hidden `UserTimezone` field populated with IANA timezone (e.g., "America/New_York")
+- Timezone indicator shows timezone name and abbreviation (e.g., "America/New_York (EST)")
+- `[data-utc]` elements converted to local time automatically
+- Server receives local datetime + timezone, converts to UTC for storage
+
+**Pre-filling Edit Forms:**
+
+```html
+<input type="datetime-local" id="scheduled-time" />
+
+<script>
+  // Set input from UTC timestamp (auto-converts to local)
+  var utcTime = '@Model.ScheduledAt.ToString("o")';
+  timezoneUtils.setDateTimeLocalFromUtc('scheduled-time', utcTime);
+</script>
+```
+
+**Accessibility:**
+
+- Timezone indicator provides context for screen readers
+- `datetime-local` input follows standard form accessibility guidelines
+- Always include visible timezone information so users understand what timezone they're working in
+
+**Implementation Notes:**
+
+- All timestamps stored in database as UTC (server timezone independent)
+- Server-side conversion uses `TimezoneHelper.ConvertToUtc()` and `TimezoneHelper.ConvertFromUtc()`
+- JavaScript module handles all client-side detection and conversion
+- Supports Daylight Saving Time (DST) transitions automatically
+- Falls back to UTC if timezone detection fails
+
+**See Also:**
+- [Timezone Handling Documentation](timezone-handling.md) - Complete implementation guide
+- [JavaScript timezone.js API](timezone-handling.md#javascript-module-timezonejs) - Client-side utilities
+- [TimezoneHelper C# API](timezone-handling.md#timezonehelper-utility) - Server-side conversion
 
 ---
 
@@ -2509,6 +2640,15 @@ Start with mobile styles, then enhance for larger screens:
 ---
 
 ## Changelog
+
+### Version 1.2 (2025-12-27)
+- Added Timezone-Aware Inputs subsection to Forms (Section 4)
+  - Documented timezone input pattern with hidden field
+  - Documented timezone indicator UI pattern
+  - Documented `data-utc` attribute pattern for time display
+  - Added CSS styling for timezone indicators
+  - Linked to comprehensive [Timezone Handling Documentation](timezone-handling.md)
+  - Related to Issue #319: Timezone handling implementation
 
 ### Version 1.1 (2025-12-23)
 - Added comprehensive Loading States section (Section 5)

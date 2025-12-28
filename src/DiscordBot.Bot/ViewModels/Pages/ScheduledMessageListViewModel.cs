@@ -233,7 +233,27 @@ public class ScheduledMessageListItem
     }
 
     /// <summary>
-    /// Gets the next run display text.
+    /// Gets the next run UTC time in ISO format for JavaScript conversion.
+    /// Returns the ISO 8601 format string for use with data-utc attribute.
+    /// </summary>
+    public string? NextRunUtcIso
+    {
+        get
+        {
+            if (!IsEnabled || !NextExecutionAt.HasValue)
+                return null;
+
+            if (Frequency == ScheduleFrequency.Once && LastExecutedAt.HasValue)
+                return null;
+
+            // Return UTC time in ISO 8601 format for JavaScript to convert
+            return NextExecutionAt.Value.ToString("o");
+        }
+    }
+
+    /// <summary>
+    /// Gets the next run display text (fallback for non-JavaScript scenarios).
+    /// This will be replaced by JavaScript conversion using the data-utc attribute.
     /// </summary>
     public string NextRunDisplay
     {
@@ -245,7 +265,8 @@ public class ScheduledMessageListItem
             if (Frequency == ScheduleFrequency.Once && LastExecutedAt.HasValue)
                 return "--";
 
-            return NextExecutionAt.Value.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
+            // Keep UTC time here - JavaScript will convert to local
+            return NextExecutionAt.Value.ToString("MMM d, yyyy h:mm tt") + " UTC";
         }
     }
 

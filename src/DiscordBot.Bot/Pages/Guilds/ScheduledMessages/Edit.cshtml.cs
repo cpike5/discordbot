@@ -3,6 +3,7 @@ using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -112,6 +113,9 @@ public class EditModel : PageModel
         [Required(ErrorMessage = "Next execution time is required.")]
         [Display(Name = "Next Execution Time")]
         public DateTime? NextExecutionAt { get; set; }
+
+        [Display(Name = "User Timezone")]
+        public string? UserTimezone { get; set; }
     }
 
     public async Task<IActionResult> OnGetAsync(ulong guildId, Guid id, CancellationToken cancellationToken)
@@ -170,11 +174,7 @@ public class EditModel : PageModel
         };
 
         // Populate form input model with existing values
-        // Convert NextExecutionAt from UTC to local time for the datetime-local input
-        var localNextExecution = message.NextExecutionAt.HasValue
-            ? DateTime.SpecifyKind(message.NextExecutionAt.Value, DateTimeKind.Utc).ToLocalTime()
-            : (DateTime?)null;
-
+        // Keep NextExecutionAt in UTC - JavaScript will convert it to local for display
         Input = new InputModel
         {
             GuildId = guildId,
@@ -184,7 +184,7 @@ public class EditModel : PageModel
             Frequency = message.Frequency,
             CronExpression = message.CronExpression,
             IsEnabled = message.IsEnabled,
-            NextExecutionAt = localNextExecution
+            NextExecutionAt = message.NextExecutionAt
         };
 
         return Page();
@@ -239,13 +239,13 @@ public class EditModel : PageModel
             return Page();
         }
 
-        // Convert the NextExecutionAt from local time to UTC
-        // The datetime-local input sends time in local timezone without timezone info
-        // Treat it as local time and convert to UTC for storage
-        var nextExecutionUtc = DateTime.SpecifyKind(Input.NextExecutionAt.Value, DateTimeKind.Local).ToUniversalTime();
+        // Convert the NextExecutionAt from user's local time to UTC
+        // The datetime-local input sends time without timezone info
+        // Use the submitted UserTimezone to perform the correct conversion
+        var nextExecutionUtc = TimezoneHelper.ConvertToUtc(Input.NextExecutionAt.Value, Input.UserTimezone);
 
-        _logger.LogDebug("Updating scheduled message {MessageId} with Title={Title}, Frequency={Frequency}, NextExecution={NextExecution} (local: {LocalTime})",
-            id, Input.Title, Input.Frequency, nextExecutionUtc, Input.NextExecutionAt);
+        _logger.LogInformation("Updating scheduled message {MessageId} with Title={Title}, Frequency={Frequency}, NextExecution={NextExecution} UTC (from user input: {LocalTime} in {Timezone})",
+            id, Input.Title, Input.Frequency, nextExecutionUtc, Input.NextExecutionAt, Input.UserTimezone ?? "UTC");
 
         // Create the update DTO
         var updateDto = new ScheduledMessageUpdateDto

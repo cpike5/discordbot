@@ -87,6 +87,7 @@
 
     <form method="post">
         <input type="hidden" name="Input.GuildId" value="@Model.Input.GuildId" />
+        <input type="hidden" name="Input.UserTimezone" id="Input_UserTimezone" value="" />
         <div asp-validation-summary="ModelOnly" class="text-error text-sm mb-4"></div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -234,7 +235,9 @@
                             value="@(Model.Input.NextExecutionAt?.ToString("yyyy-MM-ddTHH:mm"))"
                             class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
                         />
-                        <p class="text-xs text-text-secondary mt-1">When should this message next be sent? (Your local time)</p>
+                        <p class="text-xs text-text-tertiary mt-1">
+                            Your timezone: <span class="timezone-indicator font-medium">Detecting...</span>
+                        </p>
                         <span asp-validation-for="Input.NextExecutionAt" class="text-error text-xs"></span>
                     </div>
 
@@ -597,6 +600,19 @@
                 } else {
                     cronContainer.classList.add('hidden');
                 }
+            }
+
+            // Convert stored UTC time to local time for datetime-local input
+            // The server sends UTC time, we need to display it in user's local timezone
+            @if (Model.Input.NextExecutionAt.HasValue)
+            {
+                <text>
+                if (window.timezoneUtils) {
+                    // Convert UTC to local for the datetime-local input
+                    const utcIsoString = '@Model.Input.NextExecutionAt.Value.ToString("o")';
+                    timezoneUtils.setDateTimeLocalFromUtc('Input_NextExecutionAt', utcIsoString);
+                }
+                </text>
             }
 
             // Convert UTC times to local time

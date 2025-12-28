@@ -162,12 +162,12 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    @if (message.NextExecutionAt.HasValue && message.IsEnabled && !(message.Frequency == ScheduleFrequency.Once && message.LastExecutedAt.HasValue))
+                                    @if (!string.IsNullOrEmpty(message.NextRunUtcIso))
                                     {
-                                        @* Ensure UTC datetime has Z suffix for correct JavaScript parsing *@
-                                        <time class="text-sm text-text-primary local-time" datetime="@(message.NextExecutionAt.Value.ToString("yyyy-MM-ddTHH:mm:ss") + "Z")">
+                                        @* Use data-utc pattern for JavaScript timezone conversion *@
+                                        <span class="text-sm text-text-primary" data-utc="@message.NextRunUtcIso">
                                             @message.NextRunDisplay
-                                        </time>
+                                        </span>
                                     }
                                     else
                                     {
