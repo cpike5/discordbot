@@ -93,7 +93,7 @@ const DashboardRealtime = (function() {
 
         // Update DOM elements
         updateElement(card, '[data-connection-state]', data.connectionState);
-        updateElement(card, '[data-latency]', data.latency ? `${data.latency}ms` : 'N/A');
+        updateElement(card, '[data-latency]', data.latency ?? 'N/A');
         updateElement(card, '[data-uptime]', formatUptime(data.uptime));
         updateElement(card, '[data-guild-count]', data.guildCount);
         updateElement(card, '[data-last-updated]', 'Just now');
