@@ -1179,6 +1179,30 @@
     transform: translateY(0);
   }
 
+  /* Dashboard Redesign - Server Action Dropdown */
+  .server-action-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    width: 180px;
+    background-color: theme('colors.bg.tertiary');
+    border: 1px solid theme('colors.border.primary');
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.15s ease-out;
+    z-index: 350;
+    overflow: hidden;
+  }
+
+  .server-action-dropdown.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
   /* Respect reduced motion for redesign elements */
   @media (prefers-reduced-motion: reduce) {
     .sidebar-redesign,
@@ -1187,7 +1211,8 @@
     .sidebar-link-redesign,
     .bot-status-indicator,
     .status-dot.pulse,
-    .user-menu-dropdown {
+    .user-menu-dropdown,
+    .server-action-dropdown {
       transition: none;
       animation: none;
     }
