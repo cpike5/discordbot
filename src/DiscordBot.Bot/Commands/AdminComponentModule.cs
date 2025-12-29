@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Commands;
 /// <summary>
 /// Module for handling component interactions (button clicks) for admin commands.
 /// </summary>
+[RequireGuildActive]
 public class AdminComponentModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IInteractionStateService _stateService;

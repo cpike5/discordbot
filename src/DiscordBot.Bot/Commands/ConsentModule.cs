@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Commands;
 /// Allows users to grant, revoke, and view their consent status for data processing.
 /// </summary>
 [Group("consent", "Manage your data consent preferences")]
+[RequireGuildActive]
 [RateLimit(5, 60)]
 public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
 {
