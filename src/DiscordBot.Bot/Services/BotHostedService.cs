@@ -1,8 +1,11 @@
+using System.Text.Json;
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Metrics;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
 
@@ -20,9 +23,12 @@ public class BotHostedService : IHostedService
     private readonly WelcomeHandler _welcomeHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
+    private readonly IAuditLogQueue _auditLogQueue;
     private readonly BotConfiguration _config;
+    private readonly ApplicationOptions _applicationOptions;
     private readonly ILogger<BotHostedService> _logger;
     private readonly IHostApplicationLifetime _lifetime;
+    private readonly IHostEnvironment _environment;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     public BotHostedService(
@@ -32,9 +38,12 @@ public class BotHostedService : IHostedService
         WelcomeHandler welcomeHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
+        IAuditLogQueue auditLogQueue,
         IOptions<BotConfiguration> config,
+        IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
-        IHostApplicationLifetime lifetime)
+        IHostApplicationLifetime lifetime,
+        IHostEnvironment environment)
     {
         _client = client;
         _interactionHandler = interactionHandler;
@@ -42,9 +51,12 @@ public class BotHostedService : IHostedService
         _welcomeHandler = welcomeHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
+        _auditLogQueue = auditLogQueue;
         _config = config.Value;
+        _applicationOptions = applicationOptions.Value;
         _logger = logger;
         _lifetime = lifetime;
+        _environment = environment;
     }
 
     /// <summary>
@@ -91,6 +103,20 @@ public class BotHostedService : IHostedService
             await _client.StartAsync();
 
             _logger.LogInformation("Discord bot started successfully");
+
+            // Log bot startup to audit log
+            _auditLogQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.BotStarted,
+                ActorType = AuditLogActorType.Bot,
+                Details = JsonSerializer.Serialize(new
+                {
+                    Version = _applicationOptions.Version,
+                    Environment = _environment.EnvironmentName,
+                    StartTime = _startTime
+                })
+            });
         }
         catch (Exception ex)
         {
@@ -107,6 +133,8 @@ public class BotHostedService : IHostedService
     {
         _logger.LogInformation("Stopping Discord bot hosted service");
 
+        var uptime = DateTime.UtcNow - _startTime;
+
         try
         {
             // Unsubscribe from events
@@ -115,6 +143,20 @@ public class BotHostedService : IHostedService
             _client.LatencyUpdated -= OnLatencyUpdatedAsync;
             _client.MessageReceived -= _messageLoggingHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
+
+            // Log bot shutdown to audit log before stopping
+            _auditLogQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.BotStopped,
+                ActorType = AuditLogActorType.Bot,
+                Details = JsonSerializer.Serialize(new
+                {
+                    Reason = "ApplicationStopping",
+                    UptimeSeconds = uptime.TotalSeconds,
+                    UptimeFormatted = uptime.ToString(@"d\.hh\:mm\:ss")
+                })
+            });
 
             await _client.StopAsync();
             await _client.LogoutAsync();
@@ -161,6 +203,19 @@ public class BotHostedService : IHostedService
         // Broadcast status update (fire-and-forget, failure tolerant)
         _ = BroadcastBotStatusAsync();
 
+        // Log connection event to audit log (fire-and-forget)
+        _auditLogQueue.Enqueue(new AuditLogCreateDto
+        {
+            Category = AuditLogCategory.System,
+            Action = AuditLogAction.BotConnected,
+            ActorType = AuditLogActorType.Bot,
+            Details = JsonSerializer.Serialize(new
+            {
+                Latency = _client.Latency,
+                GuildCount = _client.Guilds.Count
+            })
+        });
+
         return Task.CompletedTask;
     }
 
@@ -173,6 +228,19 @@ public class BotHostedService : IHostedService
 
         // Broadcast status update (fire-and-forget, failure tolerant)
         _ = BroadcastBotStatusAsync();
+
+        // Log disconnection event to audit log (fire-and-forget)
+        _auditLogQueue.Enqueue(new AuditLogCreateDto
+        {
+            Category = AuditLogCategory.System,
+            Action = AuditLogAction.BotDisconnected,
+            ActorType = AuditLogActorType.Bot,
+            Details = JsonSerializer.Serialize(new
+            {
+                Exception = exception?.Message,
+                ExceptionType = exception?.GetType().Name
+            })
+        });
 
         return Task.CompletedTask;
     }
