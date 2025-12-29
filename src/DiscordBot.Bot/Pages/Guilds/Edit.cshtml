@@ -101,12 +101,23 @@
                     </div>
                     <label class="relative inline-flex items-center cursor-pointer">
                         <input type="hidden" name="Input.IsActive" value="false" />
-                        <input type="checkbox"
-                               id="Input_IsActive"
-                               name="Input.IsActive"
-                               value="true"
-                               checked="@Model.Input.IsActive"
-                               class="sr-only peer" />
+                        @if (Model.Input.IsActive)
+                        {
+                            <input type="checkbox"
+                                   id="Input_IsActive"
+                                   name="Input.IsActive"
+                                   value="true"
+                                   checked
+                                   class="sr-only peer" />
+                        }
+                        else
+                        {
+                            <input type="checkbox"
+                                   id="Input_IsActive"
+                                   name="Input.IsActive"
+                                   value="true"
+                                   class="sr-only peer" />
+                        }
                         <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
                     </label>
                 </div>
