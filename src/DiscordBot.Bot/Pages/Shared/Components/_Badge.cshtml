@@ -2,7 +2,7 @@
 @{
     var sizeClasses = Model.Size switch
     {
-        DiscordBot.Bot.ViewModels.Components.BadgeSize.Small => "px-2 py-0.5 text-[10px]",
+        DiscordBot.Bot.ViewModels.Components.BadgeSize.Small => "px-2 py-0.5 text-xs",
         DiscordBot.Bot.ViewModels.Components.BadgeSize.Large => "px-4 py-1.5 text-sm",
         _ => "px-3 py-1 text-xs"
     };
@@ -35,7 +35,7 @@
             DiscordBot.Bot.ViewModels.Components.BadgeVariant.Orange => "bg-accent-orange text-white",
             DiscordBot.Bot.ViewModels.Components.BadgeVariant.Blue => "bg-accent-blue text-white",
             DiscordBot.Bot.ViewModels.Components.BadgeVariant.Success => "bg-success text-white",
-            DiscordBot.Bot.ViewModels.Components.BadgeVariant.Warning => "bg-warning text-white",
+            DiscordBot.Bot.ViewModels.Components.BadgeVariant.Warning => "bg-warning text-bg-primary",
             DiscordBot.Bot.ViewModels.Components.BadgeVariant.Error => "bg-error text-white",
             DiscordBot.Bot.ViewModels.Components.BadgeVariant.Info => "bg-info text-white",
             _ => "bg-bg-tertiary text-text-secondary"

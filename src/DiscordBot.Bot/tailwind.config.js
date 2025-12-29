@@ -20,6 +20,7 @@ module.exports = {
           primary: '#d7d3d0',
           secondary: '#a8a5a3',
           tertiary: '#7a7876',
+          placeholder: '#8a8886',
           inverse: '#1d2022',
         },
         // Brand accent colors
