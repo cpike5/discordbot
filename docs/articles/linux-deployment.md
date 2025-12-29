@@ -594,9 +594,60 @@ sudo ufw status
 
 ## Updating the Application
 
-### Manual Update Script
+### Recommended: Deploy from Release Tags
 
-Create an update script:
+The repository includes a deployment script that deploys from stable release tags rather than the main branch. This ensures production environments run tested, versioned releases.
+
+**Features:**
+- Deploys from GitHub release tags (not main branch)
+- Automatic backup with rotation (keeps last 5)
+- Automatic rollback if service fails to start
+- Preserves `appsettings.Production.json` through updates
+- Version checking without deploying
+
+#### Initial Setup
+
+Download the deployment script to your server:
+
+```bash
+# Download the script
+sudo curl -o /opt/discordbot/update-from-release.sh \
+    https://raw.githubusercontent.com/cpike5/discordbot/main/deployment/update-from-release.sh
+
+sudo chmod +x /opt/discordbot/update-from-release.sh
+```
+
+#### Usage
+
+```bash
+# Check current vs latest version (no deployment)
+/opt/discordbot/update-from-release.sh --check
+
+# Deploy latest release
+sudo /opt/discordbot/update-from-release.sh
+
+# Deploy specific version
+sudo /opt/discordbot/update-from-release.sh v0.3.6
+
+# Force redeploy even if already on that version
+sudo /opt/discordbot/update-from-release.sh --force
+```
+
+#### What the Script Does
+
+1. Fetches the latest release tag from GitHub (or uses the version you specify)
+2. Stops the discordbot service
+3. Creates a timestamped backup in `/opt/discordbot-backups/`
+4. Clones the repository at the specified tag
+5. Builds the application
+6. Deploys to `/opt/discordbot/`
+7. Restores preserved configuration files
+8. Starts the service and verifies it's running
+9. Rolls back automatically if the service fails to start
+
+### Alternative: Manual Update from Main Branch
+
+If you prefer to deploy from the main branch (latest code, may be unstable):
 
 ```bash
 sudo nano /opt/discordbot/update.sh

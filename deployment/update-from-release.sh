@@ -1,0 +1,309 @@
+#!/bin/bash
+# =============================================================================
+# Discord Bot Deployment Script - Deploy from Latest Release
+# =============================================================================
+# This script deploys the Discord Bot from the latest GitHub release tag,
+# rather than the current main branch. This ensures production deployments
+# use stable, versioned releases.
+#
+# Usage:
+#   ./update-from-release.sh              # Deploy latest release
+#   ./update-from-release.sh v0.3.6       # Deploy specific version
+#   ./update-from-release.sh --check      # Check latest release without deploying
+#
+# =============================================================================
+
+set -e
+
+# Configuration
+APP_DIR="/opt/discordbot"
+BACKUP_DIR="/opt/discordbot-backups"
+REPO_URL="https://github.com/cpike5/discordbot.git"
+SERVICE_NAME="discordbot"
+MAX_BACKUPS=5
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Get the latest release tag from GitHub
+get_latest_release() {
+    local latest
+    latest=$(curl -s "https://api.github.com/repos/cpike5/discordbot/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+
+    if [ -z "$latest" ]; then
+        # Fallback to git ls-remote if API fails
+        latest=$(git ls-remote --tags --sort=-v:refname "$REPO_URL" | head -n1 | sed 's/.*refs\/tags\///' | sed 's/\^{}//')
+    fi
+
+    echo "$latest"
+}
+
+# Get current installed version
+get_current_version() {
+    if [ -f "$APP_DIR/version.txt" ]; then
+        cat "$APP_DIR/version.txt"
+    elif [ -f "$APP_DIR/DiscordBot.Bot.dll" ]; then
+        # Try to extract version from assembly
+        echo "unknown"
+    else
+        echo "not installed"
+    fi
+}
+
+# Check if running as root or with sudo
+check_privileges() {
+    if [ "$EUID" -ne 0 ]; then
+        log_error "This script must be run with sudo or as root"
+        exit 1
+    fi
+}
+
+# Cleanup old backups, keeping only the most recent ones
+cleanup_old_backups() {
+    log_info "Cleaning up old backups (keeping last $MAX_BACKUPS)..."
+
+    if [ -d "$BACKUP_DIR" ]; then
+        local backup_count
+        backup_count=$(ls -1d "$BACKUP_DIR"/discordbot.backup.* 2>/dev/null | wc -l)
+
+        if [ "$backup_count" -gt "$MAX_BACKUPS" ]; then
+            ls -1dt "$BACKUP_DIR"/discordbot.backup.* | tail -n +$((MAX_BACKUPS + 1)) | xargs rm -rf
+            log_info "Removed $((backup_count - MAX_BACKUPS)) old backup(s)"
+        fi
+    fi
+}
+
+# Main deployment function
+deploy_release() {
+    local target_version="$1"
+    local current_version
+    local temp_dir="/tmp/discordbot-deploy-$$"
+
+    check_privileges
+
+    # Get current version
+    current_version=$(get_current_version)
+    log_info "Current version: $current_version"
+
+    # Determine target version
+    if [ -z "$target_version" ]; then
+        target_version=$(get_latest_release)
+        if [ -z "$target_version" ]; then
+            log_error "Could not determine latest release. Check your internet connection or specify a version manually."
+            exit 1
+        fi
+    fi
+
+    log_info "Target version: $target_version"
+
+    # Check if already on target version
+    if [ "$current_version" = "$target_version" ]; then
+        log_warn "Already running version $target_version. Use --force to redeploy."
+        if [ "$FORCE_DEPLOY" != "true" ]; then
+            exit 0
+        fi
+    fi
+
+    # Create temp directory
+    mkdir -p "$temp_dir"
+    cd "$temp_dir"
+
+    log_info "Cloning repository..."
+    git clone --depth 1 --branch "$target_version" "$REPO_URL" discordbot
+
+    if [ ! -d "discordbot" ]; then
+        log_error "Failed to clone repository at tag $target_version"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    cd discordbot
+
+    log_info "Building release..."
+    dotnet publish src/DiscordBot.Bot/DiscordBot.Bot.csproj \
+        -c Release \
+        -o "$temp_dir/publish" \
+        --no-self-contained
+
+    if [ ! -f "$temp_dir/publish/DiscordBot.Bot.dll" ]; then
+        log_error "Build failed - DiscordBot.Bot.dll not found"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    log_info "Stopping $SERVICE_NAME service..."
+    systemctl stop "$SERVICE_NAME" || log_warn "Service was not running"
+
+    # Create backup
+    if [ -d "$APP_DIR" ]; then
+        log_info "Creating backup..."
+        mkdir -p "$BACKUP_DIR"
+        local backup_name="discordbot.backup.$(date +%Y%m%d_%H%M%S)"
+        cp -r "$APP_DIR" "$BACKUP_DIR/$backup_name"
+        log_success "Backup created: $BACKUP_DIR/$backup_name"
+
+        # Cleanup old backups
+        cleanup_old_backups
+    fi
+
+    log_info "Deploying new version..."
+    mkdir -p "$APP_DIR"
+
+    # Preserve configuration files
+    local preserved_files=()
+    if [ -f "$APP_DIR/appsettings.Production.json" ]; then
+        cp "$APP_DIR/appsettings.Production.json" "$temp_dir/appsettings.Production.json.bak"
+        preserved_files+=("appsettings.Production.json")
+    fi
+
+    # Deploy new files
+    rm -rf "${APP_DIR:?}"/*
+    cp -r "$temp_dir/publish/"* "$APP_DIR/"
+
+    # Restore preserved configuration
+    for file in "${preserved_files[@]}"; do
+        if [ -f "$temp_dir/$file.bak" ]; then
+            cp "$temp_dir/$file.bak" "$APP_DIR/$file"
+            log_info "Restored: $file"
+        fi
+    done
+
+    # Write version file
+    echo "$target_version" > "$APP_DIR/version.txt"
+
+    # Set ownership
+    chown -R discordbot:discordbot "$APP_DIR"
+
+    log_info "Starting $SERVICE_NAME service..."
+    systemctl start "$SERVICE_NAME"
+
+    # Wait a moment for service to start
+    sleep 3
+
+    # Verify service is running
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+        log_success "Service started successfully"
+    else
+        log_error "Service failed to start. Check logs with: journalctl -u $SERVICE_NAME -n 50"
+        log_info "Rolling back to previous version..."
+
+        # Rollback
+        if [ -d "$BACKUP_DIR/$backup_name" ]; then
+            rm -rf "${APP_DIR:?}"/*
+            cp -r "$BACKUP_DIR/$backup_name/"* "$APP_DIR/"
+            chown -R discordbot:discordbot "$APP_DIR"
+            systemctl start "$SERVICE_NAME"
+            log_warn "Rolled back to previous version"
+        fi
+
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    # Cleanup
+    log_info "Cleaning up temporary files..."
+    rm -rf "$temp_dir"
+
+    log_success "================================================"
+    log_success "Deployment complete!"
+    log_success "Version: $target_version"
+    log_success "================================================"
+
+    # Show service status
+    systemctl status "$SERVICE_NAME" --no-pager -l
+}
+
+# Show check mode (display versions without deploying)
+check_versions() {
+    local current_version
+    local latest_version
+
+    current_version=$(get_current_version)
+    latest_version=$(get_latest_release)
+
+    echo ""
+    echo "Discord Bot Version Check"
+    echo "========================="
+    echo "Current installed: $current_version"
+    echo "Latest release:    $latest_version"
+    echo ""
+
+    if [ "$current_version" = "$latest_version" ]; then
+        log_success "You are running the latest version"
+    elif [ "$current_version" = "not installed" ]; then
+        log_info "Bot is not installed. Run: sudo $0 $latest_version"
+    else
+        log_info "Update available! Run: sudo $0"
+    fi
+}
+
+# Show usage
+show_usage() {
+    echo "Discord Bot Deployment Script"
+    echo ""
+    echo "Usage:"
+    echo "  $0                    Deploy latest release"
+    echo "  $0 <version>          Deploy specific version (e.g., v0.3.6)"
+    echo "  $0 --check            Check versions without deploying"
+    echo "  $0 --force            Force redeploy even if version matches"
+    echo "  $0 --help             Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  sudo $0               # Deploy latest release"
+    echo "  sudo $0 v0.3.6        # Deploy version v0.3.6"
+    echo "  $0 --check            # Check what's available"
+}
+
+# Parse arguments
+FORCE_DEPLOY="false"
+TARGET_VERSION=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --check|-c)
+            check_versions
+            exit 0
+            ;;
+        --force|-f)
+            FORCE_DEPLOY="true"
+            shift
+            ;;
+        --help|-h)
+            show_usage
+            exit 0
+            ;;
+        v*)
+            TARGET_VERSION="$1"
+            shift
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+# Run deployment
+deploy_release "$TARGET_VERSION"
