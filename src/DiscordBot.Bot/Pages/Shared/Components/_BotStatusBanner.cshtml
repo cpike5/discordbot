@@ -1,0 +1,84 @@
+@model DiscordBot.Bot.ViewModels.Components.BotStatusBannerViewModel
+@{
+    var bannerClass = Model.IsOnline ? "bot-status-banner" : "bot-status-banner offline";
+    var iconColor = Model.IsOnline ? "text-success" : "text-error";
+    var iconBgColor = Model.IsOnline ? "bg-success/20" : "bg-error/20";
+    var statusBadgeBg = Model.IsOnline ? "bg-success/20" : "bg-error/20";
+    var statusBadgeText = Model.IsOnline ? "text-success" : "text-error";
+    var statusDotColor = Model.IsOnline ? "bg-success" : "bg-error";
+    var statusHeading = Model.IsOnline ? "Bot is Online" : "Bot is Offline";
+
+    // Format the server/member summary text
+    var summaryText = Model.IsOnline
+        ? $"Connected to {Model.ServerCount:N0} {(Model.ServerCount == 1 ? "server" : "servers")} with {Model.TotalMembers:N0} total {(Model.TotalMembers == 1 ? "member" : "members")}"
+        : "Not currently connected to Discord";
+}
+
+<div class="@bannerClass mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <!-- Status Info Section -->
+        <div class="flex items-center gap-4">
+            <!-- Icon -->
+            <div class="w-12 h-12 rounded-xl @iconBgColor flex items-center justify-center">
+                @if (Model.IsOnline)
+                {
+                    <!-- Shield Check Icon (Online) -->
+                    <svg class="w-6 h-6 @iconColor" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                }
+                else
+                {
+                    <!-- Shield Exclamation Icon (Offline) -->
+                    <svg class="w-6 h-6 @iconColor" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
+                    </svg>
+                }
+            </div>
+
+            <!-- Text Content -->
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-semibold text-text-primary">@statusHeading</h2>
+                    <!-- Status Badge -->
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold @statusBadgeText @statusBadgeBg rounded-full">
+                        @if (Model.IsOnline)
+                        {
+                            <span class="w-1.5 h-1.5 @statusDotColor rounded-full animate-pulse"></span>
+                        }
+                        else
+                        {
+                            <span class="w-1.5 h-1.5 @statusDotColor rounded-full"></span>
+                        }
+                        @Model.StatusText
+                    </span>
+                </div>
+                <p class="text-sm text-text-secondary mt-0.5">@summaryText</p>
+            </div>
+        </div>
+
+        <!-- Metrics Section -->
+        @if (Model.IsOnline)
+        {
+            <div class="flex items-center gap-6 text-sm">
+                <!-- Uptime -->
+                <div class="text-center">
+                    <p class="font-semibold text-text-primary">@Model.UptimeDisplay</p>
+                    <p class="text-xs text-text-tertiary">Uptime</p>
+                </div>
+
+                <!-- Version -->
+                <div class="text-center">
+                    <p class="font-semibold text-text-primary">@Model.Version</p>
+                    <p class="text-xs text-text-tertiary">Version</p>
+                </div>
+
+                <!-- Latency -->
+                <div class="text-center">
+                    <p class="font-semibold text-text-primary">@Model.LatencyMs<span class="text-text-tertiary">ms</span></p>
+                    <p class="text-xs text-text-tertiary">Latency</p>
+                </div>
+            </div>
+        }
+    </div>
+</div>

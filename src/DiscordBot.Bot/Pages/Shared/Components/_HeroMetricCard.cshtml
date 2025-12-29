@@ -1,0 +1,114 @@
+@model DiscordBot.Bot.ViewModels.Components.HeroMetricCardViewModel
+@{
+    // Build accent class based on AccentColor enum
+    var accentClass = Model.AccentColor switch
+    {
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Blue => "accent-blue",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Orange => "accent-orange",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Success => "accent-success",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Info => "accent-info",
+        _ => "accent-blue"
+    };
+
+    // Build trend class based on TrendDirection enum
+    var trendClass = Model.TrendDirection switch
+    {
+        DiscordBot.Bot.ViewModels.Components.TrendDirection.Up => "trend-up",
+        DiscordBot.Bot.ViewModels.Components.TrendDirection.Down => "trend-down",
+        DiscordBot.Bot.ViewModels.Components.TrendDirection.Neutral => "trend-neutral",
+        _ => "trend-neutral"
+    };
+
+    // Get appropriate arrow/icon SVG based on trend direction
+    var trendIconSvg = Model.TrendDirection switch
+    {
+        DiscordBot.Bot.ViewModels.Components.TrendDirection.Up =>
+            "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 10l7-7m0 0l7 7m-7-7v18\" />",
+        DiscordBot.Bot.ViewModels.Components.TrendDirection.Down =>
+            "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 14l-7 7m0 0l-7-7m7 7V3\" />",
+        DiscordBot.Bot.ViewModels.Components.TrendDirection.Neutral =>
+            "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M20 12H4\" />",
+        _ => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M20 12H4\" />"
+    };
+
+    // Build icon background class based on accent color
+    var iconBgClass = Model.AccentColor switch
+    {
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Blue => "bg-accent-blue/10",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Orange => "bg-accent-orange/10",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Success => "bg-success/10",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Info => "bg-info/10",
+        _ => "bg-accent-blue/10"
+    };
+
+    // Build icon text color class based on accent color
+    var iconTextClass = Model.AccentColor switch
+    {
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Blue => "text-accent-blue",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Orange => "text-accent-orange",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Success => "text-success",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Info => "text-info",
+        _ => "text-accent-blue"
+    };
+
+    // Build sparkline bar color based on accent color (CSS variable)
+    var sparklineColorVar = Model.AccentColor switch
+    {
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Blue => "var(--color-accent-blue)",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Orange => "var(--color-accent-orange)",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Success => "var(--color-success)",
+        DiscordBot.Bot.ViewModels.Components.CardAccent.Info => "var(--color-info)",
+        _ => "var(--color-accent-blue)"
+    };
+
+    // Combine card classes
+    var cardClasses = $"hero-metric-card {accentClass} {Model.CssClass ?? ""}".Trim();
+}
+
+<div class="@cardClasses"
+     @(string.IsNullOrEmpty(Model.Id) ? "" : $"id=\"{Model.Id}\"")>
+    <div class="flex items-start justify-between">
+        <div>
+            <p class="text-sm font-medium text-text-secondary">@Model.Title</p>
+            <p class="mt-2 text-3xl font-bold text-text-primary">@Model.Value</p>
+
+            @if (!string.IsNullOrEmpty(Model.TrendValue) || !string.IsNullOrEmpty(Model.TrendLabel))
+            {
+                <div class="mt-2 flex items-center gap-1.5">
+                    @if (!string.IsNullOrEmpty(Model.TrendValue))
+                    {
+                        <span class="@trendClass flex items-center gap-1 text-xs font-medium">
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                @Html.Raw(trendIconSvg)
+                            </svg>
+                            @Model.TrendValue
+                        </span>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.TrendLabel))
+                    {
+                        <span class="text-xs text-text-tertiary">@Model.TrendLabel</span>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.IconSvg))
+        {
+            <div class="p-3 @iconBgClass rounded-xl">
+                <svg class="w-6 h-6 @iconTextClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    @Html.Raw(Model.IconSvg)
+                </svg>
+            </div>
+        }
+    </div>
+
+    @if (Model.ShowSparkline && Model.SparklineData.Any())
+    {
+        <div class="sparkline mt-4" aria-hidden="true">
+            @foreach (var height in Model.SparklineData)
+            {
+                <div class="sparkline-bar" style="height: @(height)%; background-color: @sparklineColorVar"></div>
+            }
+        </div>
+    }
+</div>
