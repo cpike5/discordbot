@@ -51,7 +51,7 @@ public class IndexModel : PageModel
     /// <summary>
     /// Current page number (1-based).
     /// </summary>
-    [BindProperty(SupportsGet = true, Name = "page")]
+    [BindProperty(SupportsGet = true, Name = "pageNumber")]
     public int CurrentPage { get; set; } = 1;
 
     /// <summary>

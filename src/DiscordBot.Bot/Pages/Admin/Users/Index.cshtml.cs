@@ -37,7 +37,7 @@ public class IndexModel : PageModel
     [BindProperty(SupportsGet = true)]
     public bool? DiscordLinkedFilter { get; set; }
 
-    [BindProperty(SupportsGet = true)]
+    [BindProperty(SupportsGet = true, Name = "pageNumber")]
     public int CurrentPage { get; set; } = 1;
 
     [BindProperty(SupportsGet = true)]

@@ -345,17 +345,19 @@
                     SortDescending = Model.SortDescending,
                     PageSize = Model.PageSize
                 }) ?? string.Empty;
+                var paginationModel = new PaginationViewModel {
+                    CurrentPage = Model.ViewModel.CurrentPage,
+                    TotalPages = Model.ViewModel.TotalPages,
+                    TotalItems = Model.ViewModel.TotalCount,
+                    PageSize = Model.ViewModel.PageSize,
+                    BaseUrl = baseUrl,
+                    Style = PaginationStyle.Full,
+                    ShowPageSizeSelector = true,
+                    ShowItemCount = true,
+                    PageParameterName = "pageNumber"
+                };
             }
-            <partial name="Shared/Components/_Pagination" model="new PaginationViewModel {
-                CurrentPage = Model.ViewModel.CurrentPage,
-                TotalPages = Model.ViewModel.TotalPages,
-                TotalItems = Model.ViewModel.TotalCount,
-                PageSize = Model.ViewModel.PageSize,
-                BaseUrl = baseUrl,
-                Style = PaginationStyle.Full,
-                ShowPageSizeSelector = true,
-                ShowItemCount = true
-            }" />
+            <partial name="Shared/Components/_Pagination" model="paginationModel" />
         </div>
     }
 

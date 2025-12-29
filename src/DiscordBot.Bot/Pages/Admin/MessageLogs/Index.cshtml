@@ -286,17 +286,19 @@
                         EndDate = Model.EndDate?.ToString("yyyy-MM-dd"),
                         SearchTerm = Model.SearchTerm
                     }) ?? string.Empty;
+                    var paginationModel = new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
+                        CurrentPage = Model.ViewModel.Page,
+                        TotalPages = Model.ViewModel.TotalPages,
+                        TotalItems = Model.ViewModel.TotalCount,
+                        PageSize = Model.ViewModel.PageSize,
+                        BaseUrl = baseUrl,
+                        ShowPageSizeSelector = true,
+                        ShowItemCount = false,
+                        ShowFirstLast = true,
+                        PageParameterName = "pageNumber"
+                    };
                 }
-                <partial name="Shared/Components/_Pagination" model="new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
-                    CurrentPage = Model.ViewModel.Page,
-                    TotalPages = Model.ViewModel.TotalPages,
-                    TotalItems = Model.ViewModel.TotalCount,
-                    PageSize = Model.ViewModel.PageSize,
-                    BaseUrl = baseUrl,
-                    ShowPageSizeSelector = true,
-                    ShowItemCount = false,
-                    ShowFirstLast = true
-                }" />
+                <partial name="Shared/Components/_Pagination" model="paginationModel" />
             </div>
         }
     </div>
