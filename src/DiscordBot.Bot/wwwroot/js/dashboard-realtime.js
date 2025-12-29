@@ -98,7 +98,8 @@ const DashboardRealtime = (function() {
         updateElement(card, '[data-guild-count]', data.guildCount);
         updateElement(card, '[data-last-updated]', 'Just now');
 
-        triggerUpdatePulse(card);
+        // Don't apply pulse animation to bot status banner - it updates frequently
+        // and already has visual status indicators (dot, colors)
     }
 
     function handleCommandExecuted(data) {
