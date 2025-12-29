@@ -6,6 +6,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Components.Enums;
+using static DiscordBot.Bot.ViewModels.Components.Enums.ServerConnectionStatus;
 
 namespace DiscordBot.Bot.Pages;
 
@@ -29,6 +30,7 @@ public class IndexModel : PageModel
     public BotStatusBannerViewModel BotStatusBanner { get; private set; } = default!;
     public List<HeroMetricCardViewModel> HeroMetrics { get; private set; } = new();
     public ActivityFeedTimelineViewModel ActivityTimeline { get; private set; } = default!;
+    public ConnectedServersWidgetViewModel ConnectedServers { get; private set; } = default!;
 
     public IndexModel(
         ILogger<IndexModel> logger,
@@ -137,10 +139,15 @@ public class IndexModel : PageModel
             }
         };
 
+        // Get command counts by guild for today
+        var todayStart = DateTime.UtcNow.Date;
+        var commandCountsByGuild = await _commandLogService.GetCommandCountsByGuildAsync(todayStart);
+
         // Build Dashboard Redesign ViewModels
         BuildBotStatusBanner(statusDto, guilds);
         BuildHeroMetrics(guilds, CommandStats.TotalCommands);
         BuildActivityTimeline(recentLogsResponse.Items);
+        BuildConnectedServersWidget(guilds, commandCountsByGuild);
     }
 
 
@@ -191,6 +198,95 @@ public class IndexModel : PageModel
             Timestamp = log.ExecutedAt
         }).ToList();
         ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = "/CommandLogs", MaxHeight = "400px" };
+    }
+
+    private void BuildConnectedServersWidget(IEnumerable<GuildDto> guilds, IDictionary<ulong, int> commandCountsByGuild)
+    {
+        var guildList = guilds.ToList();
+
+        // Gradient palette for avatar initials
+        var gradients = new[]
+        {
+            "from-purple-500 to-pink-500",
+            "from-blue-500 to-cyan-500",
+            "from-orange-500 to-red-500",
+            "from-green-500 to-emerald-500",
+            "from-indigo-500 to-purple-500",
+            "from-yellow-500 to-orange-500"
+        };
+
+        var serverItems = guildList.Select(guild =>
+        {
+            var commandsToday = commandCountsByGuild.TryGetValue(guild.Id, out var count) ? count : 0;
+
+            // Determine status
+            var status = ServerConnectionStatus.Offline;
+            if (guild.IsActive)
+            {
+                status = commandsToday > 0 ? ServerConnectionStatus.Online : ServerConnectionStatus.Idle;
+            }
+
+            // Generate initials from guild name
+            var initials = GenerateInitials(guild.Name);
+
+            // Select gradient deterministically based on guild ID
+            var gradientIndex = (int)(guild.Id % (uint)gradients.Length);
+            var gradient = gradients[gradientIndex];
+
+            return new ConnectedServerItemViewModel
+            {
+                Id = guild.Id,
+                Name = guild.Name,
+                IconUrl = guild.IconUrl,
+                Initials = initials,
+                AvatarGradient = gradient,
+                MemberCount = guild.MemberCount ?? 0,
+                Status = status,
+                CommandsToday = commandsToday,
+                DetailUrl = $"/Servers/{guild.Id}"
+            };
+        })
+        .OrderByDescending(s => s.CommandsToday)
+        .ThenByDescending(s => s.MemberCount)
+        .Take(5)
+        .ToList();
+
+        ConnectedServers = new ConnectedServersWidgetViewModel
+        {
+            Title = "Connected Servers",
+            ViewAllUrl = "/Servers",
+            Servers = serverItems,
+            TotalServerCount = guildList.Count
+        };
+
+        _logger.LogDebug("Built Connected Servers widget with {DisplayedCount} of {TotalCount} servers",
+            serverItems.Count, guildList.Count);
+    }
+
+    private static string GenerateInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "??";
+
+        var words = name.Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+
+        if (words.Length >= 2)
+        {
+            // Take first letter of first two words
+            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[1][0])}";
+        }
+        else if (words.Length == 1 && words[0].Length >= 2)
+        {
+            // Take first two letters of single word
+            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[0][1])}";
+        }
+        else if (words.Length == 1 && words[0].Length == 1)
+        {
+            // Single character, duplicate it
+            return $"{char.ToUpper(words[0][0])}{char.ToUpper(words[0][0])}";
+        }
+
+        return "??";
     }
 
     /// <summary>

@@ -30,4 +30,12 @@ public interface ICommandLogService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The command log DTO, or null if not found.</returns>
     Task<CommandLogDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets command counts grouped by guild since a specified date.
+    /// </summary>
+    /// <param name="since">Start date for counting commands.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A dictionary mapping guild ID to command count.</returns>
+    Task<IDictionary<ulong, int>> GetCommandCountsByGuildAsync(DateTime since, CancellationToken cancellationToken = default);
 }
