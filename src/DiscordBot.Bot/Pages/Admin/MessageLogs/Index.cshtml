@@ -277,16 +277,15 @@
         {
             <div class="px-6 py-4 border-t border-border-primary">
                 @{
-                    var queryParams = new Dictionary<string, string>();
-                    if (Model.AuthorId.HasValue) queryParams["AuthorId"] = Model.AuthorId.Value.ToString();
-                    if (Model.GuildId.HasValue) queryParams["GuildId"] = Model.GuildId.Value.ToString();
-                    if (Model.ChannelId.HasValue) queryParams["ChannelId"] = Model.ChannelId.Value.ToString();
-                    if (!string.IsNullOrEmpty(Model.Source)) queryParams["Source"] = Model.Source;
-                    if (Model.StartDate.HasValue) queryParams["StartDate"] = Model.StartDate.Value.ToString("yyyy-MM-dd");
-                    if (Model.EndDate.HasValue) queryParams["EndDate"] = Model.EndDate.Value.ToString("yyyy-MM-dd");
-                    if (!string.IsNullOrEmpty(Model.SearchTerm)) queryParams["SearchTerm"] = Model.SearchTerm;
-
-                    var baseUrl = Url.Page("Index", queryParams) ?? string.Empty;
+                    var baseUrl = Url.Page("Index", new {
+                        AuthorId = Model.AuthorId,
+                        GuildId = Model.GuildId,
+                        ChannelId = Model.ChannelId,
+                        Source = Model.Source,
+                        StartDate = Model.StartDate?.ToString("yyyy-MM-dd"),
+                        EndDate = Model.EndDate?.ToString("yyyy-MM-dd"),
+                        SearchTerm = Model.SearchTerm
+                    }) ?? string.Empty;
                 }
                 <partial name="Shared/Components/_Pagination" model="new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
                     CurrentPage = Model.ViewModel.Page,
