@@ -761,6 +761,36 @@
   }
 
   /* Connection Status Indicator */
+  #connection-status[data-state="connected"] {
+    @apply bg-success/10 text-success;
+  }
+  #connection-status[data-state="connected"] .connection-dot {
+    @apply bg-success;
+  }
+  #connection-status[data-state="connected"] .connection-dot::before {
+    content: "";
+    @apply absolute inset-0 rounded-full bg-success;
+    animation: connection-pulse 2s ease-in-out infinite;
+  }
+
+  #connection-status[data-state="connecting"],
+  #connection-status[data-state="reconnecting"] {
+    @apply bg-warning/10 text-warning;
+  }
+  #connection-status[data-state="connecting"] .connection-dot,
+  #connection-status[data-state="reconnecting"] .connection-dot {
+    @apply bg-warning;
+    animation: connection-blink 1s ease-in-out infinite;
+  }
+
+  #connection-status[data-state="disconnected"] {
+    @apply bg-error/10 text-error;
+  }
+  #connection-status[data-state="disconnected"] .connection-dot {
+    @apply bg-error;
+  }
+
+  /* Legacy class-based selectors for backwards compatibility */
   .connection-status[data-state="connected"] .connection-dot {
     @apply bg-success;
   }
@@ -836,6 +866,9 @@
 
   /* Respect reduced motion preferences */
   @media (prefers-reduced-motion: reduce) {
+    #connection-status[data-state="connected"] .connection-dot::before,
+    #connection-status[data-state="connecting"] .connection-dot,
+    #connection-status[data-state="reconnecting"] .connection-dot,
     .connection-status[data-state="connected"] .connection-dot::before,
     .connection-status[data-state="connecting"] .connection-dot,
     .connection-status[data-state="reconnecting"] .connection-dot,

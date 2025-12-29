@@ -71,6 +71,14 @@
       <span>Online</span>
     </div>
 
+    <!-- Connection Status Indicator (SignalR - hidden by default, shown by JavaScript) -->
+    <div id="connection-status"
+         class="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium"
+         data-state="disconnected">
+      <span class="connection-dot relative w-2 h-2 rounded-full"></span>
+      <span class="connection-text">Disconnected</span>
+    </div>
+
     <!-- Notifications -->
     <button class="relative p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

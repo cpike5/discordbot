@@ -181,9 +181,9 @@ public class IndexModel : PageModel
         HeroMetrics = new List<HeroMetricCardViewModel>
         {
             new() { Title = "Total Servers", Value = guildList.Count.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "this week", AccentColor = CardAccent.Blue, IconSvg = serverIcon, ShowSparkline = false },
-            new() { Title = "Active Users", Value = activeUsers.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "today", AccentColor = CardAccent.Success, IconSvg = usersIcon, ShowSparkline = false },
-            new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), TrendValue = "0%", TrendDirection = TrendDirection.Neutral, TrendLabel = "vs yesterday", AccentColor = CardAccent.Orange, IconSvg = commandIcon, ShowSparkline = false },
-            new() { Title = "Uptime", Value = "99.9%", TrendValue = "", TrendDirection = TrendDirection.Up, TrendLabel = "stable", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
+            new() { Title = "Active Users", Value = activeUsers.ToString("N0"), DataAttribute = "data-active-users", TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "today", AccentColor = CardAccent.Success, IconSvg = usersIcon, ShowSparkline = false },
+            new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), DataAttribute = "data-total-commands", TrendValue = "0%", TrendDirection = TrendDirection.Neutral, TrendLabel = "vs yesterday", AccentColor = CardAccent.Orange, IconSvg = commandIcon, ShowSparkline = false },
+            new() { Title = "Uptime", Value = "99.9%", DataAttribute = "data-messages-processed", TrendValue = "", TrendDirection = TrendDirection.Up, TrendLabel = "stable", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
         };
     }
 

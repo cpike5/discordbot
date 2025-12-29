@@ -95,4 +95,10 @@ public record HeroMetricCardViewModel
     /// Additional CSS classes to apply to the card container.
     /// </summary>
     public string? CssClass { get; init; }
+
+    /// <summary>
+    /// Data attribute name for real-time updates (e.g., "data-total-commands").
+    /// When specified, this attribute is added to the value element to enable SignalR real-time updates.
+    /// </summary>
+    public string? DataAttribute { get; init; }
 }
