@@ -1,5 +1,6 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
+using System.Text.Json;
 
 namespace DiscordBot.Bot.ViewModels.Pages;
 
@@ -152,6 +153,21 @@ public record AuditLogListItem
     public string DetailsSummary { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the raw details JSON string.
+    /// </summary>
+    public string? Details { get; init; }
+
+    /// <summary>
+    /// Gets the formatted details for display (pretty-printed JSON).
+    /// </summary>
+    public string? FormattedDetails { get; init; }
+
+    /// <summary>
+    /// Gets whether the entry has details.
+    /// </summary>
+    public bool HasDetails => !string.IsNullOrWhiteSpace(Details);
+
+    /// <summary>
     /// Gets the correlation ID to group related audit log entries.
     /// </summary>
     public string? CorrelationId { get; init; }
@@ -175,6 +191,7 @@ public record AuditLogListItem
         var actionBadgeClass = GetActionBadgeClass(dto.Action);
         var actionBorderClass = GetActionBorderClass(dto.Action);
         var detailsSummary = GetDetailsSummary(dto.Details);
+        var (details, formattedDetails) = FormatDetails(dto.Details);
 
         return new AuditLogListItem
         {
@@ -193,6 +210,8 @@ public record AuditLogListItem
             TargetId = dto.TargetId ?? string.Empty,
             GuildName = dto.GuildName,
             DetailsSummary = detailsSummary,
+            Details = details,
+            FormattedDetails = formattedDetails,
             CorrelationId = dto.CorrelationId,
             IpAddress = dto.IpAddress
         };
@@ -312,6 +331,30 @@ public record AuditLogListItem
             return cleaned;
 
         return cleaned.Substring(0, maxLength) + "...";
+    }
+
+    /// <summary>
+    /// Formats the details JSON for display.
+    /// </summary>
+    /// <param name="details">The raw details JSON string.</param>
+    /// <returns>A tuple containing the raw details and the formatted (pretty-printed) details.</returns>
+    private static (string? Details, string? FormattedDetails) FormatDetails(string? details)
+    {
+        if (string.IsNullOrWhiteSpace(details))
+            return (null, null);
+
+        try
+        {
+            // Pretty-print JSON
+            var jsonElement = JsonSerializer.Deserialize<JsonElement>(details);
+            var formattedDetails = JsonSerializer.Serialize(jsonElement, new JsonSerializerOptions { WriteIndented = true });
+            return (details, formattedDetails);
+        }
+        catch
+        {
+            // If not valid JSON, use as-is
+            return (details, details);
+        }
     }
 }
 
