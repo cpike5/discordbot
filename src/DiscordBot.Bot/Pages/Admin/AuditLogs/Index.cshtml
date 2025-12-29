@@ -13,7 +13,7 @@
         transition: max-height 0.3s ease-out;
     }
     .expand-content.expanded {
-        max-height: 200px;
+        max-height: 500px;
     }
 
     /* Chevron rotation */
@@ -22,6 +22,31 @@
     }
     .chevron-icon.rotated {
         transform: rotate(90deg);
+    }
+
+    /* JSON details viewer */
+    .json-viewer {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .json-viewer.expanded {
+        max-height: none;
+    }
+    .json-collapsed-overlay {
+        position: relative;
+    }
+    .json-collapsed-overlay::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background: linear-gradient(transparent, #1e2224);
+        pointer-events: none;
+    }
+    .json-collapsed-overlay.expanded::after {
+        display: none;
     }
 </style>
 
@@ -308,7 +333,8 @@
                             <tr class="expand-content-row hidden" data-parent-id="@log.Id">
                                 <td colspan="7" class="px-6 py-0">
                                     <div class="expand-content bg-bg-primary border-l-2 @log.ActionBorderClass pl-4 py-3 my-2 rounded-r-md">
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                        <!-- Metadata Grid -->
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
                                             <div>
                                                 <span class="text-text-tertiary">Entry ID:</span>
                                                 <span class="ml-2 font-mono text-text-secondary">@log.Id</span>
@@ -334,6 +360,33 @@
                                                     <span class="ml-2 font-mono text-text-secondary">@log.TargetId</span>
                                                 </div>
                                             }
+                                        </div>
+                                        <!-- JSON Details Section -->
+                                        @if (log.HasDetails)
+                                        {
+                                            <div class="border-t border-border-secondary pt-3">
+                                                <div class="flex items-center justify-between mb-2">
+                                                    <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Details</span>
+                                                    <button type="button" class="toggle-json-btn text-xs text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1" data-target="json-@log.Id" aria-expanded="false">
+                                                        <span class="toggle-json-text">Expand</span>
+                                                        <svg class="toggle-json-icon w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                <div id="json-@log.Id" class="json-collapsed-overlay">
+                                                    <pre class="json-viewer bg-bg-tertiary rounded-md p-3 text-xs font-mono text-text-secondary overflow-x-auto">@log.FormattedDetails</pre>
+                                                </div>
+                                            </div>
+                                        }
+                                        <!-- View Details Link -->
+                                        <div class="flex justify-end mt-3 pt-3 border-t border-border-secondary">
+                                            <a asp-page="/Admin/AuditLogs/Details" asp-route-id="@log.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1">
+                                                View full details
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </a>
                                         </div>
                                     </div>
                                 </td>
@@ -444,6 +497,33 @@
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     this.click();
+                }
+            });
+        });
+
+        // Toggle JSON expand/collapse
+        document.querySelectorAll('.toggle-json-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const targetId = this.dataset.target;
+                const container = document.getElementById(targetId);
+                const jsonViewer = container?.querySelector('.json-viewer');
+                const toggleText = this.querySelector('.toggle-json-text');
+                const toggleIcon = this.querySelector('.toggle-json-icon');
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+                if (isExpanded) {
+                    container?.classList.remove('expanded');
+                    jsonViewer?.classList.remove('expanded');
+                    if (toggleText) toggleText.textContent = 'Expand';
+                    if (toggleIcon) toggleIcon.style.transform = 'rotate(0deg)';
+                    this.setAttribute('aria-expanded', 'false');
+                } else {
+                    container?.classList.add('expanded');
+                    jsonViewer?.classList.add('expanded');
+                    if (toggleText) toggleText.textContent = 'Collapse';
+                    if (toggleIcon) toggleIcon.style.transform = 'rotate(180deg)';
+                    this.setAttribute('aria-expanded', 'true');
                 }
             });
         });
