@@ -18,6 +18,7 @@ public class IndexModel : PageModel
     private readonly IGuildService _guildService;
     private readonly ICommandLogService _commandLogService;
     private readonly IAuditLogService _auditLogService;
+    private readonly IVersionService _versionService;
 
     public BotStatusViewModel BotStatus { get; private set; } = default!;
     public GuildStatsViewModel GuildStats { get; private set; } = default!;
@@ -37,13 +38,15 @@ public class IndexModel : PageModel
         IBotService botService,
         IGuildService guildService,
         ICommandLogService commandLogService,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        IVersionService versionService)
     {
         _logger = logger;
         _botService = botService;
         _guildService = guildService;
         _commandLogService = commandLogService;
         _auditLogService = auditLogService;
+        _versionService = versionService;
     }
 
     public async Task OnGetAsync()
@@ -162,7 +165,7 @@ public class IndexModel : PageModel
             ServerCount = guildList.Count,
             TotalMembers = totalMembers,
             UptimeDisplay = BotStatusViewModel.FormatUptime(statusDto.Uptime),
-            Version = "v0.3.3",
+            Version = _versionService.GetVersion(),
             LatencyMs = statusDto.LatencyMs
         };
     }
