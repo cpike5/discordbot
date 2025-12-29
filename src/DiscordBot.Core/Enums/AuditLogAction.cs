@@ -78,5 +78,25 @@ public enum AuditLogAction
     /// <summary>
     /// A role was removed from a user.
     /// </summary>
-    RoleRemoved = 15
+    RoleRemoved = 15,
+
+    /// <summary>
+    /// The Discord bot has started.
+    /// </summary>
+    BotStarted = 16,
+
+    /// <summary>
+    /// The Discord bot has stopped.
+    /// </summary>
+    BotStopped = 17,
+
+    /// <summary>
+    /// The Discord bot connected to the Discord gateway.
+    /// </summary>
+    BotConnected = 18,
+
+    /// <summary>
+    /// The Discord bot disconnected from the Discord gateway.
+    /// </summary>
+    BotDisconnected = 19
 }
