@@ -1082,6 +1082,21 @@
     display: none;
   }
 
+  .sidebar-redesign.collapsed .bot-status-footer {
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .sidebar-redesign.collapsed .bot-status-container {
+    padding: 0.75rem;
+    background: transparent;
+  }
+
+  .sidebar-redesign.collapsed .bot-status-content {
+    justify-content: center;
+    gap: 0;
+  }
+
   /* Dashboard Redesign - Early Collapsed State (via html class for FOUC prevention) */
   /* These rules apply when the sidebar should be collapsed BEFORE JavaScript runs */
   @media (min-width: 1024px) {
@@ -1104,6 +1119,21 @@
     html.sidebar-collapsed .sidebar-link-redesign {
       justify-content: center;
       padding: 0.75rem;
+    }
+
+    html.sidebar-collapsed .bot-status-footer {
+      padding-top: 0.75rem;
+      margin-top: 0.75rem;
+    }
+
+    html.sidebar-collapsed .bot-status-container {
+      padding: 0.75rem;
+      background: transparent;
+    }
+
+    html.sidebar-collapsed .bot-status-content {
+      justify-content: center;
+      gap: 0;
     }
   }
 
