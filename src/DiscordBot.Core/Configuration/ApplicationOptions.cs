@@ -1,3 +1,5 @@
+using System.Reflection;
+
 namespace DiscordBot.Core.Configuration;
 
 /// <summary>
@@ -30,7 +32,17 @@ public class ApplicationOptions
 
     /// <summary>
     /// Gets or sets the application version displayed in the UI.
-    /// Default is "0.1.0".
+    /// Defaults to the InformationalVersion from the entry assembly.
     /// </summary>
-    public string Version { get; set; } = "0.1.0";
+    public string Version { get; set; } = GetDefaultVersion();
+
+    /// <summary>
+    /// Gets the default version from the entry assembly's InformationalVersion attribute.
+    /// </summary>
+    private static string GetDefaultVersion()
+    {
+        return Assembly.GetEntryAssembly()?
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion ?? "Unknown";
+    }
 }
