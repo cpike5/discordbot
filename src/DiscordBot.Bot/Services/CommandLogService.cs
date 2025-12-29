@@ -115,6 +115,18 @@ public class CommandLogService : ICommandLogService
         return MapToDto(log);
     }
 
+    /// <inheritdoc/>
+    public async Task<IDictionary<ulong, int>> GetCommandCountsByGuildAsync(DateTime since, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving command counts by guild since {Since}", since);
+
+        var counts = await _commandLogRepository.GetCommandCountsByGuildAsync(since, cancellationToken);
+
+        _logger.LogInformation("Retrieved command counts for {GuildCount} guilds", counts.Count);
+
+        return counts;
+    }
+
     /// <summary>
     /// Maps a CommandLog entity to a CommandLogDto.
     /// </summary>

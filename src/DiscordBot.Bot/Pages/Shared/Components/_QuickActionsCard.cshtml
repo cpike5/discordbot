@@ -5,17 +5,16 @@
     var visibleActions = Model.Actions.Where(a => !a.IsAdminOnly || Model.UserIsAdmin).ToList();
 }
 
-<!-- Quick Actions Card -->
-<div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+<!-- Quick Actions Panel -->
+<div class="bg-bg-secondary border border-border-primary rounded-xl p-6">
     <h2 class="text-lg font-semibold text-text-primary mb-4">@Model.Title</h2>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
         @foreach (var action in visibleActions)
         {
             @if (action.ActionType == QuickActionType.Link)
             {
-                <a href="@action.Href"
-                   class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-@GetColorClass(action.Color)/50 hover:bg-bg-hover transition-colors group">
-                    <div class="p-3 bg-@GetColorClass(action.Color)/10 rounded-lg group-hover:bg-@GetColorClass(action.Color)/20 transition-colors">
+                <a href="@action.Href" class="quick-action-card">
+                    <div class="quick-action-icon bg-@GetColorClass(action.Color)/10">
                         <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
                         </svg>
@@ -29,8 +28,8 @@
                 {
                     <button type="button"
                             onclick="window.quickActions?.showConfirmationModal('@action.ConfirmationModalId')"
-                            class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-@GetColorClass(action.Color)/50 hover:bg-bg-hover transition-colors group">
-                        <div class="p-3 bg-@GetColorClass(action.Color)/10 rounded-lg group-hover:bg-@GetColorClass(action.Color)/20 transition-colors">
+                            class="quick-action-card">
+                        <div class="quick-action-icon bg-@GetColorClass(action.Color)/10">
                             <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
                             </svg>
@@ -43,8 +42,8 @@
                     <button type="button"
                             data-handler="@action.Handler"
                             onclick="window.quickActions?.submitQuickAction('@action.Handler', this)"
-                            class="flex flex-col items-center gap-2 p-4 bg-bg-primary border border-border-primary rounded-lg hover:border-@GetColorClass(action.Color)/50 hover:bg-bg-hover transition-colors group">
-                        <div class="p-3 bg-@GetColorClass(action.Color)/10 rounded-lg group-hover:bg-@GetColorClass(action.Color)/20 transition-colors">
+                            class="quick-action-card">
+                        <div class="quick-action-icon bg-@GetColorClass(action.Color)/10">
                             <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
                             </svg>
@@ -64,8 +63,10 @@
         {
             QuickActionColor.Orange => "accent-orange",
             QuickActionColor.Blue => "accent-blue",
-            QuickActionColor.Green => "success",
+            QuickActionColor.Success => "success",
             QuickActionColor.Warning => "warning",
+            QuickActionColor.Info => "info",
+            QuickActionColor.Error => "error",
             QuickActionColor.Gray => "text-tertiary",
             _ => "accent-blue"
         };

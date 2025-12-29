@@ -14,7 +14,7 @@
 }
 
 <!-- Command Usage Statistics Card -->
-<div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-command-stats-card>
+<div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden h-full flex flex-col" data-command-stats-card>
     <!-- Card Header -->
     <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
         <div class="flex items-center gap-3">
@@ -27,6 +27,12 @@
         </div>
         <div class="flex items-center gap-3">
             <label for="commandTimeRange" class="sr-only">Select time range</label>
+            @{
+                var is24Selected = Model.TimeRangeHours == 24;
+                var is168Selected = Model.TimeRangeHours == 168;
+                var is720Selected = Model.TimeRangeHours == 720;
+                var isAllTimeSelected = !Model.TimeRangeHours.HasValue;
+            }
             <select
                 id="commandTimeRange"
                 class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer appearance-none pr-8"
@@ -34,16 +40,44 @@
                 aria-label="Select time range for statistics"
                 data-time-range-selector
             >
-                <option value="24" selected="@(Model.TimeRangeHours == 24)">Last 24 hours</option>
-                <option value="168" selected="@(Model.TimeRangeHours == 168)">Last 7 days</option>
-                <option value="720" selected="@(Model.TimeRangeHours == 720)">Last 30 days</option>
-                <option value="" selected="@(!Model.TimeRangeHours.HasValue)">All time</option>
+                @if (is24Selected)
+                {
+                    <option value="24" selected>Last 24 hours</option>
+                }
+                else
+                {
+                    <option value="24">Last 24 hours</option>
+                }
+                @if (is168Selected)
+                {
+                    <option value="168" selected>Last 7 days</option>
+                }
+                else
+                {
+                    <option value="168">Last 7 days</option>
+                }
+                @if (is720Selected)
+                {
+                    <option value="720" selected>Last 30 days</option>
+                }
+                else
+                {
+                    <option value="720">Last 30 days</option>
+                }
+                @if (isAllTimeSelected)
+                {
+                    <option value="" selected>All time</option>
+                }
+                else
+                {
+                    <option value="">All time</option>
+                }
             </select>
         </div>
     </div>
 
     <!-- Card Body -->
-    <div class="p-5">
+    <div class="p-5 flex-grow">
         <!-- Total Count Display -->
         <div class="mb-6 p-4 bg-bg-primary/50 rounded-lg border border-border-secondary">
             <div class="flex items-center justify-between">
@@ -59,24 +93,19 @@
             </div>
         </div>
 
-        @if (Model.TopCommands.Any())
-        {
-            <!-- Chart Container -->
-            <div style="position: relative; min-height: 300px; max-height: 400px;">
-                <canvas id="commandUsageChart" aria-label="Horizontal bar chart showing top 10 commands by usage count" role="img"></canvas>
-            </div>
-        }
-        else
-        {
-            <!-- Empty State -->
-            <div class="py-12 text-center">
-                <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <p class="text-text-secondary font-medium">No command data available</p>
-                <p class="text-sm text-text-tertiary mt-1">Commands will appear here once they are executed</p>
-            </div>
-        }
+        <!-- Chart Container - always rendered, visibility controlled by CSS/JS -->
+        <div style="position: relative; min-height: 300px; max-height: 400px; @(Model.TopCommands.Any() ? "" : "display: none;")">
+            <canvas id="commandUsageChart" aria-label="Horizontal bar chart showing top 10 commands by usage count" role="img"></canvas>
+        </div>
+
+        <!-- Empty State - always rendered, visibility controlled by CSS/JS -->
+        <div class="py-12 text-center" data-empty-state style="@(Model.TopCommands.Any() ? "display: none;" : "")">
+            <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p class="text-text-secondary font-medium">No command data available</p>
+            <p class="text-sm text-text-tertiary mt-1">Commands will appear here once they are executed</p>
+        </div>
     </div>
 
     <!-- Card Footer -->

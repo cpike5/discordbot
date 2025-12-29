@@ -11,36 +11,33 @@
         <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Dashboard</h1>
         <p class="mt-1 text-text-secondary">Welcome back! Here's an overview of your bot's performance.</p>
     </div>
-    <div>
-        <partial name="Shared/Components/_ConnectionStatus" model="@(new DiscordBot.Bot.ViewModels.Components.ConnectionStatusViewModel())" />
+</div>
+
+<!-- Bot Status Banner -->
+<div class="mb-8">
+    <partial name="Shared/Components/_BotStatusBanner" model="Model.BotStatusBanner" />
+</div>
+
+<!-- Hero Metrics Grid (4 columns) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+    @foreach (var metric in Model.HeroMetrics)
+    {
+        <partial name="Shared/Components/_HeroMetricCard" model="metric" />
+    }
+</div>
+
+<!-- Connected Servers and Activity Timeline - 3 Column Grid -->
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6 mb-8">
+    <!-- Connected Servers Widget (2/3 width) -->
+    <partial name="Shared/Components/_ConnectedServersWidget" model="Model.ConnectedServers" />
+
+    <!-- Activity Timeline (1/3 width) -->
+    <div class="xl:col-span-1 flex flex-col">
+        <partial name="Shared/Components/_ActivityFeedTimeline" model="Model.ActivityTimeline" />
     </div>
 </div>
 
-<!-- Quick Actions Section -->
-<div class="mb-8">
-    <partial name="Shared/Components/_QuickActionsCard" model="Model.QuickActions" />
-</div>
-
-<!-- Stats Cards Row -->
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6 mb-8">
-    <!-- Bot Status Card -->
-    <partial name="Shared/Components/_BotStatusCard" model="Model.BotStatus" />
-
-    <!-- Guild Statistics Card -->
-    <partial name="Shared/Components/_GuildStatsCard" model="Model.GuildStats" />
-</div>
-
-<!-- Command Usage Statistics Section -->
-<div class="mb-8">
-    <partial name="Shared/Components/_CommandStatsCard" model="Model.CommandStats" />
-</div>
-
-<!-- Recent Activity Section -->
-<div class="mb-8">
-    <partial name="Shared/Components/_RecentActivityCard" model="Model.RecentActivity" />
-</div>
-
-<!-- Audit Log Section (Admin only) -->
+<!-- Audit Log - Full Width (Admin only) -->
 @if (Model.AuditLog != null && (User.IsInRole("Admin") || User.IsInRole("SuperAdmin")))
 {
     <div class="mb-8">
@@ -48,9 +45,9 @@
     </div>
 }
 
-<!-- Live Activity Feed Section -->
+<!-- Quick Actions Panel at Bottom -->
 <div class="mb-8">
-    <partial name="Shared/Components/_ActivityFeed" model="@(new DiscordBot.Bot.ViewModels.Components.ActivityFeedViewModel())" />
+    <partial name="Shared/Components/_QuickActionsCard" model="Model.QuickActions" />
 </div>
 
 <!-- Confirmation Modals (hidden by default) -->

@@ -6,6 +6,16 @@
     <title>@ViewData["Title"] - Discord Bot Admin</title>
     <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    <!-- Early sidebar state restoration to prevent FOUC (Flash of Unstyled Content) -->
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 1024) {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body class="bg-bg-primary text-text-primary font-sans antialiased">
 
@@ -13,7 +23,7 @@
     <a href="#main-content" class="skip-link">Skip to main content</a>
 
     <!-- Mobile Sidebar Overlay -->
-    <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 lg:hidden hidden z-[299]" onclick="toggleSidebar()"></div>
+    <div id="mobileOverlay" class="mobile-overlay lg:hidden" onclick="toggleMobileSidebar()"></div>
 
     <!-- Top Navigation Bar -->
     @await Html.PartialAsync("_Navbar")
@@ -22,8 +32,8 @@
     @await Html.PartialAsync("_Sidebar")
 
     <!-- Main Content Area -->
-    <main id="main-content" class="lg:ml-64 pt-16 min-h-screen">
-        <div class="p-4 lg:p-8">
+    <main id="main-content" class="main-content-redesign">
+        <div class="p-6 lg:p-8">
             <!-- Breadcrumb Navigation -->
             @await Html.PartialAsync("_Breadcrumb")
 
@@ -53,6 +63,8 @@
     <script src="~/js/loading-manager.js" asp-append-version="true"></script>
     <!-- Timezone Utilities -->
     <script src="~/js/timezone.js" asp-append-version="true"></script>
+    <!-- Bot Status Auto-Refresh -->
+    <script src="~/js/bot-status-refresh.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

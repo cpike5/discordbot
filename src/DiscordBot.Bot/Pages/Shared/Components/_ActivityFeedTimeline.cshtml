@@ -1,0 +1,78 @@
+@model DiscordBot.Bot.ViewModels.Components.ActivityFeedTimelineViewModel
+@{
+    var maxHeightStyle = !string.IsNullOrEmpty(Model.MaxHeight) ? $"max-height: {Model.MaxHeight};" : "";
+}
+
+<div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden h-full flex flex-col">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold text-text-primary">@Model.Title</h2>
+        @if (Model.ShowRefreshButton)
+        {
+            <button
+                type="button"
+                class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-all duration-150"
+                title="Refresh activity feed"
+                aria-label="Refresh activity feed"
+            >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+            </button>
+        }
+    </div>
+
+    <!-- Timeline Container -->
+    <div class="p-4 overflow-y-auto flex-grow" style="@maxHeightStyle">
+        @if (Model.HasItems)
+        {
+            <div class="activity-timeline">
+                @foreach (var item in Model.Items)
+                {
+                    <div class="activity-item @item.TypeClassName">
+                        <div class="bg-bg-primary/50 rounded-lg p-3">
+                            <p class="text-sm text-text-primary">
+                                @if (!string.IsNullOrEmpty(item.CommandText))
+                                {
+                                    @Html.Raw(item.Message.Replace(item.CommandText, $"<code class=\"px-1.5 py-0.5 bg-bg-tertiary text-accent-orange rounded text-xs font-mono\">{item.CommandText}</code>"))
+                                }
+                                else
+                                {
+                                    @item.Message
+                                }
+                            </p>
+                            <p class="text-xs text-text-tertiary mt-1">@item.Source - @item.RelativeTime</p>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <!-- Empty state -->
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+                <svg class="w-12 h-12 text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <p class="text-sm text-text-secondary">No recent activity</p>
+                <p class="text-xs text-text-tertiary mt-1">Activity will appear here as it occurs</p>
+            </div>
+        }
+    </div>
+
+    <!-- Footer -->
+    @if (!string.IsNullOrEmpty(Model.ViewAllUrl))
+    {
+        <div class="px-6 py-3 border-t border-border-primary bg-bg-primary/30">
+            <a
+                href="@Model.ViewAllUrl"
+                class="text-sm text-accent-blue hover:text-accent-blue-hover font-medium transition-colors duration-150"
+            >
+                View all activity
+                <svg class="inline-block w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+        </div>
+    }
+</div>

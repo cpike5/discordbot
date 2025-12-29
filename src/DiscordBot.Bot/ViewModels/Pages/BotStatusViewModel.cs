@@ -73,7 +73,7 @@ public record BotStatusViewModel
     /// </summary>
     /// <param name="uptime">The uptime duration.</param>
     /// <returns>Formatted uptime string (e.g., "2d 5h 30m" or "3h 45m" or "25m").</returns>
-    private static string FormatUptime(TimeSpan uptime)
+    public static string FormatUptime(TimeSpan uptime)
     {
         if (uptime.TotalDays >= 1)
         {

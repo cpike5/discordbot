@@ -399,4 +399,19 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
         _logger.LogDebug("Found {Count} commands executed since {Since}", count, since);
         return count;
     }
+
+    public async Task<IDictionary<ulong, int>> GetCommandCountsByGuildAsync(DateTime since, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving command counts by guild since {Since}", since);
+
+        var counts = await DbSet
+            .AsNoTracking()
+            .Where(l => l.ExecutedAt >= since && l.GuildId != null)
+            .GroupBy(l => l.GuildId!.Value)
+            .Select(g => new { GuildId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.GuildId, x => x.Count, cancellationToken);
+
+        _logger.LogDebug("Retrieved command counts for {GuildCount} guilds", counts.Count);
+        return counts;
+    }
 }

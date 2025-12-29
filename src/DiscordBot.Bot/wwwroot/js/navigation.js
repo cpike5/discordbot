@@ -4,11 +4,17 @@
 // Track sidebar state
 let sidebarOpen = false;
 
+// Track sidebar collapsed state (desktop only)
+let sidebarCollapsed = false;
+
 // Track viewport mode to detect threshold crossings
 let isDesktopMode = window.innerWidth >= 1024;
 
 // Debounce utility for resize handler
 let resizeTimeout = null;
+
+// LocalStorage key for persisting collapsed state
+const SIDEBAR_COLLAPSED_KEY = 'sidebarCollapsed';
 
 // Get all focusable elements within the sidebar
 function getSidebarFocusableElements() {
@@ -47,10 +53,10 @@ function trapFocus(event) {
   }
 }
 
-// Sidebar Toggle (Mobile)
-function toggleSidebar() {
+// Mobile Sidebar Toggle
+function toggleMobileSidebar() {
   const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
+  const overlay = document.getElementById('mobileOverlay');
   const toggleButton = document.getElementById('sidebarToggle');
 
   if (!sidebar || !overlay || !toggleButton) return;
@@ -60,10 +66,10 @@ function toggleSidebar() {
   // Use explicit state-based class manipulation to avoid CSS/JS state desync
   if (sidebarOpen) {
     sidebar.classList.remove('-translate-x-full');
-    overlay.classList.remove('hidden');
+    overlay.classList.add('active');
   } else {
     sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
+    overlay.classList.remove('active');
   }
 
   // Update aria-expanded state
@@ -82,10 +88,41 @@ function toggleSidebar() {
   }
 }
 
-// Close sidebar and return focus to toggle button
+// Desktop Sidebar Collapse Toggle
+function toggleSidebarCollapse() {
+  const sidebar = document.getElementById('sidebar');
+  const mainContent = document.querySelector('.main-content-redesign');
+
+  if (!sidebar || !mainContent) return;
+
+  sidebarCollapsed = !sidebarCollapsed;
+
+  // Toggle collapsed class on sidebar and html element (for CSS sync)
+  if (sidebarCollapsed) {
+    sidebar.classList.add('collapsed');
+    document.documentElement.classList.add('sidebar-collapsed');
+  } else {
+    sidebar.classList.remove('collapsed');
+    document.documentElement.classList.remove('sidebar-collapsed');
+  }
+
+  // Persist state in localStorage
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.toString());
+  } catch (e) {
+    console.warn('Unable to save sidebar state to localStorage:', e);
+  }
+}
+
+// Legacy function name for backward compatibility
+function toggleSidebar() {
+  toggleMobileSidebar();
+}
+
+// Close mobile sidebar and return focus to toggle button
 function closeSidebar() {
   const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebarOverlay');
+  const overlay = document.getElementById('mobileOverlay');
   const toggleButton = document.getElementById('sidebarToggle');
 
   if (!sidebar || !overlay || !toggleButton) return;
@@ -93,7 +130,7 @@ function closeSidebar() {
   if (sidebarOpen && window.innerWidth < 1024) {
     sidebarOpen = false;
     sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
+    overlay.classList.remove('active');
     toggleButton.setAttribute('aria-expanded', 'false');
     toggleButton.focus();
   }
@@ -134,7 +171,7 @@ window.addEventListener('resize', function() {
 
   resizeTimeout = setTimeout(function() {
     const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
+    const overlay = document.getElementById('mobileOverlay');
     const toggleButton = document.getElementById('sidebarToggle');
 
     if (!sidebar || !overlay || !toggleButton) return;
@@ -149,13 +186,13 @@ window.addEventListener('resize', function() {
         // Crossed TO desktop: reset mobile state, hide overlay
         // Don't touch -translate-x-full - CSS lg:translate-x-0 handles visibility
         sidebarOpen = false;
-        overlay.classList.add('hidden');
+        overlay.classList.remove('active');
         toggleButton.setAttribute('aria-expanded', 'false');
       } else {
         // Crossed TO mobile: ensure sidebar is properly hidden
         sidebarOpen = false;
         sidebar.classList.add('-translate-x-full');
-        overlay.classList.add('hidden');
+        overlay.classList.remove('active');
         toggleButton.setAttribute('aria-expanded', 'false');
       }
     }
@@ -182,5 +219,33 @@ document.addEventListener('keydown', function(event) {
 
     // Close mobile sidebar and return focus to toggle button
     closeSidebar();
+  }
+});
+
+// Initialize sidebar state on page load
+document.addEventListener('DOMContentLoaded', function() {
+  // Restore sidebar collapsed state from localStorage
+  // Note: The html.sidebar-collapsed class is already set by inline script in <head> for FOUC prevention
+  // Here we sync the sidebar element's collapsed class and set the JS state variable
+  try {
+    const savedState = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (savedState === 'true' && window.innerWidth >= 1024) {
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        sidebarCollapsed = true;
+        sidebar.classList.add('collapsed');
+        // Ensure html element also has the class (should already be set by inline script)
+        document.documentElement.classList.add('sidebar-collapsed');
+      }
+    } else {
+      // Ensure classes are removed if not collapsed
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        sidebar.classList.remove('collapsed');
+      }
+      document.documentElement.classList.remove('sidebar-collapsed');
+    }
+  } catch (e) {
+    console.warn('Unable to restore sidebar state from localStorage:', e);
   }
 });

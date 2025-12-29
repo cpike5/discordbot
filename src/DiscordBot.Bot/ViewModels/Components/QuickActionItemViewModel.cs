@@ -75,12 +75,22 @@ public enum QuickActionColor
     /// <summary>
     /// Green/success color (positive actions).
     /// </summary>
-    Green,
+    Success,
 
     /// <summary>
     /// Warning/amber color (cautionary actions).
     /// </summary>
     Warning,
+
+    /// <summary>
+    /// Info/cyan color (analytics and data).
+    /// </summary>
+    Info,
+
+    /// <summary>
+    /// Error/red color (destructive actions).
+    /// </summary>
+    Error,
 
     /// <summary>
     /// Gray/neutral color (settings and configuration).

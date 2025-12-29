@@ -1,19 +1,20 @@
 // bot-status-refresh.js
-// Auto-refresh bot status widget every 30 seconds
+// Auto-refresh bot status widget and banner every 30 seconds
 
 (function () {
     'use strict';
 
     // Configuration
     const REFRESH_INTERVAL_MS = 30000; // 30 seconds
+    const INITIAL_RETRY_MS = 5000; // 5 seconds - quick retry after initial load for bot startup
     const API_ENDPOINT = '/api/bot/status';
 
     // Status color mappings
     const STATUS_COLORS = {
-        'CONNECTED': { color: 'success', label: 'Connected' },
-        'CONNECTING': { color: 'warning', label: 'Connecting' },
-        'DISCONNECTING': { color: 'error', label: 'Disconnecting' },
-        'DISCONNECTED': { color: 'text-tertiary', label: 'Disconnected' }
+        'CONNECTED': { color: 'success', label: 'Connected', isOnline: true },
+        'CONNECTING': { color: 'warning', label: 'Connecting', isOnline: false },
+        'DISCONNECTING': { color: 'error', label: 'Disconnecting', isOnline: false },
+        'DISCONNECTED': { color: 'text-tertiary', label: 'Disconnected', isOnline: false }
     };
 
     /**
@@ -125,22 +126,149 @@
     }
 
     /**
-     * Initialize the bot status refresh functionality.
+     * Refreshes the bot status banner with latest data from the API.
      */
-    function init() {
-        // Check if bot status card exists on the page
-        const card = document.querySelector('[data-bot-status-card]');
-        if (!card) {
+    async function refreshBotStatusBanner() {
+        const banner = document.querySelector('[data-bot-status-banner]');
+        if (!banner) {
             return;
         }
 
+        try {
+            const response = await fetch(API_ENDPOINT);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const stateKey = data.connectionState.toUpperCase();
+            const stateConfig = STATUS_COLORS[stateKey] || STATUS_COLORS['DISCONNECTED'];
+            const isOnline = stateConfig.isOnline;
+            const wasOnline = banner.dataset.isOnline === 'true';
+
+            // Update banner online state
+            banner.dataset.isOnline = isOnline.toString();
+
+            // Update banner classes for online/offline styling
+            if (isOnline !== wasOnline) {
+                if (isOnline) {
+                    banner.classList.remove('offline');
+                } else {
+                    banner.classList.add('offline');
+                }
+
+                // Update icon container
+                const iconContainer = banner.querySelector('.w-12.h-12');
+                if (iconContainer) {
+                    iconContainer.classList.remove('bg-success/20', 'bg-error/20');
+                    iconContainer.classList.add(isOnline ? 'bg-success/20' : 'bg-error/20');
+                }
+
+                // Update icon
+                const icon = iconContainer?.querySelector('svg');
+                if (icon) {
+                    icon.classList.remove('text-success', 'text-error');
+                    icon.classList.add(isOnline ? 'text-success' : 'text-error');
+                }
+
+                // Update status badge
+                const badge = banner.querySelector('[data-status-badge]');
+                if (badge) {
+                    badge.classList.remove('text-success', 'bg-success/20', 'text-error', 'bg-error/20');
+                    badge.classList.add(isOnline ? 'text-success' : 'text-error');
+                    badge.classList.add(isOnline ? 'bg-success/20' : 'bg-error/20');
+                }
+
+                // Update status dot
+                const dot = banner.querySelector('[data-status-dot]');
+                if (dot) {
+                    dot.classList.remove('bg-success', 'bg-error', 'animate-pulse');
+                    dot.classList.add(isOnline ? 'bg-success' : 'bg-error');
+                    if (isOnline) {
+                        dot.classList.add('animate-pulse');
+                    }
+                }
+            }
+
+            // Update status heading
+            const heading = banner.querySelector('[data-status-heading]');
+            if (heading) {
+                heading.textContent = isOnline ? 'Bot is Online' : 'Bot is Offline';
+            }
+
+            // Update status text
+            const statusText = banner.querySelector('[data-status-text]');
+            if (statusText) {
+                statusText.textContent = stateConfig.label;
+            }
+
+            // Update summary text
+            const summary = banner.querySelector('[data-summary-text]');
+            if (summary) {
+                if (isOnline) {
+                    const serverWord = data.guildCount === 1 ? 'server' : 'servers';
+                    const memberWord = data.memberCount === 1 ? 'member' : 'members';
+                    summary.textContent = `Connected to ${data.guildCount.toLocaleString()} ${serverWord} with ${(data.memberCount || 0).toLocaleString()} total ${memberWord}`;
+                } else {
+                    summary.textContent = 'Not currently connected to Discord';
+                }
+            }
+
+            // Update metrics section visibility
+            const metricsSection = banner.querySelector('[data-metrics-section]');
+            if (metricsSection) {
+                if (isOnline) {
+                    metricsSection.classList.remove('hidden');
+                } else {
+                    metricsSection.classList.add('hidden');
+                }
+            }
+
+            // Update latency
+            const latencyElement = banner.querySelector('[data-latency]');
+            if (latencyElement) {
+                latencyElement.textContent = data.latencyMs;
+            }
+
+            // Update uptime
+            const uptimeElement = banner.querySelector('[data-uptime]');
+            if (uptimeElement) {
+                uptimeElement.textContent = formatUptime(data.uptime);
+            }
+
+            console.log('[BotStatusRefresh] Banner updated:', data.connectionState);
+
+        } catch (error) {
+            console.error('Failed to refresh bot status banner:', error);
+        }
+    }
+
+    /**
+     * Initialize the bot status refresh functionality.
+     */
+    function init() {
+        const card = document.querySelector('[data-bot-status-card]');
+        const banner = document.querySelector('[data-bot-status-banner]');
+
+        if (!card && !banner) {
+            return;
+        }
+
+        const refresh = () => {
+            if (card) refreshBotStatus();
+            if (banner) refreshBotStatusBanner();
+        };
+
         // Initial refresh
-        refreshBotStatus();
+        refresh();
+
+        // Quick retry after 5 seconds (handles bot startup race condition)
+        setTimeout(refresh, INITIAL_RETRY_MS);
 
         // Set up recurring refresh
-        setInterval(refreshBotStatus, REFRESH_INTERVAL_MS);
+        setInterval(refresh, REFRESH_INTERVAL_MS);
 
-        console.log(`Bot status auto-refresh initialized (interval: ${REFRESH_INTERVAL_MS / 1000}s)`);
+        console.log(`Bot status auto-refresh initialized (initial retry: ${INITIAL_RETRY_MS / 1000}s, interval: ${REFRESH_INTERVAL_MS / 1000}s)`);
     }
 
     // Initialize when DOM is ready
