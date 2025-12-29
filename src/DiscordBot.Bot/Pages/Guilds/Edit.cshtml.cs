@@ -81,7 +81,8 @@ public class EditModel : PageModel
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("User submitting guild edit for guild {GuildId}", Input.GuildId);
+        _logger.LogInformation("User submitting guild edit for guild {GuildId}, IsActive={IsActive}",
+            Input.GuildId, Input.IsActive);
 
         if (!ModelState.IsValid)
         {
@@ -98,6 +99,9 @@ public class EditModel : PageModel
         {
             IsActive = Input.IsActive
         };
+
+        _logger.LogInformation("Updating guild {GuildId} with IsActive={IsActive}",
+            Input.GuildId, updateRequest.IsActive);
 
         var result = await _guildService.UpdateGuildAsync(Input.GuildId, updateRequest, cancellationToken);
 
