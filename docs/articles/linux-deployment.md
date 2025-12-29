@@ -6,6 +6,27 @@
 
 ---
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Step 1: Server Preparation](#step-1-server-preparation)
+- [Step 2: Install .NET 8 Runtime](#step-2-install-net-8-runtime)
+- [Step 3: Build the Application](#step-3-build-the-application)
+- [Step 4: Configure the Application](#step-4-configure-the-application)
+- [Step 5: Create Systemd Service](#step-5-create-systemd-service)
+- [Step 6: Start and Enable the Service](#step-6-start-and-enable-the-service)
+- [Step 7: Database Setup](#step-7-database-setup)
+- [Step 8: Reverse Proxy Setup (Optional)](#step-8-reverse-proxy-setup-optional)
+- [Step 9: Firewall Configuration](#step-9-firewall-configuration)
+- [Updating the Application](#updating-the-application)
+- [Troubleshooting](#troubleshooting)
+- [Security Checklist](#security-checklist)
+- [Directory Structure Summary](#directory-structure-summary)
+- [Related Documentation](#related-documentation)
+
+---
+
 ## Overview
 
 This guide covers deploying the Discord Bot Management System to a Linux VPS using systemd for service management. The deployment follows security best practices: secrets are stored in a separate environment file with restrictive permissions.

@@ -2,6 +2,29 @@
 
 This guide walks you through creating a Discord bot application, obtaining a bot token, and configuring it for use with this project.
 
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Step 1: Create a Discord Application](#step-1-create-a-discord-application)
+- [Step 2: Create a Bot User](#step-2-create-a-bot-user)
+- [Step 3: Configure Bot Settings](#step-3-configure-bot-settings)
+- [Step 4: Configure Bot Permissions](#step-4-configure-bot-permissions)
+- [Step 5: Generate Bot Invitation URL](#step-5-generate-bot-invitation-url)
+- [Step 6: Invite Bot to Your Server](#step-6-invite-bot-to-your-server)
+- [Step 7: Configure the Token in Your Project](#step-7-configure-the-token-in-your-project)
+- [Step 8: Get Test Guild ID (Optional)](#step-8-get-test-guild-id-optional-but-recommended)
+- [Step 9: Run Your Bot](#step-9-run-your-bot)
+- [OAuth2 Configuration (Admin UI Authentication)](#oauth2-configuration-admin-ui-authentication)
+- [Troubleshooting](#troubleshooting)
+- [Next Steps](#next-steps)
+- [Additional Resources](#additional-resources)
+- [Support](#support)
+
+---
+
 ## Overview
 
 A Discord bot token is a secret credential that allows your application to authenticate with Discord's API as a bot user. This token acts like a password and must be kept secure—never commit it to version control or share it publicly.
