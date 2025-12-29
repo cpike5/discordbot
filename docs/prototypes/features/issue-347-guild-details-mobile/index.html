@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guild Details Mobile Responsiveness - Issue #347 Prototype</title>
+
+  <!--
+  ============================================================================
+  TESTING INSTRUCTIONS - Issue #347: Guild Details Mobile Responsiveness
+  ============================================================================
+
+  This prototype demonstrates responsive improvements for the Guild Details page.
+
+  HOW TO TEST:
+  1. Open this file in a browser
+  2. Open DevTools (F12) and toggle Device Toolbar (Ctrl+Shift+M)
+  3. Test at the following widths:
+     - 320px  (small mobile - iPhone SE)
+     - 375px  (medium mobile - iPhone X)
+     - 428px  (large mobile - iPhone 14 Pro Max)
+     - 640px  (small tablet / landscape mobile)
+     - 768px  (tablet - iPad)
+     - 1024px (laptop / desktop)
+
+  WHAT TO VERIFY:
+  - No horizontal scroll at any width
+  - All touch targets appear to meet 44px minimum
+  - Text does not overflow containers
+  - Grid layouts adapt appropriately to screen size
+  - Buttons wrap naturally on mobile
+  - Long channel names truncate properly
+
+  RESPONSIVE IMPROVEMENTS IMPLEMENTED:
+  1. Header Action Buttons: flex-wrap with responsive gap
+  2. Guild Information Grid: 1->2->3->5 columns progression
+  3. Guild Settings Card: Stacked label/value on mobile
+  4. Scheduled Messages Cards: Responsive padding and text handling
+  5. Overall Spacing: Responsive container and card padding
+  6. Touch Targets: Added padding wrapper for Copy ID button
+
+  ============================================================================
+  -->
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* ========================================
+       PAGE-SPECIFIC STYLES
+       ======================================== */
+
+    /* Copy button animation */
+    .copy-btn.copied {
+      color: #10b981;
+    }
+
+    /* Touch target wrapper for small interactive elements */
+    .touch-target {
+      padding: 0.5rem;
+      margin: -0.5rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Viewport indicator for testing (shows current breakpoint) */
+    .viewport-indicator {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: #d7d3d0;
+      z-index: 9999;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+
+  <!-- Top Navigation Bar -->
+  <nav class="fixed top-0 left-0 right-0 h-16 bg-bg-secondary border-b border-border-primary flex items-center justify-between px-4 lg:px-6 z-50">
+    <!-- Left Section: Logo & Mobile Menu Toggle -->
+    <div class="flex items-center gap-3">
+      <!-- Mobile Menu Button -->
+      <button
+        id="mobile-menu-btn"
+        onclick="toggleSidebar()"
+        class="lg:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle navigation menu"
+      >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <!-- Logo -->
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-accent-orange to-orange-600 flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+          </svg>
+        </div>
+        <span class="hidden sm:block text-lg font-bold text-text-primary">Bot Admin</span>
+      </div>
+    </div>
+
+    <!-- Right Section: User Menu -->
+    <div class="flex items-center gap-2">
+      <button class="relative p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span class="absolute top-1 right-1 w-2 h-2 bg-accent-orange rounded-full"></span>
+      </button>
+
+      <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">
+        AD
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile Overlay -->
+  <div id="mobile-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden"></div>
+
+  <!-- Sidebar Navigation -->
+  <aside
+    id="sidebar"
+    class="sidebar fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-bg-secondary border-r border-border-primary transform -translate-x-full lg:translate-x-0 transition-transform z-45"
+  >
+    <nav class="flex flex-col h-full p-4">
+      <div class="space-y-1">
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          Dashboard
+        </a>
+
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-primary bg-accent-orange/10 border-l-3 border-accent-orange rounded-lg">
+          <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          Servers
+          <span class="ml-auto px-2 py-0.5 text-xs font-semibold text-text-primary bg-border-primary rounded-full">12</span>
+        </a>
+
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Commands
+        </a>
+
+        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Settings
+        </a>
+      </div>
+
+      <!-- Bot Status Footer -->
+      <div class="mt-auto pt-4 border-t border-border-secondary">
+        <div class="flex items-center gap-2 px-3 py-2 text-sm">
+          <span class="w-2 h-2 bg-success rounded-full animate-pulse"></span>
+          <span class="text-success font-medium">Bot Online</span>
+          <span class="ml-auto text-xs text-text-tertiary">v0.3.4</span>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <!-- RESPONSIVE: py-6 sm:py-8 for container spacing -->
+  <main class="lg:ml-64 pt-16 min-h-screen">
+    <div class="p-4 sm:p-6 lg:p-8">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-4 sm:mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Gaming Community</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <!-- RESPONSIVE: flex-col on mobile, flex-row on lg -->
+      <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6 sm:mb-8">
+        <div class="flex items-start gap-3 sm:gap-4">
+          <!-- Server Avatar -->
+          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xl sm:text-2xl flex-shrink-0">
+            GC
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <h1 class="text-xl sm:text-2xl lg:text-3xl font-bold text-text-primary truncate">Gaming Community</h1>
+              <span class="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs font-semibold text-success bg-success/10 rounded-full flex-shrink-0">
+                <span class="w-1.5 h-1.5 bg-success rounded-full animate-pulse"></span>
+                Active
+              </span>
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="text-xs sm:text-sm text-text-secondary font-mono truncate">ID: 123456789012345678</span>
+              <!-- RESPONSIVE: Touch target wrapper for Copy ID button (p-2 -m-2) -->
+              <button
+                onclick="copyServerId()"
+                class="touch-target copy-btn text-text-tertiary hover:text-text-primary transition-colors"
+                aria-label="Copy server ID"
+                title="Copy server ID"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RESPONSIVE: Header Action Buttons - flex-wrap with responsive gap -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+          <button class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span class="hidden xs:inline">Sync</span>
+            <span class="xs:hidden">Sync</span>
+          </button>
+          <button class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-white bg-accent-orange hover:bg-accent-orange-hover rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </button>
+          <button class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-error bg-error/10 border border-error/30 hover:bg-error/20 rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span class="hidden sm:inline">Remove Bot</span>
+            <span class="sm:hidden">Remove</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Guild Information Grid -->
+      <!-- RESPONSIVE: grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5, with responsive padding and gap -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+        <h2 class="sr-only">Guild Information</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+          <!-- Members -->
+          <div class="flex items-center gap-3 sm:block">
+            <div class="flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:mb-1 bg-accent-blue/10 sm:bg-transparent rounded-lg sm:rounded-none">
+              <svg class="w-5 h-5 text-accent-blue sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            </div>
+            <div class="flex-1 sm:flex-none">
+              <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-0.5 sm:mb-1">Members</p>
+              <p class="text-sm sm:text-base font-semibold text-text-primary">1,234</p>
+            </div>
+          </div>
+
+          <!-- Bot Joined -->
+          <div class="flex items-center gap-3 sm:block">
+            <div class="flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:mb-1 bg-success/10 sm:bg-transparent rounded-lg sm:rounded-none">
+              <svg class="w-5 h-5 text-success sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div class="flex-1 sm:flex-none">
+              <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-0.5 sm:mb-1">Bot Joined</p>
+              <p class="text-sm sm:text-base font-semibold text-text-primary" id="bot-joined-date">Dec 15, 2024</p>
+            </div>
+          </div>
+
+          <!-- Prefix -->
+          <div class="flex items-center gap-3 sm:block">
+            <div class="flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:mb-1 bg-accent-orange/10 sm:bg-transparent rounded-lg sm:rounded-none">
+              <svg class="w-5 h-5 text-accent-orange sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+              </svg>
+            </div>
+            <div class="flex-1 sm:flex-none">
+              <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-0.5 sm:mb-1">Prefix</p>
+              <p class="text-sm sm:text-base font-semibold text-text-primary font-mono">/</p>
+              <p class="text-xs text-text-tertiary">(Default)</p>
+            </div>
+          </div>
+
+          <!-- Status -->
+          <div class="flex items-center gap-3 sm:block">
+            <div class="flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:mb-1 bg-success/10 sm:bg-transparent rounded-lg sm:rounded-none">
+              <svg class="w-5 h-5 text-success sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="flex-1 sm:flex-none">
+              <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-0.5 sm:mb-1">Status</p>
+              <span class="inline-flex items-center gap-1.5 text-sm sm:text-base font-semibold text-success">
+                <span class="w-2 h-2 bg-success rounded-full animate-pulse"></span>
+                Active
+              </span>
+            </div>
+          </div>
+
+          <!-- Welcome -->
+          <div class="flex items-center gap-3 sm:block">
+            <div class="flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto sm:mb-1 bg-info/10 sm:bg-transparent rounded-lg sm:rounded-none">
+              <svg class="w-5 h-5 text-info sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+            </div>
+            <div class="flex-1 sm:flex-none">
+              <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-0.5 sm:mb-1">Welcome</p>
+              <span class="inline-flex items-center gap-1.5 text-sm sm:text-base font-semibold text-success">
+                Enabled
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Guild Settings Card -->
+      <!-- RESPONSIVE: Stacked label/value on mobile with truncate for long values -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Settings</h2>
+        <div class="space-y-4">
+          <!-- Welcome Channel -->
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 py-2 border-b border-border-secondary">
+            <span class="text-sm font-medium text-text-secondary">Welcome Channel</span>
+            <span class="text-sm text-text-primary truncate">#welcome-new-members-and-introductions</span>
+          </div>
+
+          <!-- Log Channel -->
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 py-2 border-b border-border-secondary">
+            <span class="text-sm font-medium text-text-secondary">Log Channel</span>
+            <span class="text-sm text-text-primary truncate">#bot-logs</span>
+          </div>
+
+          <!-- Auto-Mod -->
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 py-2 border-b border-border-secondary">
+            <span class="text-sm font-medium text-text-secondary">Auto-Moderation</span>
+            <span class="inline-flex items-center gap-1.5 text-sm text-success">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Enabled
+            </span>
+          </div>
+
+          <!-- Verification Required -->
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 py-2 border-b border-border-secondary">
+            <span class="text-sm font-medium text-text-secondary">Verification Required</span>
+            <span class="inline-flex items-center gap-1.5 text-sm text-success">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Enabled
+            </span>
+          </div>
+
+          <!-- Announcement Channel (Long name example) -->
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 py-2">
+            <span class="text-sm font-medium text-text-secondary">Announcement Channel</span>
+            <span class="text-sm text-text-primary truncate">#important-server-announcements-and-updates</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scheduled Messages Summary Cards -->
+      <!-- RESPONSIVE: grid-cols-2 md:grid-cols-4 with responsive padding -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6 sm:mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-text-primary">Scheduled Messages</h2>
+          <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">View All</a>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+          <!-- Total -->
+          <div class="bg-bg-tertiary rounded-lg p-3 sm:p-4">
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Total</p>
+            <p class="text-xl sm:text-2xl font-bold text-text-primary">5</p>
+          </div>
+
+          <!-- Active -->
+          <div class="bg-bg-tertiary rounded-lg p-3 sm:p-4">
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Active</p>
+            <p class="text-xl sm:text-2xl font-bold text-success">3</p>
+          </div>
+
+          <!-- Paused -->
+          <div class="bg-bg-tertiary rounded-lg p-3 sm:p-4">
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Paused</p>
+            <p class="text-xl sm:text-2xl font-bold text-warning">2</p>
+          </div>
+
+          <!-- Next Run -->
+          <!-- RESPONSIVE: line-clamp-2 for message title on mobile, truncate on larger screens -->
+          <div class="bg-bg-tertiary rounded-lg p-3 sm:p-4">
+            <p class="text-xs font-medium text-text-tertiary uppercase tracking-wide mb-1">Next Run</p>
+            <p class="text-sm sm:text-base font-semibold text-text-primary" id="next-run-time">Dec 30, 2025 @ 10:00 AM</p>
+            <p class="text-xs text-text-secondary mt-1 line-clamp-2 sm:truncate" title="Weekly server event reminder announcement">Weekly server event reminder announcement</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Command Activity -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-text-primary">Recent Command Activity</h2>
+          <a href="#" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">View All</a>
+        </div>
+
+        <div class="space-y-3">
+          <!-- Command 1 -->
+          <div class="flex items-start gap-3 p-3 bg-bg-tertiary rounded-lg">
+            <div class="w-8 h-8 rounded-full bg-accent-blue/20 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <span class="text-sm font-medium text-text-primary font-mono">/help</span>
+                <span class="text-xs text-text-tertiary" id="activity-time-1">2 minutes ago</span>
+              </div>
+              <p class="text-xs text-text-secondary mt-0.5">Used by <span class="text-text-primary">Player123</span></p>
+            </div>
+          </div>
+
+          <!-- Command 2 -->
+          <div class="flex items-start gap-3 p-3 bg-bg-tertiary rounded-lg">
+            <div class="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <span class="text-sm font-medium text-text-primary font-mono">/verify</span>
+                <span class="text-xs text-text-tertiary" id="activity-time-2">15 minutes ago</span>
+              </div>
+              <p class="text-xs text-text-secondary mt-0.5">Used by <span class="text-text-primary">NewMember42</span></p>
+            </div>
+          </div>
+
+          <!-- Command 3 -->
+          <div class="flex items-start gap-3 p-3 bg-bg-tertiary rounded-lg">
+            <div class="w-8 h-8 rounded-full bg-warning/20 flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <span class="text-sm font-medium text-text-primary font-mono">/warn</span>
+                <span class="text-xs text-text-tertiary" id="activity-time-3">1 hour ago</span>
+              </div>
+              <p class="text-xs text-text-secondary mt-0.5">Used by <span class="text-text-primary">ModeratorX</span></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Viewport Indicator (for testing) -->
+  <div class="viewport-indicator" id="viewport-indicator">
+    Loading...
+  </div>
+
+  <script>
+    // Sidebar toggle for mobile
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('mobile-overlay');
+      const isOpen = !sidebar.classList.contains('-translate-x-full');
+
+      if (isOpen) {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+      } else {
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden');
+      }
+    }
+
+    // Copy server ID to clipboard
+    function copyServerId() {
+      const serverId = '123456789012345678';
+      navigator.clipboard.writeText(serverId).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 2000);
+      });
+    }
+
+    // Update viewport indicator
+    function updateViewportIndicator() {
+      const indicator = document.getElementById('viewport-indicator');
+      const width = window.innerWidth;
+      let breakpoint = 'xs';
+
+      if (width >= 1280) breakpoint = 'xl (1280px+)';
+      else if (width >= 1024) breakpoint = 'lg (1024px+)';
+      else if (width >= 768) breakpoint = 'md (768px+)';
+      else if (width >= 640) breakpoint = 'sm (640px+)';
+      else if (width >= 428) breakpoint = 'mobile-lg (428px+)';
+      else if (width >= 375) breakpoint = 'mobile-md (375px+)';
+      else breakpoint = 'mobile-sm (<375px)';
+
+      indicator.textContent = `${width}px - ${breakpoint}`;
+    }
+
+    // Format dates to local timezone
+    function formatLocalDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function formatLocalDateTime(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      }) + ' @ ' + date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    function formatRelativeTime(dateString) {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+      return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      updateViewportIndicator();
+      window.addEventListener('resize', updateViewportIndicator);
+
+      // Set sample dates (these would come from server in real app)
+      // Bot joined date - stored as UTC, displayed in local time
+      const botJoinedUtc = '2024-12-15T14:30:00Z';
+      document.getElementById('bot-joined-date').textContent = formatLocalDate(botJoinedUtc);
+
+      // Next scheduled run - stored as UTC, displayed in local time
+      const nextRunUtc = '2025-12-30T15:00:00Z';
+      document.getElementById('next-run-time').textContent = formatLocalDateTime(nextRunUtc);
+
+      // Activity times - would be relative times in real app
+      const activity1Utc = new Date(Date.now() - 2 * 60000).toISOString(); // 2 mins ago
+      const activity2Utc = new Date(Date.now() - 15 * 60000).toISOString(); // 15 mins ago
+      const activity3Utc = new Date(Date.now() - 60 * 60000).toISOString(); // 1 hour ago
+
+      document.getElementById('activity-time-1').textContent = formatRelativeTime(activity1Utc);
+      document.getElementById('activity-time-2').textContent = formatRelativeTime(activity2Utc);
+      document.getElementById('activity-time-3').textContent = formatRelativeTime(activity3Utc);
+    });
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar.classList.contains('-translate-x-full')) {
+          toggleSidebar();
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>
