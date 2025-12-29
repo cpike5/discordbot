@@ -237,12 +237,15 @@ public class GuildService : IGuildService
             return false;
         }
 
+        // Check if guild exists to preserve IsActive setting
+        var existingGuild = await _guildRepository.GetByDiscordIdAsync(guildId, cancellationToken);
+
         var guild = new Guild
         {
             Id = discordGuild.Id,
             Name = discordGuild.Name,
             JoinedAt = discordGuild.CurrentUser?.JoinedAt?.UtcDateTime ?? DateTime.UtcNow,
-            IsActive = true
+            IsActive = existingGuild?.IsActive ?? true // Preserve existing setting, default to true for new guilds
         };
 
         await _guildRepository.UpsertAsync(guild, cancellationToken);
@@ -281,18 +284,24 @@ public class GuildService : IGuildService
             return 0;
         }
 
+        // Get all existing guilds to preserve their IsActive settings
+        var existingGuilds = await _guildRepository.GetAllAsync(cancellationToken);
+        var existingGuildMap = existingGuilds.ToDictionary(g => g.Id);
+
         var syncedCount = 0;
 
         foreach (var discordGuild in connectedGuilds)
         {
             try
             {
+                existingGuildMap.TryGetValue(discordGuild.Id, out var existingGuild);
+
                 var guild = new Guild
                 {
                     Id = discordGuild.Id,
                     Name = discordGuild.Name,
                     JoinedAt = discordGuild.CurrentUser?.JoinedAt?.UtcDateTime ?? DateTime.UtcNow,
-                    IsActive = true
+                    IsActive = existingGuild?.IsActive ?? true // Preserve existing setting, default to true for new guilds
                 };
 
                 await _guildRepository.UpsertAsync(guild, cancellationToken);
