@@ -430,3 +430,7 @@ api/*.yml
 # Tailwind CSS build output (regenerated on dotnet build)
 src/DiscordBot.Bot/wwwroot/css/app.css
 api/.manifest
+
+
+# Temp directory
+temp/
