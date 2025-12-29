@@ -396,7 +396,7 @@
     {
         <div class="mt-6">
             @{
-                var baseUrl = Url.Page("Index", new {
+                var baseUrl = Url.Page(null, new {
                     SearchTerm = Model.SearchTerm,
                     GuildId = Model.GuildId,
                     CommandName = Model.CommandName,
