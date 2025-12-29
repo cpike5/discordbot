@@ -51,7 +51,7 @@ public record ConnectedServerItemViewModel
 
     /// <summary>
     /// Gets the URL to the server detail page.
-    /// Example: "/Servers/123456789"
+    /// Example: "/Guilds/Details?id=123456789"
     /// </summary>
     public string DetailUrl { get; init; } = string.Empty;
 }
