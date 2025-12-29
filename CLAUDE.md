@@ -212,6 +212,40 @@ Located in `src/DiscordBot.Bot/Pages/`:
 3. Inject services via constructor in PageModel
 4. Use shared components via `@Html.Partial("Components/_ComponentName", viewModel)`
 
+### UI Page Routes
+
+| Page | URL Pattern | Description |
+|------|-------------|-------------|
+| Dashboard | `/` | Main dashboard with bot status, stats |
+| Commands | `/Commands` | Registered slash commands list |
+| Command Logs | `/CommandLogs` | Command execution history |
+| Command Log Details | `/CommandLogs/{id:guid}` | Single command log entry |
+| Command Analytics | `/CommandLogs/Analytics` | Usage analytics and charts |
+| Guilds | `/Guilds` | Connected Discord servers list |
+| Guild Details | `/Guilds/Details?id={id}` | Single guild overview |
+| Guild Edit | `/Guilds/Edit/{id:long}` | Edit guild settings |
+| Guild Welcome | `/Guilds/Welcome/{id:long}` | Welcome message config |
+| Scheduled Messages | `/Guilds/ScheduledMessages/{guildId:long}` | Guild scheduled messages |
+| Scheduled Message Create | `/Guilds/ScheduledMessages/Create/{guildId:long}` | New scheduled message |
+| Scheduled Message Edit | `/Guilds/ScheduledMessages/Edit/{guildId:long}/{id:guid}` | Edit scheduled message |
+| Users | `/Admin/Users` | User management (SuperAdmin) |
+| User Details | `/Admin/Users/Details?id={id}` | User profile and roles |
+| User Create | `/Admin/Users/Create` | Create new user |
+| User Edit | `/Admin/Users/Edit?id={id}` | Edit user |
+| Audit Logs | `/Admin/AuditLogs` | System audit trail |
+| Audit Log Details | `/Admin/AuditLogs/Details/{id:long}` | Single audit entry |
+| Message Logs | `/Admin/MessageLogs` | Discord message history |
+| Message Log Details | `/Admin/MessageLogs/Details/{id:long}` | Single message entry |
+| Bot Control | `/Admin/BotControl` | Start/stop/restart bot |
+| Settings | `/Admin/Settings` | Application settings |
+| Login | `/Account/Login` | User authentication |
+| Logout | `/Account/Logout` | Sign out |
+| Link Discord | `/Account/LinkDiscord` | OAuth account linking |
+| Search | `/Search` | Global search |
+| Components | `/Components` | Component showcase (dev) |
+
+**Note:** Use `Guilds/` not `Servers/` for guild-related pages. Discord API terminology uses "guild" for servers.
+
 ## Testing
 
 - xUnit with FluentAssertions and Moq
