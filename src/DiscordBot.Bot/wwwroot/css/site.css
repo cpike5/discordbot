@@ -41,6 +41,7 @@
     --color-text-primary: #d7d3d0;
     --color-text-secondary: #a8a5a3;
     --color-text-tertiary: #7a7876;
+    --color-text-placeholder: #8a8886;
 
     /* Accent colors */
     --color-accent-blue: #098ecf;
@@ -251,7 +252,7 @@
     @apply transition-all duration-150 ease-in-out;
   }
   .form-input::placeholder {
-    @apply text-text-tertiary;
+    @apply text-text-placeholder;
   }
   .form-input:hover {
     @apply border-accent-blue;
