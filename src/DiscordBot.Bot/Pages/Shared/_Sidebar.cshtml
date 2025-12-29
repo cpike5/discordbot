@@ -10,8 +10,11 @@
     <!-- Main Navigation -->
     <div class="space-y-1" role="group" aria-labelledby="main-nav-heading">
       <h2 id="main-nav-heading" class="sr-only">Main Navigation</h2>
+      @{
+        var dashboardActive = ViewContext.RouteData.Values["page"]?.ToString() == "/Index";
+      }
       <!-- Dashboard - visible to all authenticated users -->
-      <a href="/" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString() == "/Index" ? "active" : "")">
+      <a href="/" class="sidebar-link-redesign @(dashboardActive ? "active" : "")" @(dashboardActive ? "aria-current=page" : "")>
         <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
@@ -20,7 +23,10 @@
 
       <!-- Servers - visible to Moderator+ -->
       <authorize policy="RequireModerator">
-        <a href="/Guilds" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Guilds") == true ? "active" : "")">
+        @{
+          var guildsActive = ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Guilds") == true;
+        }
+        <a href="/Guilds" class="sidebar-link-redesign @(guildsActive ? "active" : "")" @(guildsActive ? "aria-current=page" : "")>
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
           </svg>
@@ -29,7 +35,10 @@
       </authorize>
 
       <!-- Commands - visible to all authenticated users -->
-      <a asp-page="/Commands/Index" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Commands") == true ? "active" : "")">
+      @{
+        var commandsActive = ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Commands") == true;
+      }
+      <a href="/Commands" class="sidebar-link-redesign @(commandsActive ? "active" : "")" @(commandsActive ? "aria-current=page" : "")>
         <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
@@ -37,7 +46,10 @@
       </a>
 
       <!-- Logs - visible to Viewers+ -->
-      <a asp-page="/CommandLogs/Index" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString() == "/CommandLogs/Index" ? "active" : "")">
+      @{
+        var logsActive = ViewContext.RouteData.Values["page"]?.ToString() == "/CommandLogs/Index";
+      }
+      <a href="/CommandLogs" class="sidebar-link-redesign @(logsActive ? "active" : "")" @(logsActive ? "aria-current=page" : "")>
         <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
@@ -46,7 +58,10 @@
 
       <!-- Analytics - visible to Moderator+ -->
       <authorize policy="RequireModerator">
-        <a asp-page="/CommandLogs/Analytics" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString() == "/CommandLogs/Analytics" ? "active" : "")">
+        @{
+          var analyticsActive = ViewContext.RouteData.Values["page"]?.ToString() == "/CommandLogs/Analytics";
+        }
+        <a href="/CommandLogs/Analytics" class="sidebar-link-redesign @(analyticsActive ? "active" : "")" @(analyticsActive ? "aria-current=page" : "")>
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
@@ -56,7 +71,10 @@
 
       <!-- Settings - visible to Admin+ -->
       <authorize policy="RequireAdmin">
-        <a href="/Admin/Settings" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString() == "/Admin/Settings" ? "active" : "")">
+        @{
+          var settingsActive = ViewContext.RouteData.Values["page"]?.ToString() == "/Admin/Settings";
+        }
+        <a href="/Admin/Settings" class="sidebar-link-redesign @(settingsActive ? "active" : "")" @(settingsActive ? "aria-current=page" : "")>
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -73,26 +91,38 @@
     <authorize policy="RequireAdmin">
       <div class="space-y-1" role="group" aria-labelledby="admin-nav-heading">
         <h2 id="admin-nav-heading" class="sidebar-section-header">Administration</h2>
-        <a href="/Admin/Users" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/Users") == true ? "active" : "")">
+        @{
+          var usersActive = ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/Users") == true;
+        }
+        <a href="/Admin/Users" class="sidebar-link-redesign @(usersActive ? "active" : "")" @(usersActive ? "aria-current=page" : "")>
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
           </svg>
           <span class="sidebar-link-text">Users</span>
         </a>
-        <a href="/Admin/BotControl" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString() == "/Admin/BotControl" ? "active" : "")">
+        @{
+          var botControlActive = ViewContext.RouteData.Values["page"]?.ToString() == "/Admin/BotControl";
+        }
+        <a href="/Admin/BotControl" class="sidebar-link-redesign @(botControlActive ? "active" : "")" @(botControlActive ? "aria-current=page" : "")>
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           <span class="sidebar-link-text">Bot Control</span>
         </a>
-        <a href="/Admin/MessageLogs" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/MessageLogs") == true ? "active" : "")">
+        @{
+          var messageLogsActive = ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/MessageLogs") == true;
+        }
+        <a href="/Admin/MessageLogs" class="sidebar-link-redesign @(messageLogsActive ? "active" : "")" @(messageLogsActive ? "aria-current=page" : "")>
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
           </svg>
           <span class="sidebar-link-text">Message Logs</span>
         </a>
-        <a href="/Admin/AuditLogs" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/AuditLogs") == true ? "active" : "")">
+        @{
+          var auditLogsActive = ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/AuditLogs") == true;
+        }
+        <a href="/Admin/AuditLogs" class="sidebar-link-redesign @(auditLogsActive ? "active" : "")" @(auditLogsActive ? "aria-current=page" : "")>
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
@@ -106,7 +136,10 @@
     <authorize policy="RequireAdmin">
       <div class="space-y-1" role="group" aria-labelledby="dev-nav-heading">
         <h2 id="dev-nav-heading" class="sidebar-section-header">Developer</h2>
-        <a href="/Components" class="sidebar-link-redesign @(ViewContext.RouteData.Values["page"]?.ToString() == "/Components" ? "active" : "")">
+        @{
+          var componentsActive = ViewContext.RouteData.Values["page"]?.ToString() == "/Components";
+        }
+        <a href="/Components" class="sidebar-link-redesign @(componentsActive ? "active" : "")" @(componentsActive ? "aria-current=page" : "")>
           <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
           </svg>
