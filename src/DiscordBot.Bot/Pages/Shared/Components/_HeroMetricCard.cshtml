@@ -70,7 +70,7 @@
     <div class="flex items-start justify-between">
         <div>
             <p class="text-sm font-medium text-text-secondary">@Model.Title</p>
-            <p class="mt-2 text-3xl font-bold text-text-primary">@Model.Value</p>
+            <p class="mt-2 text-3xl font-bold text-text-primary" @(string.IsNullOrEmpty(Model.DataAttribute) ? "" : Model.DataAttribute)>@Model.Value</p>
 
             @if (!string.IsNullOrEmpty(Model.TrendValue) || !string.IsNullOrEmpty(Model.TrendLabel))
             {

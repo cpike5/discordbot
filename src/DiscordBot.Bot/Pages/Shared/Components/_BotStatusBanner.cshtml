@@ -14,7 +14,7 @@
         : "Not currently connected to Discord";
 }
 
-<div class="@bannerClass mb-8" data-bot-status-banner data-is-online="@Model.IsOnline.ToString().ToLower()">
+<div class="@bannerClass mb-8" data-bot-status-card data-is-online="@Model.IsOnline.ToString().ToLower()">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <!-- Status Info Section -->
         <div class="flex items-center gap-4">
@@ -43,10 +43,19 @@
                     <!-- Status Badge -->
                     <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold @statusBadgeText @statusBadgeBg rounded-full" data-status-badge>
                         <span class="w-1.5 h-1.5 @statusDotColor rounded-full @(Model.IsOnline ? "animate-pulse" : "")" data-status-dot></span>
-                        <span data-status-text>@Model.StatusText</span>
+                        <span data-connection-state data-status-text>@Model.StatusText</span>
                     </span>
                 </div>
-                <p class="text-sm text-text-secondary mt-0.5" data-summary-text>@summaryText</p>
+                <p class="text-sm text-text-secondary mt-0.5" data-summary-text>
+                    @if (Model.IsOnline)
+                    {
+                        <text>Connected to <span data-guild-count>@Model.ServerCount.ToString("N0")</span> @(Model.ServerCount == 1 ? "server" : "servers") with @Model.TotalMembers.ToString("N0") total @(Model.TotalMembers == 1 ? "member" : "members")</text>
+                    }
+                    else
+                    {
+                        <text>Not currently connected to Discord</text>
+                    }
+                </p>
             </div>
         </div>
 

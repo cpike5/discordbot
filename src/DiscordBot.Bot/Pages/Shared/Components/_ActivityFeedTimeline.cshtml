@@ -3,61 +3,87 @@
     var maxHeightStyle = !string.IsNullOrEmpty(Model.MaxHeight) ? $"max-height: {Model.MaxHeight};" : "";
 }
 
+<!-- Template for activity items (used by JavaScript for real-time updates) -->
+<template id="activity-item-template">
+    <div class="activity-item">
+        <div class="bg-bg-primary/50 rounded-lg p-3">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="activity-icon text-sm"></span>
+                <span class="activity-timestamp text-xs text-text-tertiary font-mono"></span>
+            </div>
+            <p class="text-sm text-text-primary activity-description"></p>
+            <p class="text-xs text-text-tertiary mt-1 activity-guild"></p>
+        </div>
+    </div>
+</template>
+
 <div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden h-full flex flex-col">
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
-        <h2 class="text-lg font-semibold text-text-primary">@Model.Title</h2>
-        @if (Model.ShowRefreshButton)
-        {
-            <button
-                type="button"
-                class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-all duration-150"
-                title="Refresh activity feed"
-                aria-label="Refresh activity feed"
-            >
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-            </button>
-        }
+        <div class="flex items-center gap-3">
+            <h2 class="text-lg font-semibold text-text-primary">@Model.Title</h2>
+            <span id="feed-paused-indicator" class="hidden text-xs text-warning font-medium">Paused</span>
+        </div>
+        <div class="flex items-center gap-2">
+            @if (Model.ShowRefreshButton)
+            {
+                <button
+                    id="pause-feed-btn"
+                    type="button"
+                    class="flex items-center gap-1.5 px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-all duration-150"
+                    aria-pressed="false"
+                    aria-label="Pause activity feed"
+                >
+                    <svg id="pause-icon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <svg id="play-icon" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span id="pause-btn-text">Pause</span>
+                </button>
+            }
+        </div>
     </div>
 
     <!-- Timeline Container -->
     <div class="p-4 overflow-y-auto flex-grow" style="@maxHeightStyle">
-        @if (Model.HasItems)
-        {
-            <div class="activity-timeline">
+        <div id="activity-feed" class="activity-timeline">
+            @if (Model.HasItems)
+            {
                 @foreach (var item in Model.Items)
                 {
                     <div class="activity-item @item.TypeClassName">
                         <div class="bg-bg-primary/50 rounded-lg p-3">
-                            <p class="text-sm text-text-primary">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="activity-icon text-sm">@(item.Type == DiscordBot.Bot.ViewModels.Components.Enums.ActivityItemType.Success ? "🔧" : "⚠️")</span>
+                                <span class="activity-timestamp text-xs text-text-tertiary font-mono">@item.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                            </div>
+                            <p class="text-sm text-text-primary activity-description">
                                 @if (!string.IsNullOrEmpty(item.CommandText))
                                 {
-                                    @Html.Raw(item.Message.Replace(item.CommandText, $"<code class=\"px-1.5 py-0.5 bg-bg-tertiary text-accent-orange rounded text-xs font-mono\">{item.CommandText}</code>"))
+                                    @Html.Raw(item.Message.Replace(item.CommandText, $"<span class=\"font-mono text-accent-orange\">{item.CommandText}</span>"))
                                 }
                                 else
                                 {
                                     @item.Message
                                 }
                             </p>
-                            <p class="text-xs text-text-tertiary mt-1">@item.Source - @item.RelativeTime</p>
+                            <p class="text-xs text-text-tertiary mt-1 activity-guild">@item.Source - @item.RelativeTime</p>
                         </div>
                     </div>
                 }
-            </div>
-        }
-        else
-        {
-            <!-- Empty state -->
-            <div class="flex flex-col items-center justify-center py-12 text-center">
+            }
+            <!-- Empty state (hidden when items exist) -->
+            <div id="empty-state" class="@(Model.HasItems ? "hidden" : "") flex flex-col items-center justify-center py-12 text-center">
                 <svg class="w-12 h-12 text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
                 <p class="text-sm text-text-secondary">No recent activity</p>
                 <p class="text-xs text-text-tertiary mt-1">Activity will appear here as it occurs</p>
             </div>
-        }
+        </div>
     </div>
 
     <!-- Footer -->
