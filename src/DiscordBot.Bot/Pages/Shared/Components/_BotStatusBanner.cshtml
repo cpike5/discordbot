@@ -14,7 +14,7 @@
         : "Not currently connected to Discord";
 }
 
-<div class="@bannerClass mb-8">
+<div class="@bannerClass mb-8" data-bot-status-banner data-is-online="@Model.IsOnline.ToString().ToLower()">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <!-- Status Info Section -->
         <div class="flex items-center gap-4">
@@ -39,46 +39,36 @@
             <!-- Text Content -->
             <div>
                 <div class="flex items-center gap-2">
-                    <h2 class="text-lg font-semibold text-text-primary">@statusHeading</h2>
+                    <h2 class="text-lg font-semibold text-text-primary" data-status-heading>@statusHeading</h2>
                     <!-- Status Badge -->
-                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold @statusBadgeText @statusBadgeBg rounded-full">
-                        @if (Model.IsOnline)
-                        {
-                            <span class="w-1.5 h-1.5 @statusDotColor rounded-full animate-pulse"></span>
-                        }
-                        else
-                        {
-                            <span class="w-1.5 h-1.5 @statusDotColor rounded-full"></span>
-                        }
-                        @Model.StatusText
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold @statusBadgeText @statusBadgeBg rounded-full" data-status-badge>
+                        <span class="w-1.5 h-1.5 @statusDotColor rounded-full @(Model.IsOnline ? "animate-pulse" : "")" data-status-dot></span>
+                        <span data-status-text>@Model.StatusText</span>
                     </span>
                 </div>
-                <p class="text-sm text-text-secondary mt-0.5">@summaryText</p>
+                <p class="text-sm text-text-secondary mt-0.5" data-summary-text>@summaryText</p>
             </div>
         </div>
 
-        <!-- Metrics Section -->
-        @if (Model.IsOnline)
-        {
-            <div class="flex items-center gap-6 text-sm">
-                <!-- Uptime -->
-                <div class="text-center">
-                    <p class="font-semibold text-text-primary">@Model.UptimeDisplay</p>
-                    <p class="text-xs text-text-tertiary">Uptime</p>
-                </div>
-
-                <!-- Version -->
-                <div class="text-center">
-                    <p class="font-semibold text-text-primary">@Model.Version</p>
-                    <p class="text-xs text-text-tertiary">Version</p>
-                </div>
-
-                <!-- Latency -->
-                <div class="text-center">
-                    <p class="font-semibold text-text-primary">@Model.LatencyMs<span class="text-text-tertiary">ms</span></p>
-                    <p class="text-xs text-text-tertiary">Latency</p>
-                </div>
+        <!-- Metrics Section (always rendered, visibility controlled by JS) -->
+        <div class="flex items-center gap-6 text-sm @(Model.IsOnline ? "" : "hidden")" data-metrics-section>
+            <!-- Uptime -->
+            <div class="text-center">
+                <p class="font-semibold text-text-primary" data-uptime>@Model.UptimeDisplay</p>
+                <p class="text-xs text-text-tertiary">Uptime</p>
             </div>
-        }
+
+            <!-- Version -->
+            <div class="text-center">
+                <p class="font-semibold text-text-primary" data-version>@Model.Version</p>
+                <p class="text-xs text-text-tertiary">Version</p>
+            </div>
+
+            <!-- Latency -->
+            <div class="text-center">
+                <p class="font-semibold text-text-primary"><span data-latency>@Model.LatencyMs</span><span class="text-text-tertiary">ms</span></p>
+                <p class="text-xs text-text-tertiary">Latency</p>
+            </div>
+        </div>
     </div>
 </div>

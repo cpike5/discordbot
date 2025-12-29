@@ -164,12 +164,19 @@ public class IndexModel : PageModel
     {
         var guildList = guilds.ToList();
         var activeUsers = guildList.Where(g => g.IsActive).Sum(g => g.MemberCount ?? 0);
+
+        // SVG icon paths matching the prototype design
+        const string serverIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01\" />";
+        const string usersIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z\" />";
+        const string commandIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z\" />";
+        const string uptimeIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z\" />";
+
         HeroMetrics = new List<HeroMetricCardViewModel>
         {
-            new() { Title = "Total Servers", Value = guildList.Count.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "this week", AccentColor = CardAccent.Blue, IconSvg = "<path d=\"M5 12h14\" />", ShowSparkline = false },
-            new() { Title = "Active Users", Value = activeUsers.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "today", AccentColor = CardAccent.Success, IconSvg = "<path d=\"M17 20h5\" />", ShowSparkline = false },
-            new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), TrendValue = "0%", TrendDirection = TrendDirection.Neutral, TrendLabel = "vs yesterday", AccentColor = CardAccent.Orange, IconSvg = "<path d=\"M8 9l3 3\" />", ShowSparkline = false },
-            new() { Title = "Uptime", Value = "99.9%", TrendValue = "", TrendDirection = TrendDirection.Up, TrendLabel = "stable", AccentColor = CardAccent.Info, IconSvg = "<path d=\"M9 12l2 2\" />", ShowSparkline = false }
+            new() { Title = "Total Servers", Value = guildList.Count.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "this week", AccentColor = CardAccent.Blue, IconSvg = serverIcon, ShowSparkline = false },
+            new() { Title = "Active Users", Value = activeUsers.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "today", AccentColor = CardAccent.Success, IconSvg = usersIcon, ShowSparkline = false },
+            new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), TrendValue = "0%", TrendDirection = TrendDirection.Neutral, TrendLabel = "vs yesterday", AccentColor = CardAccent.Orange, IconSvg = commandIcon, ShowSparkline = false },
+            new() { Title = "Uptime", Value = "99.9%", TrendValue = "", TrendDirection = TrendDirection.Up, TrendLabel = "stable", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
         };
     }
 
@@ -178,12 +185,12 @@ public class IndexModel : PageModel
         var items = recentLogs.Select(log => new ActivityFeedItemViewModel
         {
             Type = log.Success ? ActivityItemType.Success : ActivityItemType.Error,
-            Message = log.Success ? "Command executed:" : "Command failed:",
+            Message = log.Success ? $"Command executed: /{log.CommandName}" : $"Command failed: /{log.CommandName}",
             CommandText = "/" + log.CommandName,
             Source = log.GuildName ?? "Unknown Server",
             Timestamp = log.ExecutedAt
         }).ToList();
-        ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = "/Commands/Logs" };
+        ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = "/CommandLogs", MaxHeight = "400px" };
     }
 
     /// <summary>

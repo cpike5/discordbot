@@ -26,32 +26,26 @@
     }
 </div>
 
-<!-- Main Content Grid: 2/3 Content + 1/3 Sidebar -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6 mb-8">
-    <!-- Left Column: 2/3 width -->
-    <div class="lg:col-span-2 space-y-6">
-        <!-- Command Usage Statistics -->
+<!-- Command Usage and Activity Timeline - 2 Equal Columns -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-8">
+    <!-- Command Usage Statistics -->
+    <div class="flex flex-col">
         <partial name="Shared/Components/_CommandStatsCard" model="Model.CommandStats" />
-
-        <!-- Recent Activity -->
-        <partial name="Shared/Components/_RecentActivityCard" model="Model.RecentActivity" />
-
-        <!-- Audit Log (Admin only) -->
-        @if (Model.AuditLog != null && (User.IsInRole("Admin") || User.IsInRole("SuperAdmin")))
-        {
-            <partial name="Shared/Components/_AuditLogCard" model="Model.AuditLog" />
-        }
     </div>
 
-    <!-- Right Column: 1/3 width -->
-    <div class="space-y-6">
-        <!-- Activity Timeline -->
+    <!-- Activity Timeline -->
+    <div class="flex flex-col">
         <partial name="Shared/Components/_ActivityFeedTimeline" model="Model.ActivityTimeline" />
-
-        <!-- Guild Statistics Card -->
-        <partial name="Shared/Components/_GuildStatsCard" model="Model.GuildStats" />
     </div>
 </div>
+
+<!-- Audit Log - Full Width (Admin only) -->
+@if (Model.AuditLog != null && (User.IsInRole("Admin") || User.IsInRole("SuperAdmin")))
+{
+    <div class="mb-8">
+        <partial name="Shared/Components/_AuditLogCard" model="Model.AuditLog" />
+    </div>
+}
 
 <!-- Quick Actions Panel at Bottom -->
 <div class="mb-8">

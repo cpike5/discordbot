@@ -6,6 +6,16 @@
     <title>@ViewData["Title"] - Discord Bot Admin</title>
     <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    <!-- Early sidebar state restoration to prevent FOUC (Flash of Unstyled Content) -->
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 1024) {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body class="bg-bg-primary text-text-primary font-sans antialiased">
 
@@ -53,6 +63,8 @@
     <script src="~/js/loading-manager.js" asp-append-version="true"></script>
     <!-- Timezone Utilities -->
     <script src="~/js/timezone.js" asp-append-version="true"></script>
+    <!-- Bot Status Auto-Refresh -->
+    <script src="~/js/bot-status-refresh.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

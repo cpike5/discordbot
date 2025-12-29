@@ -146,6 +146,34 @@
     }
 
     /**
+     * Shows the chart container and hides the empty state.
+     */
+    function showChartContainer() {
+        const chartContainer = document.querySelector('#commandUsageChart')?.parentElement;
+        const emptyState = document.querySelector('[data-command-stats-card] [data-empty-state]');
+        if (chartContainer) {
+            chartContainer.style.display = '';
+        }
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+    }
+
+    /**
+     * Hides the chart container and shows the empty state.
+     */
+    function showEmptyState() {
+        const chartContainer = document.querySelector('#commandUsageChart')?.parentElement;
+        const emptyState = document.querySelector('[data-command-stats-card] [data-empty-state]');
+        if (chartContainer) {
+            chartContainer.style.display = 'none';
+        }
+        if (emptyState) {
+            emptyState.style.display = '';
+        }
+    }
+
+    /**
      * Updates the chart with new data from the API.
      * @param {number|null} timeRangeHours - Time range in hours, or null for all time
      */
@@ -177,19 +205,38 @@
             const counts = sortedStats.map(([, count]) => count);
             const totalCommands = counts.reduce((sum, count) => sum + count, 0);
 
-            // Update chart data
-            if (commandChart) {
-                commandChart.data.labels = labels;
-                commandChart.data.datasets[0].data = counts;
+            // Handle chart visibility based on data availability
+            if (labels.length > 0) {
+                showChartContainer();
 
-                // Update tooltip callback with new total
-                commandChart.options.plugins.tooltip.callbacks.label = function (context) {
-                    const value = context.parsed.x;
-                    const percentage = totalCommands > 0 ? ((value / totalCommands) * 100).toFixed(1) : '0.0';
-                    return `Count: ${formatNumber(value)} (${percentage}%)`;
-                };
+                // Initialize chart if it doesn't exist yet
+                if (!commandChart) {
+                    initChart({
+                        labels: labels,
+                        counts: counts,
+                        totalCommands: totalCommands
+                    });
+                } else {
+                    // Update existing chart
+                    commandChart.data.labels = labels;
+                    commandChart.data.datasets[0].data = counts;
 
-                commandChart.update('active');
+                    // Update tooltip callback with new total
+                    commandChart.options.plugins.tooltip.callbacks.label = function (context) {
+                        const value = context.parsed.x;
+                        const percentage = totalCommands > 0 ? ((value / totalCommands) * 100).toFixed(1) : '0.0';
+                        return `Count: ${formatNumber(value)} (${percentage}%)`;
+                    };
+
+                    commandChart.update('active');
+                }
+            } else {
+                // No data - show empty state
+                showEmptyState();
+                if (commandChart) {
+                    commandChart.destroy();
+                    commandChart = null;
+                }
             }
 
             // Update total count display

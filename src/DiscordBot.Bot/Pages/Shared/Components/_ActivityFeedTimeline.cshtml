@@ -3,7 +3,7 @@
     var maxHeightStyle = !string.IsNullOrEmpty(Model.MaxHeight) ? $"max-height: {Model.MaxHeight};" : "";
 }
 
-<div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden">
+<div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden h-full flex flex-col">
     <!-- Header -->
     <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
         <h2 class="text-lg font-semibold text-text-primary">@Model.Title</h2>
@@ -23,7 +23,7 @@
     </div>
 
     <!-- Timeline Container -->
-    <div class="p-4 overflow-y-auto" style="@maxHeightStyle">
+    <div class="p-4 overflow-y-auto flex-grow" style="@maxHeightStyle">
         @if (Model.HasItems)
         {
             <div class="activity-timeline">

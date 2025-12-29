@@ -97,11 +97,13 @@ function toggleSidebarCollapse() {
 
   sidebarCollapsed = !sidebarCollapsed;
 
-  // Toggle collapsed class
+  // Toggle collapsed class on sidebar and html element (for CSS sync)
   if (sidebarCollapsed) {
     sidebar.classList.add('collapsed');
+    document.documentElement.classList.add('sidebar-collapsed');
   } else {
     sidebar.classList.remove('collapsed');
+    document.documentElement.classList.remove('sidebar-collapsed');
   }
 
   // Persist state in localStorage
@@ -223,6 +225,8 @@ document.addEventListener('keydown', function(event) {
 // Initialize sidebar state on page load
 document.addEventListener('DOMContentLoaded', function() {
   // Restore sidebar collapsed state from localStorage
+  // Note: The html.sidebar-collapsed class is already set by inline script in <head> for FOUC prevention
+  // Here we sync the sidebar element's collapsed class and set the JS state variable
   try {
     const savedState = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
     if (savedState === 'true' && window.innerWidth >= 1024) {
@@ -230,7 +234,16 @@ document.addEventListener('DOMContentLoaded', function() {
       if (sidebar) {
         sidebarCollapsed = true;
         sidebar.classList.add('collapsed');
+        // Ensure html element also has the class (should already be set by inline script)
+        document.documentElement.classList.add('sidebar-collapsed');
       }
+    } else {
+      // Ensure classes are removed if not collapsed
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        sidebar.classList.remove('collapsed');
+      }
+      document.documentElement.classList.remove('sidebar-collapsed');
     }
   } catch (e) {
     console.warn('Unable to restore sidebar state from localStorage:', e);
