@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
@@ -22,7 +23,7 @@ public class BotHostedService : IHostedService
     private readonly WelcomeHandler _welcomeHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
-    private readonly IAuditLogService _auditLogService;
+    private readonly IAuditLogQueue _auditLogQueue;
     private readonly BotConfiguration _config;
     private readonly ApplicationOptions _applicationOptions;
     private readonly ILogger<BotHostedService> _logger;
@@ -37,7 +38,7 @@ public class BotHostedService : IHostedService
         WelcomeHandler welcomeHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
-        IAuditLogService auditLogService,
+        IAuditLogQueue auditLogQueue,
         IOptions<BotConfiguration> config,
         IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
@@ -50,7 +51,7 @@ public class BotHostedService : IHostedService
         _welcomeHandler = welcomeHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
-        _auditLogService = auditLogService;
+        _auditLogQueue = auditLogQueue;
         _config = config.Value;
         _applicationOptions = applicationOptions.Value;
         _logger = logger;
@@ -104,17 +105,18 @@ public class BotHostedService : IHostedService
             _logger.LogInformation("Discord bot started successfully");
 
             // Log bot startup to audit log
-            _auditLogService.CreateBuilder()
-                .ForCategory(AuditLogCategory.System)
-                .WithAction(AuditLogAction.BotStarted)
-                .ByBot()
-                .WithDetails(new
+            _auditLogQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.BotStarted,
+                ActorType = AuditLogActorType.Bot,
+                Details = JsonSerializer.Serialize(new
                 {
                     Version = _applicationOptions.Version,
                     Environment = _environment.EnvironmentName,
                     StartTime = _startTime
                 })
-                .Enqueue();
+            });
         }
         catch (Exception ex)
         {
@@ -143,17 +145,18 @@ public class BotHostedService : IHostedService
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
 
             // Log bot shutdown to audit log before stopping
-            await _auditLogService.CreateBuilder()
-                .ForCategory(AuditLogCategory.System)
-                .WithAction(AuditLogAction.BotStopped)
-                .ByBot()
-                .WithDetails(new
+            _auditLogQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.BotStopped,
+                ActorType = AuditLogActorType.Bot,
+                Details = JsonSerializer.Serialize(new
                 {
                     Reason = "ApplicationStopping",
                     UptimeSeconds = uptime.TotalSeconds,
                     UptimeFormatted = uptime.ToString(@"d\.hh\:mm\:ss")
                 })
-                .LogAsync(cancellationToken);
+            });
 
             await _client.StopAsync();
             await _client.LogoutAsync();
@@ -201,16 +204,17 @@ public class BotHostedService : IHostedService
         _ = BroadcastBotStatusAsync();
 
         // Log connection event to audit log (fire-and-forget)
-        _auditLogService.CreateBuilder()
-            .ForCategory(AuditLogCategory.System)
-            .WithAction(AuditLogAction.BotConnected)
-            .ByBot()
-            .WithDetails(new
+        _auditLogQueue.Enqueue(new AuditLogCreateDto
+        {
+            Category = AuditLogCategory.System,
+            Action = AuditLogAction.BotConnected,
+            ActorType = AuditLogActorType.Bot,
+            Details = JsonSerializer.Serialize(new
             {
                 Latency = _client.Latency,
                 GuildCount = _client.Guilds.Count
             })
-            .Enqueue();
+        });
 
         return Task.CompletedTask;
     }
@@ -226,16 +230,17 @@ public class BotHostedService : IHostedService
         _ = BroadcastBotStatusAsync();
 
         // Log disconnection event to audit log (fire-and-forget)
-        _auditLogService.CreateBuilder()
-            .ForCategory(AuditLogCategory.System)
-            .WithAction(AuditLogAction.BotDisconnected)
-            .ByBot()
-            .WithDetails(new
+        _auditLogQueue.Enqueue(new AuditLogCreateDto
+        {
+            Category = AuditLogCategory.System,
+            Action = AuditLogAction.BotDisconnected,
+            ActorType = AuditLogActorType.Bot,
+            Details = JsonSerializer.Serialize(new
             {
                 Exception = exception?.Message,
                 ExceptionType = exception?.GetType().Name
             })
-            .Enqueue();
+        });
 
         return Task.CompletedTask;
     }
