@@ -5,6 +5,7 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Bot.ViewModels.Components.Enums;
 
 namespace DiscordBot.Bot.Pages;
 
@@ -23,6 +24,11 @@ public class IndexModel : PageModel
     public RecentActivityViewModel RecentActivity { get; private set; } = default!;
     public QuickActionsCardViewModel QuickActions { get; private set; } = default!;
     public AuditLogCardViewModel? AuditLog { get; private set; }
+
+    // Dashboard Redesign ViewModels
+    public BotStatusBannerViewModel BotStatusBanner { get; private set; } = default!;
+    public List<HeroMetricCardViewModel> HeroMetrics { get; private set; } = new();
+    public ActivityFeedTimelineViewModel ActivityTimeline { get; private set; } = default!;
 
     public IndexModel(
         ILogger<IndexModel> logger,
@@ -130,6 +136,54 @@ public class IndexModel : PageModel
                 }
             }
         };
+
+        // Build Dashboard Redesign ViewModels
+        BuildBotStatusBanner(statusDto, guilds);
+        BuildHeroMetrics(guilds, CommandStats.TotalCommands);
+        BuildActivityTimeline(recentLogsResponse.Items);
+    }
+
+
+    private void BuildBotStatusBanner(BotStatusDto statusDto, IEnumerable<GuildDto> guilds)
+    {
+        var guildList = guilds.ToList();
+        var totalMembers = guildList.Sum(g => g.MemberCount ?? 0);
+        BotStatusBanner = new BotStatusBannerViewModel
+        {
+            IsOnline = statusDto.ConnectionState == "Connected",
+            StatusText = statusDto.ConnectionState == "Connected" ? "Bot is Online" : "Bot is Offline",
+            ServerCount = guildList.Count,
+            TotalMembers = totalMembers,
+            UptimeDisplay = BotStatusViewModel.FormatUptime(statusDto.Uptime),
+            Version = "v0.3.3",
+            LatencyMs = statusDto.LatencyMs
+        };
+    }
+
+    private void BuildHeroMetrics(IEnumerable<GuildDto> guilds, int commandsToday)
+    {
+        var guildList = guilds.ToList();
+        var activeUsers = guildList.Where(g => g.IsActive).Sum(g => g.MemberCount ?? 0);
+        HeroMetrics = new List<HeroMetricCardViewModel>
+        {
+            new() { Title = "Total Servers", Value = guildList.Count.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "this week", AccentColor = CardAccent.Blue, IconSvg = "<path d=\"M5 12h14\" />", ShowSparkline = false },
+            new() { Title = "Active Users", Value = activeUsers.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "today", AccentColor = CardAccent.Success, IconSvg = "<path d=\"M17 20h5\" />", ShowSparkline = false },
+            new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), TrendValue = "0%", TrendDirection = TrendDirection.Neutral, TrendLabel = "vs yesterday", AccentColor = CardAccent.Orange, IconSvg = "<path d=\"M8 9l3 3\" />", ShowSparkline = false },
+            new() { Title = "Uptime", Value = "99.9%", TrendValue = "", TrendDirection = TrendDirection.Up, TrendLabel = "stable", AccentColor = CardAccent.Info, IconSvg = "<path d=\"M9 12l2 2\" />", ShowSparkline = false }
+        };
+    }
+
+    private void BuildActivityTimeline(IEnumerable<CommandLogDto> recentLogs)
+    {
+        var items = recentLogs.Select(log => new ActivityFeedItemViewModel
+        {
+            Type = log.Success ? ActivityItemType.Success : ActivityItemType.Error,
+            Message = log.Success ? "Command executed:" : "Command failed:",
+            CommandText = "/" + log.CommandName,
+            Source = log.GuildName ?? "Unknown Server",
+            Timestamp = log.ExecutedAt
+        }).ToList();
+        ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = "/Commands/Logs" };
     }
 
     /// <summary>
