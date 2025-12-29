@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Components;
 using DiscordBot.Bot.Models;
+using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 
@@ -11,6 +12,7 @@ namespace DiscordBot.Bot.Commands;
 /// <summary>
 /// Module for handling component interactions (button clicks, select menus) for scheduled message commands.
 /// </summary>
+[RequireGuildActive]
 public class ScheduleComponentModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IScheduledMessageService _scheduledMessageService;

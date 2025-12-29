@@ -8,6 +8,7 @@ namespace DiscordBot.Bot.Commands;
 /// <summary>
 /// Discord slash command module for account verification.
 /// </summary>
+[RequireGuildActive]
 public class VerifyAccountModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IVerificationService _verificationService;

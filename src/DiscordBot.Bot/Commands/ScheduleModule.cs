@@ -14,6 +14,7 @@ namespace DiscordBot.Bot.Commands;
 /// Slash command module for managing scheduled messages in Discord guilds.
 /// </summary>
 [RequireAdmin]
+[RequireGuildActive]
 public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IScheduledMessageService _scheduledMessageService;

@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Commands;
 /// Admin commands module for bot management and monitoring.
 /// </summary>
 [RequireAdmin]
+[RequireGuildActive]
 public class AdminModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly DiscordSocketClient _client;

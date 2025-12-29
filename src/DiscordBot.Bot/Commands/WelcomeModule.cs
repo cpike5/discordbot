@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Commands;
 /// </summary>
 [Group("welcome", "Manage welcome message settings")]
 [RequireAdmin]
+[RequireGuildActive]
 [RateLimit(5, 60)]
 public class WelcomeModule : InteractionModuleBase<SocketInteractionContext>
 {

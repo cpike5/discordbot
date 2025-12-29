@@ -1,12 +1,14 @@
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Bot.Preconditions;
 
 namespace DiscordBot.Bot.Commands;
 
 /// <summary>
 /// General purpose slash commands for the Discord bot.
 /// </summary>
+[RequireGuildActive]
 public class GeneralModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly ILogger<GeneralModule> _logger;
