@@ -30,9 +30,14 @@
                 {
                     @foreach (var server in Model.Servers)
                     {
-                        <tr class="hover:bg-bg-hover transition-colors">
+                        <tr class="hover:bg-bg-hover transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
+                            onclick="if (!event.target.closest('button')) window.location.href='@server.DetailUrl'"
+                            tabindex="0"
+                            role="link"
+                            aria-label="View details for @server.Name"
+                            onkeydown="if (event.key === 'Enter' && !event.target.closest('button')) window.location.href='@server.DetailUrl'">
                             <td class="px-6 py-4">
-                                <div class="flex items-center gap-3">
+                                <a href="@server.DetailUrl" class="flex items-center gap-3 focus:outline-none" tabindex="-1">
                                     @if (!string.IsNullOrEmpty(server.IconUrl))
                                     {
                                         <img src="@server.IconUrl" alt="@server.Name icon" class="w-10 h-10 rounded-full" />
@@ -44,10 +49,10 @@
                                         </div>
                                     }
                                     <div>
-                                        <p class="font-medium text-text-primary">@server.Name</p>
+                                        <p class="font-medium text-text-primary group-hover:text-accent-blue transition-colors">@server.Name</p>
                                         <p class="text-xs text-text-tertiary font-mono">ID: @server.Id</p>
                                     </div>
-                                </div>
+                                </a>
                             </td>
                             <td class="px-6 py-4 text-text-secondary">@server.MemberCount.ToString("N0")</td>
                             <td class="px-6 py-4">
