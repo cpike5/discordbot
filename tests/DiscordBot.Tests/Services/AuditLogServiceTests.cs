@@ -1,9 +1,11 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -18,6 +20,8 @@ public class AuditLogServiceTests
 {
     private readonly Mock<IAuditLogRepository> _mockRepository;
     private readonly Mock<IAuditLogQueue> _mockQueue;
+    private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
+    private readonly Mock<DiscordSocketClient> _mockDiscordClient;
     private readonly Mock<ILogger<AuditLogService>> _mockLogger;
     private readonly AuditLogService _service;
 
@@ -25,8 +29,23 @@ public class AuditLogServiceTests
     {
         _mockRepository = new Mock<IAuditLogRepository>();
         _mockQueue = new Mock<IAuditLogQueue>();
+        _mockUserManager = MockUserManager();
+        _mockDiscordClient = new Mock<DiscordSocketClient>();
         _mockLogger = new Mock<ILogger<AuditLogService>>();
-        _service = new AuditLogService(_mockRepository.Object, _mockQueue.Object, _mockLogger.Object);
+
+        _service = new AuditLogService(
+            _mockRepository.Object,
+            _mockQueue.Object,
+            _mockUserManager.Object,
+            _mockDiscordClient.Object,
+            _mockLogger.Object);
+    }
+
+    private static Mock<UserManager<ApplicationUser>> MockUserManager()
+    {
+        var store = new Mock<IUserStore<ApplicationUser>>();
+        return new Mock<UserManager<ApplicationUser>>(
+            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
     }
 
     #region GetLogsAsync Tests
