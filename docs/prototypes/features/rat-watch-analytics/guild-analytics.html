@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guild Rat Watch Analytics - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Filter panel collapse animation */
+    .filter-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+    .filter-content.expanded {
+      max-height: 500px;
+    }
+
+    /* Tab active state */
+    .tab-btn.active {
+      border-color: #cb4e1b;
+      color: #d7d3d0;
+    }
+
+    /* Modal styles */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background-color: rgba(0, 0, 0, 0.6);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 150ms ease-out, visibility 150ms ease-out;
+    }
+    .modal-backdrop.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal {
+      position: fixed;
+      z-index: 1001;
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(0.95) translateY(-10px);
+      transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms ease-out;
+    }
+    .modal.active {
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1) translateY(0);
+    }
+    .modal-centered {
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+    }
+    .modal-centered.active {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    /* Leaderboard row hover */
+    .leaderboard-row {
+      cursor: pointer;
+      transition: background-color 0.15s ease-out;
+    }
+    .leaderboard-row:hover {
+      background-color: #363a3e;
+    }
+
+    /* Activity heatmap grid */
+    .heatmap-cell {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 2px;
+    }
+
+    /* Chart canvas container */
+    .chart-container {
+      position: relative;
+      height: 250px;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Main Content Area (no sidebar for prototype focus) -->
+  <main class="min-h-screen">
+    <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Guilds</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">The Rat's Nest</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Rat Watch Analytics</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+          <div class="flex items-center gap-3 mb-1">
+            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Rat Watch Analytics</h1>
+            <span class="px-3 py-1 text-sm font-medium bg-accent-orange/20 text-accent-orange rounded-full">The Rat's Nest</span>
+          </div>
+          <p class="text-text-secondary">Accountability metrics and trends for your server</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <a href="#" class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary border border-border-primary text-text-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors">
+            <!-- Arrow Left Icon -->
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Settings
+          </a>
+          <a href="#" class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors">
+            <!-- Document Icon -->
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            View Incidents
+          </a>
+        </div>
+      </div>
+
+      <!-- Filter Panel (Collapsible) -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <button
+          onclick="toggleFilterPanel()"
+          class="w-full flex items-center justify-between px-5 py-4 text-left"
+          aria-expanded="false"
+          aria-controls="filterContent"
+        >
+          <div class="flex items-center gap-3">
+            <!-- Filter Icon -->
+            <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span class="text-lg font-semibold text-text-primary">Filters</span>
+          </div>
+          <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div id="filterContent" class="filter-content border-t border-border-primary">
+          <div class="p-5">
+            <!-- Quick Date Presets -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-text-secondary mb-2">Quick Date Range</label>
+              <div class="flex flex-wrap gap-2">
+                <button onclick="setDatePreset('today')" class="date-preset-btn px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">Today</button>
+                <button onclick="setDatePreset('7days')" class="date-preset-btn px-3 py-1.5 text-xs font-medium bg-accent-blue/20 text-accent-blue border border-accent-blue/30 rounded-md hover:bg-accent-blue/30 transition-colors active">Last 7 Days</button>
+                <button onclick="setDatePreset('30days')" class="date-preset-btn px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">Last 30 Days</button>
+                <button onclick="setDatePreset('custom')" class="date-preset-btn px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">Custom</button>
+              </div>
+            </div>
+
+            <!-- Filter Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Date From -->
+              <div>
+                <label for="dateFrom" class="block text-sm font-medium text-text-secondary mb-1.5">From Date</label>
+                <input
+                  type="date"
+                  id="dateFrom"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                  value="2025-12-23"
+                />
+              </div>
+
+              <!-- Date To -->
+              <div>
+                <label for="dateTo" class="block text-sm font-medium text-text-secondary mb-1.5">To Date</label>
+                <input
+                  type="date"
+                  id="dateTo"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                  value="2025-12-30"
+                />
+              </div>
+
+              <!-- User Filter -->
+              <div>
+                <label for="userFilter" class="block text-sm font-medium text-text-secondary mb-1.5">User</label>
+                <input
+                  type="text"
+                  id="userFilter"
+                  placeholder="Search by username..."
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                />
+              </div>
+
+              <!-- Status Filter -->
+              <div>
+                <label for="statusFilter" class="block text-sm font-medium text-text-secondary mb-1.5">Status</label>
+                <select
+                  id="statusFilter"
+                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none cursor-pointer"
+                  style="background-image: url(&quot;data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e&quot;); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em;"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="guilty">Guilty</option>
+                  <option value="notguilty">Not Guilty</option>
+                  <option value="cleared">Cleared Early</option>
+                  <option value="expired">Expired</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="flex items-center gap-3 mt-4 pt-4 border-t border-border-secondary">
+              <button
+                onclick="applyFilters()"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors"
+              >
+                Apply Filters
+              </button>
+              <button
+                onclick="resetFilters()"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-transparent border border-border-primary text-text-secondary hover:text-text-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Stats Cards (4-column grid) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
+        <!-- Total Watches -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-accent-blue/50 transition-colors">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-text-secondary">Total Watches</p>
+              <p class="mt-2 text-3xl font-bold text-text-primary">247</p>
+              <p class="mt-1 text-xs text-success flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                +23 this week
+              </p>
+            </div>
+            <div class="p-3 bg-accent-blue/10 rounded-lg">
+              <!-- Eye Icon -->
+              <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Guilty Rate -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-error/50 transition-colors">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-text-secondary">Guilty Rate</p>
+              <p class="mt-2 text-3xl font-bold text-error">68%</p>
+              <p class="mt-1 text-xs text-text-tertiary">168 guilty verdicts</p>
+            </div>
+            <div class="p-3 bg-error/10 rounded-lg">
+              <!-- Scale Icon -->
+              <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Check-in Rate -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-success/50 transition-colors">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-text-secondary">Check-in Rate</p>
+              <p class="mt-2 text-3xl font-bold text-success">23%</p>
+              <p class="mt-1 text-xs text-text-tertiary">57 cleared early</p>
+            </div>
+            <div class="p-3 bg-success/10 rounded-lg">
+              <!-- Check Circle Icon -->
+              <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Avg Votes per Watch -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-warning/50 transition-colors">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-text-secondary">Avg Votes per Watch</p>
+              <p class="mt-2 text-3xl font-bold text-warning">4.2</p>
+              <p class="mt-1 text-xs text-text-tertiary">Active community</p>
+            </div>
+            <div class="p-3 bg-warning/10 rounded-lg">
+              <!-- Hand Raised Icon -->
+              <svg class="w-6 h-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Grid (2x2) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Watches Over Time -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Watches Over Time</h2>
+            <span class="text-xs text-text-tertiary">Last 7 days</span>
+          </div>
+          <div class="p-5">
+            <div class="chart-container">
+              <canvas id="watchesOverTimeChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Outcome Distribution -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Outcome Distribution</h2>
+          </div>
+          <div class="p-5">
+            <div class="chart-container">
+              <canvas id="outcomeDistributionChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity Heatmap -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Activity Heatmap</h2>
+            <span class="text-xs text-text-tertiary">When watches are scheduled</span>
+          </div>
+          <div class="p-5">
+            <div id="activityHeatmap" class="overflow-x-auto">
+              <!-- Heatmap will be rendered by JavaScript -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Users -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Top Watched Users</h2>
+          </div>
+          <div class="p-5">
+            <div class="chart-container">
+              <canvas id="topUsersChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Behavioral Insights Section -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg mb-8">
+        <div class="px-5 py-4 border-b border-border-primary">
+          <h2 class="text-lg font-semibold text-text-primary">Behavioral Insights</h2>
+        </div>
+        <div class="p-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Early Check-in Rate -->
+            <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="p-2 bg-success/10 rounded-lg">
+                  <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-text-secondary">Early Check-in Rate</span>
+              </div>
+              <p class="text-2xl font-bold text-text-primary">23%</p>
+              <p class="text-xs text-text-tertiary mt-1">Cleared before voting starts</p>
+            </div>
+
+            <!-- Avg Voting Participation -->
+            <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="p-2 bg-accent-blue/10 rounded-lg">
+                  <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-text-secondary">Avg Voting Participation</span>
+              </div>
+              <p class="text-2xl font-bold text-text-primary">4.2</p>
+              <p class="text-xs text-text-tertiary mt-1">Voters per watch</p>
+            </div>
+
+            <!-- Avg Vote Margin -->
+            <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="p-2 bg-warning/10 rounded-lg">
+                  <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-text-secondary">Avg Vote Margin</span>
+              </div>
+              <p class="text-2xl font-bold text-text-primary">2.3</p>
+              <p class="text-xs text-text-tertiary mt-1">Votes difference</p>
+            </div>
+
+            <!-- Most Common Duration -->
+            <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="p-2 bg-accent-orange/10 rounded-lg">
+                  <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span class="text-sm font-medium text-text-secondary">Most Common Duration</span>
+              </div>
+              <p class="text-2xl font-bold text-text-primary">30 min</p>
+              <p class="text-xs text-text-tertiary mt-1">Most popular check-in window</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- User Leaderboards with Tabs -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="flex items-center gap-1 px-5 py-4 border-b border-border-primary overflow-x-auto">
+          <button
+            onclick="switchTab('mostWatched')"
+            class="tab-btn px-4 py-2 text-sm font-medium text-text-secondary border-b-2 border-transparent hover:text-text-primary transition-colors active"
+            data-tab="mostWatched"
+          >
+            Most Watched
+          </button>
+          <button
+            onclick="switchTab('topAccusers')"
+            class="tab-btn px-4 py-2 text-sm font-medium text-text-secondary border-b-2 border-transparent hover:text-text-primary transition-colors"
+            data-tab="topAccusers"
+          >
+            Top Accusers
+          </button>
+          <button
+            onclick="switchTab('biggestRats')"
+            class="tab-btn px-4 py-2 text-sm font-medium text-text-secondary border-b-2 border-transparent hover:text-text-primary transition-colors"
+            data-tab="biggestRats"
+          >
+            Biggest Rats
+          </button>
+        </div>
+
+        <!-- Tab Content: Most Watched -->
+        <div id="tabMostWatched" class="tab-content">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-bg-primary/50">
+                <tr>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Rank</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Total Watches</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Guilty Rate</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Last Incident</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-primary">
+                <tr class="leaderboard-row" onclick="openUserModal('RatKing')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-warning/20 text-warning font-bold text-sm">1</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm">RK</div>
+                      <div>
+                        <p class="font-medium text-text-primary">RatKing</p>
+                        <p class="text-xs text-text-tertiary">#1234</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 text-text-primary font-medium">15</td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-error bg-error/10 rounded-full">67%</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">2 hours ago</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('CheeseThief')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-tertiary/20 text-text-secondary font-bold text-sm">2</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">CT</div>
+                      <div>
+                        <p class="font-medium text-text-primary">CheeseThief</p>
+                        <p class="text-xs text-text-tertiary">#5678</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 text-text-primary font-medium">12</td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-error bg-error/10 rounded-full">75%</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">5 hours ago</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('NightOwl')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-accent-orange/20 text-accent-orange font-bold text-sm">3</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">NO</div>
+                      <div>
+                        <p class="font-medium text-text-primary">NightOwl</p>
+                        <p class="text-xs text-text-tertiary">#9012</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 text-text-primary font-medium">10</td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-warning bg-warning/10 rounded-full">60%</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">Yesterday</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('Procrastinator99')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-bg-tertiary text-text-tertiary font-bold text-sm">4</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">P9</div>
+                      <div>
+                        <p class="font-medium text-text-primary">Procrastinator99</p>
+                        <p class="text-xs text-text-tertiary">#3456</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 text-text-primary font-medium">8</td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-success bg-success/10 rounded-full">50%</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">2 days ago</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('GymSkipper')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-bg-tertiary text-text-tertiary font-bold text-sm">5</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm">GS</div>
+                      <div>
+                        <p class="font-medium text-text-primary">GymSkipper</p>
+                        <p class="text-xs text-text-tertiary">#7890</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 text-text-primary font-medium">7</td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-error bg-error/10 rounded-full">86%</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">3 days ago</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab Content: Top Accusers -->
+        <div id="tabTopAccusers" class="tab-content hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-bg-primary/50">
+                <tr>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Rank</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Watches Created</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Success Rate</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Last Created</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-primary">
+                <tr class="leaderboard-row" onclick="openUserModal('WatchfulEye')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-warning/20 text-warning font-bold text-sm">1</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">WE</div>
+                      <div>
+                        <p class="font-medium text-text-primary">WatchfulEye</p>
+                        <p class="text-xs text-text-tertiary">#4321</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 text-text-primary font-medium">32</td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-success bg-success/10 rounded-full">78%</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">1 hour ago</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('AccountabilityKing')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-tertiary/20 text-text-secondary font-bold text-sm">2</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">AK</div>
+                      <div>
+                        <p class="font-medium text-text-primary">AccountabilityKing</p>
+                        <p class="text-xs text-text-tertiary">#8765</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 text-text-primary font-medium">28</td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-success bg-success/10 rounded-full">82%</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">4 hours ago</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('TruthSeeker')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-accent-orange/20 text-accent-orange font-bold text-sm">3</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-yellow-500 flex items-center justify-center text-white font-bold text-sm">TS</div>
+                      <div>
+                        <p class="font-medium text-text-primary">TruthSeeker</p>
+                        <p class="text-xs text-text-tertiary">#2468</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4 text-text-primary font-medium">21</td>
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-warning bg-warning/10 rounded-full">65%</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">Yesterday</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tab Content: Biggest Rats -->
+        <div id="tabBiggestRats" class="tab-content hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-bg-primary/50">
+                <tr>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Rank</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Guilty Verdicts</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Total Watches</th>
+                  <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Last Guilty</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border-primary">
+                <tr class="leaderboard-row" onclick="openUserModal('RatKing')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-warning/20 text-warning font-bold text-sm">1</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm">RK</div>
+                      <div>
+                        <p class="font-medium text-text-primary">RatKing</p>
+                        <p class="text-xs text-text-tertiary">#1234</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4">
+                    <span class="text-2xl font-bold text-error">10</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary">15</td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">2 hours ago</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('CheeseThief')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-tertiary/20 text-text-secondary font-bold text-sm">2</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">CT</div>
+                      <div>
+                        <p class="font-medium text-text-primary">CheeseThief</p>
+                        <p class="text-xs text-text-tertiary">#5678</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4">
+                    <span class="text-2xl font-bold text-error">9</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary">12</td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">5 hours ago</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('GymSkipper')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-accent-orange/20 text-accent-orange font-bold text-sm">3</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm">GS</div>
+                      <div>
+                        <p class="font-medium text-text-primary">GymSkipper</p>
+                        <p class="text-xs text-text-tertiary">#7890</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4">
+                    <span class="text-2xl font-bold text-error">6</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary">7</td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">3 days ago</td>
+                </tr>
+                <tr class="leaderboard-row" onclick="openUserModal('NightOwl')">
+                  <td class="px-5 py-4">
+                    <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-bg-tertiary text-text-tertiary font-bold text-sm">4</span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">NO</div>
+                      <div>
+                        <p class="font-medium text-text-primary">NightOwl</p>
+                        <p class="text-xs text-text-tertiary">#9012</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-5 py-4">
+                    <span class="text-2xl font-bold text-error">6</span>
+                  </td>
+                  <td class="px-5 py-4 text-text-secondary">10</td>
+                  <td class="px-5 py-4 text-text-secondary text-sm">Yesterday</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- User Detail Modal -->
+  <div id="userDetailBackdrop" class="modal-backdrop" onclick="closeUserModal()"></div>
+  <div id="userDetailModal" class="modal modal-centered w-full max-w-lg mx-4 bg-bg-secondary border border-border-primary rounded-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary shrink-0">
+      <h2 class="text-lg font-semibold text-text-primary">User Details</h2>
+      <button onclick="closeUserModal()" class="p-1 text-text-tertiary hover:text-text-primary hover:bg-bg-hover rounded transition-colors" aria-label="Close modal">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="p-6 overflow-y-auto flex-1" id="userDetailContent">
+      <!-- User Header -->
+      <div class="flex items-center gap-4 mb-6">
+        <div class="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-xl">RK</div>
+        <div>
+          <h3 class="text-xl font-bold text-text-primary">RatKing</h3>
+          <p class="text-sm text-text-tertiary">#1234</p>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-text-primary">15</p>
+          <p class="text-xs text-text-tertiary">Total Watches</p>
+        </div>
+        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-error">10</p>
+          <p class="text-xs text-text-tertiary">Guilty Verdicts</p>
+        </div>
+        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-success">2</p>
+          <p class="text-xs text-text-tertiary">Early Check-ins</p>
+        </div>
+        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 text-center">
+          <p class="text-2xl font-bold text-warning">33%</p>
+          <p class="text-xs text-text-tertiary">Accountability Score</p>
+        </div>
+      </div>
+
+      <!-- Trend Indicator -->
+      <div class="bg-error/10 border border-error/30 rounded-lg p-4 mb-6">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+          </svg>
+          <span class="text-sm font-medium text-error">Declining Accountability</span>
+        </div>
+        <p class="text-xs text-text-secondary mt-1">3 guilty verdicts in the last 7 days</p>
+      </div>
+
+      <!-- Recent Incidents -->
+      <h4 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-3">Recent Incidents</h4>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-lg">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-error bg-error/10 rounded">Guilty</span>
+            <span class="text-sm text-text-primary">Failed gym check-in</span>
+          </div>
+          <span class="text-xs text-text-tertiary">2 hours ago</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-lg">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-error bg-error/10 rounded">Guilty</span>
+            <span class="text-sm text-text-primary">Missed homework deadline</span>
+          </div>
+          <span class="text-xs text-text-tertiary">Yesterday</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-lg">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-success bg-success/10 rounded">Cleared</span>
+            <span class="text-sm text-text-primary">Morning run</span>
+          </div>
+          <span class="text-xs text-text-tertiary">3 days ago</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-lg">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-error bg-error/10 rounded">Guilty</span>
+            <span class="text-sm text-text-primary">Clean room promise</span>
+          </div>
+          <span class="text-xs text-text-tertiary">5 days ago</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-primary/30 shrink-0">
+      <button
+        onclick="closeUserModal()"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-tertiary border border-border-primary text-text-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors"
+      >
+        Close
+      </button>
+      <button
+        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white font-medium text-sm rounded-lg transition-colors"
+      >
+        View All Incidents
+      </button>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // Filter Panel Toggle
+    function toggleFilterPanel() {
+      const content = document.getElementById('filterContent');
+      const chevron = document.getElementById('filterChevron');
+      const isExpanded = content.classList.contains('expanded');
+
+      content.classList.toggle('expanded');
+      chevron.classList.toggle('rotate-180');
+    }
+
+    // Date Preset Buttons
+    function setDatePreset(preset) {
+      const today = new Date();
+      const dateFrom = document.getElementById('dateFrom');
+      const dateTo = document.getElementById('dateTo');
+
+      // Update button active states
+      document.querySelectorAll('.date-preset-btn').forEach(btn => {
+        btn.classList.remove('bg-accent-blue/20', 'text-accent-blue', 'border-accent-blue/30');
+        btn.classList.add('bg-bg-tertiary', 'text-text-secondary', 'border-border-primary');
+      });
+      event.target.classList.remove('bg-bg-tertiary', 'text-text-secondary', 'border-border-primary');
+      event.target.classList.add('bg-accent-blue/20', 'text-accent-blue', 'border-accent-blue/30');
+
+      dateTo.value = today.toISOString().split('T')[0];
+
+      switch (preset) {
+        case 'today':
+          dateFrom.value = today.toISOString().split('T')[0];
+          break;
+        case '7days':
+          const weekAgo = new Date(today);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          dateFrom.value = weekAgo.toISOString().split('T')[0];
+          break;
+        case '30days':
+          const monthAgo = new Date(today);
+          monthAgo.setDate(monthAgo.getDate() - 30);
+          dateFrom.value = monthAgo.toISOString().split('T')[0];
+          break;
+        case 'custom':
+          dateFrom.focus();
+          break;
+      }
+    }
+
+    // Apply/Reset Filters
+    function applyFilters() {
+      alert('Filters applied! (This is a prototype)');
+    }
+
+    function resetFilters() {
+      document.getElementById('dateFrom').value = '';
+      document.getElementById('dateTo').value = '';
+      document.getElementById('userFilter').value = '';
+      document.getElementById('statusFilter').value = '';
+    }
+
+    // Tab Switching
+    function switchTab(tabName) {
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.add('hidden');
+      });
+
+      // Remove active state from all tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active', 'border-accent-orange', 'text-text-primary');
+        btn.classList.add('border-transparent', 'text-text-secondary');
+      });
+
+      // Show selected tab content
+      const tabContent = document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+      if (tabContent) {
+        tabContent.classList.remove('hidden');
+      }
+
+      // Activate selected tab button
+      const tabBtn = document.querySelector(`[data-tab="${tabName}"]`);
+      if (tabBtn) {
+        tabBtn.classList.add('active', 'border-accent-orange', 'text-text-primary');
+        tabBtn.classList.remove('border-transparent', 'text-text-secondary');
+      }
+    }
+
+    // User Modal
+    function openUserModal(username) {
+      document.getElementById('userDetailBackdrop').classList.add('active');
+      document.getElementById('userDetailModal').classList.add('active');
+      document.body.classList.add('modal-open');
+    }
+
+    function closeUserModal() {
+      document.getElementById('userDetailBackdrop').classList.remove('active');
+      document.getElementById('userDetailModal').classList.remove('active');
+      document.body.classList.remove('modal-open');
+    }
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        closeUserModal();
+      }
+    });
+
+    // Initialize Charts
+    document.addEventListener('DOMContentLoaded', function() {
+      // Chart.js default dark theme settings
+      Chart.defaults.color = '#a8a5a3';
+      Chart.defaults.borderColor = '#3f4447';
+
+      // Watches Over Time Chart (Line)
+      const watchesCtx = document.getElementById('watchesOverTimeChart').getContext('2d');
+      new Chart(watchesCtx, {
+        type: 'line',
+        data: {
+          labels: ['Dec 24', 'Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29', 'Dec 30'],
+          datasets: [
+            {
+              label: 'Total Watches',
+              data: [12, 8, 15, 22, 18, 25, 23],
+              borderColor: '#098ecf',
+              backgroundColor: 'rgba(9, 142, 207, 0.1)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Guilty',
+              data: [8, 5, 10, 15, 12, 17, 15],
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Cleared Early',
+              data: [3, 2, 3, 5, 4, 6, 5],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: true,
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 12,
+                padding: 15
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Outcome Distribution Chart (Doughnut)
+      const outcomeCtx = document.getElementById('outcomeDistributionChart').getContext('2d');
+      new Chart(outcomeCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Guilty', 'Not Guilty', 'Cleared Early', 'Expired', 'Cancelled'],
+          datasets: [{
+            data: [168, 22, 57, 12, 8],
+            backgroundColor: [
+              '#ef4444',
+              '#10b981',
+              '#098ecf',
+              '#7a7876',
+              '#3f4447'
+            ],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '60%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 12,
+                padding: 10
+              }
+            }
+          }
+        }
+      });
+
+      // Top Users Chart (Horizontal Bar)
+      const topUsersCtx = document.getElementById('topUsersChart').getContext('2d');
+      new Chart(topUsersCtx, {
+        type: 'bar',
+        data: {
+          labels: ['RatKing', 'CheeseThief', 'NightOwl', 'Procrastinator99', 'GymSkipper'],
+          datasets: [{
+            label: 'Watches',
+            data: [15, 12, 10, 8, 7],
+            backgroundColor: '#cb4e1b',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              }
+            },
+            y: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Activity Heatmap
+      renderActivityHeatmap();
+
+      // Initialize first tab as active
+      switchTab('mostWatched');
+    });
+
+    // Render Activity Heatmap
+    function renderActivityHeatmap() {
+      const container = document.getElementById('activityHeatmap');
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const hours = Array.from({ length: 24 }, (_, i) => i);
+
+      // Sample heatmap data (day x hour)
+      const heatmapData = [
+        [0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 4, 3, 4, 5, 6, 7, 8, 9, 10, 8, 6, 3, 1], // Sun
+        [0, 0, 0, 0, 0, 1, 2, 3, 5, 6, 5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 10, 8, 4, 2], // Mon
+        [0, 0, 0, 0, 0, 1, 2, 4, 6, 7, 6, 5, 6, 7, 8, 9, 10, 12, 13, 14, 11, 9, 5, 2], // Tue
+        [0, 0, 0, 0, 0, 1, 2, 3, 5, 6, 5, 4, 5, 6, 7, 8, 9, 11, 12, 13, 10, 8, 4, 2], // Wed
+        [0, 0, 0, 0, 0, 1, 2, 4, 6, 7, 6, 5, 6, 7, 8, 9, 10, 12, 13, 14, 11, 9, 5, 2], // Thu
+        [0, 0, 0, 0, 0, 1, 2, 3, 5, 6, 5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 10, 8, 4, 2], // Fri
+        [0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 4, 3, 4, 5, 6, 7, 8, 9, 10, 11, 9, 7, 4, 1]  // Sat
+      ];
+
+      const maxValue = Math.max(...heatmapData.flat());
+
+      let html = '<div class="min-w-[600px]">';
+
+      // Header row with hours
+      html += '<div class="flex items-center gap-0.5 mb-1">';
+      html += '<div class="w-10 shrink-0"></div>'; // Empty corner
+      hours.forEach((hour, i) => {
+        if (i % 3 === 0) {
+          html += `<div class="flex-1 text-center text-xs text-text-tertiary">${hour}</div>`;
+        } else {
+          html += '<div class="flex-1"></div>';
+        }
+      });
+      html += '</div>';
+
+      // Rows for each day
+      days.forEach((day, dayIndex) => {
+        html += '<div class="flex items-center gap-0.5 mb-0.5">';
+        html += `<div class="w-10 shrink-0 text-xs text-text-tertiary">${day}</div>`;
+
+        hours.forEach((hour) => {
+          const value = heatmapData[dayIndex][hour];
+          const intensity = value / maxValue;
+          let bgColor;
+
+          if (intensity === 0) {
+            bgColor = '#2f3336';
+          } else if (intensity < 0.25) {
+            bgColor = 'rgba(203, 78, 27, 0.2)';
+          } else if (intensity < 0.5) {
+            bgColor = 'rgba(203, 78, 27, 0.4)';
+          } else if (intensity < 0.75) {
+            bgColor = 'rgba(203, 78, 27, 0.6)';
+          } else {
+            bgColor = 'rgba(203, 78, 27, 0.9)';
+          }
+
+          html += `<div class="heatmap-cell flex-1" style="background-color: ${bgColor};" title="${day} ${hour}:00 - ${value} watches"></div>`;
+        });
+
+        html += '</div>';
+      });
+
+      // Legend
+      html += '<div class="flex items-center justify-end gap-2 mt-3">';
+      html += '<span class="text-xs text-text-tertiary">Less</span>';
+      ['#2f3336', 'rgba(203, 78, 27, 0.2)', 'rgba(203, 78, 27, 0.4)', 'rgba(203, 78, 27, 0.6)', 'rgba(203, 78, 27, 0.9)'].forEach(color => {
+        html += `<div class="w-3 h-3 rounded-sm" style="background-color: ${color};"></div>`;
+      });
+      html += '<span class="text-xs text-text-tertiary">More</span>';
+      html += '</div>';
+
+      html += '</div>';
+
+      container.innerHTML = html;
+    }
+  </script>
+
+</body>
+</html>

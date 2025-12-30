@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hall of Shame - The Rat's Nest</title>
+
+  <!-- Open Graph tags for social sharing -->
+  <meta property="og:title" content="Hall of Shame - The Rat's Nest">
+  <meta property="og:description" content="Check out who's been caught being a rat!">
+  <meta property="og:type" content="website">
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Custom animations */
+    @keyframes wiggle {
+      0%, 100% { transform: rotate(-3deg); }
+      50% { transform: rotate(3deg); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-5px); }
+    }
+
+    .animate-wiggle {
+      animation: wiggle 0.5s ease-in-out infinite;
+    }
+
+    .animate-float {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    /* Medal styling */
+    .medal-gold {
+      background: linear-gradient(135deg, #ffd700 0%, #ffec4f 50%, #ffd700 100%);
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+    }
+
+    .medal-silver {
+      background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 50%, #c0c0c0 100%);
+      box-shadow: 0 4px 15px rgba(192, 192, 192, 0.4);
+    }
+
+    .medal-bronze {
+      background: linear-gradient(135deg, #cd7f32 0%, #e6a45c 50%, #cd7f32 100%);
+      box-shadow: 0 4px 15px rgba(205, 127, 50, 0.4);
+    }
+
+    /* Rank row highlights */
+    .rank-gold {
+      background: linear-gradient(90deg, rgba(255, 215, 0, 0.1) 0%, transparent 100%);
+      border-left: 3px solid #ffd700;
+    }
+
+    .rank-silver {
+      background: linear-gradient(90deg, rgba(192, 192, 192, 0.1) 0%, transparent 100%);
+      border-left: 3px solid #c0c0c0;
+    }
+
+    .rank-bronze {
+      background: linear-gradient(90deg, rgba(205, 127, 50, 0.1) 0%, transparent 100%);
+      border-left: 3px solid #cd7f32;
+    }
+
+    /* Fun stat card glow effects */
+    .stat-card-flame {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(251, 146, 60, 0.1) 100%);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .stat-card-lightning {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+
+    .stat-card-speed {
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%);
+      border: 1px solid rgba(6, 182, 212, 0.2);
+    }
+
+    .stat-card-luck {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(192, 132, 252, 0.1) 100%);
+      border: 1px solid rgba(168, 85, 247, 0.2);
+    }
+
+    /* Incident feed styling */
+    .verdict-guilty {
+      color: #ef4444;
+    }
+
+    .verdict-not-guilty {
+      color: #10b981;
+    }
+
+    /* Mobile responsive table */
+    @media (max-width: 640px) {
+      .leaderboard-table {
+        display: block;
+      }
+
+      .leaderboard-table thead {
+        display: none;
+      }
+
+      .leaderboard-table tbody {
+        display: block;
+      }
+
+      .leaderboard-table tr {
+        display: flex;
+        flex-wrap: wrap;
+        padding: 1rem;
+        border-bottom: 1px solid var(--color-border-primary);
+      }
+
+      .leaderboard-table td {
+        padding: 0.25rem 0;
+        border: none;
+      }
+
+      .leaderboard-table td[data-label]::before {
+        content: attr(data-label) ": ";
+        font-weight: 600;
+        color: var(--color-text-secondary);
+        margin-right: 0.5rem;
+      }
+    }
+
+    /* Header gradient effect */
+    .header-gradient {
+      background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
+    }
+
+    /* Lock icon animation */
+    .lock-bounce {
+      animation: float 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Toggle Button for Demo States -->
+  <div class="fixed top-4 right-4 z-50">
+    <button
+      id="toggleStateBtn"
+      onclick="togglePageState()"
+      class="px-4 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-sm text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+    >
+      Toggle: Not Public State
+    </button>
+  </div>
+
+  <!-- Main Public Leaderboard Content -->
+  <div id="publicContent" class="min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="header-gradient border-b border-border-primary">
+      <div class="max-w-5xl mx-auto px-4 py-8 sm:py-12">
+        <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 text-center sm:text-left">
+          <!-- Guild Icon -->
+          <div class="relative">
+            <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white font-bold text-2xl sm:text-3xl shadow-xl">
+              RN
+            </div>
+            <div class="absolute -bottom-2 -right-2 text-3xl animate-wiggle">
+              <span role="img" aria-label="rat">&#x1F400;</span>
+            </div>
+          </div>
+
+          <!-- Title -->
+          <div class="flex-1">
+            <div class="flex items-center justify-center sm:justify-start gap-2 mb-2">
+              <span class="text-2xl" role="img" aria-label="warning">&#x26A0;&#xFE0F;</span>
+              <h1 class="text-3xl sm:text-4xl font-bold text-text-primary">Hall of Shame</h1>
+              <span class="text-2xl" role="img" aria-label="warning">&#x26A0;&#xFE0F;</span>
+            </div>
+            <p class="text-lg sm:text-xl text-text-secondary">The Rat's Nest</p>
+            <p class="text-sm text-text-tertiary mt-2">Who's been caught breaking their promises?</p>
+          </div>
+
+          <!-- Stats Summary -->
+          <div class="flex gap-4 sm:gap-6 text-center">
+            <div>
+              <p class="text-2xl sm:text-3xl font-bold text-accent-orange">47</p>
+              <p class="text-xs text-text-tertiary uppercase tracking-wide">Total Incidents</p>
+            </div>
+            <div>
+              <p class="text-2xl sm:text-3xl font-bold text-error">32</p>
+              <p class="text-xs text-text-tertiary uppercase tracking-wide">Guilty Verdicts</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-5xl mx-auto px-4 py-8 w-full">
+
+      <!-- Fun Stats Highlight Cards -->
+      <section class="mb-10">
+        <h2 class="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <span role="img" aria-label="trophy">&#x1F3C6;</span>
+          Shameful Achievements
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+          <!-- Longest Streak -->
+          <div class="stat-card-flame rounded-xl p-5 transition-transform hover:scale-105">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-lg bg-error/20 flex items-center justify-center">
+                <span class="text-xl" role="img" aria-label="fire">&#x1F525;</span>
+              </div>
+              <div class="text-sm font-semibold text-error uppercase tracking-wide">Longest Streak</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white text-sm font-bold">RK</div>
+              <div>
+                <p class="font-semibold text-text-primary">RatKing#1234</p>
+                <p class="text-sm text-text-secondary">5 guilty verdicts in a row!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Biggest Landslide -->
+          <div class="stat-card-lightning rounded-xl p-5 transition-transform hover:scale-105">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-lg bg-warning/20 flex items-center justify-center">
+                <span class="text-xl" role="img" aria-label="lightning">&#x26A1;</span>
+              </div>
+              <div class="text-sm font-semibold text-warning uppercase tracking-wide">Biggest Landslide</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-sm font-bold">CT</div>
+              <div>
+                <p class="font-semibold text-text-primary">CheeseThief#5678</p>
+                <p class="text-sm text-text-secondary">10-0 unanimous guilty!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Speed Demon -->
+          <div class="stat-card-speed rounded-xl p-5 transition-transform hover:scale-105">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-lg bg-info/20 flex items-center justify-center">
+                <span class="text-xl" role="img" aria-label="clock">&#x23F1;&#xFE0F;</span>
+              </div>
+              <div class="text-sm font-semibold text-info uppercase tracking-wide">Speed Demon</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-sm font-bold">SP</div>
+              <div>
+                <p class="font-semibold text-text-primary">SneakyPete#3456</p>
+                <p class="text-sm text-text-secondary">Cleared in 23 seconds!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Closest Call -->
+          <div class="stat-card-luck rounded-xl p-5 transition-transform hover:scale-105">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                <span class="text-xl" role="img" aria-label="dice">&#x1F3B2;</span>
+              </div>
+              <div class="text-sm font-semibold text-purple-400 uppercase tracking-wide">Closest Call</div>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-sm font-bold">LR</div>
+              <div>
+                <p class="font-semibold text-text-primary">LuckyRat#7890</p>
+                <p class="text-sm text-text-secondary">4-5 escaped by 1 vote!</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Main Grid: Leaderboard and Recent Incidents -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Leaderboard Table -->
+        <section class="lg:col-span-2">
+          <div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-border-primary flex items-center gap-2">
+              <span class="text-xl" role="img" aria-label="cheese">&#x1F9C0;</span>
+              <h2 class="text-lg font-semibold text-text-primary">Wall of Shame</h2>
+              <span class="text-xs text-text-tertiary ml-auto">Top 25</span>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="leaderboard-table w-full">
+                <thead class="bg-bg-primary/50">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider w-16">Rank</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-text-secondary uppercase tracking-wider">Rat Count</th>
+                    <th class="px-4 py-3 text-center text-xs font-semibold text-text-secondary uppercase tracking-wider">Guilty %</th>
+                    <th class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Last Caught</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                  <!-- Rank 1 - Gold -->
+                  <tr class="rank-gold hover:bg-bg-hover/50 transition-colors">
+                    <td class="px-4 py-4" data-label="Rank">
+                      <div class="flex items-center gap-2">
+                        <div class="medal-gold w-8 h-8 rounded-full flex items-center justify-center text-black font-bold text-sm">1</div>
+                        <span class="text-lg" role="img" aria-label="first">&#x1F947;</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4" data-label="User">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm">RK</div>
+                        <div>
+                          <p class="font-semibold text-text-primary">RatKing#1234</p>
+                          <p class="text-xs text-text-tertiary">The undisputed champion</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Rat Count">
+                      <span class="inline-flex items-center justify-center px-3 py-1 bg-error/20 text-error font-bold rounded-full">15</span>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Guilty Rate">
+                      <span class="text-text-secondary">67%</span>
+                    </td>
+                    <td class="px-4 py-4 text-right text-sm text-text-secondary" data-label="Last Caught">
+                      <span id="lastCaught1">2 days ago</span>
+                    </td>
+                  </tr>
+
+                  <!-- Rank 2 - Silver -->
+                  <tr class="rank-silver hover:bg-bg-hover/50 transition-colors">
+                    <td class="px-4 py-4" data-label="Rank">
+                      <div class="flex items-center gap-2">
+                        <div class="medal-silver w-8 h-8 rounded-full flex items-center justify-center text-black font-bold text-sm">2</div>
+                        <span class="text-lg" role="img" aria-label="second">&#x1F948;</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4" data-label="User">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white font-bold text-sm">CT</div>
+                        <div>
+                          <p class="font-semibold text-text-primary">CheeseThief#5678</p>
+                          <p class="text-xs text-text-tertiary">Always suspicious</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Rat Count">
+                      <span class="inline-flex items-center justify-center px-3 py-1 bg-error/20 text-error font-bold rounded-full">12</span>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Guilty Rate">
+                      <span class="text-text-secondary">75%</span>
+                    </td>
+                    <td class="px-4 py-4 text-right text-sm text-text-secondary" data-label="Last Caught">
+                      <span id="lastCaught2">1 week ago</span>
+                    </td>
+                  </tr>
+
+                  <!-- Rank 3 - Bronze -->
+                  <tr class="rank-bronze hover:bg-bg-hover/50 transition-colors">
+                    <td class="px-4 py-4" data-label="Rank">
+                      <div class="flex items-center gap-2">
+                        <div class="medal-bronze w-8 h-8 rounded-full flex items-center justify-center text-black font-bold text-sm">3</div>
+                        <span class="text-lg" role="img" aria-label="third">&#x1F949;</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4" data-label="User">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">NO</div>
+                        <div>
+                          <p class="font-semibold text-text-primary">NightOwl#9012</p>
+                          <p class="text-xs text-text-tertiary">Night shift rat</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Rat Count">
+                      <span class="inline-flex items-center justify-center px-3 py-1 bg-error/20 text-error font-bold rounded-full">10</span>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Guilty Rate">
+                      <span class="text-text-secondary">60%</span>
+                    </td>
+                    <td class="px-4 py-4 text-right text-sm text-text-secondary" data-label="Last Caught">
+                      <span id="lastCaught3">3 days ago</span>
+                    </td>
+                  </tr>
+
+                  <!-- Rank 4 -->
+                  <tr class="hover:bg-bg-hover/50 transition-colors">
+                    <td class="px-4 py-4" data-label="Rank">
+                      <div class="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center text-text-secondary font-semibold text-sm">4</div>
+                    </td>
+                    <td class="px-4 py-4" data-label="User">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">SP</div>
+                        <div>
+                          <p class="font-medium text-text-primary">SneakyPete#3456</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Rat Count">
+                      <span class="inline-flex items-center justify-center px-3 py-1 bg-bg-tertiary text-text-primary font-semibold rounded-full">8</span>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Guilty Rate">
+                      <span class="text-text-secondary">50%</span>
+                    </td>
+                    <td class="px-4 py-4 text-right text-sm text-text-secondary" data-label="Last Caught">
+                      <span id="lastCaught4">5 days ago</span>
+                    </td>
+                  </tr>
+
+                  <!-- Rank 5 -->
+                  <tr class="hover:bg-bg-hover/50 transition-colors">
+                    <td class="px-4 py-4" data-label="Rank">
+                      <div class="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center text-text-secondary font-semibold text-sm">5</div>
+                    </td>
+                    <td class="px-4 py-4" data-label="User">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">NR</div>
+                        <div>
+                          <p class="font-medium text-text-primary">NewRat#7890</p>
+                          <p class="text-xs text-error">Rising star!</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Rat Count">
+                      <span class="inline-flex items-center justify-center px-3 py-1 bg-bg-tertiary text-text-primary font-semibold rounded-full">6</span>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Guilty Rate">
+                      <span class="text-error font-medium">83%</span>
+                    </td>
+                    <td class="px-4 py-4 text-right text-sm text-text-secondary" data-label="Last Caught">
+                      <span id="lastCaught5">Yesterday</span>
+                    </td>
+                  </tr>
+
+                  <!-- Rank 6 -->
+                  <tr class="hover:bg-bg-hover/50 transition-colors">
+                    <td class="px-4 py-4" data-label="Rank">
+                      <div class="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center text-text-secondary font-semibold text-sm">6</div>
+                    </td>
+                    <td class="px-4 py-4" data-label="User">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm">GG</div>
+                        <div>
+                          <p class="font-medium text-text-primary">GymGhost#2468</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Rat Count">
+                      <span class="inline-flex items-center justify-center px-3 py-1 bg-bg-tertiary text-text-primary font-semibold rounded-full">5</span>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Guilty Rate">
+                      <span class="text-text-secondary">55%</span>
+                    </td>
+                    <td class="px-4 py-4 text-right text-sm text-text-secondary" data-label="Last Caught">
+                      <span id="lastCaught6">1 week ago</span>
+                    </td>
+                  </tr>
+
+                  <!-- Rank 7 -->
+                  <tr class="hover:bg-bg-hover/50 transition-colors">
+                    <td class="px-4 py-4" data-label="Rank">
+                      <div class="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center text-text-secondary font-semibold text-sm">7</div>
+                    </td>
+                    <td class="px-4 py-4" data-label="User">
+                      <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">LM</div>
+                        <div>
+                          <p class="font-medium text-text-primary">LazyMouse#1357</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Rat Count">
+                      <span class="inline-flex items-center justify-center px-3 py-1 bg-bg-tertiary text-text-primary font-semibold rounded-full">4</span>
+                    </td>
+                    <td class="px-4 py-4 text-center" data-label="Guilty Rate">
+                      <span class="text-text-secondary">44%</span>
+                    </td>
+                    <td class="px-4 py-4 text-right text-sm text-text-secondary" data-label="Last Caught">
+                      <span id="lastCaught7">2 weeks ago</span>
+                    </td>
+                  </tr>
+
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Recent Incidents Feed -->
+        <section class="lg:col-span-1">
+          <div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden">
+            <div class="px-6 py-4 border-b border-border-primary flex items-center gap-2">
+              <span class="text-xl" role="img" aria-label="siren">&#x1F6A8;</span>
+              <h2 class="text-lg font-semibold text-text-primary">Recent Incidents</h2>
+            </div>
+
+            <div class="divide-y divide-border-primary max-h-[500px] overflow-y-auto">
+              <!-- Incident 1 - Guilty -->
+              <div class="px-4 py-3 hover:bg-bg-hover/50 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">RK</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                      <span class="font-semibold text-text-primary">RatKing#1234</span>
+                      <span class="text-text-secondary"> was found </span>
+                      <span class="verdict-guilty font-semibold">GUILTY</span>
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs px-2 py-0.5 bg-error/20 text-error rounded-full">5-2</span>
+                      <span class="text-xs text-text-tertiary" id="incident1Time">2 days ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 2 - Guilty (Landslide) -->
+              <div class="px-4 py-3 hover:bg-bg-hover/50 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-amber-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">CT</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                      <span class="font-semibold text-text-primary">CheeseThief#5678</span>
+                      <span class="text-text-secondary"> was found </span>
+                      <span class="verdict-guilty font-semibold">GUILTY</span>
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs px-2 py-0.5 bg-error/20 text-error rounded-full">10-0</span>
+                      <span class="text-xs text-warning">Landslide!</span>
+                      <span class="text-xs text-text-tertiary" id="incident2Time">1 week ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 3 - Not Guilty -->
+              <div class="px-4 py-3 hover:bg-bg-hover/50 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">NO</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                      <span class="font-semibold text-text-primary">NightOwl#9012</span>
+                      <span class="text-text-secondary"> was found </span>
+                      <span class="verdict-not-guilty font-semibold">NOT GUILTY</span>
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs px-2 py-0.5 bg-success/20 text-success rounded-full">3-4</span>
+                      <span class="text-xs text-text-tertiary" id="incident3Time">3 days ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 4 - Guilty -->
+              <div class="px-4 py-3 hover:bg-bg-hover/50 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">NR</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                      <span class="font-semibold text-text-primary">NewRat#7890</span>
+                      <span class="text-text-secondary"> was found </span>
+                      <span class="verdict-guilty font-semibold">GUILTY</span>
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs px-2 py-0.5 bg-error/20 text-error rounded-full">6-1</span>
+                      <span class="text-xs text-text-tertiary" id="incident4Time">Yesterday</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 5 - Guilty -->
+              <div class="px-4 py-3 hover:bg-bg-hover/50 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">GG</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                      <span class="font-semibold text-text-primary">GymGhost#2468</span>
+                      <span class="text-text-secondary"> was found </span>
+                      <span class="verdict-guilty font-semibold">GUILTY</span>
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs px-2 py-0.5 bg-error/20 text-error rounded-full">4-3</span>
+                      <span class="text-xs text-text-tertiary" id="incident5Time">1 week ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 6 - Not Guilty -->
+              <div class="px-4 py-3 hover:bg-bg-hover/50 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">SP</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                      <span class="font-semibold text-text-primary">SneakyPete#3456</span>
+                      <span class="text-text-secondary"> was found </span>
+                      <span class="verdict-not-guilty font-semibold">NOT GUILTY</span>
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs px-2 py-0.5 bg-success/20 text-success rounded-full">2-5</span>
+                      <span class="text-xs text-text-tertiary" id="incident6Time">2 weeks ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 7 - Guilty -->
+              <div class="px-4 py-3 hover:bg-bg-hover/50 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-orange-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">RK</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                      <span class="font-semibold text-text-primary">RatKing#1234</span>
+                      <span class="text-text-secondary"> was found </span>
+                      <span class="verdict-guilty font-semibold">GUILTY</span>
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs px-2 py-0.5 bg-error/20 text-error rounded-full">7-2</span>
+                      <span class="text-xs text-text-tertiary" id="incident7Time">2 weeks ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 8 - Cleared Early -->
+              <div class="px-4 py-3 hover:bg-bg-hover/50 transition-colors">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">LM</div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                      <span class="font-semibold text-text-primary">LazyMouse#1357</span>
+                      <span class="text-text-secondary"> </span>
+                      <span class="text-info font-semibold">cleared early</span>
+                    </p>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="text-xs px-2 py-0.5 bg-info/20 text-info rounded-full">Checked in!</span>
+                      <span class="text-xs text-text-tertiary" id="incident8Time">3 weeks ago</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="px-4 py-3 border-t border-border-primary bg-bg-primary/30">
+              <p class="text-xs text-text-tertiary text-center">Showing last 10 incidents</p>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-border-primary mt-auto">
+      <div class="max-w-5xl mx-auto px-4 py-6">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          <!-- Bot Branding -->
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-accent-orange flex items-center justify-center">
+              <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.36-.687.772-1.341 1.225-1.962a.077.077 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+              </svg>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-text-primary">Powered by RatBot</p>
+              <p class="text-xs text-text-tertiary">Keeping communities accountable since 2025</p>
+            </div>
+          </div>
+
+          <!-- Links -->
+          <div class="flex items-center gap-6 text-sm">
+            <a href="#" class="text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add to your server
+            </a>
+          </div>
+
+          <!-- Privacy Note -->
+          <div class="text-xs text-text-tertiary">
+            <span class="inline-flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Only usernames shown, no personal data
+            </span>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- "Leaderboard Not Public" State -->
+  <div id="notPublicContent" class="min-h-screen flex flex-col hidden">
+    <div class="flex-1 flex items-center justify-center p-8">
+      <div class="text-center max-w-md">
+        <!-- Lock Icon -->
+        <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-bg-secondary border border-border-primary flex items-center justify-center lock-bounce">
+          <svg class="w-12 h-12 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+
+        <!-- Message -->
+        <h1 class="text-2xl font-bold text-text-primary mb-2">Leaderboard Not Public</h1>
+        <p class="text-text-secondary mb-6">
+          This guild's Hall of Shame leaderboard is not publicly accessible.
+        </p>
+        <p class="text-sm text-text-tertiary mb-8">
+          Ask your server admin to enable public leaderboards in the Rat Watch settings!
+        </p>
+
+        <!-- Guild Info (placeholder) -->
+        <div class="inline-flex items-center gap-3 px-4 py-3 bg-bg-secondary border border-border-primary rounded-xl">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white font-bold text-sm">
+            RN
+          </div>
+          <div class="text-left">
+            <p class="font-semibold text-text-primary">The Rat's Nest</p>
+            <p class="text-xs text-text-tertiary">Private leaderboard</p>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="mt-8">
+          <a href="#" class="inline-flex items-center gap-2 px-5 py-3 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium rounded-lg transition-colors shadow-lg shadow-accent-orange/20">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.36-.687.772-1.341 1.225-1.962a.077.077 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+            </svg>
+            Add RatBot to your server
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    // State toggle for demo
+    let isPublic = true;
+
+    function togglePageState() {
+      isPublic = !isPublic;
+      const publicContent = document.getElementById('publicContent');
+      const notPublicContent = document.getElementById('notPublicContent');
+      const toggleBtn = document.getElementById('toggleStateBtn');
+
+      if (isPublic) {
+        publicContent.classList.remove('hidden');
+        notPublicContent.classList.add('hidden');
+        toggleBtn.textContent = 'Toggle: Not Public State';
+      } else {
+        publicContent.classList.add('hidden');
+        notPublicContent.classList.remove('hidden');
+        toggleBtn.textContent = 'Toggle: Public State';
+      }
+    }
+
+    // Format relative time (simulating conversion from UTC to local)
+    function formatRelativeTime(daysAgo) {
+      const now = new Date();
+      const pastDate = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
+
+      const diffMs = now - pastDate;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const diffWeeks = Math.floor(diffDays / 7);
+
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffWeeks === 1) return '1 week ago';
+      if (diffWeeks < 4) return `${diffWeeks} weeks ago`;
+
+      return pastDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    // Update all time displays to local timezone
+    function updateTimeDisplays() {
+      // Leaderboard last caught times
+      const lastCaughtData = [
+        { id: 'lastCaught1', days: 2 },
+        { id: 'lastCaught2', days: 7 },
+        { id: 'lastCaught3', days: 3 },
+        { id: 'lastCaught4', days: 5 },
+        { id: 'lastCaught5', days: 1 },
+        { id: 'lastCaught6', days: 7 },
+        { id: 'lastCaught7', days: 14 },
+      ];
+
+      lastCaughtData.forEach(item => {
+        const el = document.getElementById(item.id);
+        if (el) el.textContent = formatRelativeTime(item.days);
+      });
+
+      // Incident times
+      const incidentData = [
+        { id: 'incident1Time', days: 2 },
+        { id: 'incident2Time', days: 7 },
+        { id: 'incident3Time', days: 3 },
+        { id: 'incident4Time', days: 1 },
+        { id: 'incident5Time', days: 7 },
+        { id: 'incident6Time', days: 14 },
+        { id: 'incident7Time', days: 14 },
+        { id: 'incident8Time', days: 21 },
+      ];
+
+      incidentData.forEach(item => {
+        const el = document.getElementById(item.id);
+        if (el) el.textContent = formatRelativeTime(item.days);
+      });
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      updateTimeDisplays();
+    });
+  </script>
+
+</body>
+</html>

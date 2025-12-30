@@ -1,0 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Rat Watch Analytics - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Layout Structure Variables */
+    :root {
+      --navbar-height: 64px;
+      --sidebar-width: 256px;
+      --sidebar-collapsed-width: 72px;
+    }
+
+    /* Enhanced Navbar */
+    .navbar-redesign {
+      height: var(--navbar-height);
+      background: linear-gradient(180deg, #262a2d 0%, #262a2d 100%);
+      border-bottom: 1px solid var(--color-border-primary);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Enhanced Sidebar */
+    .sidebar-redesign {
+      width: var(--sidebar-width);
+      background-color: var(--color-bg-secondary);
+      border-right: 1px solid var(--color-border-primary);
+      transition: width 0.2s ease-out, transform 0.2s ease-out;
+    }
+
+    .sidebar-redesign.collapsed {
+      width: var(--sidebar-collapsed-width);
+    }
+
+    /* Sidebar Link Redesign */
+    .sidebar-link-redesign {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      border-radius: 0.5rem;
+      transition: all 0.15s ease-in-out;
+      position: relative;
+    }
+
+    .sidebar-link-redesign:hover {
+      color: var(--color-text-primary);
+      background-color: var(--color-bg-hover);
+    }
+
+    .sidebar-link-redesign.active {
+      color: var(--color-text-primary);
+      background-color: rgba(203, 78, 27, 0.12);
+    }
+
+    .sidebar-link-redesign.active::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 24px;
+      background-color: var(--color-accent-orange);
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* Sidebar Section Header */
+    .sidebar-section-header {
+      padding: 0.5rem 1rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Sidebar Badge */
+    .sidebar-badge-redesign {
+      margin-left: auto;
+      padding: 0.125rem 0.5rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+      background-color: var(--color-border-primary);
+      border-radius: 9999px;
+      min-width: 1.25rem;
+      text-align: center;
+    }
+
+    /* Content Area */
+    .main-content-redesign {
+      margin-left: var(--sidebar-width);
+      margin-top: var(--navbar-height);
+      min-height: calc(100vh - var(--navbar-height));
+      background-color: var(--color-bg-primary);
+      transition: margin-left 0.2s ease-out;
+    }
+
+    @media (max-width: 1023px) {
+      .main-content-redesign {
+        margin-left: 0;
+      }
+    }
+
+    /* Mobile Overlay */
+    .mobile-overlay {
+      position: fixed;
+      inset: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(2px);
+      z-index: calc(var(--z-fixed) - 1);
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.2s ease-out;
+    }
+
+    .mobile-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* Hero Metrics Cards */
+    .hero-metric-card {
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      transition: all 0.2s ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-metric-card:hover {
+      border-color: var(--color-border-focus);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+
+    .hero-metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .hero-metric-card.accent-blue::before {
+      background: linear-gradient(90deg, var(--color-accent-blue), var(--color-accent-blue-hover));
+    }
+
+    .hero-metric-card.accent-orange::before {
+      background: linear-gradient(90deg, var(--color-accent-orange), var(--color-accent-orange-hover));
+    }
+
+    .hero-metric-card.accent-success::before {
+      background: linear-gradient(90deg, var(--color-success), #34d399);
+    }
+
+    .hero-metric-card.accent-warning::before {
+      background: linear-gradient(90deg, var(--color-warning), #fbbf24);
+    }
+
+    .hero-metric-card.accent-info::before {
+      background: linear-gradient(90deg, var(--color-info), #22d3ee);
+    }
+
+    /* Chart Container */
+    .chart-container {
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+    }
+
+    .chart-container canvas {
+      max-height: 280px;
+    }
+
+    /* Table Row Hover */
+    .guild-row {
+      transition: background-color 0.15s ease-out;
+    }
+
+    .guild-row:hover {
+      background-color: var(--color-bg-hover);
+    }
+
+    /* User Menu Dropdown */
+    .user-menu-dropdown {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 0.5rem);
+      width: 240px;
+      background-color: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.15s ease-out;
+      z-index: var(--z-popover);
+    }
+
+    .user-menu-dropdown.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    /* Bot Status Indicator */
+    .bot-status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .bot-status-indicator.online {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--color-success);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+
+    .status-dot.pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Filter dropdown */
+    .filter-dropdown {
+      position: relative;
+    }
+
+    .filter-dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 0.5rem;
+      min-width: 200px;
+      background-color: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px);
+      transition: all 0.15s ease-out;
+      z-index: var(--z-dropdown);
+    }
+
+    .filter-dropdown-menu.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+
+    /* Collapsed Sidebar */
+    .sidebar-redesign.collapsed .sidebar-link-text,
+    .sidebar-redesign.collapsed .sidebar-badge-redesign,
+    .sidebar-redesign.collapsed .sidebar-section-header,
+    .sidebar-redesign.collapsed .bot-status-text {
+      display: none;
+    }
+
+    .sidebar-redesign.collapsed .sidebar-link-redesign {
+      justify-content: center;
+      padding: 0.75rem;
+    }
+
+    /* System Health Indicator */
+    .health-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.25rem 0.625rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .health-indicator.healthy {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--color-success);
+    }
+
+    .health-indicator.warning {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: var(--color-warning);
+    }
+
+    .health-indicator.critical {
+      background-color: rgba(239, 68, 68, 0.15);
+      color: var(--color-error);
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="mobileOverlay" class="mobile-overlay lg:hidden" onclick="toggleMobileSidebar()"></div>
+
+  <!-- Top Navigation Bar (64px) -->
+  <nav class="navbar-redesign fixed top-0 left-0 right-0 flex items-center justify-between px-4 lg:px-6" style="z-index: var(--z-fixed);">
+    <!-- Left Section: Menu Toggle & Logo -->
+    <div class="flex items-center gap-4">
+      <button
+        id="mobileMenuToggle"
+        onclick="toggleMobileSidebar()"
+        class="lg:hidden p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle sidebar menu"
+        aria-expanded="false"
+        aria-controls="sidebar"
+      >
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <button
+        id="sidebarCollapseToggle"
+        onclick="toggleSidebarCollapse()"
+        class="hidden lg:flex p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+        aria-label="Toggle sidebar"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <a href="../../features/dashboard-redesign/dashboard.html" class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-accent-orange flex items-center justify-center shadow-lg shadow-accent-orange/20">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.36-.687.772-1.341 1.225-1.962a.077.077 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+      </a>
+    </div>
+
+    <!-- Center Section: Search -->
+    <div class="hidden md:flex flex-1 max-w-lg mx-8">
+      <div class="relative w-full">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="search"
+          placeholder="Search servers, commands, logs..."
+          class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-2 focus:ring-border-focus/20 transition-all"
+        />
+        <kbd class="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center px-2 py-0.5 text-xs font-medium text-text-tertiary bg-bg-tertiary border border-border-primary rounded">
+          <span class="text-xs">Ctrl</span>
+          <span class="mx-0.5">+</span>
+          <span>K</span>
+        </kbd>
+      </div>
+    </div>
+
+    <!-- Right Section -->
+    <div class="flex items-center gap-2">
+      <div class="hidden lg:flex bot-status-indicator online">
+        <span class="status-dot pulse"></span>
+        <span>Online</span>
+      </div>
+
+      <div class="relative">
+        <button
+          onclick="toggleUserMenu()"
+          class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
+          aria-label="User menu"
+          aria-expanded="false"
+          aria-haspopup="true"
+        >
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-accent-blue to-accent-blue-active flex items-center justify-center text-white font-semibold text-sm ring-2 ring-bg-secondary">
+            SA
+          </div>
+          <svg class="hidden sm:block w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <div id="userMenuDropdown" class="user-menu-dropdown">
+          <div class="px-4 py-3 border-b border-border-primary">
+            <p class="text-sm font-semibold text-text-primary">Super Admin</p>
+            <p class="text-xs text-text-secondary mt-0.5">admin@example.com</p>
+            <span class="inline-flex items-center mt-2 px-2 py-0.5 text-xs font-semibold text-accent-orange bg-accent-orange/10 rounded-full">
+              SuperAdmin
+            </span>
+          </div>
+          <div class="py-1">
+            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              Profile
+            </a>
+            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-secondary hover:bg-bg-hover hover:text-text-primary transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Settings
+            </a>
+          </div>
+          <div class="py-1 border-t border-border-primary">
+            <a href="#" class="flex items-center gap-3 px-4 py-2.5 text-sm text-error hover:bg-error-bg transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Sidebar Navigation (256px) -->
+  <aside
+    id="sidebar"
+    class="sidebar-redesign fixed top-16 left-0 h-[calc(100vh-64px)] transform -translate-x-full lg:translate-x-0 overflow-y-auto overflow-x-hidden"
+    style="z-index: var(--z-fixed);"
+  >
+    <nav class="flex flex-col h-full p-3">
+      <!-- Main Navigation -->
+      <div class="space-y-1">
+        <a href="../../features/dashboard-redesign/dashboard.html" class="sidebar-link-redesign">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          <span class="sidebar-link-text">Dashboard</span>
+        </a>
+
+        <a href="#" class="sidebar-link-redesign">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          <span class="sidebar-link-text">Guilds</span>
+          <span class="sidebar-badge-redesign">12</span>
+        </a>
+
+        <a href="#" class="sidebar-link-redesign">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span class="sidebar-link-text">Commands</span>
+        </a>
+      </div>
+
+      <div class="my-4 border-t border-border-secondary"></div>
+
+      <div>
+        <p class="sidebar-section-header">Analytics</p>
+        <div class="mt-2 space-y-1">
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span class="sidebar-link-text">Command Analytics</span>
+          </a>
+
+          <a href="#" class="sidebar-link-redesign active">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            <span class="sidebar-link-text">Rat Watch Analytics</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="my-4 border-t border-border-secondary"></div>
+
+      <div>
+        <p class="sidebar-section-header">Administration</p>
+        <div class="mt-2 space-y-1">
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <span class="sidebar-link-text">Users</span>
+          </a>
+
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            <span class="sidebar-link-text">Audit Logs</span>
+          </a>
+
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span class="sidebar-link-text">Settings</span>
+          </a>
+
+          <a href="#" class="sidebar-link-redesign">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span class="sidebar-link-text">Bot Control</span>
+          </a>
+        </div>
+      </div>
+
+      <div class="flex-1"></div>
+
+      <div class="mt-4 p-3 bg-bg-primary/50 rounded-lg">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-success/15 flex items-center justify-center">
+            <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <div class="bot-status-text flex-1 min-w-0">
+            <p class="text-sm font-medium text-text-primary">Bot Online</p>
+            <p class="text-xs text-text-tertiary">v0.3.10-dev</p>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-content-redesign">
+    <div class="p-6 lg:p-8">
+
+      <!-- Breadcrumb -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+          <li>
+            <a href="../../features/dashboard-redesign/dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Rat Watch Analytics</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Global Rat Watch Analytics</h1>
+            <span class="health-indicator healthy">
+              <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+              Healthy
+            </span>
+          </div>
+          <p class="mt-1 text-text-secondary">Cross-guild metrics and analytics for Rat Watch feature across all servers.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-text-tertiary" id="lastUpdated">Last updated: just now</span>
+          <button class="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export Report
+          </button>
+        </div>
+      </div>
+
+      <!-- Global Stats Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
+        <!-- Total Guilds Using -->
+        <div class="hero-metric-card accent-blue">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-sm font-medium text-text-secondary">Total Guilds Using</p>
+              <p class="mt-2 text-3xl font-bold text-text-primary">12</p>
+              <div class="mt-2 flex items-center gap-1.5">
+                <span class="flex items-center gap-1 text-xs font-medium text-success">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                  </svg>
+                  +2
+                </span>
+                <span class="text-xs text-text-tertiary">this month</span>
+              </div>
+            </div>
+            <div class="p-3 bg-accent-blue/10 rounded-xl">
+              <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Total Watches -->
+        <div class="hero-metric-card accent-orange">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-sm font-medium text-text-secondary">Total Watches</p>
+              <p class="mt-2 text-3xl font-bold text-text-primary">1,847</p>
+              <div class="mt-2 flex items-center gap-1.5">
+                <span class="text-xs text-text-tertiary">All time across all guilds</span>
+              </div>
+            </div>
+            <div class="p-3 bg-accent-orange/10 rounded-xl">
+              <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Now -->
+        <div class="hero-metric-card accent-success">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-sm font-medium text-text-secondary">Active Now</p>
+              <p class="mt-2 text-3xl font-bold text-text-primary">8</p>
+              <div class="mt-2 flex items-center gap-1.5">
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium text-warning bg-warning/10 rounded">3 Pending</span>
+                <span class="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium text-info bg-info/10 rounded">5 Voting</span>
+              </div>
+            </div>
+            <div class="p-3 bg-success/10 rounded-xl">
+              <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Today's Activity -->
+        <div class="hero-metric-card accent-warning">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-sm font-medium text-text-secondary">Today's Activity</p>
+              <p class="mt-2 text-3xl font-bold text-text-primary">23</p>
+              <div class="mt-2 flex items-center gap-1.5">
+                <span class="flex items-center gap-1 text-xs font-medium text-success">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                  </svg>
+                  +15%
+                </span>
+                <span class="text-xs text-text-tertiary">vs yesterday</span>
+              </div>
+            </div>
+            <div class="p-3 bg-warning/10 rounded-xl">
+              <svg class="w-6 h-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Guild Filter & Date Range -->
+      <div class="flex flex-col sm:flex-row gap-4 mb-6">
+        <!-- Guild Filter Dropdown -->
+        <div class="filter-dropdown">
+          <button
+            id="guildFilterBtn"
+            onclick="toggleGuildFilter()"
+            class="inline-flex items-center justify-between gap-2 w-full sm:w-64 px-4 py-2.5 bg-bg-secondary border border-border-primary rounded-lg text-sm text-text-primary hover:bg-bg-hover transition-colors"
+          >
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span id="selectedGuild">All Guilds</span>
+            </span>
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div id="guildFilterMenu" class="filter-dropdown-menu">
+            <div class="p-2">
+              <button onclick="selectGuild('All Guilds')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+                All Guilds
+              </button>
+              <div class="my-1 border-t border-border-secondary"></div>
+              <button onclick="selectGuild('The Rat\'s Nest')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+                <div class="w-5 h-5 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">R</div>
+                The Rat's Nest
+              </button>
+              <button onclick="selectGuild('Cheese Factory')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+                <div class="w-5 h-5 rounded bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white text-xs font-bold">C</div>
+                Cheese Factory
+              </button>
+              <button onclick="selectGuild('Night Shift')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+                <div class="w-5 h-5 rounded bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold">N</div>
+                Night Shift
+              </button>
+              <button onclick="selectGuild('Underground')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+                <div class="w-5 h-5 rounded bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center text-white text-xs font-bold">U</div>
+                Underground
+              </button>
+              <button onclick="selectGuild('New Server')" class="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-lg transition-colors">
+                <div class="w-5 h-5 rounded bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white text-xs font-bold">N</div>
+                New Server
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Date Range Filter -->
+        <div class="flex items-center gap-2">
+          <button onclick="setDateRange('7d')" class="date-range-btn px-3 py-2 text-sm font-medium bg-accent-blue/10 text-accent-blue border border-accent-blue/30 rounded-lg transition-colors" data-range="7d">
+            7 Days
+          </button>
+          <button onclick="setDateRange('30d')" class="date-range-btn px-3 py-2 text-sm font-medium bg-bg-secondary text-text-secondary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors" data-range="30d">
+            30 Days
+          </button>
+          <button onclick="setDateRange('90d')" class="date-range-btn px-3 py-2 text-sm font-medium bg-bg-secondary text-text-secondary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors" data-range="90d">
+            90 Days
+          </button>
+          <button onclick="setDateRange('all')" class="date-range-btn px-3 py-2 text-sm font-medium bg-bg-secondary text-text-secondary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors" data-range="all">
+            All Time
+          </button>
+        </div>
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Activity by Guild (Horizontal Bar Chart) -->
+        <div class="chart-container">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-text-primary">Activity by Guild</h3>
+            <span class="text-xs text-text-tertiary">Total watches per guild</span>
+          </div>
+          <canvas id="activityByGuildChart"></canvas>
+        </div>
+
+        <!-- Global Trends (Line Chart) -->
+        <div class="chart-container">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-text-primary">Global Trends</h3>
+            <span class="text-xs text-text-tertiary">Watches created over time</span>
+          </div>
+          <canvas id="globalTrendsChart"></canvas>
+        </div>
+
+        <!-- Outcome Distribution (Doughnut Chart) -->
+        <div class="chart-container">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-text-primary">Outcome Distribution</h3>
+            <span class="text-xs text-text-tertiary">Global totals across all guilds</span>
+          </div>
+          <div class="flex items-center justify-center">
+            <div class="relative" style="max-width: 280px; width: 100%;">
+              <canvas id="outcomeDistributionChart"></canvas>
+              <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span class="text-3xl font-bold text-text-primary">1,847</span>
+                <span class="text-sm text-text-secondary">Total</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Most Active Guilds This Week -->
+        <div class="chart-container">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-text-primary">Most Active This Week</h3>
+            <span class="text-xs text-text-tertiary">Top 5 guilds by activity</span>
+          </div>
+          <canvas id="mostActiveGuildsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Per-Guild Summary Table -->
+      <div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+          <h2 class="text-lg font-semibold text-text-primary">Per-Guild Summary</h2>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-text-tertiary">Showing 5 of 12 guilds</span>
+            <button class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+              View All
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-bg-primary/50">
+              <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Guild</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Total Watches</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Active</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Guilty Rate</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Check-in Rate</th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Health</th>
+                <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border-primary">
+              <!-- The Rat's Nest -->
+              <tr class="guild-row">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">RN</div>
+                    <div>
+                      <p class="font-medium text-text-primary">The Rat's Nest</p>
+                      <p class="text-xs text-text-tertiary font-mono">ID: 1234567890</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="text-text-primary font-medium">247</span>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-warning bg-warning/10 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-warning rounded-full animate-pulse"></span>
+                    3 Active
+                  </span>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-error rounded-full" style="width: 68%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">68%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-success rounded-full" style="width: 45%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">45%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="health-indicator healthy">
+                    <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                    Healthy
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <a href="guild-analytics.html?guild=rats-nest" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                    View
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Cheese Factory -->
+              <tr class="guild-row">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm">CF</div>
+                    <div>
+                      <p class="font-medium text-text-primary">Cheese Factory</p>
+                      <p class="text-xs text-text-tertiary font-mono">ID: 2345678901</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="text-text-primary font-medium">189</span>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-info bg-info/10 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-info rounded-full animate-pulse"></span>
+                    2 Active
+                  </span>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-error rounded-full" style="width: 72%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">72%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-success rounded-full" style="width: 38%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">38%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="health-indicator healthy">
+                    <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                    Healthy
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <a href="guild-analytics.html?guild=cheese-factory" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                    View
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Night Shift -->
+              <tr class="guild-row">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm">NS</div>
+                    <div>
+                      <p class="font-medium text-text-primary">Night Shift</p>
+                      <p class="text-xs text-text-tertiary font-mono">ID: 3456789012</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="text-text-primary font-medium">156</span>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-info bg-info/10 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-info rounded-full animate-pulse"></span>
+                    1 Active
+                  </span>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-warning rounded-full" style="width: 55%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">55%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-success rounded-full" style="width: 62%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">62%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="health-indicator healthy">
+                    <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                    Healthy
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <a href="guild-analytics.html?guild=night-shift" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                    View
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- Underground -->
+              <tr class="guild-row">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center text-white font-bold text-sm">UG</div>
+                    <div>
+                      <p class="font-medium text-text-primary">Underground</p>
+                      <p class="text-xs text-text-tertiary font-mono">ID: 4567890123</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="text-text-primary font-medium">134</span>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-text-tertiary bg-bg-primary rounded-full">
+                    <span class="w-1.5 h-1.5 bg-text-tertiary rounded-full"></span>
+                    0 Active
+                  </span>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-error rounded-full" style="width: 81%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">81%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-warning rounded-full" style="width: 28%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">28%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="health-indicator warning">
+                    <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                    Low Activity
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <a href="guild-analytics.html?guild=underground" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                    View
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                </td>
+              </tr>
+
+              <!-- New Server -->
+              <tr class="guild-row">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">NS</div>
+                    <div>
+                      <p class="font-medium text-text-primary">New Server</p>
+                      <p class="text-xs text-text-tertiary font-mono">ID: 5678901234</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="text-text-primary font-medium">23</span>
+                  <span class="ml-2 inline-flex items-center px-1.5 py-0.5 text-xs font-medium text-info bg-info/10 rounded">New</span>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-warning bg-warning/10 rounded-full">
+                    <span class="w-1.5 h-1.5 bg-warning rounded-full animate-pulse"></span>
+                    2 Active
+                  </span>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-success rounded-full" style="width: 45%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">45%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                    <div class="flex-1 h-2 bg-bg-primary rounded-full overflow-hidden max-w-[100px]">
+                      <div class="h-full bg-success rounded-full" style="width: 78%"></div>
+                    </div>
+                    <span class="text-sm text-text-primary font-medium">78%</span>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="health-indicator healthy">
+                    <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                    Healthy
+                  </span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <a href="guild-analytics.html?guild=new-server" class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                    View
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/30">
+          <p class="text-sm text-text-secondary">
+            Showing <span class="font-medium text-text-primary">1</span> to <span class="font-medium text-text-primary">5</span> of <span class="font-medium text-text-primary">12</span> guilds
+          </p>
+          <div class="flex items-center gap-2">
+            <button disabled class="px-3 py-1.5 text-sm font-medium text-text-tertiary bg-bg-secondary border border-border-primary rounded-lg cursor-not-allowed">
+              Previous
+            </button>
+            <button class="px-3 py-1.5 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Note -->
+      <div class="mt-8 text-center">
+        <p class="text-sm text-text-tertiary">
+          Global Rat Watch Analytics Prototype -
+          <a href="guild-analytics.html" class="text-accent-blue hover:text-accent-blue-hover transition-colors">Guild Analytics</a> |
+          <a href="../../features/dashboard-redesign/dashboard.html" class="text-accent-blue hover:text-accent-blue-hover transition-colors">Dashboard</a>
+        </p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript -->
+  <script>
+    // State
+    let sidebarCollapsed = false;
+    let mobileSidebarOpen = false;
+    let selectedDateRange = '7d';
+
+    // DOM Elements
+    const sidebar = document.getElementById('sidebar');
+    const mobileOverlay = document.getElementById('mobileOverlay');
+    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+    const userMenuDropdown = document.getElementById('userMenuDropdown');
+    const mainContent = document.querySelector('.main-content-redesign');
+    const guildFilterMenu = document.getElementById('guildFilterMenu');
+
+    // Toggle mobile sidebar
+    function toggleMobileSidebar() {
+      mobileSidebarOpen = !mobileSidebarOpen;
+
+      if (mobileSidebarOpen) {
+        sidebar.classList.remove('-translate-x-full');
+        mobileOverlay.classList.add('active');
+        mobileMenuToggle.setAttribute('aria-expanded', 'true');
+        const firstLink = sidebar.querySelector('a');
+        if (firstLink) firstLink.focus();
+      } else {
+        sidebar.classList.add('-translate-x-full');
+        mobileOverlay.classList.remove('active');
+        mobileMenuToggle.setAttribute('aria-expanded', 'false');
+        mobileMenuToggle.focus();
+      }
+    }
+
+    // Toggle sidebar collapse (desktop)
+    function toggleSidebarCollapse() {
+      sidebarCollapsed = !sidebarCollapsed;
+
+      if (sidebarCollapsed) {
+        sidebar.classList.add('collapsed');
+        mainContent.style.marginLeft = 'var(--sidebar-collapsed-width)';
+      } else {
+        sidebar.classList.remove('collapsed');
+        mainContent.style.marginLeft = 'var(--sidebar-width)';
+      }
+    }
+
+    // Toggle user menu
+    function toggleUserMenu() {
+      userMenuDropdown.classList.toggle('active');
+    }
+
+    // Toggle guild filter
+    function toggleGuildFilter() {
+      guildFilterMenu.classList.toggle('active');
+    }
+
+    // Select guild from filter
+    function selectGuild(guildName) {
+      document.getElementById('selectedGuild').textContent = guildName;
+      guildFilterMenu.classList.remove('active');
+      // In a real implementation, this would filter the data
+      console.log('Selected guild:', guildName);
+    }
+
+    // Set date range
+    function setDateRange(range) {
+      selectedDateRange = range;
+      document.querySelectorAll('.date-range-btn').forEach(btn => {
+        if (btn.dataset.range === range) {
+          btn.classList.remove('bg-bg-secondary', 'text-text-secondary', 'hover:bg-bg-hover');
+          btn.classList.add('bg-accent-blue/10', 'text-accent-blue', 'border-accent-blue/30');
+        } else {
+          btn.classList.add('bg-bg-secondary', 'text-text-secondary', 'hover:bg-bg-hover');
+          btn.classList.remove('bg-accent-blue/10', 'text-accent-blue', 'border-accent-blue/30');
+        }
+      });
+      // In a real implementation, this would reload the charts with new data
+      console.log('Selected date range:', range);
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+      const userButton = event.target.closest('[aria-label="User menu"]');
+      const dropdown = event.target.closest('.user-menu-dropdown');
+      const guildButton = event.target.closest('#guildFilterBtn');
+      const guildMenu = event.target.closest('#guildFilterMenu');
+
+      if (!userButton && !dropdown) {
+        userMenuDropdown.classList.remove('active');
+      }
+
+      if (!guildButton && !guildMenu) {
+        guildFilterMenu.classList.remove('active');
+      }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', function() {
+      if (window.innerWidth >= 1024) {
+        mobileSidebarOpen = false;
+        mobileOverlay.classList.remove('active');
+        sidebar.classList.remove('-translate-x-full');
+        mobileMenuToggle.setAttribute('aria-expanded', 'false');
+
+        if (sidebarCollapsed) {
+          mainContent.style.marginLeft = 'var(--sidebar-collapsed-width)';
+        } else {
+          mainContent.style.marginLeft = 'var(--sidebar-width)';
+        }
+      } else {
+        mainContent.style.marginLeft = '0';
+        if (!mobileSidebarOpen) {
+          sidebar.classList.add('-translate-x-full');
+        }
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'Escape') {
+        userMenuDropdown.classList.remove('active');
+        guildFilterMenu.classList.remove('active');
+        if (mobileSidebarOpen && window.innerWidth < 1024) {
+          toggleMobileSidebar();
+        }
+      }
+
+      if (event.ctrlKey && event.key === 'k') {
+        event.preventDefault();
+        const searchInput = document.querySelector('input[type="search"]');
+        if (searchInput) searchInput.focus();
+      }
+    });
+
+    // Update last updated time
+    function updateLastUpdatedTime() {
+      const now = new Date();
+      const options = { hour: 'numeric', minute: '2-digit', hour12: true };
+      const timeStr = now.toLocaleTimeString('en-US', options);
+      document.getElementById('lastUpdated').textContent = `Last updated: ${timeStr}`;
+    }
+
+    // Chart.js default configuration for dark theme
+    Chart.defaults.color = '#a8a5a3';
+    Chart.defaults.borderColor = '#3f4447';
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
+    // Activity by Guild (Horizontal Bar Chart)
+    const activityByGuildCtx = document.getElementById('activityByGuildChart').getContext('2d');
+    new Chart(activityByGuildCtx, {
+      type: 'bar',
+      data: {
+        labels: ["The Rat's Nest", 'Cheese Factory', 'Night Shift', 'Underground', 'New Server'],
+        datasets: [{
+          label: 'Total Watches',
+          data: [247, 189, 156, 134, 23],
+          backgroundColor: [
+            'rgba(203, 78, 27, 0.8)',
+            'rgba(9, 142, 207, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(6, 182, 212, 0.8)'
+          ],
+          borderColor: [
+            'rgba(203, 78, 27, 1)',
+            'rgba(9, 142, 207, 1)',
+            'rgba(16, 185, 129, 1)',
+            'rgba(245, 158, 11, 1)',
+            'rgba(6, 182, 212, 1)'
+          ],
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: '#262a2d',
+            titleColor: '#d7d3d0',
+            bodyColor: '#a8a5a3',
+            borderColor: '#3f4447',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 12
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              color: '#2f3336'
+            },
+            ticks: {
+              color: '#7a7876'
+            }
+          },
+          y: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: '#a8a5a3'
+            }
+          }
+        }
+      }
+    });
+
+    // Global Trends (Line Chart)
+    const globalTrendsCtx = document.getElementById('globalTrendsChart').getContext('2d');
+    new Chart(globalTrendsCtx, {
+      type: 'line',
+      data: {
+        labels: ['Dec 24', 'Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29', 'Dec 30'],
+        datasets: [{
+          label: 'Watches Created',
+          data: [18, 22, 15, 28, 32, 20, 23],
+          borderColor: 'rgba(203, 78, 27, 1)',
+          backgroundColor: 'rgba(203, 78, 27, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: 'rgba(203, 78, 27, 1)',
+          pointBorderColor: '#262a2d',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: '#262a2d',
+            titleColor: '#d7d3d0',
+            bodyColor: '#a8a5a3',
+            borderColor: '#3f4447',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 12
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              color: '#2f3336'
+            },
+            ticks: {
+              color: '#7a7876'
+            }
+          },
+          y: {
+            grid: {
+              color: '#2f3336'
+            },
+            ticks: {
+              color: '#7a7876'
+            },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    // Outcome Distribution (Doughnut Chart)
+    const outcomeDistributionCtx = document.getElementById('outcomeDistributionChart').getContext('2d');
+    new Chart(outcomeDistributionCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Guilty', 'Not Guilty', 'Cleared Early', 'Expired', 'Cancelled'],
+        datasets: [{
+          data: [1128, 312, 287, 78, 42],
+          backgroundColor: [
+            'rgba(239, 68, 68, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(9, 142, 207, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(122, 120, 118, 0.8)'
+          ],
+          borderColor: [
+            'rgba(239, 68, 68, 1)',
+            'rgba(16, 185, 129, 1)',
+            'rgba(9, 142, 207, 1)',
+            'rgba(245, 158, 11, 1)',
+            'rgba(122, 120, 118, 1)'
+          ],
+          borderWidth: 2,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '65%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 16,
+              usePointStyle: true,
+              pointStyle: 'circle',
+              color: '#a8a5a3'
+            }
+          },
+          tooltip: {
+            backgroundColor: '#262a2d',
+            titleColor: '#d7d3d0',
+            bodyColor: '#a8a5a3',
+            borderColor: '#3f4447',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 12,
+            callbacks: {
+              label: function(context) {
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = ((context.parsed / total) * 100).toFixed(1);
+                return `${context.label}: ${context.parsed.toLocaleString()} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Most Active Guilds This Week (Bar Chart)
+    const mostActiveGuildsCtx = document.getElementById('mostActiveGuildsChart').getContext('2d');
+    new Chart(mostActiveGuildsCtx, {
+      type: 'bar',
+      data: {
+        labels: ["The Rat's Nest", 'Cheese Factory', 'New Server', 'Night Shift', 'Underground'],
+        datasets: [{
+          label: 'This Week',
+          data: [34, 28, 18, 12, 5],
+          backgroundColor: 'rgba(9, 142, 207, 0.8)',
+          borderColor: 'rgba(9, 142, 207, 1)',
+          borderWidth: 1,
+          borderRadius: 4
+        }, {
+          label: 'Last Week',
+          data: [29, 31, 8, 15, 9],
+          backgroundColor: 'rgba(122, 120, 118, 0.4)',
+          borderColor: 'rgba(122, 120, 118, 0.6)',
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            align: 'end',
+            labels: {
+              padding: 16,
+              usePointStyle: true,
+              pointStyle: 'circle',
+              color: '#a8a5a3'
+            }
+          },
+          tooltip: {
+            backgroundColor: '#262a2d',
+            titleColor: '#d7d3d0',
+            bodyColor: '#a8a5a3',
+            borderColor: '#3f4447',
+            borderWidth: 1,
+            cornerRadius: 8,
+            padding: 12
+          }
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: '#7a7876',
+              maxRotation: 45,
+              minRotation: 45
+            }
+          },
+          y: {
+            grid: {
+              color: '#2f3336'
+            },
+            ticks: {
+              color: '#7a7876'
+            },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+
+    // Initialize
+    updateLastUpdatedTime();
+    setInterval(updateLastUpdatedTime, 60000);
+  </script>
+
+</body>
+</html>
