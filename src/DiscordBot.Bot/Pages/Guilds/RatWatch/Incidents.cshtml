@@ -1,0 +1,572 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.RatWatch.IncidentsModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = $"Rat Watch Incidents - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/RatWatch/Index" asp-route-guildId="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">Rat Watch</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Incidents</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Rat Watch Incidents</h1>
+            <p class="mt-1 text-sm text-text-secondary">@Model.ViewModel.GuildName - Browse and search historical incidents</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a asp-page="/Guilds/RatWatch/Index" asp-route-guildId="@Model.ViewModel.GuildId"
+               class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Settings
+            </a>
+            <button disabled class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-tertiary border border-border-primary rounded-md cursor-not-allowed opacity-50"
+                    title="Export functionality coming soon">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="flex items-center justify-between p-4 border-b border-border-primary">
+            <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Advanced Filters
+            </h2>
+            <button id="toggleFiltersBtn" type="button" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
+                <span id="toggleFiltersText">Hide Filters</span>
+                <svg id="toggleFiltersIcon" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                </svg>
+            </button>
+        </div>
+
+        <div id="filtersPanel" class="p-4">
+            <form method="get" asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId" class="space-y-4">
+                <!-- Row 1: Status Multi-select -->
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-2">Status</label>
+                    <div class="flex flex-wrap items-center gap-4">
+                        @foreach (var status in RatWatchIncidentsViewModel.AllStatuses)
+                        {
+                            var isChecked = Model.ViewModel.Filters.Statuses.Count == 0 || Model.ViewModel.Filters.Statuses.Contains(status);
+                            var badgeClass = status switch
+                            {
+                                RatWatchStatus.Pending => "bg-warning text-white",
+                                RatWatchStatus.ClearedEarly => "bg-success text-white",
+                                RatWatchStatus.Voting => "bg-accent-blue text-white",
+                                RatWatchStatus.Guilty => "bg-error text-white",
+                                RatWatchStatus.NotGuilty => "bg-success text-white",
+                                RatWatchStatus.Expired => "bg-bg-tertiary text-text-secondary",
+                                RatWatchStatus.Cancelled => "bg-bg-tertiary text-text-secondary",
+                                _ => "bg-bg-tertiary text-text-secondary"
+                            };
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" name="Statuses" value="@status" checked="@isChecked" class="w-4 h-4 rounded" />
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold @badgeClass">
+                                    @status.ToString()
+                                </span>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <!-- Row 2: Date Range -->
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-2">Date Range (Scheduled Time)</label>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-2">
+                            <input type="date" id="StartDate" name="StartDate" value="@Model.ViewModel.Filters.StartDate?.ToString("yyyy-MM-dd")"
+                                   class="py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:ring-2 focus:ring-accent-blue focus:border-accent-blue transition-colors" />
+                            <span class="text-text-tertiary">to</span>
+                            <input type="date" id="EndDate" name="EndDate" value="@Model.ViewModel.Filters.EndDate?.ToString("yyyy-MM-dd")"
+                                   class="py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:ring-2 focus:ring-accent-blue focus:border-accent-blue transition-colors" />
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" data-range="today">
+                                Today
+                            </button>
+                            <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" data-range="7days">
+                                Last 7 Days
+                            </button>
+                            <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" data-range="30days">
+                                Last 30 Days
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: User Filters -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="AccusedUser" class="block text-sm font-medium text-text-primary mb-1">Accused User</label>
+                        <input type="text" id="AccusedUser" name="AccusedUser" value="@Model.ViewModel.Filters.AccusedUser"
+                               placeholder="Search by username or ID..."
+                               class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue transition-colors" />
+                        <p class="mt-1 text-xs text-text-tertiary">Partial username match or Discord ID</p>
+                    </div>
+                    <div>
+                        <label for="InitiatorUser" class="block text-sm font-medium text-text-primary mb-1">Initiator User</label>
+                        <input type="text" id="InitiatorUser" name="InitiatorUser" value="@Model.ViewModel.Filters.InitiatorUser"
+                               placeholder="Search by username or ID..."
+                               class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue transition-colors" />
+                        <p class="mt-1 text-xs text-text-tertiary">Partial username match or Discord ID</p>
+                    </div>
+                </div>
+
+                <!-- Row 4: Additional Filters -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="MinVoteCount" class="block text-sm font-medium text-text-primary mb-1">Minimum Total Votes</label>
+                        <input type="number" id="MinVoteCount" name="MinVoteCount" value="@Model.ViewModel.Filters.MinVoteCount" min="0"
+                               placeholder="e.g., 5"
+                               class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue transition-colors" />
+                    </div>
+                    <div>
+                        <label for="Keyword" class="block text-sm font-medium text-text-primary mb-1">Keyword Search</label>
+                        <input type="text" id="Keyword" name="Keyword" value="@Model.ViewModel.Filters.Keyword"
+                               placeholder="Search in custom messages..."
+                               class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue transition-colors" />
+                    </div>
+                </div>
+
+                <!-- Hidden Sort Parameters -->
+                <input type="hidden" name="SortBy" value="@Model.ViewModel.Filters.SortBy" />
+                <input type="hidden" name="SortDesc" value="@Model.ViewModel.Filters.SortDescending" />
+                <input type="hidden" name="PageSize" value="@Model.ViewModel.PageSize" />
+
+                <!-- Filter Actions -->
+                <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                    <a asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId"
+                       class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
+                        Clear Filters
+                    </a>
+                    <button type="submit"
+                            class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                        <span class="flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            Apply Filters
+                        </span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Summary -->
+    <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-text-secondary">
+            @if (Model.ViewModel.TotalCount > 0)
+            {
+                var startItem = (Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1;
+                var endItem = Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount);
+                <text>Showing <span class="font-medium text-text-primary">@startItem-@endItem</span> of <span class="font-medium text-text-primary">@Model.ViewModel.TotalCount</span> incidents</text>
+            }
+            else
+            {
+                <text>No incidents found</text>
+            }
+        </p>
+        @if (Model.ViewModel.ActiveFilterCount > 0)
+        {
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-text-tertiary">@Model.ViewModel.ActiveFilterCount filter@(Model.ViewModel.ActiveFilterCount == 1 ? "" : "s") active</span>
+            </div>
+        }
+    </div>
+
+    <!-- Incidents Table -->
+    @if (Model.ViewModel.TotalCount > 0)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                Status
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                Accused
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                Initiator
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                Scheduled
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                Outcome
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var incident in Model.ViewModel.Incidents)
+                        {
+                            var statusClass = incident.Status switch
+                            {
+                                RatWatchStatus.Pending => "bg-warning/20 text-warning",
+                                RatWatchStatus.ClearedEarly => "bg-success/20 text-success",
+                                RatWatchStatus.Voting => "bg-accent-blue/20 text-accent-blue",
+                                RatWatchStatus.Guilty => "bg-error/20 text-error",
+                                RatWatchStatus.NotGuilty => "bg-success/20 text-success",
+                                RatWatchStatus.Expired => "bg-bg-tertiary text-text-tertiary",
+                                RatWatchStatus.Cancelled => "bg-error/20 text-error",
+                                _ => "bg-bg-tertiary text-text-tertiary"
+                            };
+                            var dotClass = incident.Status switch
+                            {
+                                RatWatchStatus.Pending => "bg-warning",
+                                RatWatchStatus.ClearedEarly => "bg-success",
+                                RatWatchStatus.Voting => "bg-accent-blue",
+                                RatWatchStatus.Guilty => "bg-error",
+                                RatWatchStatus.NotGuilty => "bg-success",
+                                RatWatchStatus.Expired => "bg-text-tertiary",
+                                RatWatchStatus.Cancelled => "bg-error",
+                                _ => "bg-text-tertiary"
+                            };
+                            <tr class="hover:bg-bg-hover transition-colors cursor-pointer" onclick="viewIncident('@incident.Id')">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @statusClass">
+                                        <span class="w-1.5 h-1.5 rounded-full @dotClass mr-1.5"></span>
+                                        @incident.StatusText
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="text-sm text-text-primary">@incident.AccusedUsername</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="text-sm text-text-secondary">@incident.InitiatorUsername</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="text-sm text-text-primary" data-utc="@incident.ScheduledAtUtcIso" data-format="datetime-short"></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if (incident.TotalVotes > 0)
+                                    {
+                                        <span class="text-sm text-text-primary">@incident.GuiltyVotes-@incident.NotGuiltyVotes @incident.StatusText</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-text-tertiary">-</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right">
+                                    <button type="button" onclick="event.stopPropagation(); viewIncident('@incident.Id');"
+                                            class="text-accent-blue hover:text-accent-blue-hover transition-colors"
+                                            aria-label="View incident details">
+                                        <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if (Model.ViewModel.TotalPages > 1)
+            {
+                <div class="px-6 py-4 border-t border-border-primary">
+                    @{
+                        var currentUrl = $"/Guilds/RatWatch/Incidents/{Model.ViewModel.GuildId}";
+                        var queryParams = new List<string>();
+                        if (Model.Statuses?.Any() == true) queryParams.Add($"Statuses={string.Join("&Statuses=", Model.Statuses)}");
+                        if (Model.StartDate.HasValue) queryParams.Add($"StartDate={Model.StartDate:yyyy-MM-dd}");
+                        if (Model.EndDate.HasValue) queryParams.Add($"EndDate={Model.EndDate:yyyy-MM-dd}");
+                        if (!string.IsNullOrWhiteSpace(Model.AccusedUser)) queryParams.Add($"AccusedUser={Uri.EscapeDataString(Model.AccusedUser)}");
+                        if (!string.IsNullOrWhiteSpace(Model.InitiatorUser)) queryParams.Add($"InitiatorUser={Uri.EscapeDataString(Model.InitiatorUser)}");
+                        if (Model.MinVoteCount.HasValue) queryParams.Add($"MinVoteCount={Model.MinVoteCount}");
+                        if (!string.IsNullOrWhiteSpace(Model.Keyword)) queryParams.Add($"Keyword={Uri.EscapeDataString(Model.Keyword)}");
+                        queryParams.Add($"SortBy={Model.SortBy}");
+                        queryParams.Add($"SortDesc={Model.SortDesc}");
+                        var baseUrl = queryParams.Any() ? $"{currentUrl}?{string.Join("&", queryParams)}" : currentUrl;
+                    }
+                    <partial name="Shared/Components/_Pagination" model="new PaginationViewModel {
+                        CurrentPage = Model.ViewModel.CurrentPage,
+                        TotalPages = Model.ViewModel.TotalPages,
+                        TotalItems = Model.ViewModel.TotalCount,
+                        PageSize = Model.ViewModel.PageSize,
+                        BaseUrl = baseUrl,
+                        ShowFirstLast = true,
+                        ShowPageSizeSelector = true,
+                        ShowItemCount = true,
+                        PageSizeOptions = new[] { 10, 25, 50, 100 }
+                    }" />
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Empty State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-tertiary flex items-center justify-center">
+                <svg class="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">No Incidents Found</h3>
+            <p class="text-sm text-text-secondary max-w-sm mx-auto">
+                @if (Model.ViewModel.ActiveFilterCount > 0)
+                {
+                    <text>No incidents match your current filters. Try adjusting or clearing the filters.</text>
+                }
+                else
+                {
+                    <text>No Rat Watch incidents have been created in this server yet.</text>
+                }
+            </p>
+        </div>
+    }
+</div>
+
+<!-- Incident Detail Modal Backdrop -->
+<div id="modalBackdrop" class="hidden fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm z-40 transition-opacity" onclick="closeModal()"></div>
+
+<!-- Incident Detail Modal -->
+<div id="incidentModal" class="hidden fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full border border-border-primary">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span id="modalStatusBadge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error"></span>
+                    <h2 id="modalTitle" class="text-lg font-semibold text-text-primary">Incident Details</h2>
+                </div>
+                <button type="button" onclick="closeModal()" class="text-text-tertiary hover:text-text-primary transition-colors">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div id="modalBody" class="px-6 py-4 max-h-[60vh] overflow-y-auto">
+                <p class="text-text-secondary">Loading...</p>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 bg-bg-primary border-t border-border-primary flex justify-end">
+                <button type="button" onclick="closeModal()"
+                        class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Filter panel toggle
+        document.getElementById('toggleFiltersBtn').addEventListener('click', function() {
+            const panel = document.getElementById('filtersPanel');
+            const text = document.getElementById('toggleFiltersText');
+            const icon = document.getElementById('toggleFiltersIcon');
+            const isHidden = panel.classList.contains('hidden');
+
+            panel.classList.toggle('hidden');
+            text.textContent = isHidden ? 'Hide Filters' : 'Show Filters';
+            icon.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
+        });
+
+        // Quick date preset buttons
+        document.querySelectorAll('.quick-date-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const range = this.dataset.range;
+                const today = new Date();
+                const endDate = today.toISOString().split('T')[0];
+                let startDate;
+
+                if (range === 'today') {
+                    startDate = endDate;
+                } else if (range === '7days') {
+                    const weekAgo = new Date(today);
+                    weekAgo.setDate(today.getDate() - 7);
+                    startDate = weekAgo.toISOString().split('T')[0];
+                } else if (range === '30days') {
+                    const monthAgo = new Date(today);
+                    monthAgo.setDate(today.getDate() - 30);
+                    startDate = monthAgo.toISOString().split('T')[0];
+                }
+
+                document.getElementById('StartDate').value = startDate;
+                document.getElementById('EndDate').value = endDate;
+            });
+        });
+
+        // Modal functionality
+        function viewIncident(incidentId) {
+            const guildId = @Model.ViewModel.GuildId;
+            const modal = document.getElementById('incidentModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            const body = document.getElementById('modalBody');
+
+            // Show modal immediately with loading state
+            modal.classList.remove('hidden');
+            backdrop.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            body.innerHTML = '<p class="text-text-secondary">Loading...</p>';
+
+            // Fetch incident details
+            fetch(`/Guilds/RatWatch/Incidents/${guildId}?handler=IncidentDetail&incidentId=${incidentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Update status badge
+                    const badge = document.getElementById('modalStatusBadge');
+                    badge.textContent = data.statusText;
+                    badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold';
+
+                    if (data.status === 'Guilty') badge.className += ' bg-error/20 text-error';
+                    else if (data.status === 'NotGuilty') badge.className += ' bg-success/20 text-success';
+                    else if (data.status === 'Voting') badge.className += ' bg-accent-blue/20 text-accent-blue';
+                    else if (data.status === 'Pending') badge.className += ' bg-warning/20 text-warning';
+                    else if (data.status === 'ClearedEarly') badge.className += ' bg-success/20 text-success';
+                    else badge.className += ' bg-bg-tertiary text-text-secondary';
+
+                    // Build modal content
+                    body.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
+                                <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Accused</h3>
+                                <p class="text-sm font-medium text-text-primary">${data.accusedUsername}</p>
+                                <p class="text-xs text-text-tertiary font-mono mt-1">${data.accusedUserId}</p>
+                            </div>
+                            <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
+                                <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Initiated By</h3>
+                                <p class="text-sm font-medium text-text-primary">${data.initiatorUsername}</p>
+                                <p class="text-xs text-text-tertiary font-mono mt-1">${data.initiatorUserId}</p>
+                            </div>
+                        </div>
+                        <div class="bg-bg-primary border border-border-primary rounded-lg p-4 mb-6">
+                            <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Details</h3>
+                            <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+                                <div>
+                                    <span class="text-text-tertiary">Scheduled:</span>
+                                    <span class="ml-2 text-text-primary" data-utc="${data.scheduledAt}" data-format="datetime"></span>
+                                </div>
+                                <div>
+                                    <span class="text-text-tertiary">Created:</span>
+                                    <span class="ml-2 text-text-primary" data-utc="${data.createdAt}" data-format="datetime"></span>
+                                </div>
+                            </div>
+                            ${data.customMessage ? `
+                            <div class="mt-4">
+                                <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Custom Message</span>
+                                <p class="mt-1 text-sm text-text-primary bg-bg-tertiary border border-border-secondary rounded p-3">${data.customMessage}</p>
+                            </div>` : ''}
+                        </div>
+                        ${data.totalVotes > 0 ? `
+                        <div class="bg-bg-primary border border-border-primary rounded-lg p-4 mb-6">
+                            <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Vote Breakdown</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-error/10 border border-error/20 rounded-lg p-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium text-error">Guilty</span>
+                                        <span class="text-lg font-bold text-error">${data.guiltyVotes}</span>
+                                    </div>
+                                </div>
+                                <div class="bg-success/10 border border-success/20 rounded-lg p-3">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium text-success">Not Guilty</span>
+                                        <span class="text-lg font-bold text-success">${data.notGuiltyVotes}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>` : ''}
+                        <div class="flex items-center justify-between p-3 bg-bg-tertiary border border-border-secondary rounded-lg">
+                            <span class="text-sm text-text-secondary">Original Discord Message</span>
+                            <a href="https://discord.com/channels/${guildId}/${data.channelId}/${data.originalMessageId}" target="_blank"
+                               class="inline-flex items-center gap-1 text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                View in Discord
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                            </a>
+                        </div>
+                    `;
+
+                    // Convert UTC timestamps to local time
+                    if (window.timezoneUtils) {
+                        window.timezoneUtils.convertTimestamps();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading incident details:', error);
+                    body.innerHTML = '<p class="text-error">Failed to load incident details. Please try again.</p>';
+                });
+        }
+
+        function closeModal() {
+            document.getElementById('incidentModal').classList.add('hidden');
+            document.getElementById('modalBackdrop').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+}

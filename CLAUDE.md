@@ -215,6 +215,7 @@ Located in `src/DiscordBot.Bot/Pages/`:
 | Scheduled Message Create | `/Guilds/ScheduledMessages/Create/{guildId:long}` | New scheduled message |
 | Scheduled Message Edit | `/Guilds/ScheduledMessages/Edit/{guildId:long}/{id:guid}` | Edit scheduled message |
 | Rat Watch | `/Guilds/RatWatch/{guildId:long}` | Rat Watch management |
+| Rat Watch Incidents | `/Guilds/RatWatch/{guildId:long}/Incidents` | Incident browser with filtering |
 | Users | `/Admin/Users` | User management (SuperAdmin) |
 | User Details | `/Admin/Users/Details?id={id}` | User profile and roles |
 | User Create | `/Admin/Users/Create` | Create new user |
