@@ -2,6 +2,7 @@ using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Components;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
 
@@ -133,6 +134,16 @@ public class RatWatchExecutionService : BackgroundService
                 {
                     _logger.LogWarning("Rat Watch {WatchId} expired ({Minutes:F1} minutes late), skipping",
                         watch.Id, timeSinceScheduled.TotalMinutes);
+                    return;
+                }
+
+                // Re-check status before posting (handles race condition with cancellation)
+                var currentWatch = await service.GetByIdAsync(watch.Id, cts.Token);
+                if (currentWatch == null || currentWatch.Status != RatWatchStatus.Pending)
+                {
+                    _logger.LogInformation(
+                        "Skipping Rat Watch {WatchId} - status changed to {Status}",
+                        watch.Id, currentWatch?.Status.ToString() ?? "deleted");
                     return;
                 }
 
