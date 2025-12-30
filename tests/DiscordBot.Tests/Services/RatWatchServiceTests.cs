@@ -23,6 +23,7 @@ public class RatWatchServiceTests
     private readonly Mock<IRatRecordRepository> _mockRecordRepository;
     private readonly Mock<IGuildRatWatchSettingsRepository> _mockSettingsRepository;
     private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IRatWatchStatusService> _mockRatWatchStatusService;
     private readonly Mock<ILogger<RatWatchService>> _mockLogger;
     private readonly IOptions<RatWatchOptions> _options;
     private readonly RatWatchService _service;
@@ -34,6 +35,7 @@ public class RatWatchServiceTests
         _mockRecordRepository = new Mock<IRatRecordRepository>();
         _mockSettingsRepository = new Mock<IGuildRatWatchSettingsRepository>();
         _mockDiscordClient = new Mock<DiscordSocketClient>();
+        _mockRatWatchStatusService = new Mock<IRatWatchStatusService>();
         _mockLogger = new Mock<ILogger<RatWatchService>>();
         _options = Options.Create(new RatWatchOptions
         {
@@ -47,6 +49,7 @@ public class RatWatchServiceTests
             _mockRecordRepository.Object,
             _mockSettingsRepository.Object,
             _mockDiscordClient.Object,
+            _mockRatWatchStatusService.Object,
             _mockLogger.Object,
             _options);
     }
@@ -289,6 +292,11 @@ public class RatWatchServiceTests
                 w.Status == RatWatchStatus.Cancelled),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+
+        _mockRatWatchStatusService.Verify(
+            s => s.RequestStatusUpdate(),
+            Times.Once,
+            "Should request status update to refresh bot status after cancellation");
     }
 
     [Fact]
@@ -307,6 +315,11 @@ public class RatWatchServiceTests
 
         // Assert
         result.Should().BeFalse();
+
+        _mockRatWatchStatusService.Verify(
+            s => s.RequestStatusUpdate(),
+            Times.Never,
+            "Should not request status update when cancellation fails");
     }
 
     [Fact]
@@ -324,6 +337,11 @@ public class RatWatchServiceTests
 
         // Assert
         result.Should().BeFalse();
+
+        _mockRatWatchStatusService.Verify(
+            s => s.RequestStatusUpdate(),
+            Times.Never,
+            "Should not request status update when watch not found");
     }
 
     #endregion

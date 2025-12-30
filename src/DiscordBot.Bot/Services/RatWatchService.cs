@@ -20,6 +20,7 @@ public class RatWatchService : IRatWatchService
     private readonly IRatRecordRepository _recordRepository;
     private readonly IGuildRatWatchSettingsRepository _settingsRepository;
     private readonly DiscordSocketClient _client;
+    private readonly IRatWatchStatusService _ratWatchStatusService;
     private readonly ILogger<RatWatchService> _logger;
     private readonly RatWatchOptions _options;
 
@@ -29,6 +30,7 @@ public class RatWatchService : IRatWatchService
         IRatRecordRepository recordRepository,
         IGuildRatWatchSettingsRepository settingsRepository,
         DiscordSocketClient client,
+        IRatWatchStatusService ratWatchStatusService,
         ILogger<RatWatchService> logger,
         IOptions<RatWatchOptions> options)
     {
@@ -37,6 +39,7 @@ public class RatWatchService : IRatWatchService
         _recordRepository = recordRepository;
         _settingsRepository = settingsRepository;
         _client = client;
+        _ratWatchStatusService = ratWatchStatusService;
         _logger = logger;
         _options = options.Value;
     }
@@ -141,6 +144,9 @@ public class RatWatchService : IRatWatchService
         watch.Status = RatWatchStatus.Cancelled;
         watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
         await _watchRepository.UpdateAsync(watch, ct);
+
+        // Refresh bot status to clear "Watching for rats..." if no other active watches
+        _ratWatchStatusService.RequestStatusUpdate();
 
         _logger.LogInformation("Rat Watch {WatchId} cancelled successfully", id);
         return true;
