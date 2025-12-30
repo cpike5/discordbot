@@ -12,16 +12,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@ViewData["Title"] - Discord Bot Admin</title>
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/login.css" asp-append-version="true" />
 </head>
-<body>
+<body class="bg-bg-secondary">
 
-    <div class="login-container">
+    <div class="login-container flex min-h-screen">
 
         <!-- Left Panel: Brand Experience -->
-        <aside class="login-brand-panel">
+        <aside class="login-brand-panel relative overflow-hidden w-2/5 min-w-[480px] max-w-[600px] min-h-screen hidden md:block" style="background: linear-gradient(135deg, #1d2022 0%, #2f3336 100%);">
+            <!-- Animated gradient overlay -->
+            <div class="login-gradient-overlay absolute inset-0 z-[1] pointer-events-none"></div>
+
             <!-- Floating particles -->
-            <div class="login-particles">
+            <div class="login-particles absolute inset-0 z-[1] overflow-hidden pointer-events-none">
                 <div class="particle"></div>
                 <div class="particle"></div>
                 <div class="particle"></div>
@@ -29,40 +31,40 @@
                 <div class="particle"></div>
             </div>
 
-            <div class="login-brand-content">
+            <div class="relative z-[2] flex flex-col items-center justify-center min-h-screen px-8 py-12 text-center">
 
                 <!-- Logo -->
-                <div class="login-brand-logo">
-                    <div class="login-brand-logo-container">
-                        <svg class="login-brand-logo-icon" fill="currentColor" viewBox="0 0 24 24">
+                <div class="mb-8">
+                    <div class="login-logo-container w-[140px] h-[140px] rounded-3xl flex items-center justify-center" style="background: linear-gradient(135deg, #cb4e1b 0%, #e5591f 100%); box-shadow: 0 10px 40px rgba(203, 78, 27, 0.3), 0 0 60px rgba(203, 78, 27, 0.15);">
+                        <svg class="w-[88px] h-[88px] text-white" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z" />
                         </svg>
                     </div>
                 </div>
 
-                <div class="login-brand-text">
+                <div>
                     <!-- Title & Tagline -->
-                    <h1 class="login-brand-title">Discord Bot Admin</h1>
-                    <p class="login-brand-tagline">
+                    <h1 class="text-[2.5rem] font-bold leading-tight tracking-tight text-text-primary mb-4" style="background: linear-gradient(135deg, #d7d3d0 0%, #a8a5a3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Discord Bot Admin</h1>
+                    <p class="text-lg text-text-secondary mb-12 max-w-[400px]">
                         Powerful bot management at your fingertips
                     </p>
 
                     <!-- Feature List -->
-                    <ul class="login-brand-features">
-                        <li class="login-brand-feature">
-                            <svg class="login-brand-feature-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <ul class="flex flex-col gap-4 items-start max-w-[360px] mx-auto">
+                        <li class="flex items-center gap-3 text-[0.9375rem] text-text-secondary hover:text-text-primary transition-colors duration-200">
+                            <svg class="w-5 h-5 text-accent-orange flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                             </svg>
                             <span>Powerful bot management</span>
                         </li>
-                        <li class="login-brand-feature">
-                            <svg class="login-brand-feature-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <li class="flex items-center gap-3 text-[0.9375rem] text-text-secondary hover:text-text-primary transition-colors duration-200">
+                            <svg class="w-5 h-5 text-accent-orange flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                             </svg>
                             <span>Real-time analytics</span>
                         </li>
-                        <li class="login-brand-feature">
-                            <svg class="login-brand-feature-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <li class="flex items-center gap-3 text-[0.9375rem] text-text-secondary hover:text-text-primary transition-colors duration-200">
+                            <svg class="w-5 h-5 text-accent-orange flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                             </svg>
                             <span>Secure Discord integration</span>
@@ -74,48 +76,48 @@
         </aside>
 
         <!-- Right Panel: Login Form -->
-        <main class="login-form-panel">
-            <div class="login-form-container">
+        <main class="flex-1 min-h-screen flex items-center justify-center p-8 bg-bg-secondary">
+            <div class="w-full max-w-[440px] mx-auto login-form-animated">
 
                 <!-- Form Header -->
-                <header class="login-form-header">
-                    <h2 class="login-form-title">Welcome back</h2>
-                    <p class="login-form-subtitle">Sign in to access your dashboard</p>
+                <header class="mb-10 text-center">
+                    <h2 class="text-[1.875rem] font-bold leading-tight text-text-primary mb-2">Welcome back</h2>
+                    <p class="text-[0.9375rem] text-text-secondary">Sign in to access your dashboard</p>
                 </header>
 
                 <!-- Error Alert -->
                 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
                 {
-                    <div class="login-error-alert" role="alert" aria-live="polite">
-                        <svg class="login-error-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <div class="login-error-alert mb-6 p-4 rounded-lg flex items-start gap-3" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%); border: 1px solid rgba(239, 68, 68, 0.3); border-left: 4px solid #ef4444;" role="alert" aria-live="polite">
+                        <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                         </svg>
-                        <div class="login-error-content">
-                            <p class="login-error-title">Login failed</p>
-                            <p class="login-error-message">@Model.ErrorMessage</p>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-error mb-1">Login failed</p>
+                            <p class="text-sm text-error opacity-90">@Model.ErrorMessage</p>
                         </div>
                     </div>
                 }
 
                 <!-- Validation Summary -->
-                <div asp-validation-summary="ModelOnly" class="login-error-alert validation-summary-errors" role="alert"></div>
+                <div asp-validation-summary="ModelOnly" class="login-error-alert mb-6 p-4 rounded-lg validation-summary-errors hidden" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%); border: 1px solid rgba(239, 68, 68, 0.3); border-left: 4px solid #ef4444;" role="alert"></div>
 
                 @if (Model.IsDiscordOAuthConfigured)
                 {
                     <!-- Discord OAuth Button (Primary CTA) -->
                     <form method="post" asp-page-handler="DiscordLogin">
                         <input type="hidden" asp-for="ReturnUrl" value="@Model.ReturnUrl" />
-                        <button type="submit" class="btn-discord-oauth btn-ripple bg-discord hover:bg-discord-hover">
-                            <svg class="btn-discord-oauth-icon" fill="currentColor" viewBox="0 0 24 24">
+                        <button type="submit" class="btn-discord-oauth w-full flex items-center justify-center gap-3 px-6 py-4 text-base font-semibold text-white bg-discord hover:bg-discord-hover rounded-lg cursor-pointer relative overflow-hidden transition-all duration-200 ease-out" style="border: 1px solid var(--color-discord); box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);">
+                            <svg class="w-6 h-6 flex-shrink-0 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
                             </svg>
-                            <span class="btn-text">Continue with Discord</span>
+                            <span>Continue with Discord</span>
                         </button>
                     </form>
 
                     <!-- Divider -->
-                    <div class="login-divider">
-                        <span class="login-divider-text">Or use your email</span>
+                    <div class="login-divider relative my-8 text-center">
+                        <span class="relative inline-block px-4 bg-bg-secondary text-xs font-medium text-text-tertiary uppercase tracking-wider">Or use your email</span>
                     </div>
                 }
 
@@ -123,72 +125,72 @@
                 <form method="post" id="login-form">
                     <input type="hidden" asp-for="ReturnUrl" value="@Model.ReturnUrl" />
 
-                    <!-- Email Field -->
-                    <div class="form-group-floating">
+                    <!-- Email Field (Floating Label) -->
+                    <div class="form-group-floating relative mb-6">
                         <input
                             asp-for="Input.Email"
                             type="email"
                             id="email"
-                            class="form-input-floating"
+                            class="form-input-floating w-full pt-5 pb-2 px-4 text-[0.9375rem] text-text-primary bg-bg-primary border border-border-primary rounded-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-200 outline-none appearance-none placeholder:text-transparent hover:border-accent-blue focus:border-accent-blue focus:bg-bg-secondary focus:shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),0_0_0_3px_rgba(9,142,207,0.15)]"
                             placeholder=" "
                             autocomplete="email"
                             required
                             aria-required="true"
                             aria-describedby="email-error"
                         />
-                        <label for="email" class="form-label-floating">Email address</label>
-                        <span id="email-error" class="form-error" role="alert" asp-validation-for="Input.Email"></span>
+                        <label for="email" class="form-label-floating absolute top-4 left-4 text-[0.9375rem] font-medium text-text-tertiary bg-transparent pointer-events-none transition-all duration-200 origin-left">Email address</label>
+                        <span id="email-error" class="form-error block mt-2 text-xs text-error opacity-0 -translate-y-1 transition-all duration-200" role="alert" asp-validation-for="Input.Email"></span>
                     </div>
 
-                    <!-- Password Field -->
-                    <div class="form-group-floating password-group">
+                    <!-- Password Field (Floating Label) -->
+                    <div class="form-group-floating password-group relative mb-6">
                         <input
                             asp-for="Input.Password"
                             type="password"
                             id="password"
-                            class="form-input-floating"
+                            class="form-input-floating w-full pt-5 pb-2 px-4 pr-12 text-[0.9375rem] text-text-primary bg-bg-primary border border-border-primary rounded-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-200 outline-none appearance-none placeholder:text-transparent hover:border-accent-blue focus:border-accent-blue focus:bg-bg-secondary focus:shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),0_0_0_3px_rgba(9,142,207,0.15)]"
                             placeholder=" "
                             autocomplete="current-password"
                             required
                             aria-required="true"
                             aria-describedby="password-error"
                         />
-                        <label for="password" class="form-label-floating">Password</label>
+                        <label for="password" class="form-label-floating absolute top-4 left-4 text-[0.9375rem] font-medium text-text-tertiary bg-transparent pointer-events-none transition-all duration-200 origin-left">Password</label>
                         <button
                             type="button"
-                            class="password-toggle"
+                            class="password-toggle absolute top-1/2 right-3 -translate-y-1/2 p-2 bg-transparent border-none cursor-pointer text-text-tertiary hover:text-text-secondary hover:bg-text-tertiary/10 rounded transition-colors duration-200 flex items-center justify-center"
                             aria-label="Show password"
                             aria-pressed="false"
                         >
-                            <svg class="password-toggle-icon password-show" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="password-toggle-icon password-show w-5 h-5 transition-opacity duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                            <svg class="password-toggle-icon password-hide hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="password-toggle-icon password-hide hidden w-5 h-5 transition-opacity duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                             </svg>
                         </button>
-                        <span id="password-error" class="form-error" role="alert" asp-validation-for="Input.Password"></span>
+                        <span id="password-error" class="form-error block mt-2 text-xs text-error opacity-0 -translate-y-1 transition-all duration-200" role="alert" asp-validation-for="Input.Password"></span>
                     </div>
 
                     <!-- Remember Me -->
-                    <div class="remember-me-container">
+                    <div class="mb-6 flex items-center gap-2.5">
                         <input
                             asp-for="Input.RememberMe"
                             type="checkbox"
                             id="remember-me"
-                            class="remember-me-checkbox"
+                            class="remember-me-checkbox absolute opacity-0 w-0 h-0"
                         />
-                        <label for="remember-me" class="remember-me-checkbox-custom">
-                            <svg class="remember-me-checkmark" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <label for="remember-me" class="remember-me-checkbox-custom w-5 h-5 border-2 border-border-primary rounded bg-bg-primary flex items-center justify-center flex-shrink-0 transition-all duration-200 cursor-pointer hover:border-accent-blue">
+                            <svg class="remember-me-checkmark w-3.5 h-3.5 text-white opacity-0 scale-50 transition-all duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
                             </svg>
                         </label>
-                        <label for="remember-me" class="remember-me-label">Remember me</label>
+                        <label for="remember-me" class="text-sm text-text-secondary cursor-pointer select-none hover:text-text-primary transition-colors duration-200">Remember me</label>
                     </div>
 
                     <!-- Submit Button -->
-                    <button type="submit" class="btn-submit-login btn-ripple">
+                    <button type="submit" class="btn-submit-login w-full flex items-center justify-center gap-2 py-3.5 px-6 text-[0.9375rem] font-semibold text-white rounded-lg cursor-pointer relative overflow-hidden transition-all duration-200 ease-out" style="background: linear-gradient(135deg, #cb4e1b 0%, #e5591f 100%); border: 1px solid #cb4e1b; box-shadow: 0 2px 8px rgba(203, 78, 27, 0.3);">
                         <span class="btn-text">Sign in with Email</span>
                     </button>
 
