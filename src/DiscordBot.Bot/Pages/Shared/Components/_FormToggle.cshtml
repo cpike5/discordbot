@@ -6,6 +6,7 @@
                id="@Model.Id"
                name="@Model.Name"
                class="form-toggle-input"
+               data-setting-toggle="true"
                @(Model.IsChecked ? "checked" : "")
                @(Model.IsDisabled ? "disabled" : "")
                value="true" />

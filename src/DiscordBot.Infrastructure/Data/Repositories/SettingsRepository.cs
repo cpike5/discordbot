@@ -51,15 +51,14 @@ public class SettingsRepository : ISettingsRepository
 
         if (existing != null)
         {
-            // Update existing setting
-            existing.Value = setting.Value;
+            // Update existing setting - entity is already tracked, just modify properties
+            existing.Value = setting.Value ?? string.Empty; // Guard against null
             existing.Category = setting.Category;
             existing.DataType = setting.DataType;
             existing.RequiresRestart = setting.RequiresRestart;
             existing.LastModifiedAt = setting.LastModifiedAt;
             existing.LastModifiedBy = setting.LastModifiedBy;
-
-            _context.ApplicationSettings.Update(existing);
+            // No need to call Update() - EF Core tracks changes automatically
         }
         else
         {

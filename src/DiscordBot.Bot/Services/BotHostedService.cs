@@ -7,6 +7,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
@@ -24,11 +25,13 @@ public class BotHostedService : IHostedService
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly IAuditLogQueue _auditLogQueue;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly BotConfiguration _config;
     private readonly ApplicationOptions _applicationOptions;
     private readonly ILogger<BotHostedService> _logger;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly IHostEnvironment _environment;
+    private readonly ISettingsService _settingsService;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     public BotHostedService(
@@ -39,6 +42,8 @@ public class BotHostedService : IHostedService
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
         IAuditLogQueue auditLogQueue,
+        IServiceScopeFactory scopeFactory,
+        ISettingsService settingsService,
         IOptions<BotConfiguration> config,
         IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
@@ -52,6 +57,8 @@ public class BotHostedService : IHostedService
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
         _auditLogQueue = auditLogQueue;
+        _scopeFactory = scopeFactory;
+        _settingsService = settingsService;
         _config = config.Value;
         _applicationOptions = applicationOptions.Value;
         _logger = logger;
@@ -84,6 +91,9 @@ public class BotHostedService : IHostedService
 
         // Wire welcome handler for new member joins
         _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
+
+        // Subscribe to settings changes for real-time updates
+        _settingsService.SettingsChanged += OnSettingsChangedAsync;
 
         // Initialize interaction handler (discovers and registers commands)
         await _interactionHandler.InitializeAsync();
@@ -143,6 +153,7 @@ public class BotHostedService : IHostedService
             _client.LatencyUpdated -= OnLatencyUpdatedAsync;
             _client.MessageReceived -= _messageLoggingHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
+            _settingsService.SettingsChanged -= OnSettingsChangedAsync;
 
             // Log bot shutdown to audit log before stopping
             _auditLogQueue.Enqueue(new AuditLogCreateDto
@@ -200,6 +211,9 @@ public class BotHostedService : IHostedService
     {
         _logger.LogInformation("Bot connected to Discord");
 
+        // Apply custom status message if configured (fire-and-forget)
+        _ = ApplyCustomStatusAsync();
+
         // Broadcast status update (fire-and-forget, failure tolerant)
         _ = BroadcastBotStatusAsync();
 
@@ -217,6 +231,36 @@ public class BotHostedService : IHostedService
         });
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Applies custom status message from settings if configured.
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    private async Task ApplyCustomStatusAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+
+            var statusMessage = await settingsService.GetSettingValueAsync<string>("General:StatusMessage");
+            if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                await _client.SetGameAsync(statusMessage);
+                _logger.LogInformation("Bot status set to: {StatusMessage}", statusMessage);
+            }
+            else
+            {
+                // Clear the status when empty/whitespace is submitted
+                await _client.SetGameAsync(null);
+                _logger.LogInformation("Bot status cleared");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to apply custom status message, but continuing normal operation");
+        }
     }
 
     /// <summary>
@@ -334,6 +378,19 @@ public class BotHostedService : IHostedService
         {
             // Log but don't throw - this is fire-and-forget
             _logger.LogWarning(ex, "Failed to broadcast guild activity update for {GuildId}, but continuing normal operation", guild.Id);
+        }
+    }
+
+    /// <summary>
+    /// Handles settings changed events to apply real-time updates.
+    /// </summary>
+    private void OnSettingsChangedAsync(object? sender, SettingsChangedEventArgs e)
+    {
+        // Check if bot status message was updated
+        if (e.UpdatedKeys.Contains("General:StatusMessage"))
+        {
+            _logger.LogInformation("Bot status message setting changed, applying update in real-time");
+            _ = ApplyCustomStatusAsync();
         }
     }
 }

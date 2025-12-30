@@ -6,6 +6,8 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Bot.Services;
+using System.Text.Json;
 
 namespace DiscordBot.Bot.Pages.Admin;
 
@@ -17,6 +19,7 @@ namespace DiscordBot.Bot.Pages.Admin;
 public class SettingsModel : PageModel
 {
     private readonly ISettingsService _settingsService;
+    private readonly IAuditLogQueue _auditLogQueue;
     private readonly ILogger<SettingsModel> _logger;
 
     /// <summary>
@@ -51,9 +54,11 @@ public class SettingsModel : PageModel
     /// </summary>
     public SettingsModel(
         ISettingsService settingsService,
+        IAuditLogQueue auditLogQueue,
         ILogger<SettingsModel> logger)
     {
         _settingsService = settingsService;
+        _auditLogQueue = auditLogQueue;
         _logger = logger;
     }
 
@@ -95,10 +100,36 @@ public class SettingsModel : PageModel
                 _logger.LogInformation("Settings saved successfully for category {Category} by user {UserId}. Updated keys: {Keys}",
                     category, userId, string.Join(", ", result.UpdatedKeys));
 
+                // Audit log the settings change with actual before/after values
+                if (result.Changes.Count > 0)
+                {
+                    _auditLogQueue.Enqueue(new AuditLogCreateDto
+                    {
+                        Category = AuditLogCategory.Configuration,
+                        Action = AuditLogAction.SettingChanged,
+                        ActorType = AuditLogActorType.User,
+                        ActorId = userId,
+                        Details = JsonSerializer.Serialize(new
+                        {
+                            SettingsCategory = category,
+                            Changes = result.Changes.Select(c => new
+                            {
+                                Key = c.Key,
+                                DisplayName = c.Value.DisplayName,
+                                OldValue = c.Value.OldValue,
+                                NewValue = c.Value.NewValue
+                            }),
+                            RestartRequired = result.RestartRequired
+                        })
+                    });
+                }
+
                 return new JsonResult(new
                 {
                     success = true,
-                    message = $"Settings saved successfully. {result.UpdatedKeys.Count} setting(s) updated.",
+                    message = result.Changes.Count > 0
+                        ? $"Settings saved successfully. {result.Changes.Count} setting(s) updated."
+                        : "No changes detected.",
                     restartRequired = result.RestartRequired
                 });
             }
@@ -159,10 +190,36 @@ public class SettingsModel : PageModel
                 _logger.LogInformation("All settings saved successfully by user {UserId}. Updated keys: {Keys}",
                     userId, string.Join(", ", result.UpdatedKeys));
 
+                // Audit log the settings change with actual before/after values
+                if (result.Changes.Count > 0)
+                {
+                    _auditLogQueue.Enqueue(new AuditLogCreateDto
+                    {
+                        Category = AuditLogCategory.Configuration,
+                        Action = AuditLogAction.SettingChanged,
+                        ActorType = AuditLogActorType.User,
+                        ActorId = userId,
+                        Details = JsonSerializer.Serialize(new
+                        {
+                            SettingsCategory = "All",
+                            Changes = result.Changes.Select(c => new
+                            {
+                                Key = c.Key,
+                                DisplayName = c.Value.DisplayName,
+                                OldValue = c.Value.OldValue,
+                                NewValue = c.Value.NewValue
+                            }),
+                            RestartRequired = result.RestartRequired
+                        })
+                    });
+                }
+
                 return new JsonResult(new
                 {
                     success = true,
-                    message = $"All settings saved successfully. {result.UpdatedKeys.Count} setting(s) updated.",
+                    message = result.Changes.Count > 0
+                        ? $"All settings saved successfully. {result.Changes.Count} setting(s) updated."
+                        : "No changes detected.",
                     restartRequired = result.RestartRequired
                 });
             }
@@ -234,6 +291,21 @@ public class SettingsModel : PageModel
             {
                 _logger.LogInformation("Category {Category} reset to defaults by user {UserId}", category, userId);
 
+                // Audit log the category reset
+                _auditLogQueue.Enqueue(new AuditLogCreateDto
+                {
+                    Category = AuditLogCategory.Configuration,
+                    Action = AuditLogAction.SettingChanged,
+                    ActorType = AuditLogActorType.User,
+                    ActorId = userId,
+                    Details = JsonSerializer.Serialize(new
+                    {
+                        Operation = "ResetCategory",
+                        SettingsCategory = category,
+                        RestartRequired = result.RestartRequired
+                    })
+                });
+
                 return new JsonResult(new
                 {
                     success = true,
@@ -295,6 +367,20 @@ public class SettingsModel : PageModel
             {
                 _logger.LogWarning("All settings reset to defaults by user {UserId}", userId);
 
+                // Audit log the full reset
+                _auditLogQueue.Enqueue(new AuditLogCreateDto
+                {
+                    Category = AuditLogCategory.Configuration,
+                    Action = AuditLogAction.SettingChanged,
+                    ActorType = AuditLogActorType.User,
+                    ActorId = userId,
+                    Details = JsonSerializer.Serialize(new
+                    {
+                        Operation = "ResetAll",
+                        RestartRequired = result.RestartRequired
+                    })
+                });
+
                 return new JsonResult(new
                 {
                     success = true,
@@ -337,7 +423,6 @@ public class SettingsModel : PageModel
     private async Task LoadViewModelAsync()
     {
         var generalSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.General);
-        var loggingSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Logging);
         var featuresSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Features);
         var advancedSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Advanced);
 
@@ -345,7 +430,6 @@ public class SettingsModel : PageModel
         {
             ActiveCategory = ActiveCategory ?? "General",
             GeneralSettings = generalSettings,
-            LoggingSettings = loggingSettings,
             FeaturesSettings = featuresSettings,
             AdvancedSettings = advancedSettings,
             IsRestartPending = _settingsService.IsRestartPending
@@ -373,7 +457,7 @@ public class SettingsModel : PageModel
             FormHandler = "ResetAll"
         };
 
-        _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Logging={LoggingCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, RestartPending={RestartPending}",
-            generalSettings.Count, loggingSettings.Count, featuresSettings.Count, advancedSettings.Count, _settingsService.IsRestartPending);
+        _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, RestartPending={RestartPending}",
+            generalSettings.Count, featuresSettings.Count, advancedSettings.Count, _settingsService.IsRestartPending);
     }
 }

@@ -83,4 +83,26 @@ public interface ISettingsService
     /// Should be called by the bot hosted service after successful restart.
     /// </summary>
     void ClearRestartPending();
+
+    /// <summary>
+    /// Event that is raised when settings are updated.
+    /// Subscribers can use this to react to setting changes in real-time.
+    /// </summary>
+    event EventHandler<SettingsChangedEventArgs>? SettingsChanged;
+}
+
+/// <summary>
+/// Event arguments for settings changed events.
+/// </summary>
+public class SettingsChangedEventArgs : EventArgs
+{
+    /// <summary>
+    /// The keys that were updated.
+    /// </summary>
+    public IReadOnlyList<string> UpdatedKeys { get; init; } = Array.Empty<string>();
+
+    /// <summary>
+    /// The user who made the changes.
+    /// </summary>
+    public string UserId { get; init; } = string.Empty;
 }
