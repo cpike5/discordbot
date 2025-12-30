@@ -93,6 +93,11 @@ public record AuditLogListItem
     public string TimestampUtcIso { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the category of the audit log entry.
+    /// </summary>
+    public AuditLogCategory CategoryEnum { get; init; }
+
+    /// <summary>
     /// Gets the category name for display.
     /// </summary>
     public string Category { get; init; } = string.Empty;
@@ -101,6 +106,11 @@ public record AuditLogListItem
     /// Gets the CSS class for the category badge.
     /// </summary>
     public string CategoryBadgeClass { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the action of the audit log entry.
+    /// </summary>
+    public AuditLogAction ActionEnum { get; init; }
 
     /// <summary>
     /// Gets the action name for display.
@@ -116,6 +126,21 @@ public record AuditLogListItem
     /// Gets the CSS class for the action border color (used in expandable rows).
     /// </summary>
     public string ActionBorderClass { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the type of actor who performed the action.
+    /// </summary>
+    public AuditLogActorType ActorType { get; init; }
+
+    /// <summary>
+    /// Gets the unique identifier of the actor (user ID or null).
+    /// </summary>
+    public string? ActorId { get; init; }
+
+    /// <summary>
+    /// Gets the display name of the actor (if available).
+    /// </summary>
+    public string? ActorDisplayName { get; init; }
 
     /// <summary>
     /// Gets the display name of the actor who performed the action.
@@ -177,6 +202,80 @@ public record AuditLogListItem
     /// </summary>
     public string? IpAddress { get; init; }
 
+    #region Actor Display Helper Properties
+
+    /// <summary>
+    /// Gets whether the actor is a user type.
+    /// </summary>
+    public bool IsUserActor => ActorType == AuditLogActorType.User;
+
+    /// <summary>
+    /// Gets whether the actor is a system type.
+    /// </summary>
+    public bool IsSystemActor => ActorType == AuditLogActorType.System;
+
+    /// <summary>
+    /// Gets whether the actor is a bot type.
+    /// </summary>
+    public bool IsBotActor => ActorType == AuditLogActorType.Bot;
+
+    /// <summary>
+    /// Gets whether the actor has a display name (not just a GUID).
+    /// </summary>
+    public bool HasActorDisplayName => !string.IsNullOrWhiteSpace(ActorDisplayName);
+
+    /// <summary>
+    /// Gets whether the actor ID is a valid GUID.
+    /// </summary>
+    public bool HasActorGuid => !string.IsNullOrWhiteSpace(ActorId) && Guid.TryParse(ActorId, out _);
+
+    /// <summary>
+    /// Gets the truncated actor ID (first 8 characters) for display.
+    /// </summary>
+    public string TruncatedActorId => !string.IsNullOrWhiteSpace(ActorId) && ActorId.Length >= 8
+        ? ActorId.Substring(0, 8)
+        : ActorId ?? string.Empty;
+
+    /// <summary>
+    /// Gets the URL to view user details for GUID-only actors.
+    /// </summary>
+    public string? ActorLinkUrl => IsUserActor && HasActorGuid && !HasActorDisplayName
+        ? $"/Admin/Users/Details?id={ActorId}"
+        : null;
+
+    #endregion
+
+    #region Guild Display Helper Methods
+
+    /// <summary>
+    /// Gets the display text for the guild column.
+    /// Shows guild name if available, "System" for system-wide actions, or "Unknown" otherwise.
+    /// </summary>
+    /// <returns>The guild display text.</returns>
+    public string GetGuildDisplay()
+    {
+        if (!string.IsNullOrEmpty(GuildName))
+            return GuildName;
+
+        // System-wide actions that don't have a guild
+        return IsSystemWideAction() ? "System" : "Unknown";
+    }
+
+    /// <summary>
+    /// Determines if this audit log entry represents a system-wide action.
+    /// </summary>
+    private bool IsSystemWideAction()
+    {
+        // Check if this is a system-wide action based on action type or category
+        return ActionEnum == AuditLogAction.Login
+            || ActionEnum == AuditLogAction.Logout
+            || ActionEnum == AuditLogAction.SettingChanged
+            || CategoryEnum == AuditLogCategory.System
+            || CategoryEnum == AuditLogCategory.Security;
+    }
+
+    #endregion
+
     /// <summary>
     /// Creates an <see cref="AuditLogListItem"/> from an <see cref="AuditLogDto"/>.
     /// </summary>
@@ -185,7 +284,7 @@ public record AuditLogListItem
     public static AuditLogListItem FromDto(AuditLogDto dto)
     {
         var actorName = dto.ActorDisplayName ?? dto.ActorId ?? "Unknown";
-        var actorInitials = GetInitials(actorName);
+        var actorInitials = GetInitials(actorName, dto.ActorType, dto.ActorDisplayName);
         var actorAvatarClass = GetActorAvatarClass(dto.ActorType);
         var categoryBadgeClass = GetCategoryBadgeClass(dto.Category);
         var actionBadgeClass = GetActionBadgeClass(dto.Action);
@@ -198,11 +297,16 @@ public record AuditLogListItem
             Id = dto.Id,
             Timestamp = dto.Timestamp,
             TimestampUtcIso = DateTime.SpecifyKind(dto.Timestamp, DateTimeKind.Utc).ToString("o"),
+            CategoryEnum = dto.Category,
             Category = dto.CategoryName,
             CategoryBadgeClass = categoryBadgeClass,
+            ActionEnum = dto.Action,
             Action = dto.ActionName,
             ActionBadgeClass = actionBadgeClass,
             ActionBorderClass = actionBorderClass,
+            ActorType = dto.ActorType,
+            ActorId = dto.ActorId,
+            ActorDisplayName = dto.ActorDisplayName,
             ActorName = actorName,
             ActorInitials = actorInitials,
             ActorAvatarClass = actorAvatarClass,
@@ -219,9 +323,22 @@ public record AuditLogListItem
 
     /// <summary>
     /// Generates initials from a name for avatar display.
+    /// For System/Bot actors, returns empty string (icon will be used instead).
+    /// For users without a display name (GUID only), returns empty string (icon will be used instead).
     /// </summary>
-    private static string GetInitials(string name)
+    /// <param name="name">The name to generate initials from.</param>
+    /// <param name="actorType">The type of actor.</param>
+    /// <param name="displayName">The actor's display name (null if only GUID is available).</param>
+    private static string GetInitials(string name, AuditLogActorType actorType, string? displayName)
     {
+        // System and Bot actors use icons instead of initials
+        if (actorType == AuditLogActorType.System || actorType == AuditLogActorType.Bot)
+            return string.Empty;
+
+        // Users without a display name (GUID only) use icon instead of initials
+        if (actorType == AuditLogActorType.User && string.IsNullOrWhiteSpace(displayName))
+            return string.Empty;
+
         if (string.IsNullOrWhiteSpace(name))
             return "?";
 
