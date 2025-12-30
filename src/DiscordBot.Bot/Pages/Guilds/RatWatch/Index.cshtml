@@ -162,6 +162,121 @@
         </form>
     </div>
 
+    <!-- Navigation Tabs -->
+    <div class="flex items-center gap-1 mb-6 border-b border-border-primary">
+        <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-accent-orange text-text-primary">
+            Settings
+        </a>
+        <a asp-page="Analytics" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
+            Analytics
+        </a>
+        <a asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
+            Incidents
+        </a>
+    </div>
+
+    <!-- Summary Stats Cards -->
+    @if (Model.ViewModel.AnalyticsSummary != null)
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+            <!-- Total Watches -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Total Watches</p>
+                        <p class="mt-2 text-3xl font-bold text-text-primary">@Model.ViewModel.AnalyticsSummary.TotalWatches.ToString("N0")</p>
+                        <p class="mt-1 text-xs text-text-tertiary">All-time</p>
+                    </div>
+                    <div class="p-3 bg-accent-blue/10 rounded-lg">
+                        <!-- Eye Icon -->
+                        <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Watches -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Active Watches</p>
+                        <p class="mt-2 text-3xl font-bold text-warning">@Model.ViewModel.AnalyticsSummary.ActiveWatches.ToString("N0")</p>
+                        <p class="mt-1 text-xs text-text-tertiary">Pending + Voting</p>
+                    </div>
+                    <div class="p-3 bg-warning/10 rounded-lg">
+                        <!-- Clock Icon -->
+                        <svg class="w-6 h-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Guilty Rate -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Guilty Rate</p>
+                        @{
+                            var guiltyRate = Model.ViewModel.AnalyticsSummary.GuiltyRate;
+                            var guiltyRateColor = guiltyRate < 50 ? "text-success" : guiltyRate <= 80 ? "text-warning" : "text-error";
+                            var guiltyRateIconBg = guiltyRate < 50 ? "bg-success/10" : guiltyRate <= 80 ? "bg-warning/10" : "bg-error/10";
+                            var guiltyRateIconColor = guiltyRate < 50 ? "text-success" : guiltyRate <= 80 ? "text-warning" : "text-error";
+                        }
+                        <p class="mt-2 text-3xl font-bold @guiltyRateColor">@guiltyRate.ToString("F0")%</p>
+                        <p class="mt-1 text-xs text-text-tertiary">@Model.ViewModel.AnalyticsSummary.GuiltyCount guilty verdicts</p>
+                    </div>
+                    <div class="p-3 @guiltyRateIconBg rounded-lg">
+                        <!-- Scale Icon -->
+                        <svg class="w-6 h-6 @guiltyRateIconColor" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Early Check-in Rate -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Early Check-in Rate</p>
+                        @{
+                            var checkInRate = Model.ViewModel.AnalyticsSummary.EarlyCheckInRate;
+                            var checkInRateColor = checkInRate > 80 ? "text-success" : checkInRate >= 50 ? "text-warning" : "text-error";
+                            var checkInRateIconBg = checkInRate > 80 ? "bg-success/10" : checkInRate >= 50 ? "bg-warning/10" : "bg-error/10";
+                            var checkInRateIconColor = checkInRate > 80 ? "text-success" : checkInRate >= 50 ? "text-warning" : "text-error";
+                        }
+                        <p class="mt-2 text-3xl font-bold @checkInRateColor">@checkInRate.ToString("F0")%</p>
+                        <p class="mt-1 text-xs text-text-tertiary">@Model.ViewModel.AnalyticsSummary.ClearedEarlyCount cleared early</p>
+                    </div>
+                    <div class="p-3 @checkInRateIconBg rounded-lg">
+                        <!-- Check Circle Icon -->
+                        <svg class="w-6 h-6 @checkInRateIconColor" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Full Analytics Button -->
+        <div class="mb-6 text-center">
+            <a asp-page="Analytics" asp-route-guildId="@Model.ViewModel.GuildId"
+               class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors">
+                <!-- Chart Bar Icon -->
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                View Full Analytics
+            </a>
+        </div>
+    }
+
     <!-- Stats and Leaderboard Row -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <!-- Stats Card -->
