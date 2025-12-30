@@ -100,8 +100,8 @@ public class SettingsModel : PageModel
                 _logger.LogInformation("Settings saved successfully for category {Category} by user {UserId}. Updated keys: {Keys}",
                     category, userId, string.Join(", ", result.UpdatedKeys));
 
-                // Audit log the settings change
-                if (result.UpdatedKeys.Count > 0)
+                // Audit log the settings change with actual before/after values
+                if (result.Changes.Count > 0)
                 {
                     _auditLogQueue.Enqueue(new AuditLogCreateDto
                     {
@@ -112,7 +112,13 @@ public class SettingsModel : PageModel
                         Details = JsonSerializer.Serialize(new
                         {
                             SettingsCategory = category,
-                            UpdatedKeys = result.UpdatedKeys,
+                            Changes = result.Changes.Select(c => new
+                            {
+                                Key = c.Key,
+                                DisplayName = c.Value.DisplayName,
+                                OldValue = c.Value.OldValue,
+                                NewValue = c.Value.NewValue
+                            }),
                             RestartRequired = result.RestartRequired
                         })
                     });
@@ -121,7 +127,9 @@ public class SettingsModel : PageModel
                 return new JsonResult(new
                 {
                     success = true,
-                    message = $"Settings saved successfully. {result.UpdatedKeys.Count} setting(s) updated.",
+                    message = result.Changes.Count > 0
+                        ? $"Settings saved successfully. {result.Changes.Count} setting(s) updated."
+                        : "No changes detected.",
                     restartRequired = result.RestartRequired
                 });
             }
@@ -182,8 +190,8 @@ public class SettingsModel : PageModel
                 _logger.LogInformation("All settings saved successfully by user {UserId}. Updated keys: {Keys}",
                     userId, string.Join(", ", result.UpdatedKeys));
 
-                // Audit log the settings change
-                if (result.UpdatedKeys.Count > 0)
+                // Audit log the settings change with actual before/after values
+                if (result.Changes.Count > 0)
                 {
                     _auditLogQueue.Enqueue(new AuditLogCreateDto
                     {
@@ -194,7 +202,13 @@ public class SettingsModel : PageModel
                         Details = JsonSerializer.Serialize(new
                         {
                             SettingsCategory = "All",
-                            UpdatedKeys = result.UpdatedKeys,
+                            Changes = result.Changes.Select(c => new
+                            {
+                                Key = c.Key,
+                                DisplayName = c.Value.DisplayName,
+                                OldValue = c.Value.OldValue,
+                                NewValue = c.Value.NewValue
+                            }),
                             RestartRequired = result.RestartRequired
                         })
                     });
@@ -203,7 +217,9 @@ public class SettingsModel : PageModel
                 return new JsonResult(new
                 {
                     success = true,
-                    message = $"All settings saved successfully. {result.UpdatedKeys.Count} setting(s) updated.",
+                    message = result.Changes.Count > 0
+                        ? $"All settings saved successfully. {result.Changes.Count} setting(s) updated."
+                        : "No changes detected.",
                     restartRequired = result.RestartRequired
                 });
             }

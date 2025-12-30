@@ -126,14 +126,19 @@ public class SettingsService : ISettingsService
         string userId,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Updating {Count} settings for user {UserId}", updates.Settings.Count, userId);
+        _logger.LogInformation("Processing {Count} settings for user {UserId}", updates.Settings.Count, userId);
 
         using var scope = _scopeFactory.CreateScope();
         var repository = GetRepository(scope);
 
         var errors = new List<string>();
         var updatedKeys = new List<string>();
+        var changes = new Dictionary<string, SettingChange>();
         var requiresRestart = false;
+
+        // Fetch all current values from database for comparison
+        var dbSettings = await repository.GetAllAsync(cancellationToken);
+        var currentValues = dbSettings.ToDictionary(s => s.Key, s => s.Value);
 
         foreach (var (key, value) in updates.Settings)
         {
@@ -154,12 +159,26 @@ public class SettingsService : ISettingsService
                 continue;
             }
 
+            // Get current value (from DB, config, or default)
+            var currentValue = currentValues.GetValueOrDefault(key)
+                ?? _configuration[key]
+                ?? definition.DefaultValue;
+
+            var newValue = value ?? string.Empty;
+
+            // Skip if value hasn't actually changed
+            if (currentValue == newValue)
+            {
+                _logger.LogDebug("Setting {Key} unchanged, skipping", key);
+                continue;
+            }
+
             try
             {
                 var setting = new ApplicationSetting
                 {
                     Key = key,
-                    Value = value ?? string.Empty, // Ensure we never pass null to satisfy NOT NULL constraint
+                    Value = newValue,
                     Category = definition.Category,
                     DataType = definition.DataType,
                     RequiresRestart = definition.RequiresRestart,
@@ -170,13 +189,21 @@ public class SettingsService : ISettingsService
                 await repository.UpsertAsync(setting, cancellationToken);
                 updatedKeys.Add(key);
 
+                // Track the actual change with old and new values
+                changes[key] = new SettingChange
+                {
+                    OldValue = currentValue,
+                    NewValue = newValue,
+                    DisplayName = definition.DisplayName
+                };
+
                 if (definition.RequiresRestart)
                 {
                     requiresRestart = true;
                 }
 
-                _logger.LogInformation("Updated setting {Key} to '{Value}' (RequiresRestart: {RequiresRestart})",
-                    key, value, definition.RequiresRestart);
+                _logger.LogInformation("Updated setting {Key} from '{OldValue}' to '{NewValue}' (RequiresRestart: {RequiresRestart})",
+                    key, currentValue, newValue, definition.RequiresRestart);
             }
             catch (Exception ex)
             {
@@ -194,7 +221,7 @@ public class SettingsService : ISettingsService
         }
 
         var success = errors.Count == 0;
-        _logger.LogInformation("Settings update completed: {UpdatedCount} updated, {ErrorCount} errors, restart required: {RestartRequired}",
+        _logger.LogInformation("Settings update completed: {UpdatedCount} actually changed, {ErrorCount} errors, restart required: {RestartRequired}",
             updatedKeys.Count, errors.Count, requiresRestart);
 
         // Raise the SettingsChanged event if any settings were updated
@@ -212,7 +239,8 @@ public class SettingsService : ISettingsService
             Success = success,
             Errors = errors,
             RestartRequired = requiresRestart,
-            UpdatedKeys = updatedKeys
+            UpdatedKeys = updatedKeys,
+            Changes = changes
         };
     }
 
