@@ -115,6 +115,15 @@ public static class SettingDefinitions
             requiresRestart: false,
             description: "Enable or disable welcome messages globally (in addition to per-guild settings)"
         ),
+        new(
+            key: "Features:RatWatchEnabled",
+            displayName: "Rat Watch",
+            category: SettingCategory.Features,
+            dataType: SettingDataType.Boolean,
+            defaultValue: "true",
+            requiresRestart: false,
+            description: "Enable or disable the Rat Watch accountability feature globally"
+        ),
 
         // Advanced Category
         new(

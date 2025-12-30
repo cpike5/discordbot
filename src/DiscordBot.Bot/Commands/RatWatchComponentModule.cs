@@ -11,6 +11,7 @@ namespace DiscordBot.Bot.Commands;
 /// Component interaction handlers for Rat Watch buttons.
 /// </summary>
 [RequireGuildActive]
+[RequireRatWatchEnabled]
 public class RatWatchComponentModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IRatWatchService _ratWatchService;

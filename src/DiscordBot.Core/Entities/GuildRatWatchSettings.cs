@@ -19,7 +19,7 @@ public class GuildRatWatchSettings
     /// IANA timezone identifier for this guild (e.g., "America/New_York", "UTC").
     /// Used for parsing user time input like "10pm".
     /// </summary>
-    public string Timezone { get; set; } = "UTC";
+    public string Timezone { get; set; } = "Eastern Standard Time";
 
     /// <summary>
     /// Maximum number of hours in advance a Rat Watch can be scheduled.

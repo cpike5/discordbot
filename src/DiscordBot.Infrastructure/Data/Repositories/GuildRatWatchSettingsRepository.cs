@@ -59,7 +59,7 @@ public class GuildRatWatchSettingsRepository : Repository<GuildRatWatchSettings>
         {
             GuildId = guildId,
             IsEnabled = true,
-            Timezone = "UTC",
+            Timezone = "Eastern Standard Time",
             MaxAdvanceHours = 24,
             VotingDurationMinutes = 5,
             CreatedAt = now,

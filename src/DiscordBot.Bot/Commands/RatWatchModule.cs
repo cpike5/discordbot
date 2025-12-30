@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Commands;
 /// Slash command and context menu module for Rat Watch accountability feature.
 /// </summary>
 [RequireGuildActive]
+[RequireRatWatchEnabled]
 public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IRatWatchService _ratWatchService;
@@ -371,6 +372,75 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
                 .Build();
 
             await RespondAsync(embed: errorEmbed, ephemeral: true);
+        }
+    }
+
+    /// <summary>
+    /// Slash command to configure Rat Watch settings for this server.
+    /// </summary>
+    [SlashCommand("rat-settings", "View or configure Rat Watch settings")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task RatSettingsAsync(
+        [Summary("timezone", "Set the timezone for parsing times like '10pm'")]
+        [Choice("Eastern Time", "Eastern Standard Time")]
+        [Choice("Central Time", "Central Standard Time")]
+        [Choice("Mountain Time", "Mountain Standard Time")]
+        [Choice("Pacific Time", "Pacific Standard Time")]
+        [Choice("UTC", "UTC")]
+        string? timezone = null)
+    {
+        _logger.LogInformation(
+            "Rat settings command executed by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId})",
+            Context.User.Username,
+            Context.User.Id,
+            Context.Guild.Name,
+            Context.Guild.Id);
+
+        try
+        {
+            var settings = await _ratWatchService.GetGuildSettingsAsync(Context.Guild.Id);
+
+            if (!string.IsNullOrWhiteSpace(timezone))
+            {
+                // Validate timezone
+                try
+                {
+                    TimeZoneInfo.FindSystemTimeZoneById(timezone);
+                }
+                catch
+                {
+                    await RespondAsync($"Invalid timezone: `{timezone}`", ephemeral: true);
+                    return;
+                }
+
+                // Update settings
+                settings = await _ratWatchService.UpdateGuildSettingsAsync(
+                    Context.Guild.Id,
+                    s => s.Timezone = timezone);
+
+                _logger.LogInformation(
+                    "Rat Watch timezone updated to {Timezone} for guild {GuildId}",
+                    timezone,
+                    Context.Guild.Id);
+            }
+
+            var embed = new EmbedBuilder()
+                .WithTitle("🐀 Rat Watch Settings")
+                .WithColor(Color.Blue)
+                .AddField("Timezone", settings.Timezone, inline: true)
+                .AddField("Max Advance Hours", $"{settings.MaxAdvanceHours}h", inline: true)
+                .AddField("Voting Duration", $"{settings.VotingDurationMinutes} min", inline: true)
+                .AddField("Feature Enabled", settings.IsEnabled ? "Yes" : "No", inline: true)
+                .WithFooter(timezone != null ? "Settings updated!" : "Use /rat-settings timezone:<value> to change")
+                .WithCurrentTimestamp()
+                .Build();
+
+            await RespondAsync(embed: embed, ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get/update Rat Watch settings for guild {GuildId}", Context.Guild.Id);
+            await RespondAsync($"Failed to update settings: {ex.Message}", ephemeral: true);
         }
     }
 

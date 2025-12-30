@@ -139,6 +139,7 @@ public class RatWatchService : IRatWatchService
         }
 
         watch.Status = RatWatchStatus.Cancelled;
+        watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
         await _watchRepository.UpdateAsync(watch, ct);
 
         _logger.LogInformation("Rat Watch {WatchId} cancelled successfully", id);
@@ -171,6 +172,7 @@ public class RatWatchService : IRatWatchService
 
         watch.Status = RatWatchStatus.ClearedEarly;
         watch.ClearedAt = DateTime.UtcNow;
+        watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
         await _watchRepository.UpdateAsync(watch, ct);
 
         _logger.LogInformation("Rat Watch {WatchId} cleared early by user {UserId}", watchId, userId);
@@ -455,6 +457,7 @@ public class RatWatchService : IRatWatchService
         var settings = await _settingsRepository.GetOrCreateAsync(guildId, ct);
         update(settings);
         settings.UpdatedAt = DateTime.UtcNow;
+        settings.Guild = null; // Detach navigation to avoid EF tracking conflicts
 
         await _settingsRepository.UpdateAsync(settings, ct);
 
