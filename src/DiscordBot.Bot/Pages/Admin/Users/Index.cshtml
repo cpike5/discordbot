@@ -47,7 +47,7 @@
                     name="SearchTerm"
                     value="@Model.SearchTerm"
                     placeholder="Email, name, or Discord username..."
-                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent" />
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
             </div>
 
             <!-- Role Filter -->
@@ -55,7 +55,7 @@
                 <label class="block text-sm font-medium text-text-primary mb-1">Role</label>
                 <select
                     name="RoleFilter"
-                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent">
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
                     <option value="">All Roles</option>
                     @foreach (var role in Model.ViewModel.AvailableRoles)
                     {
@@ -69,7 +69,7 @@
                 <label class="block text-sm font-medium text-text-primary mb-1">Status</label>
                 <select
                     name="ActiveFilter"
-                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent">
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
                     <option value="">All</option>
                     <option value="true" selected="@(Model.ActiveFilter == true)">Active</option>
                     <option value="false" selected="@(Model.ActiveFilter == false)">Inactive</option>
@@ -81,7 +81,7 @@
                 <label class="block text-sm font-medium text-text-primary mb-1">Discord</label>
                 <select
                     name="DiscordLinkedFilter"
-                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent">
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
                     <option value="">All</option>
                     <option value="true" selected="@(Model.DiscordLinkedFilter == true)">Linked</option>
                     <option value="false" selected="@(Model.DiscordLinkedFilter == false)">Not Linked</option>

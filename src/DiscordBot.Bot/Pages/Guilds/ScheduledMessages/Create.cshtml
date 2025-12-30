@@ -89,7 +89,7 @@
                             id="Input_Title"
                             name="Input.Title"
                             value="@Model.Input.Title"
-                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                             placeholder="Enter a descriptive title..."
                             maxlength="200"
                         />
@@ -106,7 +106,7 @@
                             id="Input_Content"
                             name="Input.Content"
                             rows="4"
-                            class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                            class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                             placeholder="Enter your message..."
                             oninput="updateCharCount(); updatePreview();"
                             maxlength="2000">@Model.Input.Content</textarea>
@@ -133,7 +133,7 @@
                             <select
                                 id="Input_ChannelId"
                                 name="Input.ChannelId"
-                                class="form-select w-full py-2.5 pl-10 pr-10 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                                class="form-select w-full py-2.5 pl-10 pr-10 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                             >
                                 <option value="">Select a channel...</option>
                                 @foreach (var channel in Model.AvailableChannels)
@@ -215,7 +215,7 @@
                             id="Input_NextExecutionAt"
                             name="Input.NextExecutionAt"
                             value="@(Model.Input.NextExecutionAt?.ToString("yyyy-MM-ddTHH:mm"))"
-                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                         />
                         <p class="text-xs text-text-tertiary mt-1">
                             Your timezone: <span class="timezone-indicator font-medium">Detecting...</span>
@@ -233,7 +233,7 @@
                             id="Input_CronExpression"
                             name="Input.CronExpression"
                             value="@Model.Input.CronExpression"
-                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary font-mono focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-accent-blue/20"
+                            class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary font-mono focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                             placeholder="0 9 * * 1"
                         />
                         <p class="text-xs text-text-secondary mt-1">
@@ -255,7 +255,7 @@
                             <input
                                 asp-for="Input.IsEnabled"
                                 class="sr-only peer" />
-                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-accent-blue/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
                         </label>
                     </div>
                 </div>
@@ -264,7 +264,7 @@
                 <div class="flex flex-col sm:flex-row gap-3">
                     <button
                         type="submit"
-                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -274,7 +274,7 @@
                     <a
                         asp-page="Index"
                         asp-route-guildId="@Model.ViewModel.GuildId"
-                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
                     >
                         Cancel
                     </a>
