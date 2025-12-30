@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -181,5 +182,151 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
 
         _logger.LogDebug("Active Rat Watches exist: {HasActive}", hasActive);
         return hasActive;
+    }
+
+    public async Task<RatWatchAnalyticsSummaryDto> GetAnalyticsSummaryAsync(
+        ulong? guildId,
+        DateTime? startDate,
+        DateTime? endDate,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Retrieving analytics summary for guild {GuildId}, date range {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var query = DbSet.AsNoTracking();
+
+        // Apply filters
+        if (guildId.HasValue)
+            query = query.Where(r => r.GuildId == guildId.Value);
+
+        if (startDate.HasValue)
+            query = query.Where(r => r.CreatedAt >= startDate.Value);
+
+        if (endDate.HasValue)
+            query = query.Where(r => r.CreatedAt <= endDate.Value);
+
+        var totalWatches = await query.CountAsync(cancellationToken);
+
+        var activeWatches = await query
+            .Where(r => r.Status == RatWatchStatus.Pending || r.Status == RatWatchStatus.Voting)
+            .CountAsync(cancellationToken);
+
+        var guiltyCount = await query
+            .Where(r => r.Status == RatWatchStatus.Guilty)
+            .CountAsync(cancellationToken);
+
+        var clearedEarlyCount = await query
+            .Where(r => r.Status == RatWatchStatus.ClearedEarly)
+            .CountAsync(cancellationToken);
+
+        // Calculate completed watches (either guilty, not guilty, or cleared early)
+        var completedWatches = await query
+            .Where(r => r.Status == RatWatchStatus.Guilty
+                || r.Status == RatWatchStatus.NotGuilty
+                || r.Status == RatWatchStatus.ClearedEarly)
+            .CountAsync(cancellationToken);
+
+        // Calculate rates (handle division by zero)
+        var guiltyRate = completedWatches > 0 ? (double)guiltyCount / completedWatches * 100 : 0;
+        var earlyCheckInRate = completedWatches > 0 ? (double)clearedEarlyCount / completedWatches * 100 : 0;
+
+        // Calculate voting participation and margins
+        var votingWatches = await query
+            .Where(r => r.Status == RatWatchStatus.Guilty || r.Status == RatWatchStatus.NotGuilty)
+            .Include(r => r.Votes)
+            .ToListAsync(cancellationToken);
+
+        var avgVotingParticipation = votingWatches.Count > 0
+            ? votingWatches.Average(r => r.Votes.Count)
+            : 0;
+
+        var avgVoteMargin = votingWatches.Count > 0
+            ? votingWatches.Average(r => Math.Abs(r.Votes.Count(v => v.IsGuiltyVote) - r.Votes.Count(v => !v.IsGuiltyVote)))
+            : 0;
+
+        _logger.LogDebug(
+            "Analytics summary: Total={Total}, Active={Active}, Guilty={Guilty}, ClearedEarly={ClearedEarly}",
+            totalWatches, activeWatches, guiltyCount, clearedEarlyCount);
+
+        return new RatWatchAnalyticsSummaryDto
+        {
+            TotalWatches = totalWatches,
+            ActiveWatches = activeWatches,
+            GuiltyCount = guiltyCount,
+            ClearedEarlyCount = clearedEarlyCount,
+            GuiltyRate = guiltyRate,
+            EarlyCheckInRate = earlyCheckInRate,
+            AvgVotingParticipation = avgVotingParticipation,
+            AvgVoteMargin = avgVoteMargin
+        };
+    }
+
+    public async Task<IEnumerable<RatWatchTimeSeriesDto>> GetTimeSeriesAsync(
+        ulong? guildId,
+        DateTime startDate,
+        DateTime endDate,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Retrieving time series data for guild {GuildId}, date range {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var query = DbSet.AsNoTracking();
+
+        // Apply filters
+        if (guildId.HasValue)
+            query = query.Where(r => r.GuildId == guildId.Value);
+
+        query = query.Where(r => r.CreatedAt >= startDate && r.CreatedAt <= endDate);
+
+        var timeSeries = await query
+            .GroupBy(r => r.CreatedAt.Date)
+            .Select(g => new RatWatchTimeSeriesDto
+            {
+                Date = g.Key,
+                TotalCount = g.Count(),
+                GuiltyCount = g.Count(r => r.Status == RatWatchStatus.Guilty),
+                ClearedCount = g.Count(r => r.Status == RatWatchStatus.ClearedEarly)
+            })
+            .OrderBy(t => t.Date)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug("Retrieved {Count} time series data points", timeSeries.Count);
+        return timeSeries;
+    }
+
+    public async Task<IEnumerable<ActivityHeatmapDto>> GetActivityHeatmapAsync(
+        ulong guildId,
+        DateTime startDate,
+        DateTime endDate,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Retrieving activity heatmap for guild {GuildId}, date range {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var heatmap = await DbSet
+            .AsNoTracking()
+            .Where(r => r.GuildId == guildId
+                && r.ScheduledAt >= startDate
+                && r.ScheduledAt <= endDate)
+            .GroupBy(r => new
+            {
+                DayOfWeek = (int)r.ScheduledAt.DayOfWeek,
+                Hour = r.ScheduledAt.Hour
+            })
+            .Select(g => new ActivityHeatmapDto
+            {
+                DayOfWeek = g.Key.DayOfWeek,
+                Hour = g.Key.Hour,
+                Count = g.Count()
+            })
+            .OrderBy(h => h.DayOfWeek)
+            .ThenBy(h => h.Hour)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug("Retrieved {Count} heatmap data points", heatmap.Count);
+        return heatmap;
     }
 }

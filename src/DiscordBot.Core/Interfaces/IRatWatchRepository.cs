@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 
 namespace DiscordBot.Core.Interfaces;
@@ -81,4 +82,46 @@ public interface IRatWatchRepository : IRepository<RatWatch>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if there are any active watches, false otherwise.</returns>
     Task<bool> HasActiveWatchesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets analytics summary statistics for Rat Watch dashboard.
+    /// </summary>
+    /// <param name="guildId">Optional guild ID to filter by. Null for all guilds.</param>
+    /// <param name="startDate">Optional start date filter. Null for no start date limit.</param>
+    /// <param name="endDate">Optional end date filter. Null for no end date limit.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Analytics summary with counts, rates, and averages.</returns>
+    Task<RatWatchAnalyticsSummaryDto> GetAnalyticsSummaryAsync(
+        ulong? guildId,
+        DateTime? startDate,
+        DateTime? endDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets time series data for trend charts.
+    /// </summary>
+    /// <param name="guildId">Optional guild ID to filter by. Null for all guilds.</param>
+    /// <param name="startDate">Start date for the time series.</param>
+    /// <param name="endDate">End date for the time series.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of time series data points ordered by date.</returns>
+    Task<IEnumerable<RatWatchTimeSeriesDto>> GetTimeSeriesAsync(
+        ulong? guildId,
+        DateTime startDate,
+        DateTime endDate,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets activity heatmap data (day of week + hour).
+    /// </summary>
+    /// <param name="guildId">Guild ID to filter by.</param>
+    /// <param name="startDate">Start date for the heatmap data.</param>
+    /// <param name="endDate">End date for the heatmap data.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of heatmap data points with counts per day/hour cell.</returns>
+    Task<IEnumerable<ActivityHeatmapDto>> GetActivityHeatmapAsync(
+        ulong guildId,
+        DateTime startDate,
+        DateTime endDate,
+        CancellationToken cancellationToken = default);
 }
