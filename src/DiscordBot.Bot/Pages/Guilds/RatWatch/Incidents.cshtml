@@ -73,24 +73,35 @@
         </a>
     </div>
 
-    <!-- Filters Section -->
+    <!-- Filter Panel -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
-        <div class="flex items-center justify-between p-4 border-b border-border-primary">
-            <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
-                <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button type="button"
+                id="filterToggle"
+                class="w-full flex items-center justify-between px-5 py-4 text-left"
+                aria-expanded="true"
+                aria-controls="filterContent"
+                onclick="toggleFilterPanel()">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                Advanced Filters
-            </h2>
-            <button id="toggleFiltersBtn" type="button" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
-                <span id="toggleFiltersText">Hide Filters</span>
-                <svg id="toggleFiltersIcon" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                </svg>
-            </button>
-        </div>
+                <span class="text-lg font-semibold text-text-primary">Filters</span>
+                @if (Model.ViewModel.ActiveFilterCount > 0)
+                {
+                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                        Text = "Active",
+                        Variant = BadgeVariant.Orange,
+                        Size = BadgeSize.Small
+                    })" />
+                }
+            </div>
+            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
 
-        <div id="filtersPanel" class="p-4">
+        <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
+            <div class="border-t border-border-primary p-5">
             <form method="get" asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId" class="space-y-4">
                 <!-- Row 1: Status Multi-select -->
                 <div>
@@ -185,22 +196,25 @@
                 <input type="hidden" name="PageSize" value="@Model.ViewModel.PageSize" />
 
                 <!-- Filter Actions -->
-                <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
-                    <a asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId"
-                       class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
-                        Clear Filters
-                    </a>
-                    <button type="submit"
-                            class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
-                        <span class="flex items-center justify-center gap-2">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                            Apply Filters
-                        </span>
+                <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
+                    <button type="submit" class="btn btn-primary">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Apply Filters
                     </button>
+                    @if (Model.ViewModel.ActiveFilterCount > 0)
+                    {
+                        <a asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId" class="btn btn-secondary">
+                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Clear Filters
+                        </a>
+                    }
                 </div>
             </form>
+            </div>
         </div>
     </div>
 
@@ -357,23 +371,27 @@
     else
     {
         <!-- Empty State -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
-            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-tertiary flex items-center justify-center">
-                <svg class="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-            </div>
-            <h3 class="text-lg font-semibold text-text-primary mb-2">No Incidents Found</h3>
-            <p class="text-sm text-text-secondary max-w-sm mx-auto">
-                @if (Model.ViewModel.ActiveFilterCount > 0)
-                {
-                    <text>No incidents match your current filters. Try adjusting or clearing the filters.</text>
-                }
-                else
-                {
-                    <text>No Rat Watch incidents have been created in this server yet.</text>
-                }
-            </p>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+            @if (Model.ViewModel.ActiveFilterCount > 0)
+            {
+                <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                    Type = EmptyStateType.NoResults,
+                    Title = "No Incidents Found",
+                    Description = "No incidents match your current filters. Try adjusting or clearing the filters.",
+                    Size = EmptyStateSize.Default,
+                    SecondaryActionText = "Clear Filters",
+                    SecondaryActionUrl = "/Guilds/RatWatch/Incidents/" + Model.ViewModel.GuildId
+                }' />
+            }
+            else
+            {
+                <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                    Type = EmptyStateType.NoData,
+                    Title = "No Incidents Found",
+                    Description = "No Rat Watch incidents have been created in this server yet.",
+                    Size = EmptyStateSize.Default
+                }' />
+            }
         </div>
     }
 </div>
@@ -417,19 +435,24 @@
 
 @section Scripts {
     <script>
-        // Filter panel toggle
-        document.getElementById('toggleFiltersBtn').addEventListener('click', function() {
-            const panel = document.getElementById('filtersPanel');
-            const text = document.getElementById('toggleFiltersText');
-            const icon = document.getElementById('toggleFiltersIcon');
-            const isHidden = panel.classList.contains('hidden');
+        // Filter panel toggle - matches Analytics page pattern
+        function toggleFilterPanel() {
+            const content = document.getElementById('filterContent');
+            const chevron = document.getElementById('filterChevron');
+            const toggle = document.getElementById('filterToggle');
 
-            panel.classList.toggle('hidden');
-            text.textContent = isHidden ? 'Hide Filters' : 'Show Filters';
-            icon.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
-        });
+            if (content.style.maxHeight === '0px') {
+                content.style.maxHeight = '1000px';
+                chevron.style.transform = 'rotate(0deg)';
+                toggle.setAttribute('aria-expanded', 'true');
+            } else {
+                content.style.maxHeight = '0px';
+                chevron.style.transform = 'rotate(-90deg)';
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        }
 
-        // Quick date preset buttons
+        // Quick date preset buttons - auto-submit after setting dates
         document.querySelectorAll('.quick-date-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const range = this.dataset.range;
@@ -451,6 +474,10 @@
 
                 document.getElementById('StartDate').value = startDate;
                 document.getElementById('EndDate').value = endDate;
+
+                // Auto-submit the form after setting dates
+                const form = document.querySelector('#filterContent form');
+                if (form) form.submit();
             });
         });
 

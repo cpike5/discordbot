@@ -33,5 +33,6 @@ public enum BadgeSize
 public enum BadgeStyle
 {
     Filled,     // Solid background
-    Outline     // Border only
+    Outline,    // Border only
+    Subtle      // Muted background with colored text (e.g., bg-success/10 text-success)
 }
