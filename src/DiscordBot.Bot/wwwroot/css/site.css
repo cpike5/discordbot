@@ -60,6 +60,10 @@
     --color-border-secondary: #2f3336;
     --color-border-focus: #098ecf;
 
+    /* Discord brand colors */
+    --color-discord: #5865F2;
+    --color-discord-hover: #4752C4;
+
     /* Z-index layers */
     --z-fixed: 300;
     --z-popover: 350;
@@ -112,10 +116,10 @@
     @apply bg-error text-white border-error;
   }
   .btn-danger:hover {
-    @apply bg-red-600 border-red-600;
+    @apply bg-error-hover border-error-hover;
   }
   .btn-danger:active {
-    @apply bg-red-700 border-red-700;
+    @apply bg-error-hover border-error-hover;
   }
 
   /* Button sizes */

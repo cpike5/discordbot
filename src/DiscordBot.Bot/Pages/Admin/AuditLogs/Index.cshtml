@@ -115,7 +115,7 @@
                         id="startDate"
                         name="StartDate"
                         value="@Model.StartDate?.ToString("yyyy-MM-dd")"
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
                     />
                 </div>
 
@@ -127,7 +127,7 @@
                         id="endDate"
                         name="EndDate"
                         value="@Model.EndDate?.ToString("yyyy-MM-dd")"
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
                     />
                 </div>
             </div>
@@ -140,7 +140,7 @@
                     <select
                         id="category"
                         name="Category"
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
                     >
                         <option value="">All Categories</option>
                         @foreach (var category in Enum.GetValues<AuditLogCategory>())
@@ -156,7 +156,7 @@
                     <select
                         id="action"
                         name="Action"
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
                     >
                         <option value="">All Actions</option>
                         @foreach (var action in Enum.GetValues<AuditLogAction>())
@@ -178,7 +178,7 @@
                         name="ActorId"
                         value="@Model.ActorId"
                         placeholder="Search by actor ID or username..."
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
                     />
                 </div>
 
@@ -188,7 +188,7 @@
                     <select
                         id="targetType"
                         name="TargetType"
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
                     >
                         <option value="">All Types</option>
                         <option value="User" selected="@(Model.TargetType == "User")">User</option>
@@ -211,7 +211,7 @@
                     <select
                         id="guildId"
                         name="GuildId"
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
                     >
                         <option value="">All Guilds</option>
                         @foreach (var guild in Model.AvailableGuilds)
@@ -230,7 +230,7 @@
                         name="SearchTerm"
                         value="@Model.SearchTerm"
                         placeholder="Search in details..."
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
                     />
                 </div>
             </div>
