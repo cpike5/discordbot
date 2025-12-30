@@ -240,6 +240,9 @@ try
     builder.Services.AddScoped<IScheduledMessageService, ScheduledMessageService>();
     builder.Services.AddHostedService<ScheduledMessageExecutionService>();
 
+    // Add Bot Status service (must be registered before RatWatchStatusService)
+    builder.Services.AddSingleton<IBotStatusService, BotStatusService>();
+
     // Add Rat Watch services
     builder.Services.Configure<RatWatchOptions>(
         builder.Configuration.GetSection(RatWatchOptions.SectionName));
