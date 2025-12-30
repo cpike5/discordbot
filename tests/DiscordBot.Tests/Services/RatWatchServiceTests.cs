@@ -124,7 +124,7 @@ public class RatWatchServiceTests
 
         _mockWatchRepository
             .Setup(r => r.AddAsync(It.IsAny<RatWatch>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync((RatWatch w, CancellationToken _) => w);
 
         _mockVoteRepository
             .Setup(r => r.GetVoteTallyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -348,7 +348,7 @@ public class RatWatchServiceTests
 
         _mockVoteRepository
             .Setup(r => r.AddAsync(It.IsAny<RatVote>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync((RatVote v, CancellationToken _) => v);
 
         // Act
         var result = await _service.CastVoteAsync(watchId, voterId, isGuilty: true);
@@ -514,7 +514,7 @@ public class RatWatchServiceTests
 
         _mockRecordRepository
             .Setup(r => r.AddAsync(It.IsAny<RatRecord>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync((RatRecord r, CancellationToken _) => r);
 
         // Act
         var result = await _service.FinalizeVotingAsync(watchId);

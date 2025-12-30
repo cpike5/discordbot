@@ -17,6 +17,7 @@ public class RatWatchExecutionService : BackgroundService
     private readonly IOptions<RatWatchOptions> _options;
     private readonly ILogger<RatWatchExecutionService> _logger;
     private readonly DiscordSocketClient _client;
+    private readonly IRatWatchStatusService _ratWatchStatusService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RatWatchExecutionService"/> class.
@@ -25,16 +26,19 @@ public class RatWatchExecutionService : BackgroundService
     /// <param name="options">The Rat Watch configuration options.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="client">The Discord socket client for posting messages.</param>
+    /// <param name="ratWatchStatusService">The Rat Watch status service for bot status updates.</param>
     public RatWatchExecutionService(
         IServiceScopeFactory scopeFactory,
         IOptions<RatWatchOptions> options,
         ILogger<RatWatchExecutionService> logger,
-        DiscordSocketClient client)
+        DiscordSocketClient client,
+        IRatWatchStatusService ratWatchStatusService)
     {
         _scopeFactory = scopeFactory;
         _options = options;
         _logger = logger;
         _client = client;
+        _ratWatchStatusService = ratWatchStatusService;
     }
 
     /// <inheritdoc/>
@@ -170,6 +174,9 @@ public class RatWatchExecutionService : BackgroundService
         await Task.WhenAll(executionTasks);
 
         _logger.LogInformation("Completed processing {Count} due Rat Watches", watchList.Count);
+
+        // Notify that voting has started for one or more watches - update bot status
+        _ratWatchStatusService.RequestStatusUpdate();
     }
 
     /// <summary>
@@ -249,6 +256,9 @@ public class RatWatchExecutionService : BackgroundService
         await Task.WhenAll(executionTasks);
 
         _logger.LogInformation("Completed processing {Count} expired voting sessions", votingList.Count);
+
+        // Notify that voting has ended for one or more watches - update bot status
+        _ratWatchStatusService.RequestStatusUpdate();
     }
 
     /// <summary>

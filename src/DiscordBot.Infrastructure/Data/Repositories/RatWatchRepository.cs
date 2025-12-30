@@ -169,4 +169,17 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
         _logger.LogDebug("User {UserId} has {Count} active Rat Watches", userId, count);
         return count;
     }
+
+    public async Task<bool> HasActiveWatchesAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogTrace("Checking for any active Rat Watches across all guilds");
+
+        var hasActive = await DbSet
+            .AsNoTracking()
+            .Where(r => r.Status == RatWatchStatus.Pending || r.Status == RatWatchStatus.Voting)
+            .AnyAsync(cancellationToken);
+
+        _logger.LogDebug("Active Rat Watches exist: {HasActive}", hasActive);
+        return hasActive;
+    }
 }

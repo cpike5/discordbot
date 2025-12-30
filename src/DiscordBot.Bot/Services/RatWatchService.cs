@@ -657,6 +657,13 @@ public class RatWatchService : IRatWatchService
         };
     }
 
+    /// <inheritdoc/>
+    public async Task<bool> HasActiveWatchesAsync(CancellationToken ct = default)
+    {
+        _logger.LogTrace("Checking for any active Rat Watches");
+        return await _watchRepository.HasActiveWatchesAsync(ct);
+    }
+
     /// <summary>
     /// Gets the username for a Discord user.
     /// Returns "Unknown User" if the user cannot be found.

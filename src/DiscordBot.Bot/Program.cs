@@ -244,6 +244,7 @@ try
     builder.Services.Configure<RatWatchOptions>(
         builder.Configuration.GetSection(RatWatchOptions.SectionName));
     builder.Services.AddScoped<IRatWatchService, RatWatchService>();
+    builder.Services.AddSingleton<IRatWatchStatusService, RatWatchStatusService>();
     builder.Services.AddHostedService<RatWatchExecutionService>();
 
     // Add HttpClient for Discord API calls

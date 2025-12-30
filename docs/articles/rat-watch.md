@@ -249,6 +249,31 @@ Guild-specific settings stored in `GuildRatWatchSettings`:
 - Skips individual watch errors to continue processing others
 - Logs all state transitions
 
+### RatWatchStatusService
+
+**Type:** Singleton Service
+**Interface:** `IRatWatchStatusService`
+
+Manages the bot's Discord presence status during active Rat Watches.
+
+**Behavior:**
+- When any watch transitions to `Pending` or `Voting`, sets bot status to "Watching for rats..."
+- When all watches are completed/cleared, restores normal status from `General:StatusMessage` setting
+- Uses event-driven updates via `StatusUpdateRequested` event
+- Thread-safe with internal locking
+
+**Status Updates Triggered By:**
+- New watch created (`RatWatchModule`)
+- Watch cleared early via button or `/rat-clear` command
+- Voting started by execution service
+- Voting completed by execution service
+- Bot startup (checks for active watches)
+
+**Edge Cases:**
+- **Multiple concurrent watches**: Status remains "Watching for rats..." until ALL watches are resolved
+- **Bot restart during active watch**: Status is restored on startup if any watches are in `Pending` or `Voting` state
+- **State unchanged**: Skips Discord API call if status hasn't actually changed
+
 ---
 
 ## Service Interface
@@ -318,4 +343,5 @@ Returns `PreconditionResult.FromError` with user-friendly message if disabled.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2025-12-30 | Added bot status updates during active watches (Issue #412) |
 | 1.0 | 2025-12-30 | Initial implementation (Issue #404) |
