@@ -32,6 +32,12 @@ public class GuildRatWatchSettings
     public int VotingDurationMinutes { get; set; } = 5;
 
     /// <summary>
+    /// Whether the Rat Watch leaderboard is publicly accessible.
+    /// When enabled, anyone with the link can view the guild's Rat Watch statistics.
+    /// </summary>
+    public bool PublicLeaderboardEnabled { get; set; } = false;
+
+    /// <summary>
     /// Timestamp when these settings were created (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; }
