@@ -111,6 +111,12 @@ public record RatWatchDto
     public RatWatchStatus Status { get; init; }
 
     /// <summary>
+    /// Discord message snowflake ID of the voting message with voting buttons.
+    /// Null if voting has not started yet.
+    /// </summary>
+    public ulong? VotingMessageId { get; init; }
+
+    /// <summary>
     /// Number of guilty votes cast.
     /// </summary>
     public int GuiltyVotes { get; init; }

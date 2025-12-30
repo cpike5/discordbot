@@ -648,6 +648,7 @@ public class RatWatchService : IRatWatchService
             ScheduledAt = watch.ScheduledAt,
             CreatedAt = watch.CreatedAt,
             Status = watch.Status,
+            VotingMessageId = watch.VotingMessageId,
             GuiltyVotes = guiltyVotes,
             NotGuiltyVotes = notGuiltyVotes
         };
