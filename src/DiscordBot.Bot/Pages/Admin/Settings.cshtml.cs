@@ -6,6 +6,8 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Bot.Services;
+using System.Text.Json;
 
 namespace DiscordBot.Bot.Pages.Admin;
 
@@ -17,6 +19,7 @@ namespace DiscordBot.Bot.Pages.Admin;
 public class SettingsModel : PageModel
 {
     private readonly ISettingsService _settingsService;
+    private readonly IAuditLogQueue _auditLogQueue;
     private readonly ILogger<SettingsModel> _logger;
 
     /// <summary>
@@ -51,9 +54,11 @@ public class SettingsModel : PageModel
     /// </summary>
     public SettingsModel(
         ISettingsService settingsService,
+        IAuditLogQueue auditLogQueue,
         ILogger<SettingsModel> logger)
     {
         _settingsService = settingsService;
+        _auditLogQueue = auditLogQueue;
         _logger = logger;
     }
 
@@ -94,6 +99,24 @@ public class SettingsModel : PageModel
             {
                 _logger.LogInformation("Settings saved successfully for category {Category} by user {UserId}. Updated keys: {Keys}",
                     category, userId, string.Join(", ", result.UpdatedKeys));
+
+                // Audit log the settings change
+                if (result.UpdatedKeys.Count > 0)
+                {
+                    _auditLogQueue.Enqueue(new AuditLogCreateDto
+                    {
+                        Category = AuditLogCategory.Configuration,
+                        Action = AuditLogAction.SettingChanged,
+                        ActorType = AuditLogActorType.User,
+                        ActorId = userId,
+                        Details = JsonSerializer.Serialize(new
+                        {
+                            SettingsCategory = category,
+                            UpdatedKeys = result.UpdatedKeys,
+                            RestartRequired = result.RestartRequired
+                        })
+                    });
+                }
 
                 return new JsonResult(new
                 {
@@ -158,6 +181,24 @@ public class SettingsModel : PageModel
             {
                 _logger.LogInformation("All settings saved successfully by user {UserId}. Updated keys: {Keys}",
                     userId, string.Join(", ", result.UpdatedKeys));
+
+                // Audit log the settings change
+                if (result.UpdatedKeys.Count > 0)
+                {
+                    _auditLogQueue.Enqueue(new AuditLogCreateDto
+                    {
+                        Category = AuditLogCategory.Configuration,
+                        Action = AuditLogAction.SettingChanged,
+                        ActorType = AuditLogActorType.User,
+                        ActorId = userId,
+                        Details = JsonSerializer.Serialize(new
+                        {
+                            SettingsCategory = "All",
+                            UpdatedKeys = result.UpdatedKeys,
+                            RestartRequired = result.RestartRequired
+                        })
+                    });
+                }
 
                 return new JsonResult(new
                 {
@@ -234,6 +275,21 @@ public class SettingsModel : PageModel
             {
                 _logger.LogInformation("Category {Category} reset to defaults by user {UserId}", category, userId);
 
+                // Audit log the category reset
+                _auditLogQueue.Enqueue(new AuditLogCreateDto
+                {
+                    Category = AuditLogCategory.Configuration,
+                    Action = AuditLogAction.SettingChanged,
+                    ActorType = AuditLogActorType.User,
+                    ActorId = userId,
+                    Details = JsonSerializer.Serialize(new
+                    {
+                        Operation = "ResetCategory",
+                        SettingsCategory = category,
+                        RestartRequired = result.RestartRequired
+                    })
+                });
+
                 return new JsonResult(new
                 {
                     success = true,
@@ -294,6 +350,20 @@ public class SettingsModel : PageModel
             if (result.Success)
             {
                 _logger.LogWarning("All settings reset to defaults by user {UserId}", userId);
+
+                // Audit log the full reset
+                _auditLogQueue.Enqueue(new AuditLogCreateDto
+                {
+                    Category = AuditLogCategory.Configuration,
+                    Action = AuditLogAction.SettingChanged,
+                    ActorType = AuditLogActorType.User,
+                    ActorId = userId,
+                    Details = JsonSerializer.Serialize(new
+                    {
+                        Operation = "ResetAll",
+                        RestartRequired = result.RestartRequired
+                    })
+                });
 
                 return new JsonResult(new
                 {
