@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for the Discord Bot Management System. It provides a high-level view of completed work, current focus areas, and future enhancements.
 
-**Current Version:** v0.3.0 (pre-release)
+**Current Version:** v0.3.9
 
 ---
 

@@ -1,6 +1,6 @@
 # Discord Bot Management System
 
-[![Version](https://img.shields.io/badge/version-v0.3.6-blue)](https://github.com/cpike5/discordbot/releases)
+[![Version](https://img.shields.io/badge/version-v0.3.9-blue)](https://github.com/cpike5/discordbot/releases)
 [![CI](https://github.com/cpike5/discordbot/actions/workflows/ci.yml/badge.svg)](https://github.com/cpike5/discordbot/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
 [![Discord.NET](https://img.shields.io/badge/Discord.NET-3.18.0-5865F2)](https://github.com/discord-net/Discord.Net)
