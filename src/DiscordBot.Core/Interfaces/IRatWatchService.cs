@@ -110,9 +110,10 @@ public interface IRatWatchService
     /// Called by the background service when scheduled time is reached.
     /// </summary>
     /// <param name="watchId">Unique identifier of the watch.</param>
+    /// <param name="votingMessageId">Optional Discord message ID of the voting message to store.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>True if voting started successfully, false if watch not found or not pending.</returns>
-    Task<bool> StartVotingAsync(Guid watchId, CancellationToken ct = default);
+    Task<bool> StartVotingAsync(Guid watchId, ulong? votingMessageId = null, CancellationToken ct = default);
 
     /// <summary>
     /// Gets Rat Watches where voting has expired and needs finalization.

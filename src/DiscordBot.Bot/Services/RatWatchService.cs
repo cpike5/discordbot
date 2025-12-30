@@ -319,7 +319,7 @@ public class RatWatchService : IRatWatchService
     }
 
     /// <inheritdoc/>
-    public async Task<bool> StartVotingAsync(Guid watchId, CancellationToken ct = default)
+    public async Task<bool> StartVotingAsync(Guid watchId, ulong? votingMessageId = null, CancellationToken ct = default)
     {
         _logger.LogInformation("Starting voting for Rat Watch {WatchId}", watchId);
 
@@ -339,6 +339,13 @@ public class RatWatchService : IRatWatchService
 
         watch.Status = RatWatchStatus.Voting;
         watch.VotingStartedAt = DateTime.UtcNow;
+
+        if (votingMessageId.HasValue)
+        {
+            watch.VotingMessageId = votingMessageId.Value;
+        }
+
+        watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
         await _watchRepository.UpdateAsync(watch, ct);
 
         _logger.LogInformation("Voting started for Rat Watch {WatchId}", watchId);

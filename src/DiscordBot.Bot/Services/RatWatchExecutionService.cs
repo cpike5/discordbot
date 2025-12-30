@@ -136,7 +136,14 @@ public class RatWatchExecutionService : BackgroundService
                     watch.Id, watch.AccusedUserId);
 
                 // Post the voting message to Discord
-                var success = await PostVotingMessageAsync(watch, cts.Token);
+                var success = await PostVotingMessageAsync(
+                    watch.Id,
+                    watch.GuildId,
+                    watch.ChannelId,
+                    watch.AccusedUserId,
+                    watch.OriginalMessageId,
+                    watch.CustomMessage,
+                    cts.Token);
 
                 if (success)
                 {
@@ -264,60 +271,67 @@ public class RatWatchExecutionService : BackgroundService
     /// <summary>
     /// Posts the voting message to Discord with voting buttons.
     /// </summary>
-    /// <param name="watch">The Rat Watch entity.</param>
+    /// <param name="watchId">The Rat Watch ID.</param>
+    /// <param name="guildId">The Discord guild ID.</param>
+    /// <param name="channelId">The Discord channel ID.</param>
+    /// <param name="accusedUserId">The accused user's Discord ID.</param>
+    /// <param name="originalMessageId">The original message ID.</param>
+    /// <param name="customMessage">Optional custom message.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>True if successful, false otherwise.</returns>
-    private async Task<bool> PostVotingMessageAsync(Core.Entities.RatWatch watch, CancellationToken ct)
+    private async Task<bool> PostVotingMessageAsync(
+        Guid watchId,
+        ulong guildId,
+        ulong channelId,
+        ulong accusedUserId,
+        ulong originalMessageId,
+        string? customMessage,
+        CancellationToken ct)
     {
         try
         {
-            var channel = _client.GetChannel(watch.ChannelId) as IMessageChannel;
+            var channel = _client.GetChannel(channelId) as IMessageChannel;
             if (channel == null)
             {
                 _logger.LogWarning("Channel {ChannelId} not found for Rat Watch {WatchId}",
-                    watch.ChannelId, watch.Id);
+                    channelId, watchId);
                 return false;
             }
 
             // Build the message content
-            var messageLink = $"https://discord.com/channels/{watch.GuildId}/{watch.ChannelId}/{watch.OriginalMessageId}";
-            var mention = $"<@{watch.AccusedUserId}>";
+            var messageLink = $"https://discord.com/channels/{guildId}/{channelId}/{originalMessageId}";
+            var mention = $"<@{accusedUserId}>";
 
             var messageContent = $"🐀 **Rat check!** {mention}";
-            if (!string.IsNullOrWhiteSpace(watch.CustomMessage))
+            if (!string.IsNullOrWhiteSpace(customMessage))
             {
-                messageContent += $"\n> {watch.CustomMessage}";
+                messageContent += $"\n> {customMessage}";
             }
             messageContent += $"\n[Jump to original message]({messageLink})";
 
             // Build the voting buttons
             var components = new ComponentBuilder()
-                .WithButton("Rat 🐀", ComponentIdBuilder.Build("ratwatch", "vote", watch.AccusedUserId, watch.Id.ToString(), "guilty"), ButtonStyle.Danger)
-                .WithButton("Not Rat ✓", ComponentIdBuilder.Build("ratwatch", "vote", watch.AccusedUserId, watch.Id.ToString(), "notguilty"), ButtonStyle.Success)
+                .WithButton("Rat 🐀", ComponentIdBuilder.Build("ratwatch", "vote", accusedUserId, watchId.ToString(), "guilty"), ButtonStyle.Danger)
+                .WithButton("Not Rat ✓", ComponentIdBuilder.Build("ratwatch", "vote", accusedUserId, watchId.ToString(), "notguilty"), ButtonStyle.Success)
                 .Build();
 
             // Post the message
             var message = await channel.SendMessageAsync(messageContent, components: components);
 
-            // Update the watch with the voting message ID and start voting
+            // Start the voting process and set the voting message ID in a single operation
             using var scope = _scopeFactory.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<IRatWatchRepository>();
             var service = scope.ServiceProvider.GetRequiredService<IRatWatchService>();
 
-            watch.VotingMessageId = message.Id;
-            await repository.UpdateAsync(watch, ct);
-
-            // Start the voting process
-            await service.StartVotingAsync(watch.Id, ct);
+            await service.StartVotingAsync(watchId, message.Id, ct);
 
             _logger.LogDebug("Posted voting message {MessageId} for Rat Watch {WatchId}",
-                message.Id, watch.Id);
+                message.Id, watchId);
 
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to post voting message for Rat Watch {WatchId}", watch.Id);
+            _logger.LogError(ex, "Failed to post voting message for Rat Watch {WatchId}", watchId);
             return false;
         }
     }
