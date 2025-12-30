@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rat Watch Incidents - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Custom date input styling */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(0.7);
+      cursor: pointer;
+    }
+
+    /* Checkbox styling */
+    input[type="checkbox"] {
+      accent-color: #cb4e1b;
+    }
+
+    /* Sort indicator */
+    .sort-icon {
+      transition: transform 0.15s ease;
+    }
+    .sort-asc .sort-icon {
+      transform: rotate(180deg);
+    }
+
+    /* Filter panel animation */
+    .filter-panel {
+      max-height: 1000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+    }
+    .filter-panel.collapsed {
+      max-height: 0;
+      opacity: 0;
+    }
+
+    /* Dropdown animation */
+    .preset-dropdown {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.2s ease-out;
+    }
+    .preset-dropdown.open {
+      max-height: 300px;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+  <!-- Navigation Header -->
+  <nav class="bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-8">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+              </svg>
+            </div>
+            <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+          </div>
+          <div class="hidden md:flex items-center gap-1">
+            <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+            <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Guilds</a>
+            <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Rat Watch</a>
+            <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+            <span class="text-white font-medium text-sm">A</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+      <ol class="flex items-center gap-2 text-sm">
+        <li>
+          <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Guilds</a>
+        </li>
+        <li class="text-text-tertiary">/</li>
+        <li>
+          <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Gaming Hub</a>
+        </li>
+        <li class="text-text-tertiary">/</li>
+        <li>
+          <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Rat Watch</a>
+        </li>
+        <li class="text-text-tertiary">/</li>
+        <li class="text-text-primary font-medium">Incidents</li>
+      </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-text-primary">Rat Watch Incidents</h1>
+        <p class="mt-1 text-sm text-text-secondary">Gaming Hub - Browse and search historical incidents</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="#" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Analytics
+        </a>
+        <button class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors" aria-label="Export incidents to CSV">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+      <div class="flex items-center justify-between p-4 border-b border-border-primary">
+        <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+          <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+          </svg>
+          Advanced Filters
+        </h2>
+        <div class="flex items-center gap-3">
+          <!-- Saved Presets Dropdown -->
+          <div class="relative">
+            <button id="presetDropdownBtn" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+              </svg>
+              <span>Saved Presets</span>
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div id="presetDropdown" class="preset-dropdown absolute right-0 top-full mt-1 w-56 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-10">
+              <div class="py-1">
+                <button class="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                  Recent Guilty Verdicts
+                </button>
+                <button class="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                  Active Voting
+                </button>
+                <button class="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                  Pending This Week
+                </button>
+                <button class="w-full px-4 py-2 text-left text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                  High Vote Count
+                </button>
+              </div>
+              <div class="border-t border-border-primary py-1">
+                <button class="w-full px-4 py-2 text-left text-sm text-accent-blue hover:bg-bg-hover transition-colors flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Save Current Filter
+                </button>
+              </div>
+            </div>
+          </div>
+          <!-- Toggle Button -->
+          <button id="toggleFiltersBtn" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1" aria-expanded="true" aria-controls="filtersPanel">
+            <span id="toggleFiltersText">Hide Filters</span>
+            <svg id="toggleFiltersIcon" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="filtersPanel" class="filter-panel p-4">
+        <form id="filtersForm" class="space-y-4">
+          <!-- Row 1: Status Multi-select -->
+          <div>
+            <label class="block text-sm font-medium text-text-primary mb-2">Status</label>
+            <div class="flex flex-wrap items-center gap-4">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="status" value="pending" checked class="w-4 h-4 rounded">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-warning text-white">
+                  Pending
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="status" value="cleared" checked class="w-4 h-4 rounded">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                  Cleared Early
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="status" value="voting" checked class="w-4 h-4 rounded">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                  Voting
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="status" value="guilty" checked class="w-4 h-4 rounded">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-error text-white">
+                  Guilty
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="status" value="notguilty" checked class="w-4 h-4 rounded">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                  Not Guilty
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="status" value="expired" checked class="w-4 h-4 rounded">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-bg-tertiary text-text-secondary">
+                  Expired
+                </span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="status" value="cancelled" checked class="w-4 h-4 rounded">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-bg-tertiary text-text-secondary">
+                  Cancelled
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Row 2: Date Range with Quick Presets -->
+          <div>
+            <label class="block text-sm font-medium text-text-primary mb-2">Date Range</label>
+            <div class="flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-2">
+                <input
+                  type="date"
+                  id="startDate"
+                  name="startDate"
+                  class="form-input py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                />
+                <span class="text-text-tertiary">to</span>
+                <input
+                  type="date"
+                  id="endDate"
+                  name="endDate"
+                  class="form-input py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                />
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" data-range="today">
+                  Today
+                </button>
+                <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" data-range="7days">
+                  Last 7 Days
+                </button>
+                <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-accent-orange bg-accent-orange-muted border border-accent-orange/30 rounded-md hover:bg-accent-orange/20 transition-colors" data-range="30days">
+                  Last 30 Days
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: User Filters -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="accusedUser" class="block text-sm font-medium text-text-primary mb-1">Accused User</label>
+              <input
+                type="text"
+                id="accusedUser"
+                name="accusedUser"
+                placeholder="Search by username or ID..."
+                class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+              />
+              <p class="mt-1 text-xs text-text-tertiary">Start typing to search users</p>
+            </div>
+            <div>
+              <label for="initiatorUser" class="block text-sm font-medium text-text-primary mb-1">Initiator User</label>
+              <input
+                type="text"
+                id="initiatorUser"
+                name="initiatorUser"
+                placeholder="Search by username or ID..."
+                class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+              />
+              <p class="mt-1 text-xs text-text-tertiary">Start typing to search users</p>
+            </div>
+          </div>
+
+          <!-- Row 4: Additional Filters -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="voteThreshold" class="block text-sm font-medium text-text-primary mb-1">Minimum Total Votes</label>
+              <input
+                type="number"
+                id="voteThreshold"
+                name="voteThreshold"
+                min="0"
+                placeholder="e.g., 5"
+                class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+              />
+            </div>
+            <div>
+              <label for="keywordSearch" class="block text-sm font-medium text-text-primary mb-1">Keyword Search</label>
+              <input
+                type="text"
+                id="keywordSearch"
+                name="keywordSearch"
+                placeholder="Search in custom messages..."
+                class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+              />
+            </div>
+          </div>
+
+          <!-- Filter Actions -->
+          <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+            <button type="button" id="clearFiltersBtn" class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+              Clear Filters
+            </button>
+            <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+              <span class="flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Apply Filters
+              </span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Results Summary -->
+    <div class="flex items-center justify-between mb-4">
+      <p class="text-sm text-text-secondary">
+        Showing <span class="font-medium text-text-primary">1-25</span> of <span class="font-medium text-text-primary">142</span> incidents
+      </p>
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-text-tertiary">2 filters active</span>
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-accent-blue-muted text-accent-blue">
+          Last 30 Days
+        </span>
+      </div>
+    </div>
+
+    <!-- Incidents Table -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-border-primary">
+          <thead class="bg-bg-tertiary">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary transition-colors group" data-sort="status">
+                <div class="flex items-center gap-1">
+                  Status
+                  <svg class="w-4 h-4 text-text-tertiary group-hover:text-text-secondary sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary transition-colors group" data-sort="accused">
+                <div class="flex items-center gap-1">
+                  Accused
+                  <svg class="w-4 h-4 text-text-tertiary group-hover:text-text-secondary sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary transition-colors group" data-sort="initiator">
+                <div class="flex items-center gap-1">
+                  Initiator
+                  <svg class="w-4 h-4 text-text-tertiary group-hover:text-text-secondary sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider cursor-pointer hover:text-text-primary transition-colors sort-asc group" data-sort="scheduled">
+                <div class="flex items-center gap-1">
+                  Scheduled
+                  <svg class="w-4 h-4 text-accent-orange sort-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                Outcome
+              </th>
+              <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border-primary">
+            <!-- Row 1 - Guilty -->
+            <tr class="hover:bg-bg-tertiary/50 transition-colors cursor-pointer incident-row" data-incident-id="1">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error text-white">
+                  Guilty
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-accent-orange flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">RK</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">RatKing#1234</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-accent-blue flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">CT</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">CheeseThief#5678</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-secondary" title="Dec 30, 2025 10:30 AM">2 hours ago</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-primary">5-2 Guilty</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <button class="view-incident-btn text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View incident details" data-incident-id="1">
+                  <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Row 2 - Voting -->
+            <tr class="hover:bg-bg-tertiary/50 transition-colors cursor-pointer incident-row" data-incident-id="2">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                  Voting
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-success flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">NO</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">NightOwl#9012</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-accent-orange flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">RK</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">RatKing#1234</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-secondary" title="Dec 30, 2025 12:00 PM">30 min ago</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-accent-blue">3-1 (voting)</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <button class="view-incident-btn text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View incident details" data-incident-id="2">
+                  <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Row 3 - Cleared Early -->
+            <tr class="hover:bg-bg-tertiary/50 transition-colors cursor-pointer incident-row" data-incident-id="3">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                  Cleared Early
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-warning flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">SP</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">SneakyPete#3456</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-error flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">AD</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">Admin#0001</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-secondary" title="Dec 29, 2025 3:15 PM">1 day ago</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-success">Cleared Early</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <button class="view-incident-btn text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View incident details" data-incident-id="3">
+                  <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Row 4 - Pending -->
+            <tr class="hover:bg-bg-tertiary/50 transition-colors cursor-pointer incident-row" data-incident-id="4">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-warning text-white">
+                  Pending
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-info flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">NR</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">NewRat#7890</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-accent-blue flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">MD</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">Mod#1111</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-warning" title="Dec 30, 2025 2:30 PM">In 2 hours</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-tertiary">-</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <button class="view-incident-btn text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View incident details" data-incident-id="4">
+                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                  <button class="text-error hover:text-error/80 transition-colors" aria-label="Cancel incident">
+                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Row 5 - Not Guilty -->
+            <tr class="hover:bg-bg-tertiary/50 transition-colors cursor-pointer incident-row" data-incident-id="5">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                  Not Guilty
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-bg-tertiary flex items-center justify-center">
+                    <span class="text-text-secondary font-medium text-xs">IO</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">InnocentOne#2222</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-warning flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">JG</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">Judge#3333</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-secondary" title="Dec 27, 2025 9:00 AM">3 days ago</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-primary">2-5 Not Guilty</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <button class="view-incident-btn text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View incident details" data-incident-id="5">
+                  <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+
+            <!-- Row 6 - Expired -->
+            <tr class="hover:bg-bg-tertiary/50 transition-colors cursor-pointer incident-row" data-incident-id="6">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-bg-tertiary text-text-secondary">
+                  Expired
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-bg-tertiary flex items-center justify-center">
+                    <span class="text-text-secondary font-medium text-xs">LR</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">LazyRat#4444</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="h-8 w-8 rounded-full bg-accent-orange flex items-center justify-center">
+                    <span class="text-white font-medium text-xs">BS</span>
+                  </div>
+                  <span class="ml-2 text-sm text-text-primary">Boss#5555</span>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-secondary" title="Dec 23, 2025 11:00 AM">1 week ago</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-text-tertiary">Expired</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <button class="view-incident-btn text-accent-blue hover:text-accent-blue-hover transition-colors" aria-label="View incident details" data-incident-id="6">
+                  <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="px-6 py-4 border-t border-border-primary">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <label for="pageSize" class="text-sm text-text-secondary">Show:</label>
+            <select id="pageSize" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue focus:outline-none">
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+          <nav aria-label="Pagination" class="flex items-center gap-1">
+            <!-- First Page -->
+            <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="First page" aria-disabled="true">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </a>
+            <!-- Previous -->
+            <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="Previous page" aria-disabled="true">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </a>
+            <!-- Page Numbers -->
+            <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">1</span>
+            <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</a>
+            <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</a>
+            <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">4</a>
+            <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">5</a>
+            <span class="px-2 py-2 text-text-tertiary">...</span>
+            <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">6</a>
+            <!-- Next -->
+            <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Next page">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+            <!-- Last Page -->
+            <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Last page">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+              </svg>
+            </a>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Incident Detail Modal Backdrop -->
+  <div id="modalBackdrop" class="modal-backdrop" aria-hidden="true"></div>
+
+  <!-- Incident Detail Modal -->
+  <div id="incidentModal" class="modal modal-centered modal-lg bg-bg-secondary rounded-lg shadow-xl" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error text-white">
+          Guilty
+        </span>
+        <h2 id="modalTitle" class="text-lg font-semibold text-text-primary">Incident #RW-2025-001234</h2>
+      </div>
+      <button id="modalCloseBtn" class="modal-close" aria-label="Close modal">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body modal-body-scroll">
+      <!-- Users Section -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Accused User -->
+        <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
+          <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Accused</h3>
+          <div class="flex items-center gap-3">
+            <div class="h-12 w-12 rounded-full bg-accent-orange flex items-center justify-center">
+              <span class="text-white font-bold text-lg">RK</span>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-text-primary">RatKing#1234</p>
+              <p class="text-xs text-text-tertiary font-mono">123456789012345678</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Initiator User -->
+        <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
+          <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Initiated By</h3>
+          <div class="flex items-center gap-3">
+            <div class="h-12 w-12 rounded-full bg-accent-blue flex items-center justify-center">
+              <span class="text-white font-bold text-lg">CT</span>
+            </div>
+            <div>
+              <p class="text-sm font-medium text-text-primary">CheeseThief#5678</p>
+              <p class="text-xs text-text-tertiary font-mono">234567890123456789</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Details Section -->
+      <div class="bg-bg-primary border border-border-primary rounded-lg p-4 mb-6">
+        <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Details</h3>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="text-text-tertiary">Scheduled Time:</span>
+            <span class="ml-2 text-text-primary">Dec 30, 2025 10:30 AM EST</span>
+          </div>
+          <div>
+            <span class="text-text-tertiary">Duration:</span>
+            <span class="ml-2 text-text-primary">2 hours</span>
+          </div>
+        </div>
+        <div class="mt-4">
+          <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Custom Message</span>
+          <p class="mt-1 text-sm text-text-primary bg-bg-tertiary border border-border-secondary rounded p-3">
+            "I'll definitely go to the gym today, no excuses!"
+          </p>
+        </div>
+      </div>
+
+      <!-- Vote Breakdown Section -->
+      <div class="bg-bg-primary border border-border-primary rounded-lg p-4 mb-6">
+        <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Vote Breakdown</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Guilty Votes -->
+          <div class="bg-error-bg border border-error-border rounded-lg p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-error">Guilty (Rat)</span>
+              <span class="text-lg font-bold text-error">5</span>
+            </div>
+            <div class="space-y-1 text-xs text-text-secondary">
+              <p>CheeseThief#5678</p>
+              <p>Judge#3333</p>
+              <p>Mod#1111</p>
+              <p>Witness#6666</p>
+              <p>Observer#7777</p>
+            </div>
+          </div>
+
+          <!-- Not Guilty Votes -->
+          <div class="bg-success-bg border border-success-border rounded-lg p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-success">Not Guilty</span>
+              <span class="text-lg font-bold text-success">2</span>
+            </div>
+            <div class="space-y-1 text-xs text-text-secondary">
+              <p>Defender#8888</p>
+              <p>Friend#9999</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline Section -->
+      <div class="bg-bg-primary border border-border-primary rounded-lg p-4 mb-6">
+        <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Timeline</h3>
+        <div class="space-y-3">
+          <div class="flex items-start gap-3">
+            <div class="w-2 h-2 mt-1.5 rounded-full bg-success"></div>
+            <div>
+              <p class="text-sm text-text-primary">Created</p>
+              <p class="text-xs text-text-tertiary">Dec 30, 2025 8:30 AM</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-2 h-2 mt-1.5 rounded-full bg-accent-blue"></div>
+            <div>
+              <p class="text-sm text-text-primary">Voting Started</p>
+              <p class="text-xs text-text-tertiary">Dec 30, 2025 10:30 AM</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-2 h-2 mt-1.5 rounded-full bg-error"></div>
+            <div>
+              <p class="text-sm text-text-primary">Ended - Guilty Verdict</p>
+              <p class="text-xs text-text-tertiary">Dec 30, 2025 10:35 AM</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Link to Original Message -->
+      <div class="flex items-center justify-between p-3 bg-bg-tertiary border border-border-secondary rounded-lg">
+        <span class="text-sm text-text-secondary">Original Discord Message</span>
+        <a href="#" class="inline-flex items-center gap-1 text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+          View in Discord
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      </div>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer">
+      <button id="modalCloseFooterBtn" class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // ========================================
+    // Filter Panel Toggle
+    // ========================================
+    const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
+    const toggleFiltersText = document.getElementById('toggleFiltersText');
+    const toggleFiltersIcon = document.getElementById('toggleFiltersIcon');
+    const filtersPanel = document.getElementById('filtersPanel');
+
+    toggleFiltersBtn.addEventListener('click', function() {
+      const isExpanded = this.getAttribute('aria-expanded') === 'true';
+      filtersPanel.classList.toggle('collapsed');
+      this.setAttribute('aria-expanded', !isExpanded);
+      toggleFiltersText.textContent = isExpanded ? 'Show Filters' : 'Hide Filters';
+      toggleFiltersIcon.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+    });
+
+    // ========================================
+    // Saved Presets Dropdown
+    // ========================================
+    const presetDropdownBtn = document.getElementById('presetDropdownBtn');
+    const presetDropdown = document.getElementById('presetDropdown');
+
+    presetDropdownBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      presetDropdown.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function() {
+      presetDropdown.classList.remove('open');
+    });
+
+    // ========================================
+    // Quick Date Preset Buttons
+    // ========================================
+    const quickDateBtns = document.querySelectorAll('.quick-date-btn');
+
+    quickDateBtns.forEach(btn => {
+      btn.addEventListener('click', function() {
+        // Remove active state from all buttons
+        quickDateBtns.forEach(b => {
+          b.classList.remove('text-accent-orange', 'bg-accent-orange-muted', 'border-accent-orange/30');
+          b.classList.add('text-text-secondary', 'bg-bg-tertiary', 'border-border-primary');
+        });
+
+        // Add active state to clicked button
+        this.classList.remove('text-text-secondary', 'bg-bg-tertiary', 'border-border-primary');
+        this.classList.add('text-accent-orange', 'bg-accent-orange-muted', 'border-accent-orange/30');
+
+        // Set date range based on selection
+        const range = this.dataset.range;
+        const today = new Date();
+        const endDate = today.toISOString().split('T')[0];
+        let startDate;
+
+        if (range === 'today') {
+          startDate = endDate;
+        } else if (range === '7days') {
+          const weekAgo = new Date(today);
+          weekAgo.setDate(today.getDate() - 7);
+          startDate = weekAgo.toISOString().split('T')[0];
+        } else if (range === '30days') {
+          const monthAgo = new Date(today);
+          monthAgo.setDate(today.getDate() - 30);
+          startDate = monthAgo.toISOString().split('T')[0];
+        }
+
+        document.getElementById('startDate').value = startDate;
+        document.getElementById('endDate').value = endDate;
+      });
+    });
+
+    // ========================================
+    // Clear Filters
+    // ========================================
+    document.getElementById('clearFiltersBtn').addEventListener('click', function() {
+      // Reset all checkboxes to checked
+      document.querySelectorAll('input[name="status"]').forEach(cb => cb.checked = true);
+
+      // Clear text inputs
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value = '';
+      document.getElementById('accusedUser').value = '';
+      document.getElementById('initiatorUser').value = '';
+      document.getElementById('voteThreshold').value = '';
+      document.getElementById('keywordSearch').value = '';
+
+      // Reset quick date buttons
+      quickDateBtns.forEach(b => {
+        b.classList.remove('text-accent-orange', 'bg-accent-orange-muted', 'border-accent-orange/30');
+        b.classList.add('text-text-secondary', 'bg-bg-tertiary', 'border-border-primary');
+      });
+    });
+
+    // ========================================
+    // Form Submit Handler
+    // ========================================
+    document.getElementById('filtersForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      console.log('Filters applied:', {
+        statuses: Array.from(document.querySelectorAll('input[name="status"]:checked')).map(cb => cb.value),
+        startDate: document.getElementById('startDate').value,
+        endDate: document.getElementById('endDate').value,
+        accusedUser: document.getElementById('accusedUser').value,
+        initiatorUser: document.getElementById('initiatorUser').value,
+        voteThreshold: document.getElementById('voteThreshold').value,
+        keywordSearch: document.getElementById('keywordSearch').value
+      });
+      // In a real implementation, this would trigger a search
+    });
+
+    // ========================================
+    // Sortable Column Headers
+    // ========================================
+    document.querySelectorAll('th[data-sort]').forEach(th => {
+      th.addEventListener('click', function() {
+        const currentSort = this.classList.contains('sort-asc');
+
+        // Remove sort classes from all headers
+        document.querySelectorAll('th[data-sort]').forEach(header => {
+          header.classList.remove('sort-asc', 'sort-desc');
+          const icon = header.querySelector('.sort-icon');
+          if (icon) {
+            icon.classList.remove('text-accent-orange');
+            icon.classList.add('text-text-tertiary');
+          }
+        });
+
+        // Toggle sort direction
+        this.classList.add(currentSort ? 'sort-desc' : 'sort-asc');
+        const icon = this.querySelector('.sort-icon');
+        if (icon) {
+          icon.classList.remove('text-text-tertiary');
+          icon.classList.add('text-accent-orange');
+        }
+
+        console.log('Sort by:', this.dataset.sort, currentSort ? 'desc' : 'asc');
+      });
+    });
+
+    // ========================================
+    // Modal Functionality
+    // ========================================
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const incidentModal = document.getElementById('incidentModal');
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+    const modalCloseFooterBtn = document.getElementById('modalCloseFooterBtn');
+
+    function openModal() {
+      modalBackdrop.classList.add('active');
+      incidentModal.classList.add('active');
+      document.body.classList.add('modal-open');
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove('active');
+      incidentModal.classList.remove('active');
+      document.body.classList.remove('modal-open');
+    }
+
+    // Open modal on View button click
+    document.querySelectorAll('.view-incident-btn').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const incidentId = this.dataset.incidentId;
+        console.log('View incident:', incidentId);
+        openModal();
+      });
+    });
+
+    // Open modal on row click
+    document.querySelectorAll('.incident-row').forEach(row => {
+      row.addEventListener('click', function(e) {
+        // Don't open modal if clicking on a button
+        if (e.target.closest('button')) return;
+        const incidentId = this.dataset.incidentId;
+        console.log('View incident:', incidentId);
+        openModal();
+      });
+    });
+
+    // Close modal handlers
+    modalCloseBtn.addEventListener('click', closeModal);
+    modalCloseFooterBtn.addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', closeModal);
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && incidentModal.classList.contains('active')) {
+        closeModal();
+      }
+    });
+
+    // Prevent modal close when clicking inside modal
+    incidentModal.addEventListener('click', function(e) {
+      e.stopPropagation();
+    });
+  </script>
+</body>
+</html>
