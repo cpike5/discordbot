@@ -37,6 +37,17 @@ public class WelcomeHandler
 
             // Create scope to access scoped services from singleton
             using var scope = _scopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+
+            // Check if welcome messages are globally enabled
+            var isEnabled = await settingsService.GetSettingValueAsync<bool>("Features:WelcomeMessagesEnabled");
+            if (!isEnabled)
+            {
+                _logger.LogDebug("Welcome messages are disabled globally, skipping for user {UserId} in guild {GuildId}",
+                    userId, guildId);
+                return;
+            }
+
             var welcomeService = scope.ServiceProvider.GetRequiredService<IWelcomeService>();
 
             // Delegate to the welcome service

@@ -19,11 +19,6 @@ public class SettingsViewModel
     public IReadOnlyList<SettingDto> GeneralSettings { get; set; } = new List<SettingDto>();
 
     /// <summary>
-    /// Gets or sets the settings for the Logging category.
-    /// </summary>
-    public IReadOnlyList<SettingDto> LoggingSettings { get; set; } = new List<SettingDto>();
-
-    /// <summary>
     /// Gets or sets the settings for the Features category.
     /// </summary>
     public IReadOnlyList<SettingDto> FeaturesSettings { get; set; } = new List<SettingDto>();

@@ -7,6 +7,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
@@ -24,6 +25,7 @@ public class BotHostedService : IHostedService
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly IAuditLogQueue _auditLogQueue;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly BotConfiguration _config;
     private readonly ApplicationOptions _applicationOptions;
     private readonly ILogger<BotHostedService> _logger;
@@ -39,6 +41,7 @@ public class BotHostedService : IHostedService
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
         IAuditLogQueue auditLogQueue,
+        IServiceScopeFactory scopeFactory,
         IOptions<BotConfiguration> config,
         IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
@@ -52,6 +55,7 @@ public class BotHostedService : IHostedService
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
         _auditLogQueue = auditLogQueue;
+        _scopeFactory = scopeFactory;
         _config = config.Value;
         _applicationOptions = applicationOptions.Value;
         _logger = logger;
@@ -200,6 +204,9 @@ public class BotHostedService : IHostedService
     {
         _logger.LogInformation("Bot connected to Discord");
 
+        // Apply custom status message if configured (fire-and-forget)
+        _ = ApplyCustomStatusAsync();
+
         // Broadcast status update (fire-and-forget, failure tolerant)
         _ = BroadcastBotStatusAsync();
 
@@ -217,6 +224,34 @@ public class BotHostedService : IHostedService
         });
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Applies custom status message from settings if configured.
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    private async Task ApplyCustomStatusAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+
+            var statusMessage = await settingsService.GetSettingValueAsync<string>("General:StatusMessage");
+            if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                await _client.SetGameAsync(statusMessage);
+                _logger.LogInformation("Bot status set to: {StatusMessage}", statusMessage);
+            }
+            else
+            {
+                _logger.LogDebug("No custom status message configured, using default behavior");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to apply custom status message, but continuing normal operation");
+        }
     }
 
     /// <summary>

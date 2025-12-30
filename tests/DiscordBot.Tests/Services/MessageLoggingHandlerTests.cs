@@ -20,6 +20,7 @@ public class MessageLoggingHandlerTests
     private readonly Mock<IServiceScopeFactory> _mockScopeFactory;
     private readonly Mock<IServiceScope> _mockScope;
     private readonly Mock<IServiceProvider> _mockServiceProvider;
+    private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly Mock<IConsentService> _mockConsentService;
     private readonly Mock<IMessageLogRepository> _mockMessageLogRepository;
     private readonly Mock<ILogger<MessageLoggingHandler>> _mockLogger;
@@ -30,6 +31,7 @@ public class MessageLoggingHandlerTests
         _mockScopeFactory = new Mock<IServiceScopeFactory>();
         _mockScope = new Mock<IServiceScope>();
         _mockServiceProvider = new Mock<IServiceProvider>();
+        _mockSettingsService = new Mock<ISettingsService>();
         _mockConsentService = new Mock<IConsentService>();
         _mockMessageLogRepository = new Mock<IMessageLogRepository>();
         _mockLogger = new Mock<ILogger<MessageLoggingHandler>>();
@@ -44,12 +46,21 @@ public class MessageLoggingHandlerTests
             .Returns(_mockServiceProvider.Object);
 
         _mockServiceProvider
+            .Setup(p => p.GetService(typeof(ISettingsService)))
+            .Returns(_mockSettingsService.Object);
+
+        _mockServiceProvider
             .Setup(p => p.GetService(typeof(IConsentService)))
             .Returns(_mockConsentService.Object);
 
         _mockServiceProvider
             .Setup(p => p.GetService(typeof(IMessageLogRepository)))
             .Returns(_mockMessageLogRepository.Object);
+
+        // Default to message logging enabled
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool>("Features:MessageLoggingEnabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _handler = new MessageLoggingHandler(_mockScopeFactory.Object, _mockLogger.Object);
     }
@@ -129,6 +140,47 @@ public class MessageLoggingHandlerTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once,
             "should log trace message about skipping system message");
+    }
+
+    #endregion
+
+    #region Global Settings Tests
+
+    [Fact]
+    public async Task HandleMessageAsync_SkipsLogging_WhenMessageLoggingDisabled()
+    {
+        // Arrange
+        var userId = 123456789UL;
+        var mockMessage = CreateMockUserMessage(userId);
+
+        // Override the default to disable message logging
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool>("Features:MessageLoggingEnabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        await _handler.HandleMessageAsync(mockMessage.Object);
+
+        // Assert
+        _mockConsentService.Verify(
+            c => c.HasConsentAsync(It.IsAny<ulong>(), It.IsAny<ConsentType>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "should not check consent when message logging is disabled globally");
+
+        _mockMessageLogRepository.Verify(
+            r => r.AddAsync(It.IsAny<MessageLog>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "should not log message when message logging is disabled globally");
+
+        _mockLogger.Verify(
+            l => l.Log(
+                LogLevel.Trace,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Message logging is disabled globally")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once,
+            "should log trace message about message logging being disabled");
     }
 
     #endregion

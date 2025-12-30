@@ -51,17 +51,6 @@
             </svg>
             General
         </button>
-        <button class="settings-tab @(Model.ViewModel.ActiveCategory == "Logging" ? "active" : "")"
-                role="tab"
-                aria-selected="@(Model.ViewModel.ActiveCategory == "Logging" ? "true" : "false")"
-                aria-controls="logging-settings"
-                data-tab="Logging"
-                onclick="window.settingsManager?.switchTab('Logging')">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Logging
-        </button>
         <button class="settings-tab @(Model.ViewModel.ActiveCategory == "Features" ? "active" : "")"
                 role="tab"
                 aria-selected="@(Model.ViewModel.ActiveCategory == "Features" ? "true" : "false")"
@@ -121,42 +110,12 @@
         </div>
     </section>
 
-    <!-- Logging Settings -->
-    <section id="logging-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "Logging" ? "active" : "")" role="tabpanel" aria-labelledby="logging-tab">
-        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
-            <div class="px-6 py-4 border-b border-border-primary">
-                <h2 class="text-lg font-semibold text-text-primary">Logging Settings</h2>
-                <p class="text-sm text-text-secondary mt-1">Configure logging levels and retention policies</p>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    @foreach (var setting in Model.ViewModel.LoggingSettings)
-                    {
-                        @await Html.PartialAsync("_SettingField", setting)
-                    }
-                </div>
-            </div>
-            <div class="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
-                <button type="button"
-                        onclick="window.settingsManager?.showResetCategoryModal('Logging')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
-                    Reset
-                </button>
-                <button type="button"
-                        onclick="window.settingsManager?.saveCategory('Logging')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
-                    Save Changes
-                </button>
-            </div>
-        </div>
-    </section>
-
     <!-- Features Settings -->
     <section id="features-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "Features" ? "active" : "")" role="tabpanel" aria-labelledby="features-tab">
         <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
             <div class="px-6 py-4 border-b border-border-primary">
                 <h2 class="text-lg font-semibold text-text-primary">Features Settings</h2>
-                <p class="text-sm text-text-secondary mt-1">Enable or disable bot features and configure rate limits</p>
+                <p class="text-sm text-text-secondary mt-1">Enable or disable global bot features</p>
             </div>
             <div class="p-6">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -186,7 +145,7 @@
         <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
             <div class="px-6 py-4 border-b border-border-primary">
                 <h2 class="text-lg font-semibold text-text-primary">Advanced Settings</h2>
-                <p class="text-sm text-text-secondary mt-1">Configure advanced technical settings and debugging options</p>
+                <p class="text-sm text-text-secondary mt-1">Configure data retention policies</p>
             </div>
             <div class="p-6">
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

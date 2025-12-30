@@ -201,7 +201,7 @@ public class SettingsServiceTests
         result.Should().NotBeNull();
         result.Should().HaveCountGreaterThan(0, "there are defined settings across all categories");
         result.Should().Contain(s => s.Category == SettingCategory.General);
-        result.Should().Contain(s => s.Category == SettingCategory.Logging);
+        // Note: Logging category was removed as part of Settings Overhaul (#399) - logging settings now managed via appsettings.json
         result.Should().Contain(s => s.Category == SettingCategory.Features);
         result.Should().Contain(s => s.Category == SettingCategory.Advanced);
     }
@@ -227,8 +227,8 @@ public class SettingsServiceTests
             .ReturnsAsync(dbSettings);
 
         _mockConfiguration
-            .Setup(c => c["Serilog:MinimumLevel:Default"])
-            .Returns("Debug");
+            .Setup(c => c["Features:MessageLoggingEnabled"])
+            .Returns("false");
 
         // Act
         var result = await _service.GetAllSettingsAsync();
@@ -238,9 +238,9 @@ public class SettingsServiceTests
         botEnabledSetting.Should().NotBeNull();
         botEnabledSetting!.Value.Should().Be("false", "database value should be used");
 
-        var logLevelSetting = result.FirstOrDefault(s => s.Key == "Serilog:MinimumLevel:Default");
-        logLevelSetting.Should().NotBeNull();
-        logLevelSetting!.Value.Should().Be("Debug", "configuration value should be used when not in database");
+        var messageLoggingSetting = result.FirstOrDefault(s => s.Key == "Features:MessageLoggingEnabled");
+        messageLoggingSetting.Should().NotBeNull();
+        messageLoggingSetting!.Value.Should().Be("false", "configuration value should be used when not in database");
     }
 
     [Fact]
@@ -556,7 +556,7 @@ public class SettingsServiceTests
         {
             Settings = new Dictionary<string, string>
             {
-                { "Logging:RetainedFileCountLimit", "not-a-number" }
+                { "Advanced:MessageLogRetentionDays", "not-a-number" }
             }
         };
 
@@ -572,7 +572,7 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task UpdateSettingsAsync_ValidatesIntegerRange()
+    public async Task UpdateSettingsAsync_ValidatesMaximumValue()
     {
         // Arrange
         const string userId = "user123";
@@ -580,7 +580,7 @@ public class SettingsServiceTests
         {
             Settings = new Dictionary<string, string>
             {
-                { "Logging:RetainedFileCountLimit", "100" } // max is 90
+                { "Advanced:MessageLogRetentionDays", "400" } // max is 365
             }
         };
 
@@ -591,7 +591,7 @@ public class SettingsServiceTests
         result.Should().NotBeNull();
         result.Success.Should().BeFalse("value exceeds maximum");
         result.Errors.Should().HaveCount(1);
-        result.Errors[0].Should().Contain("at most 90");
+        result.Errors[0].Should().Contain("at most 365");
         result.UpdatedKeys.Should().BeEmpty();
     }
 
@@ -628,7 +628,7 @@ public class SettingsServiceTests
         {
             Settings = new Dictionary<string, string>
             {
-                { "Serilog:MinimumLevel:Default", "InvalidLevel" }
+                { "General:DefaultTimezone", "InvalidTimezone" }
             }
         };
 
@@ -644,15 +644,16 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task UpdateSettingsAsync_SetsRestartPending_WhenRestartRequiredSettingUpdated()
+    public async Task UpdateSettingsAsync_DoesNotRequireRestart_ForRuntimeSettings()
     {
-        // Arrange
+        // Arrange - All current settings are runtime-modifiable and don't require restart
+        // Note: Settings Overhaul (#399) removed all restart-required settings
         const string userId = "user123";
         var updates = new SettingsUpdateDto
         {
             Settings = new Dictionary<string, string>
             {
-                { "Serilog:MinimumLevel:Default", "Debug" } // requires restart
+                { "Features:MessageLoggingEnabled", "false" }
             }
         };
 
@@ -666,8 +667,8 @@ public class SettingsServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Success.Should().BeTrue();
-        result.RestartRequired.Should().BeTrue("setting requires restart");
-        _service.IsRestartPending.Should().BeTrue("restart pending flag should be set");
+        result.RestartRequired.Should().BeFalse("all current settings are runtime-modifiable");
+        _service.IsRestartPending.Should().BeFalse("no restart pending for runtime settings");
     }
 
     [Fact]
@@ -816,11 +817,12 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task ResetCategoryAsync_SetsRestartPending_WhenCategoryHasRestartRequiredSettings()
+    public async Task ResetCategoryAsync_DoesNotRequireRestart_ForFeaturesCategory()
     {
-        // Arrange
+        // Arrange - All current settings are runtime-modifiable
+        // Note: Settings Overhaul (#399) removed all restart-required settings
         const string userId = "user123";
-        var category = SettingCategory.Logging; // has settings that require restart
+        var category = SettingCategory.Features;
 
         _mockRepository
             .Setup(r => r.DeleteByCategoryAsync(category, It.IsAny<CancellationToken>()))
@@ -832,8 +834,8 @@ public class SettingsServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Success.Should().BeTrue();
-        result.RestartRequired.Should().BeTrue("Logging category has restart-required settings");
-        _service.IsRestartPending.Should().BeTrue("restart pending flag should be set");
+        result.RestartRequired.Should().BeFalse("Features category has no restart-required settings");
+        _service.IsRestartPending.Should().BeFalse("restart pending flag should not be set");
     }
 
     [Fact]
@@ -941,9 +943,10 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task ResetAllAsync_SetsRestartPending_WhenAnyRestartRequiredSettingsExist()
+    public async Task ResetAllAsync_DoesNotRequireRestart_WhenNoRestartRequiredSettingsExist()
     {
-        // Arrange
+        // Arrange - All current settings are runtime-modifiable
+        // Note: Settings Overhaul (#399) removed all restart-required settings
         const string userId = "user123";
 
         _mockRepository
@@ -956,8 +959,8 @@ public class SettingsServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Success.Should().BeTrue();
-        result.RestartRequired.Should().BeTrue("some settings require restart");
-        _service.IsRestartPending.Should().BeTrue("restart pending flag should be set");
+        result.RestartRequired.Should().BeFalse("no settings require restart");
+        _service.IsRestartPending.Should().BeFalse("restart pending flag should not be set");
     }
 
     [Fact]
@@ -1015,15 +1018,16 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task IsRestartPending_ReturnsTrue_AfterRestartRequiredSettingUpdated()
+    public async Task IsRestartPending_RemainsFalse_AfterUpdatingRuntimeSettings()
     {
-        // Arrange
+        // Arrange - All current settings are runtime-modifiable
+        // Note: Settings Overhaul (#399) removed all restart-required settings
         const string userId = "user123";
         var updates = new SettingsUpdateDto
         {
             Settings = new Dictionary<string, string>
             {
-                { "Advanced:DebugMode", "true" } // requires restart
+                { "Advanced:MessageLogRetentionDays", "30" }
             }
         };
 
@@ -1035,30 +1039,32 @@ public class SettingsServiceTests
         await _service.UpdateSettingsAsync(updates, userId);
 
         // Assert
-        _service.IsRestartPending.Should().BeTrue("restart required setting was updated");
+        _service.IsRestartPending.Should().BeFalse("all current settings are runtime-modifiable");
     }
 
     [Fact]
-    public async Task IsRestartPending_ReturnsTrue_AfterCategoryResetWithRestartRequiredSettings()
+    public async Task IsRestartPending_RemainsFalse_AfterCategoryResetWithNoRestartRequiredSettings()
     {
-        // Arrange
+        // Arrange - All current settings are runtime-modifiable
+        // Note: Settings Overhaul (#399) removed all restart-required settings
         const string userId = "user123";
 
         _mockRepository
-            .Setup(r => r.DeleteByCategoryAsync(SettingCategory.Logging, It.IsAny<CancellationToken>()))
+            .Setup(r => r.DeleteByCategoryAsync(SettingCategory.Features, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _service.ResetCategoryAsync(SettingCategory.Logging, userId);
+        await _service.ResetCategoryAsync(SettingCategory.Features, userId);
 
         // Assert
-        _service.IsRestartPending.Should().BeTrue("category has restart required settings");
+        _service.IsRestartPending.Should().BeFalse("category has no restart required settings");
     }
 
     [Fact]
-    public async Task IsRestartPending_ReturnsTrue_AfterResetAll()
+    public async Task IsRestartPending_RemainsFalse_AfterResetAll()
     {
-        // Arrange
+        // Arrange - All current settings are runtime-modifiable
+        // Note: Settings Overhaul (#399) removed all restart-required settings
         const string userId = "user123";
 
         _mockRepository
@@ -1069,28 +1075,14 @@ public class SettingsServiceTests
         await _service.ResetAllAsync(userId);
 
         // Assert
-        _service.IsRestartPending.Should().BeTrue("reset all was called");
+        _service.IsRestartPending.Should().BeFalse("no settings require restart");
     }
 
     [Fact]
-    public async Task ClearRestartPending_ClearsTheFlag()
+    public void ClearRestartPending_ClearsTheFlag()
     {
-        // Arrange
-        const string userId = "user123";
-        var updates = new SettingsUpdateDto
-        {
-            Settings = new Dictionary<string, string>
-            {
-                { "Advanced:DebugMode", "true" }
-            }
-        };
-
-        _mockRepository
-            .Setup(r => r.UpsertAsync(It.IsAny<ApplicationSetting>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        await _service.UpdateSettingsAsync(updates, userId);
-        _service.IsRestartPending.Should().BeTrue("restart required setting was updated");
+        // Arrange - ClearRestartPending can be called even if no restart is pending
+        // This tests the idempotent behavior of the method
 
         // Act
         _service.ClearRestartPending();
@@ -1124,7 +1116,7 @@ public class SettingsServiceTests
         {
             Settings = new Dictionary<string, string>
             {
-                { "Logging:RetainedFileCountLimit", "0" } // min is 1
+                { "Advanced:MessageLogRetentionDays", "0" } // min is 1
             }
         };
 
@@ -1147,7 +1139,7 @@ public class SettingsServiceTests
         {
             Settings = new Dictionary<string, string>
             {
-                { "Logging:RetainedFileCountLimit", "1" } // min is 1
+                { "Advanced:MessageLogRetentionDays", "1" } // min is 1
             }
         };
 
@@ -1172,7 +1164,7 @@ public class SettingsServiceTests
         {
             Settings = new Dictionary<string, string>
             {
-                { "Logging:RetainedFileCountLimit", "90" } // max is 90
+                { "Advanced:MessageLogRetentionDays", "365" } // max is 365
             }
         };
 
@@ -1189,15 +1181,15 @@ public class SettingsServiceTests
     }
 
     [Fact]
-    public async Task UpdateSettingsAsync_ValidatesDecimalRange()
+    public async Task UpdateSettingsAsync_ValidatesIntegerRange()
     {
-        // Arrange
+        // Arrange - Test that integer settings validate against max bounds
         const string userId = "user123";
         var updates = new SettingsUpdateDto
         {
             Settings = new Dictionary<string, string>
             {
-                { "Discord:DefaultRateLimitPeriodSeconds", "5" } // min is 10
+                { "Advanced:AuditLogRetentionDays", "500" } // max is 365
             }
         };
 
@@ -1208,7 +1200,7 @@ public class SettingsServiceTests
         result.Should().NotBeNull();
         result.Success.Should().BeFalse();
         result.Errors.Should().HaveCount(1);
-        result.Errors[0].Should().Contain("at least 10");
+        result.Errors[0].Should().Contain("at most 365");
     }
 
     [Fact]
@@ -1220,7 +1212,7 @@ public class SettingsServiceTests
         {
             Settings = new Dictionary<string, string>
             {
-                { "Serilog:MinimumLevel:Default", "Warning" }
+                { "General:DefaultTimezone", "America/New_York" }
             }
         };
 

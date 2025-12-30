@@ -56,11 +56,21 @@ public class MessageLoggingHandler
                 return;
             }
 
+            // Create scope to access scoped services from singleton
+            using var scope = _scopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+
+            // Check if message logging is globally enabled
+            var isEnabled = await settingsService.GetSettingValueAsync<bool>("Features:MessageLoggingEnabled");
+            if (!isEnabled)
+            {
+                _logger.LogTrace("Message logging is disabled globally, skipping message {MessageId}", message.Id);
+                return;
+            }
+
             _logger.LogDebug("Processing message {MessageId} from user {AuthorId} in channel {ChannelId}",
                 message.Id, message.AuthorId, message.ChannelId);
 
-            // Create scope to access scoped services from singleton
-            using var scope = _scopeFactory.CreateScope();
             var consentService = scope.ServiceProvider.GetRequiredService<IConsentService>();
             var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
 

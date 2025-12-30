@@ -46,16 +46,6 @@ public record SettingDefinition
 /// </summary>
 public static class SettingDefinitions
 {
-    private static readonly List<string> LogLevels = new()
-    {
-        "Trace",
-        "Debug",
-        "Information",
-        "Warning",
-        "Error",
-        "Critical"
-    };
-
     private static readonly List<string> Timezones = new()
     {
         "UTC",
@@ -106,77 +96,45 @@ public static class SettingDefinitions
             description: "Enable or disable the bot without stopping the service"
         ),
 
-        // Logging Category
-        new(
-            key: "Serilog:MinimumLevel:Default",
-            displayName: "Minimum Log Level",
-            category: SettingCategory.Logging,
-            dataType: SettingDataType.String,
-            defaultValue: "Information",
-            requiresRestart: true,
-            description: "Minimum severity level for log messages to be recorded",
-            allowedValues: LogLevels
-        ),
-        new(
-            key: "Logging:RetainedFileCountLimit",
-            displayName: "Log Retention (Days)",
-            category: SettingCategory.Logging,
-            dataType: SettingDataType.Integer,
-            defaultValue: "7",
-            requiresRestart: true,
-            description: "Number of days to retain log files before deletion",
-            validation: new { min = 1, max = 90 }
-        ),
-
         // Features Category
         new(
-            key: "Discord:DefaultRateLimitInvokes",
-            displayName: "Rate Limit Invocations",
+            key: "Features:MessageLoggingEnabled",
+            displayName: "Message Logging",
             category: SettingCategory.Features,
-            dataType: SettingDataType.Integer,
-            defaultValue: "3",
+            dataType: SettingDataType.Boolean,
+            defaultValue: "true",
             requiresRestart: false,
-            description: "Maximum number of command invocations allowed before rate limiting",
-            validation: new { min = 1, max = 100 }
+            description: "Enable or disable Discord message logging globally"
         ),
         new(
-            key: "Discord:DefaultRateLimitPeriodSeconds",
-            displayName: "Rate Limit Period (Seconds)",
+            key: "Features:WelcomeMessagesEnabled",
+            displayName: "Welcome Messages",
             category: SettingCategory.Features,
-            dataType: SettingDataType.Decimal,
-            defaultValue: "60",
+            dataType: SettingDataType.Boolean,
+            defaultValue: "true",
             requiresRestart: false,
-            description: "Time window in seconds for rate limit enforcement",
-            validation: new { min = 10, max = 3600 }
+            description: "Enable or disable welcome messages globally (in addition to per-guild settings)"
         ),
 
         // Advanced Category
         new(
-            key: "Advanced:DebugMode",
-            displayName: "Debug Mode",
-            category: SettingCategory.Advanced,
-            dataType: SettingDataType.Boolean,
-            defaultValue: "false",
-            requiresRestart: true,
-            description: "Enable verbose debug logging and additional diagnostics"
-        ),
-        new(
-            key: "Advanced:CacheEnabled",
-            displayName: "Enable Caching",
-            category: SettingCategory.Advanced,
-            dataType: SettingDataType.Boolean,
-            defaultValue: "true",
-            requiresRestart: false,
-            description: "Enable in-memory caching for improved performance"
-        ),
-        new(
-            key: "Advanced:DataRetentionDays",
-            displayName: "Data Retention (Days)",
+            key: "Advanced:MessageLogRetentionDays",
+            displayName: "Message Log Retention (Days)",
             category: SettingCategory.Advanced,
             dataType: SettingDataType.Integer,
             defaultValue: "90",
             requiresRestart: false,
-            description: "Number of days to retain historical data (logs, analytics)",
+            description: "Number of days to retain Discord message logs before deletion",
+            validation: new { min = 1, max = 365 }
+        ),
+        new(
+            key: "Advanced:AuditLogRetentionDays",
+            displayName: "Audit Log Retention (Days)",
+            category: SettingCategory.Advanced,
+            dataType: SettingDataType.Integer,
+            defaultValue: "90",
+            requiresRestart: false,
+            description: "Number of days to retain audit log entries before deletion",
             validation: new { min = 1, max = 365 }
         )
     };

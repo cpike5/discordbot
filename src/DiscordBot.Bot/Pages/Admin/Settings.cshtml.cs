@@ -337,7 +337,6 @@ public class SettingsModel : PageModel
     private async Task LoadViewModelAsync()
     {
         var generalSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.General);
-        var loggingSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Logging);
         var featuresSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Features);
         var advancedSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Advanced);
 
@@ -345,7 +344,6 @@ public class SettingsModel : PageModel
         {
             ActiveCategory = ActiveCategory ?? "General",
             GeneralSettings = generalSettings,
-            LoggingSettings = loggingSettings,
             FeaturesSettings = featuresSettings,
             AdvancedSettings = advancedSettings,
             IsRestartPending = _settingsService.IsRestartPending
@@ -373,7 +371,7 @@ public class SettingsModel : PageModel
             FormHandler = "ResetAll"
         };
 
-        _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Logging={LoggingCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, RestartPending={RestartPending}",
-            generalSettings.Count, loggingSettings.Count, featuresSettings.Count, advancedSettings.Count, _settingsService.IsRestartPending);
+        _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, RestartPending={RestartPending}",
+            generalSettings.Count, featuresSettings.Count, advancedSettings.Count, _settingsService.IsRestartPending);
     }
 }
