@@ -18,6 +18,7 @@ public class DetailsModel : PageModel
     private readonly ICommandLogService _commandLogService;
     private readonly IWelcomeService _welcomeService;
     private readonly IScheduledMessageService _scheduledMessageService;
+    private readonly IRatWatchService _ratWatchService;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
@@ -27,12 +28,14 @@ public class DetailsModel : PageModel
         ICommandLogService commandLogService,
         IWelcomeService welcomeService,
         IScheduledMessageService scheduledMessageService,
+        IRatWatchService ratWatchService,
         ILogger<DetailsModel> logger)
     {
         _guildService = guildService;
         _commandLogService = commandLogService;
         _welcomeService = welcomeService;
         _scheduledMessageService = scheduledMessageService;
+        _ratWatchService = ratWatchService;
         _logger = logger;
     }
 
@@ -89,6 +92,36 @@ public class DetailsModel : PageModel
     /// </summary>
     public string? NextScheduledMessageTitle { get; set; }
 
+    /// <summary>
+    /// Gets whether Rat Watch is enabled for this guild.
+    /// </summary>
+    public bool RatWatchEnabled { get; set; }
+
+    /// <summary>
+    /// Gets the total number of Rat Watches for this guild.
+    /// </summary>
+    public int RatWatchTotal { get; set; }
+
+    /// <summary>
+    /// Gets the count of pending Rat Watches.
+    /// </summary>
+    public int RatWatchPending { get; set; }
+
+    /// <summary>
+    /// Gets the count of completed Rat Watches.
+    /// </summary>
+    public int RatWatchCompleted { get; set; }
+
+    /// <summary>
+    /// Gets the top "rat" username for this guild (most guilty verdicts).
+    /// </summary>
+    public string? TopRatUsername { get; set; }
+
+    /// <summary>
+    /// Gets the guilty count for the top rat.
+    /// </summary>
+    public int TopRatGuiltyCount { get; set; }
+
     public async Task<IActionResult> OnGetAsync(ulong id, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", id);
@@ -134,8 +167,28 @@ public class DetailsModel : PageModel
             NextScheduledMessageTitle = nextMessage.Title;
         }
 
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}",
-            id, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount);
+        // Fetch Rat Watch summary
+        var ratWatchSettings = await _ratWatchService.GetGuildSettingsAsync(id, cancellationToken);
+        RatWatchEnabled = ratWatchSettings.IsEnabled;
+
+        var (ratWatches, ratWatchTotalCount) = await _ratWatchService.GetByGuildAsync(id, 1, 100, cancellationToken);
+        var ratWatchList = ratWatches.ToList();
+
+        RatWatchTotal = ratWatchTotalCount;
+        RatWatchPending = ratWatchList.Count(w => w.Status == RatWatchStatus.Pending || w.Status == RatWatchStatus.Voting);
+        RatWatchCompleted = ratWatchList.Count(w => w.Status == RatWatchStatus.Guilty || w.Status == RatWatchStatus.NotGuilty);
+
+        // Get leaderboard for top rat
+        var leaderboard = await _ratWatchService.GetLeaderboardAsync(id, 1, cancellationToken);
+        var topRat = leaderboard.FirstOrDefault();
+        if (topRat != null)
+        {
+            TopRatUsername = topRat.Username;
+            TopRatGuiltyCount = topRat.GuiltyCount;
+        }
+
+        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}",
+            id, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);

@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Pages.Guilds;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -22,6 +23,7 @@ public class DetailsModelTests
     private readonly Mock<ICommandLogService> _mockCommandLogService;
     private readonly Mock<IWelcomeService> _mockWelcomeService;
     private readonly Mock<IScheduledMessageService> _mockScheduledMessageService;
+    private readonly Mock<IRatWatchService> _mockRatWatchService;
     private readonly Mock<ILogger<DetailsModel>> _mockLogger;
     private readonly DetailsModel _detailsModel;
 
@@ -31,6 +33,7 @@ public class DetailsModelTests
         _mockCommandLogService = new Mock<ICommandLogService>();
         _mockWelcomeService = new Mock<IWelcomeService>();
         _mockScheduledMessageService = new Mock<IScheduledMessageService>();
+        _mockRatWatchService = new Mock<IRatWatchService>();
         _mockLogger = new Mock<ILogger<DetailsModel>>();
 
         // Setup default scheduled message service behavior
@@ -38,11 +41,20 @@ public class DetailsModelTests
             It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Enumerable.Empty<ScheduledMessageDto>(), 0));
 
+        // Setup default Rat Watch service behavior
+        _mockRatWatchService.Setup(s => s.GetGuildSettingsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildRatWatchSettings { IsEnabled = true, Timezone = "Eastern Standard Time" });
+        _mockRatWatchService.Setup(s => s.GetByGuildAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Enumerable.Empty<RatWatchDto>(), 0));
+        _mockRatWatchService.Setup(s => s.GetLeaderboardAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<RatLeaderboardEntryDto>());
+
         _detailsModel = new DetailsModel(
             _mockGuildService.Object,
             _mockCommandLogService.Object,
             _mockWelcomeService.Object,
             _mockScheduledMessageService.Object,
+            _mockRatWatchService.Object,
             _mockLogger.Object);
 
         // Setup PageContext
@@ -601,6 +613,7 @@ public class DetailsModelTests
             _mockCommandLogService.Object,
             _mockWelcomeService.Object,
             _mockScheduledMessageService.Object,
+            _mockRatWatchService.Object,
             _mockLogger.Object);
 
         // Assert

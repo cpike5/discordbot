@@ -1,0 +1,482 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.RatWatch.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = $"Rat Watch - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Rat Watch</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Rat Watch</h1>
+            <p class="mt-1 text-sm text-text-secondary">Manage accountability trackers and view the hall of shame</p>
+        </div>
+        <div class="flex items-center gap-2">
+            @if (Model.ViewModel.IsEnabled)
+            {
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-success/20 text-success">
+                    <span class="w-1.5 h-1.5 rounded-full bg-success mr-1.5"></span>
+                    Enabled
+                </span>
+            }
+            else
+            {
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-error/20 text-error">
+                    <span class="w-1.5 h-1.5 rounded-full bg-error mr-1.5"></span>
+                    Disabled
+                </span>
+            }
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Settings Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-text-primary">Settings</h2>
+            <button type="button" onclick="toggleSettingsForm()" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                Edit Settings
+            </button>
+        </div>
+
+        <!-- Settings Display -->
+        <div id="settings-display" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+                <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Timezone</p>
+                <p class="text-sm text-text-primary">@Model.ViewModel.Timezone</p>
+            </div>
+            <div>
+                <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Max Advance Hours</p>
+                <p class="text-sm text-text-primary">@Model.ViewModel.MaxAdvanceHours hours</p>
+            </div>
+            <div>
+                <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Voting Duration</p>
+                <p class="text-sm text-text-primary">@Model.ViewModel.VotingDurationMinutes minutes</p>
+            </div>
+            <div>
+                <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Status</p>
+                <p class="text-sm @(Model.ViewModel.IsEnabled ? "text-success" : "text-error")">
+                    @(Model.ViewModel.IsEnabled ? "Enabled" : "Disabled")
+                </p>
+            </div>
+        </div>
+
+        <!-- Settings Form (hidden by default) -->
+        <form id="settings-form" method="post" asp-page-handler="UpdateSettings" asp-route-guildId="@Model.ViewModel.GuildId" class="hidden mt-4 pt-4 border-t border-border-primary">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="timezone" class="block text-sm font-medium text-text-secondary mb-1">Timezone</label>
+                    <select id="timezone" name="timezone" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue">
+                        <option value="Eastern Standard Time" selected="@(Model.ViewModel.Timezone == "Eastern Standard Time")">Eastern Time</option>
+                        <option value="Central Standard Time" selected="@(Model.ViewModel.Timezone == "Central Standard Time")">Central Time</option>
+                        <option value="Mountain Standard Time" selected="@(Model.ViewModel.Timezone == "Mountain Standard Time")">Mountain Time</option>
+                        <option value="Pacific Standard Time" selected="@(Model.ViewModel.Timezone == "Pacific Standard Time")">Pacific Time</option>
+                        <option value="UTC" selected="@(Model.ViewModel.Timezone == "UTC")">UTC</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="maxAdvanceHours" class="block text-sm font-medium text-text-secondary mb-1">Max Advance Hours</label>
+                    <input type="number" id="maxAdvanceHours" name="maxAdvanceHours" value="@Model.ViewModel.MaxAdvanceHours" min="1" max="168"
+                           class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue" />
+                </div>
+                <div>
+                    <label for="votingDurationMinutes" class="block text-sm font-medium text-text-secondary mb-1">Voting Duration (minutes)</label>
+                    <input type="number" id="votingDurationMinutes" name="votingDurationMinutes" value="@Model.ViewModel.VotingDurationMinutes" min="1" max="60"
+                           class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-text-secondary mb-1">Feature Status</label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="isEnabled" value="true" @(Model.ViewModel.IsEnabled ? "checked" : "")
+                               class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange" />
+                        <span class="text-sm text-text-primary">Enable Rat Watch for this guild</span>
+                    </label>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="toggleSettingsForm()" class="px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                    Save Settings
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Stats and Leaderboard Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- Stats Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Watch Stats</h2>
+            <div class="grid grid-cols-3 gap-4">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-warning">@Model.ViewModel.PendingCount</p>
+                    <p class="text-xs text-text-tertiary">Pending</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-accent-blue">@Model.ViewModel.VotingCount</p>
+                    <p class="text-xs text-text-tertiary">Voting</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-success">@Model.ViewModel.CompletedCount</p>
+                    <p class="text-xs text-text-tertiary">Completed</p>
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-border-primary text-center">
+                <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.TotalWatches</p>
+                <p class="text-sm text-text-tertiary">Total Watches</p>
+            </div>
+        </div>
+
+        <!-- Leaderboard Card -->
+        <div class="lg:col-span-2 bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Hall of Shame</h2>
+            @if (Model.ViewModel.Leaderboard.Any())
+            {
+                <div class="space-y-2">
+                    @foreach (var entry in Model.ViewModel.Leaderboard)
+                    {
+                        <div class="flex items-center justify-between p-2 rounded-lg @(entry.Rank <= 3 ? "bg-bg-tertiary" : "")">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold @(entry.Rank == 1 ? "bg-yellow-500/20 text-yellow-500" : entry.Rank == 2 ? "bg-gray-400/20 text-gray-400" : entry.Rank == 3 ? "bg-orange-600/20 text-orange-600" : "bg-bg-tertiary text-text-tertiary")">
+                                    @entry.Rank
+                                </span>
+                                <span class="text-sm text-text-primary">@entry.Username</span>
+                            </div>
+                            <span class="text-sm font-semibold text-error">@entry.GuiltyCount guilty</span>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="text-sm text-text-tertiary text-center py-8">No guilty verdicts yet. Everyone's been honest!</p>
+            }
+        </div>
+    </div>
+
+    <!-- Watches Table -->
+    @if (Model.ViewModel.TotalWatches > 0)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Recent Watches</h2>
+            </div>
+
+            <div class="table-container overflow-x-auto">
+                <table class="w-full min-w-[800px]">
+                    <thead class="bg-bg-tertiary border-b border-border-primary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Status
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Accused
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Initiator
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Message
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Scheduled
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Votes
+                            </th>
+                            <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Actions
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var watch in Model.ViewModel.Watches)
+                        {
+                            <tr class="table-row hover:bg-bg-hover transition-colors">
+                                <td class="px-6 py-4">
+                                    @{
+                                        var statusClass = watch.Status switch
+                                        {
+                                            RatWatchStatus.Pending => "bg-warning/20 text-warning",
+                                            RatWatchStatus.Voting => "bg-accent-blue/20 text-accent-blue",
+                                            RatWatchStatus.Guilty => "bg-error/20 text-error",
+                                            RatWatchStatus.NotGuilty => "bg-success/20 text-success",
+                                            RatWatchStatus.ClearedEarly => "bg-bg-tertiary text-text-secondary",
+                                            RatWatchStatus.Expired => "bg-bg-tertiary text-text-tertiary",
+                                            RatWatchStatus.Cancelled => "bg-error/20 text-error",
+                                            _ => "bg-bg-tertiary text-text-tertiary"
+                                        };
+                                        var dotClass = watch.Status switch
+                                        {
+                                            RatWatchStatus.Pending => "bg-warning",
+                                            RatWatchStatus.Voting => "bg-accent-blue",
+                                            RatWatchStatus.Guilty => "bg-error",
+                                            RatWatchStatus.NotGuilty => "bg-success",
+                                            RatWatchStatus.ClearedEarly => "bg-text-secondary",
+                                            RatWatchStatus.Expired => "bg-text-tertiary",
+                                            RatWatchStatus.Cancelled => "bg-error",
+                                            _ => "bg-text-tertiary"
+                                        };
+                                    }
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @statusClass">
+                                        <span class="w-1.5 h-1.5 rounded-full @dotClass mr-1.5"></span>
+                                        @watch.StatusText
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-sm text-text-primary">@watch.AccusedUsername</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-sm text-text-secondary">@watch.InitiatorUsername</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-sm text-text-secondary max-w-[200px] truncate block" title="@watch.CustomMessage">
+                                        @(watch.CustomMessage ?? "No message")
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-sm text-text-primary" data-utc="@watch.ScheduledAtUtcIso" data-format="datetime-short"></span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    @if (watch.TotalVotes > 0)
+                                    {
+                                        <div class="flex items-center gap-2 text-sm">
+                                            <span class="text-error font-medium">@watch.GuiltyVotes</span>
+                                            <span class="text-text-tertiary">/</span>
+                                            <span class="text-success font-medium">@watch.NotGuiltyVotes</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-text-tertiary">--</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center justify-end gap-1 row-actions">
+                                        @if (watch.CanCancel)
+                                        {
+                                            <button
+                                                type="button"
+                                                onclick="showCancelModal('@watch.Id', '@watch.AccusedUsername')"
+                                                class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
+                                                title="Cancel Watch"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if (Model.ViewModel.TotalPages > 1)
+            {
+                <div class="px-6 py-4 border-t border-border-primary flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <p class="text-sm text-text-secondary">
+                        Page <span class="font-medium text-text-primary">@Model.ViewModel.CurrentPage</span> of <span class="font-medium text-text-primary">@Model.ViewModel.TotalPages</span>
+                    </p>
+                    <div class="flex items-center gap-1">
+                        @if (Model.ViewModel.HasPreviousPage)
+                        {
+                            <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-page="@(Model.ViewModel.CurrentPage - 1)"
+                               class="px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                                Previous
+                            </a>
+                        }
+                        else
+                        {
+                            <button class="px-3 py-1.5 text-sm text-text-tertiary bg-bg-tertiary border border-border-primary rounded-md cursor-not-allowed" disabled>
+                                Previous
+                            </button>
+                        }
+
+                        <span class="px-3 py-1.5 text-sm text-white bg-accent-orange rounded-md">
+                            @Model.ViewModel.CurrentPage
+                        </span>
+
+                        @if (Model.ViewModel.HasNextPage)
+                        {
+                            <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId" asp-route-page="@(Model.ViewModel.CurrentPage + 1)"
+                               class="px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                                Next
+                            </a>
+                        }
+                        else
+                        {
+                            <button class="px-3 py-1.5 text-sm text-text-tertiary bg-bg-tertiary border border-border-primary rounded-md cursor-not-allowed" disabled>
+                                Next
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Empty State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-tertiary flex items-center justify-center">
+                <svg class="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-text-primary mb-2">No Rat Watches Yet</h3>
+            <p class="text-sm text-text-secondary max-w-sm mx-auto">
+                No accountability watches have been created in this server. Use the "Rat Watch" context menu on a message in Discord to start one.
+            </p>
+        </div>
+    }
+</div>
+
+<!-- Cancel Confirmation Modal -->
+<div id="cancel-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="modal-overlay fixed inset-0 transition-opacity" aria-hidden="true" onclick="hideCancelModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border-primary">
+            <div class="px-6 py-5">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 id="modal-title" class="text-lg font-semibold text-text-primary">Cancel Rat Watch</h3>
+                        <p class="mt-2 text-sm text-text-secondary">
+                            Are you sure you want to cancel the watch for <span id="cancel-username" class="font-medium text-text-primary"></span>? This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-bg-primary flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button type="button" onclick="hideCancelModal()"
+                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                    Keep Watch
+                </button>
+                <form id="cancel-form" method="post" asp-page="Index" asp-page-handler="Cancel" asp-route-guildId="@Model.ViewModel.GuildId">
+                    <input type="hidden" id="cancel-watch-id" name="watchId" value="" />
+                    <button type="submit"
+                            class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-error border border-error rounded-md hover:bg-red-600 transition-colors">
+                        Cancel Watch
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <style>
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+        }
+        .table-row .row-actions {
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+        .table-row:hover .row-actions {
+            opacity: 1;
+        }
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+
+    <script>
+        function toggleSettingsForm() {
+            const display = document.getElementById('settings-display');
+            const form = document.getElementById('settings-form');
+            display.classList.toggle('hidden');
+            form.classList.toggle('hidden');
+        }
+
+        function showCancelModal(watchId, username) {
+            document.getElementById('cancel-watch-id').value = watchId;
+            document.getElementById('cancel-username').textContent = username;
+            document.getElementById('cancel-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideCancelModal() {
+            document.getElementById('cancel-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.getElementById('cancel-modal').classList.contains('hidden')) {
+                hideCancelModal();
+            }
+        });
+    </script>
+}
