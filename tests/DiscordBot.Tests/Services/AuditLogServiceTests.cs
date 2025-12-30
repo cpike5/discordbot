@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -20,7 +21,7 @@ public class AuditLogServiceTests
     private readonly Mock<IAuditLogRepository> _mockRepository;
     private readonly Mock<IAuditLogQueue> _mockQueue;
     private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
-    private readonly Mock<IGuildService> _mockGuildService;
+    private readonly Mock<DiscordSocketClient> _mockDiscordClient;
     private readonly Mock<ILogger<AuditLogService>> _mockLogger;
     private readonly AuditLogService _service;
 
@@ -29,19 +30,14 @@ public class AuditLogServiceTests
         _mockRepository = new Mock<IAuditLogRepository>();
         _mockQueue = new Mock<IAuditLogQueue>();
         _mockUserManager = MockUserManager();
-        _mockGuildService = new Mock<IGuildService>();
+        _mockDiscordClient = new Mock<DiscordSocketClient>();
         _mockLogger = new Mock<ILogger<AuditLogService>>();
-
-        // Setup default empty responses for enrichment
-        _mockGuildService
-            .Setup(g => g.GetAllGuildsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<GuildDto>());
 
         _service = new AuditLogService(
             _mockRepository.Object,
             _mockQueue.Object,
             _mockUserManager.Object,
-            _mockGuildService.Object,
+            _mockDiscordClient.Object,
             _mockLogger.Object);
     }
 

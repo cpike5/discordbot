@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -16,7 +17,7 @@ public class AuditLogService : IAuditLogService
     private readonly IAuditLogRepository _repository;
     private readonly IAuditLogQueue _queue;
     private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IGuildService _guildService;
+    private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<AuditLogService> _logger;
 
     /// <summary>
@@ -25,19 +26,19 @@ public class AuditLogService : IAuditLogService
     /// <param name="repository">The audit log repository.</param>
     /// <param name="queue">The audit log queue for background processing.</param>
     /// <param name="userManager">The ASP.NET Identity user manager.</param>
-    /// <param name="guildService">The guild service for looking up guild names.</param>
+    /// <param name="discordClient">The Discord socket client for looking up guild names.</param>
     /// <param name="logger">The logger.</param>
     public AuditLogService(
         IAuditLogRepository repository,
         IAuditLogQueue queue,
         UserManager<ApplicationUser> userManager,
-        IGuildService guildService,
+        DiscordSocketClient discordClient,
         ILogger<AuditLogService> logger)
     {
         _repository = repository;
         _queue = queue;
         _userManager = userManager;
-        _guildService = guildService;
+        _discordClient = discordClient;
         _logger = logger;
     }
 
@@ -239,21 +240,14 @@ public class AuditLogService : IAuditLogService
             }
         }
 
-        // Batch lookup guild names
+        // Lookup guild names from Discord client (synchronous - no DB call needed)
         var guildNames = new Dictionary<ulong, string>();
-        if (guildIds.Count > 0)
+        foreach (var guildId in guildIds)
         {
-            try
+            var guild = _discordClient.GetGuild(guildId);
+            if (guild != null)
             {
-                var guilds = await _guildService.GetAllGuildsAsync(cancellationToken);
-                foreach (var guild in guilds.Where(g => guildIds.Contains(g.Id)))
-                {
-                    guildNames[guild.Id] = guild.Name;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to lookup guild names for audit logs");
+                guildNames[guildId] = guild.Name;
             }
         }
 
