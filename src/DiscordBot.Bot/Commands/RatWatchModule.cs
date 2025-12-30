@@ -51,6 +51,30 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
         // Get the message author as the accused
         var accusedUserId = message.Author.Id;
 
+        // Prevent targeting bots (including this bot), unless user is an admin (for testing)
+        if (message.Author.IsBot)
+        {
+            var guildUser = Context.User as SocketGuildUser;
+            var isAdmin = guildUser?.GuildPermissions.Administrator ?? false;
+
+            if (!isAdmin)
+            {
+                _logger.LogDebug("Rat Watch attempted on bot {BotId} by non-admin user {UserId}", accusedUserId, Context.User.Id);
+
+                var botEmbed = new EmbedBuilder()
+                    .WithTitle("❌ Cannot Watch Bots")
+                    .WithDescription("Bots cannot be targeted with Rat Watch. Please select a message from a human user.")
+                    .WithColor(Color.Red)
+                    .WithCurrentTimestamp()
+                    .Build();
+
+                await RespondAsync(embed: botEmbed, ephemeral: true);
+                return;
+            }
+
+            _logger.LogInformation("Admin {UserId} targeting bot {BotId} for Rat Watch (testing mode)", Context.User.Id, accusedUserId);
+        }
+
         // Build and show modal with custom ID: ratwatch:create:{messageId}:{accusedUserId}
         var modalId = $"ratwatch:create:{message.Id}:{accusedUserId}";
 

@@ -135,6 +135,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [log-aggregation.md](docs/articles/log-aggregation.md) | Seq centralized logging setup |
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
 | [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | Issue hierarchy, labels, GitHub workflow |
+| [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
 
 
 ## HTML Prototypes
@@ -161,7 +162,7 @@ All HTML prototypes are located in `docs/prototypes/`. Open them directly in a b
 - Slash commands only (no prefix commands)
 - `InteractionHandler` discovers and registers command modules from assembly
 - Command modules inherit from `InteractionModuleBase<SocketInteractionContext>`
-- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`
+- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`
 
 **Interactive Components Pattern:**
 - Use `ComponentIdBuilder` to create custom IDs: `{handler}:{action}:{userId}:{correlationId}:{data}`
@@ -213,6 +214,7 @@ Located in `src/DiscordBot.Bot/Pages/`:
 | Scheduled Messages | `/Guilds/ScheduledMessages/{guildId:long}` | Guild scheduled messages |
 | Scheduled Message Create | `/Guilds/ScheduledMessages/Create/{guildId:long}` | New scheduled message |
 | Scheduled Message Edit | `/Guilds/ScheduledMessages/Edit/{guildId:long}/{id:guid}` | Edit scheduled message |
+| Rat Watch | `/Guilds/RatWatch/{guildId:long}` | Rat Watch management |
 | Users | `/Admin/Users` | User management (SuperAdmin) |
 | User Details | `/Admin/Users/Details?id={id}` | User profile and roles |
 | User Create | `/Admin/Users/Create` | Create new user |

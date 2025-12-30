@@ -1,0 +1,321 @@
+# Rat Watch Feature
+
+**Last Updated:** 2025-12-30
+**Feature Reference:** Issue #404 (Epic)
+**Status:** Implemented
+
+---
+
+## Overview
+
+Rat Watch is an accountability system that allows Discord users to hold each other accountable for commitments. When someone makes a promise (like "I'll go to the gym" or "I'll finish this task"), other users can set a "Rat Watch" on them to check if they follow through.
+
+### Key Features
+
+- **Context Menu Integration**: Right-click any message to start a Rat Watch
+- **Flexible Scheduling**: Set check-in times using natural language (10m, 2h, 10pm)
+- **Early Check-in**: Accused users can clear themselves before the deadline
+- **Community Voting**: If the user doesn't check in, the community votes on guilt
+- **Leaderboard**: Track the biggest "rats" in your server
+- **Guild Settings**: Configurable timezone, voting duration, and advance scheduling limits
+
+### How It Works
+
+1. **Create Watch**: User A right-clicks User B's message and selects "Rat Watch"
+2. **Schedule**: User A enters when to check (e.g., "2h" for 2 hours)
+3. **Wait**: User B can click "I'm Here!" anytime before the deadline
+4. **Check-in Time**: If User B doesn't check in, voting begins
+5. **Vote**: Community votes "Rat" or "Not Rat" for 5 minutes
+6. **Verdict**: Majority wins; guilty verdicts are recorded permanently
+
+---
+
+## Discord Commands
+
+### Context Menu: Rat Watch
+
+**Type:** Message Command
+**Preconditions:** RequireGuildActive, RequireRatWatchEnabled
+
+Right-click any message and select "Rat Watch" from the Apps menu to create a watch on that message's author.
+
+**Modal Fields:**
+- **When to check in** (required): Time expression like `10m`, `2h`, `1h30m`, `10pm`, or `22:00`
+- **Custom message** (optional): Description of what the user committed to (max 200 chars)
+
+**Time Parsing:**
+| Format | Example | Meaning |
+|--------|---------|---------|
+| `Nm` | `10m`, `30m` | N minutes from now |
+| `Nh` | `2h`, `4h` | N hours from now |
+| `NhMm` | `1h30m` | N hours and M minutes from now |
+| `Npm` | `10pm` | Next occurrence of 10 PM (guild timezone) |
+| `Nam` | `9am` | Next occurrence of 9 AM (guild timezone) |
+| `HH:mm` | `22:00` | Next occurrence of that time (24-hour, guild timezone) |
+
+**Restrictions:**
+- Cannot target bots
+- Cannot schedule more than MaxAdvanceHours (default 24) in the future
+- Must be in the future
+
+### /rat-clear
+
+**Description:** Clear yourself from all active Rat Watches in this server
+**Preconditions:** RequireGuildActive, RequireRatWatchEnabled
+
+Allows the accused user to check in and clear all their pending watches at once.
+
+### /rat-stats [user]
+
+**Description:** View a user's rat record
+**Parameters:**
+- `user` (optional): The user to check (defaults to yourself)
+**Preconditions:** RequireGuildActive, RequireRatWatchEnabled
+
+Shows:
+- Total guilty verdict count
+- Recent guilty records with dates and vote tallies
+- Links to original messages
+
+### /rat-leaderboard
+
+**Description:** View the top rats in this server
+**Preconditions:** RequireGuildActive, RequireRatWatchEnabled
+
+Displays the top 10 users by guilty verdict count with medals for top 3.
+
+### /rat-settings [timezone]
+
+**Description:** View or configure Rat Watch settings
+**Parameters:**
+- `timezone` (optional): Set the timezone for parsing times like "10pm"
+**Required Permissions:** Administrator
+**Preconditions:** RequireGuildActive, RequireRatWatchEnabled
+
+Available timezones:
+- Eastern Time
+- Central Time
+- Mountain Time
+- Pacific Time
+- UTC
+
+---
+
+## Interactive Components
+
+### Check-in Button
+
+**Button:** "I'm Here! ✓" (Success style)
+**Component ID:** `ratwatch:checkin:{accusedUserId}:{watchId}`
+**Handler:** RatWatchComponentModule
+
+Only the accused user can click this button. Clears them from the watch early.
+
+### Voting Buttons
+
+**Buttons:** "Rat" (Danger style), "Not Rat" (Success style)
+**Component IDs:**
+- `ratwatch:vote:rat:{watchId}`
+- `ratwatch:vote:notrat:{watchId}`
+**Handler:** RatWatchComponentModule
+
+Anyone except the accused can vote. Each user gets one vote per watch.
+
+---
+
+## Admin UI
+
+### Rat Watch Management Page
+
+**URL:** `/Guilds/RatWatch/{guildId}`
+**Authorization:** RequireAdmin policy
+
+**Features:**
+- View and edit guild settings (timezone, voting duration, max advance hours, enable/disable)
+- Summary statistics (total, pending, voting, completed watches)
+- Hall of Shame leaderboard
+- Paginated watch list with status, participants, scheduled times
+- Cancel pending/voting watches
+
+---
+
+## Database Schema
+
+### RatWatches Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| Id | GUID | Primary key |
+| GuildId | INTEGER (ulong) | Discord guild snowflake ID |
+| ChannelId | INTEGER (ulong) | Channel where watch was created |
+| AccusedUserId | INTEGER (ulong) | User being watched |
+| InitiatorUserId | INTEGER (ulong) | User who created the watch |
+| OriginalMessageId | INTEGER (ulong) | Message that triggered the watch |
+| CustomMessage | TEXT | Optional commitment description |
+| ScheduledAt | DATETIME | When check-in is due (UTC) |
+| CreatedAt | DATETIME | When watch was created (UTC) |
+| Status | INTEGER | RatWatchStatus enum value |
+| NotificationMessageId | INTEGER (ulong)? | Message with check-in button |
+| VotingMessageId | INTEGER (ulong)? | Message with voting buttons |
+| ClearedAt | DATETIME? | When accused cleared early |
+| VotingStartedAt | DATETIME? | When voting began |
+| VotingEndedAt | DATETIME? | When voting ended |
+
+**Indexes:**
+- IX_RatWatches_GuildId
+- IX_RatWatches_GuildId_Status
+- IX_RatWatches_AccusedUserId
+- IX_RatWatches_ScheduledAt
+- IX_RatWatches_Status
+
+### RatVotes Table
+
+| Column | Type | Description |
+|--------|------|-------------|
+| Id | GUID | Primary key |
+| RatWatchId | GUID | Foreign key to RatWatches |
+| VoterUserId | INTEGER (ulong) | User who cast the vote |
+| IsGuiltyVote | BOOLEAN | True = Rat, False = Not Rat |
+| VotedAt | DATETIME | When vote was cast (UTC) |
+
+**Indexes:**
+- IX_RatVotes_RatWatchId
+- IX_RatVotes_RatWatchId_VoterUserId (unique)
+
+### RatRecords Table
+
+Permanent record of guilty verdicts.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| Id | GUID | Primary key |
+| RatWatchId | GUID | Foreign key to RatWatches (unique) |
+| GuildId | INTEGER (ulong) | Discord guild snowflake ID |
+| UserId | INTEGER (ulong) | User who was found guilty |
+| GuiltyVotes | INTEGER | Count of "Rat" votes |
+| NotGuiltyVotes | INTEGER | Count of "Not Rat" votes |
+| RecordedAt | DATETIME | When verdict was recorded (UTC) |
+| OriginalMessageLink | TEXT? | Link to original commitment message |
+
+**Indexes:**
+- IX_RatRecords_GuildId
+- IX_RatRecords_UserId
+- IX_RatRecords_GuildId_UserId
+
+### RatWatchStatus Enum
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | Pending | Waiting for scheduled time |
+| 1 | ClearedEarly | Accused checked in before deadline |
+| 2 | Voting | Community vote in progress |
+| 3 | Guilty | Guilty verdict (majority voted Rat) |
+| 4 | NotGuilty | Not guilty verdict (majority voted Not Rat) |
+| 5 | Expired | Bot was offline, watch expired |
+| 6 | Cancelled | Admin cancelled the watch |
+
+---
+
+## Configuration
+
+### Guild Settings Entity
+
+Guild-specific settings stored in `GuildRatWatchSettings`:
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| GuildId | ulong | - | Discord guild snowflake ID (primary key) |
+| IsEnabled | bool | true | Whether Rat Watch is enabled for this guild |
+| Timezone | string | "Eastern Standard Time" | Timezone for parsing time expressions |
+| MaxAdvanceHours | int | 24 | Max hours in advance a watch can be scheduled |
+| VotingDurationMinutes | int | 5 | How long voting lasts |
+
+---
+
+## Background Services
+
+### RatWatchExecutionService
+
+**Type:** BackgroundService
+**Interval:** Every 30 seconds
+
+**Responsibilities:**
+1. **Start Voting**: Find Pending watches past their scheduled time, post voting messages
+2. **End Voting**: Find Voting watches past their voting duration, tally votes, record verdicts
+3. **Cleanup**: Mark expired watches that were never processed
+
+**Resilience:**
+- Handles bot restarts gracefully
+- Skips individual watch errors to continue processing others
+- Logs all state transitions
+
+---
+
+## Service Interface
+
+### IRatWatchService
+
+```csharp
+public interface IRatWatchService
+{
+    // Watch CRUD
+    Task<RatWatchDto> CreateWatchAsync(RatWatchCreateDto dto, CancellationToken ct = default);
+    Task<RatWatchDto?> GetWatchAsync(Guid id, CancellationToken ct = default);
+    Task<(IEnumerable<RatWatchDto> Items, int Total)> GetByGuildAsync(ulong guildId, int page, int pageSize, CancellationToken ct = default);
+    Task<bool> ClearWatchAsync(Guid watchId, ulong userId, CancellationToken ct = default);
+    Task<bool> CancelWatchAsync(Guid watchId, CancellationToken ct = default);
+
+    // Voting
+    Task<bool> RecordVoteAsync(Guid watchId, ulong voterUserId, bool isGuiltyVote, CancellationToken ct = default);
+    Task<(int GuiltyVotes, int NotGuiltyVotes)> GetVoteCountsAsync(Guid watchId, CancellationToken ct = default);
+    Task<bool?> GetUserVoteAsync(Guid watchId, ulong voterUserId, CancellationToken ct = default);
+
+    // Execution (for background service)
+    Task<IEnumerable<RatWatch>> GetPendingWatchesForExecutionAsync(CancellationToken ct = default);
+    Task<IEnumerable<RatWatch>> GetVotingWatchesForCompletionAsync(CancellationToken ct = default);
+    Task StartVotingAsync(Guid watchId, ulong notificationMessageId, CancellationToken ct = default);
+    Task CompleteVotingAsync(Guid watchId, bool isGuilty, ulong? votingMessageId = null, CancellationToken ct = default);
+
+    // Stats & Leaderboard
+    Task<RatUserStatsDto> GetUserStatsAsync(ulong guildId, ulong userId, CancellationToken ct = default);
+    Task<IReadOnlyList<RatLeaderboardEntryDto>> GetLeaderboardAsync(ulong guildId, int count, CancellationToken ct = default);
+
+    // Guild Settings
+    Task<GuildRatWatchSettings> GetGuildSettingsAsync(ulong guildId, CancellationToken ct = default);
+    Task<GuildRatWatchSettings> UpdateGuildSettingsAsync(ulong guildId, Action<GuildRatWatchSettings> updateAction, CancellationToken ct = default);
+
+    // Time Parsing
+    DateTime? ParseScheduleTime(string input, string timezone);
+}
+```
+
+---
+
+## Preconditions
+
+### RequireRatWatchEnabledAttribute
+
+Located in `src/DiscordBot.Bot/Preconditions/RequireRatWatchEnabledAttribute.cs`
+
+Checks that:
+1. Command is executed in a guild
+2. Rat Watch feature is enabled for that guild
+
+Returns `PreconditionResult.FromError` with user-friendly message if disabled.
+
+---
+
+## Related Documentation
+
+- [Interactive Components](interactive-components.md) - Button and component patterns
+- [Timezone Handling](timezone-handling.md) - How time parsing works
+- [Authorization Policies](authorization-policies.md) - Admin UI access control
+- [Database Schema](database-schema.md) - Full schema documentation
+
+---
+
+## Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2025-12-30 | Initial implementation (Issue #404) |
