@@ -132,7 +132,12 @@ const DashboardRealtime = (function() {
             'MemberLeft': '➖',
             'MessageSent': '💬',
             'MessageDeleted': '🗑️',
-            'MessageEdited': '✏️'
+            'MessageEdited': '✏️',
+            'RatWatchCreated': '🐀',
+            'RatWatchVotingStarted': '🗳️',
+            'RatWatchVotingEnded': '⚖️',
+            'RatWatchCheckIn': '✅',
+            'RatWatchCancelled': '❌'
         };
 
         addActivityItem({
@@ -301,6 +306,24 @@ const DashboardRealtime = (function() {
     }
 
     function formatGuildEventDescription(data) {
+        // Handle Rat Watch events with dynamic content
+        if (data.eventType === 'RatWatchCreated') {
+            return `Rat Watch created for <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`;
+        }
+        if (data.eventType === 'RatWatchVotingStarted') {
+            return `Voting started for <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`;
+        }
+        if (data.eventType === 'RatWatchVotingEnded') {
+            const verdictClass = data.details === 'Guilty' ? 'text-error' : 'text-success';
+            return `Verdict: <span class="font-semibold ${verdictClass}">${escapeHtml(data.details || 'Unknown')}</span> for @${escapeHtml(data.username || 'Unknown')}`;
+        }
+        if (data.eventType === 'RatWatchCheckIn') {
+            return `<span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span> checked in early!`;
+        }
+        if (data.eventType === 'RatWatchCancelled') {
+            return `Rat Watch cancelled for @${escapeHtml(data.username || 'Unknown')}`;
+        }
+
         const eventDescriptions = {
             'MemberJoined': `<span class="text-accent-blue font-medium">New member</span> joined the server`,
             'MemberLeft': `A member left the server`,

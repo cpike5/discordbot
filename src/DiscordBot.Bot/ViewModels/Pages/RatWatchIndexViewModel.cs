@@ -113,6 +113,7 @@ public record RatWatchIndexViewModel
         int page,
         int pageSize)
     {
+        var votingDurationMinutes = settings.VotingDurationMinutes;
         return new RatWatchIndexViewModel
         {
             GuildId = guildId,
@@ -121,8 +122,8 @@ public record RatWatchIndexViewModel
             IsEnabled = settings.IsEnabled,
             Timezone = settings.Timezone,
             MaxAdvanceHours = settings.MaxAdvanceHours,
-            VotingDurationMinutes = settings.VotingDurationMinutes,
-            Watches = watches.Select(RatWatchItemViewModel.FromDto).ToList(),
+            VotingDurationMinutes = votingDurationMinutes,
+            Watches = watches.Select(w => RatWatchItemViewModel.FromDto(w, votingDurationMinutes)).ToList(),
             TotalWatches = totalWatches,
             Leaderboard = leaderboard.Select(RatLeaderboardEntryViewModel.FromDto).ToList(),
             CurrentPage = page,
@@ -227,6 +228,39 @@ public record RatWatchItemViewModel
     public bool CanCancel => Status == RatWatchStatus.Pending || Status == RatWatchStatus.Voting;
 
     /// <summary>
+    /// Gets whether voting can be ended early for this watch.
+    /// Only watches in Voting status can have voting ended early.
+    /// </summary>
+    public bool CanEndVote => Status == RatWatchStatus.Voting;
+
+    /// <summary>
+    /// Gets the time when voting started (UTC).
+    /// Null if voting has not started yet.
+    /// </summary>
+    public DateTime? VotingStartedAt { get; init; }
+
+    /// <summary>
+    /// Gets the voting duration in minutes (from guild settings).
+    /// </summary>
+    public int VotingDurationMinutes { get; init; }
+
+    /// <summary>
+    /// Gets the computed time when voting ends (UTC).
+    /// Null if not currently in voting status.
+    /// </summary>
+    public DateTime? VoteEndsAt => Status == RatWatchStatus.Voting && VotingStartedAt.HasValue
+        ? VotingStartedAt.Value.AddMinutes(VotingDurationMinutes)
+        : null;
+
+    /// <summary>
+    /// Gets the vote end time in ISO format for client-side rendering.
+    /// Null if not in voting status.
+    /// </summary>
+    public string? VoteEndsAtUtcIso => VoteEndsAt.HasValue
+        ? DateTime.SpecifyKind(VoteEndsAt.Value, DateTimeKind.Utc).ToString("o")
+        : null;
+
+    /// <summary>
     /// Gets the number of guilty votes.
     /// </summary>
     public int GuiltyVotes { get; init; }
@@ -244,7 +278,9 @@ public record RatWatchItemViewModel
     /// <summary>
     /// Creates a RatWatchItemViewModel from a DTO.
     /// </summary>
-    public static RatWatchItemViewModel FromDto(RatWatchDto dto)
+    /// <param name="dto">The Rat Watch DTO.</param>
+    /// <param name="votingDurationMinutes">The voting duration from guild settings.</param>
+    public static RatWatchItemViewModel FromDto(RatWatchDto dto, int votingDurationMinutes)
     {
         return new RatWatchItemViewModel
         {
@@ -257,6 +293,8 @@ public record RatWatchItemViewModel
             ScheduledAt = dto.ScheduledAt,
             CreatedAt = dto.CreatedAt,
             Status = dto.Status,
+            VotingStartedAt = dto.VotingStartedAt,
+            VotingDurationMinutes = votingDurationMinutes,
             GuiltyVotes = dto.GuiltyVotes,
             NotGuiltyVotes = dto.NotGuiltyVotes
         };

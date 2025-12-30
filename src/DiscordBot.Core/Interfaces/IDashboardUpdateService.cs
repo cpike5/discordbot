@@ -49,4 +49,23 @@ public interface IDashboardUpdateService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task BroadcastGuildActivityToGuildAsync(ulong guildId, GuildActivityUpdateDto update, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Broadcasts a Rat Watch activity event to all connected dashboard clients.
+    /// This is a convenience method that creates a GuildActivityUpdateDto with Rat Watch-specific fields.
+    /// </summary>
+    /// <param name="guildId">The guild ID where the event occurred.</param>
+    /// <param name="guildName">The guild name.</param>
+    /// <param name="eventType">Type of Rat Watch event (RatWatchCreated, RatWatchVotingStarted, etc.).</param>
+    /// <param name="username">The username involved in the event.</param>
+    /// <param name="details">Optional additional details (e.g., verdict result).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task BroadcastRatWatchActivityAsync(
+        ulong guildId,
+        string guildName,
+        string eventType,
+        string username,
+        string? details = null,
+        CancellationToken cancellationToken = default);
 }

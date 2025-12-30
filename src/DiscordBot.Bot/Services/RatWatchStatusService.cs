@@ -97,7 +97,7 @@ public class RatWatchStatusService : IRatWatchStatusService
     {
         try
         {
-            await _client.SetActivityAsync(new Game("for rats...", ActivityType.Watching));
+            await _client.SetGameAsync("Watching for rats...");
             _logger.LogDebug("Bot activity set to 'Watching for rats...'");
         }
         catch (Exception ex)

@@ -16,6 +16,7 @@ public class RatWatchComponentModule : InteractionModuleBase<SocketInteractionCo
 {
     private readonly IRatWatchService _ratWatchService;
     private readonly IRatWatchStatusService _ratWatchStatusService;
+    private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly ILogger<RatWatchComponentModule> _logger;
 
     /// <summary>
@@ -24,10 +25,12 @@ public class RatWatchComponentModule : InteractionModuleBase<SocketInteractionCo
     public RatWatchComponentModule(
         IRatWatchService ratWatchService,
         IRatWatchStatusService ratWatchStatusService,
+        IDashboardUpdateService dashboardUpdateService,
         ILogger<RatWatchComponentModule> logger)
     {
         _ratWatchService = ratWatchService;
         _ratWatchStatusService = ratWatchStatusService;
+        _dashboardUpdateService = dashboardUpdateService;
         _logger = logger;
     }
 
@@ -96,6 +99,13 @@ public class RatWatchComponentModule : InteractionModuleBase<SocketInteractionCo
 
                 // Notify that a watch was cleared - may need to update bot status
                 _ratWatchStatusService.RequestStatusUpdate();
+
+                // Broadcast Rat Watch check-in event to dashboard
+                await _dashboardUpdateService.BroadcastRatWatchActivityAsync(
+                    Context.Guild.Id,
+                    Context.Guild.Name,
+                    "RatWatchCheckIn",
+                    Context.User.Username);
 
                 _logger.LogDebug("Rat Watch check-in message updated successfully");
             }
