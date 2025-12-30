@@ -329,4 +329,118 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
         _logger.LogDebug("Retrieved {Count} heatmap data points", heatmap.Count);
         return heatmap;
     }
+
+    public async Task<(IEnumerable<RatWatch> Items, int TotalCount)> GetFilteredByGuildAsync(
+        ulong guildId,
+        RatWatchIncidentFilterDto filter,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Retrieving filtered Rat Watches for guild {GuildId} with filters: Statuses={Statuses}, StartDate={StartDate}, EndDate={EndDate}, AccusedUser={AccusedUser}, InitiatorUser={InitiatorUser}, MinVoteCount={MinVoteCount}, Keyword={Keyword}, Page={Page}, PageSize={PageSize}, SortBy={SortBy}, SortDescending={SortDescending}",
+            guildId,
+            filter.Statuses != null ? string.Join(",", filter.Statuses) : "null",
+            filter.StartDate,
+            filter.EndDate,
+            filter.AccusedUser,
+            filter.InitiatorUser,
+            filter.MinVoteCount,
+            filter.Keyword,
+            filter.Page,
+            filter.PageSize,
+            filter.SortBy,
+            filter.SortDescending);
+
+        var query = DbSet
+            .AsNoTracking()
+            .Include(r => r.Guild)
+            .Include(r => r.Votes)
+            .Where(r => r.GuildId == guildId);
+
+        // Apply status filter
+        if (filter.Statuses != null && filter.Statuses.Count > 0)
+        {
+            query = query.Where(r => filter.Statuses.Contains(r.Status));
+        }
+
+        // Apply date range filters
+        if (filter.StartDate.HasValue)
+        {
+            query = query.Where(r => r.ScheduledAt >= filter.StartDate.Value);
+        }
+
+        if (filter.EndDate.HasValue)
+        {
+            query = query.Where(r => r.ScheduledAt <= filter.EndDate.Value);
+        }
+
+        // Apply accused user filter (by Discord ID only - username filtering happens at service layer)
+        if (!string.IsNullOrWhiteSpace(filter.AccusedUser))
+        {
+            if (ulong.TryParse(filter.AccusedUser, out var accusedUserId))
+            {
+                query = query.Where(r => r.AccusedUserId == accusedUserId);
+            }
+        }
+
+        // Apply initiator user filter (by Discord ID only - username filtering happens at service layer)
+        if (!string.IsNullOrWhiteSpace(filter.InitiatorUser))
+        {
+            if (ulong.TryParse(filter.InitiatorUser, out var initiatorUserId))
+            {
+                query = query.Where(r => r.InitiatorUserId == initiatorUserId);
+            }
+        }
+
+        // Apply minimum vote count filter
+        if (filter.MinVoteCount.HasValue)
+        {
+            query = query.Where(r => r.Votes.Count >= filter.MinVoteCount.Value);
+        }
+
+        // Apply keyword search in custom message
+        if (!string.IsNullOrWhiteSpace(filter.Keyword))
+        {
+            var keyword = filter.Keyword.ToLower();
+            query = query.Where(r => r.CustomMessage != null && r.CustomMessage.ToLower().Contains(keyword));
+        }
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Apply sorting
+        query = filter.SortBy.ToLowerInvariant() switch
+        {
+            "scheduledat" => filter.SortDescending
+                ? query.OrderByDescending(r => r.ScheduledAt)
+                : query.OrderBy(r => r.ScheduledAt),
+            "createdat" => filter.SortDescending
+                ? query.OrderByDescending(r => r.CreatedAt)
+                : query.OrderBy(r => r.CreatedAt),
+            "status" => filter.SortDescending
+                ? query.OrderByDescending(r => r.Status)
+                : query.OrderBy(r => r.Status),
+            "accuseduser" => filter.SortDescending
+                ? query.OrderByDescending(r => r.AccusedUserId)
+                : query.OrderBy(r => r.AccusedUserId),
+            "initiatoruser" => filter.SortDescending
+                ? query.OrderByDescending(r => r.InitiatorUserId)
+                : query.OrderBy(r => r.InitiatorUserId),
+            _ => filter.SortDescending
+                ? query.OrderByDescending(r => r.ScheduledAt)
+                : query.OrderBy(r => r.ScheduledAt)
+        };
+
+        // Apply pagination
+        var skip = (filter.Page - 1) * filter.PageSize;
+        var items = await query
+            .Skip(skip)
+            .Take(filter.PageSize)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug(
+            "Retrieved {Count} filtered Rat Watches for guild {GuildId} out of {TotalCount} total",
+            items.Count, guildId, totalCount);
+
+        return (items, totalCount);
+    }
 }
