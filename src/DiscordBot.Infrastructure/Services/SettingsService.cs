@@ -22,6 +22,9 @@ public class SettingsService : ISettingsService
     private readonly ILogger<SettingsService> _logger;
     private bool _restartPending;
 
+    /// <inheritdoc />
+    public event EventHandler<SettingsChangedEventArgs>? SettingsChanged;
+
     public SettingsService(
         IServiceScopeFactory scopeFactory,
         IConfiguration configuration,
@@ -156,7 +159,7 @@ public class SettingsService : ISettingsService
                 var setting = new ApplicationSetting
                 {
                     Key = key,
-                    Value = value,
+                    Value = value ?? string.Empty, // Ensure we never pass null to satisfy NOT NULL constraint
                     Category = definition.Category,
                     DataType = definition.DataType,
                     RequiresRestart = definition.RequiresRestart,
@@ -177,8 +180,10 @@ public class SettingsService : ISettingsService
             }
             catch (Exception ex)
             {
-                errors.Add($"{definition.DisplayName}: Failed to save - {ex.Message}");
-                _logger.LogError(ex, "Failed to save setting {Key}", key);
+                var innerMessage = ex.InnerException?.Message ?? ex.Message;
+                errors.Add($"{definition.DisplayName}: Failed to save - {innerMessage}");
+                _logger.LogError(ex, "Failed to save setting {Key}. Inner exception: {InnerException}",
+                    key, ex.InnerException?.Message ?? "None");
             }
         }
 
@@ -192,6 +197,16 @@ public class SettingsService : ISettingsService
         _logger.LogInformation("Settings update completed: {UpdatedCount} updated, {ErrorCount} errors, restart required: {RestartRequired}",
             updatedKeys.Count, errors.Count, requiresRestart);
 
+        // Raise the SettingsChanged event if any settings were updated
+        if (updatedKeys.Count > 0)
+        {
+            OnSettingsChanged(new SettingsChangedEventArgs
+            {
+                UpdatedKeys = updatedKeys,
+                UserId = userId
+            });
+        }
+
         return new SettingsUpdateResultDto
         {
             Success = success,
@@ -199,6 +214,14 @@ public class SettingsService : ISettingsService
             RestartRequired = requiresRestart,
             UpdatedKeys = updatedKeys
         };
+    }
+
+    /// <summary>
+    /// Raises the SettingsChanged event.
+    /// </summary>
+    protected virtual void OnSettingsChanged(SettingsChangedEventArgs e)
+    {
+        SettingsChanged?.Invoke(this, e);
     }
 
     public async Task<SettingsUpdateResultDto> ResetCategoryAsync(

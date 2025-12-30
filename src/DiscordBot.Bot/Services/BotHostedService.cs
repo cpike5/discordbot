@@ -31,6 +31,7 @@ public class BotHostedService : IHostedService
     private readonly ILogger<BotHostedService> _logger;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly IHostEnvironment _environment;
+    private readonly ISettingsService _settingsService;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     public BotHostedService(
@@ -42,6 +43,7 @@ public class BotHostedService : IHostedService
         IDashboardUpdateService dashboardUpdateService,
         IAuditLogQueue auditLogQueue,
         IServiceScopeFactory scopeFactory,
+        ISettingsService settingsService,
         IOptions<BotConfiguration> config,
         IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
@@ -56,6 +58,7 @@ public class BotHostedService : IHostedService
         _dashboardUpdateService = dashboardUpdateService;
         _auditLogQueue = auditLogQueue;
         _scopeFactory = scopeFactory;
+        _settingsService = settingsService;
         _config = config.Value;
         _applicationOptions = applicationOptions.Value;
         _logger = logger;
@@ -88,6 +91,9 @@ public class BotHostedService : IHostedService
 
         // Wire welcome handler for new member joins
         _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
+
+        // Subscribe to settings changes for real-time updates
+        _settingsService.SettingsChanged += OnSettingsChangedAsync;
 
         // Initialize interaction handler (discovers and registers commands)
         await _interactionHandler.InitializeAsync();
@@ -147,6 +153,7 @@ public class BotHostedService : IHostedService
             _client.LatencyUpdated -= OnLatencyUpdatedAsync;
             _client.MessageReceived -= _messageLoggingHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
+            _settingsService.SettingsChanged -= OnSettingsChangedAsync;
 
             // Log bot shutdown to audit log before stopping
             _auditLogQueue.Enqueue(new AuditLogCreateDto
@@ -245,7 +252,9 @@ public class BotHostedService : IHostedService
             }
             else
             {
-                _logger.LogDebug("No custom status message configured, using default behavior");
+                // Clear the status when empty/whitespace is submitted
+                await _client.SetGameAsync(null);
+                _logger.LogInformation("Bot status cleared");
             }
         }
         catch (Exception ex)
@@ -369,6 +378,19 @@ public class BotHostedService : IHostedService
         {
             // Log but don't throw - this is fire-and-forget
             _logger.LogWarning(ex, "Failed to broadcast guild activity update for {GuildId}, but continuing normal operation", guild.Id);
+        }
+    }
+
+    /// <summary>
+    /// Handles settings changed events to apply real-time updates.
+    /// </summary>
+    private void OnSettingsChangedAsync(object? sender, SettingsChangedEventArgs e)
+    {
+        // Check if bot status message was updated
+        if (e.UpdatedKeys.Contains("General:StatusMessage"))
+        {
+            _logger.LogInformation("Bot status message setting changed, applying update in real-time");
+            _ = ApplyCustomStatusAsync();
         }
     }
 }

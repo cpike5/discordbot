@@ -9,6 +9,38 @@
     let isDirty = false;
 
     /**
+     * Build form data with proper checkbox handling
+     * Checkboxes need special handling because unchecked boxes don't submit values
+     * @param {HTMLFormElement} form - The form element
+     * @returns {FormData} - FormData with correct checkbox values
+     */
+    function buildFormData(form) {
+        const formData = new FormData();
+
+        // Add the anti-forgery token
+        const token = form.querySelector('input[name="__RequestVerificationToken"]');
+        if (token) {
+            formData.append('__RequestVerificationToken', token.value);
+        }
+
+        // Process all toggle checkboxes - add their current state (true/false)
+        const toggles = form.querySelectorAll('input[data-setting-toggle]');
+        toggles.forEach(toggle => {
+            formData.append(toggle.name, toggle.checked ? 'true' : 'false');
+        });
+
+        // Process all other form inputs (text, number, select, etc.)
+        const inputs = form.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"]), select, textarea');
+        inputs.forEach(input => {
+            if (input.name && !input.name.startsWith('__')) {
+                formData.append(input.name, input.value);
+            }
+        });
+
+        return formData;
+    }
+
+    /**
      * Switch between settings category tabs
      * @param {string} category - The category name (General, Logging, Features, Advanced)
      */
@@ -53,7 +85,7 @@
         const form = document.getElementById('settingsForm');
         if (!form) return;
 
-        const formData = new FormData(form);
+        const formData = buildFormData(form);
         const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
         // Show loading state
@@ -105,7 +137,7 @@
         const form = document.getElementById('settingsForm');
         if (!form) return;
 
-        const formData = new FormData(form);
+        const formData = buildFormData(form);
         const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
         // Show loading state
