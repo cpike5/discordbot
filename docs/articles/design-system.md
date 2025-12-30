@@ -1,7 +1,7 @@
 # Discord Bot Admin UI - Design System
 
-**Version:** 1.2
-**Last Updated:** 2025-12-27
+**Version:** 1.3
+**Last Updated:** 2025-12-29
 **Target Framework:** .NET Blazor / HTML/CSS Prototypes
 
 ---
@@ -2495,9 +2495,295 @@ module.exports = {
 
 ---
 
-## 10. Accessibility Guidelines
+## 10. Responsive Patterns
+
+This section documents the responsive design patterns used throughout the admin UI to ensure consistent, accessible experiences across all device sizes.
+
+### Container Width Standard
+
+The standard page container uses `max-w-7xl mx-auto` to constrain content width while centering it on larger screens.
+
+```html
+<!-- Standard page container pattern -->
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- Page content -->
+</div>
+```
+
+**Specifications:**
+- `max-w-7xl`: Maximum width of 1280px (80rem)
+- `mx-auto`: Centers the container horizontally
+- Responsive padding: `px-4` (16px) on mobile, `px-6` (24px) on tablet, `px-8` (32px) on desktop
+
+### Responsive Padding
+
+Padding scales with screen size to optimize readability and touch targets.
+
+#### Navbar Responsive Padding
+
+```html
+<nav class="navbar-redesign fixed top-0 left-0 right-0 flex items-center justify-between px-4 lg:px-6 z-fixed">
+  <!-- Navbar content -->
+</nav>
+```
+
+- Mobile: `px-4` (16px)
+- Desktop (1024px+): `px-6` (24px)
+
+#### Main Content Area Padding
+
+```html
+<main id="main-content" class="main-content-redesign">
+  <div class="p-6 lg:p-8">
+    <!-- Page content -->
+  </div>
+</main>
+```
+
+- Mobile/Tablet: `p-6` (24px)
+- Desktop (1024px+): `p-8` (32px)
+
+#### Filter Panel Padding
+
+```html
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+  <!-- Search and filter controls -->
+</div>
+
+<!-- Alternate: 6-unit padding for more complex filter panels -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+  <!-- Search and filter controls -->
+</div>
+```
+
+- Standard filter panels: `p-4` (16px)
+- Complex filter panels with more controls: `p-6` (24px)
+
+### Table-to-Card Transformation
+
+For data tables, use a hybrid approach where tables are shown on desktop and card layouts on mobile. This ensures optimal data display for each screen size.
+
+**Pattern:** Use `hidden md:block` for the desktop table and `md:hidden` for the mobile card layout.
+
+```html
+<!-- Desktop Table (hidden on mobile) -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+  <div class="overflow-x-auto">
+    <table class="w-full">
+      <thead class="bg-bg-tertiary">
+        <tr>
+          <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+            Column Header
+          </th>
+          <!-- Additional columns -->
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-border-primary">
+        <tr class="hover:bg-bg-hover/50 transition-colors">
+          <td class="px-6 py-4">Cell content</td>
+          <!-- Additional cells -->
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Mobile Card Layout (hidden on tablet/desktop) -->
+<div class="md:hidden space-y-4">
+  <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+    <!-- Card header with primary info -->
+    <div class="flex items-start justify-between mb-3">
+      <div class="flex items-center gap-3">
+        <!-- Avatar/icon -->
+        <div class="min-w-0">
+          <p class="font-medium text-text-primary truncate">Item Name</p>
+          <p class="text-xs text-text-tertiary font-mono">Secondary info</p>
+        </div>
+      </div>
+      <!-- Status indicator -->
+    </div>
+
+    <!-- Data grid -->
+    <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+      <div>
+        <span class="text-text-tertiary">Label:</span>
+        <span class="text-text-primary ml-1">Value</span>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="flex items-center gap-2 pt-3 border-t border-border-secondary">
+      <!-- Action buttons -->
+    </div>
+  </div>
+</div>
+```
+
+**Mobile Card Specifications:**
+- Container: `rounded-lg p-4` with `space-y-4` between cards
+- Header: Avatar/icon + name with `flex items-start justify-between`
+- Data: 2-column grid with `grid-cols-2 gap-3`
+- Actions: Full-width buttons in footer separated by `border-t`
+
+### Responsive Column Hiding
+
+For tables with many columns, hide less important columns on smaller screens using responsive utility classes.
+
+```html
+<!-- Join date column: hidden on mobile and tablet -->
+<th class="hidden lg:table-cell">Joined</th>
+<td class="hidden lg:table-cell">...</td>
+```
+
+**Common responsive visibility classes:**
+- `hidden sm:block` - Hidden on mobile, visible from 640px+
+- `hidden md:block` - Hidden until tablet (768px+)
+- `hidden lg:block` - Hidden until desktop (1024px+)
+- `hidden lg:table-cell` - For table cells that should hide on mobile
+
+### Mobile-First Form Layouts
+
+Forms use responsive grid layouts that stack on mobile and expand on larger screens.
+
+```html
+<form method="get" class="flex flex-col md:flex-row md:items-end gap-4">
+  <!-- Search Input -->
+  <div class="flex-1">
+    <label class="block text-sm font-medium text-text-primary mb-1">Search</label>
+    <input type="search" class="w-full ..." />
+  </div>
+
+  <!-- Filter dropdowns -->
+  <div class="w-full md:w-40">
+    <label class="block text-sm font-medium text-text-primary mb-1">Filter</label>
+    <select class="w-full ...">...</select>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="flex gap-2">
+    <button class="btn btn-secondary">Clear</button>
+    <button class="btn btn-primary">Search</button>
+  </div>
+</form>
+```
+
+**Pattern breakdown:**
+- `flex flex-col md:flex-row`: Stack vertically on mobile, horizontal on tablet+
+- `md:items-end`: Align items to bottom for form button alignment
+- `flex-1` for search input to take remaining space
+- `w-full md:w-40`: Full width on mobile, fixed width on tablet+
+- `gap-4`: Consistent 16px gap between form elements
+
+---
+
+## 11. Button Patterns
+
+### Button with Icon Spacing
+
+Use `gap-2` for consistent icon spacing in buttons. This provides 8px between the icon and text.
+
+```html
+<!-- Icon left (recommended) -->
+<button class="btn btn-primary">
+  <svg class="w-5 h-5" ...><!-- icon --></svg>
+  <span>Button Text</span>
+</button>
+
+<!-- Icon right -->
+<button class="btn btn-secondary">
+  <span>Button Text</span>
+  <svg class="w-5 h-5" ...><!-- icon --></svg>
+</button>
+```
+
+**Button icon sizes:**
+- Standard buttons: `w-5 h-5` (20px)
+- Small buttons (`.btn-sm`): `w-4 h-4` (16px)
+- Large buttons (`.btn-lg`): `w-5 h-5` (20px)
+
+**Deprecated pattern:** Avoid using `mr-2` for icon spacing. Use the flex gap pattern instead:
+
+```html
+<!-- PREFERRED -->
+<button class="btn btn-primary">
+  <svg class="w-5 h-5">...</svg>
+  <span>Text</span>
+</button>
+
+<!-- DEPRECATED - avoid -->
+<button class="btn btn-primary">
+  <svg class="w-5 h-5 mr-2">...</svg>
+  Text
+</button>
+```
+
+### Discord OAuth Button
+
+The Discord OAuth button uses Discord's brand color with custom hover/focus states.
+
+```css
+/* Discord brand colors - defined in site.css */
+--color-discord: #5865F2;
+--color-discord-hover: #4752C4;
+```
+
+```html
+<button type="submit" class="btn-discord-oauth w-full flex items-center justify-center gap-3 px-6 py-4 text-base font-semibold text-white bg-discord hover:bg-discord-hover rounded-lg cursor-pointer relative overflow-hidden transition-all duration-200 ease-out" style="border: 1px solid var(--color-discord); box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);">
+  <svg class="w-6 h-6 flex-shrink-0 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
+    <!-- Discord logo SVG path -->
+  </svg>
+  <span>Continue with Discord</span>
+</button>
+```
+
+**Visual specifications:**
+- Background: `#5865F2` (Discord Blurple)
+- Hover: `#4752C4` (darker shade)
+- Shadow: `0 4px 12px rgba(88, 101, 242, 0.3)`
+- Padding: `px-6 py-4` (24px × 16px)
+- Font: 16px semibold
+- Icon: 24×24px with hover scale effect
+
+### When to Use Button Component vs Inline Styling
+
+| Scenario | Approach |
+|----------|----------|
+| Standard actions (Save, Cancel, Submit) | Use `.btn .btn-*` classes |
+| Special branded buttons (Discord OAuth) | Custom classes with design tokens |
+| Table row actions | Icon-only buttons with `p-2` |
+| Card/panel actions | Use `.btn .btn-sm` for compact spaces |
+| Form submissions | Use `.btn .btn-primary` with loading state support |
+
+---
+
+## 12. Accessibility Guidelines
 
 ### WCAG 2.1 AA Compliance Checklist
+
+#### Active Navigation States
+
+Use `aria-current` to indicate the current page in navigation. This improves accessibility for screen reader users.
+
+```html
+<!-- Current page in navigation -->
+<a href="/servers" class="sidebar-link active" aria-current="page">
+  <svg class="sidebar-icon"><!-- icon --></svg>
+  <span>Servers</span>
+</a>
+
+<!-- Non-current page -->
+<a href="/commands" class="sidebar-link">
+  <svg class="sidebar-icon"><!-- icon --></svg>
+  <span>Commands</span>
+</a>
+```
+
+**`aria-current` values:**
+- `page`: Current page in navigation
+- `step`: Current step in a process
+- `location`: Current location in an environment
+- `date`: Current date in a calendar
+- `true`: Generic current item
 
 #### Color Contrast
 - ✅ Text primary on bg-primary: **10.8:1** (AAA)
@@ -2536,7 +2822,7 @@ module.exports = {
 
 ---
 
-## 11. Responsive Design Strategy
+## 13. Responsive Design Strategy
 
 ### Mobile-First Approach
 
@@ -2598,7 +2884,7 @@ Start with mobile styles, then enhance for larger screens:
 
 ---
 
-## 12. Implementation Guidelines
+## 14. Implementation Guidelines
 
 ### CSS Organization
 
@@ -2632,7 +2918,7 @@ Start with mobile styles, then enhance for larger screens:
 
 ---
 
-## 13. Code Examples & Quick Reference
+## 15. Code Examples & Quick Reference
 
 ### Basic Page Layout
 
@@ -2733,6 +3019,22 @@ Start with mobile styles, then enhance for larger screens:
 
 ## Changelog
 
+### Version 1.3 (2025-12-29)
+- Added Responsive Patterns section (Section 10)
+  - Documented container width standard (`max-w-7xl mx-auto`)
+  - Documented responsive padding patterns (navbar, main content, filter panels)
+  - Documented table-to-card transformation pattern for mobile
+  - Documented responsive column hiding patterns
+  - Documented mobile-first form layouts
+- Added Button Patterns section (Section 11)
+  - Documented icon spacing standard (`gap-2`)
+  - Documented Discord OAuth button styling
+  - Added button usage guidelines table
+- Enhanced Accessibility Guidelines (Section 12)
+  - Added `aria-current` documentation for active navigation states
+- Renumbered sections 11-13 to 13-15 to accommodate new sections
+- Related to Issue #369: Update Design System Documentation
+
 ### Version 1.2 (2025-12-27)
 - Added Timezone-Aware Inputs subsection to Forms (Section 4)
   - Documented timezone input pattern with hidden field
@@ -2775,5 +3077,5 @@ Start with mobile styles, then enhance for larger screens:
 For questions, updates, or contributions to this design system, please contact the design team or create an issue in the project repository.
 
 **Maintained by:** Design & UI Team
-**Last Review:** 2025-12-23
+**Last Review:** 2025-12-29
 **Next Review:** Quarterly
