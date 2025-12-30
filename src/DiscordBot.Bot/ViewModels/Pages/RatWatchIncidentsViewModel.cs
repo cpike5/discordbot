@@ -191,6 +191,38 @@ public record RatWatchIncidentFilterState
     }
 
     /// <summary>
+    /// Determines which quick date filter preset is currently active based on start and end dates.
+    /// </summary>
+    /// <returns>The active quick filter: "today", "7days", "30days", or null if no preset matches.</returns>
+    public string? GetActiveQuickFilter()
+    {
+        if (!StartDate.HasValue || !EndDate.HasValue)
+            return null;
+
+        var today = DateTime.Today;
+        var startDateOnly = StartDate.Value.Date;
+        var endDateOnly = EndDate.Value.Date;
+
+        // Check if end date is today
+        if (endDateOnly != today)
+            return null;
+
+        // Today: start and end are both today
+        if (startDateOnly == today)
+            return "today";
+
+        // Last 7 Days: start is 7 days ago
+        if (startDateOnly == today.AddDays(-7))
+            return "7days";
+
+        // Last 30 Days: start is 30 days ago
+        if (startDateOnly == today.AddDays(-30))
+            return "30days";
+
+        return null;
+    }
+
+    /// <summary>
     /// Creates a filter state from the DTO.
     /// </summary>
     /// <param name="dto">The filter DTO from the service.</param>

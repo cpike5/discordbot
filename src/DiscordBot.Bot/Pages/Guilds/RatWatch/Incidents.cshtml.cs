@@ -97,12 +97,27 @@ public class IncidentsModel : PageModel
         var normalizedPage = Math.Max(1, Page);
         var normalizedPageSize = Math.Clamp(PageSize, 10, 100);
 
+        // Apply default date range (Last 30 Days) if no date filters specified
+        var effectiveStartDate = StartDate;
+        var effectiveEndDate = EndDate;
+        if (!StartDate.HasValue && !EndDate.HasValue)
+        {
+            effectiveStartDate = DateTime.Today.AddDays(-30);
+            effectiveEndDate = DateTime.Today;
+        }
+
+        // Adjust EndDate to end-of-day (23:59:59.999) for inclusive date filtering
+        // This ensures incidents scheduled during the day are included when filtering by date
+        DateTime? normalizedEndDate = effectiveEndDate.HasValue
+            ? effectiveEndDate.Value.Date.AddDays(1).AddTicks(-1)
+            : null;
+
         // Build filter DTO from bound properties
         var filter = new RatWatchIncidentFilterDto
         {
             Statuses = Statuses?.Count > 0 ? Statuses : null,
-            StartDate = StartDate,
-            EndDate = EndDate,
+            StartDate = effectiveStartDate,
+            EndDate = normalizedEndDate,
             AccusedUser = AccusedUser,
             InitiatorUser = InitiatorUser,
             MinVoteCount = MinVoteCount,
@@ -124,8 +139,19 @@ public class IncidentsModel : PageModel
             incidents.Count(), guildId, normalizedPage,
             (int)Math.Ceiling((double)totalCount / normalizedPageSize), totalCount);
 
-        // Build view model
-        var filterState = RatWatchIncidentFilterState.FromDto(filter);
+        // Build view model with UI-friendly dates (not the normalized end-of-day)
+        var filterState = new RatWatchIncidentFilterState
+        {
+            Statuses = filter.Statuses?.ToList() ?? new List<RatWatchStatus>(),
+            StartDate = effectiveStartDate,
+            EndDate = effectiveEndDate, // Use original date for UI display, not normalized
+            AccusedUser = filter.AccusedUser,
+            InitiatorUser = filter.InitiatorUser,
+            MinVoteCount = filter.MinVoteCount,
+            Keyword = filter.Keyword,
+            SortBy = filter.SortBy,
+            SortDescending = filter.SortDescending
+        };
         ViewModel = RatWatchIncidentsViewModel.Create(
             ulongGuildId,
             guild.Name,

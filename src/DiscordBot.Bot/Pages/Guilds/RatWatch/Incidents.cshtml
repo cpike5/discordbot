@@ -142,14 +142,20 @@
                             <input type="date" id="EndDate" name="EndDate" value="@Model.ViewModel.Filters.EndDate?.ToString("yyyy-MM-dd")"
                                    class="py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:ring-2 focus:ring-accent-blue focus:border-accent-blue transition-colors" />
                         </div>
+                        @{
+                            var activeQuickFilter = Model.ViewModel.Filters.GetActiveQuickFilter();
+                            var baseClasses = "quick-date-btn px-3 py-1.5 text-xs font-medium rounded-md transition-colors";
+                            var inactiveClasses = "text-text-secondary bg-bg-tertiary border border-border-primary hover:bg-bg-hover";
+                            var activeClasses = "text-accent-blue bg-accent-blue/10 border-2 border-accent-blue";
+                        }
                         <div class="flex items-center gap-2">
-                            <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" data-range="today">
+                            <button type="button" class="@baseClasses @(activeQuickFilter == "today" ? activeClasses : inactiveClasses)" data-range="today">
                                 Today
                             </button>
-                            <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" data-range="7days">
+                            <button type="button" class="@baseClasses @(activeQuickFilter == "7days" ? activeClasses : inactiveClasses)" data-range="7days">
                                 Last 7 Days
                             </button>
-                            <button type="button" class="quick-date-btn px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" data-range="30days">
+                            <button type="button" class="@baseClasses @(activeQuickFilter == "30days" ? activeClasses : inactiveClasses)" data-range="30days">
                                 Last 30 Days
                             </button>
                         </div>
