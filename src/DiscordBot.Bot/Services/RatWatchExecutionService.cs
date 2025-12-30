@@ -18,6 +18,7 @@ public class RatWatchExecutionService : BackgroundService
     private readonly ILogger<RatWatchExecutionService> _logger;
     private readonly DiscordSocketClient _client;
     private readonly IRatWatchStatusService _ratWatchStatusService;
+    private readonly IDashboardUpdateService _dashboardUpdateService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RatWatchExecutionService"/> class.
@@ -27,18 +28,21 @@ public class RatWatchExecutionService : BackgroundService
     /// <param name="logger">The logger.</param>
     /// <param name="client">The Discord socket client for posting messages.</param>
     /// <param name="ratWatchStatusService">The Rat Watch status service for bot status updates.</param>
+    /// <param name="dashboardUpdateService">The dashboard update service for broadcasting activity.</param>
     public RatWatchExecutionService(
         IServiceScopeFactory scopeFactory,
         IOptions<RatWatchOptions> options,
         ILogger<RatWatchExecutionService> logger,
         DiscordSocketClient client,
-        IRatWatchStatusService ratWatchStatusService)
+        IRatWatchStatusService ratWatchStatusService,
+        IDashboardUpdateService dashboardUpdateService)
     {
         _scopeFactory = scopeFactory;
         _options = options;
         _logger = logger;
         _client = client;
         _ratWatchStatusService = ratWatchStatusService;
+        _dashboardUpdateService = dashboardUpdateService;
     }
 
     /// <inheritdoc/>
@@ -327,6 +331,18 @@ public class RatWatchExecutionService : BackgroundService
             _logger.LogDebug("Posted voting message {MessageId} for Rat Watch {WatchId}",
                 message.Id, watchId);
 
+            // Broadcast Rat Watch voting started event to dashboard
+            var guild = _client.GetGuild(guildId);
+            var guildName = guild?.Name ?? "Unknown";
+            var user = guild?.GetUser(accusedUserId);
+            var username = user?.Username ?? "Unknown";
+            await _dashboardUpdateService.BroadcastRatWatchActivityAsync(
+                guildId,
+                guildName,
+                "RatWatchVotingStarted",
+                username,
+                cancellationToken: ct);
+
             return true;
         }
         catch (Exception ex)
@@ -400,6 +416,18 @@ public class RatWatchExecutionService : BackgroundService
 
             _logger.LogDebug("Updated voting message {MessageId} for Rat Watch {WatchId} with verdict: {Verdict}",
                 watchDto.VotingMessageId.Value, watchId, isGuilty ? "Guilty" : "Not Guilty");
+
+            // Broadcast Rat Watch voting ended event to dashboard
+            var guild = _client.GetGuild(watchDto.GuildId);
+            var guildName = guild?.Name ?? "Unknown";
+            var verdict = isGuilty ? "Guilty" : "Not Guilty";
+            await _dashboardUpdateService.BroadcastRatWatchActivityAsync(
+                watchDto.GuildId,
+                guildName,
+                "RatWatchVotingEnded",
+                watchDto.AccusedUsername,
+                verdict,
+                ct);
         }
         catch (Exception ex)
         {

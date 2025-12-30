@@ -17,6 +17,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IRatWatchService _ratWatchService;
     private readonly IRatWatchStatusService _ratWatchStatusService;
+    private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly DiscordSocketClient _client;
     private readonly ILogger<RatWatchModule> _logger;
 
@@ -26,11 +27,13 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
     public RatWatchModule(
         IRatWatchService ratWatchService,
         IRatWatchStatusService ratWatchStatusService,
+        IDashboardUpdateService dashboardUpdateService,
         DiscordSocketClient client,
         ILogger<RatWatchModule> logger)
     {
         _ratWatchService = ratWatchService;
         _ratWatchStatusService = ratWatchStatusService;
+        _dashboardUpdateService = dashboardUpdateService;
         _client = client;
         _logger = logger;
     }
@@ -229,6 +232,13 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
 
             // Notify that a new watch was created - may need to update bot status
             _ratWatchStatusService.RequestStatusUpdate();
+
+            // Broadcast Rat Watch created event to dashboard
+            await _dashboardUpdateService.BroadcastRatWatchActivityAsync(
+                Context.Guild.Id,
+                Context.Guild.Name,
+                "RatWatchCreated",
+                watch.AccusedUsername);
 
             _logger.LogDebug("Rat Watch confirmation message sent with check-in button");
         }

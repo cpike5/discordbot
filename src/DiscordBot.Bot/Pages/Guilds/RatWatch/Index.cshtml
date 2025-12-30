@@ -223,7 +223,7 @@
             </div>
 
             <div class="table-container overflow-x-auto">
-                <table class="w-full min-w-[800px]">
+                <table class="w-full min-w-[900px]">
                     <thead class="bg-bg-tertiary border-b border-border-primary">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
@@ -240,6 +240,9 @@
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                                 Scheduled
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                                Vote Ends
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
                                 Votes
@@ -298,6 +301,16 @@
                                     <span class="text-sm text-text-primary" data-utc="@watch.ScheduledAtUtcIso" data-format="datetime-short"></span>
                                 </td>
                                 <td class="px-6 py-4">
+                                    @if (watch.VoteEndsAtUtcIso != null)
+                                    {
+                                        <span class="text-sm text-text-primary" data-utc="@watch.VoteEndsAtUtcIso" data-format="datetime-short"></span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-text-tertiary">--</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-4">
                                     @if (watch.TotalVotes > 0)
                                     {
                                         <div class="flex items-center gap-2 text-sm">
@@ -313,6 +326,19 @@
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-1 row-actions">
+                                        @if (watch.CanEndVote)
+                                        {
+                                            <button
+                                                type="button"
+                                                onclick="showEndVoteModal('@watch.Id', '@watch.AccusedUsername', @watch.GuiltyVotes, @watch.NotGuiltyVotes)"
+                                                class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
+                                                title="End Vote"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </button>
+                                        }
                                         @if (watch.CanCancel)
                                         {
                                             <button
@@ -434,6 +460,50 @@
     </div>
 </div>
 
+<!-- End Vote Confirmation Modal -->
+<div id="end-vote-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="end-vote-modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="modal-overlay fixed inset-0 transition-opacity" aria-hidden="true" onclick="hideEndVoteModal()"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border-primary">
+            <div class="px-6 py-5">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-accent-blue/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 id="end-vote-modal-title" class="text-lg font-semibold text-text-primary">End Vote Early</h3>
+                        <p class="mt-2 text-sm text-text-secondary">
+                            Are you sure you want to end voting for <span id="end-vote-username" class="font-medium text-text-primary"></span>?
+                        </p>
+                        <p class="mt-2 text-sm text-text-secondary">
+                            Current tally: <span id="end-vote-guilty" class="font-medium text-error"></span> Guilty, <span id="end-vote-notguilty" class="font-medium text-success"></span> Not Guilty
+                        </p>
+                        <p class="mt-1 text-xs text-text-tertiary">
+                            The verdict will be determined based on current votes. This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 bg-bg-primary flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button type="button" onclick="hideEndVoteModal()"
+                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                    Continue Voting
+                </button>
+                <form id="end-vote-form" method="post" asp-page="Index" asp-page-handler="EndVote" asp-route-guildId="@Model.ViewModel.GuildId">
+                    <input type="hidden" id="end-vote-watch-id" name="watchId" value="" />
+                    <button type="submit"
+                            class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-accent-blue border border-accent-blue rounded-md hover:bg-blue-600 transition-colors">
+                        End Vote Now
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <style>
         .modal-overlay {
@@ -473,9 +543,28 @@
             document.body.style.overflow = '';
         }
 
+        function showEndVoteModal(watchId, username, guiltyVotes, notGuiltyVotes) {
+            document.getElementById('end-vote-watch-id').value = watchId;
+            document.getElementById('end-vote-username').textContent = username;
+            document.getElementById('end-vote-guilty').textContent = guiltyVotes;
+            document.getElementById('end-vote-notguilty').textContent = notGuiltyVotes;
+            document.getElementById('end-vote-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideEndVoteModal() {
+            document.getElementById('end-vote-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && !document.getElementById('cancel-modal').classList.contains('hidden')) {
-                hideCancelModal();
+            if (e.key === 'Escape') {
+                if (!document.getElementById('cancel-modal').classList.contains('hidden')) {
+                    hideCancelModal();
+                }
+                if (!document.getElementById('end-vote-modal').classList.contains('hidden')) {
+                    hideEndVoteModal();
+                }
             }
         });
     </script>

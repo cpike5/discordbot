@@ -143,6 +143,41 @@ public class IndexModel : PageModel
     }
 
     /// <summary>
+    /// Handles POST requests to end voting early on a Rat Watch.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
+    /// <param name="watchId">The watch ID to end voting on.</param>
+    /// <param name="page">The current page number to return to.</param>
+    /// <param name="pageSize">The current page size.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Redirect to the index page.</returns>
+    public async Task<IActionResult> OnPostEndVoteAsync(
+        ulong guildId,
+        Guid watchId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("User attempting to end vote on Rat Watch {WatchId} for guild {GuildId}",
+            watchId, guildId);
+
+        var success = await _ratWatchService.FinalizeVotingAsync(watchId, cancellationToken);
+
+        if (success)
+        {
+            _logger.LogInformation("Successfully ended voting on Rat Watch {WatchId}", watchId);
+            SuccessMessage = "Voting ended and verdict determined.";
+        }
+        else
+        {
+            _logger.LogWarning("Failed to end voting on Rat Watch {WatchId} - not found or not in voting status", watchId);
+            ErrorMessage = "Could not end voting. The watch may not be in voting status.";
+        }
+
+        return RedirectToPage("Index", new { guildId, page, pageSize });
+    }
+
+    /// <summary>
     /// Handles POST requests to update Rat Watch settings.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>

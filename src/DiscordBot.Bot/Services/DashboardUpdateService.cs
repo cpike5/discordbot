@@ -165,6 +165,34 @@ public class DashboardUpdateService : IDashboardUpdateService
         }
     }
 
+    /// <inheritdoc/>
+    public async Task BroadcastRatWatchActivityAsync(
+        ulong guildId,
+        string guildName,
+        string eventType,
+        string username,
+        string? details = null,
+        CancellationToken cancellationToken = default)
+    {
+        var update = new GuildActivityUpdateDto
+        {
+            GuildId = guildId,
+            GuildName = guildName,
+            EventType = eventType,
+            Username = username,
+            Details = details,
+            Timestamp = DateTime.UtcNow
+        };
+
+        _logger.LogDebug(
+            "Broadcasting Rat Watch activity: GuildId={GuildId}, EventType={EventType}, Username={Username}",
+            guildId,
+            eventType,
+            username);
+
+        await BroadcastGuildActivityAsync(update, cancellationToken);
+    }
+
     /// <summary>
     /// Gets the SignalR group name for a guild.
     /// </summary>
