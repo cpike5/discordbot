@@ -144,18 +144,18 @@
                         </div>
                         @{
                             var activeQuickFilter = Model.ViewModel.Filters.GetActiveQuickFilter();
-                            var baseClasses = "quick-date-btn px-3 py-1.5 text-xs font-medium rounded-md transition-colors";
-                            var inactiveClasses = "text-text-secondary bg-bg-tertiary border border-border-primary hover:bg-bg-hover";
-                            var activeClasses = "text-accent-blue bg-accent-blue/10 border-2 border-accent-blue";
+                            string GetQuickFilterClass(string range) => activeQuickFilter == range
+                                ? "quick-date-btn px-3 py-1.5 text-xs font-medium bg-accent-orange text-white border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
+                                : "quick-date-btn px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
                         }
                         <div class="flex items-center gap-2">
-                            <button type="button" class="@baseClasses @(activeQuickFilter == "today" ? activeClasses : inactiveClasses)" data-range="today">
+                            <button type="button" class="@GetQuickFilterClass("today")" data-range="today">
                                 Today
                             </button>
-                            <button type="button" class="@baseClasses @(activeQuickFilter == "7days" ? activeClasses : inactiveClasses)" data-range="7days">
+                            <button type="button" class="@GetQuickFilterClass("7days")" data-range="7days">
                                 Last 7 Days
                             </button>
-                            <button type="button" class="@baseClasses @(activeQuickFilter == "30days" ? activeClasses : inactiveClasses)" data-range="30days">
+                            <button type="button" class="@GetQuickFilterClass("30days")" data-range="30days">
                                 Last 30 Days
                             </button>
                         </div>
