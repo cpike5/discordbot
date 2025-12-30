@@ -1468,4 +1468,349 @@
   .quick-action-card:disabled:hover .quick-action-icon {
     transform: scale(1);
   }
+
+  /* ============================================
+     LOGIN PAGE STYLES
+     Migrated from login.css for design token compliance
+     ============================================ */
+
+  /* Login page animated gradient overlay */
+  .login-gradient-overlay {
+    background: radial-gradient(
+      circle at 30% 20%,
+      rgba(203, 78, 27, 0.15) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 70% 80%,
+      rgba(9, 142, 207, 0.12) 0%,
+      transparent 50%
+    );
+    animation: login-gradient-shift 8s ease-in-out infinite alternate;
+  }
+
+  @keyframes login-gradient-shift {
+    0% {
+      transform: translate(0, 0) scale(1);
+      opacity: 0.8;
+    }
+    100% {
+      transform: translate(20px, -20px) scale(1.1);
+      opacity: 1;
+    }
+  }
+
+  /* Login page floating particles */
+  .login-particles .particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: radial-gradient(circle, #cb4e1b 0%, transparent 70%);
+    border-radius: 50%;
+    opacity: 0.3;
+    animation: login-float-particle 15s infinite ease-in-out;
+  }
+
+  .login-particles .particle:nth-child(1) { left: 10%; animation-delay: 0s; }
+  .login-particles .particle:nth-child(2) { left: 30%; animation-delay: 2s; }
+  .login-particles .particle:nth-child(3) { left: 50%; animation-delay: 4s; }
+  .login-particles .particle:nth-child(4) { left: 70%; animation-delay: 6s; }
+  .login-particles .particle:nth-child(5) { left: 90%; animation-delay: 8s; }
+
+  @keyframes login-float-particle {
+    0%, 100% {
+      transform: translateY(100vh) scale(0.5);
+      opacity: 0;
+    }
+    10% {
+      opacity: 0.3;
+    }
+    50% {
+      transform: translateY(-10vh) scale(1);
+      opacity: 0.5;
+    }
+    90% {
+      opacity: 0.3;
+    }
+  }
+
+  /* Login page logo pulse animation */
+  .login-logo-container {
+    animation: login-logo-pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes login-logo-pulse {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow:
+        0 10px 40px rgba(203, 78, 27, 0.3),
+        0 0 60px rgba(203, 78, 27, 0.15);
+    }
+    50% {
+      transform: scale(1.05);
+      box-shadow:
+        0 15px 50px rgba(203, 78, 27, 0.4),
+        0 0 80px rgba(203, 78, 27, 0.2);
+    }
+  }
+
+  /* Login form staggered entrance animation */
+  .login-form-animated > * {
+    opacity: 0;
+    transform: translateY(12px);
+    animation: login-fade-in-up 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .login-form-animated > *:nth-child(1) { animation-delay: 0.1s; }
+  .login-form-animated > *:nth-child(2) { animation-delay: 0.15s; }
+  .login-form-animated > *:nth-child(3) { animation-delay: 0.2s; }
+  .login-form-animated > *:nth-child(4) { animation-delay: 0.25s; }
+  .login-form-animated > *:nth-child(5) { animation-delay: 0.3s; }
+  .login-form-animated > *:nth-child(6) { animation-delay: 0.35s; }
+
+  @keyframes login-fade-in-up {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Login divider with gradient line */
+  .login-divider::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      #3f4447 20%,
+      #3f4447 80%,
+      transparent 100%
+    );
+  }
+
+  /* Login error alert animation */
+  .login-error-alert {
+    animation: login-slide-down 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes login-slide-down {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .login-error-alert.shake {
+    animation: login-shake 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  @keyframes login-shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+    20%, 40%, 60%, 80% { transform: translateX(4px); }
+  }
+
+  /* Discord OAuth button effects */
+  .btn-discord-oauth:hover {
+    box-shadow: 0 6px 16px rgba(88, 101, 242, 0.4);
+    transform: translateY(-2px);
+  }
+
+  .btn-discord-oauth:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(88, 101, 242, 0.4);
+  }
+
+  .btn-discord-oauth:focus-visible {
+    outline: none;
+    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3), 0 0 0 3px rgba(9, 142, 207, 0.4);
+  }
+
+  .btn-discord-oauth:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* Discord button shimmer effect */
+  .btn-discord-oauth::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.15) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    transition: transform 0.6s ease;
+  }
+
+  .btn-discord-oauth:hover::before {
+    transform: translateX(100%);
+  }
+
+  .btn-discord-oauth:hover svg {
+    transform: scale(1.1);
+  }
+
+  /* Discord button loading state */
+  .btn-discord-oauth.loading {
+    pointer-events: none;
+  }
+
+  .btn-discord-oauth.loading svg {
+    animation: spin 1s linear infinite;
+  }
+
+  /* Floating Label Pattern - Form inputs with floating labels */
+  .form-input-floating:focus + .form-label-floating,
+  .form-input-floating:not(:placeholder-shown) + .form-label-floating {
+    transform: translateY(-0.625rem) scale(0.85);
+    color: theme('colors.accent.blue');
+    font-weight: 600;
+  }
+
+  /* Floating label error state */
+  .form-input-floating.error {
+    border-color: theme('colors.error');
+    background-color: rgba(239, 68, 68, 0.05);
+  }
+
+  .form-input-floating.error:focus {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(239, 68, 68, 0.15);
+  }
+
+  .form-input-floating.error + .form-label-floating {
+    color: theme('colors.error');
+  }
+
+  .form-input-floating.error ~ .form-error {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Floating label success state */
+  .form-input-floating.success {
+    border-color: theme('colors.success');
+  }
+
+  .form-input-floating.success:focus {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(16, 185, 129, 0.15);
+  }
+
+  /* Password toggle icon visibility */
+  .password-toggle-icon.hidden {
+    display: none;
+  }
+
+  /* Remember me checkbox states */
+  .remember-me-checkbox:hover + .remember-me-checkbox-custom {
+    border-color: theme('colors.accent.blue');
+  }
+
+  .remember-me-checkbox:focus-visible + .remember-me-checkbox-custom {
+    outline: 2px solid theme('colors.accent.blue');
+    outline-offset: 2px;
+  }
+
+  .remember-me-checkbox:checked + .remember-me-checkbox-custom {
+    background-color: theme('colors.accent.orange');
+    border-color: theme('colors.accent.orange');
+  }
+
+  .remember-me-checkbox:checked + .remember-me-checkbox-custom .remember-me-checkmark {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Submit button effects */
+  .btn-submit-login:hover {
+    background: linear-gradient(135deg, #e5591f 0%, #cb4e1b 100%);
+    box-shadow: 0 4px 12px rgba(203, 78, 27, 0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-submit-login:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 4px rgba(203, 78, 27, 0.3);
+  }
+
+  .btn-submit-login:focus-visible {
+    outline: none;
+    box-shadow: 0 2px 8px rgba(203, 78, 27, 0.3), 0 0 0 3px rgba(9, 142, 207, 0.4);
+  }
+
+  .btn-submit-login:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Submit button loading state */
+  .btn-submit-login.loading {
+    pointer-events: none;
+  }
+
+  .btn-submit-login.loading .btn-text {
+    visibility: hidden;
+  }
+
+  .btn-submit-login.loading::after {
+    content: "";
+    position: absolute;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #ffffff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  /* Login page responsive styles */
+  @media (max-width: 767px) {
+    .login-brand-panel {
+      display: none;
+    }
+
+    .login-particles {
+      display: none;
+    }
+  }
+
+  /* Login page reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .login-gradient-overlay,
+    .login-particles .particle,
+    .login-logo-container,
+    .login-form-animated > *,
+    .login-error-alert,
+    .btn-discord-oauth,
+    .btn-discord-oauth::before,
+    .btn-submit-login {
+      animation: none;
+      transition: none;
+    }
+
+    .login-form-animated > * {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* Keep essential loading animations */
+    .btn-submit-login.loading::after,
+    .btn-discord-oauth.loading svg {
+      animation: spin 1s linear infinite;
+    }
+  }
 }

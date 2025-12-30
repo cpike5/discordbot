@@ -716,6 +716,98 @@ Following Tailwind CSS conventions (base unit: 0.25rem = 4px):
 .form-input.success {
   border-color: #10b981;
 }
+```
+
+#### Floating Label Pattern
+
+The floating label pattern provides a modern, space-efficient form design where labels animate from placeholder position to above the input when focused or filled. This pattern is used on the login page and can be applied to other authentication or focused form experiences.
+
+**Use Cases:**
+- Login and registration forms
+- Focused single-purpose forms (e.g., search, contact)
+- Forms where vertical space is limited
+- Modern, minimal form aesthetics
+
+**HTML Structure:**
+
+```html
+<div class="form-group-floating relative mb-6">
+  <input
+    type="email"
+    id="email"
+    class="form-input-floating w-full pt-5 pb-2 px-4 text-[0.9375rem] text-text-primary bg-bg-primary border border-border-primary rounded-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-200 outline-none appearance-none placeholder:text-transparent hover:border-accent-blue focus:border-accent-blue focus:bg-bg-secondary focus:shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),0_0_0_3px_rgba(9,142,207,0.15)]"
+    placeholder=" "
+    autocomplete="email"
+    required
+    aria-required="true"
+    aria-describedby="email-error"
+  />
+  <label for="email" class="form-label-floating absolute top-4 left-4 text-[0.9375rem] font-medium text-text-tertiary bg-transparent pointer-events-none transition-all duration-200 origin-left">
+    Email address
+  </label>
+  <span id="email-error" class="form-error block mt-2 text-xs text-error opacity-0 -translate-y-1 transition-all duration-200" role="alert"></span>
+</div>
+```
+
+**CSS (defined in site.css):**
+
+```css
+/* Floating Label Pattern - Form inputs with floating labels */
+.form-input-floating:focus + .form-label-floating,
+.form-input-floating:not(:placeholder-shown) + .form-label-floating {
+  transform: translateY(-0.625rem) scale(0.85);
+  color: theme('colors.accent.blue');
+  font-weight: 600;
+}
+
+/* Floating label error state */
+.form-input-floating.error {
+  border-color: theme('colors.error');
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.form-input-floating.error:focus {
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.form-input-floating.error + .form-label-floating {
+  color: theme('colors.error');
+}
+
+.form-input-floating.error ~ .form-error {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Floating label success state */
+.form-input-floating.success {
+  border-color: theme('colors.success');
+}
+```
+
+**Key Implementation Details:**
+
+1. **Placeholder trick:** The `placeholder=" "` (single space) is required for the `:placeholder-shown` selector to work correctly
+2. **Label positioning:** Labels start at `top-4 left-4` and transform upward when input is focused or has content
+3. **Padding asymmetry:** Input uses `pt-5 pb-2` to create space for the floating label
+4. **Accessibility:** Always include proper `aria-*` attributes and `<label>` elements linked via `for`/`id`
+
+**States:**
+
+| State | Visual Change |
+|-------|---------------|
+| Default | Label appears as placeholder text inside input |
+| Hover | Border color changes to accent-blue |
+| Focus | Label floats up, turns blue, input background changes |
+| Filled | Label stays floating, returns to blue color |
+| Error | Border/label turn red, error message fades in |
+| Success | Border turns green |
+
+**When NOT to Use:**
+
+- Long forms with many fields (use standard labels for better scannability)
+- Forms requiring help text visible before focus
+- Complex form layouts with grouped fields
 
 .form-success {
   display: flex;
