@@ -50,6 +50,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IWelcomeConfigurationRepository, WelcomeConfigurationRepository>();
         services.AddScoped<IScheduledMessageRepository, ScheduledMessageRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IRatWatchRepository, RatWatchRepository>();
+        services.AddScoped<IRatVoteRepository, RatVoteRepository>();
+        services.AddScoped<IRatRecordRepository, RatRecordRepository>();
+        services.AddScoped<IGuildRatWatchSettingsRepository, GuildRatWatchSettingsRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests
