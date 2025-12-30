@@ -33,6 +33,7 @@ public class BotHostedService : IHostedService
     private readonly IHostEnvironment _environment;
     private readonly ISettingsService _settingsService;
     private readonly IRatWatchStatusService _ratWatchStatusService;
+    private readonly IBotStatusService _botStatusService;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     public BotHostedService(
@@ -46,6 +47,7 @@ public class BotHostedService : IHostedService
         IServiceScopeFactory scopeFactory,
         ISettingsService settingsService,
         IRatWatchStatusService ratWatchStatusService,
+        IBotStatusService botStatusService,
         IOptions<BotConfiguration> config,
         IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
@@ -62,6 +64,7 @@ public class BotHostedService : IHostedService
         _scopeFactory = scopeFactory;
         _settingsService = settingsService;
         _ratWatchStatusService = ratWatchStatusService;
+        _botStatusService = botStatusService;
         _config = config.Value;
         _applicationOptions = applicationOptions.Value;
         _logger = logger;
@@ -100,6 +103,12 @@ public class BotHostedService : IHostedService
 
         // Subscribe to Rat Watch status updates
         _ratWatchStatusService.StatusUpdateRequested += OnRatWatchStatusUpdateRequested;
+
+        // Register custom status source with CustomStatus priority
+        _botStatusService.RegisterStatusSource(
+            "CustomStatus",
+            StatusSourcePriority.CustomStatus,
+            GetCustomStatusAsync);
 
         // Initialize interaction handler (discovers and registers commands)
         await _interactionHandler.InitializeAsync();
@@ -242,10 +251,10 @@ public class BotHostedService : IHostedService
     }
 
     /// <summary>
-    /// Applies custom status message from settings if configured.
-    /// Fire-and-forget with internal error handling.
+    /// Gets the custom status message from settings if configured.
+    /// Returns null if no custom status is configured (allows other status sources to take priority).
     /// </summary>
-    private async Task ApplyCustomStatusAsync()
+    private async Task<string?> GetCustomStatusAsync()
     {
         try
         {
@@ -255,19 +264,17 @@ public class BotHostedService : IHostedService
             var statusMessage = await settingsService.GetSettingValueAsync<string>("General:StatusMessage");
             if (!string.IsNullOrWhiteSpace(statusMessage))
             {
-                await _client.SetGameAsync(statusMessage);
-                _logger.LogInformation("Bot status set to: {StatusMessage}", statusMessage);
+                _logger.LogTrace("Custom status provider returning: {StatusMessage}", statusMessage);
+                return statusMessage;
             }
-            else
-            {
-                // Clear the status when empty/whitespace is submitted
-                await _client.SetGameAsync(null);
-                _logger.LogInformation("Bot status cleared");
-            }
+
+            _logger.LogTrace("Custom status provider returning null (no configured status)");
+            return null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to apply custom status message, but continuing normal operation");
+            _logger.LogWarning(ex, "Failed to retrieve custom status message");
+            return null;
         }
     }
 
@@ -397,9 +404,9 @@ public class BotHostedService : IHostedService
         // Check if bot status message was updated
         if (e.UpdatedKeys.Contains("General:StatusMessage"))
         {
-            _logger.LogInformation("Bot status message setting changed, applying update in real-time");
-            // Update status, but let Rat Watch status service handle priority
-            _ = _ratWatchStatusService.UpdateBotStatusAsync();
+            _logger.LogInformation("Bot status message setting changed, refreshing bot status");
+            // Refresh status to apply the new custom status (respects priority)
+            _ = _botStatusService.RefreshStatusAsync();
         }
     }
 
@@ -409,31 +416,26 @@ public class BotHostedService : IHostedService
     /// </summary>
     private void OnRatWatchStatusUpdateRequested(object? sender, EventArgs e)
     {
-        _logger.LogDebug("Rat Watch status update event received");
-        _ = _ratWatchStatusService.UpdateBotStatusAsync();
+        _logger.LogDebug("Rat Watch status update event received, refreshing bot status");
+        _ = _botStatusService.RefreshStatusAsync();
     }
 
     /// <summary>
     /// Applies the appropriate bot status on startup.
-    /// Checks for active Rat Watches first; if none, applies custom status message.
+    /// Evaluates all registered status sources and applies the highest priority active status.
     /// Fire-and-forget with internal error handling.
     /// </summary>
     private async Task ApplyStartupStatusAsync()
     {
         try
         {
-            // Check if there are active Rat Watches - this takes priority
-            var hasActiveWatches = await _ratWatchStatusService.UpdateBotStatusAsync();
+            _logger.LogDebug("Applying startup bot status");
+            // Refresh status to evaluate all sources (Rat Watch, custom status, etc.)
+            await _botStatusService.RefreshStatusAsync();
 
-            if (hasActiveWatches)
-            {
-                _logger.LogInformation("Active Rat Watches found on startup, status set to Rat Watch mode");
-            }
-            else
-            {
-                // No active watches, apply custom status if configured
-                await ApplyCustomStatusAsync();
-            }
+            var (sourceName, message) = _botStatusService.GetCurrentStatus();
+            _logger.LogInformation("Startup bot status applied: Source={Source}, Message={Message}",
+                sourceName, message ?? "(none)");
         }
         catch (Exception ex)
         {

@@ -1,5 +1,3 @@
-using Discord;
-using Discord.WebSocket;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,24 +9,26 @@ namespace DiscordBot.Bot.Services;
 /// </summary>
 public class RatWatchStatusService : IRatWatchStatusService
 {
-    private readonly DiscordSocketClient _client;
+    private readonly IBotStatusService _botStatusService;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly ISettingsService _settingsService;
     private readonly ILogger<RatWatchStatusService> _logger;
 
-    private bool _isRatWatchActive;
-    private readonly SemaphoreSlim _statusLock = new(1, 1);
-
     public RatWatchStatusService(
-        DiscordSocketClient client,
+        IBotStatusService botStatusService,
         IServiceScopeFactory scopeFactory,
-        ISettingsService settingsService,
         ILogger<RatWatchStatusService> logger)
     {
-        _client = client;
+        _botStatusService = botStatusService;
         _scopeFactory = scopeFactory;
-        _settingsService = settingsService;
         _logger = logger;
+
+        // Register Rat Watch as a status source with RatWatch priority
+        _botStatusService.RegisterStatusSource(
+            "RatWatch",
+            StatusSourcePriority.RatWatch,
+            GetRatWatchStatusAsync);
+
+        _logger.LogDebug("RatWatchStatusService initialized and registered as status source");
     }
 
     /// <inheritdoc/>
@@ -44,90 +44,53 @@ public class RatWatchStatusService : IRatWatchStatusService
     /// <inheritdoc/>
     public async Task<bool> UpdateBotStatusAsync(CancellationToken ct = default)
     {
-        // Use a lock to prevent race conditions when multiple status updates are triggered simultaneously
-        await _statusLock.WaitAsync(ct);
+        _logger.LogDebug("Rat Watch status update requested, triggering status refresh");
+
         try
         {
-            // Check if there are active watches
+            // Refresh the overall bot status (re-evaluates all status sources)
+            await _botStatusService.RefreshStatusAsync();
+
+            // Check if there are active watches for return value
             using var scope = _scopeFactory.CreateScope();
             var ratWatchService = scope.ServiceProvider.GetRequiredService<IRatWatchService>();
-
             var hasActiveWatches = await ratWatchService.HasActiveWatchesAsync(ct);
 
-            _logger.LogDebug("Rat Watch status check: HasActiveWatches={HasActive}, CurrentlyActive={IsActive}",
-                hasActiveWatches, _isRatWatchActive);
-
-            // If status hasn't changed, no need to update Discord
-            if (hasActiveWatches == _isRatWatchActive)
-            {
-                return _isRatWatchActive;
-            }
-
-            // Status changed - update Discord presence
-            if (hasActiveWatches)
-            {
-                await SetRatWatchStatusAsync();
-                _isRatWatchActive = true;
-                _logger.LogInformation("Bot status changed to Rat Watch mode");
-            }
-            else
-            {
-                await RestoreNormalStatusAsync(ct);
-                _isRatWatchActive = false;
-                _logger.LogInformation("Bot status restored to normal");
-            }
-
-            return _isRatWatchActive;
+            _logger.LogDebug("Rat Watch status update completed: HasActiveWatches={HasActive}", hasActiveWatches);
+            return hasActiveWatches;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to update Rat Watch bot status");
-            return _isRatWatchActive;
-        }
-        finally
-        {
-            _statusLock.Release();
+            return false;
         }
     }
 
     /// <summary>
-    /// Sets the bot status to indicate an active Rat Watch.
+    /// Gets the Rat Watch status message if there are active watches.
+    /// Returns null if no active watches (allows other status sources to take priority).
     /// </summary>
-    private async Task SetRatWatchStatusAsync()
+    private async Task<string?> GetRatWatchStatusAsync()
     {
         try
         {
-            await _client.SetGameAsync("Watching for rats...");
-            _logger.LogDebug("Bot activity set to 'Watching for rats...'");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to set Rat Watch status");
-        }
-    }
+            using var scope = _scopeFactory.CreateScope();
+            var ratWatchService = scope.ServiceProvider.GetRequiredService<IRatWatchService>();
 
-    /// <summary>
-    /// Restores the bot status to the normal/configured status.
-    /// </summary>
-    private async Task RestoreNormalStatusAsync(CancellationToken ct)
-    {
-        try
-        {
-            var statusMessage = await _settingsService.GetSettingValueAsync<string>("General:StatusMessage");
-            if (!string.IsNullOrWhiteSpace(statusMessage))
+            var hasActiveWatches = await ratWatchService.HasActiveWatchesAsync();
+            if (hasActiveWatches)
             {
-                await _client.SetGameAsync(statusMessage);
-                _logger.LogDebug("Bot status restored to configured message: {StatusMessage}", statusMessage);
+                _logger.LogTrace("Rat Watch status provider returning 'Watching for rats...'");
+                return "Watching for rats...";
             }
-            else
-            {
-                await _client.SetGameAsync(null);
-                _logger.LogDebug("Bot status cleared (no configured status message)");
-            }
+
+            _logger.LogTrace("Rat Watch status provider returning null (no active watches)");
+            return null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to restore normal bot status");
+            _logger.LogWarning(ex, "Failed to check for active Rat Watches in status provider");
+            return null;
         }
     }
 }
