@@ -240,6 +240,11 @@ try
     builder.Services.AddScoped<IScheduledMessageService, ScheduledMessageService>();
     builder.Services.AddHostedService<ScheduledMessageExecutionService>();
 
+    // Add Rat Watch services
+    builder.Services.Configure<RatWatchOptions>(
+        builder.Configuration.GetSection(RatWatchOptions.SectionName));
+    builder.Services.AddScoped<IRatWatchService, RatWatchService>();
+
     // Add HttpClient for Discord API calls
     builder.Services.AddHttpClient("Discord", client =>
     {

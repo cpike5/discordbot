@@ -27,6 +27,10 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<WelcomeConfiguration> WelcomeConfigurations => Set<WelcomeConfiguration>();
     public DbSet<ScheduledMessage> ScheduledMessages => Set<ScheduledMessage>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<RatWatch> RatWatches => Set<RatWatch>();
+    public DbSet<RatVote> RatVotes => Set<RatVote>();
+    public DbSet<RatRecord> RatRecords => Set<RatRecord>();
+    public DbSet<GuildRatWatchSettings> GuildRatWatchSettings => Set<GuildRatWatchSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
