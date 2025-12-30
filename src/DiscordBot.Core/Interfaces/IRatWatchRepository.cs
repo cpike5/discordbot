@@ -73,4 +73,12 @@ public interface IRatWatchRepository : IRepository<RatWatch>
         ulong guildId,
         ulong userId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if there are any active Rat Watches (Pending or Voting status) across all guilds.
+    /// Used to determine bot status indicator.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if there are any active watches, false otherwise.</returns>
+    Task<bool> HasActiveWatchesAsync(CancellationToken cancellationToken = default);
 }

@@ -32,6 +32,7 @@ public class BotHostedService : IHostedService
     private readonly IHostApplicationLifetime _lifetime;
     private readonly IHostEnvironment _environment;
     private readonly ISettingsService _settingsService;
+    private readonly IRatWatchStatusService _ratWatchStatusService;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     public BotHostedService(
@@ -44,6 +45,7 @@ public class BotHostedService : IHostedService
         IAuditLogQueue auditLogQueue,
         IServiceScopeFactory scopeFactory,
         ISettingsService settingsService,
+        IRatWatchStatusService ratWatchStatusService,
         IOptions<BotConfiguration> config,
         IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
@@ -59,6 +61,7 @@ public class BotHostedService : IHostedService
         _auditLogQueue = auditLogQueue;
         _scopeFactory = scopeFactory;
         _settingsService = settingsService;
+        _ratWatchStatusService = ratWatchStatusService;
         _config = config.Value;
         _applicationOptions = applicationOptions.Value;
         _logger = logger;
@@ -94,6 +97,9 @@ public class BotHostedService : IHostedService
 
         // Subscribe to settings changes for real-time updates
         _settingsService.SettingsChanged += OnSettingsChangedAsync;
+
+        // Subscribe to Rat Watch status updates
+        _ratWatchStatusService.StatusUpdateRequested += OnRatWatchStatusUpdateRequested;
 
         // Initialize interaction handler (discovers and registers commands)
         await _interactionHandler.InitializeAsync();
@@ -154,6 +160,7 @@ public class BotHostedService : IHostedService
             _client.MessageReceived -= _messageLoggingHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
             _settingsService.SettingsChanged -= OnSettingsChangedAsync;
+            _ratWatchStatusService.StatusUpdateRequested -= OnRatWatchStatusUpdateRequested;
 
             // Log bot shutdown to audit log before stopping
             _auditLogQueue.Enqueue(new AuditLogCreateDto
@@ -211,8 +218,9 @@ public class BotHostedService : IHostedService
     {
         _logger.LogInformation("Bot connected to Discord");
 
-        // Apply custom status message if configured (fire-and-forget)
-        _ = ApplyCustomStatusAsync();
+        // Check for active Rat Watches and set appropriate status (fire-and-forget)
+        // This prioritizes Rat Watch status over custom status
+        _ = ApplyStartupStatusAsync();
 
         // Broadcast status update (fire-and-forget, failure tolerant)
         _ = BroadcastBotStatusAsync();
@@ -390,7 +398,46 @@ public class BotHostedService : IHostedService
         if (e.UpdatedKeys.Contains("General:StatusMessage"))
         {
             _logger.LogInformation("Bot status message setting changed, applying update in real-time");
-            _ = ApplyCustomStatusAsync();
+            // Update status, but let Rat Watch status service handle priority
+            _ = _ratWatchStatusService.UpdateBotStatusAsync();
+        }
+    }
+
+    /// <summary>
+    /// Handles Rat Watch status update requests.
+    /// Called when a Rat Watch state changes (created, voting started, voting ended, cleared early, etc.).
+    /// </summary>
+    private void OnRatWatchStatusUpdateRequested(object? sender, EventArgs e)
+    {
+        _logger.LogDebug("Rat Watch status update event received");
+        _ = _ratWatchStatusService.UpdateBotStatusAsync();
+    }
+
+    /// <summary>
+    /// Applies the appropriate bot status on startup.
+    /// Checks for active Rat Watches first; if none, applies custom status message.
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    private async Task ApplyStartupStatusAsync()
+    {
+        try
+        {
+            // Check if there are active Rat Watches - this takes priority
+            var hasActiveWatches = await _ratWatchStatusService.UpdateBotStatusAsync();
+
+            if (hasActiveWatches)
+            {
+                _logger.LogInformation("Active Rat Watches found on startup, status set to Rat Watch mode");
+            }
+            else
+            {
+                // No active watches, apply custom status if configured
+                await ApplyCustomStatusAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to apply startup status, but continuing normal operation");
         }
     }
 }

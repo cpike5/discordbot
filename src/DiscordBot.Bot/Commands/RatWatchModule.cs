@@ -16,6 +16,7 @@ namespace DiscordBot.Bot.Commands;
 public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IRatWatchService _ratWatchService;
+    private readonly IRatWatchStatusService _ratWatchStatusService;
     private readonly DiscordSocketClient _client;
     private readonly ILogger<RatWatchModule> _logger;
 
@@ -24,10 +25,12 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     public RatWatchModule(
         IRatWatchService ratWatchService,
+        IRatWatchStatusService ratWatchStatusService,
         DiscordSocketClient client,
         ILogger<RatWatchModule> logger)
     {
         _ratWatchService = ratWatchService;
+        _ratWatchStatusService = ratWatchStatusService;
         _client = client;
         _logger = logger;
     }
@@ -224,6 +227,9 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
 
             await RespondAsync(embed: confirmEmbed, components: components);
 
+            // Notify that a new watch was created - may need to update bot status
+            _ratWatchStatusService.RequestStatusUpdate();
+
             _logger.LogDebug("Rat Watch confirmation message sent with check-in button");
         }
         catch (Exception ex)
@@ -302,6 +308,12 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
                 .Build();
 
             await RespondAsync(embed: embed, ephemeral: true);
+
+            // Notify that watches were cleared - may need to update bot status
+            if (clearedCount > 0)
+            {
+                _ratWatchStatusService.RequestStatusUpdate();
+            }
 
             _logger.LogDebug("Rat clear command response sent successfully");
         }

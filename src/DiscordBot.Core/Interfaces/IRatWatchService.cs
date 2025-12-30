@@ -161,4 +161,12 @@ public interface IRatWatchService
     /// <param name="timezone">IANA timezone identifier for absolute time parsing.</param>
     /// <returns>The parsed UTC DateTime, or null if parsing fails.</returns>
     DateTime? ParseScheduleTime(string input, string timezone);
+
+    /// <summary>
+    /// Checks if there are any active Rat Watches (Pending or Voting status) across all guilds.
+    /// Used to determine whether the bot should show a "Rat Watch" status indicator.
+    /// </summary>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>True if there are any active watches, false otherwise.</returns>
+    Task<bool> HasActiveWatchesAsync(CancellationToken ct = default);
 }
