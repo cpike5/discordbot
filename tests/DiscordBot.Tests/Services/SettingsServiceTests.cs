@@ -47,6 +47,11 @@ public class SettingsServiceTests
             .Setup(f => f.CreateScope())
             .Returns(_mockScope.Object);
 
+        // Default setup for GetAllAsync - returns empty list (tests can override if needed)
+        _mockRepository
+            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ApplicationSetting>());
+
         _service = new SettingsService(
             _mockScopeFactory.Object,
             _mockConfiguration.Object,
@@ -707,7 +712,7 @@ public class SettingsServiceTests
         {
             Settings = new Dictionary<string, string>
             {
-                { "General:BotEnabled", "true" }, // valid
+                { "General:BotEnabled", "false" }, // valid (different from default "true")
                 { "Unknown:Key", "value" }, // invalid - unknown key
                 { "General:DefaultTimezone", "America/New_York" } // valid
             }
