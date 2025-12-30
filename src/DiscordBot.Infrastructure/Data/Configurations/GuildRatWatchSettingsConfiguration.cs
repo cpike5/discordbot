@@ -41,6 +41,11 @@ public class GuildRatWatchSettingsConfiguration : IEntityTypeConfiguration<Guild
             .IsRequired()
             .HasDefaultValue(5);
 
+        // Public leaderboard setting with default false
+        builder.Property(s => s.PublicLeaderboardEnabled)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         // DateTime properties - stored as UTC
         builder.Property(s => s.CreatedAt)
             .IsRequired();
