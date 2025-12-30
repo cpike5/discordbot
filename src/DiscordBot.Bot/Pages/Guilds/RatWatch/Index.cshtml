@@ -181,7 +181,7 @@
     <!-- Summary Stats Cards -->
     @if (Model.ViewModel.AnalyticsSummary != null)
     {
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-6">
             <!-- Total Watches -->
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
                 <div class="flex items-center justify-between">
@@ -510,28 +510,30 @@
     else
     {
         <!-- Empty State -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
-            <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-tertiary flex items-center justify-center">
-                <svg class="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-            </div>
-            <h3 class="text-lg font-semibold text-text-primary mb-2">No Rat Watches Yet</h3>
-            <p class="text-sm text-text-secondary max-w-sm mx-auto">
-                No accountability watches have been created in this server. Use the "Rat Watch" context menu on a message in Discord to start one.
-            </p>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+            @{
+                var emptyStateDescription = "No accountability watches have been created in this server. Use the \"Rat Watch\" context menu on a message in Discord to start one.";
+            }
+            <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                Type = EmptyStateType.FirstTime,
+                Title = "No Rat Watches Yet",
+                Description = emptyStateDescription,
+                Size = EmptyStateSize.Default,
+                IconSvgPath = "M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+            }' />
         </div>
     }
 </div>
 
 <!-- Cancel Confirmation Modal -->
-<div id="cancel-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="modal-overlay fixed inset-0 transition-opacity" aria-hidden="true" onclick="hideCancelModal()"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border-primary">
-            <div class="px-6 py-5">
+<div id="cancel-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="modal-title">
+    <!-- Backdrop - standardized with Incidents modal -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideCancelModal()" aria-hidden="true"></div>
+    <!-- Modal Dialog - centered with flexbox -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+            <!-- Modal Content -->
+            <div class="p-6">
                 <div class="flex items-start gap-4">
                     <div class="flex-shrink-0 w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
                         <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -546,15 +548,16 @@
                     </div>
                 </div>
             </div>
-            <div class="px-6 py-4 bg-bg-primary flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <!-- Modal Footer - standardized -->
+            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
                 <button type="button" onclick="hideCancelModal()"
-                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                        class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
                     Keep Watch
                 </button>
-                <form id="cancel-form" method="post" asp-page="Index" asp-page-handler="Cancel" asp-route-guildId="@Model.ViewModel.GuildId">
+                <form id="cancel-form" method="post" asp-page="Index" asp-page-handler="Cancel" asp-route-guildId="@Model.ViewModel.GuildId" class="inline-block">
                     <input type="hidden" id="cancel-watch-id" name="watchId" value="" />
                     <button type="submit"
-                            class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-error border border-error rounded-md hover:bg-red-600 transition-colors">
+                            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors">
                         Cancel Watch
                     </button>
                 </form>
@@ -564,12 +567,14 @@
 </div>
 
 <!-- End Vote Confirmation Modal -->
-<div id="end-vote-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="end-vote-modal-title" role="dialog" aria-modal="true">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="modal-overlay fixed inset-0 transition-opacity" aria-hidden="true" onclick="hideEndVoteModal()"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-bg-secondary rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-border-primary">
-            <div class="px-6 py-5">
+<div id="end-vote-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="end-vote-modal-title">
+    <!-- Backdrop - standardized with Incidents modal -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideEndVoteModal()" aria-hidden="true"></div>
+    <!-- Modal Dialog - centered with flexbox -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+            <!-- Modal Content -->
+            <div class="p-6">
                 <div class="flex items-start gap-4">
                     <div class="flex-shrink-0 w-10 h-10 rounded-full bg-accent-blue/20 flex items-center justify-center">
                         <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -590,15 +595,16 @@
                     </div>
                 </div>
             </div>
-            <div class="px-6 py-4 bg-bg-primary flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <!-- Modal Footer - standardized -->
+            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
                 <button type="button" onclick="hideEndVoteModal()"
-                        class="inline-flex justify-center px-4 py-2 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                        class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
                     Continue Voting
                 </button>
-                <form id="end-vote-form" method="post" asp-page="Index" asp-page-handler="EndVote" asp-route-guildId="@Model.ViewModel.GuildId">
+                <form id="end-vote-form" method="post" asp-page="Index" asp-page-handler="EndVote" asp-route-guildId="@Model.ViewModel.GuildId" class="inline-block">
                     <input type="hidden" id="end-vote-watch-id" name="watchId" value="" />
                     <button type="submit"
-                            class="inline-flex justify-center px-4 py-2 text-sm font-medium text-white bg-accent-blue border border-accent-blue rounded-md hover:bg-blue-600 transition-colors">
+                            class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active text-white font-medium text-sm rounded-md transition-colors">
                         End Vote Now
                     </button>
                 </form>
@@ -609,10 +615,6 @@
 
 @section Scripts {
     <style>
-        .modal-overlay {
-            background-color: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(2px);
-        }
         .table-row .row-actions {
             opacity: 0;
             transition: opacity 0.15s ease-in-out;

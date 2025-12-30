@@ -4,33 +4,68 @@
 (function () {
     'use strict';
 
-    // Design system chart colors
+    /**
+     * Gets a CSS custom property value from the :root element
+     * @param {string} name - The property name (without --color- prefix)
+     * @returns {string} The computed color value
+     */
+    function getDesignToken(name) {
+        return getComputedStyle(document.documentElement)
+            .getPropertyValue(`--color-${name}`).trim();
+    }
+
+    /**
+     * Initialize design system colors from CSS custom properties
+     * This ensures chart colors stay in sync with the design system
+     */
+    function initColors() {
+        return {
+            accentOrange: getDesignToken('accent-orange') || '#cb4e1b',
+            accentBlue: getDesignToken('accent-blue') || '#098ecf',
+            success: getDesignToken('success') || '#10b981',
+            warning: getDesignToken('warning') || '#f59e0b',
+            info: getDesignToken('info') || '#06b6d4',
+            error: getDesignToken('error') || '#ef4444',
+            bgPrimary: getDesignToken('bg-primary') || '#1d2022',
+            bgSecondary: getDesignToken('bg-secondary') || '#262a2d',
+            bgTertiary: getDesignToken('bg-tertiary') || '#2f3336',
+            textPrimary: getDesignToken('text-primary') || '#d7d3d0',
+            textSecondary: getDesignToken('text-secondary') || '#a8a5a3',
+            textTertiary: getDesignToken('text-tertiary') || '#7a7876',
+            borderPrimary: getDesignToken('border-primary') || '#3f4447',
+        };
+    }
+
+    // Initialize colors from design tokens (with fallbacks for SSR/testing)
+    let colors = initColors();
+
+    // Chart colors array (derived from design tokens)
     const CHART_COLORS = [
-        '#cb4e1b',  // accent-orange
-        '#098ecf',  // accent-blue
-        '#10b981',  // success
-        '#f59e0b',  // warning
-        '#06b6d4',  // info
-        '#ef4444',  // error
-        '#8b5cf6',  // purple
-        '#ec4899',  // pink
-        '#14b8a6',  // teal
-        '#6366f1',  // indigo
+        colors.accentOrange,  // accent-orange
+        colors.accentBlue,    // accent-blue
+        colors.success,       // success
+        colors.warning,       // warning
+        colors.info,          // info
+        colors.error,         // error
+        '#8b5cf6',            // purple (extended palette)
+        '#ec4899',            // pink (extended palette)
+        '#14b8a6',            // teal (extended palette)
+        '#6366f1',            // indigo (extended palette)
     ];
 
     const BG_COLORS = {
-        primary: '#1d2022',
-        secondary: '#262a2d',
-        tertiary: '#2f3336',
+        primary: colors.bgPrimary,
+        secondary: colors.bgSecondary,
+        tertiary: colors.bgTertiary,
     };
 
     const TEXT_COLORS = {
-        primary: '#d7d3d0',
-        secondary: '#a8a5a3',
-        tertiary: '#7a7876',
+        primary: colors.textPrimary,
+        secondary: colors.textSecondary,
+        tertiary: colors.textTertiary,
     };
 
-    const BORDER_COLOR = '#3f4447';
+    const BORDER_COLOR = colors.borderPrimary;
 
     // Chart instance references
     let watchesOverTimeChart = null;
