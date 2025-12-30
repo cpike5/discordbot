@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 
 namespace DiscordBot.Core.Interfaces;
@@ -43,5 +44,29 @@ public interface IRatRecordRepository : IRepository<RatRecord>
     Task<IEnumerable<(ulong UserId, int GuiltyCount)>> GetLeaderboardAsync(
         ulong guildId,
         int limit = 10,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets user metrics for leaderboard views.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="sortBy">Sort field: "watched", "guilty", "accountability".</param>
+    /// <param name="limit">Maximum number of entries to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of user metrics ordered by the specified field.</returns>
+    Task<IEnumerable<RatWatchUserMetricsDto>> GetUserMetricsAsync(
+        ulong guildId,
+        string sortBy,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets fun stats for public leaderboard.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Fun stats including streaks and highlights.</returns>
+    Task<RatWatchFunStatsDto> GetFunStatsAsync(
+        ulong guildId,
         CancellationToken cancellationToken = default);
 }
