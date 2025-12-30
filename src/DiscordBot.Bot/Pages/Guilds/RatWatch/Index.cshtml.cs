@@ -15,15 +15,18 @@ public class IndexModel : PageModel
 {
     private readonly IRatWatchService _ratWatchService;
     private readonly IGuildService _guildService;
+    private readonly IRatWatchRepository _ratWatchRepository;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IRatWatchService ratWatchService,
         IGuildService guildService,
+        IRatWatchRepository ratWatchRepository,
         ILogger<IndexModel> logger)
     {
         _ratWatchService = ratWatchService;
         _guildService = guildService;
+        _ratWatchRepository = ratWatchRepository;
         _logger = logger;
     }
 
@@ -86,6 +89,13 @@ public class IndexModel : PageModel
         // Get leaderboard
         var leaderboard = await _ratWatchService.GetLeaderboardAsync(guildId, 10, cancellationToken);
 
+        // Get analytics summary (all-time stats for the guild)
+        var analyticsSummary = await _ratWatchRepository.GetAnalyticsSummaryAsync(
+            guildId,
+            null,
+            null,
+            cancellationToken);
+
         _logger.LogDebug("Retrieved {Count} watches for guild {GuildId} (page {Page} of {TotalPages})",
             watches.Count(), guildId, page, (int)Math.Ceiling((double)totalCount / pageSize));
 
@@ -99,7 +109,8 @@ public class IndexModel : PageModel
             totalCount,
             leaderboard,
             page,
-            pageSize);
+            pageSize,
+            analyticsSummary);
 
         return Page();
     }
