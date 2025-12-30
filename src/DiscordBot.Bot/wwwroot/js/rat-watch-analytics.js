@@ -336,7 +336,7 @@
         }
 
         const ctx = canvas.getContext('2d');
-        const labels = topUsersData.map(item => `User ${item.userId.toString().substring(0, 8)}`);
+        const labels = topUsersData.map(item => item.username || `User ${item.userId.toString().substring(0, 8)}`);
         const data = topUsersData.map(item => item.watchesAgainst);
         const guiltyData = topUsersData.map(item => item.guiltyCount);
 
@@ -432,25 +432,25 @@
         });
 
         // Build heatmap HTML
-        let html = '<div class="text-xs text-text-tertiary mb-2">Activity by day and hour (UTC)</div>';
-        html += '<div class="grid grid-cols-[auto_repeat(24,minmax(0,1fr))] gap-1 text-xs">';
+        let html = '<div class="text-xs text-text-tertiary mb-3">Activity by day and hour (UTC)</div>';
+        html += '<div style="display: grid; grid-template-columns: 40px repeat(24, 16px); gap: 2px; font-size: 11px;">';
 
         // Header row (hours)
         html += '<div></div>'; // Empty corner
         hours.forEach(hour => {
-            html += `<div class="text-center text-text-tertiary">${hour % 6 === 0 ? hour : ''}</div>`;
+            html += `<div style="text-align: center; color: var(--text-tertiary);">${hour % 6 === 0 ? hour : ''}</div>`;
         });
 
         // Data rows
         days.forEach((day, dayIndex) => {
-            html += `<div class="text-text-secondary font-medium pr-2">${day}</div>`;
+            html += `<div style="color: var(--text-secondary); font-weight: 500; line-height: 16px;">${day}</div>`;
             hours.forEach(hour => {
                 const key = `${dayIndex}-${hour}`;
                 const count = dataMap.get(key) || 0;
                 const intensity = maxCount > 0 ? count / maxCount : 0;
                 const bgColor = getHeatmapColor(intensity);
                 const title = `${day} ${hour}:00 - ${count} watches`;
-                html += `<div class="aspect-square rounded-sm" style="background-color: ${bgColor};" title="${title}"></div>`;
+                html += `<div style="width: 16px; height: 16px; border-radius: 2px; background-color: ${bgColor}; cursor: pointer;" title="${title}"></div>`;
             });
         });
 

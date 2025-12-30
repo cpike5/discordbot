@@ -12,7 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 /// Page model for the Rat Watch Incidents browser.
 /// Displays a filterable, sortable, paginated list of all Rat Watch incidents for a guild.
 /// </summary>
-[Authorize(Policy = "RequireModeratorOrAbove")]
+[Authorize(Policy = "RequireModerator")]
 public class IncidentsModel : PageModel
 {
     private readonly IRatWatchService _ratWatchService;
@@ -149,48 +149,56 @@ public class IncidentsModel : PageModel
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>JSON result with incident details, or NotFound if incident doesn't exist.</returns>
     public async Task<IActionResult> OnGetIncidentDetailAsync(
-        long guildId,
-        Guid incidentId,
+        [FromQuery] long guildId,
+        [FromQuery] Guid incidentId,
         CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Fetching incident detail for {IncidentId} in guild {GuildId}", incidentId, guildId);
 
-        var watch = await _ratWatchService.GetByIdAsync(incidentId, cancellationToken);
-        if (watch == null)
+        try
         {
-            _logger.LogWarning("Incident {IncidentId} not found", incidentId);
-            return NotFound();
-        }
+            var watch = await _ratWatchService.GetByIdAsync(incidentId, cancellationToken);
+            if (watch == null)
+            {
+                _logger.LogWarning("Incident {IncidentId} not found", incidentId);
+                return new JsonResult(new { error = "Incident not found" }) { StatusCode = 404 };
+            }
 
-        // Verify watch belongs to this guild
-        if (watch.GuildId != (ulong)guildId)
-        {
-            _logger.LogWarning(
-                "Incident {IncidentId} belongs to guild {ActualGuildId}, not requested guild {RequestedGuildId}",
-                incidentId, watch.GuildId, guildId);
-            return Forbid();
-        }
+            // Verify watch belongs to this guild (cast to ulong for comparison)
+            if (watch.GuildId != (ulong)guildId)
+            {
+                _logger.LogWarning(
+                    "Incident {IncidentId} belongs to guild {ActualGuildId}, not requested guild {RequestedGuildId}",
+                    incidentId, watch.GuildId, guildId);
+                return new JsonResult(new { error = "Access denied" }) { StatusCode = 403 };
+            }
 
-        // Return incident details as JSON for modal display
-        return new JsonResult(new
+            // Return incident details as JSON for modal display
+            return new JsonResult(new
+            {
+                id = watch.Id,
+                status = watch.Status.ToString(),
+                statusText = GetStatusText(watch.Status),
+                accusedUserId = watch.AccusedUserId.ToString(),
+                accusedUsername = watch.AccusedUsername,
+                initiatorUserId = watch.InitiatorUserId.ToString(),
+                initiatorUsername = watch.InitiatorUsername,
+                customMessage = watch.CustomMessage,
+                scheduledAt = watch.ScheduledAt.ToString("o"),
+                createdAt = watch.CreatedAt.ToString("o"),
+                votingStartedAt = watch.VotingStartedAt?.ToString("o"),
+                guiltyVotes = watch.GuiltyVotes,
+                notGuiltyVotes = watch.NotGuiltyVotes,
+                totalVotes = watch.GuiltyVotes + watch.NotGuiltyVotes,
+                channelId = watch.ChannelId.ToString(),
+                originalMessageId = watch.OriginalMessageId.ToString()
+            });
+        }
+        catch (Exception ex)
         {
-            id = watch.Id,
-            status = watch.Status.ToString(),
-            statusText = GetStatusText(watch.Status),
-            accusedUserId = watch.AccusedUserId.ToString(),
-            accusedUsername = watch.AccusedUsername,
-            initiatorUserId = watch.InitiatorUserId.ToString(),
-            initiatorUsername = watch.InitiatorUsername,
-            customMessage = watch.CustomMessage,
-            scheduledAt = watch.ScheduledAt.ToString("o"),
-            createdAt = watch.CreatedAt.ToString("o"),
-            votingStartedAt = watch.VotingStartedAt?.ToString("o"),
-            guiltyVotes = watch.GuiltyVotes,
-            notGuiltyVotes = watch.NotGuiltyVotes,
-            totalVotes = watch.GuiltyVotes + watch.NotGuiltyVotes,
-            channelId = watch.ChannelId.ToString(),
-            originalMessageId = watch.OriginalMessageId.ToString()
-        });
+            _logger.LogError(ex, "Error fetching incident detail for {IncidentId}", incidentId);
+            return new JsonResult(new { error = "Internal server error" }) { StatusCode = 500 };
+        }
     }
 
     /// <summary>

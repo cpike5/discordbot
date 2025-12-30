@@ -1,4 +1,6 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,23 +12,26 @@ namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 /// Page model for the Guild Rat Watch Analytics Dashboard.
 /// Displays analytics metrics, charts, and leaderboards for a specific guild.
 /// </summary>
-[Authorize(Policy = "RequireModeratorOrAbove")]
+[Authorize(Policy = "RequireModerator")]
 public class AnalyticsModel : PageModel
 {
     private readonly IRatWatchRepository _ratWatchRepository;
     private readonly IRatRecordRepository _ratRecordRepository;
     private readonly IGuildService _guildService;
+    private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<AnalyticsModel> _logger;
 
     public AnalyticsModel(
         IRatWatchRepository ratWatchRepository,
         IRatRecordRepository ratRecordRepository,
         IGuildService guildService,
+        DiscordSocketClient discordClient,
         ILogger<AnalyticsModel> logger)
     {
         _ratWatchRepository = ratWatchRepository;
         _ratRecordRepository = ratRecordRepository;
         _guildService = guildService;
+        _discordClient = discordClient;
         _logger = logger;
     }
 
@@ -90,6 +95,11 @@ public class AnalyticsModel : PageModel
             // Load top accusers (users who created the most watches)
             var topAccusers = await GetTopAccusersAsync(guildId, 10, cancellationToken);
 
+            // Resolve usernames for all leaderboard entries
+            var mostWatchedWithNames = await ResolveUsernamesAsync(guildId, mostWatched);
+            var biggestRatsWithNames = await ResolveUsernamesAsync(guildId, biggestRats);
+            var topAccusersWithNames = await ResolveAccuserUsernamesAsync(guildId, topAccusers);
+
             // Build view model
             ViewModel = new RatWatchAnalyticsViewModel
             {
@@ -99,9 +109,9 @@ public class AnalyticsModel : PageModel
                 Summary = summary,
                 TimeSeries = timeSeries.ToList(),
                 Heatmap = heatmap.ToList(),
-                MostWatched = mostWatched.ToList(),
-                TopAccusers = topAccusers,
-                BiggestRats = biggestRats.ToList(),
+                MostWatched = mostWatchedWithNames,
+                TopAccusers = topAccusersWithNames,
+                BiggestRats = biggestRatsWithNames,
                 StartDate = start,
                 EndDate = end.AddDays(-1) // Show the actual end date (not +1)
             };
@@ -155,5 +165,78 @@ public class AnalyticsModel : PageModel
 
         _logger.LogDebug("Retrieved {Count} top accusers", topAccusers.Count);
         return topAccusers;
+    }
+
+    /// <summary>
+    /// Resolves usernames for user metrics entries.
+    /// </summary>
+    private async Task<List<RatWatchUserMetricsDto>> ResolveUsernamesAsync(
+        ulong guildId,
+        IEnumerable<RatWatchUserMetricsDto> metrics)
+    {
+        var result = new List<RatWatchUserMetricsDto>();
+        foreach (var metric in metrics)
+        {
+            var username = await GetUsernameAsync(metric.UserId, guildId);
+            result.Add(metric with { Username = username });
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Resolves usernames for accuser metrics entries.
+    /// </summary>
+    private async Task<List<AccuserMetricsDto>> ResolveAccuserUsernamesAsync(
+        ulong guildId,
+        IEnumerable<AccuserMetricsDto> metrics)
+    {
+        var result = new List<AccuserMetricsDto>();
+        foreach (var metric in metrics)
+        {
+            var username = await GetUsernameAsync(metric.UserId, guildId);
+            result.Add(metric with { Username = username });
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Gets the display name for a Discord user in a guild.
+    /// </summary>
+    private async Task<string> GetUsernameAsync(ulong userId, ulong guildId)
+    {
+        try
+        {
+            var guild = _discordClient.GetGuild(guildId);
+            if (guild == null)
+            {
+                _logger.LogWarning("Guild {GuildId} not found when resolving username for user {UserId}", guildId, userId);
+                return "Unknown User";
+            }
+
+            var user = guild.GetUser(userId);
+            if (user != null)
+            {
+                return user.DisplayName;
+            }
+
+            // Try downloading users if not in cache
+            if (!guild.HasAllMembers)
+            {
+                await guild.DownloadUsersAsync();
+                user = guild.GetUser(userId);
+                if (user != null)
+                {
+                    return user.DisplayName;
+                }
+            }
+
+            _logger.LogDebug("User {UserId} not found in guild {GuildId}", userId, guildId);
+            return "Unknown User";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get username for user {UserId} in guild {GuildId}", userId, guildId);
+            return "Unknown User";
+        }
     }
 }

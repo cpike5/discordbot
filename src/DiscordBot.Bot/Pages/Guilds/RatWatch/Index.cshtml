@@ -47,12 +47,6 @@
             <p class="mt-1 text-sm text-text-secondary">Manage accountability trackers and view the hall of shame</p>
         </div>
         <div class="flex items-center gap-3">
-            <a asp-page="/Guilds/RatWatch/Analytics" asp-route-guildId="@Model.ViewModel.GuildId" class="inline-flex items-center gap-2 px-4 py-2 bg-bg-tertiary border border-border-primary text-text-primary hover:bg-bg-hover font-medium text-sm rounded-lg transition-colors">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                View Analytics
-            </a>
             @if (Model.ViewModel.IsEnabled)
             {
                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-success/20 text-success">
@@ -268,18 +262,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-
-        <!-- View Full Analytics Button -->
-        <div class="mb-6 text-center">
-            <a asp-page="Analytics" asp-route-guildId="@Model.ViewModel.GuildId"
-               class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-lg transition-colors">
-                <!-- Chart Bar Icon -->
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                View Full Analytics
-            </a>
         </div>
     }
 

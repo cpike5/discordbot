@@ -50,27 +50,25 @@
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-            <div class="flex items-center gap-3 mb-1">
-                <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Rat Watch Analytics</h1>
-                @{
-                    var guildBadge = new BadgeViewModel {
-                        Text = Model.ViewModel.GuildName,
-                        Variant = BadgeVariant.Orange,
-                        Size = BadgeSize.Medium
-                    };
-                }
-                <partial name="Shared/Components/_Badge" model="guildBadge" />
-            </div>
-            <p class="text-text-secondary">Accountability metrics and trends for your server</p>
+            <h1 class="text-2xl font-bold text-text-primary">Rat Watch</h1>
+            <p class="mt-1 text-sm text-text-secondary">Accountability metrics and trends for @Model.ViewModel.GuildName</p>
         </div>
-        <div class="flex items-center gap-3">
-            <a asp-page="/Guilds/RatWatch/Index" asp-route-guildId="@Model.ViewModel.GuildId" class="btn btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Settings
-            </a>
-        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex items-center gap-1 mb-6 border-b border-border-primary">
+        <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
+            Settings
+        </a>
+        <a asp-page="Analytics" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-accent-orange text-text-primary">
+            Analytics
+        </a>
+        <a asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
+            Incidents
+        </a>
     </div>
 
     <!-- Display any errors -->
@@ -510,8 +508,7 @@
                                         <span class="inline-flex items-center justify-center w-8 h-8 rounded-full @rankBadgeClass font-bold text-sm">@rank</span>
                                     </td>
                                     <td class="px-5 py-4">
-                                        <p class="font-medium text-text-primary">User @user.UserId</p>
-                                        <p class="text-xs text-text-tertiary">#@user.UserId.ToString().Substring(0, 4)</p>
+                                        <p class="font-medium text-text-primary">@user.Username</p>
                                     </td>
                                     <td class="px-5 py-4 text-text-primary font-medium">@user.WatchesAgainst</td>
                                     <td class="px-5 py-4">
@@ -565,8 +562,7 @@
                                         <span class="inline-flex items-center justify-center w-8 h-8 rounded-full @rankBadgeClass font-bold text-sm">@rank</span>
                                     </td>
                                     <td class="px-5 py-4">
-                                        <p class="font-medium text-text-primary">User @accuser.UserId</p>
-                                        <p class="text-xs text-text-tertiary">#@accuser.UserId.ToString().Substring(0, 4)</p>
+                                        <p class="font-medium text-text-primary">@accuser.Username</p>
                                     </td>
                                     <td class="px-5 py-4 text-text-primary font-medium">@accuser.WatchesCreated</td>
                                     <td class="px-5 py-4">
@@ -626,8 +622,7 @@
                                         <span class="inline-flex items-center justify-center w-8 h-8 rounded-full @rankBadgeClass font-bold text-sm">@rank</span>
                                     </td>
                                     <td class="px-5 py-4">
-                                        <p class="font-medium text-text-primary">User @user.UserId</p>
-                                        <p class="text-xs text-text-tertiary">#@user.UserId.ToString().Substring(0, 4)</p>
+                                        <p class="font-medium text-text-primary">@user.Username</p>
                                     </td>
                                     <td class="px-5 py-4">
                                         <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-error bg-error/10 rounded-full">
@@ -683,6 +678,7 @@
             }),
             topUsers = Model.ViewModel.MostWatched.Take(5).Select(u => new {
                 userId = u.UserId,
+                username = u.Username,
                 watchesAgainst = u.WatchesAgainst,
                 guiltyCount = u.GuiltyCount
             })
