@@ -78,4 +78,95 @@ public class UserRepository : Repository<User>, IUserRepository
             .OrderByDescending(u => u.LastSeenAt)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<int> BatchUpsertAsync(
+        IEnumerable<User> users,
+        CancellationToken cancellationToken = default)
+    {
+        var usersList = users.ToList();
+        if (!usersList.Any())
+        {
+            _logger.LogDebug("BatchUpsertAsync called with empty collection");
+            return 0;
+        }
+
+        _logger.LogInformation("Starting batch upsert for {Count} users", usersList.Count);
+
+        var totalAffected = 0;
+        var batchSize = 500;
+
+        for (int i = 0; i < usersList.Count; i += batchSize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var batch = usersList.Skip(i).Take(batchSize).ToList();
+            var batchUserIds = batch.Select(u => u.Id).ToList();
+
+            _logger.LogDebug(
+                "Processing batch {BatchStart}-{BatchEnd} of {Total}",
+                i + 1, Math.Min(i + batchSize, usersList.Count), usersList.Count);
+
+            using var transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                // Load existing users for this batch
+                var existingUsers = await DbSet
+                    .Where(u => batchUserIds.Contains(u.Id))
+                    .ToListAsync(cancellationToken);
+
+                var existingUserIds = existingUsers.Select(u => u.Id).ToHashSet();
+
+                // Separate new and existing users
+                var newUsers = batch.Where(u => !existingUserIds.Contains(u.Id)).ToList();
+                var updateUsers = batch.Where(u => existingUserIds.Contains(u.Id)).ToList();
+
+                // Add new users
+                if (newUsers.Any())
+                {
+                    await DbSet.AddRangeAsync(newUsers, cancellationToken);
+                    _logger.LogDebug("Adding {Count} new users in batch", newUsers.Count);
+                }
+
+                // Update existing users
+                foreach (var user in updateUsers)
+                {
+                    var existing = existingUsers.First(u => u.Id == user.Id);
+                    existing.Username = user.Username;
+                    existing.Discriminator = user.Discriminator;
+                    existing.LastSeenAt = user.LastSeenAt;
+                    existing.AccountCreatedAt = user.AccountCreatedAt ?? existing.AccountCreatedAt;
+                    existing.AvatarHash = user.AvatarHash ?? existing.AvatarHash;
+                    existing.GlobalDisplayName = user.GlobalDisplayName ?? existing.GlobalDisplayName;
+                }
+
+                if (updateUsers.Any())
+                {
+                    _logger.LogDebug("Updating {Count} existing users in batch", updateUsers.Count);
+                }
+
+                var affected = await Context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
+                totalAffected += affected;
+
+                _logger.LogDebug(
+                    "Batch upsert completed: {BatchStart}-{BatchEnd} of {Total}, {Affected} records affected",
+                    i + 1, Math.Min(i + batchSize, usersList.Count), usersList.Count, affected);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                _logger.LogError(ex,
+                    "Batch upsert failed for batch {BatchStart}-{BatchEnd}",
+                    i + 1, Math.Min(i + batchSize, usersList.Count));
+                throw;
+            }
+        }
+
+        _logger.LogInformation(
+            "Batch upsert completed. {Total} users processed, {Affected} records affected",
+            usersList.Count, totalAffected);
+
+        return totalAffected;
+    }
 }

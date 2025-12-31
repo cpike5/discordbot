@@ -66,6 +66,13 @@ public static class DiscordServiceExtensions
         // Register WelcomeHandler as singleton
         services.AddSingleton<WelcomeHandler>();
 
+        // Register MemberEventHandler as singleton
+        services.AddSingleton<MemberEventHandler>();
+
+        // Register member sync services
+        services.AddSingleton<IMemberSyncQueue, MemberSyncQueue>();
+        services.AddHostedService<MemberSyncService>();
+
         // Register BotHostedService as hosted service
         services.AddHostedService<BotHostedService>();
 
