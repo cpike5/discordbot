@@ -107,9 +107,6 @@ public class IndexModel : PageModel
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("User accessing Flagged Events list for guild {GuildId}, page {Page}, filters: RuleType={RuleType}, Severity={Severity}, Status={Status}",
-            guildId, page, FilterRuleType, FilterSeverity, FilterStatus);
-
         // Validate pagination parameters
         if (page < 1) page = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
@@ -117,6 +114,13 @@ public class IndexModel : PageModel
         GuildId = guildId;
         CurrentPage = page;
         CurrentPageSize = pageSize;
+
+        // Set default date filters if not specified (last 30 days)
+        FilterDateFrom ??= DateTime.Today.AddDays(-30);
+        FilterDateTo ??= DateTime.Today;
+
+        _logger.LogInformation("User accessing Flagged Events list for guild {GuildId}, page {Page}, filters: RuleType={RuleType}, Severity={Severity}, Status={Status}, DateFrom={DateFrom}, DateTo={DateTo}",
+            guildId, page, FilterRuleType, FilterSeverity, FilterStatus, FilterDateFrom, FilterDateTo);
 
         // Get guild info from service
         var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
