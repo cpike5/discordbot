@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Moderation Profile - Gaming Hub - Discord Bot Admin</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+    <!-- Moderation-specific Styles -->
+    <link rel="stylesheet" href="moderation.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <style>
+        /* Custom checkbox styling */
+        input[type="checkbox"] {
+            accent-color: #cb4e1b;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Servers</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Commands</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb Navigation -->
+        <nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
+            <ol class="flex items-center gap-2">
+                <li><a href="#" class="hover:text-text-primary transition-colors">Servers</a></li>
+                <li aria-hidden="true">
+                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li><a href="#" class="hover:text-text-primary transition-colors">Gaming Hub</a></li>
+                <li aria-hidden="true">
+                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li><a href="#" class="hover:text-text-primary transition-colors">Members</a></li>
+                <li aria-hidden="true">
+                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li class="text-text-primary font-medium" aria-current="page">ToxicPlayer - Moderation</li>
+            </ol>
+        </nav>
+
+        <!-- User Header -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+            <div class="flex flex-col md:flex-row md:items-start gap-6">
+                <!-- Avatar and Basic Info -->
+                <div class="flex items-start gap-4 flex-1">
+                    <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="ToxicPlayer" class="w-20 h-20 rounded-full flex-shrink-0" />
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                            <h1 class="text-2xl font-bold text-text-primary">ToxicPlayer</h1>
+                            <span class="text-sm text-text-tertiary font-mono">@toxicplayer</span>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                                <span class="text-text-tertiary block">Account Created</span>
+                                <p class="text-text-secondary">Oct 15, 2023</p>
+                            </div>
+                            <div>
+                                <span class="text-text-tertiary block">Joined Server</span>
+                                <p class="text-text-secondary">Nov 1, 2023</p>
+                            </div>
+                            <div>
+                                <span class="text-text-tertiary block">User ID</span>
+                                <p class="text-text-secondary font-mono">234567890123456789</p>
+                            </div>
+                            <div>
+                                <span class="text-text-tertiary block">Server Roles</span>
+                                <p class="text-text-secondary">Member, VIP</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="action-btn action-btn-dismiss" onclick="warnUser()">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Warn
+                    </button>
+                    <button type="button" class="action-btn action-btn-acknowledge" onclick="muteUser()">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                        </svg>
+                        Mute
+                    </button>
+                    <button type="button" class="action-btn action-btn-action" onclick="kickUser()">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Kick
+                    </button>
+                    <button type="button" class="action-btn action-btn-action" onclick="banUser()">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                        Ban
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tags Section -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">User Tags</h2>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="user-tag user-tag-warning user-tag-removable" onclick="removeTag('toxic')">
+                    Toxic User
+                    <span class="user-tag-remove" title="Remove tag">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </span>
+                </span>
+                <span class="user-tag user-tag-info user-tag-removable" onclick="removeTag('watch')">
+                    Watch List
+                    <span class="user-tag-remove" title="Remove tag">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </span>
+                </span>
+                <!-- Add Tag Dropdown -->
+                <div class="relative">
+                    <button type="button" id="addTagBtn" class="user-tag hover:border-accent-blue hover:text-accent-blue transition-colors" onclick="toggleTagDropdown()">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Tag
+                    </button>
+                    <div id="tagDropdown" class="hidden absolute top-full left-0 mt-1 w-48 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg overflow-hidden z-10">
+                        <button type="button" class="w-full px-3 py-2 text-sm text-left text-text-primary hover:bg-bg-hover transition-colors" onclick="addTag('spammer')">
+                            <span class="user-tag user-tag-danger">Spammer</span>
+                        </button>
+                        <button type="button" class="w-full px-3 py-2 text-sm text-left text-text-primary hover:bg-bg-hover transition-colors" onclick="addTag('bot')">
+                            <span class="user-tag user-tag-danger">Suspected Bot</span>
+                        </button>
+                        <button type="button" class="w-full px-3 py-2 text-sm text-left text-text-primary hover:bg-bg-hover transition-colors" onclick="addTag('new')">
+                            <span class="user-tag user-tag-warning">New Account</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="settings-tabs mb-6">
+            <button type="button" class="settings-tab settings-tab-active" data-tab="cases" onclick="switchTab('cases')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                Cases
+                <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-error text-white">3</span>
+            </button>
+            <button type="button" class="settings-tab" data-tab="notes" onclick="switchTab('notes')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Notes
+                <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-blue text-white">5</span>
+            </button>
+            <button type="button" class="settings-tab" data-tab="flags" onclick="switchTab('flags')">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                </svg>
+                Flags
+                <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-warning text-white">7</span>
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg">
+            <!-- Cases Tab -->
+            <div id="tab-cases" class="tab-content">
+                <div class="overflow-x-auto">
+                    <table class="w-full" role="table" aria-label="Moderation cases">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Case</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Action</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Reason</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Moderator</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4 text-sm font-medium text-text-primary">#127</td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-warning-bg text-warning border border-warning-border">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        Warn
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Toxic behavior in #general</td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">AdminUser</td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Dec 28, 2024</td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4 text-sm font-medium text-text-primary">#098</td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-info-bg text-info border border-info-border">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                        </svg>
+                                        Mute (1h)
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Spam in multiple channels</td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">ModeratorBot</td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Dec 15, 2024</td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4 text-sm font-medium text-text-primary">#045</td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-warning-bg text-warning border border-warning-border">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                        Warn
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">First offense - language warning</td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">AdminUser</td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Nov 20, 2023</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4 border-t border-border-primary text-sm text-text-tertiary">
+                    Showing 3 moderation cases
+                </div>
+            </div>
+
+            <!-- Notes Tab -->
+            <div id="tab-notes" class="tab-content hidden p-6">
+                <!-- Add Note Form -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-semibold text-text-primary mb-2">Add New Note</h3>
+                    <div class="flex gap-3">
+                        <textarea id="newNoteText" rows="2" placeholder="Add a note about this user..." class="flex-1 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors resize-none"></textarea>
+                        <button type="button" class="self-end px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors" onclick="addNote()">
+                            Add Note
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Notes List -->
+                <div class="space-y-4">
+                    <div class="note-item">
+                        <div class="note-meta">
+                            <span class="font-medium text-text-secondary">AdminUser</span>
+                            <span>-</span>
+                            <span>Dec 28, 2024 at 3:45 PM</span>
+                        </div>
+                        <p class="note-content">User has been warned twice now for toxic behavior. Placing on watch list for closer monitoring. Next offense should result in a longer mute or kick.</p>
+                    </div>
+
+                    <div class="note-item">
+                        <div class="note-meta">
+                            <span class="font-medium text-text-secondary">ModBot</span>
+                            <span>-</span>
+                            <span>Dec 15, 2024 at 2:30 PM</span>
+                        </div>
+                        <p class="note-content">Auto-muted for 1 hour due to spam detection (5 identical messages in 10 seconds).</p>
+                    </div>
+
+                    <div class="note-item">
+                        <div class="note-meta">
+                            <span class="font-medium text-text-secondary">AdminUser</span>
+                            <span>-</span>
+                            <span>Dec 10, 2024 at 11:20 AM</span>
+                        </div>
+                        <p class="note-content">Had a conversation with user about server rules. Seemed receptive but attitude could improve.</p>
+                    </div>
+
+                    <div class="note-item">
+                        <div class="note-meta">
+                            <span class="font-medium text-text-secondary">ModeratorJane</span>
+                            <span>-</span>
+                            <span>Nov 25, 2023 at 9:15 PM</span>
+                        </div>
+                        <p class="note-content">User complained about being warned but eventually apologized for language used.</p>
+                    </div>
+
+                    <div class="note-item">
+                        <div class="note-meta">
+                            <span class="font-medium text-text-secondary">AdminUser</span>
+                            <span>-</span>
+                            <span>Nov 20, 2023 at 4:00 PM</span>
+                        </div>
+                        <p class="note-content">First warning issued for inappropriate language in #off-topic. User was argumentative but eventually complied.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Flags Tab -->
+            <div id="tab-flags" class="tab-content hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full" role="table" aria-label="Flagged events">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Severity</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Rule</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Channel</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Date</th>
+                                <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <span class="severity-badge severity-high">High</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rule-icon rule-content">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
+                                            </svg>
+                                        </span>
+                                        <span class="text-sm text-text-secondary">Content</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">#off-topic</td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-pending">Pending</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Today</td>
+                                <td class="px-6 py-4 text-right">
+                                    <a href="flagged-event-detail.html" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View</a>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <span class="severity-badge severity-medium">Medium</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rule-icon rule-spam">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                            </svg>
+                                        </span>
+                                        <span class="text-sm text-text-secondary">Spam</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">#general</td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-actioned">Actioned</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Dec 15, 2024</td>
+                                <td class="px-6 py-4 text-right">
+                                    <a href="flagged-event-detail.html" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View</a>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <span class="severity-badge severity-low">Low</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rule-icon rule-spam">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                            </svg>
+                                        </span>
+                                        <span class="text-sm text-text-secondary">Spam</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">#memes</td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-dismissed">Dismissed</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Dec 10, 2024</td>
+                                <td class="px-6 py-4 text-right">
+                                    <a href="flagged-event-detail.html" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View</a>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <span class="severity-badge severity-medium">Medium</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rule-icon rule-content">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
+                                            </svg>
+                                        </span>
+                                        <span class="text-sm text-text-secondary">Content</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">#off-topic</td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-actioned">Actioned</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Nov 25, 2023</td>
+                                <td class="px-6 py-4 text-right">
+                                    <a href="flagged-event-detail.html" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View</a>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <span class="severity-badge severity-low">Low</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rule-icon rule-spam">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                            </svg>
+                                        </span>
+                                        <span class="text-sm text-text-secondary">Spam</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">#general</td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-dismissed">Dismissed</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Nov 22, 2023</td>
+                                <td class="px-6 py-4 text-right">
+                                    <a href="flagged-event-detail.html" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View</a>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <span class="severity-badge severity-high">High</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rule-icon rule-content">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
+                                            </svg>
+                                        </span>
+                                        <span class="text-sm text-text-secondary">Content</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">#general</td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-actioned">Actioned</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Nov 20, 2023</td>
+                                <td class="px-6 py-4 text-right">
+                                    <a href="flagged-event-detail.html" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View</a>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                                <td class="px-6 py-4">
+                                    <span class="severity-badge severity-low">Low</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span class="rule-icon rule-spam">
+                                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                            </svg>
+                                        </span>
+                                        <span class="text-sm text-text-secondary">Spam</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">#welcome</td>
+                                <td class="px-6 py-4">
+                                    <span class="status-badge status-dismissed">Dismissed</span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-tertiary">Nov 1, 2023</td>
+                                <td class="px-6 py-4 text-right">
+                                    <a href="flagged-event-detail.html" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4 border-t border-border-primary text-sm text-text-tertiary">
+                    Showing 7 flagged events
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Switch tabs
+        function switchTab(tabId) {
+            // Update tab buttons
+            document.querySelectorAll('.settings-tab').forEach(tab => {
+                if (tab.dataset.tab === tabId) {
+                    tab.classList.add('settings-tab-active');
+                } else {
+                    tab.classList.remove('settings-tab-active');
+                }
+            });
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+        }
+
+        // Toggle tag dropdown
+        function toggleTagDropdown() {
+            const dropdown = document.getElementById('tagDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('tagDropdown');
+            const btn = document.getElementById('addTagBtn');
+            if (!btn.contains(event.target) && !dropdown.contains(event.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
+        // Add tag
+        function addTag(tag) {
+            alert('Tag added: ' + tag + '\n(Saves to database in production)');
+            document.getElementById('tagDropdown').classList.add('hidden');
+        }
+
+        // Remove tag
+        function removeTag(tag) {
+            if (confirm('Remove tag "' + tag + '" from this user?')) {
+                alert('Tag removed\n(Removes from database in production)');
+            }
+        }
+
+        // Add note
+        function addNote() {
+            const note = document.getElementById('newNoteText').value;
+            if (note.trim()) {
+                alert('Note added: ' + note + '\n(Saves to database in production)');
+                document.getElementById('newNoteText').value = '';
+            } else {
+                alert('Please enter a note');
+            }
+        }
+
+        // Quick actions
+        function warnUser() {
+            alert('Warn user\n(Opens warning modal in production)');
+        }
+
+        function muteUser() {
+            alert('Mute user\n(Opens mute duration selection in production)');
+        }
+
+        function kickUser() {
+            if (confirm('Are you sure you want to kick this user from the server?')) {
+                alert('User kicked\n(Kicks user in production)');
+            }
+        }
+
+        function banUser() {
+            if (confirm('Are you sure you want to ban this user from the server?')) {
+                alert('User banned\n(Bans user in production)');
+            }
+        }
+    </script>
+</body>
+</html>
