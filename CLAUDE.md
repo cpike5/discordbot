@@ -213,6 +213,7 @@ Located in `src/DiscordBot.Bot/Pages/`:
 | Guild Details | `/Guilds/Details?id={id}` | Single guild overview |
 | Guild Edit | `/Guilds/Edit/{id:long}` | Edit guild settings |
 | Guild Welcome | `/Guilds/Welcome/{id:long}` | Welcome message config |
+| Guild Moderation Settings | `/Guilds/{guildId:long}/ModerationSettings` | Guild auto-moderation config |
 | Scheduled Messages | `/Guilds/ScheduledMessages/{guildId:long}` | Guild scheduled messages |
 | Scheduled Message Create | `/Guilds/ScheduledMessages/Create/{guildId:long}` | New scheduled message |
 | Scheduled Message Edit | `/Guilds/ScheduledMessages/Edit/{guildId:long}/{id:guid}` | Edit scheduled message |
