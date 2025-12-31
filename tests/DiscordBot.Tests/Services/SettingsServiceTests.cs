@@ -340,6 +340,115 @@ public class SettingsServiceTests
     }
 
     [Fact]
+    public async Task GetSettingValueAsync_FallsBackToSettingDefinitionDefault_WhenNotInDatabaseOrConfig()
+    {
+        // Arrange - Features:MessageLoggingEnabled has DefaultValue = "true" in SettingDefinitions
+        // This was the bug: boolean defaults to false, but the definition says true
+        const string key = "Features:MessageLoggingEnabled";
+
+        _mockRepository
+            .Setup(r => r.GetByKeyAsync(key, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ApplicationSetting?)null);
+
+        _mockConfiguration
+            .Setup(c => c[key])
+            .Returns((string?)null);
+
+        // Act
+        var result = await _service.GetSettingValueAsync<bool>(key);
+
+        // Assert
+        result.Should().BeTrue("SettingDefinitions.DefaultValue for this key is 'true'");
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_FallsBackToSettingDefinitionDefault_ForWelcomeMessagesEnabled()
+    {
+        // Arrange - Features:WelcomeMessagesEnabled has DefaultValue = "true" in SettingDefinitions
+        const string key = "Features:WelcomeMessagesEnabled";
+
+        _mockRepository
+            .Setup(r => r.GetByKeyAsync(key, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ApplicationSetting?)null);
+
+        _mockConfiguration
+            .Setup(c => c[key])
+            .Returns((string?)null);
+
+        // Act
+        var result = await _service.GetSettingValueAsync<bool>(key);
+
+        // Assert
+        result.Should().BeTrue("SettingDefinitions.DefaultValue for this key is 'true'");
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_FallsBackToSettingDefinitionDefault_ForRatWatchEnabled()
+    {
+        // Arrange - Features:RatWatchEnabled has DefaultValue = "true" in SettingDefinitions
+        const string key = "Features:RatWatchEnabled";
+
+        _mockRepository
+            .Setup(r => r.GetByKeyAsync(key, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ApplicationSetting?)null);
+
+        _mockConfiguration
+            .Setup(c => c[key])
+            .Returns((string?)null);
+
+        // Act
+        var result = await _service.GetSettingValueAsync<bool>(key);
+
+        // Assert
+        result.Should().BeTrue("SettingDefinitions.DefaultValue for this key is 'true'");
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_SettingDefinitionFallback_DoesNotOverrideDatabaseValue()
+    {
+        // Arrange - Database value should take precedence over definition default
+        const string key = "Features:MessageLoggingEnabled";
+        var dbSetting = new ApplicationSetting
+        {
+            Key = key,
+            Value = "false",
+            Category = SettingCategory.Features,
+            DataType = SettingDataType.Boolean
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByKeyAsync(key, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dbSetting);
+
+        // Act
+        var result = await _service.GetSettingValueAsync<bool>(key);
+
+        // Assert
+        result.Should().BeFalse("database value should take precedence over definition default");
+    }
+
+    [Fact]
+    public async Task GetSettingValueAsync_SettingDefinitionFallback_DoesNotOverrideConfigValue()
+    {
+        // Arrange - Configuration value should take precedence over definition default
+        const string key = "Features:MessageLoggingEnabled";
+
+        _mockRepository
+            .Setup(r => r.GetByKeyAsync(key, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ApplicationSetting?)null);
+
+        _mockConfiguration
+            .Setup(c => c[key])
+            .Returns("false");
+
+        // Act
+        var result = await _service.GetSettingValueAsync<bool>(key);
+
+        // Assert
+        result.Should().BeFalse("configuration value should take precedence over definition default");
+    }
+
+    [Fact]
     public async Task GetSettingValueAsync_ConvertsStringCorrectly()
     {
         // Arrange
