@@ -36,6 +36,41 @@
     </div>
 </div>
 
+<!-- Global Inline Alerts (for Save All) -->
+<div id="saveSuccessAlert" class="hidden mb-6 bg-success/10 border border-success/30 rounded-lg p-4">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div class="flex-1">
+            <p class="text-sm font-semibold text-success">Changes saved successfully</p>
+            <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+        </div>
+        <button type="button" onclick="this.closest('#saveSuccessAlert').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+</div>
+
+<div id="saveErrorAlert" class="hidden mb-6 bg-error/10 border border-error/30 rounded-lg p-4">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div class="flex-1">
+            <p class="text-sm font-semibold text-error">Failed to save changes</p>
+            <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+        </div>
+        <button type="button" onclick="this.closest('#saveErrorAlert').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+</div>
+
 <!-- Settings Navigation Tabs -->
 <div class="bg-bg-secondary border border-border-primary rounded-lg p-2 mb-6">
     <div class="flex flex-wrap gap-2" role="tablist" aria-label="Settings sections">
@@ -95,17 +130,52 @@
                     }
                 </div>
             </div>
-            <div class="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
-                <button type="button"
-                        onclick="window.settingsManager?.showResetCategoryModal('General')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
-                    Reset
-                </button>
-                <button type="button"
-                        onclick="window.settingsManager?.saveCategory('General')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
-                    Save Changes
-                </button>
+            <div class="px-6 py-4 border-t border-border-primary">
+                <div class="flex justify-end gap-3">
+                    <button type="button"
+                            onclick="window.settingsManager?.showResetCategoryModal('General')"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                        Reset
+                    </button>
+                    <button type="button"
+                            onclick="window.settingsManager?.saveCategory('General')"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                        Save Changes
+                    </button>
+                </div>
+                <!-- Category Inline Alerts -->
+                <div id="saveSuccessAlert-General" class="hidden mt-4 bg-success/10 border border-success/30 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-success">Changes saved successfully</p>
+                            <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+                        </div>
+                        <button type="button" onclick="this.closest('[id^=saveSuccessAlert]').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="saveErrorAlert-General" class="hidden mt-4 bg-error/10 border border-error/30 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-error">Failed to save changes</p>
+                            <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+                        </div>
+                        <button type="button" onclick="this.closest('[id^=saveErrorAlert]').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -125,17 +195,52 @@
                     }
                 </div>
             </div>
-            <div class="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
-                <button type="button"
-                        onclick="window.settingsManager?.showResetCategoryModal('Features')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
-                    Reset
-                </button>
-                <button type="button"
-                        onclick="window.settingsManager?.saveCategory('Features')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
-                    Save Changes
-                </button>
+            <div class="px-6 py-4 border-t border-border-primary">
+                <div class="flex justify-end gap-3">
+                    <button type="button"
+                            onclick="window.settingsManager?.showResetCategoryModal('Features')"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                        Reset
+                    </button>
+                    <button type="button"
+                            onclick="window.settingsManager?.saveCategory('Features')"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                        Save Changes
+                    </button>
+                </div>
+                <!-- Category Inline Alerts -->
+                <div id="saveSuccessAlert-Features" class="hidden mt-4 bg-success/10 border border-success/30 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-success">Changes saved successfully</p>
+                            <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+                        </div>
+                        <button type="button" onclick="this.closest('[id^=saveSuccessAlert]').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="saveErrorAlert-Features" class="hidden mt-4 bg-error/10 border border-error/30 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-error">Failed to save changes</p>
+                            <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+                        </div>
+                        <button type="button" onclick="this.closest('[id^=saveErrorAlert]').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -155,17 +260,52 @@
                     }
                 </div>
             </div>
-            <div class="px-6 py-4 border-t border-border-primary flex justify-end gap-3">
-                <button type="button"
-                        onclick="window.settingsManager?.showResetCategoryModal('Advanced')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
-                    Reset
-                </button>
-                <button type="button"
-                        onclick="window.settingsManager?.saveCategory('Advanced')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
-                    Save Changes
-                </button>
+            <div class="px-6 py-4 border-t border-border-primary">
+                <div class="flex justify-end gap-3">
+                    <button type="button"
+                            onclick="window.settingsManager?.showResetCategoryModal('Advanced')"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                        Reset
+                    </button>
+                    <button type="button"
+                            onclick="window.settingsManager?.saveCategory('Advanced')"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                        Save Changes
+                    </button>
+                </div>
+                <!-- Category Inline Alerts -->
+                <div id="saveSuccessAlert-Advanced" class="hidden mt-4 bg-success/10 border border-success/30 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-success">Changes saved successfully</p>
+                            <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+                        </div>
+                        <button type="button" onclick="this.closest('[id^=saveSuccessAlert]').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="saveErrorAlert-Advanced" class="hidden mt-4 bg-error/10 border border-error/30 rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-error">Failed to save changes</p>
+                            <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+                        </div>
+                        <button type="button" onclick="this.closest('[id^=saveErrorAlert]').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -241,6 +381,37 @@
 
     .settings-section.active {
         display: block;
+    }
+
+    /* Save Button State Styles */
+    .btn-save-success {
+        background-color: #10b981 !important;
+        color: #ffffff !important;
+        cursor: default;
+    }
+
+    .btn-save-success:hover {
+        background-color: #10b981 !important;
+    }
+
+    .btn-save-error {
+        background-color: #ef4444 !important;
+        color: #ffffff !important;
+        cursor: pointer;
+    }
+
+    .btn-save-error:hover {
+        background-color: #dc2626 !important;
+    }
+
+    .btn-save-info {
+        background-color: #6366f1 !important;
+        color: #ffffff !important;
+        cursor: default;
+    }
+
+    .btn-save-info:hover {
+        background-color: #6366f1 !important;
     }
 </style>
 

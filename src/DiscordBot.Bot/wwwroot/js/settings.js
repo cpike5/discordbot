@@ -8,6 +8,18 @@
     let currentCategory = 'General';
     let isDirty = false;
 
+    // Icon SVG templates for button states
+    const icons = {
+        save: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>',
+        loading: '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>',
+        success: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+        error: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>',
+        info: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+    };
+
+    // Store original button states for reset
+    const buttonOriginalStates = new WeakMap();
+
     /**
      * Build form data with proper checkbox handling
      * Checkboxes need special handling because unchecked boxes don't submit values
@@ -38,6 +50,178 @@
         });
 
         return formData;
+    }
+
+    /**
+     * Store the original state of a button for later reset
+     * @param {HTMLButtonElement} button - The button element
+     */
+    function storeButtonState(button) {
+        if (!button || buttonOriginalStates.has(button)) return;
+        buttonOriginalStates.set(button, {
+            innerHTML: button.innerHTML,
+            disabled: button.disabled,
+            classList: [...button.classList]
+        });
+    }
+
+    /**
+     * Reset a button to its original state
+     * @param {HTMLButtonElement} button - The button element
+     */
+    function resetButtonState(button) {
+        if (!button) return;
+        const original = buttonOriginalStates.get(button);
+        if (original) {
+            button.innerHTML = original.innerHTML;
+            button.disabled = original.disabled;
+            // Reset classes
+            button.classList.remove('btn-save-success', 'btn-save-error', 'btn-save-info');
+            button.classList.add('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700');
+        } else {
+            // Fallback for category save buttons
+            button.disabled = false;
+            button.innerHTML = 'Save Changes';
+            button.classList.remove('btn-save-success', 'btn-save-error', 'btn-save-info');
+            button.classList.add('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700');
+        }
+    }
+
+    /**
+     * Set button to loading state
+     * @param {HTMLButtonElement} button - The button element
+     */
+    function setButtonLoading(button) {
+        if (!button) return;
+        storeButtonState(button);
+        button.disabled = true;
+        button.innerHTML = `${icons.loading} Saving...`;
+    }
+
+    /**
+     * Set button to success state
+     * @param {HTMLButtonElement} button - The button element
+     * @param {boolean} autoReset - Whether to auto-reset after 2 seconds
+     */
+    function setButtonSuccess(button, autoReset = true) {
+        if (!button) return;
+        button.disabled = true;
+        button.innerHTML = `${icons.success} Saved!`;
+        button.classList.remove('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700', 'btn-save-error', 'btn-save-info');
+        button.classList.add('btn-save-success');
+
+        if (autoReset) {
+            setTimeout(() => resetButtonState(button), 2000);
+        }
+    }
+
+    /**
+     * Set button to error state (allows retry)
+     * @param {HTMLButtonElement} button - The button element
+     */
+    function setButtonError(button) {
+        if (!button) return;
+        button.disabled = false; // Allow retry
+        button.innerHTML = `${icons.error} Save Failed - Retry`;
+        button.classList.remove('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700', 'btn-save-success', 'btn-save-info');
+        button.classList.add('btn-save-error');
+    }
+
+    /**
+     * Set button to info state (no changes detected)
+     * @param {HTMLButtonElement} button - The button element
+     */
+    function setButtonInfo(button) {
+        if (!button) return;
+        button.disabled = true;
+        button.innerHTML = `${icons.info} No Changes`;
+        button.classList.remove('bg-accent-orange', 'hover:bg-orange-600', 'active:bg-orange-700', 'btn-save-success', 'btn-save-error');
+        button.classList.add('btn-save-info');
+
+        setTimeout(() => resetButtonState(button), 2000);
+    }
+
+    /**
+     * Show inline success alert
+     * @param {string} message - The success message
+     * @param {string} category - Optional category for category-specific alerts
+     */
+    function showInlineSuccess(message, category = null) {
+        const alertId = category ? `saveSuccessAlert-${category}` : 'saveSuccessAlert';
+        const alert = document.getElementById(alertId);
+        if (!alert) return;
+
+        const messageEl = alert.querySelector('.inline-alert-message');
+        if (messageEl) {
+            messageEl.textContent = message;
+        }
+
+        alert.classList.remove('hidden');
+
+        // Announce to screen readers
+        announceToScreenReader('success', message);
+    }
+
+    /**
+     * Show inline error alert
+     * @param {string} message - The error message
+     * @param {string} category - Optional category for category-specific alerts
+     */
+    function showInlineError(message, category = null) {
+        const alertId = category ? `saveErrorAlert-${category}` : 'saveErrorAlert';
+        const alert = document.getElementById(alertId);
+        if (!alert) return;
+
+        const messageEl = alert.querySelector('.inline-alert-message');
+        if (messageEl) {
+            messageEl.textContent = message;
+        }
+
+        alert.classList.remove('hidden');
+
+        // Announce to screen readers
+        announceToScreenReader('error', message);
+    }
+
+    /**
+     * Hide inline alerts
+     * @param {string} category - Optional category for category-specific alerts
+     */
+    function hideInlineAlerts(category = null) {
+        if (category) {
+            const successAlert = document.getElementById(`saveSuccessAlert-${category}`);
+            const errorAlert = document.getElementById(`saveErrorAlert-${category}`);
+            if (successAlert) successAlert.classList.add('hidden');
+            if (errorAlert) errorAlert.classList.add('hidden');
+        } else {
+            const successAlert = document.getElementById('saveSuccessAlert');
+            const errorAlert = document.getElementById('saveErrorAlert');
+            if (successAlert) successAlert.classList.add('hidden');
+            if (errorAlert) errorAlert.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Announce message to screen readers via ARIA live region
+     * @param {string} type - Message type (success, error, info)
+     * @param {string} message - The message to announce
+     */
+    function announceToScreenReader(type, message) {
+        // Use the toast live region if available
+        const liveRegion = document.getElementById('toastLiveRegion');
+        if (liveRegion) {
+            const typeLabels = {
+                success: 'Success',
+                error: 'Error',
+                info: 'Information'
+            };
+            liveRegion.textContent = `${typeLabels[type] || type}: ${message}`;
+
+            // Clear after a short delay to allow for repeated announcements
+            setTimeout(() => {
+                liveRegion.textContent = '';
+            }, 1000);
+        }
     }
 
     /**
@@ -88,12 +272,14 @@
         const formData = buildFormData(form);
         const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
-        // Show loading state
+        // Get the save button from the event
         const saveButton = event?.target;
-        if (saveButton) {
-            saveButton.disabled = true;
-            saveButton.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
-        }
+
+        // Hide any existing inline alerts for this category
+        hideInlineAlerts(category);
+
+        // Show loading state
+        setButtonLoading(saveButton);
 
         try {
             const response = await fetch(`?handler=SaveCategory&category=${category}`, {
@@ -107,26 +293,45 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
+                // Show success button state
+                const willReload = data.restartRequired;
+                setButtonSuccess(saveButton, !willReload);
+
+                // Show inline success alert
+                showInlineSuccess(data.message, category);
+
+                // Show toast
                 window.quickActions?.showToast(data.message, 'success');
                 isDirty = false;
 
                 // If restart required, reload page to show banner
-                if (data.restartRequired) {
+                if (willReload) {
                     setTimeout(() => window.location.reload(), 1500);
                 }
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message;
-                window.quickActions?.showToast(errorMsg || 'Failed to save settings.', 'error');
+                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to save settings.';
+
+                // Show error button state (allows retry)
+                setButtonError(saveButton);
+
+                // Show inline error alert
+                showInlineError(errorMsg, category);
+
+                // Show toast with longer duration for errors
+                window.quickActions?.showToast(errorMsg, 'error');
             }
         } catch (error) {
             console.error('Save category error:', error);
-            window.quickActions?.showToast('An error occurred while saving settings.', 'error');
-        } finally {
-            // Reset button state
-            if (saveButton) {
-                saveButton.disabled = false;
-                saveButton.innerHTML = 'Save Changes';
-            }
+            const errorMsg = 'An error occurred while saving settings.';
+
+            // Show error button state
+            setButtonError(saveButton);
+
+            // Show inline error alert
+            showInlineError(errorMsg, category);
+
+            // Show toast
+            window.quickActions?.showToast(errorMsg, 'error');
         }
     }
 
@@ -140,13 +345,14 @@
         const formData = buildFormData(form);
         const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
-        // Show loading state
+        // Get the save button from the event
         const saveButton = event?.target;
-        if (saveButton) {
-            saveButton.disabled = true;
-            const originalText = saveButton.innerHTML;
-            saveButton.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
-        }
+
+        // Hide any existing inline alerts (global)
+        hideInlineAlerts();
+
+        // Show loading state
+        setButtonLoading(saveButton);
 
         try {
             const response = await fetch('?handler=SaveAll', {
@@ -160,26 +366,45 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
+                // Show success button state
+                const willReload = data.restartRequired;
+                setButtonSuccess(saveButton, !willReload);
+
+                // Show inline success alert
+                showInlineSuccess(data.message);
+
+                // Show toast
                 window.quickActions?.showToast(data.message, 'success');
                 isDirty = false;
 
                 // If restart required, reload page to show banner
-                if (data.restartRequired) {
+                if (willReload) {
                     setTimeout(() => window.location.reload(), 1500);
                 }
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message;
-                window.quickActions?.showToast(errorMsg || 'Failed to save all settings.', 'error');
+                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to save all settings.';
+
+                // Show error button state (allows retry)
+                setButtonError(saveButton);
+
+                // Show inline error alert
+                showInlineError(errorMsg);
+
+                // Show toast with longer duration for errors
+                window.quickActions?.showToast(errorMsg, 'error');
             }
         } catch (error) {
             console.error('Save all error:', error);
-            window.quickActions?.showToast('An error occurred while saving settings.', 'error');
-        } finally {
-            // Reset button state
-            if (saveButton) {
-                saveButton.disabled = false;
-                saveButton.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> Save All';
-            }
+            const errorMsg = 'An error occurred while saving settings.';
+
+            // Show error button state
+            setButtonError(saveButton);
+
+            // Show inline error alert
+            showInlineError(errorMsg);
+
+            // Show toast
+            window.quickActions?.showToast(errorMsg, 'error');
         }
     }
 
