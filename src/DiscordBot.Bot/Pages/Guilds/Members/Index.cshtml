@@ -512,10 +512,9 @@
 <partial name="Shared/Components/_ToastContainer" />
 
 @section Scripts {
-    <script src="~/js/toast.js"></script>
     <script src="~/js/member-directory.js"></script>
     <script>
-        // Initialize member directory with guild ID
-        window.memberDirectoryGuildId = @Model.GuildId;
+        // Initialize member directory with guild ID (as string to preserve precision)
+        window.memberDirectoryGuildId = '@Model.GuildId';
     </script>
 }

@@ -251,3 +251,17 @@ When running locally (`dotnet run --project src/DiscordBot.Bot`):
 - **Commands not appearing**: Without `TestGuildId` configured, global commands take up to 1 hour to propagate
 - **Bot doesn't connect**: Check bot token in user secrets and that gateway intents are enabled in Discord Developer Portal
 - **OAuth fails**: Verify redirect URIs in Discord Developer Portal match your environment
+
+## JavaScript and Discord Snowflake IDs
+
+**CRITICAL**: Discord snowflake IDs are 64-bit integers that exceed JavaScript's `Number.MAX_SAFE_INTEGER` (9007199254740991). When passing Discord IDs (guild IDs, user IDs, channel IDs, etc.) from Razor to JavaScript, **always pass them as strings** to preserve precision.
+
+```razor
+<!-- WRONG - loses precision on large IDs -->
+window.guildId = @Model.GuildId;
+
+<!-- CORRECT - preserves all digits -->
+window.guildId = '@Model.GuildId';
+```
+
+The string works fine for URL concatenation and API calls. Never use numeric Discord IDs in JavaScript.
