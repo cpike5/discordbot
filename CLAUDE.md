@@ -136,6 +136,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
 | [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | Issue hierarchy, labels, GitHub workflow |
 | [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
+| [member-directory.md](docs/articles/member-directory.md) | Member Directory feature |
 | [form-implementation-standards.md](docs/articles/form-implementation-standards.md) | Razor Pages form patterns, validation, AJAX forms |
 
 
@@ -218,6 +219,7 @@ Located in `src/DiscordBot.Bot/Pages/`:
 | Rat Watch | `/Guilds/RatWatch/{guildId:long}` | Rat Watch management |
 | Rat Watch Analytics | `/Guilds/RatWatch/{guildId:long}/Analytics` | Rat Watch analytics and metrics |
 | Rat Watch Incidents | `/Guilds/RatWatch/{guildId:long}/Incidents` | Incident browser with filtering |
+| Member Directory | `/Guilds/{guildId:long}/Members` | Guild member list with search/filter |
 | Public Leaderboard | `/Guilds/{guildId:long}/Leaderboard` | Public Rat Watch leaderboard (no auth) |
 | Global Rat Watch Analytics | `/Admin/RatWatchAnalytics` | Cross-guild Rat Watch metrics (Admin+) |
 | Users | `/Admin/Users` | User management (SuperAdmin) |
