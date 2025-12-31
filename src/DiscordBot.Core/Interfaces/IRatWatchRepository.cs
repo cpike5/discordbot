@@ -124,4 +124,16 @@ public interface IRatWatchRepository : IRepository<RatWatch>
         DateTime startDate,
         DateTime endDate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets Rat Watches for a guild with advanced filtering and pagination.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="filter">The filter parameters.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tuple of filtered items and total count.</returns>
+    Task<(IEnumerable<RatWatch> Items, int TotalCount)> GetFilteredByGuildAsync(
+        ulong guildId,
+        RatWatchIncidentFilterDto filter,
+        CancellationToken cancellationToken = default);
 }

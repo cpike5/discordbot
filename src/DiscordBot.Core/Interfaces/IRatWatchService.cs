@@ -170,4 +170,12 @@ public interface IRatWatchService
     /// <param name="ct">Cancellation token.</param>
     /// <returns>True if there are any active watches, false otherwise.</returns>
     Task<bool> HasActiveWatchesAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets Rat Watches for a guild with advanced filtering and pagination.
+    /// </summary>
+    Task<(IEnumerable<RatWatchDto> Items, int TotalCount)> GetFilteredByGuildAsync(
+        ulong guildId,
+        RatWatchIncidentFilterDto filter,
+        CancellationToken ct = default);
 }

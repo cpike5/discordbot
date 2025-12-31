@@ -28,6 +28,20 @@
             _ => "border border-bg-tertiary text-text-secondary bg-transparent"
         };
     }
+    else if (Model.Style == DiscordBot.Bot.ViewModels.Components.BadgeStyle.Subtle)
+    {
+        // Subtle style: muted background with colored text (commonly used for status badges)
+        variantClasses = Model.Variant switch
+        {
+            DiscordBot.Bot.ViewModels.Components.BadgeVariant.Orange => "bg-accent-orange/10 text-accent-orange",
+            DiscordBot.Bot.ViewModels.Components.BadgeVariant.Blue => "bg-accent-blue/10 text-accent-blue",
+            DiscordBot.Bot.ViewModels.Components.BadgeVariant.Success => "bg-success/10 text-success",
+            DiscordBot.Bot.ViewModels.Components.BadgeVariant.Warning => "bg-warning/10 text-warning",
+            DiscordBot.Bot.ViewModels.Components.BadgeVariant.Error => "bg-error/10 text-error",
+            DiscordBot.Bot.ViewModels.Components.BadgeVariant.Info => "bg-info/10 text-info",
+            _ => "bg-bg-tertiary/50 text-text-secondary"
+        };
+    }
     else
     {
         variantClasses = Model.Variant switch

@@ -678,6 +678,40 @@ public class RatWatchService : IRatWatchService
         return await _watchRepository.HasActiveWatchesAsync(ct);
     }
 
+    /// <inheritdoc/>
+    public async Task<(IEnumerable<RatWatchDto> Items, int TotalCount)> GetFilteredByGuildAsync(
+        ulong guildId,
+        RatWatchIncidentFilterDto filter,
+        CancellationToken ct = default)
+    {
+        _logger.LogDebug(
+            "Getting filtered Rat Watches for guild {GuildId} with filters: Statuses={Statuses}, StartDate={StartDate}, EndDate={EndDate}, AccusedUser={AccusedUser}, InitiatorUser={InitiatorUser}, MinVoteCount={MinVoteCount}, Keyword={Keyword}, Page={Page}, PageSize={PageSize}",
+            guildId,
+            filter.Statuses != null ? string.Join(",", filter.Statuses) : "null",
+            filter.StartDate,
+            filter.EndDate,
+            filter.AccusedUser,
+            filter.InitiatorUser,
+            filter.MinVoteCount,
+            filter.Keyword,
+            filter.Page,
+            filter.PageSize);
+
+        var (watches, totalCount) = await _watchRepository.GetFilteredByGuildAsync(guildId, filter, ct);
+        var dtos = new List<RatWatchDto>();
+
+        foreach (var watch in watches)
+        {
+            dtos.Add(await MapToDtoAsync(watch, ct));
+        }
+
+        _logger.LogInformation(
+            "Retrieved {Count} of {Total} filtered Rat Watches for guild {GuildId}",
+            dtos.Count, totalCount, guildId);
+
+        return (dtos, totalCount);
+    }
+
     /// <summary>
     /// Gets the username for a Discord user.
     /// Returns "Unknown User" if the user cannot be found.

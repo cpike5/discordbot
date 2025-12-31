@@ -100,6 +100,11 @@ public record RatWatchIndexViewModel
     public int CompletedCount => Watches.Count(w => w.Status == RatWatchStatus.Guilty || w.Status == RatWatchStatus.NotGuilty);
 
     /// <summary>
+    /// Gets the analytics summary for the guild.
+    /// </summary>
+    public RatWatchAnalyticsSummaryDto? AnalyticsSummary { get; init; }
+
+    /// <summary>
     /// Creates a RatWatchIndexViewModel from service data.
     /// </summary>
     public static RatWatchIndexViewModel Create(
@@ -111,7 +116,8 @@ public record RatWatchIndexViewModel
         int totalWatches,
         IEnumerable<RatLeaderboardEntryDto> leaderboard,
         int page,
-        int pageSize)
+        int pageSize,
+        RatWatchAnalyticsSummaryDto? analyticsSummary = null)
     {
         var votingDurationMinutes = settings.VotingDurationMinutes;
         return new RatWatchIndexViewModel
@@ -127,7 +133,8 @@ public record RatWatchIndexViewModel
             TotalWatches = totalWatches,
             Leaderboard = leaderboard.Select(RatLeaderboardEntryViewModel.FromDto).ToList(),
             CurrentPage = page,
-            PageSize = pageSize
+            PageSize = pageSize,
+            AnalyticsSummary = analyticsSummary
         };
     }
 }
