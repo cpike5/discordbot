@@ -22,9 +22,11 @@ public class BotHostedService : IHostedService
     private readonly InteractionHandler _interactionHandler;
     private readonly MessageLoggingHandler _messageLoggingHandler;
     private readonly WelcomeHandler _welcomeHandler;
+    private readonly MemberEventHandler _memberEventHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly IAuditLogQueue _auditLogQueue;
+    private readonly IMemberSyncQueue _memberSyncQueue;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly BotConfiguration _config;
     private readonly ApplicationOptions _applicationOptions;
@@ -41,9 +43,11 @@ public class BotHostedService : IHostedService
         InteractionHandler interactionHandler,
         MessageLoggingHandler messageLoggingHandler,
         WelcomeHandler welcomeHandler,
+        MemberEventHandler memberEventHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
         IAuditLogQueue auditLogQueue,
+        IMemberSyncQueue memberSyncQueue,
         IServiceScopeFactory scopeFactory,
         ISettingsService settingsService,
         IRatWatchStatusService ratWatchStatusService,
@@ -58,9 +62,11 @@ public class BotHostedService : IHostedService
         _interactionHandler = interactionHandler;
         _messageLoggingHandler = messageLoggingHandler;
         _welcomeHandler = welcomeHandler;
+        _memberEventHandler = memberEventHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
         _auditLogQueue = auditLogQueue;
+        _memberSyncQueue = memberSyncQueue;
         _scopeFactory = scopeFactory;
         _settingsService = settingsService;
         _ratWatchStatusService = ratWatchStatusService;
@@ -97,6 +103,14 @@ public class BotHostedService : IHostedService
 
         // Wire welcome handler for new member joins
         _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
+
+        // Wire member event handlers for directory sync
+        _client.UserJoined += _memberEventHandler.HandleUserJoinedAsync;
+        _client.UserLeft += _memberEventHandler.HandleUserLeftAsync;
+        _client.GuildMemberUpdated += _memberEventHandler.HandleGuildMemberUpdatedAsync;
+
+        // Queue member sync for new guilds
+        _client.JoinedGuild += OnBotJoinedGuild;
 
         // Subscribe to settings changes for real-time updates
         _settingsService.SettingsChanged += OnSettingsChangedAsync;
@@ -168,6 +182,10 @@ public class BotHostedService : IHostedService
             _client.LatencyUpdated -= OnLatencyUpdatedAsync;
             _client.MessageReceived -= _messageLoggingHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
+            _client.UserJoined -= _memberEventHandler.HandleUserJoinedAsync;
+            _client.UserLeft -= _memberEventHandler.HandleUserLeftAsync;
+            _client.GuildMemberUpdated -= _memberEventHandler.HandleGuildMemberUpdatedAsync;
+            _client.JoinedGuild -= OnBotJoinedGuild;
             _settingsService.SettingsChanged -= OnSettingsChangedAsync;
             _ratWatchStatusService.StatusUpdateRequested -= OnRatWatchStatusUpdateRequested;
 
@@ -341,6 +359,20 @@ public class BotHostedService : IHostedService
             // Log but don't throw - this is fire-and-forget
             _logger.LogWarning(ex, "Failed to broadcast bot status update, but continuing normal operation");
         }
+    }
+
+    /// <summary>
+    /// Handles bot joining a new guild event.
+    /// Queues member sync for the guild and records metrics.
+    /// </summary>
+    private Task OnBotJoinedGuild(SocketGuild guild)
+    {
+        _logger.LogInformation("Bot joined new guild {GuildId} ({GuildName})", guild.Id, guild.Name);
+
+        // Queue member sync for the new guild
+        _memberSyncQueue.EnqueueGuild(guild.Id, MemberSyncReason.BotJoinedGuild);
+
+        return Task.CompletedTask;
     }
 
     /// <summary>

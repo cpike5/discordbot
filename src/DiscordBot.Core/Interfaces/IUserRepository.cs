@@ -33,4 +33,14 @@ public interface IUserRepository : IRepository<User>
     Task<IReadOnlyList<User>> GetRecentlyActiveAsync(
         TimeSpan timeframe,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Batch upserts multiple users in a single transaction.
+    /// </summary>
+    /// <param name="users">The collection of users to upsert.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of records affected.</returns>
+    Task<int> BatchUpsertAsync(
+        IEnumerable<User> users,
+        CancellationToken cancellationToken = default);
 }

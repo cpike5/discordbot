@@ -98,4 +98,43 @@ public class BackgroundServicesOptions
     /// Default is 5 minutes.
     /// </summary>
     public int AuditLogCleanupInitialDelayMinutes { get; set; } = 5;
+
+    // Member Sync Service
+
+    /// <summary>
+    /// Gets or sets the initial delay (in minutes) before the first member sync.
+    /// Default is 2 minutes (allow bot to fully connect).
+    /// </summary>
+    public int MemberSyncInitialDelayMinutes { get; set; } = 2;
+
+    /// <summary>
+    /// Gets or sets the interval (in hours) between full reconciliation syncs.
+    /// Default is 24 hours.
+    /// </summary>
+    public int MemberSyncReconciliationIntervalHours { get; set; } = 24;
+
+    /// <summary>
+    /// Gets or sets the batch size for database upserts.
+    /// Default is 500 members per transaction.
+    /// </summary>
+    public int MemberSyncBatchSize { get; set; } = 500;
+
+    /// <summary>
+    /// Gets or sets the delay (in milliseconds) between Discord API requests.
+    /// Used to respect rate limits (10 requests per 10 seconds = 1 per second).
+    /// Default is 1100ms (slightly over 1 second for safety).
+    /// </summary>
+    public int MemberSyncApiDelayMs { get; set; } = 1100;
+
+    /// <summary>
+    /// Gets or sets whether member sync is enabled.
+    /// Default is true.
+    /// </summary>
+    public bool MemberSyncEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the maximum retry attempts for failed API calls.
+    /// Default is 3.
+    /// </summary>
+    public int MemberSyncMaxRetries { get; set; } = 3;
 }
