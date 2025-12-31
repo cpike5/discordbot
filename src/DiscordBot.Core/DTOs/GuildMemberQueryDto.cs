@@ -59,4 +59,9 @@ public class GuildMemberQueryDto
     /// Sort in descending order if true.
     /// </summary>
     public bool SortDescending { get; set; }
+
+    /// <summary>
+    /// Filter by specific user IDs. Used for exporting selected members.
+    /// </summary>
+    public List<ulong>? UserIds { get; set; }
 }

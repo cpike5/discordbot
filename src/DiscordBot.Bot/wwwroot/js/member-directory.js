@@ -39,6 +39,7 @@
         setupRoleMultiSelect();
         setupBulkSelection();
         setupModalKeyboardHandling();
+        setupFilterFormClearSelection();
     }
 
     /**
@@ -122,6 +123,30 @@
     }
 
     /**
+     * Set up filter form to clear selection when filters are applied
+     * Selection is cleared on form submit since the page will reload with new results
+     */
+    function setupFilterFormClearSelection() {
+        const filterForm = document.getElementById('filterForm');
+        if (!filterForm) return;
+
+        filterForm.addEventListener('submit', function () {
+            // Clear selection state before form submits (page reload will reset anyway)
+            // This provides immediate visual feedback
+            deselectAll();
+        });
+
+        // Also clear selection when reset link is clicked
+        const resetLink = filterForm.querySelector('a[asp-page="Index"]') ||
+                          filterForm.querySelector('a.btn-secondary');
+        if (resetLink) {
+            resetLink.addEventListener('click', function () {
+                deselectAll();
+            });
+        }
+    }
+
+    /**
      * Update bulk selection state and toolbar visibility
      */
     function updateBulkSelection() {
@@ -169,8 +194,8 @@
         });
 
         if (selectedIds.length === 0) {
-            if (typeof showToast === 'function') {
-                showToast('No members selected', 'warning');
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.show('warning', 'No members selected');
             }
             return;
         }
@@ -181,8 +206,8 @@
         // Trigger download
         window.location.href = exportUrl;
 
-        if (typeof showToast === 'function') {
-            showToast('Exporting ' + selectedIds.length + ' member(s)...', 'info');
+        if (typeof ToastManager !== 'undefined') {
+            ToastManager.show('info', 'Exporting ' + selectedIds.length + ' member(s)...');
         }
     };
 
@@ -344,12 +369,12 @@
     window.copyUserId = function () {
         const userId = document.getElementById('modalUserId').textContent;
         navigator.clipboard.writeText(userId).then(function () {
-            if (typeof showToast === 'function') {
-                showToast('User ID copied to clipboard', 'success');
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.show('success', 'User ID copied to clipboard');
             }
         }).catch(function () {
-            if (typeof showToast === 'function') {
-                showToast('Failed to copy user ID', 'error');
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.show('error', 'Failed to copy user ID');
             }
         });
     };
