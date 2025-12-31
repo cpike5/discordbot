@@ -136,6 +136,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
 | [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | Issue hierarchy, labels, GitHub workflow |
 | [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
+| [form-implementation-standards.md](docs/articles/form-implementation-standards.md) | Razor Pages form patterns, validation, AJAX forms |
 
 
 ## HTML Prototypes
