@@ -200,8 +200,13 @@
             return;
         }
 
-        // Build export URL with selected IDs
-        const exportUrl = '/api/guilds/' + window.memberDirectoryGuildId + '/members/export?userIds=' + selectedIds.join(',');
+        // Build export URL with selected IDs using repeated query parameters
+        // ASP.NET Core model binding expects: userIds=id1&userIds=id2&userIds=id3
+        const params = new URLSearchParams();
+        selectedIds.forEach(function (id) {
+            params.append('userIds', id);
+        });
+        const exportUrl = '/api/guilds/' + window.memberDirectoryGuildId + '/members/export?' + params.toString();
 
         // Trigger download
         window.location.href = exportUrl;
