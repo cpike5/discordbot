@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Handlers;
 
@@ -14,9 +15,6 @@ public class AutoModerationHandler
     private readonly ISpamDetectionService _spamService;
     private readonly IContentFilterService _contentFilterService;
     private readonly IRaidDetectionService _raidService;
-    private readonly IFlaggedEventService _flaggedEventService;
-    private readonly IGuildModerationConfigService _configService;
-    private readonly IWatchlistService _watchlistService;
     private readonly DiscordSocketClient _client;
     private readonly ILogger<AutoModerationHandler> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -25,9 +23,6 @@ public class AutoModerationHandler
         ISpamDetectionService spamService,
         IContentFilterService contentFilterService,
         IRaidDetectionService raidService,
-        IFlaggedEventService flaggedEventService,
-        IGuildModerationConfigService configService,
-        IWatchlistService watchlistService,
         DiscordSocketClient client,
         IServiceScopeFactory scopeFactory,
         ILogger<AutoModerationHandler> logger)
@@ -35,9 +30,6 @@ public class AutoModerationHandler
         _spamService = spamService;
         _contentFilterService = contentFilterService;
         _raidService = raidService;
-        _flaggedEventService = flaggedEventService;
-        _configService = configService;
-        _watchlistService = watchlistService;
         _client = client;
         _scopeFactory = scopeFactory;
         _logger = logger;

@@ -4,6 +4,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Moderation;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Bot.Services;
@@ -14,7 +15,7 @@ namespace DiscordBot.Bot.Services;
 /// </summary>
 public class ContentFilterService : IContentFilterService
 {
-    private readonly IGuildModerationConfigService _configService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<ContentFilterService> _logger;
 
@@ -35,11 +36,11 @@ public class ContentFilterService : IContentFilterService
         bool BlockInviteLinks);
 
     public ContentFilterService(
-        IGuildModerationConfigService configService,
+        IServiceScopeFactory scopeFactory,
         IMemoryCache cache,
         ILogger<ContentFilterService> logger)
     {
-        _configService = configService;
+        _scopeFactory = scopeFactory;
         _cache = cache;
         _logger = logger;
     }
@@ -56,8 +57,10 @@ public class ContentFilterService : IContentFilterService
         _logger.LogDebug("Analyzing message {MessageId} from user {UserId} in guild {GuildId} for prohibited content",
             messageId, userId, guildId);
 
-        // Get content filter configuration for guild
-        var config = await _configService.GetContentFilterConfigAsync(guildId, ct);
+        // Get content filter configuration for guild using a scope for the scoped service
+        using var scope = _scopeFactory.CreateScope();
+        var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+        var config = await configService.GetContentFilterConfigAsync(guildId, ct);
 
         // If content filtering is disabled, return null
         if (!config.Enabled)
@@ -201,7 +204,9 @@ public class ContentFilterService : IContentFilterService
     {
         _logger.LogDebug("Loading content filters for guild {GuildId}", guildId);
 
-        var config = await _configService.GetContentFilterConfigAsync(guildId, ct);
+        using var scope = _scopeFactory.CreateScope();
+        var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+        var config = await configService.GetContentFilterConfigAsync(guildId, ct);
         var filters = CompileFilters(config);
 
         var cacheKey = string.Format(CacheKeyPattern, guildId);

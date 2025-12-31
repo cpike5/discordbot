@@ -5,6 +5,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Bot.Services;
@@ -15,7 +16,7 @@ namespace DiscordBot.Bot.Services;
 /// </summary>
 public class SpamDetectionService : ISpamDetectionService
 {
-    private readonly IGuildModerationConfigService _configService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<SpamDetectionService> _logger;
 
@@ -31,11 +32,11 @@ public class SpamDetectionService : ISpamDetectionService
     private record MessageRecord(DateTime Timestamp, string ContentHash);
 
     public SpamDetectionService(
-        IGuildModerationConfigService configService,
+        IServiceScopeFactory scopeFactory,
         IMemoryCache cache,
         ILogger<SpamDetectionService> logger)
     {
-        _configService = configService;
+        _scopeFactory = scopeFactory;
         _cache = cache;
         _logger = logger;
     }
@@ -53,8 +54,10 @@ public class SpamDetectionService : ISpamDetectionService
         _logger.LogDebug("Analyzing message {MessageId} from user {UserId} in guild {GuildId} for spam patterns",
             messageId, userId, guildId);
 
-        // Get spam configuration for guild
-        var config = await _configService.GetSpamConfigAsync(guildId, ct);
+        // Get spam configuration for guild using a scope for the scoped service
+        using var scope = _scopeFactory.CreateScope();
+        var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+        var config = await configService.GetSpamConfigAsync(guildId, ct);
 
         // If spam detection is disabled, return null
         if (!config.Enabled)
