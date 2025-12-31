@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for the Discord Bot Management System. It provides a high-level view of completed work, current focus areas, and future enhancements.
 
-**Current Version:** v0.3.12-dev
+**Current Version:** v0.4.0
 
 ---
 
@@ -303,8 +303,7 @@ The following features are candidates for future development but not yet formall
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| v0.4.0 | TBD | Documentation overhaul, deployment guides |
-| v0.3.12-dev | 2025-12-30 | Current development version |
+| v0.4.0 | 2025-12-30 | Documentation overhaul, deployment guides |
 | v0.3.11 | 2025-12-30 | Rat Watch navigation improvements |
 | v0.3.10 | 2025-12 | Rat Watch analytics and public leaderboards |
 | v0.3.0 | 2025-12 | Welcome system, scheduled messages, real-time dashboard, audit log viewer, Rat Watch accountability system |
