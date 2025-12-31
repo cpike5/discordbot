@@ -51,6 +51,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 - **Rat Watch** - Accountability system for tracking commitments with community voting and leaderboards ([docs](docs/articles/rat-watch.md))
 - **Scheduled Messages** - Automated announcements with flexible scheduling (one-time, recurring, cron expressions)
 - **Welcome System** - Configurable welcome messages and automatic role assignment for new members
+- **Member Directory** - Searchable, filterable member list with bulk export functionality ([docs](docs/articles/member-directory.md))
 - **Message Logging** - Consent-aware Discord message capture with GDPR-compliant data handling
 - **Audit Logging** - Comprehensive audit trail for user, guild, bot, and system events with fluent builder API
 - **SignalR Real-time Updates** - Live dashboard updates for bot status and command execution ([docs](docs/articles/signalr-realtime.md))
