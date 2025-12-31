@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Selection Flow - Member Directory - Discord Bot Admin</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <style>
+        /* Custom checkbox styling */
+        input[type="checkbox"] {
+            accent-color: #cb4e1b;
+        }
+        input[type="checkbox"]:indeterminate {
+            background-color: #cb4e1b;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Header -->
+    <header class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-accent-orange flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-text-primary">Bulk Selection Flow</h1>
+                        <p class="text-sm text-text-secondary">Member Directory Component</p>
+                    </div>
+                </div>
+                <a href="index-desktop.html" class="text-sm text-accent-blue hover:text-accent-blue-hover">View Full Page</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Introduction -->
+        <section class="mb-12">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-2">Bulk Selection States</h2>
+                <p class="text-text-secondary">
+                    The bulk selection flow demonstrates how the interface updates as users select members.
+                    The toolbar appears/disappears and the select-all checkbox shows indeterminate state.
+                </p>
+            </div>
+        </section>
+
+        <!-- Section 1: No Selections -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">1. No Selections (Toolbar Hidden)</h2>
+            <p class="text-sm text-text-secondary mb-4">Initial state with no members selected. The bulk actions toolbar is hidden.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <!-- Note: No toolbar shown -->
+                <div class="px-5 py-3 bg-bg-tertiary border-b border-border-primary">
+                    <p class="text-xs text-text-tertiary italic">Bulk actions toolbar is hidden when no items are selected</p>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th class="px-4 py-4 text-left w-12">
+                                    <!-- Unchecked select-all -->
+                                    <input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" aria-label="Select all members" />
+                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Member</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Roles</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Joined</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            <tr class="hover:bg-bg-hover/50">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://cdn.discordapp.com/embed/avatars/0.png" class="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p class="font-medium text-text-primary">JohnDoe</p>
+                                            <p class="text-xs text-text-tertiary">@johndoe1234</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #FF5733">Admin</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Jan 15, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://cdn.discordapp.com/embed/avatars/1.png" class="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p class="font-medium text-text-primary">JaneSmith</p>
+                                            <p class="text-xs text-text-tertiary">@janesmith</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Feb 3, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                            <tr class="hover:bg-bg-hover/50">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm">CP</div>
+                                        <div>
+                                            <p class="font-medium text-text-primary">CoolPlayer99</p>
+                                            <p class="text-xs text-text-tertiary">@coolplayer99</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="text-xs text-text-tertiary">No roles</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Mar 12, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Some Selections (Indeterminate) -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">2. Some Selections (Indeterminate Select-All)</h2>
+            <p class="text-sm text-text-secondary mb-4">3 of 10 members selected. Toolbar is visible and select-all shows indeterminate state (dash).</p>
+
+            <!-- Bulk Actions Toolbar (Visible) -->
+            <div class="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="text-sm font-medium text-text-primary">3 member(s) selected</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover">
+                        Deselect All
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-accent-blue rounded-lg hover:bg-accent-blue-hover">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export Selected
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th class="px-4 py-4 text-left w-12">
+                                    <!-- Indeterminate state checkbox (visual representation) -->
+                                    <div class="relative">
+                                        <input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" id="indeterminate-demo" />
+                                    </div>
+                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Member</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Roles</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Joined</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            <!-- Selected -->
+                            <tr class="hover:bg-bg-hover/50 bg-accent-blue/5">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" checked /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://cdn.discordapp.com/embed/avatars/0.png" class="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p class="font-medium text-text-primary">JohnDoe</p>
+                                            <p class="text-xs text-text-tertiary">@johndoe1234</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #FF5733">Admin</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Jan 15, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                            <!-- Not selected -->
+                            <tr class="hover:bg-bg-hover/50">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://cdn.discordapp.com/embed/avatars/1.png" class="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p class="font-medium text-text-primary">JaneSmith</p>
+                                            <p class="text-xs text-text-tertiary">@janesmith</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Feb 3, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                            <!-- Selected -->
+                            <tr class="hover:bg-bg-hover/50 bg-accent-blue/5">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" checked /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm">CP</div>
+                                        <div>
+                                            <p class="font-medium text-text-primary">CoolPlayer99</p>
+                                            <p class="text-xs text-text-tertiary">@coolplayer99</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="text-xs text-text-tertiary">No roles</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Mar 12, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                            <!-- Not selected -->
+                            <tr class="hover:bg-bg-hover/50">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://cdn.discordapp.com/embed/avatars/2.png" class="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p class="font-medium text-text-primary">DiscordUser</p>
+                                            <p class="text-xs text-text-tertiary">@discorduser</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #2ECC71">Member</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Nov 8, 2023</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                            <!-- Selected -->
+                            <tr class="hover:bg-bg-hover/50 bg-accent-blue/5">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" checked /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://cdn.discordapp.com/embed/avatars/3.png" class="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p class="font-medium text-text-primary">SuperMod</p>
+                                            <p class="text-xs text-text-tertiary">@supermod</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex gap-1">
+                                        <span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #FF5733">Admin</span>
+                                        <span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Aug 21, 2023</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: All Selected -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">3. All Selected (Select-All Checked)</h2>
+            <p class="text-sm text-text-secondary mb-4">All 10 members on the page are selected. Select-all checkbox is fully checked.</p>
+
+            <!-- Bulk Actions Toolbar -->
+            <div class="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="text-sm font-medium text-text-primary">All 10 member(s) selected</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover">
+                        Deselect All
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-accent-blue rounded-lg hover:bg-accent-blue-hover">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export Selected
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th class="px-4 py-4 text-left w-12">
+                                    <!-- Fully checked select-all -->
+                                    <input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" checked aria-label="Select all members" />
+                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Member</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Roles</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase">Joined</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            <!-- All rows selected with highlight -->
+                            <tr class="bg-accent-blue/5">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" checked /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://cdn.discordapp.com/embed/avatars/0.png" class="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p class="font-medium text-text-primary">JohnDoe</p>
+                                            <p class="text-xs text-text-tertiary">@johndoe1234</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #FF5733">Admin</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Jan 15, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                            <tr class="bg-accent-blue/5">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" checked /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <img src="https://cdn.discordapp.com/embed/avatars/1.png" class="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p class="font-medium text-text-primary">JaneSmith</p>
+                                            <p class="text-xs text-text-tertiary">@janesmith</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Feb 3, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                            <tr class="bg-accent-blue/5">
+                                <td class="px-4 py-4"><input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer" checked /></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm">CP</div>
+                                        <div>
+                                            <p class="font-medium text-text-primary">CoolPlayer99</p>
+                                            <p class="text-xs text-text-tertiary">@coolplayer99</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><span class="text-xs text-text-tertiary">No roles</span></td>
+                                <td class="px-6 py-4 text-sm text-text-secondary">Mar 12, 2024</td>
+                                <td class="px-6 py-4 text-right"><button class="text-accent-blue text-sm font-medium">View</button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Export Confirmation Modal -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">4. Export Confirmation Modal</h2>
+            <p class="text-sm text-text-secondary mb-4">Modal shown when triggering export of selected members.</p>
+
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg overflow-hidden max-w-md mx-auto shadow-xl">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-lg font-semibold text-text-primary">Export Members</h2>
+                    <button type="button" class="text-text-secondary hover:text-text-primary transition-colors p-1">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="px-6 py-6">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="w-12 h-12 bg-accent-blue/10 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-text-primary font-medium">Export 3 members to CSV</p>
+                            <p class="text-sm text-text-secondary">This will download a file with member data.</p>
+                        </div>
+                    </div>
+
+                    <!-- Export options -->
+                    <div class="bg-bg-secondary rounded-lg p-4 mb-4">
+                        <p class="text-sm font-medium text-text-primary mb-3">Include in export:</p>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
+                                <input type="checkbox" class="w-4 h-4 rounded border-border-primary" checked />
+                                User ID, Username, Display Name
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
+                                <input type="checkbox" class="w-4 h-4 rounded border-border-primary" checked />
+                                Join Date, Last Active
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
+                                <input type="checkbox" class="w-4 h-4 rounded border-border-primary" checked />
+                                Roles
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-text-primary cursor-pointer">
+                                <input type="checkbox" class="w-4 h-4 rounded border-border-primary" />
+                                Message Count
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-secondary">
+                    <button type="button" class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover">
+                        Cancel
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-blue rounded-lg hover:bg-accent-blue-hover">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download CSV
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 5: Checkbox States Reference -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">5. Checkbox States Reference</h2>
+            <p class="text-sm text-text-secondary mb-4">Visual reference for the three checkbox states used in bulk selection.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex flex-wrap items-center gap-8">
+                    <!-- Unchecked -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Unchecked</p>
+                        <input type="checkbox" class="w-5 h-5 rounded border-border-primary cursor-pointer" />
+                        <p class="text-xs text-text-secondary mt-1">No items selected</p>
+                    </div>
+
+                    <!-- Indeterminate -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Indeterminate</p>
+                        <input type="checkbox" id="indeterminate-ref" class="w-5 h-5 rounded border-border-primary cursor-pointer" />
+                        <p class="text-xs text-text-secondary mt-1">Some items selected</p>
+                    </div>
+
+                    <!-- Checked -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Checked</p>
+                        <input type="checkbox" class="w-5 h-5 rounded border-border-primary cursor-pointer" checked />
+                        <p class="text-xs text-text-secondary mt-1">All items selected</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Set indeterminate state on the demo checkboxes
+        const indeterminateDemos = document.querySelectorAll('#indeterminate-demo, #indeterminate-ref');
+        indeterminateDemos.forEach(cb => {
+            cb.indeterminate = true;
+        });
+    </script>
+</body>
+</html>

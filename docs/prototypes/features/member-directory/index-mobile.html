@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>Members - Gaming Hub - Discord Bot Admin (Mobile)</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <style>
+        /* Custom checkbox styling */
+        input[type="checkbox"] {
+            accent-color: #cb4e1b;
+        }
+        /* Custom date input styling */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+            cursor: pointer;
+        }
+        /* Ensure touch targets are at least 44px */
+        .touch-target {
+            min-height: 44px;
+            min-width: 44px;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Mobile Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary sticky top-0 z-10">
+        <div class="px-4 py-3">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <button type="button" class="p-2 -ml-2 text-text-secondary hover:text-text-primary transition-colors touch-target" aria-label="Back">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <div>
+                        <h1 class="text-lg font-bold text-text-primary">Members</h1>
+                        <p class="text-xs text-text-secondary">Gaming Hub</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <!-- Sync button (icon only on mobile) -->
+                    <button type="button" class="p-2 text-text-secondary hover:text-text-primary transition-colors touch-target" aria-label="Sync members">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
+                    <!-- Export button (icon only on mobile) -->
+                    <button type="button" class="p-2 text-text-secondary hover:text-text-primary transition-colors touch-target" aria-label="Export CSV">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="px-4 py-4">
+        <!-- Member Count Badge -->
+        <div class="flex items-center justify-between mb-4">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium bg-accent-blue text-white">
+                1,234 members
+            </span>
+        </div>
+
+        <!-- Filter Panel (Collapsed by default on mobile) -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-4">
+            <!-- Filter Toggle Header -->
+            <button type="button" id="filterToggle" class="w-full flex items-center justify-between px-4 py-3 text-left touch-target" aria-expanded="false" aria-controls="filterContent">
+                <div class="flex items-center gap-2">
+                    <!-- Filter icon -->
+                    <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span class="font-medium text-text-primary">Filters</span>
+                    <!-- Active filters badge -->
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-orange text-white">
+                        3 active
+                    </span>
+                </div>
+                <!-- Chevron right icon (collapsed state) -->
+                <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+
+            <!-- Filter Content (Hidden by default) -->
+            <div id="filterContent" class="hidden border-t border-border-primary p-4">
+                <form method="get" id="filterForm" class="space-y-4">
+                    <!-- Search Input -->
+                    <div>
+                        <label for="SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <input type="search" id="SearchTerm" name="SearchTerm" placeholder="Username, display name, or ID..." class="w-full pl-10 pr-4 py-3 text-base bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus" />
+                        </div>
+                    </div>
+
+                    <!-- Role Filter -->
+                    <div>
+                        <label for="RoleFilter" class="block text-sm font-medium text-text-primary mb-1">Roles</label>
+                        <select id="RoleFilter" name="RoleFilter" class="w-full px-3 py-3 text-base bg-bg-primary border border-border-primary rounded-lg text-text-primary">
+                            <option value="">All roles</option>
+                            <option value="admin">Admin</option>
+                            <option value="moderator">Moderator</option>
+                            <option value="support">Support</option>
+                            <option value="member">Member</option>
+                            <option value="vip">VIP</option>
+                        </select>
+                    </div>
+
+                    <!-- Join Date Range (stacked) -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label for="JoinedAfter" class="block text-sm font-medium text-text-primary mb-1">Joined After</label>
+                            <input type="date" id="JoinedAfter" name="JoinedAfter" class="w-full px-3 py-3 text-base bg-bg-primary border border-border-primary rounded-lg text-text-primary" />
+                        </div>
+                        <div>
+                            <label for="JoinedBefore" class="block text-sm font-medium text-text-primary mb-1">Joined Before</label>
+                            <input type="date" id="JoinedBefore" name="JoinedBefore" class="w-full px-3 py-3 text-base bg-bg-primary border border-border-primary rounded-lg text-text-primary" />
+                        </div>
+                    </div>
+
+                    <!-- Activity Filter -->
+                    <div>
+                        <label for="ActivityFilter" class="block text-sm font-medium text-text-primary mb-1">Activity</label>
+                        <select id="ActivityFilter" name="ActivityFilter" class="w-full px-3 py-3 text-base bg-bg-primary border border-border-primary rounded-lg text-text-primary">
+                            <option value="">All Members</option>
+                            <option value="active-today">Active Today</option>
+                            <option value="active-week">Active This Week</option>
+                            <option value="active-month">Active This Month</option>
+                            <option value="inactive-week">Inactive 7+ Days</option>
+                            <option value="inactive-month">Inactive 30+ Days</option>
+                        </select>
+                    </div>
+
+                    <!-- Sort Options (stacked) -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label for="SortBy" class="block text-sm font-medium text-text-primary mb-1">Sort By</label>
+                            <select id="SortBy" name="SortBy" class="w-full px-3 py-3 text-base bg-bg-primary border border-border-primary rounded-lg text-text-primary">
+                                <option value="join-date">Join Date</option>
+                                <option value="username">Username</option>
+                                <option value="last-active">Last Active</option>
+                                <option value="message-count">Messages</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="SortOrder" class="block text-sm font-medium text-text-primary mb-1">Order</label>
+                            <select id="SortOrder" name="SortOrder" class="w-full px-3 py-3 text-base bg-bg-primary border border-border-primary rounded-lg text-text-primary">
+                                <option value="desc">Descending</option>
+                                <option value="asc">Ascending</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Filter Actions -->
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" class="flex-1 py-3 text-base font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors touch-target">
+                            Apply Filters
+                        </button>
+                        <button type="button" class="py-3 px-4 text-base font-medium text-text-secondary bg-bg-tertiary rounded-lg hover:bg-bg-hover transition-colors touch-target">
+                            Reset
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Member Cards (Mobile Layout) -->
+        <div class="space-y-4">
+            <!-- Member Card 1 -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <!-- Header: Checkbox, Avatar, Name -->
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" class="member-checkbox w-5 h-5 rounded border-border-primary cursor-pointer mt-1" value="123456789012345678" checked aria-label="Select JohnDoe" />
+                        <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="JohnDoe" class="w-10 h-10 rounded-full flex-shrink-0" />
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-primary truncate">JohnDoe</p>
+                            <p class="text-xs text-text-tertiary font-mono">@johndoe1234</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Roles (max 5 on mobile) -->
+                <div class="mb-3">
+                    <p class="text-xs text-text-tertiary mb-1">Roles:</p>
+                    <div class="flex flex-wrap gap-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #FF5733">Admin</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #9B59B6">Support</span>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                    <div>
+                        <span class="text-text-tertiary">Joined:</span>
+                        <span class="text-text-primary ml-1">Jan 15, 2024</span>
+                    </div>
+                    <div>
+                        <span class="text-text-tertiary">Messages:</span>
+                        <span class="text-text-primary ml-1">1,523</span>
+                    </div>
+                    <div class="col-span-2">
+                        <span class="text-text-tertiary">Last Active:</span>
+                        <span class="text-text-primary ml-1">2 hours ago</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="pt-3 border-t border-border-secondary">
+                    <button type="button" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors touch-target">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View Details
+                    </button>
+                </div>
+            </div>
+
+            <!-- Member Card 2 -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" class="member-checkbox w-5 h-5 rounded border-border-primary cursor-pointer mt-1" value="234567890123456789" aria-label="Select JaneSmith" />
+                        <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="JaneSmith" class="w-10 h-10 rounded-full flex-shrink-0" />
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-primary truncate">JaneSmith</p>
+                            <p class="text-xs text-text-tertiary font-mono">@janesmith</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <p class="text-xs text-text-tertiary mb-1">Roles:</p>
+                    <div class="flex flex-wrap gap-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                    <div>
+                        <span class="text-text-tertiary">Joined:</span>
+                        <span class="text-text-primary ml-1">Feb 3, 2024</span>
+                    </div>
+                    <div>
+                        <span class="text-text-tertiary">Messages:</span>
+                        <span class="text-text-primary ml-1">856</span>
+                    </div>
+                    <div class="col-span-2">
+                        <span class="text-text-tertiary">Last Active:</span>
+                        <span class="text-text-primary ml-1">Yesterday</span>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-border-secondary">
+                    <button type="button" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors touch-target">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View Details
+                    </button>
+                </div>
+            </div>
+
+            <!-- Member Card 3 - No roles -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" class="member-checkbox w-5 h-5 rounded border-border-primary cursor-pointer mt-1" value="345678901234567890" aria-label="Select CoolPlayer99" />
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">CO</div>
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-primary truncate">CoolPlayer99</p>
+                            <p class="text-xs text-text-tertiary font-mono">@coolplayer99</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <p class="text-xs text-text-tertiary mb-1">Roles:</p>
+                    <span class="text-xs text-text-tertiary">No roles</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                    <div>
+                        <span class="text-text-tertiary">Joined:</span>
+                        <span class="text-text-primary ml-1">Mar 12, 2024</span>
+                    </div>
+                    <div>
+                        <span class="text-text-tertiary">Messages:</span>
+                        <span class="text-text-primary ml-1">124</span>
+                    </div>
+                    <div class="col-span-2">
+                        <span class="text-text-tertiary">Last Active:</span>
+                        <span class="text-text-primary ml-1">3 days ago</span>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-border-secondary">
+                    <button type="button" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors touch-target">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View Details
+                    </button>
+                </div>
+            </div>
+
+            <!-- Member Card 4 - Many roles with overflow -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" class="member-checkbox w-5 h-5 rounded border-border-primary cursor-pointer mt-1" value="456789012345678901" aria-label="Select SuperMod" />
+                        <img src="https://cdn.discordapp.com/embed/avatars/3.png" alt="SuperMod" class="w-10 h-10 rounded-full flex-shrink-0" />
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-primary truncate">SuperMod</p>
+                            <p class="text-xs text-text-tertiary font-mono">@supermod</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <p class="text-xs text-text-tertiary mb-1">Roles:</p>
+                    <div class="flex flex-wrap gap-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #FF5733">Admin</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #F1C40F">VIP</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #9B59B6">Support</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #2ECC71">Member</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary">+2</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                    <div>
+                        <span class="text-text-tertiary">Joined:</span>
+                        <span class="text-text-primary ml-1">Aug 21, 2023</span>
+                    </div>
+                    <div>
+                        <span class="text-text-tertiary">Messages:</span>
+                        <span class="text-text-primary ml-1">5,432</span>
+                    </div>
+                    <div class="col-span-2">
+                        <span class="text-text-tertiary">Last Active:</span>
+                        <span class="text-text-primary ml-1">5 minutes ago</span>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-border-secondary">
+                    <button type="button" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors touch-target">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View Details
+                    </button>
+                </div>
+            </div>
+
+            <!-- Member Card 5 - Never active -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" class="member-checkbox w-5 h-5 rounded border-border-primary cursor-pointer mt-1" value="567890123456789012" aria-label="Select SilentLurker" />
+                        <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="SilentLurker" class="w-10 h-10 rounded-full flex-shrink-0" />
+                        <div class="min-w-0">
+                            <p class="font-medium text-text-primary truncate">SilentLurker</p>
+                            <p class="text-xs text-text-tertiary font-mono">@silentlurker</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <p class="text-xs text-text-tertiary mb-1">Roles:</p>
+                    <div class="flex flex-wrap gap-1">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #2ECC71">Member</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                    <div>
+                        <span class="text-text-tertiary">Joined:</span>
+                        <span class="text-text-primary ml-1">Sep 5, 2024</span>
+                    </div>
+                    <div>
+                        <span class="text-text-tertiary">Messages:</span>
+                        <span class="text-text-primary ml-1">0</span>
+                    </div>
+                    <div class="col-span-2">
+                        <span class="text-text-tertiary">Last Active:</span>
+                        <span class="text-text-tertiary ml-1">Never</span>
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-border-secondary">
+                    <button type="button" class="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors touch-target">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View Details
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compact Pagination -->
+        <div class="mt-6 flex items-center justify-between">
+            <button type="button" class="inline-flex items-center gap-1 px-4 py-3 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-lg disabled:opacity-50 touch-target" disabled>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Prev
+            </button>
+            <span class="text-sm text-text-secondary">
+                Page <span class="font-medium text-text-primary">1</span> of <span class="font-medium text-text-primary">50</span>
+            </span>
+            <button type="button" class="inline-flex items-center gap-1 px-4 py-3 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors touch-target">
+                Next
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
+    </main>
+
+    <!-- Bulk Actions Toolbar (Fixed at bottom when items selected) -->
+    <div id="bulkActionsToolbar" class="fixed bottom-0 left-0 right-0 bg-bg-secondary border-t border-accent-blue/30 px-4 py-3 shadow-lg z-20">
+        <div class="flex items-center justify-between">
+            <span class="text-sm font-medium text-text-primary">
+                <span id="selectedCount">1</span> selected
+            </span>
+            <div class="flex items-center gap-2">
+                <button type="button" class="px-3 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary rounded-lg touch-target" onclick="deselectAll()">
+                    Clear
+                </button>
+                <button type="button" class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-accent-blue rounded-lg touch-target">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Toggle filter panel
+        document.getElementById('filterToggle').addEventListener('click', function() {
+            const content = document.getElementById('filterContent');
+            const chevron = document.getElementById('filterChevron');
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+            this.setAttribute('aria-expanded', !isExpanded);
+            content.classList.toggle('hidden');
+            // Rotate chevron: right (collapsed) -> down (expanded)
+            if (!isExpanded) {
+                chevron.style.transform = 'rotate(90deg)';
+            } else {
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        // Individual checkbox changes
+        document.querySelectorAll('.member-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateBulkSelection);
+        });
+
+        // Update bulk selection state
+        function updateBulkSelection() {
+            const checkedCount = document.querySelectorAll('.member-checkbox:checked').length;
+            const toolbar = document.getElementById('bulkActionsToolbar');
+            const countSpan = document.getElementById('selectedCount');
+
+            if (checkedCount > 0) {
+                toolbar.classList.remove('hidden');
+                countSpan.textContent = checkedCount;
+            } else {
+                toolbar.classList.add('hidden');
+            }
+        }
+
+        // Deselect all
+        function deselectAll() {
+            document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = false);
+            updateBulkSelection();
+        }
+
+        // Initialize
+        updateBulkSelection();
+    </script>
+</body>
+</html>

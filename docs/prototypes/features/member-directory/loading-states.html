@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading States - Member Directory - Discord Bot Admin</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <style>
+        /* Skeleton animation */
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+        .skeleton-shimmer {
+            background: linear-gradient(90deg, #2f3336 25%, #363a3e 50%, #2f3336 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Header -->
+    <header class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-accent-orange flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-text-primary">Loading States Showcase</h1>
+                        <p class="text-sm text-text-secondary">Member Directory Component</p>
+                    </div>
+                </div>
+                <a href="index-desktop.html" class="text-sm text-accent-blue hover:text-accent-blue-hover">View Full Page</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Introduction -->
+        <section class="mb-12">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-2">Loading State Components</h2>
+                <p class="text-text-secondary">
+                    These loading patterns are used during data fetching, API calls, and asynchronous operations
+                    to provide visual feedback to users.
+                </p>
+            </div>
+        </section>
+
+        <!-- Loading State 1: Skeleton Table Rows -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">1. Skeleton Table Rows (Page Load)</h2>
+            <p class="text-sm text-text-secondary mb-4">Displayed while the member list is loading. Shows 5-10 animated placeholder rows.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th class="px-4 py-4 text-left w-12">
+                                    <div class="w-4 h-4 rounded bg-bg-tertiary"></div>
+                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Member</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Roles</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Joined</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Last Active</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Messages</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            <!-- Skeleton Row 1 -->
+                            <tr>
+                                <td class="px-4 py-4">
+                                    <div class="w-4 h-4 rounded skeleton-shimmer"></div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full skeleton-shimmer"></div>
+                                        <div class="flex-1">
+                                            <div class="h-4 w-24 rounded skeleton-shimmer mb-2"></div>
+                                            <div class="h-3 w-16 rounded skeleton-shimmer"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex gap-1">
+                                        <div class="h-5 w-14 rounded skeleton-shimmer"></div>
+                                        <div class="h-5 w-16 rounded skeleton-shimmer"></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><div class="h-4 w-20 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-16 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-12 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-10 rounded skeleton-shimmer ml-auto"></div></td>
+                            </tr>
+                            <!-- Skeleton Row 2 -->
+                            <tr>
+                                <td class="px-4 py-4">
+                                    <div class="w-4 h-4 rounded skeleton-shimmer"></div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full skeleton-shimmer"></div>
+                                        <div class="flex-1">
+                                            <div class="h-4 w-32 rounded skeleton-shimmer mb-2"></div>
+                                            <div class="h-3 w-20 rounded skeleton-shimmer"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex gap-1">
+                                        <div class="h-5 w-12 rounded skeleton-shimmer"></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><div class="h-4 w-24 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-20 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-10 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-10 rounded skeleton-shimmer ml-auto"></div></td>
+                            </tr>
+                            <!-- Skeleton Row 3 -->
+                            <tr>
+                                <td class="px-4 py-4">
+                                    <div class="w-4 h-4 rounded skeleton-shimmer"></div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full skeleton-shimmer"></div>
+                                        <div class="flex-1">
+                                            <div class="h-4 w-28 rounded skeleton-shimmer mb-2"></div>
+                                            <div class="h-3 w-24 rounded skeleton-shimmer"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex gap-1">
+                                        <div class="h-5 w-16 rounded skeleton-shimmer"></div>
+                                        <div class="h-5 w-12 rounded skeleton-shimmer"></div>
+                                        <div class="h-5 w-8 rounded skeleton-shimmer"></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><div class="h-4 w-20 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-18 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-14 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-10 rounded skeleton-shimmer ml-auto"></div></td>
+                            </tr>
+                            <!-- Skeleton Row 4 -->
+                            <tr>
+                                <td class="px-4 py-4">
+                                    <div class="w-4 h-4 rounded skeleton-shimmer"></div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full skeleton-shimmer"></div>
+                                        <div class="flex-1">
+                                            <div class="h-4 w-20 rounded skeleton-shimmer mb-2"></div>
+                                            <div class="h-3 w-18 rounded skeleton-shimmer"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex gap-1">
+                                        <div class="h-5 w-14 rounded skeleton-shimmer"></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><div class="h-4 w-22 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-16 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-8 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-10 rounded skeleton-shimmer ml-auto"></div></td>
+                            </tr>
+                            <!-- Skeleton Row 5 -->
+                            <tr>
+                                <td class="px-4 py-4">
+                                    <div class="w-4 h-4 rounded skeleton-shimmer"></div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full skeleton-shimmer"></div>
+                                        <div class="flex-1">
+                                            <div class="h-4 w-36 rounded skeleton-shimmer mb-2"></div>
+                                            <div class="h-3 w-22 rounded skeleton-shimmer"></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex gap-1">
+                                        <div class="h-5 w-18 rounded skeleton-shimmer"></div>
+                                        <div class="h-5 w-14 rounded skeleton-shimmer"></div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4"><div class="h-4 w-20 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-14 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-12 rounded skeleton-shimmer"></div></td>
+                                <td class="px-6 py-4"><div class="h-4 w-10 rounded skeleton-shimmer ml-auto"></div></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading State 2: Sync Button Loading -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">2. Sync Button Loading State</h2>
+            <p class="text-sm text-text-secondary mb-4">Button state while syncing members from Discord API.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex flex-wrap items-center gap-4">
+                    <!-- Normal state -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Normal</p>
+                        <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Sync Members
+                        </button>
+                    </div>
+
+                    <!-- Loading state -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Loading</p>
+                        <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-tertiary bg-bg-tertiary border border-border-primary rounded-lg cursor-not-allowed opacity-75" disabled>
+                            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Syncing...
+                        </button>
+                    </div>
+
+                    <!-- Success state (brief flash) -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Success</p>
+                        <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-success bg-success-bg border border-success-border rounded-lg">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Synced!
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading State 3: Modal Loading -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">3. Modal Loading State</h2>
+            <p class="text-sm text-text-secondary mb-4">Displayed inside the member detail modal while fetching member data.</p>
+
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg overflow-hidden max-w-lg mx-auto">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-xl font-semibold text-text-primary">Member Details</h2>
+                    <button type="button" class="text-text-secondary hover:text-text-primary transition-colors p-1">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body - Loading State -->
+                <div class="px-6 py-12">
+                    <div class="flex flex-col items-center justify-center">
+                        <svg class="w-10 h-10 animate-spin text-accent-blue mb-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="text-sm text-text-secondary">Loading member details...</p>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-secondary">
+                    <button type="button" class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading State 4: Filter Panel Loading Overlay -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">4. Filter Application Loading</h2>
+            <p class="text-sm text-text-secondary mb-4">Overlay shown while filters are being applied and results are loading.</p>
+
+            <div class="relative bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <!-- Content behind overlay (slightly visible) -->
+                <div class="opacity-50 pointer-events-none">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                            <input type="text" value="admin" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary" readonly />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Roles</label>
+                            <div class="px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary">2 roles selected</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading Overlay -->
+                <div class="absolute inset-0 bg-bg-secondary/80 rounded-lg flex items-center justify-center">
+                    <div class="flex flex-col items-center">
+                        <svg class="w-8 h-8 animate-spin text-accent-blue mb-3" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="text-sm text-text-secondary">Applying filters...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading State 5: Skeleton Member Cards (Mobile) -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">5. Skeleton Member Cards (Mobile)</h2>
+            <p class="text-sm text-text-secondary mb-4">Card-based skeleton loading for mobile views.</p>
+
+            <div class="max-w-md">
+                <div class="space-y-4">
+                    <!-- Skeleton Card 1 -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-5 h-5 rounded skeleton-shimmer"></div>
+                            <div class="w-10 h-10 rounded-full skeleton-shimmer"></div>
+                            <div class="flex-1">
+                                <div class="h-4 w-28 rounded skeleton-shimmer mb-2"></div>
+                                <div class="h-3 w-20 rounded skeleton-shimmer"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="h-3 w-12 rounded skeleton-shimmer mb-2"></div>
+                            <div class="flex gap-1">
+                                <div class="h-5 w-14 rounded skeleton-shimmer"></div>
+                                <div class="h-5 w-16 rounded skeleton-shimmer"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div class="h-4 w-full rounded skeleton-shimmer"></div>
+                            <div class="h-4 w-full rounded skeleton-shimmer"></div>
+                            <div class="h-4 w-3/4 rounded skeleton-shimmer col-span-2"></div>
+                        </div>
+                        <div class="pt-3 border-t border-border-secondary">
+                            <div class="h-10 w-full rounded skeleton-shimmer"></div>
+                        </div>
+                    </div>
+
+                    <!-- Skeleton Card 2 -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-5 h-5 rounded skeleton-shimmer"></div>
+                            <div class="w-10 h-10 rounded-full skeleton-shimmer"></div>
+                            <div class="flex-1">
+                                <div class="h-4 w-32 rounded skeleton-shimmer mb-2"></div>
+                                <div class="h-3 w-24 rounded skeleton-shimmer"></div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="h-3 w-12 rounded skeleton-shimmer mb-2"></div>
+                            <div class="flex gap-1">
+                                <div class="h-5 w-12 rounded skeleton-shimmer"></div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mb-4">
+                            <div class="h-4 w-full rounded skeleton-shimmer"></div>
+                            <div class="h-4 w-full rounded skeleton-shimmer"></div>
+                            <div class="h-4 w-2/3 rounded skeleton-shimmer col-span-2"></div>
+                        </div>
+                        <div class="pt-3 border-t border-border-secondary">
+                            <div class="h-10 w-full rounded skeleton-shimmer"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading State 6: Inline Spinners -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">6. Inline Spinners</h2>
+            <p class="text-sm text-text-secondary mb-4">Various spinner sizes for inline loading indicators.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex flex-wrap items-end gap-8">
+                    <!-- Small -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Small (16px)</p>
+                        <svg class="w-4 h-4 animate-spin text-accent-blue" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Medium -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Medium (24px)</p>
+                        <svg class="w-6 h-6 animate-spin text-accent-blue" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Large -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Large (32px)</p>
+                        <svg class="w-8 h-8 animate-spin text-accent-blue" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Extra Large -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">XL (48px)</p>
+                        <svg class="w-12 h-12 animate-spin text-accent-blue" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- Orange variant -->
+                    <div class="text-center">
+                        <p class="text-xs text-text-tertiary mb-2">Orange</p>
+                        <svg class="w-6 h-6 animate-spin text-accent-orange" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+
+                    <!-- White variant (for dark buttons) -->
+                    <div class="text-center bg-accent-orange rounded-lg p-3">
+                        <p class="text-xs text-white/70 mb-2">White</p>
+                        <svg class="w-6 h-6 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loading State 7: Progress Bar -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">7. Progress Bar (Export)</h2>
+            <p class="text-sm text-text-secondary mb-4">Shown during long operations like exporting large member lists.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="max-w-md">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-text-primary">Exporting members...</span>
+                        <span class="text-sm text-text-secondary">75%</span>
+                    </div>
+                    <div class="h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                        <div class="h-full w-3/4 bg-accent-blue rounded-full transition-all duration-300"></div>
+                    </div>
+                    <p class="text-xs text-text-tertiary mt-2">925 of 1,234 members processed</p>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Members - Gaming Hub - Discord Bot Admin</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <style>
+        /* Custom checkbox styling */
+        input[type="checkbox"] {
+            accent-color: #cb4e1b;
+        }
+        input[type="checkbox"]:indeterminate {
+            background-color: #cb4e1b;
+        }
+        /* Custom date input styling */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <!-- Discord icon -->
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Servers</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Commands</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb Navigation -->
+        <nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
+            <ol class="flex items-center gap-2">
+                <li><a href="#" class="hover:text-text-primary transition-colors">Servers</a></li>
+                <li aria-hidden="true">
+                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li><a href="#" class="hover:text-text-primary transition-colors">Gaming Hub</a></li>
+                <li aria-hidden="true">
+                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li class="text-text-primary font-medium" aria-current="page">Members</li>
+            </ol>
+        </nav>
+
+        <!-- Page Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div class="flex items-center gap-3">
+                <h1 class="text-2xl font-bold text-text-primary">Members</h1>
+                <!-- Member count badge -->
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-accent-blue text-white">
+                    1,234
+                </span>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Sync Members Button -->
+                <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors" aria-label="Sync all members from Discord">
+                    <!-- Refresh icon -->
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Sync Members
+                </button>
+                <!-- Export CSV Button -->
+                <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors" aria-label="Export member list to CSV">
+                    <!-- Download icon -->
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Panel (Expanded) -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <!-- Filter Toggle Header -->
+            <button type="button" id="filterToggle" class="w-full flex items-center justify-between px-5 py-4 text-left" aria-expanded="true" aria-controls="filterContent">
+                <div class="flex items-center gap-3">
+                    <!-- Filter icon -->
+                    <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span class="text-lg font-semibold text-text-primary">Filters</span>
+                    <!-- Active filters badge -->
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-orange text-white">
+                        3 active
+                    </span>
+                </div>
+                <!-- Chevron down icon (expanded state) -->
+                <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+
+            <!-- Filter Content (Expanded) -->
+            <div id="filterContent" class="border-t border-border-primary p-6">
+                <form method="get" id="filterForm">
+                    <!-- Row 1: Search and Role Filter -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <!-- Search Input -->
+                        <div>
+                            <label for="SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                            <div class="relative">
+                                <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <input type="search" id="SearchTerm" name="SearchTerm" value="admin" placeholder="Username, display name, or user ID..." class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                            </div>
+                        </div>
+
+                        <!-- Role Filter (Multi-select) -->
+                        <div>
+                            <label for="RoleFilter" class="block text-sm font-medium text-text-primary mb-1">Roles</label>
+                            <div class="relative role-multiselect-wrapper">
+                                <button type="button" id="roleMultiSelectToggle" class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer flex items-center justify-between" aria-haspopup="listbox" aria-expanded="false">
+                                    <span class="truncate" id="roleSelectedText">2 roles selected</span>
+                                    <svg class="w-4 h-4 ml-2 flex-shrink-0 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Join Date Range -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="JoinedAfter" class="block text-sm font-medium text-text-primary mb-1">Joined After</label>
+                            <input type="date" id="JoinedAfter" name="JoinedAfter" value="2024-01-01" class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                        </div>
+                        <div>
+                            <label for="JoinedBefore" class="block text-sm font-medium text-text-primary mb-1">Joined Before</label>
+                            <input type="date" id="JoinedBefore" name="JoinedBefore" class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Activity Filter and Sort -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label for="ActivityFilter" class="block text-sm font-medium text-text-primary mb-1">Activity</label>
+                            <select id="ActivityFilter" name="ActivityFilter" class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                                <option value="">All Members</option>
+                                <option value="active-today">Active Today</option>
+                                <option value="active-week" selected>Active This Week</option>
+                                <option value="active-month">Active This Month</option>
+                                <option value="inactive-week">Inactive 7+ Days</option>
+                                <option value="inactive-month">Inactive 30+ Days</option>
+                                <option value="never-messaged">Never Messaged</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="SortBy" class="block text-sm font-medium text-text-primary mb-1">Sort By</label>
+                            <select id="SortBy" name="SortBy" class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                                <option value="join-date" selected>Join Date</option>
+                                <option value="username">Username</option>
+                                <option value="last-active">Last Active</option>
+                                <option value="message-count">Message Count</option>
+                                <option value="role-count">Role Count</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="SortDescending" class="block text-sm font-medium text-text-primary mb-1">Order</label>
+                            <select id="SortDescending" name="SortDescending" class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                                <option value="false">Ascending</option>
+                                <option value="true" selected>Descending</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Filter Actions -->
+                    <div class="flex items-center gap-3 pt-4 border-t border-border-secondary">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Apply Filters
+                        </button>
+                        <a href="#" class="inline-flex items-center px-4 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+                            Reset
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Bulk Actions Toolbar (visible when items selected) -->
+        <div id="bulkActionsToolbar" class="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <!-- Check circle icon -->
+                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-sm font-medium text-text-primary">
+                    <span id="selectedCount">3</span> member(s) selected
+                </span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors" onclick="deselectAll()">
+                    Deselect All
+                </button>
+                <button type="button" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-accent-blue border border-accent-blue rounded-lg hover:bg-accent-blue-hover transition-colors" onclick="exportSelected()">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export Selected
+                </button>
+            </div>
+        </div>
+
+        <!-- Member Table (Desktop) -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full" role="table" aria-label="Server members">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-4 py-4 text-left w-12">
+                                <input type="checkbox" id="selectAll" class="w-4 h-4 rounded border-border-primary cursor-pointer" aria-label="Select all members" />
+                            </th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Member</th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Roles</th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Joined</th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Last Active</th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Messages</th>
+                            <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        <!-- Row 1 - Selected -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="123456789012345678">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="123456789012345678" checked aria-label="Select JohnDoe" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="JohnDoe" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">JohnDoe</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@johndoe1234</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #FF5733">Admin</span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #9B59B6">Support</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Jan 15, 2024</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">2 hours ago</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">1,523</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(123456789012345678)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 2 - Selected -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="234567890123456789">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="234567890123456789" checked aria-label="Select JaneSmith" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="JaneSmith" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">JaneSmith</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@janesmith</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Feb 3, 2024</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Yesterday</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">856</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(234567890123456789)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 3 - Selected -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="345678901234567890">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="345678901234567890" checked aria-label="Select CoolPlayer99" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <!-- Avatar placeholder with gradient -->
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">CO</div>
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">CoolPlayer99</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@coolplayer99</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="text-xs text-text-tertiary">No roles</span>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Mar 12, 2024</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">3 days ago</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">124</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(345678901234567890)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 4 - Not selected -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="456789012345678901">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="456789012345678901" aria-label="Select DiscordUser" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/2.png" alt="DiscordUser" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">DiscordUser</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@discorduser</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #2ECC71">Member</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Nov 8, 2023</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">1 week ago</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">2,891</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(456789012345678901)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 5 - User with many roles -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="567890123456789012">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="567890123456789012" aria-label="Select SuperMod" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/3.png" alt="SuperMod" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">SuperMod</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@supermod</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #FF5733">Admin</span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #3498DB">Moderator</span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #F1C40F">VIP</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary" title="Support, Member">+2</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Aug 21, 2023</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">5 minutes ago</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">5,432</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(567890123456789012)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 6 -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="678901234567890123">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="678901234567890123" aria-label="Select GamerGirl" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/4.png" alt="GamerGirl" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">GamerGirl</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@gamergirl2024</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #F1C40F">VIP</span>
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #2ECC71">Member</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Dec 1, 2024</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">4 hours ago</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">342</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(678901234567890123)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 7 -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="789012345678901234">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="789012345678901234" aria-label="Select TechWizard" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">TW</div>
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">TechWizard</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@techwizard</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #9B59B6">Support</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Oct 15, 2023</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">2 days ago</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">1,876</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(789012345678901234)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 8 - Never active -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="890123456789012345">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="890123456789012345" aria-label="Select SilentLurker" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="SilentLurker" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">SilentLurker</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@silentlurker</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #2ECC71">Member</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Sep 5, 2024</td>
+                            <td class="px-6 py-4 text-text-tertiary text-sm">Never</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">0</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(890123456789012345)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 9 -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="901234567890123456">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="901234567890123456" aria-label="Select ArtistPro" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="ArtistPro" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">ArtistPro</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@artistpro</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #F1C40F">VIP</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Jul 22, 2023</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">12 hours ago</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">3,219</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(901234567890123456)">View</button>
+                            </td>
+                        </tr>
+
+                        <!-- Row 10 -->
+                        <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="012345678901234567">
+                            <td class="px-4 py-4">
+                                <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="012345678901234567" aria-label="Select MusicFan" />
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">MF</div>
+                                    <div class="min-w-0">
+                                        <p class="font-medium text-text-primary truncate">MusicFan</p>
+                                        <p class="text-xs text-text-tertiary font-mono">@musicfan123</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex flex-wrap gap-1">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: #2ECC71">Member</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">Apr 30, 2024</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">6 days ago</td>
+                            <td class="px-6 py-4 text-text-secondary text-sm">567</td>
+                            <td class="px-6 py-4 text-right">
+                                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" onclick="viewMemberDetails(012345678901234567)">View</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">1</span> to <span class="font-medium text-text-primary">10</span> of <span class="font-medium text-text-primary">1,234</span> members
+            </div>
+            <nav aria-label="Pagination" class="flex items-center gap-1">
+                <!-- First Page -->
+                <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="First page" aria-disabled="true">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                </a>
+                <!-- Previous -->
+                <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="Previous page" aria-disabled="true">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </a>
+                <!-- Page Numbers -->
+                <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">1</span>
+                <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</a>
+                <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</a>
+                <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">4</a>
+                <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">5</a>
+                <span class="px-2 py-2 text-text-tertiary">...</span>
+                <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">50</a>
+                <!-- Next -->
+                <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Next page">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+                <!-- Last Page -->
+                <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Last page">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                </a>
+            </nav>
+        </div>
+    </main>
+
+    <script>
+        // Toggle filter panel
+        document.getElementById('filterToggle').addEventListener('click', function() {
+            const content = document.getElementById('filterContent');
+            const chevron = document.getElementById('filterChevron');
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+            this.setAttribute('aria-expanded', !isExpanded);
+            content.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        });
+
+        // Select all checkbox
+        document.getElementById('selectAll').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.member-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+            updateBulkSelection();
+        });
+
+        // Individual checkbox changes
+        document.querySelectorAll('.member-checkbox').forEach(cb => {
+            cb.addEventListener('change', updateBulkSelection);
+        });
+
+        // Update bulk selection state
+        function updateBulkSelection() {
+            const checkboxes = document.querySelectorAll('.member-checkbox');
+            const checkedCount = document.querySelectorAll('.member-checkbox:checked').length;
+            const toolbar = document.getElementById('bulkActionsToolbar');
+            const countSpan = document.getElementById('selectedCount');
+            const selectAll = document.getElementById('selectAll');
+
+            if (checkedCount > 0) {
+                toolbar.classList.remove('hidden');
+                countSpan.textContent = checkedCount;
+            } else {
+                toolbar.classList.add('hidden');
+            }
+
+            // Update select-all checkbox state (indeterminate)
+            selectAll.checked = checkedCount === checkboxes.length;
+            selectAll.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
+        }
+
+        // Deselect all
+        function deselectAll() {
+            document.querySelectorAll('.member-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('selectAll').checked = false;
+            updateBulkSelection();
+        }
+
+        // Export selected (prototype)
+        function exportSelected() {
+            const selected = document.querySelectorAll('.member-checkbox:checked');
+            const ids = Array.from(selected).map(cb => cb.value);
+            alert('Export triggered for ' + ids.length + ' members.\nIDs: ' + ids.join(', '));
+        }
+
+        // View member details (prototype)
+        function viewMemberDetails(userId) {
+            alert('View details for member: ' + userId + '\n(Opens modal in production)');
+        }
+
+        // Initialize
+        updateBulkSelection();
+    </script>
+</body>
+</html>

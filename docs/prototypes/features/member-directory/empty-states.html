@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Empty States - Member Directory - Discord Bot Admin</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Header -->
+    <header class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-accent-orange flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-text-primary">Empty States Showcase</h1>
+                        <p class="text-sm text-text-secondary">Member Directory Component</p>
+                    </div>
+                </div>
+                <a href="index-desktop.html" class="text-sm text-accent-blue hover:text-accent-blue-hover">View Full Page</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Introduction -->
+        <section class="mb-12">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-2">Empty State Components</h2>
+                <p class="text-text-secondary">
+                    These empty states are displayed when there is no data to show, when filters return no results,
+                    or when an error occurs while loading member data.
+                </p>
+            </div>
+        </section>
+
+        <!-- Empty State 1: No Members in Server (New Guild) -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">1. No Members in Server (New Guild)</h2>
+            <p class="text-sm text-text-secondary mb-4">Displayed when the server has no members or member data has not been synced yet.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
+                <div class="text-center max-w-md mx-auto">
+                    <!-- Icon -->
+                    <div class="w-16 h-16 mx-auto mb-4 bg-bg-tertiary rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </div>
+                    <!-- Title -->
+                    <h3 class="text-lg font-semibold text-text-primary mb-2">No members yet</h3>
+                    <!-- Description -->
+                    <p class="text-sm text-text-secondary mb-6">
+                        This server has no member data. Click the button below to sync members from Discord.
+                    </p>
+                    <!-- Action Button -->
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Sync Members
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Empty State 2: No Results from Filters -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">2. No Results from Filters</h2>
+            <p class="text-sm text-text-secondary mb-4">Displayed when the applied filters do not match any members.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
+                <div class="text-center max-w-md mx-auto">
+                    <!-- Icon -->
+                    <div class="w-16 h-16 mx-auto mb-4 bg-bg-tertiary rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <!-- Title -->
+                    <h3 class="text-lg font-semibold text-text-primary mb-2">No members found</h3>
+                    <!-- Description -->
+                    <p class="text-sm text-text-secondary mb-6">
+                        Try adjusting your search or filters to find members.
+                    </p>
+                    <!-- Action Button -->
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Reset Filters
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Empty State 3: Error Loading Members -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">3. Error Loading Members</h2>
+            <p class="text-sm text-text-secondary mb-4">Displayed when there is an error fetching member data from the server.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
+                <div class="text-center max-w-md mx-auto">
+                    <!-- Error Icon -->
+                    <div class="w-16 h-16 mx-auto mb-4 bg-error-bg rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <!-- Title -->
+                    <h3 class="text-lg font-semibold text-text-primary mb-2">Failed to load members</h3>
+                    <!-- Description -->
+                    <p class="text-sm text-text-secondary mb-6">
+                        An error occurred while fetching member data. Please try again.
+                    </p>
+                    <!-- Action Button -->
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors" onclick="location.reload()">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Retry
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Empty State 4: Rate Limit Error -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">4. Rate Limit Error (Alert)</h2>
+            <p class="text-sm text-text-secondary mb-4">Displayed as an alert when the Discord API rate limit is reached.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <!-- Warning Alert -->
+                <div class="flex items-start gap-3 px-4 py-3 bg-warning-bg border border-warning-border rounded-lg">
+                    <svg class="w-5 h-5 text-warning flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div class="flex-1">
+                        <h4 class="text-sm font-semibold text-warning">Rate Limited</h4>
+                        <p class="text-sm text-text-secondary mt-1">
+                            Discord API rate limit reached. Please wait a moment and try again. The limit will reset in approximately 30 seconds.
+                        </p>
+                    </div>
+                    <button type="button" class="text-text-tertiary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Empty State 5: Modal - Member Not Found -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">5. Modal - Member Not Found</h2>
+            <p class="text-sm text-text-secondary mb-4">Displayed inside the member detail modal when the member cannot be found (left server or was removed).</p>
+
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg overflow-hidden max-w-lg mx-auto">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-xl font-semibold text-text-primary">Member Details</h2>
+                    <button type="button" class="text-text-secondary hover:text-text-primary transition-colors p-1">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Modal Body with Error State -->
+                <div class="px-6 py-12 text-center">
+                    <!-- Error Icon -->
+                    <div class="w-16 h-16 mx-auto mb-4 bg-error-bg rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                    </div>
+                    <!-- Title -->
+                    <h3 class="text-lg font-semibold text-text-primary mb-2">Member not found</h3>
+                    <!-- Description -->
+                    <p class="text-sm text-text-secondary">
+                        This member may have left the server or been removed.
+                    </p>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-secondary">
+                    <button type="button" class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Empty State 6: No Roles in Filter Dropdown -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">6. No Roles Available (Filter Dropdown)</h2>
+            <p class="text-sm text-text-secondary mb-4">Displayed inside the role filter dropdown when the server has no roles configured.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="max-w-xs">
+                    <label class="block text-sm font-medium text-text-primary mb-1">Roles</label>
+                    <div class="relative">
+                        <button type="button" class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary flex items-center justify-between">
+                            <span class="text-text-tertiary">All roles</span>
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <!-- Dropdown showing no roles -->
+                        <div class="absolute z-10 mt-1 w-full bg-bg-tertiary border border-border-primary rounded-lg shadow-lg">
+                            <div class="px-3 py-4 text-center">
+                                <svg class="w-6 h-6 mx-auto text-text-tertiary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                </svg>
+                                <p class="text-sm text-text-tertiary">No roles available</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Compact Empty States (for inline use) -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">7. Compact Empty States (Inline)</h2>
+            <p class="text-sm text-text-secondary mb-4">Smaller empty state variants for use in constrained spaces like table cells or sidebars.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Compact: No Data -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h4 class="text-sm font-medium text-text-primary mb-3">Compact - No Data</h4>
+                    <div class="bg-bg-tertiary rounded-lg p-4 text-center">
+                        <svg class="w-6 h-6 mx-auto text-text-tertiary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <p class="text-xs text-text-tertiary">No members</p>
+                    </div>
+                </div>
+
+                <!-- Compact: No Results -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h4 class="text-sm font-medium text-text-primary mb-3">Compact - No Results</h4>
+                    <div class="bg-bg-tertiary rounded-lg p-4 text-center">
+                        <svg class="w-6 h-6 mx-auto text-text-tertiary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <p class="text-xs text-text-tertiary">No matches</p>
+                    </div>
+                </div>
+
+                <!-- Compact: Error -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h4 class="text-sm font-medium text-text-primary mb-3">Compact - Error</h4>
+                    <div class="bg-error-bg rounded-lg p-4 text-center">
+                        <svg class="w-6 h-6 mx-auto text-error mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="text-xs text-error">Failed to load</p>
+                    </div>
+                </div>
+
+                <!-- Compact: Coming Soon -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h4 class="text-sm font-medium text-text-primary mb-3">Compact - Coming Soon</h4>
+                    <div class="bg-info-bg rounded-lg p-4 text-center">
+                        <svg class="w-6 h-6 mx-auto text-info mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="text-xs text-info">Coming soon</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
