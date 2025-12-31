@@ -253,6 +253,9 @@ try
     builder.Services.AddSingleton<IRatWatchStatusService, RatWatchStatusService>();
     builder.Services.AddHostedService<RatWatchExecutionService>();
 
+    // Add Moderation services (includes detection services and handlers)
+    builder.Services.AddModerationServices(builder.Configuration);
+
     // Add HttpClient for Discord API calls
     builder.Services.AddHttpClient("Discord", client =>
     {

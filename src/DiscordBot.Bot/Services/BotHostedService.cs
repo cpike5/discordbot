@@ -23,6 +23,7 @@ public class BotHostedService : IHostedService
     private readonly MessageLoggingHandler _messageLoggingHandler;
     private readonly WelcomeHandler _welcomeHandler;
     private readonly MemberEventHandler _memberEventHandler;
+    private readonly AutoModerationHandler _autoModerationHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly IAuditLogQueue _auditLogQueue;
@@ -44,6 +45,7 @@ public class BotHostedService : IHostedService
         MessageLoggingHandler messageLoggingHandler,
         WelcomeHandler welcomeHandler,
         MemberEventHandler memberEventHandler,
+        AutoModerationHandler autoModerationHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
         IAuditLogQueue auditLogQueue,
@@ -63,6 +65,7 @@ public class BotHostedService : IHostedService
         _messageLoggingHandler = messageLoggingHandler;
         _welcomeHandler = welcomeHandler;
         _memberEventHandler = memberEventHandler;
+        _autoModerationHandler = autoModerationHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
         _auditLogQueue = auditLogQueue;
@@ -100,6 +103,10 @@ public class BotHostedService : IHostedService
 
         // Wire message logging handler
         _client.MessageReceived += _messageLoggingHandler.HandleMessageReceivedAsync;
+
+        // Wire auto-moderation handler for message and join monitoring
+        _client.MessageReceived += _autoModerationHandler.HandleMessageReceivedAsync;
+        _client.UserJoined += _autoModerationHandler.HandleUserJoinedAsync;
 
         // Wire welcome handler for new member joins
         _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
@@ -181,6 +188,8 @@ public class BotHostedService : IHostedService
             _client.Disconnected -= OnDisconnectedAsync;
             _client.LatencyUpdated -= OnLatencyUpdatedAsync;
             _client.MessageReceived -= _messageLoggingHandler.HandleMessageReceivedAsync;
+            _client.MessageReceived -= _autoModerationHandler.HandleMessageReceivedAsync;
+            _client.UserJoined -= _autoModerationHandler.HandleUserJoinedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
             _client.UserJoined -= _memberEventHandler.HandleUserJoinedAsync;
             _client.UserLeft -= _memberEventHandler.HandleUserLeftAsync;
