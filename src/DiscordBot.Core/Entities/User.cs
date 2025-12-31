@@ -31,6 +31,23 @@ public class User
     public DateTime LastSeenAt { get; set; }
 
     /// <summary>
+    /// Timestamp when the Discord account was created.
+    /// Extracted from the Discord snowflake ID.
+    /// </summary>
+    public DateTime? AccountCreatedAt { get; set; }
+
+    /// <summary>
+    /// Discord avatar hash for constructing avatar URLs.
+    /// Avatar URL pattern: https://cdn.discordapp.com/avatars/{userId}/{avatarHash}.png
+    /// </summary>
+    public string? AvatarHash { get; set; }
+
+    /// <summary>
+    /// Discord global display name (separate from per-guild nicknames).
+    /// </summary>
+    public string? GlobalDisplayName { get; set; }
+
+    /// <summary>
     /// Navigation property for command logs by this user.
     /// </summary>
     public ICollection<CommandLog> CommandLogs { get; set; } = new List<CommandLog>();
@@ -39,4 +56,9 @@ public class User
     /// Navigation property for message logs by this user.
     /// </summary>
     public ICollection<MessageLog> MessageLogs { get; set; } = new List<MessageLog>();
+
+    /// <summary>
+    /// Navigation property for guild memberships.
+    /// </summary>
+    public ICollection<GuildMember> GuildMemberships { get; set; } = new List<GuildMember>();
 }

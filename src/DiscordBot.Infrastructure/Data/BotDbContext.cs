@@ -31,6 +31,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RatVote> RatVotes => Set<RatVote>();
     public DbSet<RatRecord> RatRecords => Set<RatRecord>();
     public DbSet<GuildRatWatchSettings> GuildRatWatchSettings => Set<GuildRatWatchSettings>();
+    public DbSet<GuildMember> GuildMembers => Set<GuildMember>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -45,4 +45,9 @@ public class Guild
     /// Navigation property for message logs in this guild.
     /// </summary>
     public ICollection<MessageLog> MessageLogs { get; set; } = new List<MessageLog>();
+
+    /// <summary>
+    /// Navigation property for guild members.
+    /// </summary>
+    public ICollection<GuildMember> Members { get; set; } = new List<GuildMember>();
 }
