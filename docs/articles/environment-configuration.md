@@ -376,6 +376,113 @@ For comprehensive Seq setup, querying, production deployment options, and troubl
 
 - **[Centralized Log Aggregation (Seq)](log-aggregation.md)** - Complete Seq integration guide
 
+## Feature-Specific Configuration
+
+### Audit Log Retention
+
+Controls automatic cleanup of audit log entries for compliance and storage management.
+
+| Setting | appsettings Section | Default | Description |
+|---------|---------------------|---------|-------------|
+| `Enabled` | `AuditLogRetention:Enabled` | `true` | Enable/disable automatic cleanup |
+| `RetentionDays` | `AuditLogRetention:RetentionDays` | `90` | Days to retain audit logs |
+| `CleanupBatchSize` | `AuditLogRetention:CleanupBatchSize` | `1000` | Max records per cleanup operation |
+| `CleanupIntervalHours` | `AuditLogRetention:CleanupIntervalHours` | `24` | Hours between cleanup runs |
+
+```json
+{
+  "AuditLogRetention": {
+    "Enabled": true,
+    "RetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24
+  }
+}
+```
+
+**Environment Recommendations:**
+- **Development:** 30-day retention with smaller batch sizes for faster iteration
+- **Staging:** 60-day retention to validate cleanup behavior
+- **Production:** 90+ day retention for compliance; increase batch size for high-volume systems
+
+### Message Log Retention
+
+Controls automatic cleanup of Discord message logs (requires user consent).
+
+| Setting | appsettings Section | Default | Description |
+|---------|---------------------|---------|-------------|
+| `Enabled` | `MessageLogRetention:Enabled` | `true` | Enable/disable automatic cleanup |
+| `RetentionDays` | `MessageLogRetention:RetentionDays` | `90` | Days to retain message logs |
+| `CleanupBatchSize` | `MessageLogRetention:CleanupBatchSize` | `1000` | Max records per cleanup operation |
+| `CleanupIntervalHours` | `MessageLogRetention:CleanupIntervalHours` | `24` | Hours between cleanup runs |
+
+```json
+{
+  "MessageLogRetention": {
+    "Enabled": true,
+    "RetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24
+  }
+}
+```
+
+**GDPR Considerations:** Message log retention should align with your data retention policy. Users can request data deletion via `/consent revoke` which bypasses retention settings.
+
+### Scheduled Messages
+
+Controls the background service that executes scheduled messages.
+
+| Setting | appsettings Section | Default | Description |
+|---------|---------------------|---------|-------------|
+| `CheckIntervalSeconds` | `ScheduledMessages:CheckIntervalSeconds` | `60` | Seconds between due message checks |
+| `MaxConcurrentExecutions` | `ScheduledMessages:MaxConcurrentExecutions` | `5` | Max concurrent message executions |
+| `ExecutionTimeoutSeconds` | `ScheduledMessages:ExecutionTimeoutSeconds` | `30` | Timeout per message execution |
+
+```json
+{
+  "ScheduledMessages": {
+    "CheckIntervalSeconds": 60,
+    "MaxConcurrentExecutions": 5,
+    "ExecutionTimeoutSeconds": 30
+  }
+}
+```
+
+**Environment Recommendations:**
+- **Development:** Lower interval (30s) for faster testing feedback
+- **Staging:** Default values for realistic behavior
+- **Production:** Increase `MaxConcurrentExecutions` for high-volume bots; consider longer timeouts for rate-limited APIs
+
+### Rat Watch
+
+Controls the Rat Watch accountability feature's background processing.
+
+| Setting | appsettings Section | Default | Description |
+|---------|---------------------|---------|-------------|
+| `CheckIntervalSeconds` | `RatWatch:CheckIntervalSeconds` | `30` | Seconds between watch/voting checks |
+| `MaxConcurrentExecutions` | `RatWatch:MaxConcurrentExecutions` | `5` | Max concurrent watch executions |
+| `ExecutionTimeoutSeconds` | `RatWatch:ExecutionTimeoutSeconds` | `30` | Timeout per watch execution |
+| `DefaultVotingDurationMinutes` | `RatWatch:DefaultVotingDurationMinutes` | `5` | Default voting period for guilds |
+| `DefaultMaxAdvanceHours` | `RatWatch:DefaultMaxAdvanceHours` | `24` | Max hours in advance to schedule |
+
+```json
+{
+  "RatWatch": {
+    "CheckIntervalSeconds": 30,
+    "MaxConcurrentExecutions": 5,
+    "ExecutionTimeoutSeconds": 30,
+    "DefaultVotingDurationMinutes": 5,
+    "DefaultMaxAdvanceHours": 24
+  }
+}
+```
+
+**Environment Recommendations:**
+- **Development:** Lower check interval (15s) for faster testing
+- **Staging:** Default values; test voting expiration behavior
+- **Production:** Adjust `DefaultVotingDurationMinutes` based on user feedback; consider shorter intervals for time-sensitive accountability
+
 ## Best Practices
 
 1. **Never commit secrets** - Use user secrets for development and environment variables for production
@@ -383,8 +490,14 @@ For comprehensive Seq setup, querying, production deployment options, and troubl
 3. **Adjust thresholds as needed** - The provided thresholds are starting points; tune based on your traffic patterns
 4. **Monitor log volume** - Production logging should be minimal; if logs are too verbose, adjust overrides
 5. **Use structured logging** - All logging uses Serilog structured logging for queryability
+6. **Retention alignment** - Ensure audit log and message log retention aligns with your privacy policy and compliance requirements
+7. **Background service tuning** - Monitor scheduled messages and Rat Watch execution times; adjust timeouts and concurrency based on observed behavior
 
 ## Related Documentation
 
 - [Identity Configuration](identity-configuration.md) - Authentication setup per environment
-- [APM Tracing Plan](apm-tracing-plan.md) - Application performance monitoring configuration
+- [Distributed Tracing](tracing.md) - OpenTelemetry distributed tracing setup
+- [Audit Log System](audit-log-system.md) - Comprehensive audit logging documentation
+- [Message Logging](message-logging.md) - Message logging and consent system
+- [Scheduled Messages](scheduled-messages.md) - Scheduled message feature documentation
+- [Rat Watch](rat-watch.md) - Rat Watch accountability feature

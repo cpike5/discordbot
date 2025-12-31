@@ -1,6 +1,6 @@
 # Discord Bot Management System
 
-[![Version](https://img.shields.io/badge/version-v0.3.9-blue)](https://github.com/cpike5/discordbot/releases)
+[![Version](https://img.shields.io/badge/version-v0.3.12--dev-blue)](https://github.com/cpike5/discordbot/releases)
 [![CI](https://github.com/cpike5/discordbot/actions/workflows/ci.yml/badge.svg)](https://github.com/cpike5/discordbot/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
 [![Discord.NET](https://img.shields.io/badge/Discord.NET-3.18.0-5865F2)](https://github.com/discord-net/Discord.Net)
@@ -36,6 +36,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 
 ## Features
 
+### Core Infrastructure
 - Slash command framework with automatic discovery and registration
 - Razor Pages admin UI with Tailwind CSS
 - ASP.NET Core Identity with Discord OAuth integration
@@ -45,6 +46,14 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 - Clean architecture with separation of concerns
 - Graceful bot lifecycle management
 - Swagger/OpenAPI documentation for REST API
+
+### Bot Features
+- **Rat Watch** - Accountability system for tracking commitments with community voting and leaderboards ([docs](docs/articles/rat-watch.md))
+- **Scheduled Messages** - Automated announcements with flexible scheduling (one-time, recurring, cron expressions)
+- **Welcome System** - Configurable welcome messages and automatic role assignment for new members
+- **Message Logging** - Consent-aware Discord message capture with GDPR-compliant data handling
+- **Audit Logging** - Comprehensive audit trail for user, guild, bot, and system events with fluent builder API
+- **SignalR Real-time Updates** - Live dashboard updates for bot status and command execution ([docs](docs/articles/signalr-realtime.md))
 
 ## Quick Start
 
@@ -149,6 +158,23 @@ Link your Discord account to a web admin account.
 **Usage:** `/verify`
 
 **Response:** Provides a verification code to enter in the admin UI under Account > Link Discord. See [bot-verification.md](docs/articles/bot-verification.md) for details.
+
+### Rat Watch Commands
+
+Accountability system for tracking commitments. See [rat-watch.md](docs/articles/rat-watch.md) for full documentation.
+
+- **Rat Watch** (Context Menu) - Right-click any message to create a Rat Watch on the author
+- `/rat-clear` - Clear yourself from all active Rat Watches in the server
+- `/rat-stats [user]` - View a user's rat record (guilty verdicts, recent incidents)
+- `/rat-leaderboard` - View the top rats in the server
+- `/rat-settings [timezone]` - Configure Rat Watch settings (Admin only)
+
+### Scheduled Messages
+
+- `/schedule-message create` - Create a new scheduled message
+- `/schedule-message list` - List scheduled messages for the server
+- `/schedule-message delete` - Delete a scheduled message
+- `/schedule-message edit` - Edit an existing scheduled message
 
 ## Logging
 
@@ -356,14 +382,24 @@ This project is for educational and development purposes.
 
 ## Related Documentation
 
+### Architecture & Configuration
 - [Architecture History](docs/articles/architecture-history.md) - Original implementation plan
 - [Requirements](docs/articles/requirements.md) - Technology stack and specifications
 - [Design System](docs/articles/design-system.md) - UI design tokens and components
-- [API Endpoints](docs/articles/api-endpoints.md) - REST API documentation
-- [Interactive Components](docs/articles/interactive-components.md) - Button/component patterns
 - [Identity Configuration](docs/articles/identity-configuration.md) - Authentication setup
 - [Authorization Policies](docs/articles/authorization-policies.md) - Role hierarchy and access control
+- [Versioning Strategy](docs/articles/versioning-strategy.md) - SemVer versioning, CI/CD, release process
+
+### API & Integration
+- [API Endpoints](docs/articles/api-endpoints.md) - REST API documentation
+- [SignalR Real-time Updates](docs/articles/signalr-realtime.md) - Live dashboard updates
+- [Interactive Components](docs/articles/interactive-components.md) - Button/component patterns
+
+### Features
+- [Rat Watch](docs/articles/rat-watch.md) - Accountability system with voting and leaderboards
 - [User Management](docs/articles/user-management.md) - Admin UI user management
 - [Bot Verification](docs/articles/bot-verification.md) - Discord account linking flow
-- [Versioning Strategy](docs/articles/versioning-strategy.md) - SemVer versioning, CI/CD, release process
+
+### Development
 - [CLAUDE.md](CLAUDE.md) - Guidance for Claude Code AI assistant
+- [Issue Tracking Process](docs/articles/issue-tracking-process.md) - GitHub workflow and labels
