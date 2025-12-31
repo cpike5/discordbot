@@ -468,9 +468,19 @@ public class RatWatchService : IRatWatchService
         _logger.LogInformation("Updating Rat Watch settings for guild {GuildId}", guildId);
 
         var settings = await _settingsRepository.GetOrCreateAsync(guildId, ct);
+
+        // Log current values before update
+        _logger.LogDebug(
+            "Current settings for guild {GuildId}: Timezone={Timezone}, MaxAdvanceHours={MaxAdvanceHours}, VotingDurationMinutes={VotingDurationMinutes}, IsEnabled={IsEnabled}, PublicLeaderboard={PublicLeaderboard}",
+            guildId, settings.Timezone, settings.MaxAdvanceHours, settings.VotingDurationMinutes, settings.IsEnabled, settings.PublicLeaderboardEnabled);
+
         update(settings);
         settings.UpdatedAt = DateTime.UtcNow;
-        settings.Guild = null; // Detach navigation to avoid EF tracking conflicts
+
+        // Log new values after update
+        _logger.LogDebug(
+            "New settings for guild {GuildId}: Timezone={Timezone}, MaxAdvanceHours={MaxAdvanceHours}, VotingDurationMinutes={VotingDurationMinutes}, IsEnabled={IsEnabled}, PublicLeaderboard={PublicLeaderboard}",
+            guildId, settings.Timezone, settings.MaxAdvanceHours, settings.VotingDurationMinutes, settings.IsEnabled, settings.PublicLeaderboardEnabled);
 
         await _settingsRepository.UpdateAsync(settings, ct);
 

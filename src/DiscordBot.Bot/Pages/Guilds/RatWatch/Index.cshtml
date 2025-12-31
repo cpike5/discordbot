@@ -143,11 +143,11 @@
                 <div>
                     <label for="timezone" class="block text-sm font-medium text-text-secondary mb-1">Timezone</label>
                     <select id="timezone" name="timezone" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue">
-                        <option value="Eastern Standard Time" selected="@(Model.ViewModel.Timezone == "Eastern Standard Time")">Eastern Time</option>
-                        <option value="Central Standard Time" selected="@(Model.ViewModel.Timezone == "Central Standard Time")">Central Time</option>
-                        <option value="Mountain Standard Time" selected="@(Model.ViewModel.Timezone == "Mountain Standard Time")">Mountain Time</option>
-                        <option value="Pacific Standard Time" selected="@(Model.ViewModel.Timezone == "Pacific Standard Time")">Pacific Time</option>
-                        <option value="UTC" selected="@(Model.ViewModel.Timezone == "UTC")">UTC</option>
+                        <!option value="Eastern Standard Time" @(Model.ViewModel.Timezone == "Eastern Standard Time" ? "selected" : "")>Eastern Time</!option>
+                        <!option value="Central Standard Time" @(Model.ViewModel.Timezone == "Central Standard Time" ? "selected" : "")>Central Time</!option>
+                        <!option value="Mountain Standard Time" @(Model.ViewModel.Timezone == "Mountain Standard Time" ? "selected" : "")>Mountain Time</!option>
+                        <!option value="Pacific Standard Time" @(Model.ViewModel.Timezone == "Pacific Standard Time" ? "selected" : "")>Pacific Time</!option>
+                        <!option value="UTC" @(Model.ViewModel.Timezone == "UTC" ? "selected" : "")>UTC</!option>
                     </select>
                 </div>
                 <div>
