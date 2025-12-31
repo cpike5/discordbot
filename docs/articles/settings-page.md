@@ -1,7 +1,7 @@
 # Settings Page Documentation
 
-**Version:** 1.0
-**Last Updated:** 2025-12-29
+**Version:** 1.1
+**Last Updated:** 2025-12-30
 **Route:** `/Admin/Settings`
 **Authorization:** Requires `Admin` or `SuperAdmin` role
 
@@ -105,6 +105,7 @@ This allows:
 |------------|--------------|------|---------|------------------|-------------|
 | `Features:MessageLoggingEnabled` | Message Logging | Boolean | `true` | No | Enable or disable Discord message logging globally |
 | `Features:WelcomeMessagesEnabled` | Welcome Messages | Boolean | `true` | No | Enable or disable welcome messages globally (in addition to per-guild settings) |
+| `Features:RatWatchEnabled` | Rat Watch | Boolean | `true` | No | Enable or disable the Rat Watch accountability feature globally |
 
 ### Advanced Category
 
@@ -330,20 +331,24 @@ The module handles proper checkbox serialization (unchecked checkboxes don't sub
 function buildFormData(form) {
     const formData = new FormData();
 
-    // Add anti-forgery token
+    // Add the anti-forgery token
     const token = form.querySelector('input[name="__RequestVerificationToken"]');
-    formData.append('__RequestVerificationToken', token.value);
+    if (token) {
+        formData.append('__RequestVerificationToken', token.value);
+    }
 
-    // Process toggle checkboxes - add their current state (true/false)
+    // Process all toggle checkboxes - add their current state (true/false)
     const toggles = form.querySelectorAll('input[data-setting-toggle]');
     toggles.forEach(toggle => {
         formData.append(toggle.name, toggle.checked ? 'true' : 'false');
     });
 
-    // Process other inputs
-    const inputs = form.querySelectorAll('input:not([type="checkbox"]), select, textarea');
+    // Process all other form inputs (text, number, select, etc.)
+    const inputs = form.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"]), select, textarea');
     inputs.forEach(input => {
-        formData.append(input.name, input.value);
+        if (input.name && !input.name.startsWith('__')) {
+            formData.append(input.name, input.value);
+        }
     });
 
     return formData;
@@ -388,8 +393,10 @@ public async Task<IActionResult> OnPostSaveCategoryAsync(string category)
 
     return new JsonResult(new
     {
-        success = result.Success,
-        message = $"Settings saved. {result.UpdatedKeys.Count} setting(s) updated.",
+        success = true,
+        message = result.Changes.Count > 0
+            ? $"Settings saved successfully. {result.Changes.Count} setting(s) updated."
+            : "No changes detected.",
         restartRequired = result.RestartRequired
     });
 }
@@ -409,8 +416,10 @@ public async Task<IActionResult> OnPostSaveAllAsync()
 
     return new JsonResult(new
     {
-        success = result.Success,
-        message = $"All settings saved. {result.UpdatedKeys.Count} setting(s) updated.",
+        success = true,
+        message = result.Changes.Count > 0
+            ? $"All settings saved successfully. {result.Changes.Count} setting(s) updated."
+            : "No changes detected.",
         restartRequired = result.RestartRequired
     });
 }
@@ -464,8 +473,7 @@ All handlers return JSON:
 {
     "success": true,
     "message": "Settings saved successfully. 2 setting(s) updated.",
-    "restartRequired": false,
-    "errors": []
+    "restartRequired": false
 }
 ```
 
@@ -575,9 +583,10 @@ private T? ConvertValue<T>(string value)
     if (underlyingType == typeof(string)) return (T)(object)value;
     if (underlyingType == typeof(int)) return (T)(object)int.Parse(value);
     if (underlyingType == typeof(bool)) return (T)(object)bool.Parse(value);
-    if (underlyingType == typeof(decimal)) return (T)(object)decimal.Parse(value);
+    if (underlyingType == typeof(decimal)) return (T)(object)decimal.Parse(value, CultureInfo.InvariantCulture);
+    if (underlyingType == typeof(double)) return (T)(object)double.Parse(value, CultureInfo.InvariantCulture);
 
-    return (T?)Convert.ChangeType(value, underlyingType);
+    return (T?)Convert.ChangeType(value, underlyingType, CultureInfo.InvariantCulture);
 }
 ```
 
@@ -975,4 +984,5 @@ describe('settingsManager', () => {
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2025-12-30 | Added RatWatchEnabled setting, updated code examples to match implementation |
 | 1.0 | 2025-12-29 | Initial documentation for Settings page overhaul |
