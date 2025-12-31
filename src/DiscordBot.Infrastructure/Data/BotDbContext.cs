@@ -32,6 +32,13 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<RatRecord> RatRecords => Set<RatRecord>();
     public DbSet<GuildRatWatchSettings> GuildRatWatchSettings => Set<GuildRatWatchSettings>();
     public DbSet<GuildMember> GuildMembers => Set<GuildMember>();
+    public DbSet<FlaggedEvent> FlaggedEvents => Set<FlaggedEvent>();
+    public DbSet<GuildModerationConfig> GuildModerationConfigs => Set<GuildModerationConfig>();
+    public DbSet<ModerationCase> ModerationCases => Set<ModerationCase>();
+    public DbSet<ModNote> ModNotes => Set<ModNote>();
+    public DbSet<ModTag> ModTags => Set<ModTag>();
+    public DbSet<UserModTag> UserModTags => Set<UserModTag>();
+    public DbSet<Watchlist> Watchlists => Set<Watchlist>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
