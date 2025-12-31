@@ -74,9 +74,11 @@
                     };
                 }
                 <partial name="Shared/Components/_StatusIndicator" model="statusModel" />
+
+                <!-- Quick Actions (always visible) -->
                 <button type="button"
                         class="btn btn-secondary"
-                        onclick="syncGuild(@guild.Id, this)"
+                        onclick="syncGuild('@guild.Id', this)"
                         title="Sync guild data from Discord">
                     <svg class="w-5 h-5 mr-2 sync-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -87,38 +89,73 @@
                     </svg>
                     <span class="sync-text">Sync</span>
                 </button>
+
                 <a asp-page="Members/Index" asp-route-guildId="@guild.Id" class="btn btn-secondary">
                     <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                     Members
                 </a>
+
                 @if (guild.CanEdit)
                 {
-                    <a asp-page="Welcome" asp-route-id="@guild.Id" class="btn btn-secondary">
-                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                        </svg>
-                        Welcome
-                    </a>
-                    <a asp-page="ScheduledMessages/Index" asp-route-guildId="@guild.Id" class="btn btn-secondary">
-                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Scheduled
-                    </a>
-                    <a asp-page="ModerationSettings/Index" asp-route-guildId="@guild.Id" class="btn btn-secondary">
-                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
-                        </svg>
-                        Mod Rules
-                    </a>
-                    <a asp-page="FlaggedEvents/Index" asp-route-guildId="@guild.Id" class="btn btn-secondary">
-                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        Flagged Events
-                    </a>
+                    <!-- More Actions Dropdown -->
+                    <div class="relative" id="moreActionsDropdown">
+                        <button type="button"
+                                onclick="toggleMoreActions()"
+                                class="btn btn-secondary"
+                                aria-haspopup="true"
+                                aria-expanded="false"
+                                id="moreActionsBtn">
+                            <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            </svg>
+                            More
+                            <svg class="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown Menu -->
+                        <div id="moreActionsMenu"
+                             class="hidden absolute right-0 mt-2 w-56 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-50">
+                            <div class="py-1">
+                                <a asp-page="Welcome" asp-route-id="@guild.Id"
+                                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                    </svg>
+                                    Welcome Message
+                                </a>
+
+                                <a asp-page="ScheduledMessages/Index" asp-route-guildId="@guild.Id"
+                                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Scheduled Messages
+                                </a>
+
+                                <a asp-page="ModerationSettings/Index" asp-route-guildId="@guild.Id"
+                                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
+                                    </svg>
+                                    Moderation Settings
+                                </a>
+
+                                <a asp-page="FlaggedEvents/Index" asp-route-guildId="@guild.Id"
+                                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    Flagged Events
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Primary CTA -->
                     <a asp-page="Edit" asp-route-id="@guild.Id" class="btn btn-primary">
                         <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -616,6 +653,42 @@
                 ToastManager.show('error', 'Failed to copy to clipboard');
             });
         }
+
+        // More Actions Dropdown
+        function toggleMoreActions() {
+            const menu = document.getElementById('moreActionsMenu');
+            const btn = document.getElementById('moreActionsBtn');
+            if (menu && btn) {
+                const isHidden = menu.classList.contains('hidden');
+                menu.classList.toggle('hidden');
+                btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('moreActionsDropdown');
+            const menu = document.getElementById('moreActionsMenu');
+            const btn = document.getElementById('moreActionsBtn');
+
+            if (dropdown && menu && btn && !dropdown.contains(event.target)) {
+                menu.classList.add('hidden');
+                btn.setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        // Close dropdown on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const menu = document.getElementById('moreActionsMenu');
+                const btn = document.getElementById('moreActionsBtn');
+                if (menu && btn && !menu.classList.contains('hidden')) {
+                    menu.classList.add('hidden');
+                    btn.setAttribute('aria-expanded', 'false');
+                    btn.focus();
+                }
+            }
+        });
 
         // Convert UTC times to local time
         document.addEventListener('DOMContentLoaded', function() {
