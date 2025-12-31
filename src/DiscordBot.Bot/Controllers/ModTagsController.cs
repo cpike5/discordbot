@@ -270,4 +270,57 @@ public class ModTagsController : ControllerBase
 
         return NoContent();
     }
+
+    /// <summary>
+    /// Imports template tags for a guild.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="templateNames">Array of template names to import.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of tags imported.</returns>
+    [HttpPost("import-templates")]
+    [Route("api/guilds/{guildId}/tags/import-templates")]
+    [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<int>> ImportTemplates(
+        ulong guildId,
+        [FromBody] string[] templateNames,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Template tag import requested for guild {GuildId}: {Count} templates", guildId, templateNames.Length);
+
+        if (templateNames == null || templateNames.Length == 0)
+        {
+            _logger.LogWarning("Invalid template import request: template names array is empty");
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid request",
+                Detail = "Template names array cannot be empty.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        try
+        {
+            var count = await _modTagService.ImportTemplateTagsAsync(guildId, templateNames, cancellationToken);
+
+            _logger.LogInformation("{Count} template tags imported successfully for guild {GuildId}", count, guildId);
+
+            return Ok(count);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid template import request for guild {GuildId}", guildId);
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid request",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+    }
 }

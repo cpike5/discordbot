@@ -1,0 +1,437 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.ModerationSettings.IndexModel
+@{
+    ViewData["Title"] = "Moderation Settings";
+}
+
+<!-- Breadcrumb Navigation -->
+<nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
+    <ol class="flex items-center gap-2">
+        <li><a asp-page="/Index" class="hover:text-text-primary transition-colors">Home</a></li>
+        <li aria-hidden="true">
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </li>
+        <li><a asp-page="/Guilds/Index" class="hover:text-text-primary transition-colors">Servers</a></li>
+        <li aria-hidden="true">
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </li>
+        <li><a asp-page="/Guilds/Details" asp-route-id="@Model.GuildId" class="hover:text-text-primary transition-colors">@Model.GuildName</a></li>
+        <li aria-hidden="true">
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </li>
+        <li class="text-text-primary font-medium" aria-current="page">Moderation Settings</li>
+    </ol>
+</nav>
+
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-text-primary">Moderation Settings</h1>
+        <p class="text-sm text-text-secondary mt-1">Configure auto-moderation rules for this server</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <a href="#" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            View Flagged Events
+        </a>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="settings-tabs mb-6">
+    <button type="button" class="settings-tab settings-tab-active" data-tab="overview" onclick="window.moderationSettings.switchTab('overview')">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        Overview
+    </button>
+    <button type="button" class="settings-tab" data-tab="spam" onclick="window.moderationSettings.switchTab('spam')">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+        Spam
+    </button>
+    <button type="button" class="settings-tab" data-tab="content" onclick="window.moderationSettings.switchTab('content')">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
+        </svg>
+        Content
+    </button>
+    <button type="button" class="settings-tab" data-tab="raid" onclick="window.moderationSettings.switchTab('raid')">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        Raid
+    </button>
+    <button type="button" class="settings-tab" data-tab="tags" onclick="window.moderationSettings.switchTab('tags')">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+        </svg>
+        Tags
+    </button>
+</div>
+
+<!-- Tab Content Container -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg">
+    <!-- Overview Tab -->
+    <div id="tab-overview" class="tab-content p-6">
+        <!-- Mode Toggle -->
+        <div class="mb-8">
+            <h3 class="text-lg font-semibold text-text-primary mb-2">Configuration Mode</h3>
+            <p class="text-sm text-text-secondary mb-4">Choose between simplified presets or advanced custom configuration.</p>
+            <div class="mode-toggle">
+                <button type="button" class="mode-toggle-btn @(Model.ViewModel.Mode == Core.Enums.ConfigMode.Simple ? "mode-toggle-btn-active" : "")" onclick="window.moderationSettings.setMode('simple')" data-mode="simple">Simple</button>
+                <button type="button" class="mode-toggle-btn @(Model.ViewModel.Mode == Core.Enums.ConfigMode.Advanced ? "mode-toggle-btn-active" : "")" onclick="window.moderationSettings.setMode('advanced')" data-mode="advanced">Advanced</button>
+            </div>
+        </div>
+
+        <!-- Simple Mode: Presets -->
+        <div id="simpleMode" class="mb-8 @(Model.ViewModel.Mode == Core.Enums.ConfigMode.Advanced ? "hidden" : "")">
+            <h3 class="text-lg font-semibold text-text-primary mb-4">Protection Level</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Relaxed -->
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="preset" value="Relaxed" class="sr-only peer" @(Model.ViewModel.SimplePreset == "Relaxed" ? "checked" : "") onchange="window.moderationSettings.selectPreset('Relaxed')" />
+                    <div class="p-4 bg-bg-tertiary border-2 border-border-primary rounded-lg peer-checked:border-accent-orange transition-colors">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-3 h-3 rounded-full bg-success"></div>
+                            <span class="font-semibold text-text-primary">Relaxed</span>
+                        </div>
+                        <p class="text-sm text-text-secondary">Minimal intervention. Only catches obvious spam and severe violations.</p>
+                    </div>
+                </label>
+                <!-- Moderate -->
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="preset" value="Moderate" class="sr-only peer" @(Model.ViewModel.SimplePreset == "Moderate" ? "checked" : "") onchange="window.moderationSettings.selectPreset('Moderate')" />
+                    <div class="p-4 bg-bg-tertiary border-2 border-border-primary rounded-lg peer-checked:border-accent-orange transition-colors">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-3 h-3 rounded-full bg-warning"></div>
+                            <span class="font-semibold text-text-primary">Moderate</span>
+                        </div>
+                        <p class="text-sm text-text-secondary">Balanced protection. Flags suspicious activity for review.</p>
+                    </div>
+                </label>
+                <!-- Strict -->
+                <label class="relative cursor-pointer">
+                    <input type="radio" name="preset" value="Strict" class="sr-only peer" @(Model.ViewModel.SimplePreset == "Strict" ? "checked" : "") onchange="window.moderationSettings.selectPreset('Strict')" />
+                    <div class="p-4 bg-bg-tertiary border-2 border-border-primary rounded-lg peer-checked:border-accent-orange transition-colors">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="w-3 h-3 rounded-full bg-error"></div>
+                            <span class="font-semibold text-text-primary">Strict</span>
+                        </div>
+                        <p class="text-sm text-text-secondary">Maximum protection. Aggressive detection with auto-actions enabled.</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div>
+            <h3 class="text-lg font-semibold text-text-primary mb-4">Activity Summary (Last 24h)</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="history-stat-card">
+                    <span class="history-stat-value">@Model.EventsFlagged</span>
+                    <span class="history-stat-label">Events Flagged</span>
+                </div>
+                <div class="history-stat-card">
+                    <span class="history-stat-value text-success">@Model.AutoActions</span>
+                    <span class="history-stat-label">Auto-Actions</span>
+                </div>
+                <div class="history-stat-card">
+                    <span class="history-stat-value">@Model.ActiveRules</span>
+                    <span class="history-stat-label">Active Rules</span>
+                </div>
+                <div class="history-stat-card">
+                    <span class="history-stat-value text-warning">@Model.FalsePositives</span>
+                    <span class="history-stat-label">False Positives</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spam Tab -->
+    <div id="tab-spam" class="tab-content hidden p-6">
+        <!-- Enable Toggle -->
+        <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+            <div>
+                <h3 class="text-lg font-semibold text-text-primary">Spam Detection</h3>
+                <p class="text-sm text-text-secondary">Detect and flag spam messages automatically</p>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="spam-enabled" @(Model.ViewModel.SpamConfig.Enabled ? "checked" : "") />
+                <span class="toggle-switch-track"></span>
+                <span class="toggle-switch-thumb"></span>
+            </label>
+        </div>
+
+        <!-- Settings Grid -->
+        <div class="space-y-6">
+            <!-- Message Rate -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Message Rate Threshold</label>
+                    <p class="text-xs text-text-tertiary mb-2">Flag when user sends this many messages...</p>
+                    <input type="number" id="spam-max-messages" value="@Model.ViewModel.SpamConfig.MaxMessagesPerWindow" min="1" max="100" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Time Window (seconds)</label>
+                    <p class="text-xs text-text-tertiary mb-2">...within this time period</p>
+                    <input type="number" id="spam-window-seconds" value="@Model.ViewModel.SpamConfig.WindowSeconds" min="1" max="60" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+            </div>
+
+            <!-- Duplicate Detection -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Max Mentions Per Message</label>
+                    <p class="text-xs text-text-tertiary mb-2">Maximum mentions allowed per message</p>
+                    <input type="number" id="spam-max-mentions" value="@Model.ViewModel.SpamConfig.MaxMentionsPerMessage" min="1" max="50" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Similarity Threshold (%)</label>
+                    <p class="text-xs text-text-tertiary mb-2">Messages this similar count as duplicates</p>
+                    <input type="number" id="spam-duplicate-threshold" value="@((int)(Model.ViewModel.SpamConfig.DuplicateMessageThreshold * 100))" min="50" max="100" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+            </div>
+
+            <!-- Auto Action -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Detection</label>
+                <p class="text-xs text-text-tertiary mb-2">Automatically take action when spam is detected</p>
+                <select id="spam-auto-action" class="w-full md:w-64 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                    <option value="0" selected="@(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.None)">None (Flag Only)</option>
+                    <option value="1" selected="@(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Delete)">Delete Message</option>
+                    <option value="2" selected="@(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Warn)">Warn User</option>
+                    <option value="3" selected="@(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Mute)">Mute User (1 hour)</option>
+                    <option value="4" selected="@(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Kick)">Kick User</option>
+                    <option value="5" selected="@(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Ban)">Ban User</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+            <button type="button" onclick="window.moderationSettings.saveSpamSettings()" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+                Save Spam Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Content Tab -->
+    <div id="tab-content" class="tab-content hidden p-6">
+        <!-- Enable Toggle -->
+        <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+            <div>
+                <h3 class="text-lg font-semibold text-text-primary">Content Filter</h3>
+                <p class="text-sm text-text-secondary">Block harmful, offensive, or unwanted content</p>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="content-enabled" @(Model.ViewModel.ContentFilterConfig.Enabled ? "checked" : "") />
+                <span class="toggle-switch-track"></span>
+                <span class="toggle-switch-thumb"></span>
+            </label>
+        </div>
+
+        <!-- Settings -->
+        <div class="space-y-6">
+            <!-- Custom Blocklist -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Custom Blocklist</label>
+                <p class="text-xs text-text-tertiary mb-2">Words and phrases to block (comma-separated)</p>
+                <textarea id="content-prohibited-words" rows="3" placeholder="Enter words or phrases..." class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors resize-none">@string.Join(", ", Model.ViewModel.ContentFilterConfig.ProhibitedWords)</textarea>
+            </div>
+
+            <!-- Block Invite Links -->
+            <div class="flex items-center gap-3">
+                <input type="checkbox" id="content-block-invites" @(Model.ViewModel.ContentFilterConfig.BlockInviteLinks ? "checked" : "") class="w-4 h-4 rounded border-border-primary" />
+                <div>
+                    <span class="text-sm text-text-primary font-medium">Block Discord Invite Links</span>
+                    <p class="text-xs text-text-tertiary">Prevent users from posting Discord server invites</p>
+                </div>
+            </div>
+
+            <!-- Auto Action -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Detection</label>
+                <select id="content-auto-action" class="w-full md:w-64 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                    <option value="0" selected="@(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.None)">None (Flag Only)</option>
+                    <option value="1" selected="@(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Delete)">Delete Message</option>
+                    <option value="2" selected="@(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Warn)">Warn User</option>
+                    <option value="3" selected="@(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Mute)">Delete + Mute User</option>
+                    <option value="5" selected="@(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Ban)">Delete + Ban User</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+            <button type="button" onclick="window.moderationSettings.saveContentSettings()" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+                Save Content Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Raid Tab -->
+    <div id="tab-raid" class="tab-content hidden p-6">
+        <!-- Enable Toggle -->
+        <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+            <div>
+                <h3 class="text-lg font-semibold text-text-primary">Raid Protection</h3>
+                <p class="text-sm text-text-secondary">Detect and respond to coordinated attacks</p>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="raid-enabled" @(Model.ViewModel.RaidProtectionConfig.Enabled ? "checked" : "") />
+                <span class="toggle-switch-track"></span>
+                <span class="toggle-switch-thumb"></span>
+            </label>
+        </div>
+
+        <!-- Settings -->
+        <div class="space-y-6">
+            <!-- Join Rate -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Mass Join Threshold</label>
+                    <p class="text-xs text-text-tertiary mb-2">Trigger when this many users join...</p>
+                    <input type="number" id="raid-max-joins" value="@Model.ViewModel.RaidProtectionConfig.MaxJoinsPerWindow" min="5" max="100" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Time Window (seconds)</label>
+                    <p class="text-xs text-text-tertiary mb-2">...within this time period</p>
+                    <input type="number" id="raid-window-seconds" value="@Model.ViewModel.RaidProtectionConfig.WindowSeconds" min="10" max="300" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+            </div>
+
+            <!-- Account Age -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Minimum Account Age (hours)</label>
+                <p class="text-xs text-text-tertiary mb-2">Require accounts to be older than this (0 = no restriction)</p>
+                <input type="number" id="raid-min-account-age" value="@Model.ViewModel.RaidProtectionConfig.MinAccountAgeHours" min="0" max="720" class="w-32 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+            </div>
+
+            <!-- Auto Action -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Raid Detection</label>
+                <p class="text-xs text-text-tertiary mb-2">Action to take when a raid is detected</p>
+                <select id="raid-auto-action" class="w-full md:w-64 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                    <option value="0" selected="@(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.None)">None</option>
+                    <option value="1" selected="@(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.AlertOnly)">Alert Only</option>
+                    <option value="2" selected="@(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.LockInvites)">Lock Invites</option>
+                    <option value="3" selected="@(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.LockServer)">Lock Server</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+            <button type="button" onclick="window.moderationSettings.saveRaidSettings()" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+                Save Raid Settings
+            </button>
+        </div>
+    </div>
+
+    <!-- Tags Tab -->
+    <div id="tab-tags" class="tab-content hidden p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h3 class="text-lg font-semibold text-text-primary">User Tags</h3>
+                <p class="text-sm text-text-secondary">Define custom tags for categorizing users</p>
+            </div>
+            <button type="button" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors" onclick="window.moderationSettings.showImportTemplatesModal()">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                Import Templates
+            </button>
+        </div>
+
+        <!-- Existing Tags -->
+        <div class="space-y-3 mb-6" id="tags-list">
+            @foreach (var tag in Model.ViewModel.Tags)
+            {
+                <div class="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg" data-tag-name="@tag.Name">
+                    <div class="flex items-center gap-3">
+                        <span class="user-tag @GetTagColorClass(tag.Category)">@tag.Name</span>
+                        <span class="text-sm text-text-secondary">Used @tag.UserCount times</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" class="p-1.5 text-text-tertiary hover:text-error hover:bg-error-bg rounded transition-colors" title="Delete" onclick="window.moderationSettings.deleteTag('@tag.Name')">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Add New Tag Form -->
+        <div class="p-4 bg-bg-tertiary rounded-lg">
+            <h4 class="font-medium text-text-primary mb-4">Add New Tag</h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Tag Name</label>
+                    <input type="text" id="new-tag-name" placeholder="e.g., VIP, Trusted, etc." class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-text-primary mb-1">Color</label>
+                    <select id="new-tag-color" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                        <option value="0">Default (Gray)</option>
+                        <option value="1">Positive (Green)</option>
+                        <option value="2">Negative (Red)</option>
+                        <option value="3">Neutral (Blue)</option>
+                    </select>
+                </div>
+                <div class="flex items-end">
+                    <button type="button" onclick="window.moderationSettings.createTag()" class="w-full px-4 py-2 text-sm font-medium text-white bg-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+                        Add Tag
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form with anti-forgery token -->
+<form method="post" id="moderationForm">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="guildId" value="@Model.GuildId" />
+</form>
+
+@functions {
+    private string GetTagColorClass(Core.Enums.TagCategory category)
+    {
+        return category switch
+        {
+            Core.Enums.TagCategory.Positive => "user-tag-success",
+            Core.Enums.TagCategory.Negative => "user-tag-danger",
+            Core.Enums.TagCategory.Neutral => "user-tag-info",
+            _ => ""
+        };
+    }
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/moderation.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script>
+        // Pass server data to JavaScript
+        window.moderationData = {
+            guildId: '@Model.GuildId',
+            mode: @((int)Model.ViewModel.Mode),
+            simplePreset: '@Model.ViewModel.SimplePreset',
+            channels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AvailableChannels))
+        };
+    </script>
+    <script src="~/js/moderation-settings.js" asp-append-version="true"></script>
+}

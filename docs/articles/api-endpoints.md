@@ -71,6 +71,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/tags` | GET | List guild tags |
 | `/api/guilds/{guildId}/tags` | POST | Create tag |
 | `/api/guilds/{guildId}/tags/{tagName}` | DELETE | Delete tag |
+| `/api/guilds/{guildId}/tags/import-templates` | POST | Import template tags |
 | `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | POST | Apply tag to user |
 | `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | DELETE | Remove tag from user |
 | `/api/guilds/{guildId}/watchlist` | GET | List watchlist |
@@ -3467,6 +3468,70 @@ Tag deleted successfully.
   "traceId": "00-abc123-def456-00"
 }
 ```
+
+---
+
+#### POST /api/guilds/{guildId}/tags/import-templates
+
+Imports predefined template tags for a guild. Template tags are predefined tags with consistent naming and colors that can be quickly imported into a guild.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+[
+  "Watch-Spam",
+  "Watch-Harassment",
+  "Repeat-Offender"
+]
+```
+
+**Request Fields:**
+
+An array of template tag names to import. Available template names are defined by the system (e.g., "Watch-Spam", "Watch-Harassment", "Repeat-Offender", "Warning-Issued", "Needs-Attention").
+
+**Response: 200 OK**
+
+```json
+3
+```
+
+Returns the number of tags successfully imported.
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Template names array cannot be empty.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+Or if invalid template names provided:
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Unknown template tag name: InvalidTagName",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Notes:**
+- Only predefined template tag names are accepted
+- Duplicate tags (already existing in guild) are skipped
+- Returns count of newly imported tags (not including duplicates)
+- Template tags have predefined colors that match across guilds
 
 ---
 
