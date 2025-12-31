@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Detail Modal - Discord Bot Admin</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Background page content (dimmed behind modal) -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 opacity-50 pointer-events-none">
+        <h1 class="text-2xl font-bold text-text-primary mb-4">Members (Behind Modal)</h1>
+        <p class="text-text-secondary">This content is dimmed when the modal is open.</p>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div id="memberDetailModal" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="memberDetailTitle" role="dialog" aria-modal="true">
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <!-- Dark Backdrop -->
+            <div class="fixed inset-0 bg-black/75 transition-opacity" onclick="closeMemberModal()" aria-hidden="true"></div>
+
+            <!-- Modal Content -->
+            <div class="relative bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                    <h2 id="memberDetailTitle" class="text-xl font-semibold text-text-primary">Member Details</h2>
+                    <button type="button" class="text-text-secondary hover:text-text-primary transition-colors p-1" onclick="closeMemberModal()" aria-label="Close modal">
+                        <!-- X icon -->
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Body (scrollable) -->
+                <div class="overflow-y-auto max-h-[calc(90vh-140px)] px-6 py-6">
+                    <!-- Profile Section -->
+                    <div class="flex items-start gap-4 mb-6 pb-6 border-b border-border-secondary">
+                        <!-- Large Avatar -->
+                        <img id="modalAvatar" src="https://cdn.discordapp.com/embed/avatars/0.png" alt="JohnDoe" class="w-20 h-20 rounded-full flex-shrink-0" />
+                        <div class="flex-1 min-w-0">
+                            <h3 id="modalDisplayName" class="text-lg font-semibold text-text-primary mb-1">JohnDoe</h3>
+                            <p id="modalUsername" class="text-sm text-text-secondary font-mono mb-2">@johndoe1234</p>
+                            <p class="text-xs text-text-tertiary">
+                                <span>User ID: </span>
+                                <span id="modalUserId" class="font-mono select-all">123456789012345678</span>
+                                <button type="button" class="ml-2 text-accent-blue hover:text-accent-blue-hover" onclick="copyUserId()" aria-label="Copy user ID">
+                                    <svg class="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                </button>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Info Grid -->
+                    <div class="grid grid-cols-2 gap-6 mb-6">
+                        <!-- Account Created -->
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wider mb-1">Account Created</p>
+                            <p id="modalAccountAge" class="text-sm text-text-primary">Mar 15, 2020</p>
+                            <p class="text-xs text-text-tertiary">4 years ago</p>
+                        </div>
+
+                        <!-- Joined Server -->
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wider mb-1">Joined Server</p>
+                            <p id="modalJoinDate" class="text-sm text-text-primary">Jan 15, 2024</p>
+                            <p class="text-xs text-text-tertiary">11 months ago</p>
+                        </div>
+
+                        <!-- Last Active -->
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wider mb-1">Last Active</p>
+                            <p id="modalLastActive" class="text-sm text-text-primary">2 hours ago</p>
+                            <p class="text-xs text-text-tertiary">Dec 30, 2025 10:34 AM</p>
+                        </div>
+
+                        <!-- Total Messages -->
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wider mb-1">Total Messages</p>
+                            <p id="modalMessageCount" class="text-sm text-text-primary">1,523</p>
+                            <p class="text-xs text-text-tertiary">in this server</p>
+                        </div>
+                    </div>
+
+                    <!-- Roles Section -->
+                    <div class="mb-6">
+                        <h4 class="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+                            Roles <span id="modalRoleCount" class="text-text-tertiary font-normal">(3)</span>
+                        </h4>
+                        <div id="modalRoleList" class="flex flex-wrap gap-2">
+                            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium text-white" style="background-color: #FF5733">
+                                <span class="w-2 h-2 rounded-full bg-white/30"></span>
+                                Admin
+                            </span>
+                            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium text-white" style="background-color: #3498DB">
+                                <span class="w-2 h-2 rounded-full bg-white/30"></span>
+                                Moderator
+                            </span>
+                            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium text-white" style="background-color: #9B59B6">
+                                <span class="w-2 h-2 rounded-full bg-white/30"></span>
+                                Support
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Activity Summary (Placeholder) -->
+                    <div class="mb-6">
+                        <h4 class="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">Activity Summary</h4>
+                        <div class="bg-bg-secondary rounded-lg p-4">
+                            <div class="flex items-center gap-3 text-sm text-text-secondary">
+                                <!-- Info icon -->
+                                <svg class="w-5 h-5 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p>Activity analytics and message history will be available in a future update.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Stats Row -->
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="bg-bg-secondary rounded-lg p-4 text-center">
+                            <p class="text-2xl font-bold text-accent-blue">42</p>
+                            <p class="text-xs text-text-tertiary">Active Days</p>
+                        </div>
+                        <div class="bg-bg-secondary rounded-lg p-4 text-center">
+                            <p class="text-2xl font-bold text-accent-orange">3</p>
+                            <p class="text-xs text-text-tertiary">Roles</p>
+                        </div>
+                        <div class="bg-bg-secondary rounded-lg p-4 text-center">
+                            <p class="text-2xl font-bold text-success">0</p>
+                            <p class="text-xs text-text-tertiary">Warnings</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Actions -->
+                <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-secondary">
+                    <button type="button" class="px-4 py-2 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors" onclick="closeMemberModal()">
+                        Close
+                    </button>
+                    <!-- Future action buttons (commented out for now) -->
+                    <!--
+                    <button type="button" class="px-4 py-2 text-sm font-medium text-white bg-accent-blue border border-accent-blue rounded-lg hover:bg-accent-blue-hover transition-colors">
+                        Add Mod Note
+                    </button>
+                    <button type="button" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-lg hover:bg-accent-orange-hover transition-colors">
+                        Edit Roles
+                    </button>
+                    -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo Controls (for testing the modal) -->
+    <div class="fixed bottom-4 left-4 bg-bg-secondary border border-border-primary rounded-lg p-4 z-10">
+        <p class="text-sm text-text-secondary mb-2">Modal Demo Controls:</p>
+        <div class="flex gap-2">
+            <button type="button" onclick="showModal()" class="px-3 py-1.5 text-sm font-medium text-white bg-accent-blue rounded-lg">Show Modal</button>
+            <button type="button" onclick="hideModal()" class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary rounded-lg">Hide Modal</button>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('memberDetailModal');
+
+        function closeMemberModal() {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function showModal() {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            // Focus first focusable element in modal
+            modal.querySelector('button').focus();
+        }
+
+        function hideModal() {
+            closeMemberModal();
+        }
+
+        function copyUserId() {
+            const userId = document.getElementById('modalUserId').textContent;
+            navigator.clipboard.writeText(userId).then(() => {
+                alert('User ID copied to clipboard!');
+            });
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                closeMemberModal();
+            }
+        });
+
+        // Focus trap for modal
+        modal.addEventListener('keydown', function(e) {
+            if (e.key !== 'Tab') return;
+
+            const focusableElements = modal.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            if (e.shiftKey && document.activeElement === firstElement) {
+                e.preventDefault();
+                lastElement.focus();
+            } else if (!e.shiftKey && document.activeElement === lastElement) {
+                e.preventDefault();
+                firstElement.focus();
+            }
+        });
+    </script>
+</body>
+</html>
