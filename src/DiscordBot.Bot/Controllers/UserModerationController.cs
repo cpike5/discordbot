@@ -261,4 +261,172 @@ public class UserModerationController : ControllerBase
 
         return Ok(tags);
     }
+
+    /// <summary>
+    /// Applies a tag to a specific user.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="userId">The user's Discord snowflake ID.</param>
+    /// <param name="tagName">The name of the tag to apply.</param>
+    /// <param name="request">The request containing the moderator ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created user tag association.</returns>
+    [HttpPost("tags/{tagName}")]
+    [ProducesResponseType(typeof(UserModTagDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<UserModTagDto>> ApplyTag(
+        ulong guildId,
+        ulong userId,
+        string tagName,
+        [FromBody] ApplyTagDto request,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Tag {TagName} application requested for user {UserId} in guild {GuildId} by moderator {ModeratorId}",
+            tagName, userId, guildId, request.AppliedById);
+
+        if (string.IsNullOrWhiteSpace(tagName))
+        {
+            _logger.LogWarning("Invalid tag application request: tag name is empty");
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid request",
+                Detail = "Tag name is required.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        var result = await _modTagService.ApplyTagAsync(guildId, userId, tagName, request.AppliedById, cancellationToken);
+
+        if (result == null)
+        {
+            _logger.LogWarning("Tag {TagName} not found for guild {GuildId}", tagName, guildId);
+
+            return NotFound(new ApiErrorDto
+            {
+                Message = "Tag not found",
+                Detail = $"Tag '{tagName}' does not exist in this guild.",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        _logger.LogInformation("Tag {TagName} applied successfully to user {UserId} by moderator {ModeratorId}",
+            tagName, userId, request.AppliedById);
+
+        return CreatedAtAction(
+            nameof(GetUserTags),
+            new { guildId, userId },
+            result);
+    }
+
+    /// <summary>
+    /// Removes a tag from a specific user.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="userId">The user's Discord snowflake ID.</param>
+    /// <param name="tagName">The name of the tag to remove.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content on success.</returns>
+    [HttpDelete("tags/{tagName}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoveTag(
+        ulong guildId,
+        ulong userId,
+        string tagName,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Tag {TagName} removal requested for user {UserId} in guild {GuildId}",
+            tagName, userId, guildId);
+
+        if (string.IsNullOrWhiteSpace(tagName))
+        {
+            _logger.LogWarning("Invalid tag removal request: tag name is empty");
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid request",
+                Detail = "Tag name is required.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        var removed = await _modTagService.RemoveTagAsync(guildId, userId, tagName, cancellationToken);
+
+        if (!removed)
+        {
+            _logger.LogWarning("Tag {TagName} not found for user {UserId} in guild {GuildId}", tagName, userId, guildId);
+
+            return NotFound(new ApiErrorDto
+            {
+                Message = "Tag not found",
+                Detail = $"Tag '{tagName}' is not applied to this user.",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        _logger.LogInformation("Tag {TagName} removed successfully from user {UserId}", tagName, userId);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Deletes a moderator note.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="userId">The user's Discord snowflake ID.</param>
+    /// <param name="noteId">The note's unique identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content on success.</returns>
+    [HttpDelete("notes/{noteId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteNote(
+        ulong guildId,
+        ulong userId,
+        Guid noteId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Note {NoteId} deletion requested for user {UserId} in guild {GuildId}",
+            noteId, userId, guildId);
+
+        // Get the current user ID from claims for audit purposes
+        var deletedByUserId = User.GetDiscordUserId();
+        if (deletedByUserId == 0)
+        {
+            _logger.LogWarning("Unable to determine user ID from claims for note deletion");
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid user",
+                Detail = "Unable to determine your Discord user ID.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        var deleted = await _modNoteService.DeleteNoteAsync(noteId, deletedByUserId, cancellationToken);
+
+        if (!deleted)
+        {
+            _logger.LogWarning("Note {NoteId} not found", noteId);
+
+            return NotFound(new ApiErrorDto
+            {
+                Message = "Note not found",
+                Detail = $"Note with ID {noteId} does not exist.",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        _logger.LogInformation("Note {NoteId} deleted successfully by user {DeletedBy}", noteId, deletedByUserId);
+
+        return NoContent();
+    }
 }

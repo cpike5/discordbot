@@ -350,6 +350,12 @@
             memberStatus.textContent = 'Inactive';
             memberStatus.className = 'text-2xl font-bold text-error';
         }
+
+        // Update moderation profile link
+        const moderationLink = document.getElementById('modalModerationLink');
+        if (moderationLink) {
+            moderationLink.href = '/Guilds/' + window.memberDirectoryGuildId + '/Members/' + member.userId + '/Moderation';
+        }
     }
 
     /**
