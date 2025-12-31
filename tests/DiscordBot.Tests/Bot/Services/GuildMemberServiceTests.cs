@@ -80,6 +80,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, totalCount));
 
@@ -106,6 +107,7 @@ public class GuildMemberServiceTests : IDisposable
             query.SortDescending,
             query.Page,
             query.PageSize,
+            query.UserIds,
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -131,6 +133,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, totalCount));
 
@@ -152,6 +155,7 @@ public class GuildMemberServiceTests : IDisposable
             It.IsAny<bool>(),
             It.IsAny<int>(),
             It.IsAny<int>(),
+            It.IsAny<List<ulong>?>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -177,6 +181,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, totalCount));
 
@@ -202,6 +207,7 @@ public class GuildMemberServiceTests : IDisposable
             It.IsAny<bool>(),
             It.IsAny<int>(),
             It.IsAny<int>(),
+            It.IsAny<List<ulong>?>(),
             It.IsAny<CancellationToken>()), Times.Once, "repository should only be called once");
     }
 
@@ -227,6 +233,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, totalCount));
 
@@ -318,6 +325,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, 1));
 
@@ -379,6 +387,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, 1));
 
@@ -514,6 +523,7 @@ public class GuildMemberServiceTests : IDisposable
             It.IsAny<bool>(),
             It.IsAny<int>(),
             It.IsAny<int>(),
+            It.IsAny<List<ulong>?>(),
             It.IsAny<CancellationToken>()), Times.Never, "should use simple count method");
     }
 
@@ -541,6 +551,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 1,
                 1,
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<GuildMember>(), 15));
 
@@ -577,6 +588,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<GuildMember>(), 8));
 
@@ -611,6 +623,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<GuildMember>(), 10));
 
@@ -646,6 +659,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, 3));
 
@@ -682,6 +696,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<GuildMember>(), 0));
 
@@ -714,6 +729,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 1,
                 maxRows,
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((CreateTestMembers(guildId, 100), 100));
 
@@ -734,6 +750,7 @@ public class GuildMemberServiceTests : IDisposable
             It.IsAny<bool>(),
             1,
             maxRows,
+            It.IsAny<List<ulong>?>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -797,6 +814,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, 1));
 
@@ -847,6 +865,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, 1));
 
@@ -880,6 +899,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, 1));
 
@@ -950,6 +970,7 @@ public class GuildMemberServiceTests : IDisposable
                 It.IsAny<bool>(),
                 It.IsAny<int>(),
                 It.IsAny<int>(),
+                It.IsAny<List<ulong>?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((members, 1));
 

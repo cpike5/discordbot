@@ -298,11 +298,12 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
         bool sortDescending = false,
         int page = 1,
         int pageSize = 25,
+        List<ulong>? userIds = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogDebug(
-            "Retrieving members for guild {GuildId} with filters - SearchTerm: {SearchTerm}, RoleIds: {RoleIds}, IsActive: {IsActive}, Page: {Page}, PageSize: {PageSize}",
-            guildId, searchTerm, roleIds != null ? string.Join(",", roleIds) : "none", isActive, page, pageSize);
+            "Retrieving members for guild {GuildId} with filters - SearchTerm: {SearchTerm}, RoleIds: {RoleIds}, UserIds: {UserIds}, IsActive: {IsActive}, Page: {Page}, PageSize: {PageSize}",
+            guildId, searchTerm, roleIds != null ? string.Join(",", roleIds) : "none", userIds != null ? string.Join(",", userIds) : "none", isActive, page, pageSize);
 
         var query = DbSet
             .Where(gm => gm.GuildId == guildId)
@@ -354,6 +355,12 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
         if (lastActiveAtEnd.HasValue)
         {
             query = query.Where(gm => gm.LastActiveAt != null && gm.LastActiveAt <= lastActiveAtEnd.Value);
+        }
+
+        // Apply user IDs filter (for exporting selected members)
+        if (userIds != null && userIds.Any())
+        {
+            query = query.Where(gm => userIds.Contains(gm.UserId));
         }
 
         // Get total count before pagination

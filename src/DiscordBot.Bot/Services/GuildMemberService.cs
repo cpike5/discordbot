@@ -92,6 +92,7 @@ public class GuildMemberService : IGuildMemberService
             query.SortDescending,
             query.Page,
             query.PageSize,
+            query.UserIds,
             cancellationToken);
 
         // Get Discord guild for role information
@@ -127,14 +128,14 @@ public class GuildMemberService : IGuildMemberService
         ulong userId,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Getting member {UserId} for guild {GuildId}", userId, guildId);
+        _logger.LogInformation("GetMemberAsync: GuildId={GuildId}, UserId={UserId}", guildId, userId);
 
         var cacheKey = $"{MemberDetailCacheKeyPrefix}{guildId}:{userId}";
 
         // Try to get from cache
         if (_cache.TryGetValue(cacheKey, out GuildMemberDto? cachedMember) && cachedMember != null)
         {
-            _logger.LogTrace("Retrieved member {UserId} for guild {GuildId} from cache", userId, guildId);
+            _logger.LogInformation("GetMemberAsync: Found in cache");
             return cachedMember;
         }
 
@@ -143,9 +144,11 @@ public class GuildMemberService : IGuildMemberService
 
         if (member == null)
         {
-            _logger.LogDebug("Member {UserId} not found in guild {GuildId}", userId, guildId);
+            _logger.LogWarning("GetMemberAsync: NOT FOUND in DB - GuildId={GuildId}, UserId={UserId}", guildId, userId);
             return null;
         }
+
+        _logger.LogInformation("GetMemberAsync: Found in DB - Username={Username}", member.User?.Username ?? "NULL USER");
 
         // Get Discord guild for role information
         var guild = _client.GetGuild(guildId);
@@ -177,7 +180,8 @@ public class GuildMemberService : IGuildMemberService
             !query.JoinedAtStart.HasValue &&
             !query.JoinedAtEnd.HasValue &&
             !query.LastActiveAtStart.HasValue &&
-            !query.LastActiveAtEnd.HasValue)
+            !query.LastActiveAtEnd.HasValue &&
+            (query.UserIds == null || !query.UserIds.Any()))
         {
             var activeOnly = query.IsActive ?? true;
             return await _memberRepository.GetMemberCountAsync(guildId, activeOnly, cancellationToken);
@@ -198,6 +202,7 @@ public class GuildMemberService : IGuildMemberService
             query.SortDescending,
             page: 1,
             pageSize: 1, // Just get one item to get the total count
+            query.UserIds,
             cancellationToken);
 
         _logger.LogDebug("Member count for guild {GuildId}: {Count}", guildId, totalCount);
@@ -237,6 +242,7 @@ public class GuildMemberService : IGuildMemberService
             query.SortDescending,
             query.Page,
             query.PageSize,
+            query.UserIds,
             cancellationToken);
 
         if (members.Count == 0)

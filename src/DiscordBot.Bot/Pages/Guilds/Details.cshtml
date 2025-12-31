@@ -87,6 +87,12 @@
                     </svg>
                     <span class="sync-text">Sync</span>
                 </button>
+                <a asp-page="Members/Index" asp-route-guildId="@guild.Id" class="btn btn-secondary">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Members
+                </a>
                 @if (guild.CanEdit)
                 {
                     <a asp-page="Welcome" asp-route-id="@guild.Id" class="btn btn-secondary">
@@ -239,6 +245,53 @@
             </div>
         </div>
     }
+
+    <!-- Member Directory Summary Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-text-primary">Member Directory</h2>
+            <a asp-page="Members/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                View All →
+            </a>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+            <!-- Total Members -->
+            <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span class="text-xs text-text-tertiary font-medium">Total Members</span>
+                </div>
+                <p class="text-2xl font-bold text-text-primary">@guild.MemberCount.ToString("N0")</p>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-bg-primary rounded-lg p-3 sm:p-4 col-span-2 md:col-span-2">
+                <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <span class="text-xs text-text-tertiary font-medium">Quick Actions</span>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <a asp-page="Members/Index" asp-route-guildId="@guild.Id" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        Search Members
+                    </a>
+                    <a asp-page="Members/Index" asp-route-guildId="@guild.Id" asp-route-sortBy="JoinedAt" asp-route-sortDescending="true" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Recent Joins
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scheduled Messages Summary Card -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
