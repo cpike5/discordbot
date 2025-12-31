@@ -1,7 +1,7 @@
 # Identity Configuration
 
 **Last Updated:** 2025-12-09
-**Epic Reference:** [Epic 2: Authentication and Authorization](epic-2-auth-architecture-plan.md)
+**Epic Reference:** [Epic 2: Authentication and Authorization](../archive/plans/epic-2-auth-architecture-plan.md) (archived)
 **Related Issues:** #64, #65, #66
 
 ---
@@ -854,7 +854,7 @@ var roles = _roleManager.Roles.ToList();
 
 ## Related Documentation
 
-- [Epic 2: Authentication and Authorization Architecture Plan](epic-2-auth-architecture-plan.md)
+- [Epic 2: Authentication and Authorization Architecture Plan](../archive/plans/epic-2-auth-architecture-plan.md) (archived)
 - [API Endpoints](api-endpoints.md) - REST API authentication endpoints
 - [Requirements](requirements.md) - Overall system requirements
 - [Database Schema](database-schema.md) - Identity table structure

@@ -1,7 +1,7 @@
 # Authorization Policies
 
 **Last Updated:** 2025-12-09
-**Epic Reference:** [Epic 2: Authentication and Authorization](epic-2-auth-architecture-plan.md)
+**Epic Reference:** [Epic 2: Authentication and Authorization](../archive/plans/epic-2-auth-architecture-plan.md) (archived)
 **Related Issues:** #65 (Authorization Policies)
 **Prerequisites:** [Identity Configuration](identity-configuration.md)
 
@@ -1203,7 +1203,7 @@ public class GuildAccessAuthorizationHandlerTests
 ## Related Documentation
 
 - [Identity Configuration](identity-configuration.md) - ASP.NET Identity setup and Discord OAuth
-- [Epic 2: Authentication and Authorization](epic-2-auth-architecture-plan.md) - Overall architecture plan
+- [Epic 2: Authentication and Authorization](../archive/plans/epic-2-auth-architecture-plan.md) - Overall architecture plan (archived)
 - [Database Schema](database-schema.md) - Entity relationships and table structures
 - [Razor Components](razor-components.md) - UI component patterns
 

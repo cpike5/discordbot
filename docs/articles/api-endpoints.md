@@ -28,8 +28,22 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{id}` | GET | Specific guild by ID |
 | `/api/guilds/{id}` | PUT | Update guild settings |
 | `/api/guilds/{id}/sync` | POST | Sync guild from Discord to DB |
+| `/api/guilds/{guildId}/welcome` | GET | Get welcome configuration |
+| `/api/guilds/{guildId}/welcome` | PUT | Update welcome configuration |
+| `/api/guilds/{guildId}/welcome/preview` | POST | Preview welcome message |
+| `/api/guilds/{guildId}/scheduled-messages` | GET | List scheduled messages |
+| `/api/guilds/{guildId}/scheduled-messages/{id}` | GET | Get scheduled message |
+| `/api/guilds/{guildId}/scheduled-messages` | POST | Create scheduled message |
+| `/api/guilds/{guildId}/scheduled-messages/{id}` | PUT | Update scheduled message |
+| `/api/guilds/{guildId}/scheduled-messages/{id}` | DELETE | Delete scheduled message |
+| `/api/guilds/{guildId}/scheduled-messages/{id}/execute` | POST | Execute scheduled message immediately |
+| `/api/guilds/{guildId}/scheduled-messages/validate-cron` | POST | Validate cron expression |
 | `/api/commandlogs` | GET | Query command logs (filtered, paginated) |
 | `/api/commandlogs/stats` | GET | Command usage statistics |
+| `/api/auditlogs` | GET | Query audit logs (filtered, paginated) |
+| `/api/auditlogs/{id}` | GET | Get specific audit log by ID |
+| `/api/auditlogs/stats` | GET | Audit log statistics |
+| `/api/auditlogs/by-correlation/{correlationId}` | GET | Get audit logs by correlation ID |
 | `/api/messages` | GET | Query message logs (filtered, paginated) |
 | `/api/messages/{id}` | GET | Get specific message log by ID |
 | `/api/messages/stats` | GET | Message statistics |
@@ -147,7 +161,7 @@ curl http://localhost:5000/metrics
 
 **Related Documentation:**
 - [Metrics Documentation](metrics.md) - Complete metrics reference and setup guide
-- [APM Tracing Plan](apm-tracing-plan.md) - Distributed tracing (future implementation)
+- [Distributed Tracing](tracing.md) - OpenTelemetry distributed tracing setup
 
 ---
 
@@ -587,6 +601,1032 @@ Dictionary mapping command names (string) to usage counts (integer).
 - Returns all commands that have been executed
 - Counts include both successful and failed executions
 - Empty object `{}` returned if no commands match filter
+
+---
+
+## Welcome Configuration Endpoints
+
+### GET /api/guilds/{guildId}/welcome
+
+Returns the welcome configuration for a specific guild.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Response: 200 OK**
+
+```json
+{
+  "guildId": 123456789012345678,
+  "isEnabled": true,
+  "welcomeChannelId": 111222333444555666,
+  "welcomeMessage": "Welcome {user} to {guild}! You are member #{memberCount}.",
+  "includeAvatar": true,
+  "useEmbed": true,
+  "embedColor": "#5865F2",
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-12-08T15:30:00Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `isEnabled` | boolean | Whether welcome messages are enabled |
+| `welcomeChannelId` | ulong? | Channel ID where welcome messages are sent (nullable) |
+| `welcomeMessage` | string | Welcome message template with placeholders |
+| `includeAvatar` | boolean | Whether to include user's avatar |
+| `useEmbed` | boolean | Whether to send as embed (rich message) |
+| `embedColor` | string? | Hex color code for embed (nullable) |
+| `createdAt` | datetime | Configuration creation timestamp |
+| `updatedAt` | datetime | Configuration last update timestamp |
+
+**Template Placeholders:**
+
+The `welcomeMessage` field supports the following placeholders:
+- `{user}` - User mention (@username)
+- `{guild}` - Guild name
+- `{memberCount}` - Total member count
+- Additional placeholders may be supported
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Welcome configuration not found",
+  "detail": "No welcome configuration exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### PUT /api/guilds/{guildId}/welcome
+
+Updates the welcome configuration for a specific guild. Creates a new configuration if one doesn't exist.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "isEnabled": true,
+  "welcomeChannelId": 111222333444555666,
+  "welcomeMessage": "Welcome {user} to {guild}! 🎉",
+  "includeAvatar": true,
+  "useEmbed": true,
+  "embedColor": "#5865F2"
+}
+```
+
+**Request Fields:** (all optional for partial update)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `isEnabled` | boolean? | Enable/disable welcome messages (null = no change) |
+| `welcomeChannelId` | ulong? | Channel ID for welcome messages (null = no change) |
+| `welcomeMessage` | string? | Welcome message template (null = no change) |
+| `includeAvatar` | boolean? | Include user avatar (null = no change) |
+| `useEmbed` | boolean? | Send as embed (null = no change) |
+| `embedColor` | string? | Hex color code for embed (null = no change) |
+
+**Response: 200 OK**
+
+```json
+{
+  "guildId": 123456789012345678,
+  "isEnabled": true,
+  "welcomeChannelId": 111222333444555666,
+  "welcomeMessage": "Welcome {user} to {guild}! 🎉",
+  "includeAvatar": true,
+  "useEmbed": true,
+  "embedColor": "#5865F2",
+  "createdAt": "2024-01-15T10:30:00Z",
+  "updatedAt": "2024-12-08T15:30:00Z"
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Guild not found",
+  "detail": "No guild with ID 123456789012345678 exists in the database.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Request body cannot be null.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### POST /api/guilds/{guildId}/welcome/preview
+
+Generates a preview of the welcome message with template variables replaced. Useful for testing message templates before enabling welcome messages.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "previewUserId": 987654321098765432
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `previewUserId` | ulong | Discord user ID to use for preview (required) |
+
+**Response: 200 OK**
+
+```json
+{
+  "message": "Welcome @JohnDoe to My Awesome Server! You are member #1250."
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Welcome configuration not found",
+  "detail": "No welcome configuration exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "PreviewUserId must be a valid Discord user ID.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+## Scheduled Messages Endpoints
+
+### GET /api/guilds/{guildId}/scheduled-messages
+
+Returns all scheduled messages for a guild with pagination.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 20 | Items per page (max: 100) |
+
+**Example Request:**
+
+```
+GET /api/guilds/123456789012345678/scheduled-messages?page=1&pageSize=20
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "guildId": 123456789012345678,
+      "guildName": "My Awesome Server",
+      "channelId": 111222333444555666,
+      "title": "Daily Reminder",
+      "content": "Don't forget to check the announcements!",
+      "cronExpression": "0 9 * * *",
+      "frequency": 3,
+      "isEnabled": true,
+      "lastExecutedAt": "2024-12-08T09:00:00Z",
+      "nextExecutionAt": "2024-12-09T09:00:00Z",
+      "createdAt": "2024-01-15T10:30:00Z",
+      "createdBy": "user123",
+      "updatedAt": "2024-12-08T15:30:00Z",
+      "timeUntilNext": "17:30:00"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalCount": 1,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "hasPreviousPage": false
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | array | Array of ScheduledMessageDto objects |
+| `page` | integer | Current page number (1-based) |
+| `pageSize` | integer | Items per page |
+| `totalCount` | integer | Total number of items across all pages |
+| `totalPages` | integer | Total number of pages |
+| `hasNextPage` | boolean | Whether there are more pages |
+| `hasPreviousPage` | boolean | Whether there are previous pages |
+
+**ScheduledMessageDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Unique scheduled message identifier |
+| `guildId` | ulong | Guild ID where message will be sent |
+| `guildName` | string? | Guild name for display (nullable) |
+| `channelId` | ulong | Channel ID where message will be sent |
+| `title` | string | Message title/name |
+| `content` | string | Message content (max 2000 chars) |
+| `cronExpression` | string? | Cron expression for custom schedules (nullable) |
+| `frequency` | ScheduleFrequency | Schedule frequency enum (see below) |
+| `isEnabled` | boolean | Whether message is active |
+| `lastExecutedAt` | datetime? | Last execution timestamp (nullable) |
+| `nextExecutionAt` | datetime? | Next execution timestamp (nullable) |
+| `createdAt` | datetime | Creation timestamp |
+| `createdBy` | string | User ID who created the message |
+| `updatedAt` | datetime | Last update timestamp |
+| `timeUntilNext` | TimeSpan? | Time remaining until next execution (nullable) |
+
+**ScheduleFrequency Enum:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 1 | Once | Send only once at specified time |
+| 2 | Hourly | Send every hour |
+| 3 | Daily | Send once per day |
+| 4 | Weekly | Send once per week |
+| 5 | Custom | Use custom cron expression |
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid page size",
+  "detail": "Page size must be between 1 and 100.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### GET /api/guilds/{guildId}/scheduled-messages/{id}
+
+Returns a specific scheduled message by ID.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `id` | Guid | Scheduled message unique identifier |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "guildId": 123456789012345678,
+  "guildName": "My Awesome Server",
+  "channelId": 111222333444555666,
+  "title": "Daily Reminder",
+  "content": "Don't forget to check the announcements!",
+  "cronExpression": "0 9 * * *",
+  "frequency": 3,
+  "isEnabled": true,
+  "lastExecutedAt": "2024-12-08T09:00:00Z",
+  "nextExecutionAt": "2024-12-09T09:00:00Z",
+  "createdAt": "2024-01-15T10:30:00Z",
+  "createdBy": "user123",
+  "updatedAt": "2024-12-08T15:30:00Z",
+  "timeUntilNext": "17:30:00"
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Scheduled message not found",
+  "detail": "No scheduled message with ID a1b2c3d4-e5f6-7890-abcd-ef1234567890 exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### POST /api/guilds/{guildId}/scheduled-messages
+
+Creates a new scheduled message.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "guildId": 123456789012345678,
+  "channelId": 111222333444555666,
+  "title": "Daily Reminder",
+  "content": "Don't forget to check the announcements!",
+  "cronExpression": "0 9 * * *",
+  "frequency": 3,
+  "isEnabled": true,
+  "nextExecutionAt": "2024-12-09T09:00:00Z",
+  "createdBy": "user123"
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `guildId` | ulong | Yes | Guild ID (overridden by route parameter) |
+| `channelId` | ulong | Yes | Channel ID where message will be sent |
+| `title` | string | Yes | Message title (max 200 chars) |
+| `content` | string | Yes | Message content (max 2000 chars) |
+| `cronExpression` | string? | No | Cron expression (required if frequency is Custom) |
+| `frequency` | ScheduleFrequency | Yes | Schedule frequency |
+| `isEnabled` | boolean | No | Active status (default: true) |
+| `nextExecutionAt` | datetime | Yes | First execution time |
+| `createdBy` | string | Yes | User ID creating the message |
+
+**Response: 201 Created**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "guildId": 123456789012345678,
+  "guildName": "My Awesome Server",
+  "channelId": 111222333444555666,
+  "title": "Daily Reminder",
+  "content": "Don't forget to check the announcements!",
+  "cronExpression": "0 9 * * *",
+  "frequency": 3,
+  "isEnabled": true,
+  "lastExecutedAt": null,
+  "nextExecutionAt": "2024-12-09T09:00:00Z",
+  "createdAt": "2024-12-08T15:30:00Z",
+  "createdBy": "user123",
+  "updatedAt": "2024-12-08T15:30:00Z",
+  "timeUntilNext": "17:30:00"
+}
+```
+
+**Response Headers:**
+
+```
+Location: /api/guilds/123456789012345678/scheduled-messages/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Request body cannot be null.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### PUT /api/guilds/{guildId}/scheduled-messages/{id}
+
+Updates an existing scheduled message.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `id` | Guid | Scheduled message unique identifier |
+
+**Request Body:**
+
+```json
+{
+  "channelId": 111222333444555666,
+  "title": "Updated Daily Reminder",
+  "content": "New reminder content!",
+  "cronExpression": "0 10 * * *",
+  "frequency": 3,
+  "isEnabled": true,
+  "nextExecutionAt": "2024-12-09T10:00:00Z"
+}
+```
+
+**Request Fields:** (all optional for partial update)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `channelId` | ulong? | New channel ID (null = no change) |
+| `title` | string? | New title (null = no change, max 200 chars) |
+| `content` | string? | New content (null = no change, max 2000 chars) |
+| `cronExpression` | string? | New cron expression (null = no change) |
+| `frequency` | ScheduleFrequency? | New frequency (null = no change) |
+| `isEnabled` | boolean? | New active status (null = no change) |
+| `nextExecutionAt` | datetime? | New next execution time (null = no change) |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "guildId": 123456789012345678,
+  "guildName": "My Awesome Server",
+  "channelId": 111222333444555666,
+  "title": "Updated Daily Reminder",
+  "content": "New reminder content!",
+  "cronExpression": "0 10 * * *",
+  "frequency": 3,
+  "isEnabled": true,
+  "lastExecutedAt": "2024-12-08T09:00:00Z",
+  "nextExecutionAt": "2024-12-09T10:00:00Z",
+  "createdAt": "2024-01-15T10:30:00Z",
+  "createdBy": "user123",
+  "updatedAt": "2024-12-08T16:00:00Z",
+  "timeUntilNext": "18:00:00"
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Scheduled message not found",
+  "detail": "No scheduled message with ID a1b2c3d4-e5f6-7890-abcd-ef1234567890 exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Content cannot exceed 2000 characters (Discord message limit).",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### DELETE /api/guilds/{guildId}/scheduled-messages/{id}
+
+Deletes a scheduled message.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `id` | Guid | Scheduled message unique identifier |
+
+**Response: 204 No Content**
+
+(Empty response body on success)
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Scheduled message not found",
+  "detail": "No scheduled message with ID a1b2c3d4-e5f6-7890-abcd-ef1234567890 exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### POST /api/guilds/{guildId}/scheduled-messages/{id}/execute
+
+Executes a scheduled message immediately, regardless of its scheduled time. Useful for testing messages or triggering them on demand.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `id` | Guid | Scheduled message unique identifier |
+
+**Response: 200 OK**
+
+```json
+{
+  "message": "Scheduled message executed successfully",
+  "messageId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Scheduled message not found",
+  "detail": "No scheduled message with ID a1b2c3d4-e5f6-7890-abcd-ef1234567890 exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Response: 500 Internal Server Error**
+
+```json
+{
+  "message": "Execution failed",
+  "detail": "Failed to execute scheduled message a1b2c3d4-e5f6-7890-abcd-ef1234567890. Check logs for details.",
+  "statusCode": 500,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Notes:**
+- The message is sent immediately to the configured channel
+- `lastExecutedAt` is updated to the current time
+- `nextExecutionAt` is recalculated based on the frequency
+- Execution errors are logged for troubleshooting
+
+---
+
+### POST /api/guilds/{guildId}/scheduled-messages/validate-cron
+
+Validates a cron expression for correctness before creating or updating a scheduled message.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID (required for route but not used) |
+
+**Request Body:**
+
+```json
+{
+  "cronExpression": "0 9 * * *"
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cronExpression` | string | Cron expression to validate (required) |
+
+**Response: 200 OK (Valid)**
+
+```json
+{
+  "isValid": true,
+  "message": "Cron expression is valid",
+  "cronExpression": "0 9 * * *"
+}
+```
+
+**Response: 400 Bad Request (Invalid)**
+
+```json
+{
+  "message": "Invalid cron expression",
+  "detail": "Cron expression must have 5 or 6 parts (minute, hour, day, month, day of week, [year]).",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Notes:**
+- Validates cron expression syntax and format
+- Does not validate that the channel or guild exists
+- Use this endpoint before creating/updating scheduled messages with custom frequencies
+
+---
+
+## Audit Log Endpoints
+
+### GET /api/auditlogs
+
+Retrieves audit log entries with optional filtering and pagination. Provides comprehensive tracking of system actions for security and compliance.
+
+**Authorization:** SuperAdmin only
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `category` | AuditLogCategory? | null | Filter by category |
+| `action` | AuditLogAction? | null | Filter by action |
+| `actorId` | string? | null | Filter by actor ID |
+| `actorType` | AuditLogActorType? | null | Filter by actor type |
+| `targetType` | string? | null | Filter by target entity type |
+| `targetId` | string? | null | Filter by target entity ID |
+| `guildId` | ulong? | null | Filter by guild ID |
+| `startDate` | datetime? | null | Filter entries after this date (inclusive) |
+| `endDate` | datetime? | null | Filter entries before this date (inclusive) |
+| `correlationId` | string? | null | Filter by correlation ID |
+| `searchTerm` | string? | null | Free-text search in details field |
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 20 | Items per page (max: 100) |
+| `sortBy` | string | "Timestamp" | Sort field |
+| `sortDescending` | boolean | true | Sort direction (default: newest first) |
+
+**Example Request:**
+
+```
+GET /api/auditlogs?category=3&actorType=1&page=1&pageSize=20&sortDescending=true
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "timestamp": "2024-12-08T15:30:00Z",
+      "category": 3,
+      "categoryName": "Configuration",
+      "action": 2,
+      "actionName": "Updated",
+      "actorId": "user123",
+      "actorType": 1,
+      "actorTypeName": "User",
+      "actorDisplayName": "admin@example.com",
+      "targetType": "WelcomeConfiguration",
+      "targetId": "123456789012345678",
+      "guildId": 123456789012345678,
+      "guildName": "My Awesome Server",
+      "details": "{\"isEnabled\":true,\"welcomeChannelId\":111222333444555666}",
+      "ipAddress": "192.168.1.100",
+      "correlationId": "abc123-def456"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalCount": 1,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "hasPreviousPage": false
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | array | Array of AuditLogDto objects |
+| `page` | integer | Current page number (1-based) |
+| `pageSize` | integer | Items per page |
+| `totalCount` | integer | Total number of items across all pages |
+| `totalPages` | integer | Total number of pages |
+| `hasNextPage` | boolean | Whether there are more pages |
+| `hasPreviousPage` | boolean | Whether there are previous pages |
+
+**AuditLogDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | long | Unique audit log entry identifier |
+| `timestamp` | datetime | When the action occurred (UTC) |
+| `category` | AuditLogCategory | Category enum value |
+| `categoryName` | string | Category name as string |
+| `action` | AuditLogAction | Action enum value |
+| `actionName` | string | Action name as string |
+| `actorId` | string? | ID of the actor who performed the action (nullable) |
+| `actorType` | AuditLogActorType | Actor type enum value |
+| `actorTypeName` | string | Actor type name as string |
+| `actorDisplayName` | string? | Display name of actor (nullable) |
+| `targetType` | string? | Entity type that was affected (nullable) |
+| `targetId` | string? | ID of affected entity (nullable) |
+| `guildId` | ulong? | Guild ID associated with action (nullable) |
+| `guildName` | string? | Guild name for display (nullable) |
+| `details` | string? | Additional context as JSON string (nullable) |
+| `ipAddress` | string? | IP address of actor (nullable) |
+| `correlationId` | string? | Correlation ID for related entries (nullable) |
+
+**AuditLogCategory Enum:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 1 | User | User-related actions (login, profile updates, ban, kick) |
+| 2 | Guild | Guild-related actions (settings, channel management) |
+| 3 | Configuration | Configuration-related actions (bot settings, feature toggles) |
+| 4 | Security | Security-related actions (permission changes, role modifications) |
+| 5 | Moderation | Moderation actions (warnings, mutes, bans) |
+| 6 | System | System-level events (startup, shutdown, errors) |
+
+**AuditLogAction Enum:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 1 | Created | A new entity was created |
+| 2 | Updated | An existing entity was updated |
+| 3 | Deleted | An entity was deleted |
+| 4 | Login | A user logged in |
+| 5 | Logout | A user logged out |
+| 6 | PasswordReset | Password was reset |
+| 7 | PermissionGranted | Permission was granted |
+| 8 | PermissionRevoked | Permission was revoked |
+| 9 | RoleAssigned | Role was assigned |
+| 10 | RoleRemoved | Role was removed |
+
+**AuditLogActorType Enum:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 1 | User | Action was performed by a user (authenticated human) |
+| 2 | System | Action was performed by the system (automated process, scheduled task) |
+| 3 | Bot | Action was performed by the Discord bot itself |
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid date range",
+  "detail": "Start date cannot be after end date.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Notes:**
+- All filter parameters are optional
+- Combine filters for complex queries
+- `correlationId` groups related actions together
+- `details` field contains JSON-encoded additional information
+
+---
+
+### GET /api/auditlogs/{id}
+
+Returns a specific audit log entry by ID.
+
+**Authorization:** SuperAdmin only
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | long | Audit log entry identifier |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": 1,
+  "timestamp": "2024-12-08T15:30:00Z",
+  "category": 3,
+  "categoryName": "Configuration",
+  "action": 2,
+  "actionName": "Updated",
+  "actorId": "user123",
+  "actorType": 1,
+  "actorTypeName": "User",
+  "actorDisplayName": "admin@example.com",
+  "targetType": "WelcomeConfiguration",
+  "targetId": "123456789012345678",
+  "guildId": 123456789012345678,
+  "guildName": "My Awesome Server",
+  "details": "{\"isEnabled\":true,\"welcomeChannelId\":111222333444555666}",
+  "ipAddress": "192.168.1.100",
+  "correlationId": "abc123-def456"
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Audit log not found",
+  "detail": "No audit log entry with ID 1 exists in the database.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### GET /api/auditlogs/stats
+
+Returns comprehensive audit log statistics including counts, breakdowns by category/action/actor, and temporal metrics.
+
+**Authorization:** SuperAdmin only
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `guildId` | ulong? | null | Filter stats by guild (null = global statistics) |
+
+**Example Request:**
+
+```
+GET /api/auditlogs/stats?guildId=123456789012345678
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "totalEntries": 15420,
+  "last24Hours": 250,
+  "last7Days": 1850,
+  "last30Days": 7200,
+  "byCategory": {
+    "1": 3500,
+    "2": 2100,
+    "3": 4800,
+    "4": 3200,
+    "5": 1500,
+    "6": 320
+  },
+  "byAction": {
+    "1": 2200,
+    "2": 8500,
+    "3": 1100,
+    "4": 1850,
+    "5": 1650,
+    "6": 120
+  },
+  "byActorType": {
+    "1": 12000,
+    "2": 2800,
+    "3": 620
+  },
+  "topActors": {
+    "user123": 850,
+    "user456": 720,
+    "user789": 650,
+    "system": 2800,
+    "bot": 620
+  },
+  "oldestEntry": "2024-01-15T10:30:00Z",
+  "newestEntry": "2024-12-08T15:30:00Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalEntries` | long | Total number of audit log entries |
+| `last24Hours` | integer | Entries in the last 24 hours |
+| `last7Days` | integer | Entries in the last 7 days |
+| `last30Days` | integer | Entries in the last 30 days |
+| `byCategory` | Dictionary<AuditLogCategory, int> | Breakdown by category (key is enum value) |
+| `byAction` | Dictionary<AuditLogAction, int> | Breakdown by action (key is enum value) |
+| `byActorType` | Dictionary<AuditLogActorType, int> | Breakdown by actor type (key is enum value) |
+| `topActors` | Dictionary<string, int> | Top 10 most active actors (key is actor ID) |
+| `oldestEntry` | datetime? | Timestamp of oldest entry (nullable) |
+| `newestEntry` | datetime? | Timestamp of newest entry (nullable) |
+
+**Notes:**
+- If `guildId` is specified, statistics are filtered to that guild only
+- Dictionary keys are enum integer values, not string names
+- `topActors` includes user IDs, "system", and "bot" as keys
+- Null timestamps indicate no entries exist
+
+---
+
+### GET /api/auditlogs/by-correlation/{correlationId}
+
+Returns all audit log entries related by correlation ID. Used to trace related events that are part of the same operation or transaction.
+
+**Authorization:** SuperAdmin only
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `correlationId` | string | Correlation ID to search for |
+
+**Example Request:**
+
+```
+GET /api/auditlogs/by-correlation/abc123-def456
+```
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": 1,
+    "timestamp": "2024-12-08T15:30:00Z",
+    "category": 3,
+    "categoryName": "Configuration",
+    "action": 2,
+    "actionName": "Updated",
+    "actorId": "user123",
+    "actorType": 1,
+    "actorTypeName": "User",
+    "actorDisplayName": "admin@example.com",
+    "targetType": "WelcomeConfiguration",
+    "targetId": "123456789012345678",
+    "guildId": 123456789012345678,
+    "guildName": "My Awesome Server",
+    "details": "{\"isEnabled\":true}",
+    "ipAddress": "192.168.1.100",
+    "correlationId": "abc123-def456"
+  },
+  {
+    "id": 2,
+    "timestamp": "2024-12-08T15:30:01Z",
+    "category": 3,
+    "categoryName": "Configuration",
+    "action": 2,
+    "actionName": "Updated",
+    "actorId": "user123",
+    "actorType": 1,
+    "actorTypeName": "User",
+    "actorDisplayName": "admin@example.com",
+    "targetType": "WelcomeConfiguration",
+    "targetId": "123456789012345678",
+    "guildId": 123456789012345678,
+    "guildName": "My Awesome Server",
+    "details": "{\"welcomeChannelId\":111222333444555666}",
+    "ipAddress": "192.168.1.100",
+    "correlationId": "abc123-def456"
+  }
+]
+```
+
+**Response Format:**
+
+Returns an array of `AuditLogDto` objects ordered by timestamp (chronological order).
+
+**Notes:**
+- Correlation IDs group related audit entries together
+- Useful for tracing multi-step operations
+- Returns empty array `[]` if no entries match the correlation ID
+- Entries are ordered chronologically to show the sequence of events
 
 ---
 
@@ -1718,12 +2758,89 @@ curl -X POST "http://localhost:5000/api/messages/cleanup" \
   -H "Authorization: Bearer your-superadmin-token-here"
 ```
 
+### Example: Get Welcome Configuration
+
+```bash
+curl -X GET "http://localhost:5000/api/guilds/123456789012345678/welcome" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-token-here"
+```
+
+### Example: Update Welcome Configuration
+
+```bash
+curl -X PUT "http://localhost:5000/api/guilds/123456789012345678/welcome" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token-here" \
+  -d '{
+    "isEnabled": true,
+    "welcomeChannelId": 111222333444555666,
+    "welcomeMessage": "Welcome {user} to {guild}! 🎉",
+    "useEmbed": true,
+    "embedColor": "#5865F2"
+  }'
+```
+
+### Example: Create Scheduled Message
+
+```bash
+curl -X POST "http://localhost:5000/api/guilds/123456789012345678/scheduled-messages" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token-here" \
+  -d '{
+    "guildId": 123456789012345678,
+    "channelId": 111222333444555666,
+    "title": "Daily Reminder",
+    "content": "Don't forget to check the announcements!",
+    "frequency": 3,
+    "isEnabled": true,
+    "nextExecutionAt": "2024-12-09T09:00:00Z",
+    "createdBy": "user123"
+  }'
+```
+
+### Example: Query Audit Logs
+
+```bash
+curl -X GET "http://localhost:5000/api/auditlogs?category=3&actorType=1&page=1&pageSize=20" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-superadmin-token-here"
+```
+
+### Example: Get Audit Log Statistics
+
+```bash
+curl -X GET "http://localhost:5000/api/auditlogs/stats?guildId=123456789012345678" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-superadmin-token-here"
+```
+
+### Example: Validate Cron Expression
+
+```bash
+curl -X POST "http://localhost:5000/api/guilds/123456789012345678/scheduled-messages/validate-cron" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-token-here" \
+  -d '{
+    "cronExpression": "0 9 * * *"
+  }'
+```
+
+### Example: Execute Scheduled Message Immediately
+
+```bash
+curl -X POST "http://localhost:5000/api/guilds/123456789012345678/scheduled-messages/a1b2c3d4-e5f6-7890-abcd-ef1234567890/execute" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-token-here"
+```
+
 ---
 
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.4 | 2025-12-30 | Added Welcome, Scheduled Messages, and Audit Log endpoint documentation (Issue #308) |
 | 1.3 | 2025-12-24 | Added Message Log endpoints documentation (Issue #140) |
 | 1.2 | 2025-12-24 | Added `/metrics` endpoint documentation (Issue #104) |
 | 1.1 | 2024-12-09 | Added User Management Service interface documentation (Issue #66) |
@@ -1743,4 +2860,4 @@ curl -X POST "http://localhost:5000/api/messages/cleanup" \
 
 ---
 
-*Last Updated: December 24, 2025*
+*Last Updated: December 30, 2025*
