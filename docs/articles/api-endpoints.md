@@ -53,6 +53,32 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/messages/user/{userId}` | DELETE | Delete all messages for a user (GDPR) |
 | `/api/messages/cleanup` | POST | Manually trigger message cleanup |
 | `/api/messages/export` | GET | Export messages to CSV |
+| `/api/guilds/{guildId}/flagged-events` | GET | List pending flagged events |
+| `/api/guilds/{guildId}/flagged-events/{id}` | GET | Get specific flagged event |
+| `/api/guilds/{guildId}/flagged-events/{id}/dismiss` | POST | Dismiss flagged event |
+| `/api/guilds/{guildId}/flagged-events/{id}/acknowledge` | POST | Acknowledge flagged event |
+| `/api/guilds/{guildId}/flagged-events/{id}/action` | POST | Take action on flagged event |
+| `/api/guilds/{guildId}/cases` | GET | List moderation cases |
+| `/api/guilds/{guildId}/cases/{caseId}` | GET | Get case by GUID ID |
+| `/api/guilds/{guildId}/cases/number/{caseNumber}` | GET | Get case by case number |
+| `/api/guilds/{guildId}/cases` | POST | Create moderation case |
+| `/api/guilds/{guildId}/cases/number/{caseNumber}/reason` | PATCH | Update case reason |
+| `/api/guilds/{guildId}/users/{userId}/cases` | GET | Get user's cases |
+| `/api/guilds/{guildId}/users/{userId}/notes` | GET | Get user's mod notes |
+| `/api/guilds/{guildId}/users/{userId}/notes` | POST | Create mod note |
+| `/api/guilds/{guildId}/users/{userId}/flags` | GET | Get user's flagged events |
+| `/api/guilds/{guildId}/users/{userId}/tags` | GET | Get user's tags |
+| `/api/guilds/{guildId}/tags` | GET | List guild tags |
+| `/api/guilds/{guildId}/tags` | POST | Create tag |
+| `/api/guilds/{guildId}/tags/{tagName}` | DELETE | Delete tag |
+| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | POST | Apply tag to user |
+| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | DELETE | Remove tag from user |
+| `/api/guilds/{guildId}/watchlist` | GET | List watchlist |
+| `/api/guilds/{guildId}/watchlist` | POST | Add user to watchlist |
+| `/api/guilds/{guildId}/watchlist/{userId}` | DELETE | Remove user from watchlist |
+| `/api/guilds/{guildId}/moderation-config` | GET | Get moderation config |
+| `/api/guilds/{guildId}/moderation-config` | PUT | Update moderation config |
+| `/api/guilds/{guildId}/moderation-config/preset` | POST | Apply config preset |
 
 ---
 
@@ -2598,6 +2624,1205 @@ Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildN
 
 ---
 
+## Moderation Endpoints
+
+The moderation system provides comprehensive tools for managing flagged events, moderation cases, user notes, tags, and watchlists. All endpoints require Admin authorization.
+
+**Authorization:** All moderation endpoints require `RequireAdmin` policy.
+
+### Flagged Events Endpoints
+
+Flagged events are automatically detected potential violations (spam, toxicity, etc.) that require moderator review.
+
+#### GET /api/guilds/{guildId}/flagged-events
+
+Returns all pending flagged events for a guild with pagination.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 20 | Items per page (max: 100) |
+
+**Example Request:**
+
+```
+GET /api/guilds/123456789012345678/flagged-events?page=1&pageSize=20
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "guildId": 123456789012345678,
+      "userId": 987654321098765432,
+      "username": "SpamUser#1234",
+      "eventType": "Spam",
+      "severity": "Medium",
+      "description": "Repeated message detected: 5 identical messages in 10 seconds",
+      "detectedAt": "2024-12-08T15:30:00Z",
+      "status": "Pending",
+      "reviewedById": null,
+      "reviewedAt": null,
+      "actionTaken": null
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalCount": 1,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "hasPreviousPage": false
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | array | Array of FlaggedEventDto objects |
+| `page` | integer | Current page number (1-based) |
+| `pageSize` | integer | Items per page |
+| `totalCount` | integer | Total number of items |
+| `totalPages` | integer | Total number of pages |
+| `hasNextPage` | boolean | Whether there are more pages |
+| `hasPreviousPage` | boolean | Whether there are previous pages |
+
+**FlaggedEventDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Unique flagged event identifier |
+| `guildId` | ulong | Guild ID where event occurred |
+| `userId` | ulong | User ID who triggered the event |
+| `username` | string? | Username for display (nullable) |
+| `eventType` | string | Type of violation (Spam, Toxicity, etc.) |
+| `severity` | string | Severity level (Low, Medium, High, Critical) |
+| `description` | string | Event description |
+| `detectedAt` | datetime | When event was detected |
+| `status` | string | Review status (Pending, Dismissed, Acknowledged, Actioned) |
+| `reviewedById` | ulong? | Moderator who reviewed (nullable) |
+| `reviewedAt` | datetime? | Review timestamp (nullable) |
+| `actionTaken` | string? | Action description if actioned (nullable) |
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid page size",
+  "detail": "Page size must be between 1 and 100.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### GET /api/guilds/{guildId}/flagged-events/{id}
+
+Returns a specific flagged event by ID.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `id` | Guid | Flagged event unique identifier |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "guildId": 123456789012345678,
+  "userId": 987654321098765432,
+  "username": "SpamUser#1234",
+  "eventType": "Spam",
+  "severity": "Medium",
+  "description": "Repeated message detected: 5 identical messages in 10 seconds",
+  "detectedAt": "2024-12-08T15:30:00Z",
+  "status": "Pending",
+  "reviewedById": null,
+  "reviewedAt": null,
+  "actionTaken": null
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Flagged event not found",
+  "detail": "No flagged event with ID a1b2c3d4-e5f6-7890-abcd-ef1234567890 exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### POST /api/guilds/{guildId}/flagged-events/{id}/dismiss
+
+Dismisses a flagged event (marks as not requiring action).
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `id` | Guid | Flagged event unique identifier |
+
+**Request Body:**
+
+```json
+{
+  "reviewerId": 111222333444555666
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reviewerId` | ulong | Yes | Moderator's Discord user ID |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "guildId": 123456789012345678,
+  "userId": 987654321098765432,
+  "username": "SpamUser#1234",
+  "eventType": "Spam",
+  "severity": "Medium",
+  "description": "Repeated message detected: 5 identical messages in 10 seconds",
+  "detectedAt": "2024-12-08T15:30:00Z",
+  "status": "Dismissed",
+  "reviewedById": 111222333444555666,
+  "reviewedAt": "2024-12-08T16:00:00Z",
+  "actionTaken": null
+}
+```
+
+---
+
+#### POST /api/guilds/{guildId}/flagged-events/{id}/acknowledge
+
+Acknowledges a flagged event (marks as seen but not yet actioned).
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `id` | Guid | Flagged event unique identifier |
+
+**Request Body:**
+
+```json
+{
+  "reviewerId": 111222333444555666
+}
+```
+
+**Response: 200 OK**
+
+Returns updated FlaggedEventDto with status "Acknowledged".
+
+---
+
+#### POST /api/guilds/{guildId}/flagged-events/{id}/action
+
+Takes action on a flagged event (marks as actioned and records action taken).
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `id` | Guid | Flagged event unique identifier |
+
+**Request Body:**
+
+```json
+{
+  "reviewerId": 111222333444555666,
+  "action": "User warned and message deleted"
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reviewerId` | ulong | Yes | Moderator's Discord user ID |
+| `action` | string | Yes | Description of action taken |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "guildId": 123456789012345678,
+  "userId": 987654321098765432,
+  "username": "SpamUser#1234",
+  "eventType": "Spam",
+  "severity": "Medium",
+  "description": "Repeated message detected: 5 identical messages in 10 seconds",
+  "detectedAt": "2024-12-08T15:30:00Z",
+  "status": "Actioned",
+  "reviewedById": 111222333444555666,
+  "reviewedAt": "2024-12-08T16:00:00Z",
+  "actionTaken": "User warned and message deleted"
+}
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Action description is required.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### Moderation Cases Endpoints
+
+Moderation cases track disciplinary actions (warnings, mutes, kicks, bans) with sequential case numbers per guild.
+
+#### GET /api/guilds/{guildId}/cases
+
+Returns moderation cases for a guild with optional filters and pagination.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `type` | CaseType? | null | Filter by case type (Warning, Mute, Kick, Ban, Unmute, Unban) |
+| `targetUserId` | ulong? | null | Filter by target user ID |
+| `moderatorUserId` | ulong? | null | Filter by moderator user ID |
+| `startDate` | datetime? | null | Filter by start date (UTC) |
+| `endDate` | datetime? | null | Filter by end date (UTC) |
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 20 | Items per page (max: 100) |
+
+**Example Request:**
+
+```
+GET /api/guilds/123456789012345678/cases?type=Warning&page=1&pageSize=20
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "guildId": 123456789012345678,
+      "caseNumber": 42,
+      "type": "Warning",
+      "targetUserId": 987654321098765432,
+      "targetUsername": "RuleBreaker#5678",
+      "moderatorUserId": 111222333444555666,
+      "moderatorUsername": "ModeratorName#1234",
+      "reason": "Excessive profanity in general chat",
+      "createdAt": "2024-12-08T14:30:00Z",
+      "expiresAt": null
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalCount": 1,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "hasPreviousPage": false
+}
+```
+
+**ModerationCaseDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Unique case identifier |
+| `guildId` | ulong | Guild ID |
+| `caseNumber` | long | Sequential case number within guild |
+| `type` | CaseType | Case type enum (Warning, Mute, Kick, Ban, etc.) |
+| `targetUserId` | ulong | User receiving the action |
+| `targetUsername` | string? | Target username for display (nullable) |
+| `moderatorUserId` | ulong | Moderator who issued the action |
+| `moderatorUsername` | string? | Moderator username (nullable) |
+| `reason` | string | Reason for action |
+| `createdAt` | datetime | When case was created |
+| `expiresAt` | datetime? | Expiration for temporary actions (nullable) |
+
+**CaseType Enum:**
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 1 | Warning | Verbal warning |
+| 2 | Mute | Temporary or permanent mute |
+| 3 | Kick | User removed from server |
+| 4 | Ban | User banned from server |
+| 5 | Unmute | Mute revoked |
+| 6 | Unban | Ban revoked |
+
+---
+
+#### GET /api/guilds/{guildId}/cases/{caseId}
+
+Returns a specific moderation case by its GUID ID.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `caseId` | Guid | Case unique GUID identifier |
+
+**Response: 200 OK**
+
+Returns ModerationCaseDto object.
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Moderation case not found",
+  "detail": "No moderation case with ID b2c3d4e5-f6a7-8901-bcde-f12345678901 exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### GET /api/guilds/{guildId}/cases/number/{caseNumber}
+
+Returns a specific moderation case by its sequential case number within the guild.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `caseNumber` | long | Sequential case number within guild |
+
+**Example Request:**
+
+```
+GET /api/guilds/123456789012345678/cases/number/42
+```
+
+**Response: 200 OK**
+
+Returns ModerationCaseDto object.
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Moderation case not found",
+  "detail": "No moderation case #42 exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### POST /api/guilds/{guildId}/cases
+
+Creates a new moderation case.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "guildId": 123456789012345678,
+  "type": 1,
+  "targetUserId": 987654321098765432,
+  "moderatorUserId": 111222333444555666,
+  "reason": "Excessive profanity in general chat",
+  "expiresAt": null
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `guildId` | ulong | Yes | Guild ID (overridden by route parameter) |
+| `type` | CaseType | Yes | Case type (1=Warning, 2=Mute, 3=Kick, 4=Ban, etc.) |
+| `targetUserId` | ulong | Yes | User receiving the action |
+| `moderatorUserId` | ulong | Yes | Moderator issuing the action |
+| `reason` | string | Yes | Reason for action |
+| `expiresAt` | datetime? | No | Expiration for temporary actions (nullable) |
+
+**Response: 201 Created**
+
+```json
+{
+  "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+  "guildId": 123456789012345678,
+  "caseNumber": 42,
+  "type": "Warning",
+  "targetUserId": 987654321098765432,
+  "targetUsername": "RuleBreaker#5678",
+  "moderatorUserId": 111222333444555666,
+  "moderatorUsername": "ModeratorName#1234",
+  "reason": "Excessive profanity in general chat",
+  "createdAt": "2024-12-08T14:30:00Z",
+  "expiresAt": null
+}
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Reason is required.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### PATCH /api/guilds/{guildId}/cases/number/{caseNumber}/reason
+
+Updates the reason for an existing moderation case.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `caseNumber` | long | Sequential case number within guild |
+
+**Request Body:**
+
+```json
+{
+  "reason": "Updated reason: Repeated violations after previous warning",
+  "moderatorId": 111222333444555666
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reason` | string | Yes | New reason for the case |
+| `moderatorId` | ulong | Yes | Moderator making the update |
+
+**Response: 200 OK**
+
+Returns updated ModerationCaseDto object.
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Moderation case not found",
+  "detail": "No moderation case #42 exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### User Moderation Endpoints
+
+User-specific moderation endpoints provide access to all moderation data for a particular user.
+
+#### GET /api/guilds/{guildId}/users/{userId}/cases
+
+Returns all moderation cases for a specific user with pagination.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | User's Discord snowflake ID |
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 10 | Items per page (max: 100) |
+
+**Response: 200 OK**
+
+Returns paginated ModerationCaseDto objects for the user.
+
+---
+
+#### GET /api/guilds/{guildId}/users/{userId}/notes
+
+Returns all moderator notes for a specific user.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | User's Discord snowflake ID |
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    "guildId": 123456789012345678,
+    "userId": 987654321098765432,
+    "content": "User has been cooperative after warning",
+    "authorUserId": 111222333444555666,
+    "authorUsername": "ModeratorName#1234",
+    "createdAt": "2024-12-08T15:00:00Z"
+  }
+]
+```
+
+**ModNoteDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Unique note identifier |
+| `guildId` | ulong | Guild ID |
+| `userId` | ulong | User the note is about |
+| `content` | string | Note content |
+| `authorUserId` | ulong | Moderator who created the note |
+| `authorUsername` | string? | Author username (nullable) |
+| `createdAt` | datetime | When note was created |
+
+---
+
+#### POST /api/guilds/{guildId}/users/{userId}/notes
+
+Creates a new moderator note for a user.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | User's Discord snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "content": "User has been cooperative after warning",
+  "authorUserId": 111222333444555666
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | string | Yes | Note content |
+| `authorUserId` | ulong | Yes | Moderator creating the note |
+
+**Response: 201 Created**
+
+Returns created ModNoteDto object.
+
+---
+
+#### GET /api/guilds/{guildId}/users/{userId}/flags
+
+Returns all flagged events for a specific user.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | User's Discord snowflake ID |
+
+**Response: 200 OK**
+
+Returns array of FlaggedEventDto objects for the user.
+
+---
+
+#### GET /api/guilds/{guildId}/users/{userId}/tags
+
+Returns all tags applied to a specific user.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | User's Discord snowflake ID |
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": "d4e5f6a7-b8c9-0123-def0-123456789013",
+    "guildId": 123456789012345678,
+    "userId": 987654321098765432,
+    "tagId": "e5f6a7b8-c9d0-1234-ef01-234567890134",
+    "tagName": "Watch-Spam",
+    "appliedById": 111222333444555666,
+    "appliedAt": "2024-12-08T14:00:00Z"
+  }
+]
+```
+
+**UserModTagDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Unique user tag association ID |
+| `guildId` | ulong | Guild ID |
+| `userId` | ulong | User the tag is applied to |
+| `tagId` | Guid | Tag's unique identifier |
+| `tagName` | string | Tag name |
+| `appliedById` | ulong | Moderator who applied the tag |
+| `appliedAt` | datetime | When tag was applied |
+
+---
+
+### Mod Tags Endpoints
+
+Mod tags are customizable labels that can be applied to users (e.g., "Watch-Spam", "Repeat-Offender").
+
+#### GET /api/guilds/{guildId}/tags
+
+Returns all mod tags for a guild.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": "e5f6a7b8-c9d0-1234-ef01-234567890134",
+    "guildId": 123456789012345678,
+    "name": "Watch-Spam",
+    "color": "#FF5733",
+    "createdAt": "2024-12-01T10:00:00Z"
+  }
+]
+```
+
+**ModTagDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Unique tag identifier |
+| `guildId` | ulong | Guild ID |
+| `name` | string | Tag name (unique within guild) |
+| `color` | string? | Hex color code (nullable) |
+| `createdAt` | datetime | When tag was created |
+
+---
+
+#### POST /api/guilds/{guildId}/tags
+
+Creates a new mod tag for a guild.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "guildId": 123456789012345678,
+  "name": "Watch-Spam",
+  "color": "#FF5733"
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `guildId` | ulong | Yes | Guild ID (overridden by route parameter) |
+| `name` | string | Yes | Tag name (unique within guild) |
+| `color` | string? | No | Hex color code (nullable) |
+
+**Response: 201 Created**
+
+Returns created ModTagDto object.
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Tag name is required.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### DELETE /api/guilds/{guildId}/tags/{tagName}
+
+Deletes a mod tag by name.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `tagName` | string | Tag name to delete |
+
+**Response: 204 No Content**
+
+Tag deleted successfully.
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Mod tag not found",
+  "detail": "No mod tag with name 'Watch-Spam' exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### POST /api/guilds/{guildId}/users/{userId}/tags/{tagName}
+
+Applies a tag to a user.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | User's Discord snowflake ID |
+| `tagName` | string | Tag name to apply |
+
+**Request Body:**
+
+```json
+{
+  "appliedById": 111222333444555666
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `appliedById` | ulong | Yes | Moderator applying the tag |
+
+**Response: 201 Created**
+
+Returns UserModTagDto object.
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Mod tag not found",
+  "detail": "No mod tag with name 'Watch-Spam' exists for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### DELETE /api/guilds/{guildId}/users/{userId}/tags/{tagName}
+
+Removes a tag from a user.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | User's Discord snowflake ID |
+| `tagName` | string | Tag name to remove |
+
+**Response: 204 No Content**
+
+Tag removed successfully.
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "User tag not found",
+  "detail": "User 987654321098765432 does not have tag 'Watch-Spam' in guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### Watchlist Endpoints
+
+The watchlist tracks users who require closer monitoring by moderators.
+
+#### GET /api/guilds/{guildId}/watchlist
+
+Returns all watchlist entries for a guild with pagination.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 20 | Items per page (max: 100) |
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "id": "f6a7b8c9-d0e1-2345-f012-345678901235",
+      "guildId": 123456789012345678,
+      "userId": 987654321098765432,
+      "username": "SuspiciousUser#9999",
+      "reason": "Multiple spam warnings",
+      "addedById": 111222333444555666,
+      "addedByUsername": "ModeratorName#1234",
+      "addedAt": "2024-12-08T13:00:00Z"
+    }
+  ],
+  "page": 1,
+  "pageSize": 20,
+  "totalCount": 1,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "hasPreviousPage": false
+}
+```
+
+**WatchlistEntryDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Unique watchlist entry identifier |
+| `guildId` | ulong | Guild ID |
+| `userId` | ulong | User on watchlist |
+| `username` | string? | Username for display (nullable) |
+| `reason` | string | Reason for watchlist |
+| `addedById` | ulong | Moderator who added to watchlist |
+| `addedByUsername` | string? | Moderator username (nullable) |
+| `addedAt` | datetime | When user was added to watchlist |
+
+---
+
+#### POST /api/guilds/{guildId}/watchlist
+
+Adds a user to the watchlist.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "guildId": 123456789012345678,
+  "userId": 987654321098765432,
+  "reason": "Multiple spam warnings",
+  "addedByUserId": 111222333444555666
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `guildId` | ulong | Yes | Guild ID (overridden by route parameter) |
+| `userId` | ulong | Yes | User to add to watchlist |
+| `reason` | string | No | Reason for watchlist (optional) |
+| `addedByUserId` | ulong | Yes | Moderator adding to watchlist |
+
+**Response: 201 Created**
+
+Returns WatchlistEntryDto object.
+
+---
+
+#### DELETE /api/guilds/{guildId}/watchlist/{userId}
+
+Removes a user from the watchlist.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | User's Discord snowflake ID to remove |
+
+**Response: 204 No Content**
+
+User removed from watchlist successfully.
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Watchlist entry not found",
+  "detail": "User 987654321098765432 is not on the watchlist for guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### Moderation Config Endpoints
+
+Moderation configuration controls auto-detection thresholds and behavior per guild.
+
+#### GET /api/guilds/{guildId}/moderation-config
+
+Returns the moderation configuration for a guild.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Response: 200 OK**
+
+```json
+{
+  "guildId": 123456789012345678,
+  "mode": "Moderate",
+  "spamDetectionEnabled": true,
+  "spamThreshold": 5,
+  "spamTimeWindowSeconds": 10,
+  "toxicityDetectionEnabled": true,
+  "toxicityThreshold": 0.7,
+  "capsDetectionEnabled": true,
+  "capsThresholdPercent": 70,
+  "updatedAt": "2024-12-08T12:00:00Z"
+}
+```
+
+**GuildModerationConfigDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `guildId` | ulong | Guild ID |
+| `mode` | string | Preset mode (Off, Relaxed, Moderate, Strict, Custom) |
+| `spamDetectionEnabled` | boolean | Whether spam detection is enabled |
+| `spamThreshold` | integer | Number of messages to trigger spam flag |
+| `spamTimeWindowSeconds` | integer | Time window for spam detection |
+| `toxicityDetectionEnabled` | boolean | Whether toxicity detection is enabled |
+| `toxicityThreshold` | decimal | Toxicity score threshold (0.0-1.0) |
+| `capsDetectionEnabled` | boolean | Whether caps lock detection is enabled |
+| `capsThresholdPercent` | integer | Percentage of caps to trigger flag (0-100) |
+| `updatedAt` | datetime | Last update timestamp |
+
+---
+
+#### PUT /api/guilds/{guildId}/moderation-config
+
+Updates the moderation configuration for a guild.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "guildId": 123456789012345678,
+  "mode": "Custom",
+  "spamDetectionEnabled": true,
+  "spamThreshold": 3,
+  "spamTimeWindowSeconds": 5,
+  "toxicityDetectionEnabled": true,
+  "toxicityThreshold": 0.8,
+  "capsDetectionEnabled": false,
+  "capsThresholdPercent": 70
+}
+```
+
+**Response: 200 OK**
+
+Returns updated GuildModerationConfigDto object.
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Spam threshold must be greater than 0.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### POST /api/guilds/{guildId}/moderation-config/preset
+
+Applies a preset configuration to a guild (Relaxed, Moderate, or Strict).
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Request Body:**
+
+```json
+{
+  "presetName": "Strict"
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `presetName` | string | Yes | Preset name (Relaxed, Moderate, Strict) |
+
+**Preset Configurations:**
+
+| Preset | Spam Threshold | Spam Window | Toxicity Threshold | Caps Threshold |
+|--------|---------------|-------------|-------------------|----------------|
+| Relaxed | 10 msgs | 30s | 0.9 | 90% |
+| Moderate | 5 msgs | 10s | 0.7 | 70% |
+| Strict | 3 msgs | 5s | 0.5 | 50% |
+
+**Response: 200 OK**
+
+Returns updated GuildModerationConfigDto object with preset applied.
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid request",
+  "detail": "Invalid preset name. Valid options: Relaxed, Moderate, Strict.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
 ## Error Response Format
 
 All error responses follow a consistent format using `ApiErrorDto`.
@@ -3462,4 +4687,4 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/scheduled-mess
 
 ---
 
-*Last Updated: December 30, 2025*
+*Last Updated: December 31, 2025*

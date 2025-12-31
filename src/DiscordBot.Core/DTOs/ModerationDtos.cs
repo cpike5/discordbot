@@ -974,3 +974,68 @@ public class UserModerationProfileDto
     /// </summary>
     public WatchlistEntryDto? WatchlistEntry { get; set; }
 }
+
+/// <summary>
+/// DTO for reviewing a flagged event.
+/// </summary>
+public class FlaggedEventReviewDto
+{
+    /// <summary>
+    /// Gets or sets the Discord user snowflake ID of the reviewer.
+    /// </summary>
+    public ulong ReviewerId { get; set; }
+}
+
+/// <summary>
+/// DTO for taking action on a flagged event.
+/// </summary>
+public class FlaggedEventTakeActionDto
+{
+    /// <summary>
+    /// Gets or sets the action description.
+    /// </summary>
+    public string Action { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the Discord user snowflake ID of the reviewer.
+    /// </summary>
+    public ulong ReviewerId { get; set; }
+}
+
+/// <summary>
+/// DTO for updating a case reason.
+/// </summary>
+public class CaseReasonUpdateDto
+{
+    /// <summary>
+    /// Gets or sets the new reason.
+    /// </summary>
+    public string Reason { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the Discord user snowflake ID of the moderator making the update.
+    /// </summary>
+    public ulong ModeratorId { get; set; }
+}
+
+/// <summary>
+/// DTO for applying a tag to a user.
+/// </summary>
+public class ApplyTagDto
+{
+    /// <summary>
+    /// Gets or sets the Discord user snowflake ID of the moderator applying the tag.
+    /// </summary>
+    public ulong AppliedById { get; set; }
+}
+
+/// <summary>
+/// DTO for applying a moderation preset.
+/// </summary>
+public class ApplyPresetDto
+{
+    /// <summary>
+    /// Gets or sets the preset name (Relaxed, Moderate, or Strict).
+    /// </summary>
+    public string PresetName { get; set; } = string.Empty;
+}
