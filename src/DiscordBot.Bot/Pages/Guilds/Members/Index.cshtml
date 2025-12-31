@@ -1,0 +1,521 @@
+@page "/Guilds/{guildId:long}/Members"
+@model DiscordBot.Bot.Pages.Guilds.Members.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@{
+    ViewData["Title"] = $"Members - {Model.Guild?.Name}";
+    var startItem = Model.ViewModel.TotalCount > 0 ? (Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1 : 0;
+    var endItem = Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount);
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-2">
+            <li><a asp-page="/Guilds/Index" class="hover:text-text-primary transition-colors">Servers</a></li>
+            <li aria-hidden="true">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li><a asp-page="/Guilds/Details" asp-route-id="@Model.GuildId" class="hover:text-text-primary transition-colors">@Model.Guild?.Name</a></li>
+            <li aria-hidden="true">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li class="text-text-primary font-medium" aria-current="page">Members</li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-h1 text-text-primary">Members</h1>
+            @{
+                var totalMemberBadge = new BadgeViewModel { Text = Model.TotalMemberCount.ToString("N0"), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium };
+            }
+            <partial name="Shared/Components/_Badge" model="totalMemberBadge" />
+        </div>
+        <div class="flex items-center gap-3">
+            <a asp-page-handler="Export" asp-route-guildId="@Model.GuildId" class="btn btn-primary" title="Export member list to CSV">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Panel -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <!-- Filter Toggle Header -->
+        <button type="button" id="filterToggle" class="w-full flex items-center justify-between px-5 py-4 text-left" aria-expanded="@(Model.HasActiveFilters ? "true" : "false")" aria-controls="filterContent">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span class="text-lg font-semibold text-text-primary">Filters</span>
+                @if (Model.HasActiveFilters)
+                {
+                    var activeFilterBadge = new BadgeViewModel { Text = $"{Model.ActiveFilterCount} active", Variant = BadgeVariant.Orange, Size = BadgeSize.Small };
+                    <partial name="Shared/Components/_Badge" model="activeFilterBadge" />
+                }
+            </div>
+            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200 @(Model.HasActiveFilters ? "" : "rotate-180")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        <!-- Filter Content -->
+        <div id="filterContent" class="border-t border-border-primary p-6 @(Model.HasActiveFilters ? "" : "hidden")">
+            <form method="get" id="filterForm">
+                <input type="hidden" name="GuildId" value="@Model.GuildId" />
+
+                <!-- Row 1: Search and Role Filter -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <!-- Search Input -->
+                    <div>
+                        <label for="SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <input type="search"
+                                   id="SearchTerm"
+                                   name="SearchTerm"
+                                   value="@Model.SearchTerm"
+                                   placeholder="Username, display name, or user ID..."
+                                   class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                        </div>
+                    </div>
+
+                    <!-- Role Filter (Multi-select) -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Roles</label>
+                        <div class="relative role-multiselect-wrapper">
+                            <button type="button"
+                                    id="roleMultiSelectToggle"
+                                    class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer flex items-center justify-between"
+                                    aria-haspopup="listbox"
+                                    aria-expanded="false">
+                                <span class="truncate" id="roleSelectedText">
+                                    @if (Model.RoleFilter?.Any() == true)
+                                    {
+                                        @($"{Model.RoleFilter.Count} role{(Model.RoleFilter.Count > 1 ? "s" : "")} selected")
+                                    }
+                                    else
+                                    {
+                                        @("All roles")
+                                    }
+                                </span>
+                                <svg class="w-4 h-4 ml-2 flex-shrink-0 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="roleMultiSelectDropdown" class="hidden absolute z-10 mt-1 w-full bg-bg-tertiary border border-border-primary rounded-lg shadow-lg max-h-60 overflow-auto" role="listbox">
+                                @foreach (var role in Model.AvailableRoles)
+                                {
+                                    var isSelected = Model.RoleFilter?.Contains(role.Id) ?? false;
+                                    var colorHex = role.Color > 0 ? $"#{role.Color:X6}" : "#99aab5";
+                                    <label class="flex items-center gap-2 px-3 py-2 hover:bg-bg-hover cursor-pointer transition-colors">
+                                        <input type="checkbox"
+                                               name="RoleFilter"
+                                               value="@role.Id"
+                                               checked="@isSelected"
+                                               class="w-4 h-4 rounded border-border-primary role-checkbox" />
+                                        <span class="inline-flex items-center gap-2">
+                                            <span class="w-3 h-3 rounded-full" style="background-color: @colorHex"></span>
+                                            <span class="text-sm text-text-primary">@role.Name</span>
+                                        </span>
+                                    </label>
+                                }
+                                @if (!Model.AvailableRoles.Any())
+                                {
+                                    <div class="px-3 py-4 text-center text-sm text-text-tertiary">
+                                        No roles available
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Join Date Range -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="JoinedAfter" class="block text-sm font-medium text-text-primary mb-1">Joined After</label>
+                        <input type="date"
+                               id="JoinedAfter"
+                               name="JoinedAfter"
+                               value="@Model.JoinedAfter?.ToString("yyyy-MM-dd")"
+                               class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                    </div>
+                    <div>
+                        <label for="JoinedBefore" class="block text-sm font-medium text-text-primary mb-1">Joined Before</label>
+                        <input type="date"
+                               id="JoinedBefore"
+                               name="JoinedBefore"
+                               value="@Model.JoinedBefore?.ToString("yyyy-MM-dd")"
+                               class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                    </div>
+                </div>
+
+                <!-- Row 3: Activity Filter and Sort -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label for="ActivityFilter" class="block text-sm font-medium text-text-primary mb-1">Activity</label>
+                        <select id="ActivityFilter"
+                                name="ActivityFilter"
+                                class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                            @foreach (var option in IndexModel.ActivityOptions)
+                            {
+                                <option value="@option.Key" selected="@(Model.ActivityFilter == option.Key)">@option.Value</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="SortBy" class="block text-sm font-medium text-text-primary mb-1">Sort By</label>
+                        <select id="SortBy"
+                                name="SortBy"
+                                class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                            @foreach (var option in IndexModel.SortOptions)
+                            {
+                                <option value="@option.Key" selected="@(Model.SortBy == option.Key)">@option.Value</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="SortDescending" class="block text-sm font-medium text-text-primary mb-1">Order</label>
+                        <select id="SortDescending"
+                                name="SortDescending"
+                                class="w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
+                            <option value="false" selected="@(!Model.SortDescending)">Ascending</option>
+                            <option value="true" selected="@(Model.SortDescending)">Descending</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Filter Actions -->
+                <div class="flex items-center gap-3 pt-4 border-t border-border-secondary">
+                    <button type="submit" class="btn btn-primary">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Apply Filters
+                    </button>
+                    <a asp-page="Index" asp-route-guildId="@Model.GuildId" class="btn btn-secondary">
+                        Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Actions Toolbar (hidden by default) -->
+    <div id="bulkActionsToolbar" class="hidden bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="text-sm font-medium text-text-primary">
+                <span id="selectedCount">0</span> member(s) selected
+            </span>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="deselectAll()">
+                Deselect All
+            </button>
+            <button type="button" class="btn btn-accent btn-sm" onclick="exportSelected()">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export Selected
+            </button>
+        </div>
+    </div>
+
+    <!-- Desktop Table -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+        <div class="overflow-x-auto">
+            <table class="w-full" role="table" aria-label="Server members">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th class="px-4 py-4 text-left w-12">
+                            <input type="checkbox" id="selectAll" class="w-4 h-4 rounded border-border-primary cursor-pointer" aria-label="Select all members" />
+                        </th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Member</th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Roles</th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Joined</th>
+                        <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Last Active</th>
+                        <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @if (Model.ViewModel.Members.Any())
+                    {
+                        @foreach (var member in Model.ViewModel.Members)
+                        {
+                            <tr class="hover:bg-bg-hover/50 transition-colors" data-member-id="@member.UserId">
+                                <!-- Checkbox -->
+                                <td class="px-4 py-4">
+                                    <input type="checkbox" class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer" value="@member.UserId" aria-label="Select @member.DisplayName" />
+                                </td>
+
+                                <!-- Member (Avatar + Name + Username) -->
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        @if (!string.IsNullOrEmpty(member.AvatarUrl))
+                                        {
+                                            <img src="@member.AvatarUrl" alt="@member.DisplayName" class="w-10 h-10 rounded-full flex-shrink-0" loading="lazy" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                @(member.DisplayName.Length >= 2 ? member.DisplayName[..2].ToUpper() : member.DisplayName.ToUpper())
+                                            </div>
+                                        }
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-text-primary truncate">@member.DisplayName</p>
+                                            <p class="text-xs text-text-tertiary font-mono">@@@member.Username</p>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- Roles (max 3 visible, +N more) -->
+                                <td class="px-6 py-4">
+                                    <div class="flex flex-wrap gap-1">
+                                        @{
+                                            var visibleRoles = member.Roles.Take(3).ToList();
+                                            var remainingCount = member.Roles.Count - 3;
+                                        }
+                                        @foreach (var role in visibleRoles)
+                                        {
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: @role.ColorHex">
+                                                @role.Name
+                                            </span>
+                                        }
+                                        @if (remainingCount > 0)
+                                        {
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary" title="@string.Join(", ", member.Roles.Skip(3).Select(r => r.Name))">
+                                                +@remainingCount
+                                            </span>
+                                        }
+                                        @if (!member.Roles.Any())
+                                        {
+                                            <span class="text-xs text-text-tertiary">No roles</span>
+                                        }
+                                    </div>
+                                </td>
+
+                                <!-- Joined Date (lg+ only) -->
+                                <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                                    <span data-utc="@member.JoinedAtUtcIso" data-format="date"></span>
+                                </td>
+
+                                <!-- Last Active (xl+ only) -->
+                                <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell">
+                                    @if (member.LastActiveAt.HasValue)
+                                    {
+                                        <span data-utc="@member.LastActiveAtUtcIso" data-format="relative"></span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-text-tertiary">Never</span>
+                                    }
+                                </td>
+
+                                <!-- Actions -->
+                                <td class="px-6 py-4 text-right">
+                                    <button type="button"
+                                            class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors"
+                                            onclick="viewMemberDetails('@member.UserId')"
+                                            data-member-id="@member.UserId">
+                                        View
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="px-6 py-12 text-center">
+                                @{
+                                    var emptyTitle = Model.HasActiveFilters ? "No members found" : "No members yet";
+                                    var emptyDesc = Model.HasActiveFilters ? "Try adjusting your search or filters" : "This server has no members";
+                                }
+                                <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                                    Type = EmptyStateType.NoResults,
+                                    Title = emptyTitle,
+                                    Description = emptyDesc
+                                }" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Mobile Card Layout -->
+    <div class="md:hidden space-y-4">
+        @if (Model.ViewModel.Members.Any())
+        {
+            @foreach (var member in Model.ViewModel.Members)
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <!-- Header: Avatar, Name, Checkbox -->
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox"
+                                   class="member-checkbox w-4 h-4 rounded border-border-primary cursor-pointer mt-1"
+                                   value="@member.UserId"
+                                   aria-label="Select @member.DisplayName" />
+                            @if (!string.IsNullOrEmpty(member.AvatarUrl))
+                            {
+                                <img src="@member.AvatarUrl" alt="@member.DisplayName" class="w-10 h-10 rounded-full flex-shrink-0" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                    @(member.DisplayName.Length >= 2 ? member.DisplayName[..2].ToUpper() : member.DisplayName.ToUpper())
+                                </div>
+                            }
+                            <div class="min-w-0">
+                                <p class="font-medium text-text-primary truncate">@member.DisplayName</p>
+                                <p class="text-xs text-text-tertiary font-mono">@@@member.Username</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Roles -->
+                    @if (member.Roles.Any())
+                    {
+                        <div class="mb-3">
+                            <p class="text-xs text-text-tertiary mb-1">Roles:</p>
+                            <div class="flex flex-wrap gap-1">
+                                @foreach (var role in member.Roles.Take(5))
+                                {
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: @role.ColorHex">
+                                        @role.Name
+                                    </span>
+                                }
+                                @if (member.Roles.Count > 5)
+                                {
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary">
+                                        +@(member.Roles.Count - 5)
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                        <div>
+                            <span class="text-text-tertiary">Joined:</span>
+                            <span class="text-text-primary ml-1" data-utc="@member.JoinedAtUtcIso" data-format="date"></span>
+                        </div>
+                        <div class="col-span-2">
+                            <span class="text-text-tertiary">Last Active:</span>
+                            @if (member.LastActiveAt.HasValue)
+                            {
+                                <span class="text-text-primary ml-1" data-utc="@member.LastActiveAtUtcIso" data-format="relative"></span>
+                            }
+                            else
+                            {
+                                <span class="text-text-tertiary ml-1">Never</span>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-center gap-2 pt-3 border-t border-border-secondary">
+                        <button type="button"
+                                class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors"
+                                onclick="viewMemberDetails('@member.UserId')"
+                                data-member-id="@member.UserId">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            View Details
+                        </button>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                @{
+                    var emptyTitle = Model.HasActiveFilters ? "No members found" : "No members yet";
+                    var emptyDesc = Model.HasActiveFilters ? "Try adjusting your search or filters" : "This server has no members";
+                }
+                <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                    Type = EmptyStateType.NoResults,
+                    Title = emptyTitle,
+                    Description = emptyDesc
+                }" />
+            </div>
+        }
+    </div>
+
+    <!-- Pagination -->
+    @if (Model.ViewModel.TotalPages > 1)
+    {
+        <div class="mt-6">
+            @{
+                var baseUrl = Url.Page(null, new {
+                    guildId = Model.GuildId,
+                    SearchTerm = Model.SearchTerm,
+                    RoleFilter = Model.RoleFilter != null ? string.Join(",", Model.RoleFilter) : null,
+                    JoinedAfter = Model.JoinedAfter?.ToString("yyyy-MM-dd"),
+                    JoinedBefore = Model.JoinedBefore?.ToString("yyyy-MM-dd"),
+                    ActivityFilter = Model.ActivityFilter,
+                    SortBy = Model.SortBy,
+                    SortDescending = Model.SortDescending,
+                    PageSize = Model.PageSize
+                }) ?? string.Empty;
+                var paginationModel = new PaginationViewModel {
+                    CurrentPage = Model.ViewModel.CurrentPage,
+                    TotalPages = Model.ViewModel.TotalPages,
+                    TotalItems = Model.ViewModel.TotalCount,
+                    PageSize = Model.ViewModel.PageSize,
+                    BaseUrl = baseUrl,
+                    Style = PaginationStyle.Full,
+                    ShowPageSizeSelector = true,
+                    ShowItemCount = true,
+                    PageParameterName = "pageNumber"
+                };
+            }
+            <partial name="Shared/Components/_Pagination" model="paginationModel" />
+        </div>
+    }
+
+    <!-- Results Summary -->
+    @if (Model.ViewModel.TotalCount > 0)
+    {
+        <div class="mt-4 text-sm text-text-secondary">
+            Showing @startItem to @endItem of @Model.ViewModel.TotalCount.ToString("N0") members
+        </div>
+    }
+</div>
+
+<!-- Member Detail Modal -->
+<partial name="Guilds/Members/_MemberDetailModal" />
+
+<!-- Toast Container -->
+<partial name="Shared/Components/_ToastContainer" />
+
+@section Scripts {
+    <script src="~/js/toast.js"></script>
+    <script src="~/js/member-directory.js"></script>
+    <script>
+        // Initialize member directory with guild ID
+        window.memberDirectoryGuildId = @Model.GuildId;
+    </script>
+}
