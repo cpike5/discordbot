@@ -342,9 +342,17 @@
                     </span>
                 }
             </div>
-            <a asp-page="RatWatch/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
-                Manage →
-            </a>
+            <div class="flex items-center gap-3">
+                <a asp-page="RatWatch/Index" asp-route-guildId="@guild.Id" class="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                    Settings
+                </a>
+                <a asp-page="RatWatch/Analytics" asp-route-guildId="@guild.Id" class="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                    Analytics
+                </a>
+                <a asp-page="RatWatch/Incidents" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                    Incidents →
+                </a>
+            </div>
         </div>
 
         @if (Model.RatWatchTotal > 0)
