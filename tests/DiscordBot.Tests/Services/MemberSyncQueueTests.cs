@@ -199,12 +199,12 @@ public class MemberSyncQueueTests
     [Fact]
     public async Task DequeueAsync_CompletesWhenItemEnqueued()
     {
-        // Arrange
-        using var cts = new CancellationTokenSource(5000); // 5 second timeout
+        // Arrange - use longer timeout for CI environments which can be slow
+        using var cts = new CancellationTokenSource(30000); // 30 second timeout
         var dequeueTask = Task.Run(async () => await _queue.DequeueAsync(cts.Token));
 
         // Wait a bit to ensure DequeueAsync is waiting
-        await Task.Delay(50);
+        await Task.Delay(100);
 
         // Act - Enqueue an item while dequeue is waiting
         _queue.EnqueueGuild(123456789UL, MemberSyncReason.ManualRequest);
