@@ -103,9 +103,20 @@ public class SettingsService : ISettingsService
             _logger.LogTrace("Setting {Key} not in database, using config value: {Value}", key, valueStr);
         }
 
+        // Fall back to setting definition default
         if (valueStr == null)
         {
-            _logger.LogTrace("Setting {Key} not found, returning default", key);
+            var definition = SettingDefinitions.GetByKey(key);
+            if (definition != null)
+            {
+                valueStr = definition.DefaultValue;
+                _logger.LogTrace("Setting {Key} using definition default: {Value}", key, valueStr);
+            }
+        }
+
+        if (valueStr == null)
+        {
+            _logger.LogTrace("Setting {Key} not found in database, config, or definitions, returning default(T)", key);
             return default;
         }
 
