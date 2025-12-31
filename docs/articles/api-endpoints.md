@@ -38,6 +38,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/scheduled-messages/{id}` | DELETE | Delete scheduled message |
 | `/api/guilds/{guildId}/scheduled-messages/{id}/execute` | POST | Execute scheduled message immediately |
 | `/api/guilds/{guildId}/scheduled-messages/validate-cron` | POST | Validate cron expression |
+| `/api/guilds/{guildId}/members` | GET | List guild members (filtered, paginated) |
+| `/api/guilds/{guildId}/members/{userId}` | GET | Get specific guild member by user ID |
+| `/api/guilds/{guildId}/members/export` | GET | Export guild members to CSV |
 | `/api/commandlogs` | GET | Query command logs (filtered, paginated) |
 | `/api/commandlogs/stats` | GET | Command usage statistics |
 | `/api/auditlogs` | GET | Query audit logs (filtered, paginated) |
@@ -456,6 +459,313 @@ Synchronizes guild data from Discord to the database. Creates or updates the gui
 - Guild must be currently connected to the bot
 - Creates new database record if guild doesn't exist
 - Updates name and other Discord-sourced fields if record exists
+
+---
+
+## Guild Members Endpoints
+
+### GET /api/guilds/{guildId}/members
+
+Retrieves a paginated, filtered, and sorted list of guild members. Supports comprehensive filtering by search term, roles, join date, activity date, and active status.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `searchTerm` | string? | null | Search by username, global display name, or nickname (case-insensitive) |
+| `roleIds` | List<ulong>? | null | Filter by role IDs (multi-select). Members must have ALL specified roles. |
+| `joinedAtStart` | datetime? | null | Filter by join date range start (inclusive) |
+| `joinedAtEnd` | datetime? | null | Filter by join date range end (inclusive) |
+| `lastActiveAtStart` | datetime? | null | Filter by last active date range start (inclusive) |
+| `lastActiveAtEnd` | datetime? | null | Filter by last active date range end (inclusive) |
+| `isActive` | boolean? | true | Filter by active status. Null for all, true for active only, false for inactive only. |
+| `sortBy` | string | "JoinedAt" | Field to sort by: "Username", "DisplayName", "JoinedAt", or "LastActiveAt" |
+| `sortDescending` | boolean | false | Sort in descending order if true |
+| `page` | integer | 1 | Page number (1-based) |
+| `pageSize` | integer | 25 | Items per page (max: 100) |
+
+**Example Request:**
+
+```
+GET /api/guilds/123456789012345678/members?searchTerm=john&page=1&pageSize=50&sortBy=DisplayName&sortDescending=false
+```
+
+**Example Request with Role Filtering:**
+
+```
+GET /api/guilds/123456789012345678/members?roleIds=111222333444555666&roleIds=777888999000111222&isActive=true
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "userId": 987654321098765432,
+      "username": "johndoe",
+      "discriminator": "0",
+      "globalDisplayName": "John Doe",
+      "nickname": "Johnny",
+      "avatarHash": "a1b2c3d4e5f6g7h8i9j0",
+      "joinedAt": "2024-01-15T10:30:00Z",
+      "lastActiveAt": "2024-12-29T18:45:00Z",
+      "accountCreatedAt": "2020-03-10T14:20:00Z",
+      "roleIds": [111222333444555666, 777888999000111222],
+      "roles": [
+        {
+          "id": 111222333444555666,
+          "name": "Moderator",
+          "color": 3447003,
+          "position": 5
+        },
+        {
+          "id": 777888999000111222,
+          "name": "Member",
+          "color": 0,
+          "position": 1
+        }
+      ],
+      "isActive": true,
+      "lastCachedAt": "2024-12-30T08:00:00Z",
+      "displayName": "Johnny"
+    },
+    {
+      "userId": 111222333444555777,
+      "username": "janesmith",
+      "discriminator": "0",
+      "globalDisplayName": "Jane Smith",
+      "nickname": null,
+      "avatarHash": "z9y8x7w6v5u4t3s2r1q0",
+      "joinedAt": "2024-02-20T14:15:00Z",
+      "lastActiveAt": "2024-12-30T09:30:00Z",
+      "accountCreatedAt": "2021-06-15T10:00:00Z",
+      "roleIds": [777888999000111222],
+      "roles": [
+        {
+          "id": 777888999000111222,
+          "name": "Member",
+          "color": 0,
+          "position": 1
+        }
+      ],
+      "isActive": true,
+      "lastCachedAt": "2024-12-30T08:00:00Z",
+      "displayName": "Jane Smith"
+    }
+  ],
+  "page": 1,
+  "pageSize": 50,
+  "totalCount": 2,
+  "totalPages": 1,
+  "hasNextPage": false,
+  "hasPreviousPage": false
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | array | Array of GuildMemberDto objects |
+| `page` | integer | Current page number (1-based) |
+| `pageSize` | integer | Items per page |
+| `totalCount` | integer | Total number of items across all pages |
+| `totalPages` | integer | Total number of pages |
+| `hasNextPage` | boolean | Whether there are more pages |
+| `hasPreviousPage` | boolean | Whether there are previous pages |
+
+**GuildMemberDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `userId` | ulong | Discord user snowflake ID |
+| `username` | string | Discord username |
+| `discriminator` | string | Discord discriminator (legacy, may be "0" for new usernames) |
+| `globalDisplayName` | string? | Discord global display name (nullable) |
+| `nickname` | string? | Guild-specific nickname (nullable) |
+| `avatarHash` | string? | Discord avatar hash for URL construction (nullable) |
+| `joinedAt` | datetime | When the user joined the guild |
+| `lastActiveAt` | datetime? | Most recent activity timestamp (nullable) |
+| `accountCreatedAt` | datetime? | When the Discord account was created (nullable) |
+| `roleIds` | List<ulong> | List of role IDs assigned to this member |
+| `roles` | List<GuildRoleDto> | Full role information with names, colors, and positions |
+| `isActive` | boolean | Whether the member is currently active in the guild |
+| `lastCachedAt` | datetime | When the member data was last synchronized |
+| `displayName` | string | Effective display name (nickname > globalDisplayName > username) |
+
+**GuildRoleDto Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | ulong | Discord role snowflake ID |
+| `name` | string | Role name |
+| `color` | uint | Role color as RGB integer |
+| `position` | integer | Role position in hierarchy |
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "message": "Invalid page size",
+  "detail": "Page size must be between 1 and 100.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+**Notes:**
+- Avatar URL pattern: `https://cdn.discordapp.com/avatars/{userId}/{avatarHash}.png`
+- Default `isActive` filter is `true` (active members only)
+- Role filtering requires ALL specified roles (AND logic, not OR)
+- Search term matches username, global display name, or nickname
+- Default sort is by `JoinedAt` ascending (oldest first)
+
+---
+
+### GET /api/guilds/{guildId}/members/{userId}
+
+Returns detailed information for a specific guild member by user ID.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+| `userId` | ulong | Discord user snowflake ID |
+
+**Response: 200 OK**
+
+```json
+{
+  "userId": 987654321098765432,
+  "username": "johndoe",
+  "discriminator": "0",
+  "globalDisplayName": "John Doe",
+  "nickname": "Johnny",
+  "avatarHash": "a1b2c3d4e5f6g7h8i9j0",
+  "joinedAt": "2024-01-15T10:30:00Z",
+  "lastActiveAt": "2024-12-29T18:45:00Z",
+  "accountCreatedAt": "2020-03-10T14:20:00Z",
+  "roleIds": [111222333444555666, 777888999000111222],
+  "roles": [
+    {
+      "id": 111222333444555666,
+      "name": "Moderator",
+      "color": 3447003,
+      "position": 5
+    },
+    {
+      "id": 777888999000111222,
+      "name": "Member",
+      "color": 0,
+      "position": 1
+    }
+  ],
+  "isActive": true,
+  "lastCachedAt": "2024-12-30T08:00:00Z",
+  "displayName": "Johnny"
+}
+```
+
+**Response: 404 Not Found**
+
+```json
+{
+  "message": "Member not found",
+  "detail": "No member with user ID 987654321098765432 exists in guild 123456789012345678.",
+  "statusCode": 404,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### GET /api/guilds/{guildId}/members/export
+
+Exports guild members matching the query criteria to a CSV file for external analysis or archival. Limited to 10,000 rows maximum.
+
+**Authorization:** Admin+
+
+**URL Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `guildId` | ulong | Discord guild snowflake ID |
+
+**Query Parameters:**
+
+Uses the same query parameters as `GET /api/guilds/{guildId}/members` (excluding `page` and `pageSize`):
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `searchTerm` | string? | null | Search by username, global display name, or nickname (case-insensitive) |
+| `roleIds` | List<ulong>? | null | Filter by role IDs (multi-select). Members must have ALL specified roles. |
+| `joinedAtStart` | datetime? | null | Filter by join date range start (inclusive) |
+| `joinedAtEnd` | datetime? | null | Filter by join date range end (inclusive) |
+| `lastActiveAtStart` | datetime? | null | Filter by last active date range start (inclusive) |
+| `lastActiveAtEnd` | datetime? | null | Filter by last active date range end (inclusive) |
+| `isActive` | boolean? | true | Filter by active status. Null for all, true for active only, false for inactive only. |
+| `sortBy` | string | "JoinedAt" | Field to sort by: "Username", "DisplayName", "JoinedAt", or "LastActiveAt" |
+| `sortDescending` | boolean | false | Sort in descending order if true |
+
+**Example Request:**
+
+```
+GET /api/guilds/123456789012345678/members/export?isActive=true&sortBy=JoinedAt&sortDescending=false
+```
+
+**Response: 200 OK**
+
+```csv
+UserId,Username,Discriminator,GlobalDisplayName,Nickname,AvatarHash,JoinedAt,LastActiveAt,AccountCreatedAt,RoleIds,RoleNames,IsActive,LastCachedAt,DisplayName
+987654321098765432,johndoe,0,John Doe,Johnny,a1b2c3d4e5f6g7h8i9j0,2024-01-15T10:30:00Z,2024-12-29T18:45:00Z,2020-03-10T14:20:00Z,"111222333444555666,777888999000111222","Moderator,Member",true,2024-12-30T08:00:00Z,Johnny
+111222333444555777,janesmith,0,Jane Smith,,z9y8x7w6v5u4t3s2r1q0,2024-02-20T14:15:00Z,2024-12-30T09:30:00Z,2021-06-15T10:00:00Z,777888999000111222,Member,true,2024-12-30T08:00:00Z,Jane Smith
+```
+
+**Response Headers:**
+
+| Header | Value |
+|--------|-------|
+| `Content-Type` | text/csv |
+| `Content-Disposition` | attachment; filename="members-{guildId}-{timestamp}.csv" |
+
+**CSV Columns:**
+
+| Column | Description |
+|--------|-------------|
+| `UserId` | Discord user snowflake ID |
+| `Username` | Discord username |
+| `Discriminator` | Discord discriminator (legacy) |
+| `GlobalDisplayName` | Discord global display name |
+| `Nickname` | Guild-specific nickname |
+| `AvatarHash` | Discord avatar hash |
+| `JoinedAt` | When the user joined the guild |
+| `LastActiveAt` | Most recent activity timestamp |
+| `AccountCreatedAt` | When the Discord account was created |
+| `RoleIds` | Comma-separated list of role IDs |
+| `RoleNames` | Comma-separated list of role names |
+| `IsActive` | Whether the member is currently active |
+| `LastCachedAt` | When the member data was last synchronized |
+| `DisplayName` | Effective display name |
+
+**Notes:**
+- Filename includes guild ID and UTC timestamp: `members-{guildId}-yyyyMMdd-HHmmss.csv`
+- Export is limited to 10,000 rows maximum
+- Pagination parameters are ignored for exports
+- All filtering, searching, and sorting parameters are respected
+- Large exports may take time to generate
+- Role IDs and role names are comma-separated in the CSV
 
 ---
 
