@@ -122,4 +122,49 @@ public interface IGuildMemberRepository : IRepository<GuildMember>
     Task<DateTime?> GetLastSyncTimeAsync(
         ulong guildId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a paginated list of guild members with filtering, searching, and sorting.
+    /// Includes the User navigation property.
+    /// </summary>
+    /// <param name="guildId">The Discord guild snowflake ID.</param>
+    /// <param name="searchTerm">Optional search term to filter by username, global display name, or nickname.</param>
+    /// <param name="roleIds">Optional list of role IDs to filter by. Members must have ALL specified roles.</param>
+    /// <param name="joinedAtStart">Optional filter for join date range start (inclusive).</param>
+    /// <param name="joinedAtEnd">Optional filter for join date range end (inclusive).</param>
+    /// <param name="lastActiveAtStart">Optional filter for last active date range start (inclusive).</param>
+    /// <param name="lastActiveAtEnd">Optional filter for last active date range end (inclusive).</param>
+    /// <param name="isActive">Optional filter by active status. Null for all, true for active only, false for inactive only.</param>
+    /// <param name="sortBy">Field to sort by: Username, DisplayName, JoinedAt, or LastActiveAt.</param>
+    /// <param name="sortDescending">Sort in descending order if true.</param>
+    /// <param name="page">Page number (1-based).</param>
+    /// <param name="pageSize">Number of items per page.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A tuple containing the list of members and the total count.</returns>
+    Task<(IReadOnlyList<GuildMember> Members, int TotalCount)> GetMembersAsync(
+        ulong guildId,
+        string? searchTerm = null,
+        List<ulong>? roleIds = null,
+        DateTime? joinedAtStart = null,
+        DateTime? joinedAtEnd = null,
+        DateTime? lastActiveAtStart = null,
+        DateTime? lastActiveAtEnd = null,
+        bool? isActive = true,
+        string sortBy = "JoinedAt",
+        bool sortDescending = false,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a single guild member by guild and user IDs with User navigation property included.
+    /// </summary>
+    /// <param name="guildId">The Discord guild snowflake ID.</param>
+    /// <param name="userId">The Discord user snowflake ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The guild member with User entity if found, null otherwise.</returns>
+    Task<GuildMember?> GetMemberAsync(
+        ulong guildId,
+        ulong userId,
+        CancellationToken cancellationToken = default);
 }
