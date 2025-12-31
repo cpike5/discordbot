@@ -4,6 +4,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Bot.Services;
@@ -14,7 +15,7 @@ namespace DiscordBot.Bot.Services;
 /// </summary>
 public class RaidDetectionService : IRaidDetectionService
 {
-    private readonly IGuildModerationConfigService _configService;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IMemoryCache _cache;
     private readonly ILogger<RaidDetectionService> _logger;
@@ -34,12 +35,12 @@ public class RaidDetectionService : IRaidDetectionService
     private record JoinRecord(DateTime Timestamp, ulong UserId, DateTime AccountCreated);
 
     public RaidDetectionService(
-        IGuildModerationConfigService configService,
+        IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IMemoryCache cache,
         ILogger<RaidDetectionService> logger)
     {
-        _configService = configService;
+        _scopeFactory = scopeFactory;
         _discordClient = discordClient;
         _cache = cache;
         _logger = logger;
@@ -54,8 +55,10 @@ public class RaidDetectionService : IRaidDetectionService
     {
         _logger.LogDebug("Analyzing join for user {UserId} in guild {GuildId} for raid patterns", userId, guildId);
 
-        // Get raid protection configuration for guild
-        var config = await _configService.GetRaidProtectionConfigAsync(guildId, ct);
+        // Get raid protection configuration for guild using a scope for the scoped service
+        using var scope = _scopeFactory.CreateScope();
+        var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+        var config = await configService.GetRaidProtectionConfigAsync(guildId, ct);
 
         // If raid protection is disabled, return null
         if (!config.Enabled)
@@ -224,7 +227,9 @@ public class RaidDetectionService : IRaidDetectionService
             _logger.LogInformation("Set verification level to High for guild {GuildId}", guildId);
 
             // Optionally disable invites (if AutoAction allows)
-            var config = await _configService.GetRaidProtectionConfigAsync(guildId, ct);
+            using var scope = _scopeFactory.CreateScope();
+            var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+            var config = await configService.GetRaidProtectionConfigAsync(guildId, ct);
             if (config.AutoAction == RaidAutoAction.LockInvites || config.AutoAction == RaidAutoAction.LockServer)
             {
                 var invites = await guild.GetInvitesAsync();
