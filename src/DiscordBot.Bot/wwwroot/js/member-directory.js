@@ -6,8 +6,8 @@
 (function () {
     'use strict';
 
-    // Get guild ID from page
-    const guildId = window.memberDirectoryGuildId;
+    // Guild ID is accessed via window.memberDirectoryGuildId when needed
+    // (set by the Razor page after this script loads)
 
     // DOM element references
     let filterToggle, filterContent, filterChevron;
@@ -176,7 +176,7 @@
         }
 
         // Build export URL with selected IDs
-        const exportUrl = '/api/guilds/' + guildId + '/members/export?userIds=' + selectedIds.join(',');
+        const exportUrl = '/api/guilds/' + window.memberDirectoryGuildId + '/members/export?userIds=' + selectedIds.join(',');
 
         // Trigger download
         window.location.href = exportUrl;
@@ -205,7 +205,7 @@
         memberDetailContent.classList.add('hidden');
 
         try {
-            const response = await fetch('/api/guilds/' + guildId + '/members/' + userId);
+            const response = await fetch('/api/guilds/' + window.memberDirectoryGuildId + '/members/' + userId);
 
             if (!response.ok) {
                 throw new Error('Member not found');
