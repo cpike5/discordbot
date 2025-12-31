@@ -44,4 +44,18 @@ public class CachingOptions
     /// Default is 5 seconds.
     /// </summary>
     public int DashboardStatsCacheDurationSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the cache duration (in minutes) for guild member list data.
+    /// Used to reduce database queries when fetching member directories with filters.
+    /// Default is 5 minutes.
+    /// </summary>
+    public int GuildMemberListDurationMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the cache duration (in minutes) for individual guild member details.
+    /// Used to reduce database queries when fetching single member records.
+    /// Default is 1 minute.
+    /// </summary>
+    public int GuildMemberDetailDurationMinutes { get; set; } = 1;
 }

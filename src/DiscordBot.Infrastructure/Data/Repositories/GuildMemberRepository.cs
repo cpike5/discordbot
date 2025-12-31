@@ -284,4 +284,122 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
             .Where(gm => gm.GuildId == guildId)
             .MaxAsync(gm => (DateTime?)gm.LastCachedAt, cancellationToken);
     }
+
+    public async Task<(IReadOnlyList<GuildMember> Members, int TotalCount)> GetMembersAsync(
+        ulong guildId,
+        string? searchTerm = null,
+        List<ulong>? roleIds = null,
+        DateTime? joinedAtStart = null,
+        DateTime? joinedAtEnd = null,
+        DateTime? lastActiveAtStart = null,
+        DateTime? lastActiveAtEnd = null,
+        bool? isActive = true,
+        string sortBy = "JoinedAt",
+        bool sortDescending = false,
+        int page = 1,
+        int pageSize = 25,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Retrieving members for guild {GuildId} with filters - SearchTerm: {SearchTerm}, RoleIds: {RoleIds}, IsActive: {IsActive}, Page: {Page}, PageSize: {PageSize}",
+            guildId, searchTerm, roleIds != null ? string.Join(",", roleIds) : "none", isActive, page, pageSize);
+
+        var query = DbSet
+            .Where(gm => gm.GuildId == guildId)
+            .Include(gm => gm.User)
+            .AsQueryable();
+
+        // Apply active status filter
+        if (isActive.HasValue)
+        {
+            query = query.Where(gm => gm.IsActive == isActive.Value);
+        }
+
+        // Apply search term filter
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            var lowerSearchTerm = searchTerm.ToLower();
+            query = query.Where(gm =>
+                gm.User.Username.ToLower().Contains(lowerSearchTerm) ||
+                (gm.User.GlobalDisplayName != null && gm.User.GlobalDisplayName.ToLower().Contains(lowerSearchTerm)) ||
+                (gm.Nickname != null && gm.Nickname.ToLower().Contains(lowerSearchTerm)));
+        }
+
+        // Apply role filter (members must have ALL specified roles)
+        if (roleIds != null && roleIds.Any())
+        {
+            foreach (var roleId in roleIds)
+            {
+                var roleIdString = roleId.ToString();
+                query = query.Where(gm =>
+                    gm.CachedRolesJson != null && gm.CachedRolesJson.Contains(roleIdString));
+            }
+        }
+
+        // Apply join date range filters
+        if (joinedAtStart.HasValue)
+        {
+            query = query.Where(gm => gm.JoinedAt >= joinedAtStart.Value);
+        }
+        if (joinedAtEnd.HasValue)
+        {
+            query = query.Where(gm => gm.JoinedAt <= joinedAtEnd.Value);
+        }
+
+        // Apply last active date range filters
+        if (lastActiveAtStart.HasValue)
+        {
+            query = query.Where(gm => gm.LastActiveAt != null && gm.LastActiveAt >= lastActiveAtStart.Value);
+        }
+        if (lastActiveAtEnd.HasValue)
+        {
+            query = query.Where(gm => gm.LastActiveAt != null && gm.LastActiveAt <= lastActiveAtEnd.Value);
+        }
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Apply sorting
+        query = sortBy.ToLower() switch
+        {
+            "username" => sortDescending
+                ? query.OrderByDescending(gm => gm.User.Username)
+                : query.OrderBy(gm => gm.User.Username),
+            "displayname" => sortDescending
+                ? query.OrderByDescending(gm => gm.Nickname ?? gm.User.GlobalDisplayName ?? gm.User.Username)
+                : query.OrderBy(gm => gm.Nickname ?? gm.User.GlobalDisplayName ?? gm.User.Username),
+            "lastactiveat" => sortDescending
+                ? query.OrderByDescending(gm => gm.LastActiveAt)
+                : query.OrderBy(gm => gm.LastActiveAt),
+            "joinedat" or _ => sortDescending
+                ? query.OrderByDescending(gm => gm.JoinedAt)
+                : query.OrderBy(gm => gm.JoinedAt),
+        };
+
+        // Apply pagination
+        var members = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug(
+            "Retrieved {Count} of {TotalCount} members for guild {GuildId}",
+            members.Count, totalCount, guildId);
+
+        return (members, totalCount);
+    }
+
+    public async Task<GuildMember?> GetMemberAsync(
+        ulong guildId,
+        ulong userId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving member {UserId} for guild {GuildId} with User entity", userId, guildId);
+
+        return await DbSet
+            .Include(gm => gm.User)
+            .FirstOrDefaultAsync(
+                gm => gm.GuildId == guildId && gm.UserId == userId,
+                cancellationToken);
+    }
 }

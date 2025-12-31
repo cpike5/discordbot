@@ -206,6 +206,9 @@ try
     builder.Services.AddScoped<IDiscordUserInfoService, DiscordUserInfoService>();
     builder.Services.AddScoped<IGuildMembershipService, GuildMembershipService>();
 
+    // Add Guild Member services
+    builder.Services.AddScoped<IGuildMemberService, GuildMemberService>();
+
     // Add Discord OAuth Token Refresh background service
     builder.Services.AddHostedService<DiscordTokenRefreshService>();
 
