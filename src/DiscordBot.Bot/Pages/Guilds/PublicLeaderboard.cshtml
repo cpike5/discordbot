@@ -6,6 +6,18 @@
     Layout = null; // Public page - no sidebar/navbar
 }
 
+@functions {
+    string GetRelativeTime(DateTime utcDate)
+    {
+        var daysAgo = (DateTime.UtcNow - utcDate).Days;
+        if (daysAgo == 0) return "Today";
+        if (daysAgo == 1) return "Yesterday";
+        if (daysAgo < 7) return $"{daysAgo} days ago";
+        if (daysAgo < 30) return $"{daysAgo / 7} week{(daysAgo / 7 != 1 ? "s" : "")} ago";
+        return utcDate.ToString("MMM d, yyyy");
+    }
+}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -193,7 +205,7 @@
                                             <td class="px-6 py-4">
                                                 @if (entry.Rank <= 3)
                                                 {
-                                                    <div class="rank-medal rank-@entry.Rank">@entry.Rank</div>
+                                                    <div class="rank-medal rank-@entry.Rank" role="img" aria-label="Rank @entry.Rank">@entry.Rank</div>
                                                 }
                                                 else
                                                 {
@@ -211,7 +223,7 @@
                                             <td class="px-6 py-4">
                                                 @if (entry.LastIncidentDate.HasValue)
                                                 {
-                                                    <span class="text-sm text-text-secondary">@entry.LastIncidentDate.Value.ToString("MMM d, yyyy")</span>
+                                                    <span class="text-sm text-text-secondary">@GetRelativeTime(entry.LastIncidentDate.Value)</span>
                                                 }
                                                 else
                                                 {
@@ -260,7 +272,7 @@
                                     {
                                         <tr class="hover:bg-bg-hover transition-colors">
                                             <td class="px-6 py-4">
-                                                <span class="text-sm text-text-secondary">@incident.Date.ToString("MMM d, yyyy")</span>
+                                                <span class="text-sm text-text-secondary">@GetRelativeTime(incident.Date)</span>
                                             </td>
                                             <td class="px-6 py-4">
                                                 <p class="font-medium text-text-primary">@incident.Username</p>
@@ -283,6 +295,18 @@
 
                 <!-- Footer -->
                 <div class="text-center py-8 border-t border-border-primary">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <p class="text-sm mb-3">
+                            <a asp-page="/Guilds/RatWatch/Index" asp-route-guildId="@Model.GuildId"
+                               class="inline-flex items-center gap-1.5 footer-link font-medium hover:text-text-primary transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                                Back to Rat Watch Settings
+                            </a>
+                        </p>
+                    }
                     <p class="text-sm text-text-tertiary mb-2">
                         Powered by <a href="/" class="footer-link font-medium">@Model.AppTitle</a>
                     </p>
