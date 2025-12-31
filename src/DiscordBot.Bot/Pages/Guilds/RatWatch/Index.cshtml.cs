@@ -196,6 +196,7 @@ public class IndexModel : PageModel
     /// <param name="maxAdvanceHours">The new max advance hours setting.</param>
     /// <param name="votingDurationMinutes">The new voting duration setting.</param>
     /// <param name="isEnabled">Whether Rat Watch is enabled.</param>
+    /// <param name="publicLeaderboardEnabled">Whether the public leaderboard is enabled.</param>
     /// <param name="page">The current page number to return to.</param>
     /// <param name="pageSize">The current page size.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -206,13 +207,14 @@ public class IndexModel : PageModel
         [FromForm] int maxAdvanceHours,
         [FromForm] int votingDurationMinutes,
         [FromForm] bool isEnabled,
+        [FromForm] bool publicLeaderboardEnabled,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation(
-            "User updating Rat Watch settings for guild {GuildId}: timezone={Timezone}, maxHours={MaxHours}, votingMinutes={VotingMinutes}, enabled={Enabled}",
-            guildId, timezone, maxAdvanceHours, votingDurationMinutes, isEnabled);
+            "User updating Rat Watch settings for guild {GuildId}: timezone={Timezone}, maxHours={MaxHours}, votingMinutes={VotingMinutes}, enabled={Enabled}, publicLeaderboard={PublicLeaderboard}",
+            guildId, timezone, maxAdvanceHours, votingDurationMinutes, isEnabled, publicLeaderboardEnabled);
 
         // Validate parameters
         if (string.IsNullOrWhiteSpace(timezone))
@@ -241,6 +243,7 @@ public class IndexModel : PageModel
                 settings.MaxAdvanceHours = maxAdvanceHours;
                 settings.VotingDurationMinutes = votingDurationMinutes;
                 settings.IsEnabled = isEnabled;
+                settings.PublicLeaderboardEnabled = publicLeaderboardEnabled;
             }, cancellationToken);
 
             _logger.LogInformation("Successfully updated Rat Watch settings for guild {GuildId}", guildId);

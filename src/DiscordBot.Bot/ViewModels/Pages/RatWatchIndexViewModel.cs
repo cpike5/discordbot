@@ -45,6 +45,11 @@ public record RatWatchIndexViewModel
     public int VotingDurationMinutes { get; init; }
 
     /// <summary>
+    /// Gets whether the public leaderboard is enabled for this guild.
+    /// </summary>
+    public bool PublicLeaderboardEnabled { get; init; }
+
+    /// <summary>
     /// Gets the list of watches for this guild.
     /// </summary>
     public IReadOnlyList<RatWatchItemViewModel> Watches { get; init; } = Array.Empty<RatWatchItemViewModel>();
@@ -129,6 +134,7 @@ public record RatWatchIndexViewModel
             Timezone = settings.Timezone,
             MaxAdvanceHours = settings.MaxAdvanceHours,
             VotingDurationMinutes = votingDurationMinutes,
+            PublicLeaderboardEnabled = settings.PublicLeaderboardEnabled,
             Watches = watches.Select(w => RatWatchItemViewModel.FromDto(w, votingDurationMinutes)).ToList(),
             TotalWatches = totalWatches,
             Leaderboard = leaderboard.Select(RatLeaderboardEntryViewModel.FromDto).ToList(),
