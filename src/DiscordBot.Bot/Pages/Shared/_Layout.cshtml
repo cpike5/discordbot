@@ -6,6 +6,7 @@
     <title>@ViewData["Title"] - Discord Bot Admin</title>
     <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
     <!-- Early sidebar state restoration to prevent FOUC (Flash of Unstyled Content) -->
     <script>
         (function() {

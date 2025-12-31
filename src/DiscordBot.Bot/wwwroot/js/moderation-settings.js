@@ -50,10 +50,13 @@
         event.target.classList.add('mode-toggle-btn-active');
 
         const simpleMode = document.getElementById('simpleMode');
+        const advancedMode = document.getElementById('advancedMode');
         if (mode === 'simple') {
             simpleMode.classList.remove('hidden');
+            advancedMode.classList.add('hidden');
         } else {
             simpleMode.classList.add('hidden');
+            advancedMode.classList.remove('hidden');
         }
 
         isDirty = true;
