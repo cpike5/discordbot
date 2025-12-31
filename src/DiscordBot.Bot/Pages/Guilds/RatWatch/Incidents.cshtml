@@ -238,12 +238,22 @@
                 <text>No incidents found</text>
             }
         </p>
-        @if (Model.ViewModel.ActiveFilterCount > 0)
-        {
-            <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
+            @if (Model.ViewModel.ActiveFilterCount > 0)
+            {
                 <span class="text-sm text-text-tertiary">@Model.ViewModel.ActiveFilterCount filter@(Model.ViewModel.ActiveFilterCount == 1 ? "" : "s") active</span>
-            </div>
-        }
+            }
+            @if (Model.ViewModel.TotalCount > 0)
+            {
+                <button type="button" id="exportCsvBtn" onclick="exportIncidentsToCsv()"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover hover:text-text-primary transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export CSV
+                </button>
+            }
+        </div>
     </div>
 
     <!-- Incidents Table -->
@@ -439,8 +449,118 @@
     </div>
 </div>
 
+<!-- Embedded incident data for CSV export -->
+@if (Model.ViewModel.TotalCount > 0)
+{
+    <script type="application/json" id="incidentsExportData">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ViewModel.Incidents.Select(i => new {
+        scheduledAt = i.ScheduledAtUtcIso,
+        accused = i.AccusedUsername,
+        initiator = i.InitiatorUsername,
+        status = i.StatusText,
+        guiltyVotes = i.GuiltyVotes,
+        notGuiltyVotes = i.NotGuiltyVotes,
+        customMessage = i.CustomMessage ?? ""
+    })))
+    </script>
+}
+
 @section Scripts {
     <script>
+        // CSV Export functionality
+        function exportIncidentsToCsv() {
+            const dataElement = document.getElementById('incidentsExportData');
+            if (!dataElement) {
+                console.error('No export data found');
+                return;
+            }
+
+            const btn = document.getElementById('exportCsvBtn');
+            const originalContent = btn.innerHTML;
+
+            try {
+                // Show loading state
+                btn.disabled = true;
+                btn.innerHTML = `
+                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Exporting...
+                `;
+
+                const incidents = JSON.parse(dataElement.textContent);
+                const guildId = '@Model.ViewModel.GuildId';
+
+                // CSV headers
+                const headers = ['Date', 'Accused', 'Initiator', 'Status', 'Votes For', 'Votes Against', 'Custom Message'];
+
+                // Build CSV rows
+                const rows = incidents.map(incident => [
+                    formatDateForCsv(incident.scheduledAt),
+                    escapeCSV(incident.accused),
+                    escapeCSV(incident.initiator),
+                    incident.status,
+                    incident.guiltyVotes.toString(),
+                    incident.notGuiltyVotes.toString(),
+                    escapeCSV(incident.customMessage)
+                ]);
+
+                // Build CSV content with BOM for Excel compatibility
+                const csvContent = '\uFEFF' + [headers, ...rows]
+                    .map(row => row.join(','))
+                    .join('\n');
+
+                // Create and download file
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `ratwatch-incidents-${guildId}-${formatDateForFilename(new Date())}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                console.log(`Exported ${incidents.length} incidents to CSV`);
+            } catch (error) {
+                console.error('Failed to export CSV:', error);
+                alert('Failed to export incidents. Please try again.');
+            } finally {
+                // Restore button state
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }
+
+        function escapeCSV(value) {
+            if (value === null || value === undefined) return '';
+            value = value.toString();
+            // Escape if value contains comma, double quote, or newline
+            if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+                return '"' + value.replace(/"/g, '""') + '"';
+            }
+            return value;
+        }
+
+        function formatDateForCsv(isoString) {
+            const date = new Date(isoString);
+            // Format as YYYY-MM-DD HH:mm (local time)
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}`;
+        }
+
+        function formatDateForFilename(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         // Filter panel toggle - matches Analytics page pattern
         function toggleFilterPanel() {
             const content = document.getElementById('filterContent');
