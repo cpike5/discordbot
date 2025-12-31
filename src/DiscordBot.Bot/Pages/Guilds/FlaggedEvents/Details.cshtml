@@ -95,7 +95,7 @@
                         <partial name="Shared/Components/_StatusBadge" model="Model.Event.Status" />
                     </div>
                     <div class="text-sm text-text-tertiary">
-                        @Model.Event.CreatedAt.ToString("MMM d, yyyy h:mm tt")
+                        <span data-utc="@Model.Event.CreatedAt.ToString("o")" data-format="datetime"></span>
                     </div>
                 </div>
 
@@ -134,7 +134,7 @@
                                 </div>
                                 <div>
                                     <span class="text-sm text-text-secondary">Reviewed at:</span>
-                                    <p class="text-text-primary">@Model.Event.ReviewedAt.Value.ToString("MMM d, yyyy h:mm tt")</p>
+                                    <p class="text-text-primary"><span data-utc="@Model.Event.ReviewedAt.Value.ToString("o")" data-format="datetime"></span></p>
                                 </div>
                             </div>
                             @if (!string.IsNullOrEmpty(Model.Event.ActionTaken))
@@ -188,7 +188,7 @@
                                 <div class="flex items-center gap-3">
                                     <partial name="Shared/Components/_SeverityBadge" model="evt.Severity" />
                                     <span class="text-sm text-text-primary">@evt.RuleType</span>
-                                    <span class="text-xs text-text-tertiary">@evt.CreatedAt.ToString("MMM d, yyyy")</span>
+                                    <span class="text-xs text-text-tertiary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="date"></span></span>
                                 </div>
                                 <partial name="Shared/Components/_StatusBadge" model="evt.Status" />
                             </div>

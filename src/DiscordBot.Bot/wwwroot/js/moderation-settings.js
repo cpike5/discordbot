@@ -38,6 +38,9 @@
         isDirty = false;
     }
 
+    // Track the current mode for saving
+    let currentMode = 'simple';
+
     /**
      * Set configuration mode (Simple/Advanced)
      * @param {string} mode - The mode to set ('simple' or 'advanced')
@@ -59,7 +62,51 @@
             advancedMode.classList.remove('hidden');
         }
 
+        currentMode = mode;
         isDirty = true;
+    }
+
+    /**
+     * Save overview settings (mode and preset)
+     */
+    async function saveOverviewSettings() {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+        const guildId = window.moderationData.guildId;
+
+        // Determine the active mode button
+        const activeButton = document.querySelector('.mode-toggle-btn-active');
+        const mode = activeButton?.dataset.mode === 'advanced' ? 1 : 0; // 0 = Simple, 1 = Advanced
+
+        // Get the selected preset (if in simple mode)
+        const selectedPreset = document.querySelector('input[name="preset"]:checked')?.value || window.moderationData.simplePreset || 'Moderate';
+
+        const request = {
+            mode: mode,
+            simplePreset: selectedPreset
+        };
+
+        try {
+            const response = await fetch(`?handler=SaveOverview&guildId=${guildId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token
+                },
+                body: JSON.stringify(request)
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                ToastManager.show('success', data.message);
+                isDirty = false;
+            } else {
+                ToastManager.show('error', data.message || 'Failed to save overview settings.');
+            }
+        } catch (error) {
+            console.error('Save overview error:', error);
+            ToastManager.show('error', 'An error occurred while saving overview settings.');
+        }
     }
 
     /**
@@ -91,17 +138,17 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
+                ToastManager.show('success', data.message);
                 isDirty = false;
 
                 // Reload page to reflect new preset settings
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                window.quickActions?.showToast(data.message || 'Failed to apply preset.', 'error');
+                ToastManager.show('error', data.message || 'Failed to apply preset.');
             }
         } catch (error) {
             console.error('Apply preset error:', error);
-            window.quickActions?.showToast('An error occurred while applying preset.', 'error');
+            ToastManager.show('error', 'An error occurred while applying preset.');
         }
     }
 
@@ -134,14 +181,14 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
+                ToastManager.show('success', data.message);
                 isDirty = false;
             } else {
-                window.quickActions?.showToast(data.message || 'Failed to save spam settings.', 'error');
+                ToastManager.show('error', data.message || 'Failed to save spam settings.');
             }
         } catch (error) {
             console.error('Save spam error:', error);
-            window.quickActions?.showToast('An error occurred while saving spam settings.', 'error');
+            ToastManager.show('error', 'An error occurred while saving spam settings.');
         }
     }
 
@@ -180,14 +227,14 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
+                ToastManager.show('success', data.message);
                 isDirty = false;
             } else {
-                window.quickActions?.showToast(data.message || 'Failed to save content settings.', 'error');
+                ToastManager.show('error', data.message || 'Failed to save content settings.');
             }
         } catch (error) {
             console.error('Save content error:', error);
-            window.quickActions?.showToast('An error occurred while saving content settings.', 'error');
+            ToastManager.show('error', 'An error occurred while saving content settings.');
         }
     }
 
@@ -219,14 +266,14 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
+                ToastManager.show('success', data.message);
                 isDirty = false;
             } else {
-                window.quickActions?.showToast(data.message || 'Failed to save raid settings.', 'error');
+                ToastManager.show('error', data.message || 'Failed to save raid settings.');
             }
         } catch (error) {
             console.error('Save raid error:', error);
-            window.quickActions?.showToast('An error occurred while saving raid settings.', 'error');
+            ToastManager.show('error', 'An error occurred while saving raid settings.');
         }
     }
 
@@ -241,7 +288,7 @@
         const tagCategory = parseInt(document.getElementById('new-tag-color').value);
 
         if (!tagName) {
-            window.quickActions?.showToast('Please enter a tag name.', 'error');
+            ToastManager.show('error', 'Please enter a tag name.');
             return;
         }
 
@@ -274,7 +321,7 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
+                ToastManager.show('success', data.message);
 
                 // Clear form
                 document.getElementById('new-tag-name').value = '';
@@ -283,11 +330,11 @@
                 // Reload page to show new tag
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                window.quickActions?.showToast(data.message || 'Failed to create tag.', 'error');
+                ToastManager.show('error', data.message || 'Failed to create tag.');
             }
         } catch (error) {
             console.error('Create tag error:', error);
-            window.quickActions?.showToast('An error occurred while creating tag.', 'error');
+            ToastManager.show('error', 'An error occurred while creating tag.');
         }
     }
 
@@ -314,7 +361,7 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
+                ToastManager.show('success', data.message);
 
                 // Remove the tag from the list
                 const tagElement = document.querySelector(`[data-tag-name="${tagName}"]`);
@@ -322,11 +369,11 @@
                     tagElement.remove();
                 }
             } else {
-                window.quickActions?.showToast(data.message || 'Failed to delete tag.', 'error');
+                ToastManager.show('error', data.message || 'Failed to delete tag.');
             }
         } catch (error) {
             console.error('Delete tag error:', error);
-            window.quickActions?.showToast('An error occurred while deleting tag.', 'error');
+            ToastManager.show('error', 'An error occurred while deleting tag.');
         }
     }
 
@@ -365,16 +412,16 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
+                ToastManager.show('success', data.message);
 
                 // Reload page to show new tags
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                window.quickActions?.showToast(data.message || 'Failed to import templates.', 'error');
+                ToastManager.show('error', data.message || 'Failed to import templates.');
             }
         } catch (error) {
             console.error('Import templates error:', error);
-            window.quickActions?.showToast('An error occurred while importing templates.', 'error');
+            ToastManager.show('error', 'An error occurred while importing templates.');
         }
     }
 
@@ -425,6 +472,7 @@
     window.moderationSettings = {
         switchTab,
         setMode,
+        saveOverviewSettings,
         selectPreset,
         applyPreset,
         saveSpamSettings,
