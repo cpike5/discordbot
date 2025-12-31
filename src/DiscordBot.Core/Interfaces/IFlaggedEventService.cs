@@ -41,6 +41,15 @@ public interface IFlaggedEventService
     Task<(IEnumerable<FlaggedEventDto> Items, int TotalCount)> GetPendingEventsAsync(ulong guildId, int page = 1, int pageSize = 20, CancellationToken ct = default);
 
     /// <summary>
+    /// Gets filtered flagged events for a guild with advanced filtering and pagination.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="query">The query parameters containing filters and pagination settings.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A tuple containing the filtered events and total count.</returns>
+    Task<(IEnumerable<FlaggedEventDto> Items, int TotalCount)> GetFilteredEventsAsync(ulong guildId, FlaggedEventQueryDto query, CancellationToken ct = default);
+
+    /// <summary>
     /// Dismisses a flagged event (marks as not requiring action).
     /// </summary>
     /// <param name="eventId">The event ID.</param>
