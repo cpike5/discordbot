@@ -35,6 +35,12 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.LastSeenAt)
             .IsRequired();
 
+        builder.Property(u => u.AvatarHash)
+            .HasMaxLength(64);
+
+        builder.Property(u => u.GlobalDisplayName)
+            .HasMaxLength(32);
+
         // Index for recently active user queries
         builder.HasIndex(u => u.LastSeenAt);
     }
