@@ -106,20 +106,18 @@ Available timezones:
 ### Check-in Button
 
 **Button:** "I'm Here! ✓" (Success style)
-**Component ID:** `ratwatch:checkin:{accusedUserId}:{watchId}`
-**Handler:** RatWatchComponentModule
+**Component ID:** `ratwatch:checkin:{accusedUserId}:{watchId}:` (built via `ComponentIdBuilder`)
+**Handler:** `RatWatchComponentModule` with pattern `ratwatch:checkin:*:*:`
 
 Only the accused user can click this button. Clears them from the watch early.
 
 ### Voting Buttons
 
-**Buttons:** "Rat" (Danger style), "Not Rat" (Success style)
-**Component IDs:**
-- `ratwatch:vote:rat:{watchId}`
-- `ratwatch:vote:notrat:{watchId}`
-**Handler:** RatWatchComponentModule
+**Buttons:** "🐀 Rat" (Danger style), "Not Rat" (Success style)
+**Component ID Format:** `ratwatch:vote:{accusedUserId}:{watchId}:{guilty|notguilty}`
+**Handler:** `RatWatchComponentModule` with pattern `ratwatch:vote:*:*:*`
 
-Anyone except the accused can vote. Each user gets one vote per watch.
+Anyone except the accused can vote. Users can change their vote while voting is active.
 
 ---
 
@@ -131,11 +129,56 @@ Anyone except the accused can vote. Each user gets one vote per watch.
 **Authorization:** RequireAdmin policy
 
 **Features:**
-- View and edit guild settings (timezone, voting duration, max advance hours, enable/disable)
+- View and edit guild settings (timezone, voting duration, max advance hours, enable/disable, public leaderboard)
 - Summary statistics (total, pending, voting, completed watches)
 - Hall of Shame leaderboard
 - Paginated watch list with status, participants, scheduled times
 - Cancel pending/voting watches
+
+### Rat Watch Analytics Page
+
+**URL:** `/Guilds/RatWatch/{guildId}/Analytics`
+**Authorization:** RequireAdmin policy
+
+**Features:**
+- Summary metrics (total watches, guilty rate, early check-in rate, avg voting participation)
+- Time series charts showing watch trends over time
+- Activity heatmap by day/hour
+- Top users leaderboards (most watched, top accusers, biggest rats)
+- Fun stats (longest streaks, biggest landslides, closest calls)
+
+### Rat Watch Incidents Page
+
+**URL:** `/Guilds/RatWatch/{guildId}/Incidents`
+**Authorization:** RequireAdmin policy
+
+**Features:**
+- Advanced filtering by status, date range, users, vote count, keyword
+- Quick filters for today, last 7 days, last 30 days
+- Sortable columns (scheduled time, created time, votes)
+- Paginated incident browser
+- Direct links to watch details
+
+### Public Leaderboard Page
+
+**URL:** `/Guilds/{guildId}/Leaderboard`
+**Authorization:** None (public, requires `PublicLeaderboardEnabled` setting)
+
+**Features:**
+- Public-facing leaderboard for guilds that opt in
+- Top rats with guilty counts
+- Fun stats display
+- No authentication required
+
+### Global Rat Watch Analytics
+
+**URL:** `/Admin/RatWatchAnalytics`
+**Authorization:** RequireAdmin policy
+
+**Features:**
+- Cross-guild analytics for administrators
+- Aggregate metrics across all guilds
+- System-wide trends and patterns
 
 ---
 
@@ -218,6 +261,18 @@ Permanent record of guilty verdicts.
 
 ## Configuration
 
+### Application Options
+
+Application-level settings in `appsettings.json` under `RatWatch` section:
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| CheckIntervalSeconds | int | 30 | Background service polling interval |
+| MaxConcurrentExecutions | int | 5 | Max concurrent watch executions |
+| ExecutionTimeoutSeconds | int | 30 | Timeout per watch execution |
+| DefaultVotingDurationMinutes | int | 5 | Fallback voting duration for new guilds |
+| DefaultMaxAdvanceHours | int | 24 | Fallback max advance hours for new guilds |
+
 ### Guild Settings Entity
 
 Guild-specific settings stored in `GuildRatWatchSettings`:
@@ -229,6 +284,7 @@ Guild-specific settings stored in `GuildRatWatchSettings`:
 | Timezone | string | "Eastern Standard Time" | Timezone for parsing time expressions |
 | MaxAdvanceHours | int | 24 | Max hours in advance a watch can be scheduled |
 | VotingDurationMinutes | int | 5 | How long voting lasts |
+| PublicLeaderboardEnabled | bool | false | Whether the leaderboard is publicly accessible |
 
 ---
 
@@ -285,29 +341,30 @@ public interface IRatWatchService
 {
     // Watch CRUD
     Task<RatWatchDto> CreateWatchAsync(RatWatchCreateDto dto, CancellationToken ct = default);
-    Task<RatWatchDto?> GetWatchAsync(Guid id, CancellationToken ct = default);
-    Task<(IEnumerable<RatWatchDto> Items, int Total)> GetByGuildAsync(ulong guildId, int page, int pageSize, CancellationToken ct = default);
+    Task<RatWatchDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<(IEnumerable<RatWatchDto> Items, int TotalCount)> GetByGuildAsync(ulong guildId, int page, int pageSize, CancellationToken ct = default);
+    Task<(IEnumerable<RatWatchDto> Items, int TotalCount)> GetFilteredByGuildAsync(ulong guildId, RatWatchIncidentFilterDto filter, CancellationToken ct = default);
     Task<bool> ClearWatchAsync(Guid watchId, ulong userId, CancellationToken ct = default);
-    Task<bool> CancelWatchAsync(Guid watchId, CancellationToken ct = default);
+    Task<bool> CancelWatchAsync(Guid id, string reason, CancellationToken ct = default);
 
     // Voting
-    Task<bool> RecordVoteAsync(Guid watchId, ulong voterUserId, bool isGuiltyVote, CancellationToken ct = default);
-    Task<(int GuiltyVotes, int NotGuiltyVotes)> GetVoteCountsAsync(Guid watchId, CancellationToken ct = default);
-    Task<bool?> GetUserVoteAsync(Guid watchId, ulong voterUserId, CancellationToken ct = default);
+    Task<bool> CastVoteAsync(Guid watchId, ulong voterId, bool isGuilty, CancellationToken ct = default);
+    Task<(int Guilty, int NotGuilty)> GetVoteTallyAsync(Guid watchId, CancellationToken ct = default);
 
     // Execution (for background service)
-    Task<IEnumerable<RatWatch>> GetPendingWatchesForExecutionAsync(CancellationToken ct = default);
-    Task<IEnumerable<RatWatch>> GetVotingWatchesForCompletionAsync(CancellationToken ct = default);
-    Task StartVotingAsync(Guid watchId, ulong notificationMessageId, CancellationToken ct = default);
-    Task CompleteVotingAsync(Guid watchId, bool isGuilty, ulong? votingMessageId = null, CancellationToken ct = default);
+    Task<IEnumerable<RatWatch>> GetDueWatchesAsync(CancellationToken ct = default);
+    Task<IEnumerable<RatWatch>> GetExpiredVotingAsync(CancellationToken ct = default);
+    Task<bool> StartVotingAsync(Guid watchId, ulong? votingMessageId = null, CancellationToken ct = default);
+    Task<bool> FinalizeVotingAsync(Guid watchId, CancellationToken ct = default);
+    Task<bool> HasActiveWatchesAsync(CancellationToken ct = default);
 
     // Stats & Leaderboard
-    Task<RatUserStatsDto> GetUserStatsAsync(ulong guildId, ulong userId, CancellationToken ct = default);
-    Task<IReadOnlyList<RatLeaderboardEntryDto>> GetLeaderboardAsync(ulong guildId, int count, CancellationToken ct = default);
+    Task<RatStatsDto> GetUserStatsAsync(ulong guildId, ulong userId, CancellationToken ct = default);
+    Task<IReadOnlyList<RatLeaderboardEntryDto>> GetLeaderboardAsync(ulong guildId, int limit = 10, CancellationToken ct = default);
 
     // Guild Settings
     Task<GuildRatWatchSettings> GetGuildSettingsAsync(ulong guildId, CancellationToken ct = default);
-    Task<GuildRatWatchSettings> UpdateGuildSettingsAsync(ulong guildId, Action<GuildRatWatchSettings> updateAction, CancellationToken ct = default);
+    Task<GuildRatWatchSettings> UpdateGuildSettingsAsync(ulong guildId, Action<GuildRatWatchSettings> update, CancellationToken ct = default);
 
     // Time Parsing
     DateTime? ParseScheduleTime(string input, string timezone);
@@ -343,5 +400,6 @@ Returns `PreconditionResult.FromError` with user-friendly message if disabled.
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2 | 2025-12-30 | Updated service interface, component IDs, configuration, and UI pages to match implementation |
 | 1.1 | 2025-12-30 | Added bot status updates during active watches (Issue #412) |
 | 1.0 | 2025-12-30 | Initial implementation (Issue #404) |
