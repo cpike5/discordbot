@@ -191,7 +191,10 @@ public class FlaggedEventRepository : Repository<FlaggedEvent>, IFlaggedEventRep
 
         if (endDate.HasValue)
         {
-            query = query.Where(e => e.CreatedAt <= endDate.Value);
+            // Add one day and use < to include the entire end date
+            // e.g., endDate=2025-01-15 becomes < 2025-01-16 00:00:00
+            var endOfDay = endDate.Value.Date.AddDays(1);
+            query = query.Where(e => e.CreatedAt < endOfDay);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

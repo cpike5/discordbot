@@ -91,6 +91,38 @@ public class FlaggedEventService : IFlaggedEventService
     }
 
     /// <inheritdoc/>
+    public async Task<(IEnumerable<FlaggedEventDto> Items, int TotalCount)> GetFilteredEventsAsync(ulong guildId, FlaggedEventQueryDto query, CancellationToken ct = default)
+    {
+        _logger.LogDebug("Retrieving filtered flagged events for guild {GuildId}, filters: RuleType={RuleType}, Severity={Severity}, Status={Status}, page {Page}",
+            guildId, query.RuleType, query.Severity, query.Status, query.Page);
+
+        var (events, totalCount) = await _eventRepository.GetFilteredByGuildAsync(
+            guildId,
+            query.Status,
+            query.RuleType,
+            query.Severity,
+            query.UserId,
+            query.DateFrom,
+            query.DateTo,
+            query.Page,
+            query.PageSize,
+            ct);
+
+        var eventsList = events.ToList();
+
+        var dtos = new List<FlaggedEventDto>();
+        foreach (var flaggedEvent in eventsList)
+        {
+            dtos.Add(await MapToDtoAsync(flaggedEvent, ct));
+        }
+
+        _logger.LogDebug("Retrieved {Count} filtered flagged events out of {TotalCount} for guild {GuildId}",
+            dtos.Count, totalCount, guildId);
+
+        return (dtos, totalCount);
+    }
+
+    /// <inheritdoc/>
     public async Task<FlaggedEventDto?> DismissEventAsync(Guid eventId, ulong reviewerId, CancellationToken ct = default)
     {
         _logger.LogInformation("Dismissing flagged event {EventId} by moderator {ReviewerId}", eventId, reviewerId);

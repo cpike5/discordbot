@@ -239,12 +239,12 @@
                 <label class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Detection</label>
                 <p class="text-xs text-text-tertiary mb-2">Automatically take action when spam is detected</p>
                 <select id="spam-auto-action" class="w-full md:w-64 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
-                    <option value="0" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.None ? "selected" : "")>None (Flag Only)</option>
-                    <option value="1" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Delete ? "selected" : "")>Delete Message</option>
-                    <option value="2" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Warn ? "selected" : "")>Warn User</option>
-                    <option value="3" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Mute ? "selected" : "")>Mute User (1 hour)</option>
-                    <option value="4" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Kick ? "selected" : "")>Kick User</option>
-                    <option value="5" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Ban ? "selected" : "")>Ban User</option>
+                    <!option value="0" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.None ? "selected" : "")>None (Flag Only)</!option>
+                    <!option value="1" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Delete ? "selected" : "")>Delete Message</!option>
+                    <!option value="2" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Warn ? "selected" : "")>Warn User</!option>
+                    <!option value="3" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Mute ? "selected" : "")>Mute User (1 hour)</!option>
+                    <!option value="4" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Kick ? "selected" : "")>Kick User</!option>
+                    <!option value="5" @(Model.ViewModel.SpamConfig.AutoAction == Core.DTOs.AutoAction.Ban ? "selected" : "")>Ban User</!option>
                 </select>
             </div>
         </div>
@@ -294,11 +294,11 @@
             <div>
                 <label class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Detection</label>
                 <select id="content-auto-action" class="w-full md:w-64 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
-                    <option value="0" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.None ? "selected" : "")>None (Flag Only)</option>
-                    <option value="1" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Delete ? "selected" : "")>Delete Message</option>
-                    <option value="2" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Warn ? "selected" : "")>Warn User</option>
-                    <option value="3" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Mute ? "selected" : "")>Delete + Mute User</option>
-                    <option value="5" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Ban ? "selected" : "")>Delete + Ban User</option>
+                    <!option value="0" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.None ? "selected" : "")>None (Flag Only)</!option>
+                    <!option value="1" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Delete ? "selected" : "")>Delete Message</!option>
+                    <!option value="2" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Warn ? "selected" : "")>Warn User</!option>
+                    <!option value="3" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Mute ? "selected" : "")>Delete + Mute User</!option>
+                    <!option value="5" @(Model.ViewModel.ContentFilterConfig.AutoAction == Core.DTOs.AutoAction.Ban ? "selected" : "")>Delete + Ban User</!option>
                 </select>
             </div>
         </div>
@@ -354,10 +354,10 @@
                 <label class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Raid Detection</label>
                 <p class="text-xs text-text-tertiary mb-2">Action to take when a raid is detected</p>
                 <select id="raid-auto-action" class="w-full md:w-64 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer">
-                    <option value="0" @(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.None ? "selected" : "")>None</option>
-                    <option value="1" @(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.AlertOnly ? "selected" : "")>Alert Only</option>
-                    <option value="2" @(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.LockInvites ? "selected" : "")>Lock Invites</option>
-                    <option value="3" @(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.LockServer ? "selected" : "")>Lock Server</option>
+                    <!option value="0" @(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.None ? "selected" : "")>None</!option>
+                    <!option value="1" @(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.AlertOnly ? "selected" : "")>Alert Only</!option>
+                    <!option value="2" @(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.LockInvites ? "selected" : "")>Lock Invites</!option>
+                    <!option value="3" @(Model.ViewModel.RaidProtectionConfig.AutoAction == Core.DTOs.RaidAutoAction.LockServer ? "selected" : "")>Lock Server</!option>
                 </select>
             </div>
         </div>

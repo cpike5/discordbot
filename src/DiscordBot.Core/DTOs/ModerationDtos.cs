@@ -1039,3 +1039,49 @@ public class ApplyPresetDto
     /// </summary>
     public string PresetName { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// DTO for querying flagged events with filters and pagination.
+/// </summary>
+public class FlaggedEventQueryDto
+{
+    /// <summary>
+    /// Gets or sets the optional rule type filter.
+    /// </summary>
+    public RuleType? RuleType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional severity filter.
+    /// </summary>
+    public Severity? Severity { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional status filter.
+    /// </summary>
+    public FlaggedEventStatus? Status { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional user ID filter.
+    /// </summary>
+    public ulong? UserId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional start date for filtering (UTC).
+    /// </summary>
+    public DateTime? DateFrom { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional end date for filtering (UTC).
+    /// </summary>
+    public DateTime? DateTo { get; set; }
+
+    /// <summary>
+    /// Gets or sets the page number (1-based).
+    /// </summary>
+    public int Page { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets the page size.
+    /// </summary>
+    public int PageSize { get; set; } = 20;
+}

@@ -98,6 +98,69 @@ public class FlaggedEventsController : ControllerBase
     }
 
     /// <summary>
+    /// Gets filtered flagged events for a guild with advanced filtering and pagination.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="query">The query parameters containing filters and pagination settings.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A paginated list of filtered flagged events for the guild.</returns>
+    [HttpGet("filter")]
+    [ProducesResponseType(typeof(PaginatedResponseDto<FlaggedEventDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<PaginatedResponseDto<FlaggedEventDto>>> GetFilteredEvents(
+        ulong guildId,
+        [FromQuery] FlaggedEventQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Filtered flagged events list requested for guild {GuildId}, filters: RuleType={RuleType}, Severity={Severity}, Status={Status}, page {Page}",
+            guildId, query.RuleType, query.Severity, query.Status, query.Page);
+
+        if (query.Page < 1)
+        {
+            _logger.LogWarning("Invalid page number: {Page}", query.Page);
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid page number",
+                Detail = "Page number must be greater than or equal to 1.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        if (query.PageSize < 1 || query.PageSize > 100)
+        {
+            _logger.LogWarning("Invalid page size: {PageSize}", query.PageSize);
+
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid page size",
+                Detail = "Page size must be between 1 and 100.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        var (items, totalCount) = await _flaggedEventService.GetFilteredEventsAsync(
+            guildId,
+            query,
+            cancellationToken);
+
+        var response = new PaginatedResponseDto<FlaggedEventDto>
+        {
+            Items = items.ToList(),
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalCount = totalCount
+        };
+
+        _logger.LogTrace("Retrieved {Count} of {Total} filtered flagged events for guild {GuildId}",
+            items.Count(), totalCount, guildId);
+
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Gets a specific flagged event by ID.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>

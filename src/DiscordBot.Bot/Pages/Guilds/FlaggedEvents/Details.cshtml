@@ -1,0 +1,426 @@
+@page "{guildId:long}/{id:guid}"
+@model DiscordBot.Bot.Pages.Guilds.FlaggedEvents.DetailsModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = $"Flagged Event Details - {Model.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.GuildName</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/FlaggedEvents/Index" asp-route-guildId="@Model.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">Flagged Events</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Event Details</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <a asp-page="/Guilds/FlaggedEvents/Index" asp-route-guildId="@Model.GuildId" class="text-text-secondary hover:text-text-primary transition-colors">
+                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+            </a>
+            <h1 class="text-2xl font-bold text-text-primary">Flagged Event Details</h1>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Content Column -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Event Summary Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <partial name="Shared/Components/_SeverityBadge" model="Model.Event.Severity" />
+                        <partial name="Shared/Components/_StatusBadge" model="Model.Event.Status" />
+                    </div>
+                    <div class="text-sm text-text-tertiary">
+                        @Model.Event.CreatedAt.ToString("MMM d, yyyy h:mm tt")
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</h3>
+                        <p class="text-text-primary">@Model.Event.Description</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Rule Type</h3>
+                            <div class="flex items-center gap-2">
+                                <partial name="Shared/Components/_RuleTypeIcon" model="Model.Event.RuleType" />
+                                <span class="text-text-primary">@Model.Event.RuleType</span>
+                            </div>
+                        </div>
+
+                        @if (Model.Event.ChannelId > 0)
+                        {
+                            <div>
+                                <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Channel</h3>
+                                <p class="text-text-primary">#{@Model.Event.ChannelName}</p>
+                            </div>
+                        }
+                    </div>
+
+                    @if (Model.Event.ReviewedAt.HasValue)
+                    {
+                        <div class="border-t border-border-primary pt-4">
+                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-2">Review Information</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <span class="text-sm text-text-secondary">Reviewed by:</span>
+                                    <p class="text-text-primary">@(Model.Event.ReviewedByUsername ?? "Unknown")</p>
+                                </div>
+                                <div>
+                                    <span class="text-sm text-text-secondary">Reviewed at:</span>
+                                    <p class="text-text-primary">@Model.Event.ReviewedAt.Value.ToString("MMM d, yyyy h:mm tt")</p>
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Model.Event.ActionTaken))
+                            {
+                                <div class="mt-4">
+                                    <span class="text-sm text-text-secondary">Action taken:</span>
+                                    <p class="text-text-primary">@Model.Event.ActionTaken</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- User Info Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">User Information</h2>
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-bold text-lg">
+                        @(Model.Event.Username.Length > 0 ? Model.Event.Username[0].ToString().ToUpper() : "?")
+                    </div>
+                    <div>
+                        <div class="text-text-primary font-medium">@Model.Event.Username</div>
+                        <div class="text-sm text-text-tertiary">User ID: @Model.Event.UserId</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Evidence Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <button type="button" onclick="toggleEvidence()" class="w-full flex items-center justify-between text-left">
+                    <h2 class="text-lg font-semibold text-text-primary">Evidence</h2>
+                    <svg id="evidenceChevron" class="w-5 h-5 text-text-secondary transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="evidenceContent" class="mt-4">
+                    <pre class="bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary overflow-x-auto">@Model.Event.Evidence</pre>
+                </div>
+            </div>
+
+            <!-- User History Card -->
+            @if (Model.UserHistory.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">User History (@Model.UserHistory.Count() previous events)</h2>
+                    <div class="space-y-3">
+                        @foreach (var evt in Model.UserHistory)
+                        {
+                            <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-primary rounded-md">
+                                <div class="flex items-center gap-3">
+                                    <partial name="Shared/Components/_SeverityBadge" model="evt.Severity" />
+                                    <span class="text-sm text-text-primary">@evt.RuleType</span>
+                                    <span class="text-xs text-text-tertiary">@evt.CreatedAt.ToString("MMM d, yyyy")</span>
+                                </div>
+                                <partial name="Shared/Components/_StatusBadge" model="evt.Status" />
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Action Panel Column -->
+        <div class="lg:col-span-1">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 sticky top-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Actions</h2>
+
+                @if (Model.Event.Status == FlaggedEventStatus.Pending)
+                {
+                    <div class="space-y-3">
+                        <button type="button" onclick="dismissEvent()" class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors">
+                            Dismiss
+                        </button>
+                        <button type="button" onclick="acknowledgeEvent()" class="w-full px-4 py-2 bg-accent-blue text-white font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
+                            Acknowledge
+                        </button>
+                        <div class="relative">
+                            <button type="button" onclick="toggleActionDropdown()" class="w-full px-4 py-2 bg-warning text-white font-medium rounded-md hover:bg-warning/90 transition-colors flex items-center justify-between">
+                                <span>Take Action</span>
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="actionDropdown" class="hidden absolute z-10 mt-2 w-full bg-bg-secondary border border-border-primary rounded-md shadow-lg">
+                                <div class="py-1">
+                                    <button type="button" onclick="takeAction('Warned user')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                        Warn User
+                                    </button>
+                                    <button type="button" onclick="takeAction('Muted user for 24 hours')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                        Mute User
+                                    </button>
+                                    <button type="button" onclick="takeAction('Kicked user from server')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                        Kick User
+                                    </button>
+                                    <button type="button" onclick="takeAction('Banned user from server')" class="block w-full text-left px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
+                                        Ban User
+                                    </button>
+                                    <button type="button" onclick="showCustomActionModal()" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors border-t border-border-primary">
+                                        Custom Action...
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-text-secondary">
+                        This event has been @Model.Event.Status.ToString().ToLower()
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Action Modal -->
+<div id="customActionModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-bg-secondary border border-border-primary rounded-lg max-w-md w-full p-6">
+        <h3 class="text-lg font-semibold text-text-primary mb-4">Custom Action</h3>
+        <textarea id="customActionText" rows="4" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Describe the action you took..."></textarea>
+        <div class="flex items-center justify-end gap-3 mt-4">
+            <button type="button" onclick="hideCustomActionModal()" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
+                Cancel
+            </button>
+            <button type="button" onclick="submitCustomAction()" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
+                Submit
+            </button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const guildId = '@Model.GuildId';
+        const eventId = '@Model.Event.Id';
+
+        function toggleEvidence() {
+            const content = document.getElementById('evidenceContent');
+            const chevron = document.getElementById('evidenceChevron');
+
+            content.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        }
+
+        function toggleActionDropdown() {
+            const dropdown = document.getElementById('actionDropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        function showCustomActionModal() {
+            document.getElementById('actionDropdown').classList.add('hidden');
+            document.getElementById('customActionModal').classList.remove('hidden');
+        }
+
+        function hideCustomActionModal() {
+            document.getElementById('customActionModal').classList.add('hidden');
+            document.getElementById('customActionText').value = '';
+        }
+
+        async function dismissEvent() {
+            if (!confirm('Are you sure you want to dismiss this flagged event?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/dismiss`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ reviewerId: '@User.FindFirst("DiscordId")?.Value' })
+                });
+
+                if (response.ok) {
+                    window.location.href = '/Guilds/FlaggedEvents/Index/' + guildId + '?successMessage=' + encodeURIComponent('Event dismissed successfully');
+                } else {
+                    const error = await response.json();
+                    alert('Error dismissing event: ' + error.message);
+                }
+            } catch (error) {
+                console.error('Error dismissing event:', error);
+                alert('An error occurred while dismissing the event.');
+            }
+        }
+
+        async function acknowledgeEvent() {
+            if (!confirm('Are you sure you want to acknowledge this flagged event?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/acknowledge`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ reviewerId: '@User.FindFirst("DiscordId")?.Value' })
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert('Error acknowledging event: ' + error.message);
+                }
+            } catch (error) {
+                console.error('Error acknowledging event:', error);
+                alert('An error occurred while acknowledging the event.');
+            }
+        }
+
+        async function takeAction(action) {
+            document.getElementById('actionDropdown').classList.add('hidden');
+
+            if (!confirm('Are you sure you want to take this action: ' + action + '?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/action`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: action,
+                        reviewerId: '@User.FindFirst("DiscordId")?.Value'
+                    })
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert('Error taking action: ' + error.message);
+                }
+            } catch (error) {
+                console.error('Error taking action:', error);
+                alert('An error occurred while taking action.');
+            }
+        }
+
+        async function submitCustomAction() {
+            const actionText = document.getElementById('customActionText').value.trim();
+
+            if (!actionText) {
+                alert('Please enter an action description.');
+                return;
+            }
+
+            hideCustomActionModal();
+
+            try {
+                const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/action`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: actionText,
+                        reviewerId: '@User.FindFirst("DiscordId")?.Value'
+                    })
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const error = await response.json();
+                    alert('Error taking action: ' + error.message);
+                }
+            } catch (error) {
+                console.error('Error taking action:', error);
+                alert('An error occurred while taking action.');
+            }
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.getElementById('actionDropdown');
+            const button = event.target.closest('button');
+
+            if (!button || button.textContent.indexOf('Take Action') === -1) {
+                dropdown.classList.add('hidden');
+            }
+        });
+    </script>
+}
