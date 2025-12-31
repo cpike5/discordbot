@@ -169,7 +169,7 @@ public class WatchlistController : ControllerBase
     /// <param name="userId">The user's Discord snowflake ID to remove.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>No content on success.</returns>
-    [HttpDelete("{userId:ulong}")]
+    [HttpDelete("{userId}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> RemoveFromWatchlist(
