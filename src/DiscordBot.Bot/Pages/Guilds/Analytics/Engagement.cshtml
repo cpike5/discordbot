@@ -1,0 +1,689 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.Analytics.EngagementModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"Engagement Metrics - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium" aria-current="page">Engagement Metrics</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Engagement Metrics</h1>
+            <p class="mt-1 text-sm text-text-secondary">Message trends and member retention for @Model.ViewModel.GuildName</p>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex items-center gap-1 mb-6 border-b border-border-primary">
+        <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
+            Overview
+        </a>
+        <a asp-page="Moderation" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
+            Moderation
+        </a>
+        <a asp-page="Engagement" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-accent-blue text-text-primary">
+            Engagement
+        </a>
+    </div>
+
+    <!-- Display any errors -->
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="mb-6">
+            @{
+                var errorAlert = new AlertViewModel {
+                    Variant = AlertVariant.Error,
+                    Title = "Error",
+                    Message = TempData["ErrorMessage"]!.ToString()!,
+                    ShowIcon = true
+                };
+            }
+            <partial name="Shared/Components/_Alert" model="errorAlert" />
+        </div>
+    }
+
+    <!-- Filter Panel -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <button type="button"
+                id="filterToggle"
+                class="w-full flex items-center justify-between px-5 py-4 text-left"
+                aria-expanded="true"
+                aria-controls="filterContent"
+                onclick="toggleFilterPanel()">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span class="text-lg font-semibold text-text-primary">Filters</span>
+                @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
+                {
+                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                        Text = "Active",
+                        Variant = BadgeVariant.Orange,
+                        Size = BadgeSize.Small
+                    })" />
+                }
+            </div>
+            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
+            <div class="border-t border-border-primary p-5">
+                <form method="get" id="filterForm">
+                    <!-- Quick Date Presets -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                        @{
+                            var today = DateTime.UtcNow.Date;
+                            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
+                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
+                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
+
+                            string GetPresetClass(bool isActive) => isActive
+                                ? "px-3 py-1.5 text-xs font-medium bg-accent-orange text-white border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
+                                : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
+                        }
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="setDatePreset('today')" class="@GetPresetClass(isToday)">
+                                Today
+                            </button>
+                            <button type="button" onclick="setDatePreset('7days')" class="@GetPresetClass(is7Days)">
+                                Last 7 Days
+                            </button>
+                            <button type="button" onclick="setDatePreset('30days')" class="@GetPresetClass(is30Days)">
+                                Last 30 Days
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Start Date -->
+                        <div>
+                            <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+                            <input type="date"
+                                   id="StartDate"
+                                   name="StartDate"
+                                   value="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                        </div>
+
+                        <!-- End Date -->
+                        <div>
+                            <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+                            <input type="date"
+                                   id="EndDate"
+                                   name="EndDate"
+                                   value="@Model.EndDate?.ToString("yyyy-MM-dd")"
+                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                        </div>
+                    </div>
+
+                    <!-- Filter Actions -->
+                    <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
+                        <button type="submit" class="btn btn-primary">
+                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Apply Filters
+                        </button>
+                        @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
+                        {
+                            <a asp-page="Engagement" asp-route-guildId="@Model.ViewModel.GuildId" class="btn btn-secondary">
+                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Clear Filters
+                            </a>
+                        }
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Stats Row -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
+        <!-- Total Messages -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Total Messages</p>
+                    <p class="mt-2 text-3xl font-bold text-text-primary">@Model.ViewModel.Summary.TotalMessages.ToString("N0")</p>
+                    <p class="mt-1 text-xs text-text-tertiary">@Model.ViewModel.Summary.Messages7d.ToString("N0") in last 7 days</p>
+                </div>
+                <div class="p-3 bg-accent-blue/10 rounded-lg">
+                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unique Authors -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Unique Authors</p>
+                    <p class="mt-2 text-3xl font-bold text-text-primary">@Model.ViewModel.Summary.ActiveMembers.ToString("N0")</p>
+                    <p class="mt-1 text-xs text-text-tertiary">Active in this period</p>
+                </div>
+                <div class="p-3 bg-accent-orange/10 rounded-lg">
+                    <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Retention Rate -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Retention Rate</p>
+                    <p class="mt-2 text-3xl font-bold text-success">@Model.ViewModel.Summary.NewMemberRetentionRate.ToString("F0")%</p>
+                    <p class="mt-1 text-xs text-text-tertiary">New members retained</p>
+                </div>
+                <div class="p-3 bg-success/10 rounded-lg">
+                    <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avg Message Length -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Avg Message Length</p>
+                    @{
+                        var avgLength = Model.ViewModel.MessageTrends.Any()
+                            ? Model.ViewModel.MessageTrends.Average(t => t.AvgMessageLength)
+                            : 0;
+                    }
+                    <p class="mt-2 text-3xl font-bold text-warning">@avgLength.ToString("F0")</p>
+                    <p class="mt-1 text-xs text-text-tertiary">Characters per message</p>
+                </div>
+                <div class="p-3 bg-warning/10 rounded-lg">
+                    <svg class="w-6 h-6 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Trends Chart (Full Width) -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+        <div class="px-5 py-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-accent-blue/10 rounded-lg">
+                    <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-text-primary">Message Trends</h2>
+                    <p class="text-xs text-text-tertiary">Messages and unique authors over time</p>
+                </div>
+            </div>
+        </div>
+        <div class="p-5">
+            @if (Model.ViewModel.MessageTrends.Any())
+            {
+                <div style="position: relative; min-height: 300px; max-height: 400px;">
+                    <canvas id="messageTrendsChart" aria-label="Line chart showing message trends over time" role="img"></canvas>
+                </div>
+            }
+            else
+            {
+                <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                    Type = EmptyStateType.NoData,
+                    Title = "No message data available",
+                    Description = "Data will appear here once messages are sent",
+                    Size = EmptyStateSize.Compact,
+                    IconSvgPath = "M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+                }' />
+            }
+        </div>
+    </div>
+
+    <!-- Channel Engagement Chart -->
+    @if (Model.ViewModel.ChannelEngagement.Any())
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+            <div class="px-5 py-4 border-b border-border-primary">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-success/10 rounded-lg">
+                        <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-text-primary">Channel Engagement</h2>
+                        <p class="text-xs text-text-tertiary">Messages per channel with engagement rate</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5">
+                <div style="position: relative; min-height: 300px; max-height: 400px;">
+                    <canvas id="channelEngagementChart" aria-label="Horizontal bar chart showing channel engagement" role="img"></canvas>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- New Member Retention Funnel -->
+    @if (Model.ViewModel.NewMemberRetention.Any())
+    {
+        var totalNew = Model.ViewModel.NewMemberRetention.Sum(r => r.NewMembers);
+        var totalFirstMsg = Model.ViewModel.NewMemberRetention.Sum(r => r.SentFirstMessage);
+        var totalActive7d = Model.ViewModel.NewMemberRetention.Sum(r => r.StillActive7d);
+        var totalActive30d = Model.ViewModel.NewMemberRetention.Sum(r => r.StillActive30d);
+
+        var firstMsgPct = totalNew > 0 ? (decimal)totalFirstMsg / totalNew * 100 : 0;
+        var active7dPct = totalNew > 0 ? (decimal)totalActive7d / totalNew * 100 : 0;
+        var active30dPct = totalNew > 0 ? (decimal)totalActive30d / totalNew * 100 : 0;
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+            <div class="px-5 py-4 border-b border-border-primary">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-warning/10 rounded-lg">
+                            <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-semibold text-text-primary">New Member Retention Funnel</h2>
+                            <p class="text-xs text-text-tertiary">Tracking member engagement from join to active participation</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5">
+                <div class="space-y-3">
+                    <!-- Joined -->
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-medium text-text-secondary w-32 text-right">Joined</span>
+                        <div class="flex-1 h-10 bg-accent-blue rounded-md flex items-center px-4" style="width: 100%;">
+                            <span class="text-sm font-semibold text-white">100%</span>
+                        </div>
+                        <span class="text-sm font-semibold text-text-primary w-24">@totalNew members</span>
+                    </div>
+
+                    <!-- First Message -->
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-medium text-text-secondary w-32 text-right">First Message</span>
+                        <div class="flex-1 h-10 bg-success rounded-md flex items-center px-4" style="width: @firstMsgPct.ToString("F1")%;">
+                            <span class="text-sm font-semibold text-white">@firstMsgPct.ToString("F1")%</span>
+                        </div>
+                        <span class="text-sm font-semibold text-text-primary w-24">@totalFirstMsg members</span>
+                    </div>
+
+                    <!-- Week 1 Active -->
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-medium text-text-secondary w-32 text-right">Week 1 Active</span>
+                        <div class="flex-1 h-10 bg-warning rounded-md flex items-center px-4" style="width: @active7dPct.ToString("F1")%;">
+                            <span class="text-sm font-semibold text-white">@active7dPct.ToString("F1")%</span>
+                        </div>
+                        <span class="text-sm font-semibold text-text-primary w-24">@totalActive7d members</span>
+                    </div>
+
+                    <!-- Month 1 Active -->
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-medium text-text-secondary w-32 text-right">Month 1 Active</span>
+                        <div class="flex-1 h-10 bg-accent-orange rounded-md flex items-center px-4" style="width: @active30dPct.ToString("F1")%;">
+                            <span class="text-sm font-semibold text-white">@active30dPct.ToString("F1")%</span>
+                        </div>
+                        <span class="text-sm font-semibold text-text-primary w-24">@totalActive30d members</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Coming Soon Banner -->
+    <div class="bg-bg-secondary border border-border-secondary rounded-lg mb-6 p-5">
+        <div class="flex items-start gap-4">
+            <svg class="w-6 h-6 text-text-tertiary flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+                <p class="text-sm font-semibold text-text-secondary">Voice and Reaction Analytics Coming Soon</p>
+                <p class="text-sm text-text-tertiary mt-1">We are working on bringing you detailed analytics for voice channel usage and message reactions. Stay tuned for updates!</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Placeholder Cards for Coming Soon Features -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+        <!-- Voice Analytics Placeholder -->
+        <div class="bg-bg-secondary border border-dashed border-border-primary rounded-lg p-8 text-center opacity-60">
+            <svg class="w-12 h-12 text-text-tertiary mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            <p class="text-base font-semibold text-text-secondary mb-1">Voice Channel Analytics</p>
+            <p class="text-sm text-text-tertiary">Track voice activity, average session duration, and peak usage times</p>
+        </div>
+
+        <!-- Reaction Analytics Placeholder -->
+        <div class="bg-bg-secondary border border-dashed border-border-primary rounded-lg p-8 text-center opacity-60">
+            <svg class="w-12 h-12 text-text-tertiary mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p class="text-base font-semibold text-text-secondary mb-1">Reaction Analytics</p>
+            <p class="text-sm text-text-tertiary">Most used emojis, reaction rates, and sentiment analysis</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Embed Chart Data -->
+    @{
+        var chartData = new {
+            messageTrends = Model.ViewModel.MessageTrends.Select(t => new {
+                date = t.Date.ToString("yyyy-MM-dd"),
+                messageCount = t.MessageCount,
+                uniqueAuthors = t.UniqueAuthors,
+                avgMessageLength = t.AvgMessageLength
+            }),
+            channelEngagement = Model.ViewModel.ChannelEngagement.Select(c => new {
+                channelId = c.ChannelId.ToString(),
+                channelName = c.ChannelName,
+                messageCount = c.MessageCount,
+                uniqueAuthors = c.UniqueAuthors,
+                engagementRate = c.EngagementRate
+            })
+        };
+        var chartDataJson = System.Text.Json.JsonSerializer.Serialize(chartData);
+    }
+
+    <script type="application/json" id="engagementChartData">
+@Html.Raw(chartDataJson)
+    </script>
+
+    <!-- Filter Panel Toggle Script -->
+    <script>
+        function toggleFilterPanel() {
+            const content = document.getElementById('filterContent');
+            const chevron = document.getElementById('filterChevron');
+            const toggle = document.getElementById('filterToggle');
+
+            if (content.style.maxHeight === '0px') {
+                content.style.maxHeight = '1000px';
+                chevron.style.transform = 'rotate(0deg)';
+                toggle.setAttribute('aria-expanded', 'true');
+            } else {
+                content.style.maxHeight = '0px';
+                chevron.style.transform = 'rotate(-90deg)';
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        }
+
+        function setDatePreset(preset) {
+            const today = new Date();
+            const startDateInput = document.getElementById('StartDate');
+            const endDateInput = document.getElementById('EndDate');
+
+            let startDate = new Date();
+
+            switch(preset) {
+                case 'today':
+                    startDate = today;
+                    break;
+                case '7days':
+                    startDate.setDate(today.getDate() - 7);
+                    break;
+                case '30days':
+                    startDate.setDate(today.getDate() - 30);
+                    break;
+            }
+
+            startDateInput.value = startDate.toISOString().split('T')[0];
+            endDateInput.value = today.toISOString().split('T')[0];
+
+            // Auto-submit the form after setting dates
+            document.getElementById('filterForm').submit();
+        }
+    </script>
+
+    <!-- Chart Initialization Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Chart.js default dark theme settings
+            Chart.defaults.color = '#a8a5a3';
+            Chart.defaults.borderColor = '#3f4447';
+
+            // Load chart data from embedded JSON
+            const chartDataElement = document.getElementById('engagementChartData');
+            if (!chartDataElement) {
+                console.error('Chart data element not found');
+                return;
+            }
+
+            let chartData;
+            try {
+                chartData = JSON.parse(chartDataElement.textContent);
+            } catch (e) {
+                console.error('Failed to parse chart data:', e);
+                return;
+            }
+
+            // Message Trends Chart (Line with dual Y-axes)
+            const trendsCanvas = document.getElementById('messageTrendsChart');
+            if (trendsCanvas && chartData.messageTrends && chartData.messageTrends.length > 0) {
+                const trendsCtx = trendsCanvas.getContext('2d');
+                new Chart(trendsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: chartData.messageTrends.map(t => {
+                            const date = new Date(t.date);
+                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }),
+                        datasets: [
+                            {
+                                label: 'Messages',
+                                data: chartData.messageTrends.map(t => t.messageCount),
+                                borderColor: '#098ecf',
+                                backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                                fill: true,
+                                tension: 0.4,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Unique Authors',
+                                data: chartData.messageTrends.map(t => t.uniqueAuthors),
+                                borderColor: '#10b981',
+                                backgroundColor: 'transparent',
+                                borderDash: [5, 5],
+                                tension: 0.4,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                beginAtZero: false,
+                                grid: {
+                                    color: '#2f3336'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Messages',
+                                    color: '#098ecf'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                beginAtZero: false,
+                                grid: {
+                                    drawOnChartArea: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Unique Authors',
+                                    color: '#10b981'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Channel Engagement Chart (Horizontal Bar)
+            const channelCanvas = document.getElementById('channelEngagementChart');
+            if (channelCanvas && chartData.channelEngagement && chartData.channelEngagement.length > 0) {
+                const channelCtx = channelCanvas.getContext('2d');
+                new Chart(channelCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.channelEngagement.map(c => c.channelName),
+                        datasets: [
+                            {
+                                label: 'Messages',
+                                data: chartData.channelEngagement.map(c => c.messageCount),
+                                backgroundColor: '#098ecf',
+                                borderRadius: 4
+                            },
+                            {
+                                label: 'Engagement Rate (%)',
+                                data: chartData.channelEngagement.map(c => c.engagementRate),
+                                backgroundColor: '#cb4e1b',
+                                borderRadius: 4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        if (context.datasetIndex === 0) {
+                                            return context.parsed.x.toLocaleString() + ' messages';
+                                        } else {
+                                            return context.parsed.x.toFixed(1) + '% engagement';
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: '#2f3336'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    }
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+}

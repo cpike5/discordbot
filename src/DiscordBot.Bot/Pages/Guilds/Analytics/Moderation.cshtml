@@ -1,0 +1,842 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.Analytics.ModerationModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"Moderation Analytics - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary" aria-hidden="true">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium" aria-current="page">Moderation Analytics</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Moderation Analytics</h1>
+            <p class="mt-1 text-sm text-text-secondary">Moderation metrics and trends for @Model.ViewModel.GuildName</p>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex items-center gap-1 mb-6 border-b border-border-primary">
+        <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
+            Overview
+        </a>
+        <a asp-page="Moderation" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-accent-blue text-text-primary">
+            Moderation
+        </a>
+        <a asp-page="Engagement" asp-route-guildId="@Model.ViewModel.GuildId"
+           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
+            Engagement
+        </a>
+    </div>
+
+    <!-- Display any errors -->
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="mb-6">
+            @{
+                var errorAlert = new AlertViewModel {
+                    Variant = AlertVariant.Error,
+                    Title = "Error",
+                    Message = TempData["ErrorMessage"]!.ToString()!,
+                    ShowIcon = true
+                };
+            }
+            <partial name="Shared/Components/_Alert" model="errorAlert" />
+        </div>
+    }
+
+    <!-- Filter Panel -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <button type="button"
+                id="filterToggle"
+                class="w-full flex items-center justify-between px-5 py-4 text-left"
+                aria-expanded="true"
+                aria-controls="filterContent"
+                onclick="toggleFilterPanel()">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span class="text-lg font-semibold text-text-primary">Filters</span>
+                @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
+                {
+                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                        Text = "Active",
+                        Variant = BadgeVariant.Orange,
+                        Size = BadgeSize.Small
+                    })" />
+                }
+            </div>
+            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
+            <div class="border-t border-border-primary p-5">
+                <form method="get" id="filterForm">
+                    <!-- Quick Date Presets -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                        @{
+                            var today = DateTime.UtcNow.Date;
+                            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
+                            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
+                            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
+
+                            string GetPresetClass(bool isActive) => isActive
+                                ? "px-3 py-1.5 text-xs font-medium bg-accent-orange text-white border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
+                                : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
+                        }
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="setDatePreset('today')" class="@GetPresetClass(isToday)">
+                                Today
+                            </button>
+                            <button type="button" onclick="setDatePreset('7days')" class="@GetPresetClass(is7Days)">
+                                Last 7 Days
+                            </button>
+                            <button type="button" onclick="setDatePreset('30days')" class="@GetPresetClass(is30Days)">
+                                Last 30 Days
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Start Date -->
+                        <div>
+                            <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+                            <input type="date"
+                                   id="StartDate"
+                                   name="StartDate"
+                                   value="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                        </div>
+
+                        <!-- End Date -->
+                        <div>
+                            <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+                            <input type="date"
+                                   id="EndDate"
+                                   name="EndDate"
+                                   value="@Model.EndDate?.ToString("yyyy-MM-dd")"
+                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                        </div>
+                    </div>
+
+                    <!-- Filter Actions -->
+                    <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
+                        <button type="submit" class="btn btn-primary">
+                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Apply Filters
+                        </button>
+                        @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
+                        {
+                            <a asp-page="Moderation" asp-route-guildId="@Model.ViewModel.GuildId" class="btn btn-secondary">
+                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Clear Filters
+                            </a>
+                        }
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Stats Row -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <!-- Total Cases -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex flex-col">
+                <p class="text-sm font-medium text-text-secondary">Total Cases</p>
+                <p class="mt-2 text-3xl font-bold text-text-primary">@Model.ViewModel.Summary.TotalCases.ToString("N0")</p>
+                <p class="mt-1 text-xs text-text-tertiary">@Model.ViewModel.Summary.CasesPerDay.ToString("F1") per day</p>
+            </div>
+        </div>
+
+        <!-- Warns -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-warning/50 transition-colors">
+            <div class="flex flex-col">
+                <p class="text-sm font-medium text-text-secondary">Warns</p>
+                <p class="mt-2 text-3xl font-bold text-warning">@Model.ViewModel.Summary.WarnCount.ToString("N0")</p>
+                @{
+                    var warnPercent = Model.ViewModel.Summary.TotalCases > 0
+                        ? (decimal)Model.ViewModel.Summary.WarnCount / Model.ViewModel.Summary.TotalCases * 100
+                        : 0;
+                }
+                <p class="mt-1 text-xs text-text-tertiary">@warnPercent.ToString("F1")% of cases</p>
+            </div>
+        </div>
+
+        <!-- Mutes -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-info/50 transition-colors">
+            <div class="flex flex-col">
+                <p class="text-sm font-medium text-text-secondary">Mutes</p>
+                <p class="mt-2 text-3xl font-bold text-info">@Model.ViewModel.Summary.MuteCount.ToString("N0")</p>
+                @{
+                    var mutePercent = Model.ViewModel.Summary.TotalCases > 0
+                        ? (decimal)Model.ViewModel.Summary.MuteCount / Model.ViewModel.Summary.TotalCases * 100
+                        : 0;
+                }
+                <p class="mt-1 text-xs text-text-tertiary">@mutePercent.ToString("F1")% of cases</p>
+            </div>
+        </div>
+
+        <!-- Kicks -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-accent-orange/50 transition-colors">
+            <div class="flex flex-col">
+                <p class="text-sm font-medium text-text-secondary">Kicks</p>
+                <p class="mt-2 text-3xl font-bold text-accent-orange">@Model.ViewModel.Summary.KickCount.ToString("N0")</p>
+                @{
+                    var kickPercent = Model.ViewModel.Summary.TotalCases > 0
+                        ? (decimal)Model.ViewModel.Summary.KickCount / Model.ViewModel.Summary.TotalCases * 100
+                        : 0;
+                }
+                <p class="mt-1 text-xs text-text-tertiary">@kickPercent.ToString("F1")% of cases</p>
+            </div>
+        </div>
+
+        <!-- Bans -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-error/50 transition-colors">
+            <div class="flex flex-col">
+                <p class="text-sm font-medium text-text-secondary">Bans</p>
+                <p class="mt-2 text-3xl font-bold text-error">@Model.ViewModel.Summary.BanCount.ToString("N0")</p>
+                @{
+                    var banPercent = Model.ViewModel.Summary.TotalCases > 0
+                        ? (decimal)Model.ViewModel.Summary.BanCount / Model.ViewModel.Summary.TotalCases * 100
+                        : 0;
+                }
+                <p class="mt-1 text-xs text-text-tertiary">@banPercent.ToString("F1")% of cases</p>
+            </div>
+        </div>
+
+        <!-- Avg Cases/Day -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-success/50 transition-colors">
+            <div class="flex flex-col">
+                <p class="text-sm font-medium text-text-secondary">Avg Cases/Day</p>
+                <p class="mt-2 text-3xl font-bold text-success">@Model.ViewModel.Summary.CasesPerDay.ToString("F1")</p>
+                @{
+                    var changeClass = Model.ViewModel.Summary.ChangeFromPreviousPeriod > 0 ? "text-error" :
+                                     Model.ViewModel.Summary.ChangeFromPreviousPeriod < 0 ? "text-success" : "text-text-tertiary";
+                    var changeIcon = Model.ViewModel.Summary.ChangeFromPreviousPeriod > 0 ? "M5 10l7-7m0 0l7 7m-7-7v18" :
+                                    Model.ViewModel.Summary.ChangeFromPreviousPeriod < 0 ? "M19 14l-7 7m0 0l-7-7m7 7V3" : "";
+                }
+                <p class="mt-1 text-xs @changeClass flex items-center gap-1">
+                    @if (!string.IsNullOrEmpty(changeIcon))
+                    {
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@changeIcon" />
+                        </svg>
+                    }
+                    @Math.Abs(Model.ViewModel.Summary.ChangeFromPreviousPeriod).ToString("F1")% vs prior period
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-8">
+        <!-- Moderation Trends Chart -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden lg:col-span-2">
+            <div class="px-5 py-4 border-b border-border-primary">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-accent-orange/10 rounded-lg">
+                        <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-text-primary">Moderation Trends Over Time</h2>
+                        <p class="text-sm text-text-tertiary">Action counts by type</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5">
+                @if (Model.ViewModel.Trends.Any())
+                {
+                    <div style="position: relative; min-height: 300px; max-height: 400px;">
+                        <canvas id="moderationTrendsChart" aria-label="Stacked area chart showing moderation actions over time" role="img"></canvas>
+                    </div>
+                }
+                else
+                {
+                    <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No moderation data available",
+                        Description = "Data will appear here once moderation actions are recorded",
+                        Size = EmptyStateSize.Compact,
+                        IconSvgPath = "M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
+                    }' />
+                }
+            </div>
+        </div>
+
+        <!-- Case Type Distribution Chart -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-5 py-4 border-b border-border-primary">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-accent-blue/10 rounded-lg">
+                        <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-text-primary">Case Type Distribution</h2>
+                        <p class="text-sm text-text-tertiary">Breakdown by action type</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5">
+                @if (Model.ViewModel.Distribution.Total > 0)
+                {
+                    <div style="position: relative; min-height: 300px; max-height: 400px;">
+                        <canvas id="caseDistributionChart" aria-label="Doughnut chart showing case type distribution" role="img"></canvas>
+                    </div>
+                }
+                else
+                {
+                    <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No data available",
+                        Description = "Distribution will appear here once cases are recorded",
+                        Size = EmptyStateSize.Compact,
+                        IconSvgPath = "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                    }' />
+                }
+            </div>
+        </div>
+
+        <!-- Moderator Workload Chart -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-5 py-4 border-b border-border-primary">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-success/10 rounded-lg">
+                        <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-text-primary">Moderator Workload</h2>
+                        <p class="text-sm text-text-tertiary">Cases handled per moderator</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-5">
+                @if (Model.ViewModel.ModeratorWorkload.Any())
+                {
+                    <div style="position: relative; min-height: 300px; max-height: 400px;">
+                        <canvas id="moderatorWorkloadChart" aria-label="Horizontal bar chart showing moderator workload" role="img"></canvas>
+                    </div>
+                }
+                else
+                {
+                    <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No moderator data available",
+                        Description = "Workload data will appear here",
+                        Size = EmptyStateSize.Compact,
+                        IconSvgPath = "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                    }' />
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Repeat Offenders Table -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-border-primary">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-warning/10 rounded-lg">
+                        <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-text-primary">Repeat Offenders</h2>
+                        <p class="text-sm text-text-tertiary">Users with multiple moderation cases</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @if (Model.ViewModel.RepeatOffenders.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-bg-primary/50">
+                        <tr>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Total Cases</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Warns</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Mutes</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Kicks</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Bans</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Escalation Path</th>
+                            <th class="px-5 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Last Incident</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var offender in Model.ViewModel.RepeatOffenders)
+                        {
+                            var totalCases = offender.TotalCases;
+                            var rowClass = totalCases >= 8 ? "bg-error/5" : totalCases >= 5 ? "bg-warning/5" : "";
+                            <tr class="@rowClass hover:bg-bg-hover transition-colors">
+                                <td class="px-5 py-4">
+                                    <div class="flex items-center gap-3">
+                                        @if (!string.IsNullOrEmpty(offender.AvatarUrl))
+                                        {
+                                            <img src="@offender.AvatarUrl" alt="@offender.Username" class="w-10 h-10 rounded-full" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm">
+                                                @(offender.Username.Length >= 2 ? offender.Username.Substring(0, 2).ToUpper() : offender.Username.ToUpper())
+                                            </div>
+                                        }
+                                        <p class="font-medium text-text-primary">@offender.Username</p>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold @(totalCases >= 8 ? "text-error bg-error/10" : totalCases >= 5 ? "text-warning bg-warning/10" : "text-text-primary bg-bg-tertiary") rounded-full">
+                                        @totalCases
+                                    </span>
+                                </td>
+                                <td class="px-5 py-4 text-text-primary">@offender.WarnCount</td>
+                                <td class="px-5 py-4 text-text-primary">@offender.MuteCount</td>
+                                <td class="px-5 py-4 text-text-primary">@offender.KickCount</td>
+                                <td class="px-5 py-4">
+                                    @if (offender.BanCount > 0)
+                                    {
+                                        <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-error bg-error/10 rounded-full">
+                                            @offender.BanCount
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-text-tertiary">0</span>
+                                    }
+                                </td>
+                                <td class="px-5 py-4">
+                                    <div class="flex items-center gap-1">
+                                        @foreach (var action in offender.EscalationPath)
+                                        {
+                                            var (letter, colorClass) = action switch
+                                            {
+                                                "Warn" => ("W", "bg-warning/20 text-warning"),
+                                                "Mute" => ("M", "bg-info/20 text-info"),
+                                                "Kick" => ("K", "bg-accent-orange/20 text-accent-orange"),
+                                                "Ban" => ("B", "bg-error/20 text-error"),
+                                                _ => ("N", "bg-bg-tertiary text-text-tertiary")
+                                            };
+                                            <span class="inline-flex items-center justify-center w-6 h-6 rounded @colorClass text-xs font-semibold">@letter</span>
+                                            @if (action != offender.EscalationPath.Last())
+                                            {
+                                                <svg class="w-3 h-3 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            }
+                                        }
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4 text-text-secondary text-sm">
+                                    @{
+                                        var timeSince = DateTime.UtcNow - offender.LastIncident;
+                                        var timeText = timeSince.TotalDays < 1 ? "Today" :
+                                                      timeSince.TotalDays < 2 ? "Yesterday" :
+                                                      timeSince.TotalDays < 7 ? $"{(int)timeSince.TotalDays} days ago" :
+                                                      timeSince.TotalDays < 30 ? $"{(int)(timeSince.TotalDays / 7)} weeks ago" :
+                                                      offender.LastIncident.ToString("MMM d, yyyy");
+                                    }
+                                    @timeText
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Legend -->
+            <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/30">
+                <div class="flex flex-wrap items-center gap-4 text-xs text-text-tertiary">
+                    <span class="font-medium text-text-secondary">Legend:</span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded bg-warning/20 text-warning flex items-center justify-center text-[10px] font-semibold">W</span>
+                        Warn
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded bg-info/20 text-info flex items-center justify-center text-[10px] font-semibold">M</span>
+                        Mute
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded bg-accent-orange/20 text-accent-orange flex items-center justify-center text-[10px] font-semibold">K</span>
+                        Kick
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded bg-error/20 text-error flex items-center justify-center text-[10px] font-semibold">B</span>
+                        Ban
+                    </span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="py-12">
+                <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                    Type = EmptyStateType.NoData,
+                    Title = "No repeat offenders",
+                    Description = "Users with multiple cases will appear here",
+                    Size = EmptyStateSize.Compact,
+                    IconSvgPath = "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                }' />
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Embed Chart Data -->
+    @{
+        var chartData = new {
+            trends = Model.ViewModel.Trends.Select(t => new {
+                date = t.Date.ToString("yyyy-MM-dd"),
+                totalCases = t.TotalCases,
+                warnCount = t.WarnCount,
+                muteCount = t.MuteCount,
+                kickCount = t.KickCount,
+                banCount = t.BanCount
+            }),
+            distribution = new {
+                warnCount = Model.ViewModel.Distribution.WarnCount,
+                muteCount = Model.ViewModel.Distribution.MuteCount,
+                kickCount = Model.ViewModel.Distribution.KickCount,
+                banCount = Model.ViewModel.Distribution.BanCount,
+                noteCount = Model.ViewModel.Distribution.NoteCount
+            },
+            moderatorWorkload = Model.ViewModel.ModeratorWorkload.Select(m => new {
+                moderatorId = m.ModeratorId.ToString(),
+                moderatorUsername = m.ModeratorUsername,
+                totalActions = m.TotalActions,
+                warnCount = m.WarnCount,
+                muteCount = m.MuteCount,
+                kickCount = m.KickCount,
+                banCount = m.BanCount
+            })
+        };
+        var chartDataJson = System.Text.Json.JsonSerializer.Serialize(chartData);
+    }
+
+    <script type="application/json" id="moderationChartData">
+@Html.Raw(chartDataJson)
+    </script>
+
+    <!-- Filter Panel Toggle Script -->
+    <script>
+        function toggleFilterPanel() {
+            const content = document.getElementById('filterContent');
+            const chevron = document.getElementById('filterChevron');
+            const toggle = document.getElementById('filterToggle');
+
+            if (content.style.maxHeight === '0px') {
+                content.style.maxHeight = '1000px';
+                chevron.style.transform = 'rotate(0deg)';
+                toggle.setAttribute('aria-expanded', 'true');
+            } else {
+                content.style.maxHeight = '0px';
+                chevron.style.transform = 'rotate(-90deg)';
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        }
+
+        function setDatePreset(preset) {
+            const today = new Date();
+            const startDateInput = document.getElementById('StartDate');
+            const endDateInput = document.getElementById('EndDate');
+
+            let startDate = new Date();
+
+            switch(preset) {
+                case 'today':
+                    startDate = today;
+                    break;
+                case '7days':
+                    startDate.setDate(today.getDate() - 7);
+                    break;
+                case '30days':
+                    startDate.setDate(today.getDate() - 30);
+                    break;
+            }
+
+            startDateInput.value = startDate.toISOString().split('T')[0];
+            endDateInput.value = today.toISOString().split('T')[0];
+
+            // Auto-submit the form after setting dates
+            document.getElementById('filterForm').submit();
+        }
+    </script>
+
+    <!-- Chart Rendering Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load chart data from embedded JSON
+            const chartDataElement = document.getElementById('moderationChartData');
+            if (!chartDataElement) {
+                console.error('Chart data not found');
+                return;
+            }
+
+            const chartData = JSON.parse(chartDataElement.textContent);
+
+            // Chart.js default dark theme settings
+            Chart.defaults.color = '#a8a5a3';
+            Chart.defaults.borderColor = '#3f4447';
+
+            // Moderation Trends Chart (Stacked Area)
+            const trendsCanvas = document.getElementById('moderationTrendsChart');
+            if (trendsCanvas && chartData.trends.length > 0) {
+                const trendsCtx = trendsCanvas.getContext('2d');
+                new Chart(trendsCtx, {
+                    type: 'line',
+                    data: {
+                        labels: chartData.trends.map(t => {
+                            const date = new Date(t.date);
+                            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                        }),
+                        datasets: [
+                            {
+                                label: 'Warns',
+                                data: chartData.trends.map(t => t.warnCount),
+                                borderColor: '#f59e0b',
+                                backgroundColor: 'rgba(245, 158, 11, 0.3)',
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Mutes',
+                                data: chartData.trends.map(t => t.muteCount),
+                                borderColor: '#06b6d4',
+                                backgroundColor: 'rgba(6, 182, 212, 0.3)',
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Kicks',
+                                data: chartData.trends.map(t => t.kickCount),
+                                borderColor: '#cb4e1b',
+                                backgroundColor: 'rgba(203, 78, 27, 0.3)',
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Bans',
+                                data: chartData.trends.map(t => t.banCount),
+                                borderColor: '#ef4444',
+                                backgroundColor: 'rgba(239, 68, 68, 0.3)',
+                                fill: true,
+                                tension: 0.4
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                stacked: true,
+                                grid: {
+                                    color: '#2f3336'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Case Distribution Chart (Doughnut)
+            const distCanvas = document.getElementById('caseDistributionChart');
+            if (distCanvas && chartData.distribution) {
+                const distCtx = distCanvas.getContext('2d');
+                new Chart(distCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Warns', 'Mutes', 'Kicks', 'Bans'],
+                        datasets: [{
+                            data: [
+                                chartData.distribution.warnCount,
+                                chartData.distribution.muteCount,
+                                chartData.distribution.kickCount,
+                                chartData.distribution.banCount
+                            ],
+                            backgroundColor: [
+                                '#f59e0b',
+                                '#06b6d4',
+                                '#cb4e1b',
+                                '#ef4444'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 15,
+                                    generateLabels: function(chart) {
+                                        const data = chart.data;
+                                        return data.labels.map((label, i) => ({
+                                            text: `${label} (${data.datasets[0].data[i]})`,
+                                            fillStyle: data.datasets[0].backgroundColor[i],
+                                            index: i
+                                        }));
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                        return `${context.label}: ${context.parsed} (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Moderator Workload Chart (Horizontal Bar)
+            const workloadCanvas = document.getElementById('moderatorWorkloadChart');
+            if (workloadCanvas && chartData.moderatorWorkload.length > 0) {
+                const workloadCtx = workloadCanvas.getContext('2d');
+                new Chart(workloadCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.moderatorWorkload.map(m => m.moderatorUsername),
+                        datasets: [{
+                            label: 'Cases Handled',
+                            data: chartData.moderatorWorkload.map(m => m.totalActions),
+                            backgroundColor: '#098ecf',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed.x / total) * 100).toFixed(1);
+                                        return `${context.parsed.x} cases (${percentage}%)`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: '#2f3336'
+                                }
+                            },
+                            y: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+}
