@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Diagnostics;
 using System.Text;
+using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Configuration;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ namespace DiscordBot.Infrastructure.Data.Interceptors;
 /// <item>Debug-level logs for all queries with execution time and sanitized parameters</item>
 /// <item>Warning-level logs for slow queries exceeding the configured threshold</item>
 /// <item>Error-level logs for failed queries with exception details</item>
+/// <item>Metrics collection via IDatabaseMetricsCollector (optional)</item>
 /// </list>
 /// The interceptor is designed to never throw exceptions that could break query execution.
 /// </remarks>
@@ -24,6 +26,7 @@ public class QueryPerformanceInterceptor : DbCommandInterceptor
 {
     private readonly ILogger<QueryPerformanceInterceptor> _logger;
     private readonly DatabaseSettings _settings;
+    private readonly IDatabaseMetricsCollector? _metricsCollector;
     private const int MaxParameterValueLength = 50;
     private const int MaxCommandTextLength = 1000;
 
@@ -32,12 +35,15 @@ public class QueryPerformanceInterceptor : DbCommandInterceptor
     /// </summary>
     /// <param name="logger">The logger instance.</param>
     /// <param name="settings">The database settings configuration.</param>
+    /// <param name="metricsCollector">Optional metrics collector for performance tracking.</param>
     public QueryPerformanceInterceptor(
         ILogger<QueryPerformanceInterceptor> logger,
-        IOptions<DatabaseSettings> settings)
+        IOptions<DatabaseSettings> settings,
+        IDatabaseMetricsCollector? metricsCollector = null)
     {
         _logger = logger;
         _settings = settings.Value;
+        _metricsCollector = metricsCollector;
     }
 
     #region Async Query Execution
@@ -165,6 +171,9 @@ public class QueryPerformanceInterceptor : DbCommandInterceptor
             var elapsedMs = eventData.Duration.TotalMilliseconds;
             var commandText = TruncateCommandText(command.CommandText);
 
+            // Record metrics
+            _metricsCollector?.RecordQuery(elapsedMs, command.CommandType.ToString());
+
             // Always log at Debug level with execution time
             if (_logger.IsEnabled(LogLevel.Debug))
             {
@@ -195,6 +204,12 @@ public class QueryPerformanceInterceptor : DbCommandInterceptor
                     command.CommandType,
                     commandText,
                     parameters);
+
+                // Record slow query details
+                _metricsCollector?.RecordSlowQuery(
+                    command.CommandText,
+                    elapsedMs,
+                    _settings.LogQueryParameters ? SanitizeParameters(command) : null);
             }
         }
         catch (Exception ex)
@@ -220,6 +235,9 @@ public class QueryPerformanceInterceptor : DbCommandInterceptor
             var parameters = _settings.LogQueryParameters
                 ? SanitizeParameters(command)
                 : "(parameter logging disabled)";
+
+            // Record query error
+            _metricsCollector?.RecordQueryError(elapsedMs, eventData.Exception.Message);
 
             _logger.LogError(eventData.Exception,
                 "EF Query failed. ElapsedMs={ElapsedMs:F2}, CommandType={CommandType}, SQL={CommandText}, Parameters={Parameters}, Error={Error}",

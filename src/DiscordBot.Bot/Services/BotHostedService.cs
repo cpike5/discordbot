@@ -37,6 +37,9 @@ public class BotHostedService : IHostedService
     private readonly ISettingsService _settingsService;
     private readonly IRatWatchStatusService _ratWatchStatusService;
     private readonly IBotStatusService _botStatusService;
+    private readonly IConnectionStateService? _connectionStateService;
+    private readonly ILatencyHistoryService? _latencyHistoryService;
+    private readonly IApiRequestTracker? _apiRequestTracker;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     public BotHostedService(
@@ -58,7 +61,10 @@ public class BotHostedService : IHostedService
         IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
         IHostApplicationLifetime lifetime,
-        IHostEnvironment environment)
+        IHostEnvironment environment,
+        IConnectionStateService? connectionStateService = null,
+        ILatencyHistoryService? latencyHistoryService = null,
+        IApiRequestTracker? apiRequestTracker = null)
     {
         _client = client;
         _interactionHandler = interactionHandler;
@@ -79,6 +85,9 @@ public class BotHostedService : IHostedService
         _logger = logger;
         _lifetime = lifetime;
         _environment = environment;
+        _connectionStateService = connectionStateService;
+        _latencyHistoryService = latencyHistoryService;
+        _apiRequestTracker = apiRequestTracker;
     }
 
     /// <summary>
@@ -225,11 +234,19 @@ public class BotHostedService : IHostedService
 
     /// <summary>
     /// Logs Discord.NET messages to ILogger with appropriate log levels.
+    /// Also forwards messages to the API request tracker for metrics collection.
     /// </summary>
     private Task LogDiscordMessageAsync(LogMessage message)
     {
         var logLevel = MapLogSeverity(message.Severity);
         _logger.Log(logLevel, message.Exception, "[Discord.NET] {Message}", message.Message);
+
+        // Forward to API request tracker for performance metrics
+        _apiRequestTracker?.TrackLogEvent(
+            message.Source ?? string.Empty,
+            message.Message ?? string.Empty,
+            (int)message.Severity);
+
         return Task.CompletedTask;
     }
 
@@ -253,6 +270,9 @@ public class BotHostedService : IHostedService
     private Task OnConnectedAsync()
     {
         _logger.LogInformation("Bot connected to Discord");
+
+        // Record connection state change for performance metrics
+        _connectionStateService?.RecordConnected();
 
         // Check for active Rat Watches and set appropriate status (fire-and-forget)
         // This prioritizes Rat Watch status over custom status
@@ -312,6 +332,9 @@ public class BotHostedService : IHostedService
     {
         _logger.LogWarning(exception, "Bot disconnected from Discord");
 
+        // Record disconnection for performance metrics
+        _connectionStateService?.RecordDisconnected(exception);
+
         // Broadcast status update (fire-and-forget, failure tolerant)
         _ = BroadcastBotStatusAsync();
 
@@ -337,6 +360,9 @@ public class BotHostedService : IHostedService
     private Task OnLatencyUpdatedAsync(int oldLatency, int newLatency)
     {
         _logger.LogTrace("Bot latency updated from {OldLatency}ms to {NewLatency}ms", oldLatency, newLatency);
+
+        // Record latency sample for performance metrics
+        _latencyHistoryService?.RecordSample(newLatency);
 
         // Broadcast status update periodically (fire-and-forget, failure tolerant)
         _ = BroadcastBotStatusAsync();

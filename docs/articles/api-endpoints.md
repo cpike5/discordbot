@@ -20,6 +20,18 @@ The REST API provides programmatic access to bot status, guild management, and c
 |----------|--------|-------------|
 | `/api/health` | GET | Health check with database connectivity |
 | `/metrics` | GET | OpenTelemetry metrics (Prometheus format) |
+| `/api/metrics/health` | GET | Overall bot health status |
+| `/api/metrics/health/latency` | GET | Latency history with statistics |
+| `/api/metrics/health/connections` | GET | Connection event history |
+| `/api/metrics/commands/performance` | GET | Aggregated command performance metrics |
+| `/api/metrics/commands/slowest` | GET | Slowest commands by execution time |
+| `/api/metrics/commands/throughput` | GET | Command throughput over time |
+| `/api/metrics/commands/errors` | GET | Command error breakdown |
+| `/api/metrics/api/usage` | GET | Discord API request statistics |
+| `/api/metrics/api/rate-limits` | GET | Rate limit hit events |
+| `/api/metrics/system/database` | GET | Database query metrics |
+| `/api/metrics/system/services` | GET | Background service health status |
+| `/api/metrics/system/cache` | GET | Cache hit/miss statistics |
 | `/api/bot/status` | GET | Bot status (uptime, latency, guilds) |
 | `/api/bot/guilds` | GET | Connected guilds from Discord |
 | `/api/bot/restart` | POST | Restart bot (not supported) |
@@ -192,6 +204,761 @@ curl http://localhost:5000/metrics
 **Related Documentation:**
 - [Metrics Documentation](metrics.md) - Complete metrics reference and setup guide
 - [Distributed Tracing](tracing.md) - OpenTelemetry distributed tracing setup
+
+---
+
+## Performance Metrics API
+
+The Performance Metrics API provides structured JSON endpoints for monitoring bot performance, health, and operational metrics. All endpoints require authentication with the `RequireViewer` policy (minimum Viewer role).
+
+**Base Path:** `/api/metrics`
+
+**Authorization:** All endpoints require authentication (minimum Viewer role)
+
+---
+
+### Health Endpoints
+
+#### GET /api/metrics/health
+
+Returns overall bot health status including uptime, latency, and connection state.
+
+**Response: 200 OK**
+
+```json
+{
+  "status": "Healthy",
+  "uptime": "2.15:34:22",
+  "latency": 45,
+  "connectionState": "Connected",
+  "timestamp": "2024-12-08T15:30:00Z"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Overall health status (Healthy, Degraded, Unhealthy) |
+| `uptime` | string | Bot uptime in TimeSpan format (d.hh:mm:ss) |
+| `latency` | int | Current gateway latency in milliseconds |
+| `connectionState` | string | Discord gateway connection state |
+| `timestamp` | string | ISO 8601 timestamp of the response |
+
+---
+
+#### GET /api/metrics/health/latency
+
+Returns latency history with samples and statistical analysis.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `hours` | int | No | 24 | 1-168 | Time range for latency history |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/health/latency?hours=48
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "samples": [
+    {
+      "timestamp": "2024-12-08T15:30:00Z",
+      "latencyMs": 45
+    },
+    {
+      "timestamp": "2024-12-08T15:29:00Z",
+      "latencyMs": 42
+    }
+  ],
+  "statistics": {
+    "average": 43.5,
+    "minimum": 38,
+    "maximum": 52,
+    "p50": 43,
+    "p95": 50,
+    "p99": 52
+  },
+  "timeRange": {
+    "start": "2024-12-06T15:30:00Z",
+    "end": "2024-12-08T15:30:00Z",
+    "hours": 48
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `samples` | array | Latency samples with timestamp and value |
+| `statistics.average` | double | Average latency in milliseconds |
+| `statistics.minimum` | int | Minimum latency observed |
+| `statistics.maximum` | int | Maximum latency observed |
+| `statistics.p50` | double | 50th percentile (median) latency |
+| `statistics.p95` | double | 95th percentile latency |
+| `statistics.p99` | double | 99th percentile latency |
+| `timeRange` | object | Time range parameters of the query |
+
+---
+
+#### GET /api/metrics/health/connections
+
+Returns connection event history with statistics.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `days` | int | No | 7 | 1-30 | Time range for connection events |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/health/connections?days=14
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "events": [
+    {
+      "timestamp": "2024-12-08T10:15:32Z",
+      "eventType": "Disconnected",
+      "reason": "Gateway timeout"
+    },
+    {
+      "timestamp": "2024-12-08T10:15:45Z",
+      "eventType": "Connected",
+      "reason": "Reconnection successful"
+    }
+  ],
+  "statistics": {
+    "totalEvents": 12,
+    "disconnections": 6,
+    "reconnections": 6,
+    "currentUptime": "5.08:22:15",
+    "averageUptime": "18:45:32"
+  },
+  "timeRange": {
+    "start": "2024-11-24T15:30:00Z",
+    "end": "2024-12-08T15:30:00Z",
+    "days": 14
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `events` | array | Connection events (Connected, Disconnected) |
+| `statistics.totalEvents` | int | Total number of connection events |
+| `statistics.disconnections` | int | Number of disconnection events |
+| `statistics.reconnections` | int | Number of reconnection events |
+| `statistics.currentUptime` | string | Current continuous uptime |
+| `statistics.averageUptime` | string | Average uptime between disconnections |
+| `timeRange` | object | Time range parameters of the query |
+
+---
+
+### Command Performance Endpoints
+
+#### GET /api/metrics/commands/performance
+
+Returns aggregated command performance metrics with percentile analysis.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `hours` | int | No | 24 | 1-168 | Time range for performance data |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/commands/performance?hours=24
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "commands": [
+    {
+      "commandName": "ping",
+      "totalExecutions": 1250,
+      "successfulExecutions": 1248,
+      "failedExecutions": 2,
+      "averageDurationMs": 12.3,
+      "p50DurationMs": 11.0,
+      "p95DurationMs": 18.5,
+      "p99DurationMs": 25.2,
+      "minDurationMs": 8,
+      "maxDurationMs": 45
+    }
+  ],
+  "summary": {
+    "totalCommands": 5,
+    "totalExecutions": 3420,
+    "overallSuccessRate": 99.2
+  },
+  "timeRange": {
+    "start": "2024-12-07T15:30:00Z",
+    "end": "2024-12-08T15:30:00Z",
+    "hours": 24
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `commands` | array | Per-command performance metrics |
+| `commandName` | string | Name of the slash command |
+| `totalExecutions` | int | Total number of executions |
+| `successfulExecutions` | int | Number of successful executions |
+| `failedExecutions` | int | Number of failed executions |
+| `averageDurationMs` | double | Average execution duration |
+| `p50DurationMs` | double | Median execution duration |
+| `p95DurationMs` | double | 95th percentile duration |
+| `p99DurationMs` | double | 99th percentile duration |
+| `summary.overallSuccessRate` | double | Overall success rate percentage |
+
+---
+
+#### GET /api/metrics/commands/slowest
+
+Returns the slowest commands by execution time.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `limit` | int | No | 10 | 1-100 | Maximum number of results |
+| `hours` | int | No | 24 | 1-168 | Time range for analysis |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/commands/slowest?limit=5&hours=24
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "slowestCommands": [
+    {
+      "commandName": "analyze",
+      "executionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "durationMs": 2345,
+      "timestamp": "2024-12-08T14:22:15Z",
+      "userId": "123456789012345678",
+      "guildId": "987654321098765432",
+      "successful": true
+    }
+  ],
+  "timeRange": {
+    "start": "2024-12-07T15:30:00Z",
+    "end": "2024-12-08T15:30:00Z",
+    "hours": 24
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `slowestCommands` | array | Slowest command executions |
+| `commandName` | string | Name of the command |
+| `executionId` | string | Unique execution identifier (GUID) |
+| `durationMs` | int | Execution duration in milliseconds |
+| `timestamp` | string | ISO 8601 timestamp of execution |
+| `userId` | string | Discord user ID who executed the command |
+| `guildId` | string | Discord guild ID where command was executed |
+| `successful` | bool | Whether the command completed successfully |
+
+---
+
+#### GET /api/metrics/commands/throughput
+
+Returns command throughput over time with configurable granularity.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `hours` | int | No | 24 | 1-168 | Time range for throughput data |
+| `granularity` | string | No | "hour" | "hour", "day" | Time bucket granularity |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/commands/throughput?hours=48&granularity=hour
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "dataPoints": [
+    {
+      "timestamp": "2024-12-08T15:00:00Z",
+      "commandCount": 142,
+      "successCount": 140,
+      "errorCount": 2
+    },
+    {
+      "timestamp": "2024-12-08T14:00:00Z",
+      "commandCount": 156,
+      "successCount": 155,
+      "errorCount": 1
+    }
+  ],
+  "summary": {
+    "totalCommands": 3420,
+    "averagePerPeriod": 142.5,
+    "peakPeriod": {
+      "timestamp": "2024-12-08T10:00:00Z",
+      "count": 287
+    }
+  },
+  "timeRange": {
+    "start": "2024-12-06T15:30:00Z",
+    "end": "2024-12-08T15:30:00Z",
+    "hours": 48,
+    "granularity": "hour"
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `dataPoints` | array | Throughput measurements per time bucket |
+| `timestamp` | string | Start of the time bucket |
+| `commandCount` | int | Total commands in this bucket |
+| `successCount` | int | Successful commands in this bucket |
+| `errorCount` | int | Failed commands in this bucket |
+| `summary.averagePerPeriod` | double | Average commands per time bucket |
+| `summary.peakPeriod` | object | Highest throughput period |
+
+---
+
+#### GET /api/metrics/commands/errors
+
+Returns command error breakdown by type and recent error details.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `hours` | int | No | 24 | 1-168 | Time range for error analysis |
+| `limit` | int | No | 50 | 1-100 | Maximum recent errors to return |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/commands/errors?hours=24&limit=10
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "errorSummary": [
+    {
+      "errorType": "ValidationException",
+      "count": 12,
+      "percentage": 48.0
+    },
+    {
+      "errorType": "TimeoutException",
+      "count": 8,
+      "percentage": 32.0
+    }
+  ],
+  "recentErrors": [
+    {
+      "timestamp": "2024-12-08T15:22:45Z",
+      "commandName": "verify",
+      "errorType": "ValidationException",
+      "errorMessage": "Invalid verification code format",
+      "userId": "123456789012345678",
+      "guildId": "987654321098765432"
+    }
+  ],
+  "summary": {
+    "totalErrors": 25,
+    "uniqueErrorTypes": 4,
+    "errorRate": 0.73
+  },
+  "timeRange": {
+    "start": "2024-12-07T15:30:00Z",
+    "end": "2024-12-08T15:30:00Z",
+    "hours": 24
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `errorSummary` | array | Error counts grouped by type |
+| `errorType` | string | Exception type or error category |
+| `count` | int | Number of errors of this type |
+| `percentage` | double | Percentage of total errors |
+| `recentErrors` | array | Most recent error details |
+| `summary.totalErrors` | int | Total number of errors |
+| `summary.errorRate` | double | Errors as percentage of total executions |
+
+---
+
+### API Usage Endpoints
+
+#### GET /api/metrics/api/usage
+
+Returns Discord API request statistics by category.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `hours` | int | No | 24 | 1-168 | Time range for API usage |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/api/usage?hours=24
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "categories": [
+    {
+      "category": "Messages",
+      "requestCount": 4523,
+      "averageLatencyMs": 145,
+      "errorCount": 3,
+      "errorRate": 0.07
+    },
+    {
+      "category": "Guilds",
+      "requestCount": 256,
+      "averageLatencyMs": 98,
+      "errorCount": 0,
+      "errorRate": 0.0
+    }
+  ],
+  "summary": {
+    "totalRequests": 8934,
+    "totalErrors": 12,
+    "overallErrorRate": 0.13,
+    "averageLatencyMs": 132
+  },
+  "timeRange": {
+    "start": "2024-12-07T15:30:00Z",
+    "end": "2024-12-08T15:30:00Z",
+    "hours": 24
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `categories` | array | API usage grouped by endpoint category |
+| `category` | string | API category (Messages, Guilds, Users, etc.) |
+| `requestCount` | int | Number of requests to this category |
+| `averageLatencyMs` | double | Average response time in milliseconds |
+| `errorCount` | int | Number of failed requests |
+| `errorRate` | double | Error rate as percentage |
+| `summary.totalRequests` | int | Total API requests across all categories |
+| `summary.overallErrorRate` | double | Overall error rate percentage |
+
+---
+
+#### GET /api/metrics/api/rate-limits
+
+Returns Discord API rate limit hit events.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `hours` | int | No | 24 | 1-168 | Time range for rate limit events |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/api/rate-limits?hours=24
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "events": [
+    {
+      "timestamp": "2024-12-08T14:30:22Z",
+      "endpoint": "/channels/{id}/messages",
+      "bucket": "channel_messages",
+      "retryAfterMs": 1250,
+      "wasGlobal": false
+    }
+  ],
+  "summary": {
+    "totalHits": 5,
+    "uniqueBuckets": 2,
+    "globalRateLimits": 0,
+    "averageRetryMs": 1150
+  },
+  "timeRange": {
+    "start": "2024-12-07T15:30:00Z",
+    "end": "2024-12-08T15:30:00Z",
+    "hours": 24
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `events` | array | Rate limit hit events |
+| `timestamp` | string | When the rate limit was hit |
+| `endpoint` | string | Discord API endpoint path |
+| `bucket` | string | Discord rate limit bucket identifier |
+| `retryAfterMs` | int | Milliseconds to wait before retry |
+| `wasGlobal` | bool | Whether this was a global rate limit |
+| `summary.totalHits` | int | Total rate limit hits |
+| `summary.globalRateLimits` | int | Number of global rate limits hit |
+
+---
+
+### System Health Endpoints
+
+#### GET /api/metrics/system/database
+
+Returns database query metrics and recent slow queries.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `limit` | int | No | 20 | 1-100 | Maximum slow queries to return |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/system/database?limit=10
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "queryMetrics": {
+    "totalQueries": 12450,
+    "averageDurationMs": 8.5,
+    "slowQueryThresholdMs": 100,
+    "slowQueryCount": 15
+  },
+  "slowQueries": [
+    {
+      "query": "SELECT * FROM CommandLogs WHERE GuildId = @p0 ORDER BY ExecutedAt DESC",
+      "durationMs": 245,
+      "timestamp": "2024-12-08T15:10:32Z",
+      "database": "discordbot"
+    }
+  ],
+  "connectionPool": {
+    "activeConnections": 3,
+    "idleConnections": 7,
+    "maxPoolSize": 100,
+    "waitingRequests": 0
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `queryMetrics.totalQueries` | int | Total queries executed |
+| `queryMetrics.averageDurationMs` | double | Average query duration |
+| `queryMetrics.slowQueryCount` | int | Queries exceeding threshold |
+| `slowQueries` | array | Recent slow query details |
+| `connectionPool.activeConnections` | int | Active database connections |
+| `connectionPool.maxPoolSize` | int | Maximum connection pool size |
+
+---
+
+#### GET /api/metrics/system/services
+
+Returns background service health status.
+
+**Response: 200 OK**
+
+```json
+{
+  "services": [
+    {
+      "serviceName": "BotHostedService",
+      "status": "Running",
+      "uptime": "2.15:34:22",
+      "lastError": null,
+      "lastErrorTimestamp": null
+    },
+    {
+      "serviceName": "ScheduledMessageService",
+      "status": "Running",
+      "uptime": "2.15:34:18",
+      "lastError": null,
+      "lastErrorTimestamp": null
+    },
+    {
+      "serviceName": "MessageCleanupService",
+      "status": "Running",
+      "uptime": "2.15:34:15",
+      "lastError": null,
+      "lastErrorTimestamp": null
+    }
+  ],
+  "summary": {
+    "totalServices": 3,
+    "runningServices": 3,
+    "stoppedServices": 0,
+    "faultedServices": 0
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `services` | array | Individual service status |
+| `serviceName` | string | Name of the background service |
+| `status` | string | Current status (Running, Stopped, Faulted) |
+| `uptime` | string | Service uptime duration |
+| `lastError` | string | Most recent error message (if any) |
+| `lastErrorTimestamp` | string | When the last error occurred |
+| `summary.runningServices` | int | Count of healthy running services |
+| `summary.faultedServices` | int | Count of services in error state |
+
+---
+
+#### GET /api/metrics/system/cache
+
+Returns cache hit/miss statistics by key prefix.
+
+**Response: 200 OK**
+
+```json
+{
+  "cacheStats": [
+    {
+      "keyPrefix": "guild:",
+      "hits": 8542,
+      "misses": 342,
+      "hitRate": 96.2,
+      "totalKeys": 45,
+      "evictions": 12
+    },
+    {
+      "keyPrefix": "user:",
+      "hits": 15234,
+      "misses": 892,
+      "hitRate": 94.5,
+      "totalKeys": 128,
+      "evictions": 34
+    }
+  ],
+  "summary": {
+    "totalHits": 24876,
+    "totalMisses": 1456,
+    "overallHitRate": 94.5,
+    "totalKeys": 245,
+    "memoryUsageMb": 42.5
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `cacheStats` | array | Cache statistics grouped by key prefix |
+| `keyPrefix` | string | Cache key prefix (guild:, user:, etc.) |
+| `hits` | int | Number of cache hits |
+| `misses` | int | Number of cache misses |
+| `hitRate` | double | Hit rate as percentage |
+| `totalKeys` | int | Number of cached keys |
+| `evictions` | int | Number of cache evictions |
+| `summary.overallHitRate` | double | Overall cache hit rate |
+| `summary.memoryUsageMb` | double | Approximate cache memory usage |
+
+---
+
+**Common Error Responses:**
+
+All Performance Metrics API endpoints may return the following error responses:
+
+**400 Bad Request** - Invalid query parameters
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Parameter 'hours' must be between 1 and 168",
+  "timestamp": "2024-12-08T15:30:00Z"
+}
+```
+
+**401 Unauthorized** - Missing or invalid authentication
+
+```json
+{
+  "error": "Unauthorized",
+  "message": "Authentication required",
+  "timestamp": "2024-12-08T15:30:00Z"
+}
+```
+
+**403 Forbidden** - Insufficient permissions
+
+```json
+{
+  "error": "Forbidden",
+  "message": "Viewer role or higher required",
+  "timestamp": "2024-12-08T15:30:00Z"
+}
+```
+
+**500 Internal Server Error** - Server-side error
+
+```json
+{
+  "error": "Internal Server Error",
+  "message": "An error occurred while processing the request",
+  "timestamp": "2024-12-08T15:30:00Z"
+}
+```
 
 ---
 
