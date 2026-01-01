@@ -39,6 +39,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ModTag> ModTags => Set<ModTag>();
     public DbSet<UserModTag> UserModTags => Set<UserModTag>();
     public DbSet<Watchlist> Watchlists => Set<Watchlist>();
+    public DbSet<Reminder> Reminders => Set<Reminder>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
