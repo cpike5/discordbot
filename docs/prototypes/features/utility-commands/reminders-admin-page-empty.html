@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reminders (Empty State) - Discord Bot Admin</title>
+
+    <!-- Shared Tailwind Configuration -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <style>
+        /* Form input focus states */
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #098ecf;
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        /* Date input styling */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+            cursor: pointer;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2022;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f4447;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f5457;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Servers</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Reminders</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex items-center gap-2 text-sm">
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+                </li>
+                <li class="text-text-tertiary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+                </li>
+                <li class="text-text-tertiary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">New Server</a>
+                </li>
+                <li class="text-text-tertiary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li class="text-text-primary font-medium">Reminders</li>
+            </ol>
+        </nav>
+
+        <!-- Page Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">Reminders</h1>
+                <p class="mt-1 text-sm text-text-secondary">View and manage reminders for this server</p>
+            </div>
+        </div>
+
+        <!-- Statistics Cards (all zeros) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-6">
+            <!-- Total Reminders -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Total Reminders</p>
+                        <p class="mt-2 text-3xl font-bold text-text-primary">0</p>
+                        <p class="mt-1 text-xs text-text-tertiary">All time</p>
+                    </div>
+                    <div class="p-3 bg-accent-blue/10 rounded-lg">
+                        <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Pending</p>
+                        <p class="mt-2 text-3xl font-bold text-text-tertiary">0</p>
+                        <p class="mt-1 text-xs text-text-tertiary">Awaiting delivery</p>
+                    </div>
+                    <div class="p-3 bg-info/10 rounded-lg">
+                        <svg class="w-6 h-6 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delivered Today -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Delivered Today</p>
+                        <p class="mt-2 text-3xl font-bold text-text-tertiary">0</p>
+                        <p class="mt-1 text-xs text-text-tertiary">Successfully sent</p>
+                    </div>
+                    <div class="p-3 bg-success/10 rounded-lg">
+                        <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Failed -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Failed</p>
+                        <p class="mt-2 text-3xl font-bold text-text-tertiary">0</p>
+                        <p class="mt-1 text-xs text-text-tertiary">Needs attention</p>
+                    </div>
+                    <div class="p-3 bg-error/10 rounded-lg">
+                        <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+            <div class="flex flex-col items-center text-center max-w-[400px] mx-auto">
+                <div class="p-4 bg-bg-tertiary rounded-full mb-4">
+                    <!-- Clock/Timer Icon -->
+                    <svg class="w-16 h-16 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-text-primary mb-2">No Reminders Found</h3>
+                <p class="text-sm text-text-secondary">Reminders created with <code class="px-1.5 py-0.5 bg-bg-tertiary rounded text-accent-blue font-mono text-xs">/remind</code> will appear here. Users can set personal reminders that will be delivered via DM at the scheduled time.</p>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

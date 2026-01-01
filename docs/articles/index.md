@@ -42,7 +42,14 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Message Logging](message-logging.md) - Discord message logging with consent-based collection
 - [Environment Configuration](environment-configuration.md) - Environment-specific settings (Dev, Staging, Production)
 - [Distributed Tracing](tracing.md) - OpenTelemetry distributed tracing
+- [OpenTelemetry Metrics](metrics.md) - Metrics collection with Prometheus export
 - [Centralized Logging (Seq)](log-aggregation.md) - Log aggregation with Seq
+- [Jaeger & Loki Setup](jaeger-loki-setup.md) - Distributed tracing and log aggregation on Linux VPS
+- [Grafana Dashboards](grafana-dashboards-specification.md) - Dashboard design and configuration
+
+## Deployment
+- [Linux VPS Deployment](linux-deployment.md) - Production deployment guide for Ubuntu/Debian
+- [Versioning Strategy](versioning-strategy.md) - SemVer versioning and release process
 
 ## Development
 - [Testing Guide](testing-guide.md) - Unit testing patterns and best practices

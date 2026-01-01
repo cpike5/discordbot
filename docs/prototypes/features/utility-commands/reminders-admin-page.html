@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reminders - Discord Bot Admin</title>
+
+    <!-- Shared Tailwind Configuration -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <style>
+        /* Form input focus states */
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #098ecf;
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        /* Date input styling */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.7);
+            cursor: pointer;
+        }
+
+        /* Table row hover actions */
+        .table-row .row-actions {
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+        .table-row:hover .row-actions {
+            opacity: 1;
+        }
+
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            z-index: 50;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 0.75rem;
+            background-color: #2f3336;
+            border: 1px solid #3f4447;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            color: #d7d3d0;
+            white-space: nowrap;
+            margin-bottom: 0.5rem;
+            transition: opacity 0.15s ease-in-out, visibility 0.15s ease-in-out;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1d2022;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3f4447;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f5457;
+        }
+
+        /* Mobile responsive table */
+        @media (max-width: 768px) {
+            .mobile-card {
+                display: block;
+            }
+            .desktop-table {
+                display: none;
+            }
+        }
+        @media (min-width: 769px) {
+            .mobile-card {
+                display: none;
+            }
+            .desktop-table {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-bg-secondary border-b border-border-primary">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                            </svg>
+                        </div>
+                        <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Servers</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Reminders</a>
+                        <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+                        <span class="text-white font-medium text-sm">A</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb -->
+        <nav aria-label="Breadcrumb" class="mb-6">
+            <ol class="flex items-center gap-2 text-sm">
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+                </li>
+                <li class="text-text-tertiary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+                </li>
+                <li class="text-text-tertiary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li>
+                    <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Gaming Hub</a>
+                </li>
+                <li class="text-text-tertiary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li class="text-text-primary font-medium">Reminders</li>
+            </ol>
+        </nav>
+
+        <!-- Page Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">Reminders</h1>
+                <p class="mt-1 text-sm text-text-secondary">View and manage reminders for this server</p>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-6">
+            <!-- Total Reminders -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Total Reminders</p>
+                        <p class="mt-2 text-3xl font-bold text-text-primary">156</p>
+                        <p class="mt-1 text-xs text-text-tertiary">All time</p>
+                    </div>
+                    <div class="p-3 bg-accent-blue/10 rounded-lg">
+                        <!-- Bell Icon -->
+                        <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Pending</p>
+                        <p class="mt-2 text-3xl font-bold text-info">23</p>
+                        <p class="mt-1 text-xs text-text-tertiary">Awaiting delivery</p>
+                    </div>
+                    <div class="p-3 bg-info/10 rounded-lg">
+                        <!-- Clock Icon -->
+                        <svg class="w-6 h-6 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Delivered Today -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Delivered Today</p>
+                        <p class="mt-2 text-3xl font-bold text-success">12</p>
+                        <p class="mt-1 text-xs text-text-tertiary">Successfully sent</p>
+                    </div>
+                    <div class="p-3 bg-success/10 rounded-lg">
+                        <!-- Check Circle Icon -->
+                        <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Failed -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-text-secondary">Failed</p>
+                        <p class="mt-2 text-3xl font-bold text-error">3</p>
+                        <p class="mt-1 text-xs text-text-tertiary">Needs attention</p>
+                    </div>
+                    <div class="p-3 bg-error/10 rounded-lg">
+                        <!-- Exclamation Circle Icon -->
+                        <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-sm font-semibold text-text-primary">Filters</h2>
+                <button id="toggleFilters" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors md:hidden">
+                    Show Filters
+                </button>
+            </div>
+
+            <form id="filtersForm" class="space-y-4">
+                <!-- Row 1: Status and User Search -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Status Filter -->
+                    <div>
+                        <label for="status" class="block text-sm font-medium text-text-primary mb-1">Status</label>
+                        <select id="status" name="status" class="form-select w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors">
+                            <option value="">All Statuses</option>
+                            <option value="pending">Pending</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="failed">Failed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <!-- User Search -->
+                    <div>
+                        <label for="userSearch" class="block text-sm font-medium text-text-primary mb-1">User Search</label>
+                        <input
+                            type="text"
+                            id="userSearch"
+                            name="userSearch"
+                            placeholder="Search by username..."
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors"
+                        />
+                    </div>
+
+                    <!-- Date Range - From -->
+                    <div>
+                        <label for="fromDate" class="block text-sm font-medium text-text-primary mb-1">Trigger Time From</label>
+                        <input
+                            type="date"
+                            id="fromDate"
+                            name="fromDate"
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                        />
+                    </div>
+                </div>
+
+                <!-- Row 2: Date Range To and Actions -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Date Range - To -->
+                    <div>
+                        <label for="toDate" class="block text-sm font-medium text-text-primary mb-1">Trigger Time To</label>
+                        <input
+                            type="date"
+                            id="toDate"
+                            name="toDate"
+                            class="form-input w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors"
+                        />
+                    </div>
+
+                    <!-- Spacer -->
+                    <div class="hidden md:block"></div>
+
+                    <!-- Actions -->
+                    <div class="flex items-end gap-2">
+                        <button type="button" onclick="clearFilters()" class="flex-1 px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                            Clear
+                        </button>
+                        <button type="submit" class="flex-1 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                            <span class="flex items-center justify-center gap-2">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                                Apply
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Results Summary -->
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">1-25</span> of <span class="font-medium text-text-primary">156</span> reminders
+            </p>
+        </div>
+
+        <!-- Desktop Table -->
+        <div class="desktop-table bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Message</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Trigger Time</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Created</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        <!-- Row 1 - Pending -->
+                        <tr class="table-row hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-6 w-6 rounded-full bg-accent-blue flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">JD</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">JohnDoe#1234</a>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="tooltip">
+                                    <span class="text-sm text-text-primary max-w-[200px] truncate block">Remember to submit the weekly report...</span>
+                                    <span class="tooltip-text">Remember to submit the weekly report before the Friday deadline!</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div>
+                                    <span class="text-sm text-text-primary">Jan 3, 2026 3:00 PM</span>
+                                    <p class="text-xs text-text-tertiary">in 2 days</p>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 30, 2025 10:30 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-info/20 text-info">
+                                    Pending
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1 row-actions">
+                                    <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors" title="View Details">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                    <button type="button" onclick="showCancelModal('JohnDoe#1234', 'Remember to submit the weekly report...')" class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors" title="Cancel Reminder">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 2 - Pending -->
+                        <tr class="table-row hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-6 w-6 rounded-full bg-accent-orange flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">AS</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">AliceSmith#5678</a>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="tooltip">
+                                    <span class="text-sm text-text-primary max-w-[200px] truncate block">Team meeting at 2pm tomorrow</span>
+                                    <span class="tooltip-text">Team meeting at 2pm tomorrow</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div>
+                                    <span class="text-sm text-text-primary">Jan 1, 2026 2:00 PM</span>
+                                    <p class="text-xs text-text-tertiary">in 8 hours</p>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 31, 2025 9:15 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-info/20 text-info">
+                                    Pending
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1 row-actions">
+                                    <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors" title="View Details">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                    <button type="button" onclick="showCancelModal('AliceSmith#5678', 'Team meeting at 2pm tomorrow')" class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors" title="Cancel Reminder">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 3 - Delivered -->
+                        <tr class="table-row hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-6 w-6 rounded-full bg-success flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">BJ</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">BobJones#9012</a>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="tooltip">
+                                    <span class="text-sm text-text-primary max-w-[200px] truncate block">Don't forget to water the plants!</span>
+                                    <span class="tooltip-text">Don't forget to water the plants!</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div>
+                                    <span class="text-sm text-text-primary">Dec 31, 2025 8:00 AM</span>
+                                    <p class="text-xs text-text-tertiary">3 hours ago</p>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 30, 2025 6:00 PM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                    Delivered
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1 row-actions">
+                                    <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors" title="View Details">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 4 - Failed -->
+                        <tr class="table-row hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-6 w-6 rounded-full bg-warning flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">CW</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">CarolWilson#3456</a>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="tooltip">
+                                    <span class="text-sm text-text-primary max-w-[200px] truncate block">Pick up groceries on the way home</span>
+                                    <span class="tooltip-text">Pick up groceries on the way home</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div>
+                                    <span class="text-sm text-text-primary">Dec 30, 2025 5:00 PM</span>
+                                    <p class="text-xs text-text-tertiary">yesterday</p>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 28, 2025 2:45 PM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                                    Failed
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1 row-actions">
+                                    <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors" title="View Details">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 5 - Cancelled -->
+                        <tr class="table-row hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-6 w-6 rounded-full bg-error flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">DL</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">DavidLee#7890</a>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="tooltip">
+                                    <span class="text-sm text-text-primary max-w-[200px] truncate block">Call mom for her birthday</span>
+                                    <span class="tooltip-text">Call mom for her birthday</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div>
+                                    <span class="text-sm text-text-primary">Dec 29, 2025 10:00 AM</span>
+                                    <p class="text-xs text-text-tertiary">2 days ago</p>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 25, 2025 11:30 AM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-bg-tertiary text-text-secondary">
+                                    Cancelled
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1 row-actions">
+                                    <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors" title="View Details">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Row 6 - Delivered -->
+                        <tr class="table-row hover:bg-bg-tertiary/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-6 w-6 rounded-full bg-info flex items-center justify-center">
+                                        <span class="text-white font-medium text-xs">EM</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">EmilyMiller#2345</a>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="tooltip">
+                                    <span class="text-sm text-text-primary max-w-[200px] truncate block">Start the laundry before leaving for...</span>
+                                    <span class="tooltip-text">Start the laundry before leaving for work in the morning</span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div>
+                                    <span class="text-sm text-text-primary">Dec 31, 2025 6:30 AM</span>
+                                    <p class="text-xs text-text-tertiary">5 hours ago</p>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">Dec 30, 2025 8:00 PM</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                    Delivered
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                <div class="flex items-center justify-end gap-1 row-actions">
+                                    <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors" title="View Details">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            <div class="px-6 py-4 border-t border-border-primary">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <label for="pageSize" class="text-sm text-text-secondary">Show:</label>
+                        <select id="pageSize" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                    <nav aria-label="Pagination" class="flex items-center gap-1">
+                        <!-- Previous -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors pointer-events-none opacity-50" aria-label="Previous page" aria-disabled="true">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </a>
+                        <!-- Page Numbers -->
+                        <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">1</span>
+                        <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">2</a>
+                        <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">3</a>
+                        <span class="px-2 py-2 text-text-tertiary">...</span>
+                        <a href="#" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">7</a>
+                        <!-- Next -->
+                        <a href="#" class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors" aria-label="Next page">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Card View -->
+        <div class="mobile-card space-y-4">
+            <!-- Card 1 - Pending -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <div class="h-8 w-8 rounded-full bg-accent-blue flex items-center justify-center">
+                            <span class="text-white font-medium text-sm">JD</span>
+                        </div>
+                        <div class="ml-3">
+                            <a href="#" class="text-sm font-medium text-accent-blue">JohnDoe#1234</a>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-info/20 text-info">
+                        Pending
+                    </span>
+                </div>
+                <p class="text-sm text-text-primary mb-2">Remember to submit the weekly report before the Friday deadline!</p>
+                <div class="flex items-center justify-between text-xs text-text-tertiary">
+                    <div>
+                        <span class="block">Trigger: Jan 3, 2026 3:00 PM</span>
+                        <span class="block">Created: Dec 30, 2025 10:30 AM</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                        <button type="button" onclick="showCancelModal('JohnDoe#1234', 'Remember to submit the weekly report...')" class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 2 - Delivered -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <div class="h-8 w-8 rounded-full bg-success flex items-center justify-center">
+                            <span class="text-white font-medium text-sm">BJ</span>
+                        </div>
+                        <div class="ml-3">
+                            <a href="#" class="text-sm font-medium text-accent-blue">BobJones#9012</a>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                        Delivered
+                    </span>
+                </div>
+                <p class="text-sm text-text-primary mb-2">Don't forget to water the plants!</p>
+                <div class="flex items-center justify-between text-xs text-text-tertiary">
+                    <div>
+                        <span class="block">Trigger: Dec 31, 2025 8:00 AM</span>
+                        <span class="block">Created: Dec 30, 2025 6:00 PM</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Card 3 - Failed -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        <div class="h-8 w-8 rounded-full bg-warning flex items-center justify-center">
+                            <span class="text-white font-medium text-sm">CW</span>
+                        </div>
+                        <div class="ml-3">
+                            <a href="#" class="text-sm font-medium text-accent-blue">CarolWilson#3456</a>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                        Failed
+                    </span>
+                </div>
+                <p class="text-sm text-text-primary mb-2">Pick up groceries on the way home</p>
+                <div class="flex items-center justify-between text-xs text-text-tertiary">
+                    <div>
+                        <span class="block">Trigger: Dec 30, 2025 5:00 PM</span>
+                        <span class="block">Created: Dec 28, 2025 2:45 PM</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="showDetailsModal()" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Cancel Confirmation Modal -->
+    <div id="cancel-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="cancel-modal-title">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideCancelModal()" aria-hidden="true"></div>
+        <!-- Modal Dialog -->
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+                <!-- Modal Content -->
+                <div class="p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 id="cancel-modal-title" class="text-lg font-semibold text-text-primary">Cancel Reminder</h3>
+                            <p class="mt-2 text-sm text-text-secondary">
+                                Are you sure you want to cancel this reminder for <span id="cancel-username" class="font-medium text-text-primary"></span>?
+                            </p>
+                            <div class="mt-3 p-3 bg-bg-secondary rounded-md">
+                                <p id="cancel-message" class="text-sm text-text-primary"></p>
+                            </div>
+                            <p class="mt-3 text-xs text-text-tertiary">This action cannot be undone. The user will not receive this reminder.</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Modal Footer -->
+                <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                    <button type="button" onclick="hideCancelModal()"
+                            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                        Keep Reminder
+                    </button>
+                    <button type="button" onclick="confirmCancel()"
+                            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors">
+                        Cancel Reminder
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div id="details-modal" class="hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="details-modal-title">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideDetailsModal()" aria-hidden="true"></div>
+        <!-- Modal Dialog -->
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-lg w-full" role="document">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                    <h3 id="details-modal-title" class="text-lg font-semibold text-text-primary">Reminder Details</h3>
+                    <button type="button" onclick="hideDetailsModal()" class="p-1 text-text-secondary hover:text-text-primary rounded transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <!-- Modal Content -->
+                <div class="p-6 space-y-4">
+                    <!-- User -->
+                    <div class="flex items-center gap-3">
+                        <div class="h-10 w-10 rounded-full bg-accent-blue flex items-center justify-center">
+                            <span class="text-white font-medium">JD</span>
+                        </div>
+                        <div>
+                            <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover">JohnDoe#1234</a>
+                            <p class="text-xs text-text-tertiary font-mono">123456789012345678</p>
+                        </div>
+                    </div>
+
+                    <!-- Full Message -->
+                    <div>
+                        <label class="block text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Message</label>
+                        <p class="text-sm text-text-primary p-3 bg-bg-secondary rounded-md">Remember to submit the weekly report before the Friday deadline!</p>
+                    </div>
+
+                    <!-- Dates Grid -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Created</label>
+                            <p class="text-sm text-text-primary">Dec 30, 2025 10:30 AM</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Trigger Time</label>
+                            <p class="text-sm text-text-primary">Jan 3, 2026 3:00 PM</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Status</label>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-info/20 text-info">
+                                Pending
+                            </span>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Delivery Attempts</label>
+                            <p class="text-sm text-text-primary">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Error Info (shown for failed reminders) -->
+                    <div class="hidden" id="error-info">
+                        <label class="block text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Last Error</label>
+                        <p class="text-sm text-error p-3 bg-error/10 rounded-md">User has DMs disabled. Unable to deliver reminder.</p>
+                    </div>
+                </div>
+                <!-- Modal Footer -->
+                <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                    <button type="button" onclick="hideDetailsModal()"
+                            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('status').value = '';
+            document.getElementById('userSearch').value = '';
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+        }
+
+        // Toggle filters on mobile
+        document.getElementById('toggleFilters')?.addEventListener('click', function() {
+            const form = document.getElementById('filtersForm');
+            form.classList.toggle('hidden');
+            this.textContent = form.classList.contains('hidden') ? 'Show Filters' : 'Hide Filters';
+        });
+
+        // Form submit handler (for prototype)
+        document.getElementById('filtersForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Filters applied:', {
+                status: document.getElementById('status').value,
+                userSearch: document.getElementById('userSearch').value,
+                fromDate: document.getElementById('fromDate').value,
+                toDate: document.getElementById('toDate').value
+            });
+            alert('Filters applied! (Prototype - no actual filtering)');
+        });
+
+        // Cancel Modal
+        function showCancelModal(username, message) {
+            document.getElementById('cancel-username').textContent = username;
+            document.getElementById('cancel-message').textContent = message;
+            document.getElementById('cancel-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideCancelModal() {
+            document.getElementById('cancel-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        function confirmCancel() {
+            alert('Reminder cancelled! (Prototype)');
+            hideCancelModal();
+        }
+
+        // Details Modal
+        function showDetailsModal() {
+            document.getElementById('details-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideDetailsModal() {
+            document.getElementById('details-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // Escape key handler
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (!document.getElementById('cancel-modal').classList.contains('hidden')) {
+                    hideCancelModal();
+                }
+                if (!document.getElementById('details-modal').classList.contains('hidden')) {
+                    hideDetailsModal();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
