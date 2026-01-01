@@ -21,6 +21,9 @@ public class AnalyticsController : ControllerBase
     private readonly IChannelActivityRepository _channelActivityRepo;
     private readonly IGuildMetricsRepository _guildMetricsRepo;
     private readonly IGuildRepository _guildRepository;
+    private readonly IServerAnalyticsService _serverAnalyticsService;
+    private readonly IModerationAnalyticsService _moderationAnalyticsService;
+    private readonly IEngagementAnalyticsService _engagementAnalyticsService;
     private readonly ILogger<AnalyticsController> _logger;
 
     /// <summary>
@@ -30,18 +33,27 @@ public class AnalyticsController : ControllerBase
     /// <param name="channelActivityRepo">The channel activity repository.</param>
     /// <param name="guildMetricsRepo">The guild metrics repository.</param>
     /// <param name="guildRepository">The guild repository.</param>
+    /// <param name="serverAnalyticsService">The server analytics service.</param>
+    /// <param name="moderationAnalyticsService">The moderation analytics service.</param>
+    /// <param name="engagementAnalyticsService">The engagement analytics service.</param>
     /// <param name="logger">The logger.</param>
     public AnalyticsController(
         IMemberActivityRepository memberActivityRepo,
         IChannelActivityRepository channelActivityRepo,
         IGuildMetricsRepository guildMetricsRepo,
         IGuildRepository guildRepository,
+        IServerAnalyticsService serverAnalyticsService,
+        IModerationAnalyticsService moderationAnalyticsService,
+        IEngagementAnalyticsService engagementAnalyticsService,
         ILogger<AnalyticsController> logger)
     {
         _memberActivityRepo = memberActivityRepo;
         _channelActivityRepo = channelActivityRepo;
         _guildMetricsRepo = guildMetricsRepo;
         _guildRepository = guildRepository;
+        _serverAnalyticsService = serverAnalyticsService;
+        _moderationAnalyticsService = moderationAnalyticsService;
+        _engagementAnalyticsService = engagementAnalyticsService;
         _logger = logger;
     }
 
@@ -353,4 +365,334 @@ public class AnalyticsController : ControllerBase
 
         return Ok(growthDtos);
     }
+
+    #region Server Analytics
+
+    /// <summary>
+    /// Gets comprehensive server analytics summary.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Server analytics summary with member counts, message volume, and growth.</returns>
+    [HttpGet("{guildId}/server/summary")]
+    [ProducesResponseType(typeof(ServerAnalyticsSummaryDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ServerAnalyticsSummaryDto>> GetServerSummary(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Server analytics summary requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var summary = await _serverAnalyticsService.GetSummaryAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(summary);
+    }
+
+    /// <summary>
+    /// Gets server activity time series data.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Daily activity data points.</returns>
+    [HttpGet("{guildId}/server/activity")]
+    [ProducesResponseType(typeof(IReadOnlyList<ActivityTimeSeriesDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ActivityTimeSeriesDto>>> GetServerActivity(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Server activity time series requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var activity = await _serverAnalyticsService.GetActivityTimeSeriesAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(activity);
+    }
+
+    /// <summary>
+    /// Gets activity heatmap data by day of week and hour.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Heatmap data with message counts by day/hour.</returns>
+    [HttpGet("{guildId}/server/heatmap")]
+    [ProducesResponseType(typeof(IReadOnlyList<ServerActivityHeatmapDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ServerActivityHeatmapDto>>> GetServerHeatmap(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Server activity heatmap requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var heatmap = await _serverAnalyticsService.GetActivityHeatmapAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(heatmap);
+    }
+
+    /// <summary>
+    /// Gets top contributors by message count.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="limit">Maximum number of contributors (default: 10).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Top contributors with activity metrics.</returns>
+    [HttpGet("{guildId}/server/contributors")]
+    [ProducesResponseType(typeof(IReadOnlyList<TopContributorDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<TopContributorDto>>> GetTopContributors(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Top contributors requested for guild {GuildId}, {StartDate} to {EndDate}, limit: {Limit}",
+            guildId, startDate, endDate, limit);
+
+        var contributors = await _serverAnalyticsService.GetTopContributorsAsync(guildId, startDate, endDate, limit, cancellationToken);
+        return Ok(contributors);
+    }
+
+    #endregion
+
+    #region Moderation Analytics
+
+    /// <summary>
+    /// Gets moderation analytics summary.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Moderation summary with case counts and trends.</returns>
+    [HttpGet("{guildId}/moderation/summary")]
+    [ProducesResponseType(typeof(ModerationAnalyticsSummaryDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<ModerationAnalyticsSummaryDto>> GetModerationSummary(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Moderation analytics summary requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var summary = await _moderationAnalyticsService.GetSummaryAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(summary);
+    }
+
+    /// <summary>
+    /// Gets moderation trends time series data.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Daily moderation trend data.</returns>
+    [HttpGet("{guildId}/moderation/trends")]
+    [ProducesResponseType(typeof(IReadOnlyList<ModerationTrendDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ModerationTrendDto>>> GetModerationTrends(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Moderation trends requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var trends = await _moderationAnalyticsService.GetTrendsAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(trends);
+    }
+
+    /// <summary>
+    /// Gets case type distribution.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Distribution of moderation case types.</returns>
+    [HttpGet("{guildId}/moderation/distribution")]
+    [ProducesResponseType(typeof(CaseTypeDistributionDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CaseTypeDistributionDto>> GetCaseDistribution(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Case distribution requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var distribution = await _moderationAnalyticsService.GetCaseDistributionAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(distribution);
+    }
+
+    /// <summary>
+    /// Gets repeat offenders with multiple moderation cases.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="limit">Maximum number of offenders (default: 10).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Top repeat offenders with case history.</returns>
+    [HttpGet("{guildId}/moderation/offenders")]
+    [ProducesResponseType(typeof(IReadOnlyList<RepeatOffenderDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<RepeatOffenderDto>>> GetRepeatOffenders(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Repeat offenders requested for guild {GuildId}, {StartDate} to {EndDate}, limit: {Limit}",
+            guildId, startDate, endDate, limit);
+
+        var offenders = await _moderationAnalyticsService.GetRepeatOffendersAsync(guildId, startDate, endDate, limit, cancellationToken);
+        return Ok(offenders);
+    }
+
+    /// <summary>
+    /// Gets moderator workload distribution.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="limit">Maximum number of moderators (default: 10).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Moderator workload metrics.</returns>
+    [HttpGet("{guildId}/moderation/workload")]
+    [ProducesResponseType(typeof(IReadOnlyList<ModeratorWorkloadDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<ModeratorWorkloadDto>>> GetModeratorWorkload(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        [FromQuery] int limit = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Moderator workload requested for guild {GuildId}, {StartDate} to {EndDate}, limit: {Limit}",
+            guildId, startDate, endDate, limit);
+
+        var workload = await _moderationAnalyticsService.GetModeratorWorkloadAsync(guildId, startDate, endDate, limit, cancellationToken);
+        return Ok(workload);
+    }
+
+    #endregion
+
+    #region Engagement Analytics
+
+    /// <summary>
+    /// Gets engagement analytics summary.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Engagement summary with message volume and retention.</returns>
+    [HttpGet("{guildId}/engagement/summary")]
+    [ProducesResponseType(typeof(EngagementAnalyticsSummaryDto), StatusCodes.Status200OK)]
+    public async Task<ActionResult<EngagementAnalyticsSummaryDto>> GetEngagementSummary(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Engagement analytics summary requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var summary = await _engagementAnalyticsService.GetSummaryAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(summary);
+    }
+
+    /// <summary>
+    /// Gets message trends time series data.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Daily message trend data.</returns>
+    [HttpGet("{guildId}/engagement/messages")]
+    [ProducesResponseType(typeof(IReadOnlyList<MessageTrendDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<MessageTrendDto>>> GetMessageTrends(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Message trends requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var trends = await _engagementAnalyticsService.GetMessageTrendsAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(trends);
+    }
+
+    /// <summary>
+    /// Gets new member retention metrics.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="start">Optional start date (default: 30 days ago).</param>
+    /// <param name="end">Optional end date (default: now).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Member retention data showing engagement after joining.</returns>
+    [HttpGet("{guildId}/engagement/retention")]
+    [ProducesResponseType(typeof(IReadOnlyList<NewMemberRetentionDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<NewMemberRetentionDto>>> GetRetention(
+        ulong guildId,
+        [FromQuery] DateTime? start = null,
+        [FromQuery] DateTime? end = null,
+        CancellationToken cancellationToken = default)
+    {
+        var startDate = start ?? DateTime.UtcNow.AddDays(-30);
+        var endDate = end ?? DateTime.UtcNow;
+
+        _logger.LogDebug("Member retention requested for guild {GuildId}, {StartDate} to {EndDate}",
+            guildId, startDate, endDate);
+
+        var retention = await _engagementAnalyticsService.GetNewMemberRetentionAsync(guildId, startDate, endDate, cancellationToken);
+        return Ok(retention);
+    }
+
+    #endregion
 }

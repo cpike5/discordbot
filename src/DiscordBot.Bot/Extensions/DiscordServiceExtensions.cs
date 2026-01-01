@@ -79,6 +79,11 @@ public static class DiscordServiceExtensions
         // Register InteractionStateCleanupService as hosted service
         services.AddHostedService<InteractionStateCleanupService>();
 
+        // Register analytics services
+        services.AddScoped<IServerAnalyticsService, ServerAnalyticsService>();
+        services.AddScoped<IModerationAnalyticsService, ModerationAnalyticsService>();
+        services.AddScoped<IEngagementAnalyticsService, EngagementAnalyticsService>();
+
         return services;
     }
 }

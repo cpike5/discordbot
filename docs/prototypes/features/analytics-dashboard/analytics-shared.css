@@ -1,0 +1,632 @@
+/**
+ * Analytics Dashboard Shared Styles
+ * Discord Bot Admin UI
+ *
+ * Common styles for analytics pages including:
+ * - Chart containers and styling
+ * - Navigation tabs
+ * - Date range picker
+ * - Card grid layouts
+ * - Heatmap grid
+ * - Skeleton loading states
+ */
+
+/* ========================================
+   Navigation Tabs
+   ======================================== */
+
+.analytics-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background-color: var(--color-bg-primary, #1d2022);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.analytics-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #a8a5a3);
+  background-color: transparent;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  white-space: nowrap;
+}
+
+.analytics-tab:hover {
+  color: var(--color-text-primary, #d7d3d0);
+  background-color: var(--color-bg-hover, #363a3e);
+}
+
+.analytics-tab.active {
+  color: var(--color-text-primary, #d7d3d0);
+  background-color: var(--color-bg-tertiary, #2f3336);
+}
+
+.analytics-tab .tab-icon {
+  width: 1rem;
+  height: 1rem;
+  opacity: 0.75;
+}
+
+.analytics-tab.active .tab-icon {
+  opacity: 1;
+}
+
+/* ========================================
+   Date Range Picker
+   ======================================== */
+
+.date-range-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.date-preset-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.date-preset-btn {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #a8a5a3);
+  background-color: var(--color-bg-tertiary, #2f3336);
+  border: 1px solid var(--color-border-primary, #3f4447);
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+}
+
+.date-preset-btn:hover {
+  color: var(--color-text-primary, #d7d3d0);
+  background-color: var(--color-bg-hover, #363a3e);
+}
+
+.date-preset-btn.active {
+  color: #098ecf;
+  background-color: rgba(9, 142, 207, 0.2);
+  border-color: rgba(9, 142, 207, 0.3);
+}
+
+.date-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.date-input-separator {
+  color: var(--color-text-tertiary, #7a7876);
+  font-size: 0.75rem;
+}
+
+/* ========================================
+   Chart Containers
+   ======================================== */
+
+.chart-card {
+  background-color: var(--color-bg-secondary, #262a2d);
+  border: 1px solid var(--color-border-primary, #3f4447);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border-primary, #3f4447);
+}
+
+.chart-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #d7d3d0);
+}
+
+.chart-card-subtitle {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #7a7876);
+  margin-top: 0.125rem;
+}
+
+.chart-card-body {
+  padding: 1.25rem;
+}
+
+.chart-container {
+  position: relative;
+  height: 250px;
+  width: 100%;
+}
+
+.chart-container-lg {
+  height: 300px;
+}
+
+.chart-container-xl {
+  height: 350px;
+}
+
+/* ========================================
+   Stats Cards Grid
+   ======================================== */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.stat-card {
+  background-color: var(--color-bg-secondary, #262a2d);
+  border: 1px solid var(--color-border-primary, #3f4447);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  transition: border-color 0.15s ease-out;
+}
+
+.stat-card:hover {
+  border-color: rgba(9, 142, 207, 0.5);
+}
+
+.stat-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+}
+
+.stat-card-value {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-text-primary, #d7d3d0);
+  margin-top: 0.5rem;
+}
+
+.stat-card-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary, #a8a5a3);
+}
+
+.stat-card-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.stat-card-change.positive {
+  color: #10b981;
+}
+
+.stat-card-change.negative {
+  color: #ef4444;
+}
+
+.stat-card-change.neutral {
+  color: var(--color-text-tertiary, #7a7876);
+}
+
+/* ========================================
+   Heatmap Grid
+   ======================================== */
+
+.heatmap-container {
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.heatmap-grid {
+  min-width: 600px;
+}
+
+.heatmap-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.heatmap-label {
+  width: 2.5rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #7a7876);
+}
+
+.heatmap-cell {
+  flex: 1;
+  aspect-ratio: 1;
+  border-radius: 2px;
+  transition: transform 0.1s ease-out;
+}
+
+.heatmap-cell:hover {
+  transform: scale(1.2);
+  z-index: 1;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.heatmap-legend-label {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary, #7a7876);
+}
+
+.heatmap-legend-scale {
+  display: flex;
+  gap: 2px;
+}
+
+.heatmap-legend-cell {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 2px;
+}
+
+/* Heatmap intensity colors */
+.heatmap-intensity-0 { background-color: #2f3336; }
+.heatmap-intensity-1 { background-color: rgba(203, 78, 27, 0.2); }
+.heatmap-intensity-2 { background-color: rgba(203, 78, 27, 0.4); }
+.heatmap-intensity-3 { background-color: rgba(203, 78, 27, 0.6); }
+.heatmap-intensity-4 { background-color: rgba(203, 78, 27, 0.9); }
+
+/* Alternative blue intensity for engagement */
+.heatmap-intensity-blue-0 { background-color: #2f3336; }
+.heatmap-intensity-blue-1 { background-color: rgba(9, 142, 207, 0.2); }
+.heatmap-intensity-blue-2 { background-color: rgba(9, 142, 207, 0.4); }
+.heatmap-intensity-blue-3 { background-color: rgba(9, 142, 207, 0.6); }
+.heatmap-intensity-blue-4 { background-color: rgba(9, 142, 207, 0.9); }
+
+/* ========================================
+   Skeleton Loading States
+   ======================================== */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-tertiary, #2f3336) 25%,
+    var(--color-bg-hover, #363a3e) 50%,
+    var(--color-bg-tertiary, #2f3336) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+  border-radius: 0.25rem;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-stat-value {
+  height: 2.25rem;
+  width: 60%;
+  margin-top: 0.5rem;
+}
+
+.skeleton-stat-change {
+  height: 0.875rem;
+  width: 40%;
+  margin-top: 0.5rem;
+}
+
+.skeleton-chart {
+  height: 200px;
+  width: 100%;
+}
+
+.skeleton-text-sm {
+  height: 0.875rem;
+  width: 80%;
+}
+
+.skeleton-text-md {
+  height: 1rem;
+  width: 60%;
+}
+
+.skeleton-text-lg {
+  height: 1.25rem;
+  width: 50%;
+}
+
+/* ========================================
+   Empty States
+   ======================================== */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+.empty-state-icon {
+  width: 4rem;
+  height: 4rem;
+  color: var(--color-text-tertiary, #7a7876);
+  margin-bottom: 1rem;
+}
+
+.empty-state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #d7d3d0);
+  margin-bottom: 0.5rem;
+}
+
+.empty-state-description {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #a8a5a3);
+  max-width: 24rem;
+}
+
+/* ========================================
+   Info Banners
+   ======================================== */
+
+.info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background-color: rgba(6, 182, 212, 0.1);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  border-radius: 0.5rem;
+}
+
+.info-banner-icon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #06b6d4;
+}
+
+.info-banner-content {
+  flex: 1;
+}
+
+.info-banner-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #06b6d4;
+}
+
+.info-banner-text {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary, #a8a5a3);
+  margin-top: 0.25rem;
+}
+
+/* Coming soon variant */
+.info-banner.coming-soon {
+  background-color: rgba(122, 120, 118, 0.1);
+  border-color: rgba(122, 120, 118, 0.3);
+}
+
+.info-banner.coming-soon .info-banner-icon,
+.info-banner.coming-soon .info-banner-title {
+  color: var(--color-text-tertiary, #7a7876);
+}
+
+/* ========================================
+   Placeholder Cards (Coming Soon)
+   ======================================== */
+
+.placeholder-card {
+  background-color: var(--color-bg-secondary, #262a2d);
+  border: 1px dashed var(--color-border-primary, #3f4447);
+  border-radius: 0.5rem;
+  padding: 2rem;
+  text-align: center;
+  opacity: 0.6;
+}
+
+.placeholder-card-icon {
+  width: 3rem;
+  height: 3rem;
+  color: var(--color-text-tertiary, #7a7876);
+  margin: 0 auto 1rem;
+}
+
+.placeholder-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #a8a5a3);
+  margin-bottom: 0.25rem;
+}
+
+.placeholder-card-text {
+  font-size: 0.875rem;
+  color: var(--color-text-tertiary, #7a7876);
+}
+
+/* ========================================
+   Data Tables for Analytics
+   ======================================== */
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.analytics-table thead {
+  background-color: rgba(29, 32, 34, 0.5);
+}
+
+.analytics-table th {
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary, #a8a5a3);
+}
+
+.analytics-table td {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--color-border-primary, #3f4447);
+  font-size: 0.875rem;
+  color: var(--color-text-primary, #d7d3d0);
+}
+
+.analytics-table tbody tr {
+  transition: background-color 0.15s ease-out;
+}
+
+.analytics-table tbody tr:hover {
+  background-color: var(--color-bg-hover, #363a3e);
+}
+
+/* ========================================
+   Funnel Chart Styles
+   ======================================== */
+
+.funnel-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.funnel-step {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.funnel-bar {
+  height: 2.5rem;
+  background-color: #098ecf;
+  border-radius: 0 0.25rem 0.25rem 0;
+  transition: width 0.5s ease-out;
+  display: flex;
+  align-items: center;
+  padding-left: 0.75rem;
+}
+
+.funnel-bar-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+}
+
+.funnel-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #d7d3d0);
+  min-width: 4rem;
+}
+
+.funnel-step-name {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a8a5a3);
+  width: 8rem;
+  text-align: right;
+}
+
+/* ========================================
+   Chart Legend
+   ======================================== */
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 1rem;
+  justify-content: center;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #a8a5a3);
+}
+
+.chart-legend-color {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 2px;
+}
+
+/* ========================================
+   Responsive Grid Layouts
+   ======================================== */
+
+.analytics-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.analytics-grid-2 {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 1024px) {
+  .analytics-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.analytics-grid-3 {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .analytics-grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .analytics-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

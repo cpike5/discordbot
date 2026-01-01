@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moderation Analytics - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="analytics-shared.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* Escalation path icons */
+    .escalation-path {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .escalation-step {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.625rem;
+      font-weight: 600;
+    }
+    .escalation-arrow {
+      width: 0.75rem;
+      height: 0.75rem;
+      color: var(--color-text-tertiary, #7a7876);
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Main Content Area -->
+  <main class="min-h-screen">
+    <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+          <li>
+            <a href="../../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="../../pages/servers-list.html" class="text-text-secondary hover:text-accent-blue transition-colors">Guilds</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Gaming Community</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Moderation Analytics</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg">GC</div>
+          <div>
+            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Moderation Analytics</h1>
+            <p class="text-text-secondary">Gaming Community</p>
+          </div>
+        </div>
+
+        <!-- Date Range Picker -->
+        <div class="date-range-picker">
+          <div class="date-preset-group">
+            <button class="date-preset-btn" onclick="setDatePreset('today')">Today</button>
+            <button class="date-preset-btn active" onclick="setDatePreset('7days')">7 Days</button>
+            <button class="date-preset-btn" onclick="setDatePreset('30days')">30 Days</button>
+            <button class="date-preset-btn" onclick="setDatePreset('custom')">Custom</button>
+          </div>
+          <div class="date-input-group hidden" id="customDateInputs">
+            <input
+              type="date"
+              id="dateFrom"
+              class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+            />
+            <span class="date-input-separator">to</span>
+            <input
+              type="date"
+              id="dateTo"
+              class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="analytics-tabs mb-6">
+        <a href="server-analytics.html" class="analytics-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Overview
+        </a>
+        <button class="analytics-tab active" onclick="switchTab('moderation')">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Moderation
+        </button>
+        <a href="engagement-metrics.html" class="analytics-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Engagement
+        </a>
+      </div>
+
+      <!-- Summary Stats Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <!-- Total Cases -->
+        <div class="stat-card">
+          <div class="flex flex-col">
+            <p class="stat-card-label">Total Cases</p>
+            <p class="stat-card-value">127</p>
+            <p class="stat-card-change positive">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+              </svg>
+              +12 this week
+            </p>
+          </div>
+        </div>
+
+        <!-- Warns -->
+        <div class="stat-card hover:border-warning/50">
+          <div class="flex flex-col">
+            <p class="stat-card-label">Warns</p>
+            <p class="stat-card-value text-warning">68</p>
+            <p class="stat-card-change neutral">53.5%</p>
+          </div>
+        </div>
+
+        <!-- Mutes -->
+        <div class="stat-card hover:border-info/50">
+          <div class="flex flex-col">
+            <p class="stat-card-label">Mutes</p>
+            <p class="stat-card-value text-info">32</p>
+            <p class="stat-card-change neutral">25.2%</p>
+          </div>
+        </div>
+
+        <!-- Kicks -->
+        <div class="stat-card hover:border-accent-orange/50">
+          <div class="flex flex-col">
+            <p class="stat-card-label">Kicks</p>
+            <p class="stat-card-value text-accent-orange">18</p>
+            <p class="stat-card-change neutral">14.2%</p>
+          </div>
+        </div>
+
+        <!-- Bans -->
+        <div class="stat-card hover:border-error/50">
+          <div class="flex flex-col">
+            <p class="stat-card-label">Bans</p>
+            <p class="stat-card-value text-error">9</p>
+            <p class="stat-card-change neutral">7.1%</p>
+          </div>
+        </div>
+
+        <!-- Avg Cases/Day -->
+        <div class="stat-card hover:border-success/50">
+          <div class="flex flex-col">
+            <p class="stat-card-label">Avg Cases/Day</p>
+            <p class="stat-card-value text-success">18.1</p>
+            <p class="stat-card-change negative">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+              -2.3 vs last week
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Trends Chart (Full Width) -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Action Trends Over Time</h2>
+            <p class="chart-card-subtitle">Moderation actions by type</p>
+          </div>
+        </div>
+        <div class="chart-card-body">
+          <div class="chart-container chart-container-lg">
+            <canvas id="actionTrendsChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two Column Row: Case Distribution & Moderator Workload -->
+      <div class="analytics-grid-2 mb-6">
+        <!-- Case Type Distribution -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Case Type Distribution</h2>
+              <p class="chart-card-subtitle">Breakdown by action type</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="chart-container">
+              <canvas id="caseDistributionChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Moderator Workload -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Moderator Workload</h2>
+              <p class="chart-card-subtitle">Cases handled per moderator</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="chart-container">
+              <canvas id="moderatorWorkloadChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Repeat Offenders Section -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Repeat Offenders</h2>
+            <p class="chart-card-subtitle">Users with multiple moderation cases</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-text-tertiary">Show escalation path</span>
+            <button class="px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+              View All
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="analytics-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Total Cases</th>
+                <th>Warns</th>
+                <th>Mutes</th>
+                <th>Kicks</th>
+                <th>Bans</th>
+                <th>Escalation Path</th>
+                <th>Last Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm">TR</div>
+                    <div>
+                      <p class="font-medium text-text-primary">ToxicRaider</p>
+                      <p class="text-xs text-text-tertiary">#6789</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-semibold text-error">8</td>
+                <td>3</td>
+                <td>2</td>
+                <td>2</td>
+                <td>
+                  <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-error bg-error/10 rounded-full">1</span>
+                </td>
+                <td>
+                  <div class="escalation-path">
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-info/20 text-info">M</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-accent-orange/20 text-accent-orange">K</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-error/20 text-error">B</span>
+                  </div>
+                </td>
+                <td class="text-text-secondary text-sm">2 days ago</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">SS</div>
+                    <div>
+                      <p class="font-medium text-text-primary">SpamSlinger</p>
+                      <p class="text-xs text-text-tertiary">#4321</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-semibold text-warning">5</td>
+                <td>3</td>
+                <td>1</td>
+                <td>1</td>
+                <td>0</td>
+                <td>
+                  <div class="escalation-path">
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-info/20 text-info">M</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-accent-orange/20 text-accent-orange">K</span>
+                  </div>
+                </td>
+                <td class="text-text-secondary text-sm">5 days ago</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center text-white font-bold text-sm">AT</div>
+                    <div>
+                      <p class="font-medium text-text-primary">AngryTroll</p>
+                      <p class="text-xs text-text-tertiary">#8765</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-semibold text-warning">4</td>
+                <td>2</td>
+                <td>2</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                  <div class="escalation-path">
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-info/20 text-info">M</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-info/20 text-info">M</span>
+                  </div>
+                </td>
+                <td class="text-text-secondary text-sm">1 week ago</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">NR</div>
+                    <div>
+                      <p class="font-medium text-text-primary">NoisyRanter</p>
+                      <p class="text-xs text-text-tertiary">#2345</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-semibold">3</td>
+                <td>2</td>
+                <td>1</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                  <div class="escalation-path">
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-info/20 text-info">M</span>
+                  </div>
+                </td>
+                <td class="text-text-secondary text-sm">Yesterday</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">RB</div>
+                    <div>
+                      <p class="font-medium text-text-primary">RuleBreaker</p>
+                      <p class="text-xs text-text-tertiary">#9876</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-semibold">3</td>
+                <td>3</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>
+                  <div class="escalation-path">
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                    <svg class="escalation-arrow" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <span class="escalation-step bg-warning/20 text-warning">W</span>
+                  </div>
+                </td>
+                <td class="text-text-secondary text-sm">3 days ago</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Legend -->
+        <div class="px-5 py-4 border-t border-border-primary bg-bg-primary/30">
+          <div class="flex flex-wrap items-center gap-4 text-xs text-text-tertiary">
+            <span class="font-medium text-text-secondary">Legend:</span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded bg-warning/20 text-warning flex items-center justify-center text-[10px] font-semibold">W</span>
+              Warn
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded bg-info/20 text-info flex items-center justify-center text-[10px] font-semibold">M</span>
+              Mute
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded bg-accent-orange/20 text-accent-orange flex items-center justify-center text-[10px] font-semibold">K</span>
+              Kick
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-5 h-5 rounded bg-error/20 text-error flex items-center justify-center text-[10px] font-semibold">B</span>
+              Ban
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript -->
+  <script>
+    // Date Preset Handler
+    function setDatePreset(preset) {
+      document.querySelectorAll('.date-preset-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      const customInputs = document.getElementById('customDateInputs');
+      if (preset === 'custom') {
+        customInputs.classList.remove('hidden');
+      } else {
+        customInputs.classList.add('hidden');
+      }
+    }
+
+    // Tab Switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.analytics-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      event.target.closest('.analytics-tab').classList.add('active');
+    }
+
+    // Initialize Charts
+    document.addEventListener('DOMContentLoaded', function() {
+      // Chart.js default dark theme settings
+      Chart.defaults.color = '#a8a5a3';
+      Chart.defaults.borderColor = '#3f4447';
+
+      // Action Trends Chart (Stacked Area)
+      const trendsCtx = document.getElementById('actionTrendsChart').getContext('2d');
+      new Chart(trendsCtx, {
+        type: 'line',
+        data: {
+          labels: ['Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29', 'Dec 30', 'Dec 31'],
+          datasets: [
+            {
+              label: 'Warns',
+              data: [8, 12, 10, 15, 9, 8, 6],
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.3)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Mutes',
+              data: [4, 6, 5, 7, 4, 3, 3],
+              borderColor: '#06b6d4',
+              backgroundColor: 'rgba(6, 182, 212, 0.3)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Kicks',
+              data: [2, 3, 2, 4, 3, 2, 2],
+              borderColor: '#cb4e1b',
+              backgroundColor: 'rgba(203, 78, 27, 0.3)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Bans',
+              data: [1, 2, 1, 2, 1, 1, 1],
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.3)',
+              fill: true,
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 12,
+                padding: 20
+              }
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              stacked: true,
+              grid: {
+                color: '#2f3336'
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Case Distribution Chart (Doughnut)
+      const distCtx = document.getElementById('caseDistributionChart').getContext('2d');
+      new Chart(distCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Warns', 'Mutes', 'Kicks', 'Bans'],
+          datasets: [{
+            data: [68, 32, 18, 9],
+            backgroundColor: [
+              '#f59e0b',
+              '#06b6d4',
+              '#cb4e1b',
+              '#ef4444'
+            ],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 12,
+                padding: 15,
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  return data.labels.map((label, i) => ({
+                    text: `${label} (${data.datasets[0].data[i]})`,
+                    fillStyle: data.datasets[0].backgroundColor[i],
+                    index: i
+                  }));
+                }
+              }
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = ((context.parsed / total) * 100).toFixed(1);
+                  return `${context.label}: ${context.parsed} (${percentage}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Moderator Workload Chart (Horizontal Bar)
+      const workloadCtx = document.getElementById('moderatorWorkloadChart').getContext('2d');
+      new Chart(workloadCtx, {
+        type: 'bar',
+        data: {
+          labels: ['ModMaster', 'AdminAce', 'WatchfulEye', 'PeaceKeeper', 'RuleEnforcer'],
+          datasets: [{
+            label: 'Cases Handled',
+            data: [42, 35, 28, 15, 7],
+            backgroundColor: '#098ecf',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percentage = ((context.parsed.x / total) * 100).toFixed(1);
+                  return `${context.parsed.x} cases (${percentage}%)`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              }
+            },
+            y: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>

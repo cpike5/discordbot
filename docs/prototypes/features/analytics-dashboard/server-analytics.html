@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Analytics - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="analytics-shared.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Main Content Area -->
+  <main class="min-h-screen">
+    <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+          <li>
+            <a href="../../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="../../pages/servers-list.html" class="text-text-secondary hover:text-accent-blue transition-colors">Guilds</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="#" class="text-text-secondary hover:text-accent-blue transition-colors">Gaming Community</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Analytics</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg">GC</div>
+          <div>
+            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Server Analytics</h1>
+            <p class="text-text-secondary">Gaming Community</p>
+          </div>
+        </div>
+
+        <!-- Date Range Picker -->
+        <div class="date-range-picker">
+          <div class="date-preset-group">
+            <button class="date-preset-btn" onclick="setDatePreset('today')">Today</button>
+            <button class="date-preset-btn active" onclick="setDatePreset('7days')">7 Days</button>
+            <button class="date-preset-btn" onclick="setDatePreset('30days')">30 Days</button>
+            <button class="date-preset-btn" onclick="setDatePreset('custom')">Custom</button>
+          </div>
+          <div class="date-input-group hidden" id="customDateInputs">
+            <input
+              type="date"
+              id="dateFrom"
+              class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+            />
+            <span class="date-input-separator">to</span>
+            <input
+              type="date"
+              id="dateTo"
+              class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="analytics-tabs mb-6">
+        <button class="analytics-tab active" onclick="switchTab('overview')">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Overview
+        </button>
+        <a href="moderation-analytics.html" class="analytics-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Moderation
+        </a>
+        <a href="engagement-metrics.html" class="analytics-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Engagement
+        </a>
+      </div>
+
+      <!-- Summary Stats Cards -->
+      <div class="stats-grid mb-8">
+        <!-- Total Members -->
+        <div class="stat-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="stat-card-label">Total Members</p>
+              <p class="stat-card-value">1,234</p>
+              <p class="stat-card-change positive">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                +48 this week
+              </p>
+            </div>
+            <div class="stat-card-icon bg-accent-blue/10">
+              <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Members -->
+        <div class="stat-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="stat-card-label">Active Members</p>
+              <p class="stat-card-value">342</p>
+              <p class="stat-card-change neutral">DAU: 89 / WAU: 245 / MAU: 342</p>
+            </div>
+            <div class="stat-card-icon bg-success/10">
+              <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="stat-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="stat-card-label">Messages</p>
+              <p class="stat-card-value">8,492</p>
+              <p class="stat-card-change positive">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                24h: 1,247 / 7d: 8,492
+              </p>
+            </div>
+            <div class="stat-card-icon bg-accent-orange/10">
+              <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Growth Rate -->
+        <div class="stat-card">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="stat-card-label">Growth Rate</p>
+              <p class="stat-card-value">+4.2%</p>
+              <p class="stat-card-change positive">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                Above average
+              </p>
+            </div>
+            <div class="stat-card-icon bg-info/10">
+              <svg class="w-6 h-6 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Over Time Chart (Full Width) -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Activity Over Time</h2>
+            <p class="chart-card-subtitle">Messages per day</p>
+          </div>
+          <select class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus transition-colors">
+            <option>Messages</option>
+            <option>Reactions</option>
+            <option>Commands</option>
+          </select>
+        </div>
+        <div class="chart-card-body">
+          <div class="chart-container chart-container-lg">
+            <canvas id="activityOverTimeChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Member Growth Chart (Full Width) -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Member Growth</h2>
+            <p class="chart-card-subtitle">Joins vs leaves over time</p>
+          </div>
+        </div>
+        <div class="chart-card-body">
+          <div class="chart-container chart-container-lg">
+            <canvas id="memberGrowthChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two Column Row: Heatmap & Top Channels -->
+      <div class="analytics-grid-2 mb-6">
+        <!-- Activity Heatmap -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Activity Heatmap</h2>
+              <p class="chart-card-subtitle">Day of week vs hour of day</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="heatmap-container" id="activityHeatmap">
+              <!-- Heatmap will be rendered by JavaScript -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Channels -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Top Channels</h2>
+              <p class="chart-card-subtitle">By message count</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="chart-container">
+              <canvas id="topChannelsChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Contributors Section -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Top Contributors</h2>
+            <p class="chart-card-subtitle">Most active members this period</p>
+          </div>
+          <button class="px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+            View All
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="analytics-table">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Member</th>
+                <th>Messages</th>
+                <th>Reactions</th>
+                <th>Commands</th>
+                <th>Active Days</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-warning/20 text-warning font-bold text-sm">1</span>
+                </td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-white font-bold text-sm">GK</div>
+                    <div>
+                      <p class="font-medium text-text-primary">GameKing</p>
+                      <p class="text-xs text-text-tertiary">#1234</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-medium">1,247</td>
+                <td>342</td>
+                <td>89</td>
+                <td>
+                  <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-success bg-success/10 rounded-full">7/7</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-text-tertiary/20 text-text-secondary font-bold text-sm">2</span>
+                </td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">NP</div>
+                    <div>
+                      <p class="font-medium text-text-primary">NightPlayer</p>
+                      <p class="text-xs text-text-tertiary">#5678</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-medium">892</td>
+                <td>256</td>
+                <td>67</td>
+                <td>
+                  <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-success bg-success/10 rounded-full">7/7</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-accent-orange/20 text-accent-orange font-bold text-sm">3</span>
+                </td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">SM</div>
+                    <div>
+                      <p class="font-medium text-text-primary">StreamMaster</p>
+                      <p class="text-xs text-text-tertiary">#9012</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-medium">654</td>
+                <td>189</td>
+                <td>45</td>
+                <td>
+                  <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-warning bg-warning/10 rounded-full">6/7</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-bg-tertiary text-text-tertiary font-bold text-sm">4</span>
+                </td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">CF</div>
+                    <div>
+                      <p class="font-medium text-text-primary">ChatFan</p>
+                      <p class="text-xs text-text-tertiary">#3456</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-medium">521</td>
+                <td>145</td>
+                <td>32</td>
+                <td>
+                  <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-warning bg-warning/10 rounded-full">5/7</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-bg-tertiary text-text-tertiary font-bold text-sm">5</span>
+                </td>
+                <td>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm">QP</div>
+                    <div>
+                      <p class="font-medium text-text-primary">QuickPro</p>
+                      <p class="text-xs text-text-tertiary">#7890</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="font-medium">487</td>
+                <td>98</td>
+                <td>28</td>
+                <td>
+                  <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold text-text-tertiary bg-bg-tertiary rounded-full">4/7</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript -->
+  <script>
+    // Date Preset Handler
+    function setDatePreset(preset) {
+      // Update button active states
+      document.querySelectorAll('.date-preset-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      const customInputs = document.getElementById('customDateInputs');
+      if (preset === 'custom') {
+        customInputs.classList.remove('hidden');
+      } else {
+        customInputs.classList.add('hidden');
+      }
+
+      // In a real app, this would trigger data refresh
+      console.log('Date preset changed to:', preset);
+    }
+
+    // Tab Switching
+    function switchTab(tabName) {
+      document.querySelectorAll('.analytics-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      event.target.closest('.analytics-tab').classList.add('active');
+    }
+
+    // Initialize Charts
+    document.addEventListener('DOMContentLoaded', function() {
+      // Chart.js default dark theme settings
+      Chart.defaults.color = '#a8a5a3';
+      Chart.defaults.borderColor = '#3f4447';
+
+      // Activity Over Time Chart (Line)
+      const activityCtx = document.getElementById('activityOverTimeChart').getContext('2d');
+      new Chart(activityCtx, {
+        type: 'line',
+        data: {
+          labels: ['Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29', 'Dec 30', 'Dec 31'],
+          datasets: [{
+            label: 'Messages',
+            data: [1089, 1247, 1156, 1423, 1312, 1089, 1176],
+            borderColor: '#098ecf',
+            backgroundColor: 'rgba(9, 142, 207, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#098ecf',
+            pointBorderColor: '#098ecf',
+            pointRadius: 4,
+            pointHoverRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              displayColors: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: false,
+              grid: {
+                color: '#2f3336'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value.toLocaleString();
+                }
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Member Growth Chart (Area)
+      const growthCtx = document.getElementById('memberGrowthChart').getContext('2d');
+      new Chart(growthCtx, {
+        type: 'line',
+        data: {
+          labels: ['Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29', 'Dec 30', 'Dec 31'],
+          datasets: [
+            {
+              label: 'Joins',
+              data: [12, 8, 15, 22, 18, 10, 14],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.2)',
+              fill: true,
+              tension: 0.4
+            },
+            {
+              label: 'Leaves',
+              data: [3, 5, 2, 4, 3, 2, 3],
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.2)',
+              fill: true,
+              tension: 0.4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 12,
+                padding: 20
+              }
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Top Channels Chart (Horizontal Bar)
+      const channelsCtx = document.getElementById('topChannelsChart').getContext('2d');
+      new Chart(channelsCtx, {
+        type: 'bar',
+        data: {
+          labels: ['#general', '#gaming', '#off-topic', '#memes', '#help'],
+          datasets: [{
+            label: 'Messages',
+            data: [2847, 2156, 1423, 1089, 756],
+            backgroundColor: [
+              '#cb4e1b',
+              '#098ecf',
+              '#10b981',
+              '#f59e0b',
+              '#06b6d4'
+            ],
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  return context.parsed.x.toLocaleString() + ' messages';
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value.toLocaleString();
+                }
+              }
+            },
+            y: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Render Activity Heatmap
+      renderActivityHeatmap();
+    });
+
+    // Render Activity Heatmap
+    function renderActivityHeatmap() {
+      const container = document.getElementById('activityHeatmap');
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const hours = Array.from({ length: 24 }, (_, i) => i);
+
+      // Sample heatmap data (day x hour) - message activity
+      const heatmapData = [
+        [2, 1, 0, 0, 1, 2, 4, 8, 12, 15, 18, 20, 22, 25, 28, 32, 35, 40, 45, 42, 38, 30, 18, 8], // Sun
+        [1, 0, 0, 0, 0, 2, 5, 12, 20, 28, 32, 35, 38, 40, 42, 45, 50, 55, 60, 58, 52, 42, 28, 12], // Mon
+        [2, 1, 0, 0, 0, 2, 6, 15, 25, 32, 38, 42, 45, 48, 50, 55, 60, 65, 70, 65, 58, 48, 32, 15], // Tue
+        [1, 1, 0, 0, 0, 2, 5, 14, 22, 30, 35, 40, 42, 45, 48, 52, 58, 62, 68, 62, 55, 45, 30, 14], // Wed
+        [2, 1, 0, 0, 0, 2, 6, 16, 26, 34, 40, 45, 48, 52, 55, 60, 65, 72, 78, 72, 62, 50, 35, 16], // Thu
+        [3, 2, 1, 0, 0, 2, 5, 12, 20, 28, 35, 42, 48, 55, 60, 65, 72, 80, 85, 80, 70, 55, 38, 18], // Fri
+        [5, 3, 2, 1, 1, 2, 5, 10, 18, 25, 30, 35, 38, 42, 45, 50, 55, 60, 58, 52, 45, 35, 22, 10]  // Sat
+      ];
+
+      const maxValue = Math.max(...heatmapData.flat());
+
+      let html = '<div class="heatmap-grid">';
+
+      // Header row with hours
+      html += '<div class="heatmap-row">';
+      html += '<div class="heatmap-label"></div>';
+      hours.forEach((hour, i) => {
+        if (i % 3 === 0) {
+          html += `<div class="flex-1 text-center text-xs text-text-tertiary">${hour}</div>`;
+        } else {
+          html += '<div class="flex-1"></div>';
+        }
+      });
+      html += '</div>';
+
+      // Rows for each day
+      days.forEach((day, dayIndex) => {
+        html += '<div class="heatmap-row">';
+        html += `<div class="heatmap-label">${day}</div>`;
+
+        hours.forEach((hour) => {
+          const value = heatmapData[dayIndex][hour];
+          const intensity = value / maxValue;
+          let intensityClass;
+
+          if (intensity === 0) {
+            intensityClass = 'heatmap-intensity-blue-0';
+          } else if (intensity < 0.25) {
+            intensityClass = 'heatmap-intensity-blue-1';
+          } else if (intensity < 0.5) {
+            intensityClass = 'heatmap-intensity-blue-2';
+          } else if (intensity < 0.75) {
+            intensityClass = 'heatmap-intensity-blue-3';
+          } else {
+            intensityClass = 'heatmap-intensity-blue-4';
+          }
+
+          html += `<div class="heatmap-cell ${intensityClass}" title="${day} ${hour}:00 - ${value} messages"></div>`;
+        });
+
+        html += '</div>';
+      });
+
+      // Legend
+      html += '<div class="heatmap-legend">';
+      html += '<span class="heatmap-legend-label">Less</span>';
+      html += '<div class="heatmap-legend-scale">';
+      ['heatmap-intensity-blue-0', 'heatmap-intensity-blue-1', 'heatmap-intensity-blue-2', 'heatmap-intensity-blue-3', 'heatmap-intensity-blue-4'].forEach(cls => {
+        html += `<div class="heatmap-legend-cell ${cls}"></div>`;
+      });
+      html += '</div>';
+      html += '<span class="heatmap-legend-label">More</span>';
+      html += '</div>';
+
+      html += '</div>';
+
+      container.innerHTML = html;
+    }
+  </script>
+
+</body>
+</html>
