@@ -40,6 +40,9 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<UserModTag> UserModTags => Set<UserModTag>();
     public DbSet<Watchlist> Watchlists => Set<Watchlist>();
     public DbSet<Reminder> Reminders => Set<Reminder>();
+    public DbSet<MemberActivitySnapshot> MemberActivitySnapshots => Set<MemberActivitySnapshot>();
+    public DbSet<ChannelActivitySnapshot> ChannelActivitySnapshots => Set<ChannelActivitySnapshot>();
+    public DbSet<GuildMetricsSnapshot> GuildMetricsSnapshots => Set<GuildMetricsSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

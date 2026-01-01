@@ -63,6 +63,9 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserModTagRepository, UserModTagRepository>();
         services.AddScoped<IWatchlistRepository, WatchlistRepository>();
         services.AddScoped<IReminderRepository, ReminderRepository>();
+        services.AddScoped<IMemberActivityRepository, MemberActivityRepository>();
+        services.AddScoped<IChannelActivityRepository, ChannelActivityRepository>();
+        services.AddScoped<IGuildMetricsRepository, GuildMetricsRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests

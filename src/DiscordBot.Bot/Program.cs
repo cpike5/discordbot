@@ -262,6 +262,14 @@ try
     builder.Services.AddScoped<IReminderService, ReminderService>();
     builder.Services.AddHostedService<ReminderExecutionService>();
 
+    // Add Analytics Aggregation services
+    builder.Services.Configure<AnalyticsRetentionOptions>(
+        builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName));
+    builder.Services.AddHostedService<MemberActivityAggregationService>();
+    builder.Services.AddHostedService<ChannelActivityAggregationService>();
+    builder.Services.AddHostedService<GuildMetricsAggregationService>();
+    builder.Services.AddHostedService<AnalyticsRetentionService>();
+
     // Add Moderation services (includes detection services and handlers)
     builder.Services.AddModerationServices(builder.Configuration);
 

@@ -137,4 +137,30 @@ public class BackgroundServicesOptions
     /// Default is 3.
     /// </summary>
     public int MemberSyncMaxRetries { get; set; } = 3;
+
+    // Analytics Aggregation Services
+
+    /// <summary>
+    /// Gets or sets the initial delay (in minutes) before first analytics aggregation.
+    /// Default is 5 minutes.
+    /// </summary>
+    public int AnalyticsAggregationInitialDelayMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the interval (in minutes) between hourly aggregation runs.
+    /// Default is 60 minutes (runs at the top of each hour).
+    /// </summary>
+    public int HourlyAggregationIntervalMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// Gets or sets the interval (in minutes) between daily aggregation runs.
+    /// Default is 1440 minutes (once per day, typically at 00:05 UTC).
+    /// </summary>
+    public int DailyAggregationIntervalMinutes { get; set; } = 1440;
+
+    /// <summary>
+    /// Gets or sets the hour of day (UTC) when daily aggregation should run.
+    /// Default is 0 (midnight UTC).
+    /// </summary>
+    public int DailyAggregationHourUtc { get; set; } = 0;
 }
