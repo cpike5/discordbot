@@ -201,6 +201,9 @@ try
     builder.Services.AddScoped<IUserManagementService, UserManagementService>();
     builder.Services.AddScoped<IWelcomeService, WelcomeService>();
 
+    // Add Time Parsing service
+    builder.Services.AddScoped<ITimeParsingService, TimeParsingService>();
+
     // Add Discord OAuth services
     builder.Services.AddScoped<IDiscordTokenService, DiscordTokenService>();
     builder.Services.AddScoped<IDiscordUserInfoService, DiscordUserInfoService>();
@@ -252,6 +255,11 @@ try
     builder.Services.AddScoped<IRatWatchService, RatWatchService>();
     builder.Services.AddSingleton<IRatWatchStatusService, RatWatchStatusService>();
     builder.Services.AddHostedService<RatWatchExecutionService>();
+
+    // Add Reminder services
+    builder.Services.Configure<ReminderOptions>(
+        builder.Configuration.GetSection(ReminderOptions.SectionName));
+    builder.Services.AddHostedService<ReminderExecutionService>();
 
     // Add Moderation services (includes detection services and handlers)
     builder.Services.AddModerationServices(builder.Configuration);
