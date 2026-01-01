@@ -167,11 +167,11 @@
     @if (!Model.Events.Any())
     {
         <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
-            <svg class="mx-auto h-12 w-12 text-text-tertiary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <h3 class="text-lg font-medium text-text-primary mb-2">No flagged events found</h3>
-            <p class="text-text-secondary">@(Model.FilterRuleType.HasValue || Model.FilterSeverity.HasValue || Model.FilterStatus.HasValue ? "Try adjusting your filters" : "No auto-moderation events have been detected yet")</p>
+            <h3 class="text-sm font-medium text-text-primary mb-1">No flagged events found</h3>
+            <p class="text-sm text-text-tertiary">@(Model.FilterRuleType.HasValue || Model.FilterSeverity.HasValue || Model.FilterStatus.HasValue ? "Try adjusting your filters." : "No auto-moderation events have been detected yet.")</p>
         </div>
     }
     else

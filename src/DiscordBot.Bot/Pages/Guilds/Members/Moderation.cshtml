@@ -46,7 +46,16 @@
                 }
                 else
                 {
-                    <div class="w-20 h-20 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                    var avatarGradients = new[] {
+                        "from-accent-blue to-accent-orange",
+                        "from-success to-accent-blue",
+                        "from-warning to-error",
+                        "from-error to-accent-orange",
+                        "from-info to-success"
+                    };
+                    var gradientIndex = Math.Abs(Model.UserId.GetHashCode()) % avatarGradients.Length;
+                    var gradientClass = avatarGradients[gradientIndex];
+                    <div class="w-20 h-20 rounded-full bg-gradient-to-br @gradientClass flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
                         @(Model.ViewModel.DisplayName.Length >= 2 ? Model.ViewModel.DisplayName[..2].ToUpper() : Model.ViewModel.DisplayName.ToUpper())
                     </div>
                 }
@@ -202,8 +211,14 @@
                         else
                         {
                             <tr>
-                                <td colspan="5" class="px-6 py-12 text-center text-sm text-text-tertiary">
-                                    No moderation cases found
+                                <td colspan="5" class="px-6 py-12">
+                                    <div class="text-center">
+                                        <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                                        </svg>
+                                        <h3 class="text-sm font-medium text-text-primary mb-1">No moderation cases found</h3>
+                                        <p class="text-sm text-text-tertiary">This user has no moderation cases.</p>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -250,8 +265,12 @@
                 }
                 else
                 {
-                    <div class="text-center py-8 text-sm text-text-tertiary">
-                        No notes yet
+                    <div class="text-center py-8">
+                        <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        <h3 class="text-sm font-medium text-text-primary mb-1">No notes yet</h3>
+                        <p class="text-sm text-text-tertiary">Add a note about this user above.</p>
                     </div>
                 }
             </div>
@@ -333,8 +352,14 @@
                         else
                         {
                             <tr>
-                                <td colspan="5" class="px-6 py-12 text-center text-sm text-text-tertiary">
-                                    No flagged events found
+                                <td colspan="5" class="px-6 py-12">
+                                    <div class="text-center">
+                                        <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                                        </svg>
+                                        <h3 class="text-sm font-medium text-text-primary mb-1">No flagged events found</h3>
+                                        <p class="text-sm text-text-tertiary">This user has no flagged events.</p>
+                                    </div>
                                 </td>
                             </tr>
                         }
@@ -362,11 +387,21 @@
     private string FormatDuration(TimeSpan duration)
     {
         if (duration.TotalDays >= 1)
-            return $"{(int)duration.TotalDays}d";
+        {
+            var days = (int)duration.TotalDays;
+            return days == 1 ? "1 day" : $"{days} days";
+        }
         if (duration.TotalHours >= 1)
-            return $"{(int)duration.TotalHours}h";
+        {
+            var hours = (int)duration.TotalHours;
+            return hours == 1 ? "1 hour" : $"{hours} hours";
+        }
         if (duration.TotalMinutes >= 1)
-            return $"{(int)duration.TotalMinutes}m";
-        return $"{(int)duration.TotalSeconds}s";
+        {
+            var minutes = (int)duration.TotalMinutes;
+            return minutes == 1 ? "1 minute" : $"{minutes} minutes";
+        }
+        var seconds = (int)duration.TotalSeconds;
+        return seconds == 1 ? "1 second" : $"{seconds} seconds";
     }
 }

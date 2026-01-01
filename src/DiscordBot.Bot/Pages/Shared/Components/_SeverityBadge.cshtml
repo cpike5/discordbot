@@ -1,15 +1,20 @@
 @model DiscordBot.Core.Enums.Severity
 @{
-    var (badgeClass, label) = Model switch
+    var (severityClass, label) = Model switch
     {
-        DiscordBot.Core.Enums.Severity.Low => ("bg-text-tertiary/20 text-text-tertiary", "Low"),
-        DiscordBot.Core.Enums.Severity.Medium => ("bg-warning/20 text-warning", "Medium"),
-        DiscordBot.Core.Enums.Severity.High => ("bg-error/20 text-error", "High"),
-        DiscordBot.Core.Enums.Severity.Critical => ("bg-error text-white animate-pulse", "Critical"),
-        _ => ("bg-text-tertiary/20 text-text-tertiary", "Unknown")
+        DiscordBot.Core.Enums.Severity.Low => ("severity-low", "Low"),
+        DiscordBot.Core.Enums.Severity.Medium => ("severity-medium", "Medium"),
+        DiscordBot.Core.Enums.Severity.High => ("severity-high", "High"),
+        DiscordBot.Core.Enums.Severity.Critical => ("severity-critical", "Critical"),
+        _ => ("severity-low", "Unknown")
     };
+    var showPulse = Model == DiscordBot.Core.Enums.Severity.Critical;
 }
 
-<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold @badgeClass">
+<span class="severity-badge @severityClass">
+    @if (showPulse)
+    {
+        <span class="pulse-dot"></span>
+    }
     @label
 </span>
