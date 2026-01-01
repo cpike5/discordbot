@@ -55,11 +55,6 @@ public record RemindersIndexViewModel
     public ReminderStatus? StatusFilter { get; init; }
 
     /// <summary>
-    /// Gets the current user search filter.
-    /// </summary>
-    public string? UserSearch { get; init; }
-
-    /// <summary>
     /// Gets the total number of pages.
     /// </summary>
     public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
@@ -86,8 +81,7 @@ public record RemindersIndexViewModel
         ReminderStatsViewModel stats,
         int page,
         int pageSize,
-        ReminderStatus? statusFilter = null,
-        string? userSearch = null)
+        ReminderStatus? statusFilter = null)
     {
         return new RemindersIndexViewModel
         {
@@ -99,8 +93,7 @@ public record RemindersIndexViewModel
             Stats = stats,
             CurrentPage = page,
             PageSize = pageSize,
-            StatusFilter = statusFilter,
-            UserSearch = userSearch
+            StatusFilter = statusFilter
         };
     }
 }

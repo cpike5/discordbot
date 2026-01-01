@@ -56,12 +56,6 @@ public class IndexModel : PageModel
     public ReminderStatus? Status { get; set; }
 
     /// <summary>
-    /// Gets or sets the user search filter.
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public string? UserSearch { get; set; }
-
-    /// <summary>
     /// Gets or sets the page number.
     /// </summary>
     [BindProperty(SupportsGet = true, Name = "page")]
@@ -166,8 +160,7 @@ public class IndexModel : PageModel
             Stats = stats,
             CurrentPage = CurrentPage,
             PageSize = PageSize,
-            StatusFilter = Status,
-            UserSearch = UserSearch
+            StatusFilter = Status
         };
 
         return Page();
@@ -192,7 +185,7 @@ public class IndexModel : PageModel
             _logger.LogWarning("Reminder {ReminderId} not found or doesn't belong to guild {GuildId}",
                 reminderId, ulongGuildId);
             ErrorMessage = "Reminder not found.";
-            return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status, UserSearch });
+            return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
         }
 
         if (reminder.Status != ReminderStatus.Pending)
@@ -200,7 +193,7 @@ public class IndexModel : PageModel
             _logger.LogWarning("Cannot cancel reminder {ReminderId} - status is {Status}, not Pending",
                 reminderId, reminder.Status);
             ErrorMessage = "Only pending reminders can be cancelled.";
-            return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status, UserSearch });
+            return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
         }
 
         // Update status to cancelled
@@ -210,6 +203,6 @@ public class IndexModel : PageModel
         _logger.LogInformation("Successfully cancelled reminder {ReminderId}", reminderId);
         SuccessMessage = "Reminder cancelled successfully.";
 
-        return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status, UserSearch });
+        return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
     }
 }
