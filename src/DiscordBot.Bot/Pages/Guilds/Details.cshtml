@@ -151,6 +151,14 @@
                                     </svg>
                                     Flagged Events
                                 </a>
+
+                                <a asp-page="Reminders/Index" asp-route-guildId="@guild.Id"
+                                   class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                    </svg>
+                                    Reminders
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -524,6 +532,75 @@
                 </svg>
                 <p class="text-text-secondary mb-3">No Rat Watches yet</p>
                 <p class="text-sm text-text-tertiary">Use the "Rat Watch" context menu on messages in Discord to start accountability tracking.</p>
+            </div>
+        }
+    </div>
+
+    <!-- Reminders Summary Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-text-primary">Reminders</h2>
+            <a asp-page="Reminders/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                View All &rarr;
+            </a>
+        </div>
+
+        @if (Model.RemindersTotal > 0)
+        {
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                <!-- Total -->
+                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        <span class="text-xs text-text-tertiary font-medium">Total</span>
+                    </div>
+                    <p class="text-2xl font-bold text-text-primary">@Model.RemindersTotal</p>
+                </div>
+
+                <!-- Pending -->
+                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span class="text-xs text-text-tertiary font-medium">Pending</span>
+                    </div>
+                    <p class="text-2xl font-bold text-accent-blue">@Model.RemindersPending</p>
+                </div>
+
+                <!-- Delivered Today -->
+                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span class="text-xs text-text-tertiary font-medium">Delivered Today</span>
+                    </div>
+                    <p class="text-2xl font-bold text-success">@Model.RemindersDeliveredToday</p>
+                </div>
+
+                <!-- Failed -->
+                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg class="w-4 h-4 @(Model.RemindersFailed > 0 ? "text-error" : "text-text-tertiary")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span class="text-xs text-text-tertiary font-medium">Failed</span>
+                    </div>
+                    <p class="text-2xl font-bold @(Model.RemindersFailed > 0 ? "text-error" : "text-text-primary")">@Model.RemindersFailed</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-6">
+                <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <p class="text-text-secondary mb-3">No reminders yet</p>
+                <p class="text-sm text-text-tertiary">Users can create reminders using the /remind command in Discord.</p>
             </div>
         }
     </div>

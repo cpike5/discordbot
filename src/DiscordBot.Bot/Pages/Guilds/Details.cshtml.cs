@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
+// ReSharper disable MemberCanBePrivate.Global
+
 namespace DiscordBot.Bot.Pages.Guilds;
 
 /// <summary>
@@ -19,6 +21,7 @@ public class DetailsModel : PageModel
     private readonly IWelcomeService _welcomeService;
     private readonly IScheduledMessageService _scheduledMessageService;
     private readonly IRatWatchService _ratWatchService;
+    private readonly IReminderRepository _reminderRepository;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
@@ -29,6 +32,7 @@ public class DetailsModel : PageModel
         IWelcomeService welcomeService,
         IScheduledMessageService scheduledMessageService,
         IRatWatchService ratWatchService,
+        IReminderRepository reminderRepository,
         ILogger<DetailsModel> logger)
     {
         _guildService = guildService;
@@ -36,6 +40,7 @@ public class DetailsModel : PageModel
         _welcomeService = welcomeService;
         _scheduledMessageService = scheduledMessageService;
         _ratWatchService = ratWatchService;
+        _reminderRepository = reminderRepository;
         _logger = logger;
     }
 
@@ -122,6 +127,26 @@ public class DetailsModel : PageModel
     /// </summary>
     public int TopRatGuiltyCount { get; set; }
 
+    /// <summary>
+    /// Gets the total number of reminders for this guild.
+    /// </summary>
+    public int RemindersTotal { get; set; }
+
+    /// <summary>
+    /// Gets the count of pending reminders.
+    /// </summary>
+    public int RemindersPending { get; set; }
+
+    /// <summary>
+    /// Gets the count of reminders delivered today.
+    /// </summary>
+    public int RemindersDeliveredToday { get; set; }
+
+    /// <summary>
+    /// Gets the count of failed reminders.
+    /// </summary>
+    public int RemindersFailed { get; set; }
+
     public async Task<IActionResult> OnGetAsync(ulong id, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", id);
@@ -187,8 +212,16 @@ public class DetailsModel : PageModel
             TopRatGuiltyCount = topRat.GuiltyCount;
         }
 
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}",
-            id, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount);
+        // Fetch reminder stats
+        var (remindersTotal, remindersPending, remindersDeliveredToday, remindersFailed) =
+            await _reminderRepository.GetGuildStatsAsync(id, cancellationToken);
+        RemindersTotal = remindersTotal;
+        RemindersPending = remindersPending;
+        RemindersDeliveredToday = remindersDeliveredToday;
+        RemindersFailed = remindersFailed;
+
+        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}",
+            id, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);

@@ -67,4 +67,14 @@ public interface IReminderRepository : IRepository<Reminder>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The reminder if found and owned by the user, otherwise null.</returns>
     Task<Reminder?> GetByIdForUserAsync(Guid id, ulong userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets reminder statistics for a specific guild.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID to get stats for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A tuple containing total, pending, delivered today, and failed counts.</returns>
+    Task<(int TotalCount, int PendingCount, int DeliveredTodayCount, int FailedCount)> GetGuildStatsAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default);
 }
