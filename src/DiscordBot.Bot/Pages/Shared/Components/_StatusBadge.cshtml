@@ -1,15 +1,15 @@
 @model DiscordBot.Core.Enums.FlaggedEventStatus
 @{
-    var (badgeClass, label) = Model switch
+    var (statusClass, label) = Model switch
     {
-        DiscordBot.Core.Enums.FlaggedEventStatus.Pending => ("bg-warning/20 text-warning", "Pending"),
-        DiscordBot.Core.Enums.FlaggedEventStatus.Dismissed => ("bg-text-tertiary/20 text-text-tertiary", "Dismissed"),
-        DiscordBot.Core.Enums.FlaggedEventStatus.Acknowledged => ("bg-accent-blue/20 text-accent-blue", "Acknowledged"),
-        DiscordBot.Core.Enums.FlaggedEventStatus.Actioned => ("bg-success/20 text-success", "Actioned"),
-        _ => ("bg-text-tertiary/20 text-text-tertiary", "Unknown")
+        DiscordBot.Core.Enums.FlaggedEventStatus.Pending => ("status-pending", "Pending"),
+        DiscordBot.Core.Enums.FlaggedEventStatus.Dismissed => ("status-dismissed", "Dismissed"),
+        DiscordBot.Core.Enums.FlaggedEventStatus.Acknowledged => ("status-acknowledged", "Acknowledged"),
+        DiscordBot.Core.Enums.FlaggedEventStatus.Actioned => ("status-actioned", "Actioned"),
+        _ => ("status-dismissed", "Unknown")
     };
 }
 
-<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold @badgeClass">
+<span class="status-badge @statusClass">
     @label
 </span>

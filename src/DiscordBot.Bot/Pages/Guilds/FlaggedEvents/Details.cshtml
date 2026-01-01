@@ -213,27 +213,36 @@
                             Acknowledge
                         </button>
                         <div class="relative">
-                            <button type="button" onclick="toggleActionDropdown()" class="w-full px-4 py-2 bg-warning text-white font-medium rounded-md hover:bg-warning/90 transition-colors flex items-center justify-between">
+                            <button type="button"
+                                    id="actionDropdownTrigger"
+                                    onclick="toggleActionDropdown()"
+                                    aria-haspopup="true"
+                                    aria-expanded="false"
+                                    aria-controls="actionDropdown"
+                                    class="w-full px-4 py-2 bg-warning text-white font-medium rounded-md hover:bg-warning/90 transition-colors flex items-center justify-between">
                                 <span>Take Action</span>
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
-                            <div id="actionDropdown" class="hidden absolute z-10 mt-2 w-full bg-bg-secondary border border-border-primary rounded-md shadow-lg">
+                            <div id="actionDropdown"
+                                 role="menu"
+                                 aria-label="Moderation actions"
+                                 class="hidden absolute z-10 mt-2 w-full bg-bg-secondary border border-border-primary rounded-md shadow-lg">
                                 <div class="py-1">
-                                    <button type="button" onclick="takeAction('Warned user')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                    <button type="button" role="menuitem" onclick="takeAction('Warned user')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
                                         Warn User
                                     </button>
-                                    <button type="button" onclick="takeAction('Muted user for 24 hours')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                    <button type="button" role="menuitem" onclick="takeAction('Muted user for 24 hours')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
                                         Mute User
                                     </button>
-                                    <button type="button" onclick="takeAction('Kicked user from server')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                    <button type="button" role="menuitem" onclick="takeAction('Kicked user from server')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
                                         Kick User
                                     </button>
-                                    <button type="button" onclick="takeAction('Banned user from server')" class="block w-full text-left px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
+                                    <button type="button" role="menuitem" onclick="takeAction('Banned user from server')" class="block w-full text-left px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
                                         Ban User
                                     </button>
-                                    <button type="button" onclick="showCustomActionModal()" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors border-t border-border-primary">
+                                    <button type="button" role="menuitem" onclick="showCustomActionModal()" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors border-t border-border-primary">
                                         Custom Action...
                                     </button>
                                 </div>
@@ -253,10 +262,15 @@
 </div>
 
 <!-- Custom Action Modal -->
-<div id="customActionModal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+<div id="customActionModal"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="customActionModalTitle"
+     class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+     onclick="if(event.target === this) hideCustomActionModal()">
     <div class="bg-bg-secondary border border-border-primary rounded-lg max-w-md w-full p-6">
-        <h3 class="text-lg font-semibold text-text-primary mb-4">Custom Action</h3>
-        <textarea id="customActionText" rows="4" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Describe the action you took..."></textarea>
+        <h3 id="customActionModalTitle" class="text-lg font-semibold text-text-primary mb-4">Custom Action</h3>
+        <textarea id="customActionText" rows="4" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Describe the action you took..." aria-label="Action description"></textarea>
         <div class="flex items-center justify-end gap-3 mt-4">
             <button type="button" onclick="hideCustomActionModal()" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
                 Cancel
@@ -283,17 +297,83 @@
 
         function toggleActionDropdown() {
             const dropdown = document.getElementById('actionDropdown');
+            const trigger = document.getElementById('actionDropdownTrigger');
+            const isExpanded = !dropdown.classList.contains('hidden');
+
             dropdown.classList.toggle('hidden');
+            trigger.setAttribute('aria-expanded', !isExpanded);
+
+            // Focus first menu item when opening
+            if (isExpanded === false) {
+                const firstItem = dropdown.querySelector('[role="menuitem"]');
+                if (firstItem) firstItem.focus();
+            }
         }
 
+        function closeActionDropdown() {
+            const dropdown = document.getElementById('actionDropdown');
+            const trigger = document.getElementById('actionDropdownTrigger');
+            dropdown.classList.add('hidden');
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+
+        // Focus trap state
+        let previousActiveElement = null;
+
         function showCustomActionModal() {
-            document.getElementById('actionDropdown').classList.add('hidden');
-            document.getElementById('customActionModal').classList.remove('hidden');
+            closeActionDropdown();
+            previousActiveElement = document.activeElement;
+            const modal = document.getElementById('customActionModal');
+            modal.classList.remove('hidden');
+
+            // Focus the textarea
+            document.getElementById('customActionText').focus();
+
+            // Add keydown listener for focus trap and Escape
+            document.addEventListener('keydown', handleModalKeydown);
         }
 
         function hideCustomActionModal() {
             document.getElementById('customActionModal').classList.add('hidden');
             document.getElementById('customActionText').value = '';
+
+            // Remove keydown listener
+            document.removeEventListener('keydown', handleModalKeydown);
+
+            // Restore focus to previous element
+            if (previousActiveElement) {
+                previousActiveElement.focus();
+                previousActiveElement = null;
+            }
+        }
+
+        function handleModalKeydown(event) {
+            const modal = document.getElementById('customActionModal');
+
+            // Close on Escape
+            if (event.key === 'Escape') {
+                hideCustomActionModal();
+                return;
+            }
+
+            // Focus trap on Tab
+            if (event.key === 'Tab') {
+                const focusableElements = modal.querySelectorAll('textarea, button:not([disabled])');
+                const firstElement = focusableElements[0];
+                const lastElement = focusableElements[focusableElements.length - 1];
+
+                if (event.shiftKey) {
+                    if (document.activeElement === firstElement) {
+                        event.preventDefault();
+                        lastElement.focus();
+                    }
+                } else {
+                    if (document.activeElement === lastElement) {
+                        event.preventDefault();
+                        firstElement.focus();
+                    }
+                }
+            }
         }
 
         async function dismissEvent() {
@@ -416,10 +496,22 @@
         // Close dropdown when clicking outside
         document.addEventListener('click', function(event) {
             const dropdown = document.getElementById('actionDropdown');
-            const button = event.target.closest('button');
+            const trigger = document.getElementById('actionDropdownTrigger');
 
-            if (!button || button.textContent.indexOf('Take Action') === -1) {
-                dropdown.classList.add('hidden');
+            // If click is outside both the trigger and dropdown, close it
+            if (!dropdown.contains(event.target) && !trigger.contains(event.target)) {
+                closeActionDropdown();
+            }
+        });
+
+        // Close dropdown on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const dropdown = document.getElementById('actionDropdown');
+                if (!dropdown.classList.contains('hidden')) {
+                    closeActionDropdown();
+                    document.getElementById('actionDropdownTrigger').focus();
+                }
             }
         });
     </script>

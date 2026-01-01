@@ -99,6 +99,12 @@
   color: var(--color-text-tertiary, #7a7876);
 }
 
+/* Acknowledged Status - Blue/Info */
+.status-acknowledged {
+  background-color: var(--color-info-bg, rgba(6, 182, 212, 0.1));
+  color: var(--color-info, #06b6d4);
+}
+
 /* Actioned Status - Green/Success */
 .status-actioned {
   background-color: var(--color-success-bg, rgba(16, 185, 129, 0.1));
