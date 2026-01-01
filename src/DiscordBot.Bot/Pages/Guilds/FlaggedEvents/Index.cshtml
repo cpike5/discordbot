@@ -216,7 +216,7 @@
                                 <div class="text-sm text-text-secondary">@(evt.ChannelId > 0 ? $"#{evt.ChannelName}" : "N/A")</div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
-                                <div class="text-sm text-text-secondary">@evt.CreatedAt.ToString("MMM d, yyyy h:mm tt")</div>
+                                <div class="text-sm text-text-secondary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="datetime"></span></div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <partial name="Shared/Components/_StatusBadge" model="evt.Status" />
@@ -270,7 +270,7 @@
                         {
                             <div class="text-sm text-text-secondary">#{@evt.ChannelName}</div>
                         }
-                        <div class="text-xs text-text-tertiary">@evt.CreatedAt.ToString("MMM d, yyyy h:mm tt")</div>
+                        <div class="text-xs text-text-tertiary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="datetime"></span></div>
                     </div>
                     <div class="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-border-primary">
                         @if (evt.Status == FlaggedEventStatus.Pending)

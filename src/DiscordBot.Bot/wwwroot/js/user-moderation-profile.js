@@ -70,33 +70,77 @@
      * Add a tag to the user
      */
     window.addTag = async function (tagName) {
+        // Close dropdown first
+        const dropdown = document.getElementById('tagDropdown');
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+        }
+
         try {
+            // Convert currentUserId to number if it's a string (Discord snowflakes need proper handling)
+            const appliedById = typeof currentUserId === 'string' ? currentUserId : String(currentUserId);
+
             const response = await fetch(`/api/guilds/${guildId}/users/${userId}/tags/${encodeURIComponent(tagName)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    appliedById: currentUserId
+                    appliedById: appliedById
                 })
             });
 
             if (response.ok) {
-                // Reload the page to reflect changes
-                window.location.reload();
+                // Add the tag to the UI dynamically instead of reloading
+                const tag = await response.json();
+                const tagsContainer = document.getElementById('userTagsContainer');
+                if (tagsContainer) {
+                    const tagHtml = `
+                        <span class="user-tag user-tag-removable" data-tag-name="${tagName}" onclick="removeTag('${tagName}')">
+                            ${tagName}
+                            <span class="user-tag-remove" title="Remove tag">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </span>
+                        </span>
+                    `;
+                    tagsContainer.insertAdjacentHTML('beforeend', tagHtml);
+                }
+
+                // Remove the tag from the dropdown (already applied)
+                const dropdownItem = document.querySelector(`#tagDropdown [data-tag-name="${tagName}"]`);
+                if (dropdownItem) {
+                    dropdownItem.remove();
+                }
+
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('success', `Tag "${tagName}" added successfully`);
+                }
             } else {
-                const error = await response.json();
-                alert(`Failed to add tag: ${error.message || 'Unknown error'}`);
+                // Try to parse JSON, but handle non-JSON responses gracefully
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const error = await response.json();
+                    errorMessage = error.message || error.detail || errorMessage;
+                } catch (parseError) {
+                    // Response wasn't JSON, use the status text
+                    console.error('Response was not JSON:', parseError);
+                }
+
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('error', `Failed to add tag: ${errorMessage}`);
+                } else {
+                    alert(`Failed to add tag: ${errorMessage}`);
+                }
             }
         } catch (error) {
             console.error('Error adding tag:', error);
-            alert('Failed to add tag. Please try again.');
-        }
-
-        // Close dropdown
-        const dropdown = document.getElementById('tagDropdown');
-        if (dropdown) {
-            dropdown.classList.add('hidden');
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.show('error', 'Failed to add tag. Please try again.');
+            } else {
+                alert('Failed to add tag. Please try again.');
+            }
         }
     };
 
@@ -119,13 +163,32 @@
                 if (tagElement) {
                     tagElement.remove();
                 }
+
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('success', `Tag "${tagName}" removed`);
+                }
             } else {
-                const error = await response.json();
-                alert(`Failed to remove tag: ${error.message || 'Unknown error'}`);
+                let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                try {
+                    const error = await response.json();
+                    errorMessage = error.message || error.detail || errorMessage;
+                } catch (parseError) {
+                    console.error('Response was not JSON:', parseError);
+                }
+
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('error', `Failed to remove tag: ${errorMessage}`);
+                } else {
+                    alert(`Failed to remove tag: ${errorMessage}`);
+                }
             }
         } catch (error) {
             console.error('Error removing tag:', error);
-            alert('Failed to remove tag. Please try again.');
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.show('error', 'Failed to remove tag. Please try again.');
+            } else {
+                alert('Failed to remove tag. Please try again.');
+            }
         }
     };
 

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Core.DTOs;
@@ -1026,6 +1027,7 @@ public class ApplyTagDto
     /// <summary>
     /// Gets or sets the Discord user snowflake ID of the moderator applying the tag.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     public ulong AppliedById { get; set; }
 }
 
