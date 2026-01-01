@@ -698,9 +698,9 @@ public class TimeParsingServiceTests
     #region Full DateTime Format Tests
 
     [Theory]
-    [InlineData("2026-06-15 22:00", 2026, 6, 15, 22, 0)]
-    [InlineData("2026-01-01T14:30", 2026, 1, 1, 14, 30)]
-    [InlineData("2026-03-15 09:45:30", 2026, 3, 15, 9, 45)]
+    [InlineData("2027-06-15 22:00", 2027, 6, 15, 22, 0)]
+    [InlineData("2027-01-01T14:30", 2027, 1, 1, 14, 30)]
+    [InlineData("2027-03-15 09:45:30", 2027, 3, 15, 9, 45)]
     public void Parse_FullDateTime_ReturnsCorrectDateTime(string input, int year, int month, int day,
         int hour, int minute)
     {

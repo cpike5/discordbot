@@ -17,6 +17,7 @@ public class ServerAnalyticsServiceTests
     private readonly Mock<IMemberActivityRepository> _mockMemberActivityRepository;
     private readonly Mock<IChannelActivityRepository> _mockChannelActivityRepository;
     private readonly Mock<IGuildMetricsRepository> _mockGuildMetricsRepository;
+    private readonly Mock<IMessageLogRepository> _mockMessageLogRepository;
     private readonly Mock<ILogger<ServerAnalyticsService>> _mockLogger;
     private readonly ServerAnalyticsService _service;
 
@@ -25,11 +26,13 @@ public class ServerAnalyticsServiceTests
         _mockMemberActivityRepository = new Mock<IMemberActivityRepository>();
         _mockChannelActivityRepository = new Mock<IChannelActivityRepository>();
         _mockGuildMetricsRepository = new Mock<IGuildMetricsRepository>();
+        _mockMessageLogRepository = new Mock<IMessageLogRepository>();
         _mockLogger = new Mock<ILogger<ServerAnalyticsService>>();
         _service = new ServerAnalyticsService(
             _mockMemberActivityRepository.Object,
             _mockChannelActivityRepository.Object,
             _mockGuildMetricsRepository.Object,
+            _mockMessageLogRepository.Object,
             _mockLogger.Object);
     }
 
@@ -70,6 +73,13 @@ public class ServerAnalyticsServiceTests
             new() { ChannelId = 222, ChannelName = "bot-commands", MessageCount = 300 }
         };
 
+        // Message counts from MessageLogs (source of truth for message counts)
+        var messagesByDay = new List<(DateOnly Date, long Count)>
+        {
+            (DateOnly.FromDateTime(now.AddDays(-1)), 150),
+            (DateOnly.FromDateTime(now.AddDays(-5)), 100)
+        };
+
         _mockGuildMetricsRepository
             .Setup(r => r.GetLatestAsync(guildId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(latestMetrics);
@@ -88,6 +98,10 @@ public class ServerAnalyticsServiceTests
             .Setup(r => r.GetChannelRankingsAsync(guildId, start, end, 1000, It.IsAny<CancellationToken>()))
             .ReturnsAsync(channelSnapshots);
 
+        _mockMessageLogRepository
+            .Setup(r => r.GetMessagesByDayAsync(It.IsAny<int>(), guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(messagesByDay);
+
         // Act
         var result = await _service.GetSummaryAsync(guildId, start, end);
 
@@ -98,6 +112,8 @@ public class ServerAnalyticsServiceTests
         result.ActiveChannels.Should().Be(2, "there are 2 active channels");
         result.MemberGrowth7d.Should().Be(20, "500 - 480 = 20 new members");
         result.MemberGrowthPercent.Should().BeApproximately(4.17m, 0.1m, "(20 / 480) * 100 = 4.17%");
+        result.Messages24h.Should().Be(150, "message from yesterday should be counted");
+        result.Messages7d.Should().Be(250, "both messages from last 7 days should be counted");
     }
 
     [Fact]
@@ -125,6 +141,10 @@ public class ServerAnalyticsServiceTests
         _mockChannelActivityRepository
             .Setup(r => r.GetChannelRankingsAsync(guildId, start, end, 1000, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChannelActivitySnapshot>());
+
+        _mockMessageLogRepository
+            .Setup(r => r.GetMessagesByDayAsync(It.IsAny<int>(), guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<(DateOnly Date, long Count)>());
 
         // Act
         var result = await _service.GetSummaryAsync(guildId, start, end);
@@ -163,6 +183,14 @@ public class ServerAnalyticsServiceTests
             new() { ChannelId = 222, ChannelName = "bot-commands", MessageCount = 300 }
         };
 
+        // Message counts from MessageLogs (source of truth)
+        var messagesByDay = new List<(DateOnly Date, long Count)>
+        {
+            (DateOnly.FromDateTime(start), 1500),
+            (DateOnly.FromDateTime(start.AddDays(1)), 1800),
+            (DateOnly.FromDateTime(start.AddDays(2)), 1600)
+        };
+
         _mockMemberActivityRepository
             .Setup(r => r.GetActivityTimeSeriesAsync(guildId, start, end, SnapshotGranularity.Daily,
                 It.IsAny<CancellationToken>()))
@@ -172,6 +200,10 @@ public class ServerAnalyticsServiceTests
             .Setup(r => r.GetChannelRankingsAsync(guildId, start, end, 1000, It.IsAny<CancellationToken>()))
             .ReturnsAsync(channelSnapshots);
 
+        _mockMessageLogRepository
+            .Setup(r => r.GetMessagesByDayAsync(It.IsAny<int>(), guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(messagesByDay);
+
         // Act
         var result = await _service.GetActivityTimeSeriesAsync(guildId, start, end);
 
@@ -179,7 +211,7 @@ public class ServerAnalyticsServiceTests
         result.Should().NotBeNull();
         result.Should().HaveCount(3, "there are 3 activity snapshots");
         result[0].Date.Should().Be(start);
-        result[0].MessageCount.Should().Be(1000);
+        result[0].MessageCount.Should().Be(1500, "message count should come from MessageLogs");
         result[0].ActiveMembers.Should().Be(100);
         result[0].ActiveChannels.Should().Be(2, "total unique channels in the period");
     }
@@ -200,6 +232,10 @@ public class ServerAnalyticsServiceTests
         _mockChannelActivityRepository
             .Setup(r => r.GetChannelRankingsAsync(guildId, start, end, 1000, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ChannelActivitySnapshot>());
+
+        _mockMessageLogRepository
+            .Setup(r => r.GetMessagesByDayAsync(It.IsAny<int>(), guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<(DateOnly Date, long Count)>());
 
         // Act
         var result = await _service.GetActivityTimeSeriesAsync(guildId, start, end);
@@ -399,5 +435,112 @@ public class ServerAnalyticsServiceTests
         result[0].UserId.Should().Be(111);
         result[0].Username.Should().Be("Unknown", "fallback when user is null");
         result[0].AvatarUrl.Should().BeNull("no avatar when user is null");
+    }
+
+    [Fact]
+    public async Task GetSummaryAsync_ShouldUseMessageLogsForMessageCounts_NotSnapshots()
+    {
+        // Arrange - This test verifies the fix for issue #579
+        // ServerAnalyticsService should use MessageLogRepository (real-time data)
+        // instead of MemberActivitySnapshots (pre-aggregated, potentially stale data)
+        var guildId = 123456789UL;
+        var start = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = new DateTime(2023, 1, 31, 23, 59, 59, DateTimeKind.Utc);
+        var now = DateTime.UtcNow;
+
+        // Member activity snapshots show DIFFERENT message counts (pre-aggregated, stale)
+        var activitySnapshots = new List<(DateTime Period, int TotalMessages, int ActiveMembers)>
+        {
+            (now.AddDays(-1), 0, 100),  // Snapshot shows 0 messages
+            (now.AddDays(-5), 0, 80)    // Snapshot shows 0 messages
+        };
+
+        // MessageLogs show the ACTUAL message counts (source of truth)
+        var messagesByDay = new List<(DateOnly Date, long Count)>
+        {
+            (DateOnly.FromDateTime(now.AddDays(-1)), 5),  // MessageLogs show 5 messages
+            (DateOnly.FromDateTime(now.AddDays(-5)), 3)   // MessageLogs show 3 messages
+        };
+
+        _mockGuildMetricsRepository
+            .Setup(r => r.GetLatestAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((GuildMetricsSnapshot?)null);
+
+        _mockMemberActivityRepository
+            .Setup(r => r.GetActivityTimeSeriesAsync(guildId, It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                SnapshotGranularity.Daily, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(activitySnapshots);
+
+        _mockGuildMetricsRepository
+            .Setup(r => r.GetByDateRangeAsync(guildId, It.IsAny<DateOnly>(), It.IsAny<DateOnly>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<GuildMetricsSnapshot>());
+
+        _mockChannelActivityRepository
+            .Setup(r => r.GetChannelRankingsAsync(guildId, start, end, 1000, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ChannelActivitySnapshot>());
+
+        _mockMessageLogRepository
+            .Setup(r => r.GetMessagesByDayAsync(It.IsAny<int>(), guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(messagesByDay);
+
+        // Act
+        var result = await _service.GetSummaryAsync(guildId, start, end);
+
+        // Assert - Message counts should come from MessageLogs, not snapshots
+        result.Should().NotBeNull();
+        result.Messages24h.Should().Be(5, "message count should come from MessageLogs (5), not snapshots (0)");
+        result.Messages7d.Should().Be(8, "message count should come from MessageLogs (5+3=8), not snapshots (0)");
+
+        // Verify that MessageLogRepository was called
+        _mockMessageLogRepository.Verify(
+            r => r.GetMessagesByDayAsync(It.IsAny<int>(), guildId, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "GetMessagesByDayAsync should be called to get real-time message counts");
+    }
+
+    [Fact]
+    public async Task GetActivityTimeSeriesAsync_ShouldShowMessagesEvenWhenSnapshotsAreEmpty()
+    {
+        // Arrange - This test verifies that we can display message data even before
+        // the daily aggregation runs (when MemberActivitySnapshots are empty)
+        var guildId = 123456789UL;
+        var start = new DateTime(2023, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var end = new DateTime(2023, 1, 3, 23, 59, 59, DateTimeKind.Utc);
+
+        // No activity snapshots (aggregation hasn't run yet)
+        var activitySnapshots = new List<(DateTime Period, int TotalMessages, int ActiveMembers)>();
+
+        // But MessageLogs has actual messages
+        var messagesByDay = new List<(DateOnly Date, long Count)>
+        {
+            (DateOnly.FromDateTime(start), 10),
+            (DateOnly.FromDateTime(start.AddDays(1)), 15),
+            (DateOnly.FromDateTime(start.AddDays(2)), 8)
+        };
+
+        _mockMemberActivityRepository
+            .Setup(r => r.GetActivityTimeSeriesAsync(guildId, start, end, SnapshotGranularity.Daily,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(activitySnapshots);
+
+        _mockChannelActivityRepository
+            .Setup(r => r.GetChannelRankingsAsync(guildId, start, end, 1000, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ChannelActivitySnapshot>());
+
+        _mockMessageLogRepository
+            .Setup(r => r.GetMessagesByDayAsync(It.IsAny<int>(), guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(messagesByDay);
+
+        // Act
+        var result = await _service.GetActivityTimeSeriesAsync(guildId, start, end);
+
+        // Assert - Should have data points even without activity snapshots
+        result.Should().NotBeNull();
+        result.Should().HaveCount(3, "should have entries for each day with messages");
+        result[0].MessageCount.Should().Be(10, "message count from MessageLogs");
+        result[1].MessageCount.Should().Be(15, "message count from MessageLogs");
+        result[2].MessageCount.Should().Be(8, "message count from MessageLogs");
+        result[0].ActiveMembers.Should().Be(0, "no activity snapshot data available");
     }
 }

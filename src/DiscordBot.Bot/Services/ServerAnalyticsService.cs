@@ -1,7 +1,6 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Bot.Services;
@@ -15,17 +14,20 @@ public class ServerAnalyticsService : IServerAnalyticsService
     private readonly IMemberActivityRepository _memberActivityRepository;
     private readonly IChannelActivityRepository _channelActivityRepository;
     private readonly IGuildMetricsRepository _guildMetricsRepository;
+    private readonly IMessageLogRepository _messageLogRepository;
     private readonly ILogger<ServerAnalyticsService> _logger;
 
     public ServerAnalyticsService(
         IMemberActivityRepository memberActivityRepository,
         IChannelActivityRepository channelActivityRepository,
         IGuildMetricsRepository guildMetricsRepository,
+        IMessageLogRepository messageLogRepository,
         ILogger<ServerAnalyticsService> logger)
     {
         _memberActivityRepository = memberActivityRepository;
         _channelActivityRepository = channelActivityRepository;
         _guildMetricsRepository = guildMetricsRepository;
+        _messageLogRepository = messageLogRepository;
         _logger = logger;
     }
 
@@ -49,15 +51,7 @@ public class ServerAnalyticsService : IServerAnalyticsService
         var last7d = now.AddDays(-7);
         var last30d = now.AddDays(-30);
 
-        // Get activity data for the requested time period using daily granularity
-        var activityData = await _memberActivityRepository.GetActivityTimeSeriesAsync(
-            guildId,
-            start,
-            end,
-            SnapshotGranularity.Daily,
-            ct);
-
-        // Calculate active members for different time windows
+        // Calculate active members for different time windows using member activity snapshots
         var dailySnapshots = await _memberActivityRepository.GetActivityTimeSeriesAsync(
             guildId,
             last30d,
@@ -77,14 +71,20 @@ public class ServerAnalyticsService : IServerAnalyticsService
         var activeMembersLast30d = dailySnapshots
             .Sum(x => x.ActiveMembers);
 
-        // Calculate message counts
-        var messagesLast24h = dailySnapshots
-            .Where(x => x.Period >= last24h)
-            .Sum(x => x.TotalMessages);
+        // Get message counts directly from MessageLogs for real-time accuracy
+        // This ensures consistent data with EngagementAnalyticsService
+        var messagesByDay = await _messageLogRepository.GetMessagesByDayAsync(
+            days: 30,
+            guildId: guildId,
+            cancellationToken: ct);
 
-        var messagesLast7d = dailySnapshots
-            .Where(x => x.Period >= last7d)
-            .Sum(x => x.TotalMessages);
+        var messagesLast24h = messagesByDay
+            .Where(x => x.Date >= DateOnly.FromDateTime(last24h))
+            .Sum(x => x.Count);
+
+        var messagesLast7d = messagesByDay
+            .Where(x => x.Date >= DateOnly.FromDateTime(last7d))
+            .Sum(x => x.Count);
 
         // Calculate member growth from guild metrics
         var metricsLast7d = await _guildMetricsRepository.GetByDateRangeAsync(
@@ -140,13 +140,25 @@ public class ServerAnalyticsService : IServerAnalyticsService
             "Generating activity time series for guild {GuildId} from {Start} to {End}",
             guildId, start, end);
 
-        // Get daily activity aggregates
+        // Get daily activity aggregates for active member counts
         var activityData = await _memberActivityRepository.GetActivityTimeSeriesAsync(
             guildId,
             start,
             end,
             SnapshotGranularity.Daily,
             ct);
+
+        // Get message counts directly from MessageLogs for real-time accuracy
+        var daySpan = (int)Math.Ceiling((end - start).TotalDays) + 1;
+        var messagesByDay = await _messageLogRepository.GetMessagesByDayAsync(
+            days: daySpan,
+            guildId: guildId,
+            cancellationToken: ct);
+
+        // Create a lookup for message counts by date
+        var messageLookup = messagesByDay
+            .Where(x => x.Date >= DateOnly.FromDateTime(start) && x.Date <= DateOnly.FromDateTime(end))
+            .ToDictionary(x => x.Date, x => x.Count);
 
         // Get channel activity for the same period
         var channelRankings = await _channelActivityRepository.GetChannelRankingsAsync(
@@ -156,17 +168,37 @@ public class ServerAnalyticsService : IServerAnalyticsService
             limit: 1000,
             ct);
 
-        // Create a dictionary of channel counts by date (we'll need to aggregate this differently)
         // For now, we'll use the total unique channels as a constant
         var activeChannelsCount = channelRankings.Count;
 
+        // Combine activity data with message counts from MessageLogs
         var results = activityData.Select(x => new ActivityTimeSeriesDto
         {
             Date = x.Period,
-            MessageCount = x.TotalMessages,
+            MessageCount = messageLookup.TryGetValue(DateOnly.FromDateTime(x.Period), out var count)
+                ? (int)count
+                : 0,
             ActiveMembers = x.ActiveMembers,
-            ActiveChannels = activeChannelsCount // This is simplified - could be improved with per-day channel tracking
+            ActiveChannels = activeChannelsCount
         }).ToList();
+
+        // If there are dates with messages but no activity snapshots, add them
+        foreach (var (date, count) in messageLookup)
+        {
+            var dateTime = date.ToDateTime(TimeOnly.MinValue);
+            if (!results.Any(r => DateOnly.FromDateTime(r.Date) == date))
+            {
+                results.Add(new ActivityTimeSeriesDto
+                {
+                    Date = dateTime,
+                    MessageCount = (int)count,
+                    ActiveMembers = 0,
+                    ActiveChannels = activeChannelsCount
+                });
+            }
+        }
+
+        results = results.OrderBy(r => r.Date).ToList();
 
         _logger.LogDebug(
             "Generated {Count} activity time series data points for guild {GuildId}",
