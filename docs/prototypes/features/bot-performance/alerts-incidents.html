@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alerts & Incidents - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="performance-shared.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Main Content Area -->
+  <main class="min-h-screen">
+    <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+          <li>
+            <a href="../../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="index.html" class="text-text-secondary hover:text-accent-blue transition-colors">Bot Performance</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Alerts & Incidents</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Alerts & Incidents</h1>
+          <p class="text-text-secondary mt-1">Active alerts, incident history, and alert configuration</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="severity-badge severity-warning">2 Active Alerts</span>
+          <button class="btn btn-primary">
+            <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Configure Alerts
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="performance-tabs mb-6">
+        <a href="index.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Overview
+        </a>
+        <a href="health-metrics.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          Health Metrics
+        </a>
+        <a href="command-performance.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Commands
+        </a>
+        <a href="api-rate-limits.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          API & Rate Limits
+        </a>
+        <a href="system-health.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          System
+        </a>
+        <a href="alerts-incidents.html" class="performance-tab active">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          Alerts
+          <span class="ml-1 px-1.5 py-0.5 text-xs font-bold bg-warning/20 text-warning rounded-full">2</span>
+        </a>
+      </div>
+
+      <!-- Active Alerts Section -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Active Alerts</h2>
+            <p class="chart-card-subtitle">Current issues requiring attention</p>
+          </div>
+          <button class="btn btn-sm btn-secondary">
+            Acknowledge All
+          </button>
+        </div>
+        <div class="chart-card-body p-0">
+          <div class="divide-y divide-border-primary">
+            <!-- Warning Alert 1 -->
+            <div class="alert-card border-0 rounded-none alert-card-warning">
+              <svg class="alert-icon alert-icon-warning flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div class="alert-content flex-1">
+                <div class="alert-title">High API rate limit usage</div>
+                <div class="alert-description">Rate limit at 90% capacity. Consider throttling non-critical requests.</div>
+                <div class="alert-meta">
+                  <span class="severity-badge severity-warning">Warning</span>
+                  <span>Triggered 5 minutes ago</span>
+                  <span>Metric: api.rate_limit.usage > 85%</span>
+                </div>
+              </div>
+              <div class="alert-actions flex items-center gap-2">
+                <button class="btn btn-sm btn-secondary">Acknowledge</button>
+                <button class="btn btn-sm btn-secondary">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Info Alert -->
+            <div class="alert-card border-0 rounded-none alert-card-info">
+              <svg class="alert-icon alert-icon-info flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div class="alert-content flex-1">
+                <div class="alert-title">Elevated P95 latency for /help command</div>
+                <div class="alert-description">P95 latency has increased to 320ms (threshold: 300ms). Performance may be degraded.</div>
+                <div class="alert-meta">
+                  <span class="severity-badge severity-info">Info</span>
+                  <span>Triggered 18 minutes ago</span>
+                  <span>Metric: command.help.p95_latency > 300ms</span>
+                </div>
+              </div>
+              <div class="alert-actions flex items-center gap-2">
+                <button class="btn btn-sm btn-secondary">Acknowledge</button>
+                <button class="btn btn-sm btn-secondary">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty state for when no alerts -->
+          <!--
+          <div class="empty-state py-12">
+            <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div class="empty-state-title">No Active Alerts</div>
+            <div class="empty-state-description">All systems are operating within normal parameters. You're doing great!</div>
+          </div>
+          -->
+        </div>
+      </div>
+
+      <!-- Alert Thresholds Configuration -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Alert Threshold Configuration</h2>
+            <p class="chart-card-subtitle">Define warning and critical thresholds for key metrics</p>
+          </div>
+          <button class="btn btn-sm btn-primary">
+            <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Save Changes
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="config-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Warning Threshold</th>
+                <th>Critical Threshold</th>
+                <th>Current Value</th>
+                <th>Enabled</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="font-medium text-text-primary">API Rate Limit Usage</div>
+                  <div class="text-xs text-text-tertiary">Percentage of rate limit capacity used</div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="85" min="0" max="100" />
+                    <span class="text-text-secondary">%</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="95" min="0" max="100" />
+                    <span class="text-text-secondary">%</span>
+                  </div>
+                </td>
+                <td><span class="text-warning font-medium">90%</span></td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="font-medium text-text-primary">Command P95 Latency</div>
+                  <div class="text-xs text-text-tertiary">95th percentile response time</div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="300" min="0" />
+                    <span class="text-text-secondary">ms</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="500" min="0" />
+                    <span class="text-text-secondary">ms</span>
+                  </div>
+                </td>
+                <td><span class="text-success font-medium">245ms</span></td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="font-medium text-text-primary">Memory Usage</div>
+                  <div class="text-xs text-text-tertiary">Working set memory consumption</div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="400" min="0" />
+                    <span class="text-text-secondary">MB</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="480" min="0" />
+                    <span class="text-text-secondary">MB</span>
+                  </div>
+                </td>
+                <td><span class="text-success font-medium">256MB</span></td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="font-medium text-text-primary">Error Rate</div>
+                  <div class="text-xs text-text-tertiary">Percentage of failed commands</div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="1" min="0" max="100" step="0.1" />
+                    <span class="text-text-secondary">%</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="5" min="0" max="100" step="0.1" />
+                    <span class="text-text-secondary">%</span>
+                  </div>
+                </td>
+                <td><span class="text-success font-medium">0.3%</span></td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="font-medium text-text-primary">Gateway Latency</div>
+                  <div class="text-xs text-text-tertiary">Discord heartbeat ping</div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="100" min="0" />
+                    <span class="text-text-secondary">ms</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="200" min="0" />
+                    <span class="text-text-secondary">ms</span>
+                  </div>
+                </td>
+                <td><span class="text-success font-medium">45ms</span></td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="font-medium text-text-primary">Database Query Time</div>
+                  <div class="text-xs text-text-tertiary">Average query execution time</div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="50" min="0" />
+                    <span class="text-text-secondary">ms</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <input type="number" value="100" min="0" />
+                    <span class="text-text-secondary">ms</span>
+                  </div>
+                </td>
+                <td><span class="text-success font-medium">12ms</span></td>
+                <td>
+                  <label class="toggle-switch">
+                    <input type="checkbox" checked>
+                    <span class="toggle-slider"></span>
+                  </label>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Incident History & Auto-Recovery -->
+      <div class="performance-grid-2 mb-6">
+        <!-- Incident History Timeline -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Incident History</h2>
+              <p class="chart-card-subtitle">Past incidents and resolutions (last 30 days)</p>
+            </div>
+            <select class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus transition-colors">
+              <option>All Severities</option>
+              <option>Critical Only</option>
+              <option>Warning Only</option>
+            </select>
+          </div>
+          <div class="chart-card-body">
+            <div class="timeline">
+              <!-- Incident 1 -->
+              <div class="timeline-entry">
+                <div class="timeline-dot timeline-dot-warning"></div>
+                <div class="timeline-content">
+                  <div class="timeline-time">Dec 28, 2025 at 3:15 AM</div>
+                  <div class="timeline-title">Gateway disconnection during Discord maintenance</div>
+                  <div class="timeline-description">
+                    <span class="severity-badge severity-warning mr-2">Warning</span>
+                    Duration: 45 seconds. Auto-reconnected successfully.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 2 -->
+              <div class="timeline-entry">
+                <div class="timeline-dot timeline-dot-error"></div>
+                <div class="timeline-content">
+                  <div class="timeline-time">Dec 25, 2025 at 11:42 PM</div>
+                  <div class="timeline-title">High error rate spike</div>
+                  <div class="timeline-description">
+                    <span class="severity-badge severity-critical mr-2">Critical</span>
+                    Error rate reached 8.5%. Root cause: Discord API outage. Duration: 12 minutes.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 3 -->
+              <div class="timeline-entry">
+                <div class="timeline-dot timeline-dot-info"></div>
+                <div class="timeline-content">
+                  <div class="timeline-time">Dec 22, 2025 at 6:30 AM</div>
+                  <div class="timeline-title">Elevated memory usage</div>
+                  <div class="timeline-description">
+                    <span class="severity-badge severity-info mr-2">Info</span>
+                    Memory reached 420MB. Triggered GC, reduced to 280MB. Duration: 5 minutes.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 4 -->
+              <div class="timeline-entry">
+                <div class="timeline-dot timeline-dot-warning"></div>
+                <div class="timeline-content">
+                  <div class="timeline-time">Dec 18, 2025 at 2:15 PM</div>
+                  <div class="timeline-title">Database connection pool exhausted</div>
+                  <div class="timeline-description">
+                    <span class="severity-badge severity-warning mr-2">Warning</span>
+                    All connections in use. Increased pool size from 10 to 20. Duration: 2 minutes.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Incident 5 -->
+              <div class="timeline-entry">
+                <div class="timeline-dot timeline-dot-success"></div>
+                <div class="timeline-content">
+                  <div class="timeline-time">Dec 15, 2025 at 9:00 AM</div>
+                  <div class="timeline-title">Planned maintenance completed</div>
+                  <div class="timeline-description">
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success/20 text-success rounded mr-2">Maintenance</span>
+                    Bot restarted for version update. Duration: 30 seconds.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Auto-Recovery Event Log -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Auto-Recovery Events</h2>
+              <p class="chart-card-subtitle">Automatic issue detection and remediation</p>
+            </div>
+          </div>
+          <div class="chart-card-body p-0">
+            <div class="divide-y divide-border-primary max-h-96 overflow-y-auto">
+              <!-- Auto-recovery event 1 -->
+              <div class="p-4">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                      <span class="font-medium text-text-primary">Gateway reconnection</span>
+                      <span class="text-xs text-text-tertiary">2 days ago</span>
+                    </div>
+                    <div class="text-sm text-text-secondary mt-1">
+                      <span class="text-warning">Issue:</span> Connection lost to Discord gateway
+                    </div>
+                    <div class="text-sm text-text-secondary">
+                      <span class="text-accent-blue">Action:</span> Automatic reconnection with session resume
+                    </div>
+                    <div class="text-sm text-text-secondary">
+                      <span class="text-success">Result:</span> Successfully reconnected in 12 seconds
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Auto-recovery event 2 -->
+              <div class="p-4">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                      <span class="font-medium text-text-primary">Memory pressure relief</span>
+                      <span class="text-xs text-text-tertiary">5 days ago</span>
+                    </div>
+                    <div class="text-sm text-text-secondary mt-1">
+                      <span class="text-warning">Issue:</span> Memory usage exceeded 420MB threshold
+                    </div>
+                    <div class="text-sm text-text-secondary">
+                      <span class="text-accent-blue">Action:</span> Triggered Gen 2 garbage collection
+                    </div>
+                    <div class="text-sm text-text-secondary">
+                      <span class="text-success">Result:</span> Memory reduced to 280MB
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Auto-recovery event 3 -->
+              <div class="p-4">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                      <span class="font-medium text-text-primary">Rate limit backoff</span>
+                      <span class="text-xs text-text-tertiary">6 days ago</span>
+                    </div>
+                    <div class="text-sm text-text-secondary mt-1">
+                      <span class="text-warning">Issue:</span> Global rate limit hit (429 response)
+                    </div>
+                    <div class="text-sm text-text-secondary">
+                      <span class="text-accent-blue">Action:</span> Queued requests, waited for reset
+                    </div>
+                    <div class="text-sm text-text-secondary">
+                      <span class="text-success">Result:</span> All queued requests processed successfully
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Auto-recovery event 4 -->
+              <div class="p-4">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                    </svg>
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center justify-between">
+                      <span class="font-medium text-text-primary">Database connection recovery</span>
+                      <span class="text-xs text-text-tertiary">10 days ago</span>
+                    </div>
+                    <div class="text-sm text-text-secondary mt-1">
+                      <span class="text-warning">Issue:</span> Connection pool exhausted
+                    </div>
+                    <div class="text-sm text-text-secondary">
+                      <span class="text-accent-blue">Action:</span> Closed idle connections, increased pool size
+                    </div>
+                    <div class="text-sm text-text-secondary">
+                      <span class="text-success">Result:</span> Pool health restored
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Summary footer -->
+            <div class="p-4 bg-bg-tertiary border-t border-border-primary">
+              <div class="flex items-center justify-between text-sm">
+                <span class="text-text-secondary">
+                  <span class="font-medium text-text-primary">8</span> auto-recovery events in the last 30 days
+                </span>
+                <span class="text-success font-medium">100% success rate</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert Statistics Chart -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Alert Frequency</h2>
+            <p class="chart-card-subtitle">Alerts triggered over the last 30 days</p>
+          </div>
+        </div>
+        <div class="chart-card-body">
+          <div class="chart-container">
+            <canvas id="alertFrequencyChart"></canvas>
+          </div>
+          <div class="flex justify-center gap-6 mt-4">
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded bg-error"></div>
+              <span class="text-sm text-text-secondary">Critical (3)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded bg-warning"></div>
+              <span class="text-sm text-text-secondary">Warning (12)</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded bg-info"></div>
+              <span class="text-sm text-text-secondary">Info (8)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Chart.js default dark theme settings
+      Chart.defaults.color = '#a8a5a3';
+      Chart.defaults.borderColor = '#3f4447';
+
+      // Alert Frequency Chart
+      const alertCtx = document.getElementById('alertFrequencyChart').getContext('2d');
+
+      // Generate last 30 days labels
+      const labels = [];
+      const criticalData = [];
+      const warningData = [];
+      const infoData = [];
+
+      for (let i = 29; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+
+        // Sample data - sparse alerts
+        criticalData.push(i === 25 ? 1 : i === 10 ? 1 : i === 3 ? 1 : 0);
+        warningData.push(i === 28 ? 1 : i === 25 ? 2 : i === 20 ? 1 : i === 15 ? 2 : i === 10 ? 1 : i === 5 ? 2 : i === 2 ? 1 : i === 0 ? 2 : 0);
+        infoData.push(i === 27 ? 1 : i === 22 ? 1 : i === 18 ? 2 : i === 12 ? 1 : i === 8 ? 1 : i === 4 ? 1 : i === 0 ? 1 : 0);
+      }
+
+      new Chart(alertCtx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Critical',
+              data: criticalData,
+              backgroundColor: '#ef4444',
+              borderRadius: 2
+            },
+            {
+              label: 'Warning',
+              data: warningData,
+              backgroundColor: '#f59e0b',
+              borderRadius: 2
+            },
+            {
+              label: 'Info',
+              data: infoData,
+              backgroundColor: '#098ecf',
+              borderRadius: 2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12
+            }
+          },
+          scales: {
+            x: {
+              stacked: true,
+              grid: {
+                display: false
+              },
+              ticks: {
+                maxRotation: 45,
+                minRotation: 45,
+                autoSkip: true,
+                maxTicksLimit: 15
+              }
+            },
+            y: {
+              stacked: true,
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              },
+              ticks: {
+                stepSize: 1
+              }
+            }
+          }
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
