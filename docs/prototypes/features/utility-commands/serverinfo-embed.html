@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Info Embed Prototype - Discord Bot</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <style>
+        /*
+         * Discord Embed Styling - Server Info
+         *
+         * Discord embed constraints (for reference):
+         * - Title: max 256 characters
+         * - Description: max 4096 characters
+         * - Field name: max 256 characters
+         * - Field value: max 1024 characters
+         * - Maximum 25 fields per embed
+         * - Total embed size: 6000 characters
+         *
+         * Edge cases to consider:
+         * - Long server names (up to 100 chars)
+         * - Server without description
+         * - Server without vanity URL
+         * - Very large servers (100k+ members)
+         * - New servers with no boosts
+         */
+
+        /* Discord dark theme background */
+        .discord-chat-bg {
+            background-color: #36393F;
+        }
+
+        /* Discord embed container */
+        .discord-embed {
+            max-width: 520px;
+            border-radius: 4px;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Left color strip */
+        .discord-embed-color-strip {
+            width: 4px;
+            flex-shrink: 0;
+        }
+
+        /* Main embed content area */
+        .discord-embed-content {
+            background-color: #2F3136;
+            padding: 8px 16px 16px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Embed with thumbnail layout */
+        .discord-embed-body {
+            display: flex;
+            gap: 16px;
+        }
+
+        .discord-embed-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .discord-embed-thumbnail {
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+            border-radius: 16px;
+        }
+
+        /* Author section */
+        .discord-embed-author {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .discord-embed-author-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+
+        .discord-embed-author-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #FFFFFF;
+        }
+
+        /* Title */
+        .discord-embed-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #00AFF4;
+            margin-bottom: 8px;
+        }
+
+        /* Description */
+        .discord-embed-description {
+            font-size: 14px;
+            color: #DCDDDE;
+            margin-bottom: 8px;
+            line-height: 1.375;
+        }
+
+        /* Fields grid */
+        .discord-embed-fields {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .discord-embed-field {
+            min-width: 0;
+        }
+
+        .discord-embed-field.inline {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .discord-embed-field.full {
+            width: 100%;
+        }
+
+        .discord-embed-field-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #DCDDDE;
+            margin-bottom: 2px;
+        }
+
+        .discord-embed-field-value {
+            font-size: 14px;
+            color: #A3A6AA;
+            line-height: 1.375;
+        }
+
+        /* Footer */
+        .discord-embed-footer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            font-size: 12px;
+            color: #A3A6AA;
+        }
+
+        .discord-embed-footer-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        /* Badge styles */
+        .discord-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 3px;
+            text-transform: uppercase;
+            vertical-align: middle;
+        }
+
+        .discord-badge-partnered {
+            background-color: #5865F2;
+            color: #FFFFFF;
+        }
+
+        .discord-badge-verified {
+            background-color: #57F287;
+            color: #1a1a1a;
+        }
+
+        .discord-badge-community {
+            background-color: #EB459E;
+            color: #FFFFFF;
+        }
+
+        .discord-badge-discovery {
+            background-color: #3BA55C;
+            color: #FFFFFF;
+        }
+
+        /* Boost level indicator */
+        .boost-level {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: #F47FFF;
+        }
+
+        .boost-level svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Emoji for online/offline */
+        .status-online { color: #3BA55C; }
+        .status-offline { color: #747F8D; }
+        .status-bot { color: #5865F2; }
+
+        /* Embed color variants */
+        .embed-color-blurple { background-color: #5865F2; }
+        .embed-color-green { background-color: #57F287; }
+        .embed-color-pink { background-color: #EB459E; }
+        .embed-color-gold { background-color: #FAA61A; }
+
+        /* Section separator */
+        .prototype-section {
+            border-bottom: 1px solid #3f4447;
+            padding-bottom: 32px;
+            margin-bottom: 32px;
+        }
+
+        .prototype-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        /* Vanity URL link style */
+        .discord-link {
+            color: #00AFF4;
+            text-decoration: none;
+        }
+
+        .discord-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <nav class="text-sm text-text-tertiary mb-2">
+                <a href="../../index.html" class="hover:text-text-primary">Prototypes</a>
+                <span class="mx-2">/</span>
+                <span>Utility Commands</span>
+            </nav>
+            <h1 class="text-3xl font-bold text-text-primary mb-2">Server Info Embed</h1>
+            <p class="text-text-secondary">
+                Discord embed design for the <code class="bg-bg-secondary px-1.5 py-0.5 rounded text-sm">/serverinfo</code> command.
+                Shows server statistics, member counts, channels, boost level, and features.
+            </p>
+        </div>
+
+        <!-- Variant 1: Standard Community Server -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 1: Standard Community Server</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                A typical community server with boost level, description, and common statistics.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-blurple"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">Server Information</span>
+                                </div>
+
+                                <!-- Title (Server Name) -->
+                                <div class="discord-embed-title">Gaming Community Hub</div>
+
+                                <!-- Description -->
+                                <div class="discord-embed-description">
+                                    Welcome to our gaming community! Join us for game nights, tournaments, and chill hangouts.
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Owner</div>
+                                        <div class="discord-embed-field-value">@ServerOwner</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Created</div>
+                                        <div class="discord-embed-field-value">Mar 15, 2019<br><span style="color: #72767D;">5 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Members</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="status-online">1,523</span> total<br>
+                                            <span class="status-online">892</span> online<br>
+                                            <span class="status-bot">15</span> bots
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Channels</div>
+                                        <div class="discord-embed-field-value">
+                                            45 text<br>
+                                            12 voice<br>
+                                            8 categories
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Roles</div>
+                                        <div class="discord-embed-field-value">32 roles</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Boost Status</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="boost-level">
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                                </svg>
+                                                Level 3
+                                            </span><br>
+                                            <span style="color: #F47FFF;">14 boosts</span>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Features</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="discord-badge discord-badge-community">Community</span>
+                                            <span class="discord-badge discord-badge-discovery">Discovery</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 123456789012345678</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Server Icon) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Server Icon" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variant 2: Partnered/Verified Server -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 2: Partnered/Verified Server</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                A large server with Partner or Verified status, vanity URL, and premium features.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-green"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/2.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">Server Information</span>
+                                </div>
+
+                                <!-- Title with badges -->
+                                <div class="discord-embed-title">
+                                    Official Minecraft Server
+                                    <span class="discord-badge discord-badge-verified">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                        </svg>
+                                        Verified
+                                    </span>
+                                    <span class="discord-badge discord-badge-partnered">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
+                                        </svg>
+                                        Partner
+                                    </span>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="discord-embed-description">
+                                    The official community server for Minecraft. Join millions of players!
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Owner</div>
+                                        <div class="discord-embed-field-value">@Mojang</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Created</div>
+                                        <div class="discord-embed-field-value">May 17, 2009<br><span style="color: #72767D;">15 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Members</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="status-online">1,234,567</span> total<br>
+                                            <span class="status-online">45,892</span> online<br>
+                                            <span class="status-bot">42</span> bots
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Channels</div>
+                                        <div class="discord-embed-field-value">
+                                            128 text<br>
+                                            32 voice<br>
+                                            24 categories
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Roles</div>
+                                        <div class="discord-embed-field-value">89 roles</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Boost Status</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="boost-level">
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                                </svg>
+                                                Level 3
+                                            </span><br>
+                                            <span style="color: #F47FFF;">500+ boosts</span>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Vanity URL</div>
+                                        <div class="discord-embed-field-value">
+                                            <a href="#" class="discord-link">discord.gg/minecraft</a>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Features</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="discord-badge discord-badge-verified">Verified</span>
+                                            <span class="discord-badge discord-badge-partnered">Partner</span>
+                                            <span class="discord-badge discord-badge-community">Community</span>
+                                            <span class="discord-badge discord-badge-discovery">Discovery</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 987654321098765432</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Server Icon) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/2.png" alt="Server Icon" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variant 3: Small/New Server -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 3: Small/New Server</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                A smaller or newer server without boost level, vanity URL, or description.
+                Shows handling of missing optional fields.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-blurple"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/4.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">Server Information</span>
+                                </div>
+
+                                <!-- Title (Server Name) -->
+                                <div class="discord-embed-title">My Friend Group</div>
+
+                                <!-- No description - show placeholder or omit entirely -->
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Owner</div>
+                                        <div class="discord-embed-field-value">@Steve</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Created</div>
+                                        <div class="discord-embed-field-value">Dec 20, 2024<br><span style="color: #72767D;">11 days ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Members</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="status-online">8</span> total<br>
+                                            <span class="status-online">3</span> online<br>
+                                            <span class="status-bot">1</span> bot
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Channels</div>
+                                        <div class="discord-embed-field-value">
+                                            4 text<br>
+                                            2 voice<br>
+                                            2 categories
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Roles</div>
+                                        <div class="discord-embed-field-value">3 roles</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Boost Status</div>
+                                        <div class="discord-embed-field-value" style="color: #72767D;">
+                                            No boosts yet
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 555666777888999000</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Server Icon - default) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/4.png" alt="Server Icon" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variant 4: Very Large Server -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 4: Very Large Server</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                Tests number formatting for servers with 100k+ members.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-pink"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">Server Information</span>
+                                </div>
+
+                                <!-- Title with badges -->
+                                <div class="discord-embed-title">
+                                    Mega Community
+                                    <span class="discord-badge discord-badge-verified">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                        </svg>
+                                        Verified
+                                    </span>
+                                </div>
+
+                                <!-- Description -->
+                                <div class="discord-embed-description">
+                                    One of the largest gaming communities on Discord!
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Owner</div>
+                                        <div class="discord-embed-field-value">@BigOwner</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Created</div>
+                                        <div class="discord-embed-field-value">Jan 1, 2016<br><span style="color: #72767D;">9 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Members</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="status-online">5,234,567</span> total<br>
+                                            <span class="status-online">234,892</span> online<br>
+                                            <span class="status-bot">156</span> bots
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Channels</div>
+                                        <div class="discord-embed-field-value">
+                                            256 text<br>
+                                            64 voice<br>
+                                            32 categories
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Roles</div>
+                                        <div class="discord-embed-field-value">250 roles</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Boost Status</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="boost-level">
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                                </svg>
+                                                Level 3
+                                            </span><br>
+                                            <span style="color: #F47FFF;">2,500+ boosts</span>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Vanity URL</div>
+                                        <div class="discord-embed-field-value">
+                                            <a href="#" class="discord-link">discord.gg/mega</a>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Features</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="discord-badge discord-badge-verified">Verified</span>
+                                            <span class="discord-badge discord-badge-community">Community</span>
+                                            <span class="discord-badge discord-badge-discovery">Discovery</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 111222333444555666</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Server Icon) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="Server Icon" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variant 5: Long Server Name Edge Case -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 5: Long Server Name Edge Case</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                Tests handling of maximum-length server name (100 characters).
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-gold"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/3.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">Server Information</span>
+                                </div>
+
+                                <!-- Title (Long Server Name) -->
+                                <div class="discord-embed-title" style="word-break: break-word;">This Is An Extremely Long Server Name That Tests How The Embed Handles Maximum Length</div>
+
+                                <!-- Description -->
+                                <div class="discord-embed-description" style="word-break: break-word;">
+                                    This is a test server with a very long name to demonstrate how text wrapping works in Discord embeds.
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Owner</div>
+                                        <div class="discord-embed-field-value">@TestUser</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Created</div>
+                                        <div class="discord-embed-field-value">Dec 25, 2024<br><span style="color: #72767D;">6 days ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Members</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="status-online">50</span> total<br>
+                                            <span class="status-online">12</span> online<br>
+                                            <span class="status-bot">2</span> bots
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Channels</div>
+                                        <div class="discord-embed-field-value">
+                                            10 text<br>
+                                            5 voice<br>
+                                            3 categories
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Roles</div>
+                                        <div class="discord-embed-field-value">8 roles</div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Boost Status</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="boost-level">
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>
+                                                </svg>
+                                                Level 1
+                                            </span><br>
+                                            <span style="color: #F47FFF;">2 boosts</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 999888777666555444</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Server Icon) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/3.png" alt="Server Icon" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Implementation Notes -->
+        <section class="mt-8 p-6 bg-bg-secondary rounded-lg border border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Implementation Notes</h2>
+            <ul class="space-y-2 text-sm text-text-secondary">
+                <li><strong>Embed Color:</strong> Use the guild's icon dominant color if extractable, otherwise default to Discord Blurple (#5865F2).</li>
+                <li><strong>Member Counts:</strong> Use number formatting with commas for readability (e.g., "1,234,567"). Show breakdown of online vs total.</li>
+                <li><strong>Channel Counts:</strong> Group by type (text, voice, categories). Consider including stage channels and forum channels if present.</li>
+                <li><strong>Boost Level:</strong> Show current level (0-3) and number of active boosts. Use pink color (#F47FFF) for boost-related info.</li>
+                <li><strong>Features/Badges:</strong> Show relevant server features as badges. Common ones: Verified, Partner, Community, Discovery.</li>
+                <li><strong>Vanity URL:</strong> Only show if the server has a custom vanity URL configured. Format as clickable link.</li>
+                <li><strong>Description:</strong> Show server description if set. Omit the field entirely if no description exists.</li>
+                <li><strong>Thumbnail:</strong> Always show the server icon as the embed thumbnail (right side, 80x80px with rounded corners).</li>
+                <li><strong>Owner Mention:</strong> Show as @username format. Consider showing display name if different.</li>
+            </ul>
+        </section>
+
+        <!-- Navigation links -->
+        <div class="mt-8 flex gap-4">
+            <a href="userinfo-embed.html" class="text-accent-blue hover:text-accent-blue-hover">
+                &larr; User Info Embed
+            </a>
+            <a href="roleinfo-embed.html" class="text-accent-blue hover:text-accent-blue-hover">
+                Role Info Embed &rarr;
+            </a>
+        </div>
+    </div>
+</body>
+</html>

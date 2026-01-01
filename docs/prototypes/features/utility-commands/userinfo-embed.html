@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Info Embed Prototype - Discord Bot</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <style>
+        /*
+         * Discord Embed Styling
+         *
+         * Discord embed constraints (for reference):
+         * - Title: max 256 characters
+         * - Description: max 4096 characters
+         * - Field name: max 256 characters
+         * - Field value: max 1024 characters
+         * - Maximum 25 fields per embed
+         * - Total embed size: 6000 characters
+         *
+         * Edge cases to consider:
+         * - Long usernames (up to 32 chars)
+         * - User with 50+ roles (truncate with "+N more")
+         * - Missing optional fields (nickname, boost status)
+         * - Very old accounts (years ago display)
+         */
+
+        /* Discord dark theme background */
+        .discord-chat-bg {
+            background-color: #36393F;
+        }
+
+        /* Discord embed container */
+        .discord-embed {
+            max-width: 520px;
+            border-radius: 4px;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Left color strip */
+        .discord-embed-color-strip {
+            width: 4px;
+            flex-shrink: 0;
+        }
+
+        /* Main embed content area */
+        .discord-embed-content {
+            background-color: #2F3136;
+            padding: 8px 16px 16px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Embed with thumbnail layout */
+        .discord-embed-body {
+            display: flex;
+            gap: 16px;
+        }
+
+        .discord-embed-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .discord-embed-thumbnail {
+            width: 80px;
+            height: 80px;
+            flex-shrink: 0;
+            border-radius: 4px;
+        }
+
+        /* Author section */
+        .discord-embed-author {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .discord-embed-author-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+
+        .discord-embed-author-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: #FFFFFF;
+        }
+
+        /* Title */
+        .discord-embed-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #00AFF4;
+            margin-bottom: 8px;
+        }
+
+        /* Description */
+        .discord-embed-description {
+            font-size: 14px;
+            color: #DCDDDE;
+            margin-bottom: 8px;
+            line-height: 1.375;
+        }
+
+        /* Fields grid */
+        .discord-embed-fields {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .discord-embed-field {
+            min-width: 0;
+        }
+
+        .discord-embed-field.inline {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .discord-embed-field.full {
+            width: 100%;
+        }
+
+        .discord-embed-field-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #DCDDDE;
+            margin-bottom: 2px;
+        }
+
+        .discord-embed-field-value {
+            font-size: 14px;
+            color: #A3A6AA;
+            line-height: 1.375;
+        }
+
+        /* Footer */
+        .discord-embed-footer {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            font-size: 12px;
+            color: #A3A6AA;
+        }
+
+        .discord-embed-footer-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        /* Bot badge */
+        .discord-bot-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 1px 4px;
+            background-color: #5865F2;
+            color: #FFFFFF;
+            font-size: 10px;
+            font-weight: 500;
+            border-radius: 3px;
+            text-transform: uppercase;
+            vertical-align: middle;
+        }
+
+        /* Verified bot badge */
+        .discord-verified-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 1px 4px;
+            background-color: #5865F2;
+            color: #FFFFFF;
+            font-size: 10px;
+            font-weight: 500;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        /* Role pill styles */
+        .discord-role-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0 8px;
+            height: 22px;
+            border-radius: 11px;
+            font-size: 12px;
+            font-weight: 500;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .discord-role-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Timestamp styling */
+        .discord-timestamp {
+            color: #A3A6AA;
+        }
+
+        /* Embed color variants */
+        .embed-color-blurple { background-color: #5865F2; }
+        .embed-color-booster { background-color: #F47FFF; }
+        .embed-color-green { background-color: #57F287; }
+        .embed-color-red { background-color: #ED4245; }
+
+        /* Section separator */
+        .prototype-section {
+            border-bottom: 1px solid #3f4447;
+            padding-bottom: 32px;
+            margin-bottom: 32px;
+        }
+
+        .prototype-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+    <div class="max-w-4xl mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="mb-8">
+            <nav class="text-sm text-text-tertiary mb-2">
+                <a href="../../index.html" class="hover:text-text-primary">Prototypes</a>
+                <span class="mx-2">/</span>
+                <span>Utility Commands</span>
+            </nav>
+            <h1 class="text-3xl font-bold text-text-primary mb-2">User Info Embed</h1>
+            <p class="text-text-secondary">
+                Discord embed design for the <code class="bg-bg-secondary px-1.5 py-0.5 rounded text-sm">/userinfo</code> command.
+                Shows user account details, server membership, roles, and permissions.
+            </p>
+        </div>
+
+        <!-- Variant 1: Standard User -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 1: Standard User</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                A regular server member with a few roles and normal permissions.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-blurple"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">User Information</span>
+                                </div>
+
+                                <!-- Title (Username) -->
+                                <div class="discord-embed-title">JohnDoe#1234</div>
+
+                                <!-- Description (Display Name) -->
+                                <div class="discord-embed-description">
+                                    <strong>Display Name:</strong> John Doe
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Account Created</div>
+                                        <div class="discord-embed-field-value">Dec 31, 2020<br><span class="discord-timestamp">4 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Joined Server</div>
+                                        <div class="discord-embed-field-value">Jan 15, 2024<br><span class="discord-timestamp">11 months ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Roles [3]</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="discord-role-pill" style="border: 1px solid #3498DB; color: #3498DB;">
+                                                <span class="discord-role-dot" style="background-color: #3498DB;"></span>
+                                                Moderator
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #9B59B6; color: #9B59B6;">
+                                                <span class="discord-role-dot" style="background-color: #9B59B6;"></span>
+                                                Support
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #2ECC71; color: #2ECC71;">
+                                                <span class="discord-role-dot" style="background-color: #2ECC71;"></span>
+                                                Member
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Key Permissions</div>
+                                        <div class="discord-embed-field-value">Manage Messages, Kick Members, Ban Members</div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 123456789012345678</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Avatar) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="User Avatar" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variant 2: Server Booster -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 2: Server Booster</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                A server booster with the special pink accent color and boost status indicator.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-booster"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/2.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">User Information</span>
+                                </div>
+
+                                <!-- Title (Username) -->
+                                <div class="discord-embed-title">SarahBooster#5678</div>
+
+                                <!-- Description (Display Name) -->
+                                <div class="discord-embed-description">
+                                    <strong>Display Name:</strong> Sarah
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Account Created</div>
+                                        <div class="discord-embed-field-value">Mar 15, 2019<br><span class="discord-timestamp">5 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Joined Server</div>
+                                        <div class="discord-embed-field-value">Jun 20, 2021<br><span class="discord-timestamp">3 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name" style="color: #F47FFF;">Boost Status</div>
+                                        <div class="discord-embed-field-value" style="color: #F47FFF;">Boosting since Nov 2024</div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Roles [4]</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="discord-role-pill" style="border: 1px solid #F47FFF; color: #F47FFF;">
+                                                <span class="discord-role-dot" style="background-color: #F47FFF;"></span>
+                                                Server Booster
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #FF5733; color: #FF5733;">
+                                                <span class="discord-role-dot" style="background-color: #FF5733;"></span>
+                                                Admin
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #3498DB; color: #3498DB;">
+                                                <span class="discord-role-dot" style="background-color: #3498DB;"></span>
+                                                VIP
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #2ECC71; color: #2ECC71;">
+                                                <span class="discord-role-dot" style="background-color: #2ECC71;"></span>
+                                                Member
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Key Permissions</div>
+                                        <div class="discord-embed-field-value">Administrator</div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 234567890123456789</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Avatar) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/2.png" alt="User Avatar" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variant 3: Bot User -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 3: Bot User</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                A bot account with the BOT badge indicator. Bots do not have display names or boost status.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-blurple"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/4.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">User Information</span>
+                                </div>
+
+                                <!-- Title (Username with BOT badge) -->
+                                <div class="discord-embed-title">
+                                    MEE6
+                                    <span class="discord-bot-badge">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M7.4,11.17,4,8.62,5,7.26l2,1.53L10.64,4l1.36,1Z"/>
+                                        </svg>
+                                        BOT
+                                    </span>
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Account Created</div>
+                                        <div class="discord-embed-field-value">Apr 8, 2016<br><span class="discord-timestamp">8 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Added to Server</div>
+                                        <div class="discord-embed-field-value">Jan 1, 2020<br><span class="discord-timestamp">4 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Roles [2]</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="discord-role-pill" style="border: 1px solid #5865F2; color: #5865F2;">
+                                                <span class="discord-role-dot" style="background-color: #5865F2;"></span>
+                                                MEE6
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #99AAB5; color: #99AAB5;">
+                                                <span class="discord-role-dot" style="background-color: #99AAB5;"></span>
+                                                Bots
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Key Permissions</div>
+                                        <div class="discord-embed-field-value">Administrator, Manage Server, Manage Roles</div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 159985870458322944</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Avatar) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/4.png" alt="Bot Avatar" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variant 4: User with Many Roles (Truncated) -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 4: User with Many Roles</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                A user with many roles. The list is truncated to prevent embed overflow, showing "+N more" indicator.
+                This handles the edge case of users with 50+ roles.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-blurple"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">User Information</span>
+                                </div>
+
+                                <!-- Title (Username) -->
+                                <div class="discord-embed-title">VeteranMember#9999</div>
+
+                                <!-- Description (Display Name) -->
+                                <div class="discord-embed-description">
+                                    <strong>Display Name:</strong> The Legendary Veteran
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Account Created</div>
+                                        <div class="discord-embed-field-value">Dec 25, 2015<br><span class="discord-timestamp">9 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Joined Server</div>
+                                        <div class="discord-embed-field-value">Jan 1, 2017<br><span class="discord-timestamp">7 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Roles [12]</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="discord-role-pill" style="border: 1px solid #FF5733; color: #FF5733;">
+                                                <span class="discord-role-dot" style="background-color: #FF5733;"></span>
+                                                Admin
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #3498DB; color: #3498DB;">
+                                                <span class="discord-role-dot" style="background-color: #3498DB;"></span>
+                                                Moderator
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #9B59B6; color: #9B59B6;">
+                                                <span class="discord-role-dot" style="background-color: #9B59B6;"></span>
+                                                Support
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #E91E63; color: #E91E63;">
+                                                <span class="discord-role-dot" style="background-color: #E91E63;"></span>
+                                                Events
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #F1C40F; color: #F1C40F;">
+                                                <span class="discord-role-dot" style="background-color: #F1C40F;"></span>
+                                                VIP
+                                            </span>
+                                            <span class="discord-role-pill" style="border: 1px solid #A3A6AA; color: #A3A6AA;">
+                                                (+7 more)
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Key Permissions</div>
+                                        <div class="discord-embed-field-value">Administrator, Manage Server</div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 111222333444555666</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Avatar) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="User Avatar" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variant 5: Long Username Edge Case -->
+        <section class="prototype-section">
+            <h2 class="text-xl font-semibold text-text-primary mb-4">Variant 5: Long Username Edge Case</h2>
+            <p class="text-text-secondary text-sm mb-4">
+                Tests handling of maximum-length username (32 characters) and long display name.
+            </p>
+
+            <div class="discord-chat-bg p-6 rounded-lg">
+                <div class="discord-embed">
+                    <div class="discord-embed-color-strip embed-color-blurple"></div>
+                    <div class="discord-embed-content">
+                        <div class="discord-embed-body">
+                            <div class="discord-embed-main">
+                                <!-- Author -->
+                                <div class="discord-embed-author">
+                                    <img src="https://cdn.discordapp.com/embed/avatars/3.png" alt="" class="discord-embed-author-icon">
+                                    <span class="discord-embed-author-name">User Information</span>
+                                </div>
+
+                                <!-- Title (Long Username - 32 chars max) -->
+                                <div class="discord-embed-title" style="word-break: break-word;">ThisIsAVeryLongUsername12345678#0001</div>
+
+                                <!-- Description (Long Display Name) -->
+                                <div class="discord-embed-description" style="word-break: break-word;">
+                                    <strong>Display Name:</strong> This Is An Extremely Long Display Name That Shows How Text Wraps
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="discord-embed-fields">
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Account Created</div>
+                                        <div class="discord-embed-field-value">Jul 4, 2022<br><span class="discord-timestamp">2 years ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field inline">
+                                        <div class="discord-embed-field-name">Joined Server</div>
+                                        <div class="discord-embed-field-value">Dec 25, 2024<br><span class="discord-timestamp">6 days ago</span></div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Roles [1]</div>
+                                        <div class="discord-embed-field-value">
+                                            <span class="discord-role-pill" style="border: 1px solid #99AAB5; color: #99AAB5;">
+                                                <span class="discord-role-dot" style="background-color: #99AAB5;"></span>
+                                                @everyone
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="discord-embed-field full">
+                                        <div class="discord-embed-field-name">Key Permissions</div>
+                                        <div class="discord-embed-field-value">Send Messages, View Channels</div>
+                                    </div>
+                                </div>
+
+                                <!-- Footer -->
+                                <div class="discord-embed-footer">
+                                    <span>ID: 999888777666555444</span>
+                                    <span>|</span>
+                                    <span>Today at 2:34 PM</span>
+                                </div>
+                            </div>
+
+                            <!-- Thumbnail (Avatar) -->
+                            <img src="https://cdn.discordapp.com/embed/avatars/3.png" alt="User Avatar" class="discord-embed-thumbnail">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Implementation Notes -->
+        <section class="mt-8 p-6 bg-bg-secondary rounded-lg border border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Implementation Notes</h2>
+            <ul class="space-y-2 text-sm text-text-secondary">
+                <li><strong>Embed Color:</strong> Use Discord Blurple (#5865F2) by default. Switch to Booster Pink (#F47FFF) for server boosters.</li>
+                <li><strong>Date Formatting:</strong> Show absolute date (e.g., "Dec 31, 2020") with relative time below (e.g., "4 years ago").</li>
+                <li><strong>Role Truncation:</strong> Show up to 5-6 roles inline, then display "(+N more)" indicator to prevent embed overflow.</li>
+                <li><strong>Permissions:</strong> Only show "key" or dangerous permissions. Common permissions like "Send Messages" can be omitted unless the user has minimal permissions.</li>
+                <li><strong>Bot Badge:</strong> Display the BOT badge after the username for bot accounts.</li>
+                <li><strong>Boost Status:</strong> Only show the boost field if the user is actively boosting. Omit for non-boosters.</li>
+                <li><strong>Thumbnail:</strong> Always show the user's avatar as the embed thumbnail (right side, 80x80px).</li>
+                <li><strong>Nickname vs Display Name:</strong> Show "Display Name" if different from username. For bots, omit this field.</li>
+            </ul>
+        </section>
+
+        <!-- Navigation links -->
+        <div class="mt-8 flex gap-4">
+            <a href="serverinfo-embed.html" class="text-accent-blue hover:text-accent-blue-hover">
+                Server Info Embed &rarr;
+            </a>
+            <a href="roleinfo-embed.html" class="text-accent-blue hover:text-accent-blue-hover">
+                Role Info Embed &rarr;
+            </a>
+        </div>
+    </div>
+</body>
+</html>
