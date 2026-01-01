@@ -1,0 +1,259 @@
+using Discord.WebSocket;
+using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
+using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.Options;
+
+namespace DiscordBot.Bot.Services;
+
+/// <summary>
+/// Background service that aggregates channel activity from MessageLog into hourly ChannelActivitySnapshot records.
+/// Runs at configured intervals to process the previous complete hour's data.
+/// </summary>
+public class ChannelActivityAggregationService : BackgroundService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IOptions<BackgroundServicesOptions> _bgOptions;
+    private readonly IOptions<AnalyticsRetentionOptions> _analyticsOptions;
+    private readonly DiscordSocketClient _client;
+    private readonly ILogger<ChannelActivityAggregationService> _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ChannelActivityAggregationService"/> class.
+    /// </summary>
+    /// <param name="scopeFactory">The service scope factory for creating scoped services.</param>
+    /// <param name="bgOptions">Background services configuration options.</param>
+    /// <param name="analyticsOptions">Analytics retention configuration options.</param>
+    /// <param name="client">The Discord socket client for retrieving channel names.</param>
+    /// <param name="logger">The logger.</param>
+    public ChannelActivityAggregationService(
+        IServiceScopeFactory scopeFactory,
+        IOptions<BackgroundServicesOptions> bgOptions,
+        IOptions<AnalyticsRetentionOptions> analyticsOptions,
+        DiscordSocketClient client,
+        ILogger<ChannelActivityAggregationService> logger)
+    {
+        _scopeFactory = scopeFactory;
+        _bgOptions = bgOptions;
+        _analyticsOptions = analyticsOptions;
+        _client = client;
+        _logger = logger;
+    }
+
+    /// <inheritdoc/>
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!_analyticsOptions.Value.Enabled)
+        {
+            _logger.LogInformation("Analytics aggregation is disabled via configuration");
+            return;
+        }
+
+        _logger.LogInformation("Channel activity aggregation service starting");
+
+        _logger.LogInformation(
+            "Channel activity aggregation enabled. Initial delay: {InitialDelayMinutes}m, Interval: {IntervalMinutes}m",
+            _bgOptions.Value.AnalyticsAggregationInitialDelayMinutes,
+            _bgOptions.Value.HourlyAggregationIntervalMinutes);
+
+        // Initial delay to let the app start up
+        var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.AnalyticsAggregationInitialDelayMinutes);
+        await Task.Delay(initialDelay, stoppingToken);
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await AggregateHourlyAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Normal shutdown
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during channel activity aggregation");
+            }
+
+            // Wait for next aggregation interval
+            var interval = TimeSpan.FromMinutes(_bgOptions.Value.HourlyAggregationIntervalMinutes);
+            await Task.Delay(interval, stoppingToken);
+        }
+
+        _logger.LogInformation("Channel activity aggregation service stopping");
+    }
+
+    /// <summary>
+    /// Aggregates channel activity for all guilds for the previous complete hour.
+    /// </summary>
+    /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
+    private async Task AggregateHourlyAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogDebug("Starting hourly channel activity aggregation");
+
+        using var scope = _scopeFactory.CreateScope();
+        var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
+        var channelActivityRepository = scope.ServiceProvider.GetRequiredService<IChannelActivityRepository>();
+        var guildRepository = scope.ServiceProvider.GetRequiredService<IGuildRepository>();
+
+        // Get all active guilds
+        var guilds = await guildRepository.GetAllAsync(stoppingToken);
+        var guildList = guilds.ToList();
+
+        if (guildList.Count == 0)
+        {
+            _logger.LogTrace("No guilds found for channel activity aggregation");
+            return;
+        }
+
+        _logger.LogInformation("Aggregating channel activity for {GuildCount} guilds", guildList.Count);
+
+        var totalSnapshots = 0;
+
+        foreach (var guild in guildList)
+        {
+            if (stoppingToken.IsCancellationRequested) break;
+
+            try
+            {
+                var snapshotCount = await AggregateGuildChannelActivityAsync(
+                    guild.Id,
+                    messageLogRepository,
+                    channelActivityRepository,
+                    stoppingToken);
+
+                totalSnapshots += snapshotCount;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error aggregating channel activity for guild {GuildId}", guild.Id);
+            }
+        }
+
+        _logger.LogInformation("Completed hourly channel activity aggregation. Created/updated {SnapshotCount} snapshots across {GuildCount} guilds",
+            totalSnapshots, guildList.Count);
+    }
+
+    /// <summary>
+    /// Aggregates channel activity for a single guild for the previous complete hour.
+    /// </summary>
+    /// <param name="guildId">The guild ID to aggregate.</param>
+    /// <param name="messageLogRepo">The message log repository.</param>
+    /// <param name="channelActivityRepo">The channel activity repository.</param>
+    /// <param name="stoppingToken">Cancellation token.</param>
+    /// <returns>Number of snapshots created/updated.</returns>
+    private async Task<int> AggregateGuildChannelActivityAsync(
+        ulong guildId,
+        IMessageLogRepository messageLogRepo,
+        IChannelActivityRepository channelActivityRepo,
+        CancellationToken stoppingToken)
+    {
+        // Determine the hour to aggregate (previous complete hour)
+        var now = DateTime.UtcNow;
+        var currentHour = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0, DateTimeKind.Utc);
+        var previousHour = currentHour.AddHours(-1);
+        var periodEnd = currentHour;
+
+        _logger.LogDebug("Aggregating channel activity for guild {GuildId}, hour {Hour}", guildId, previousHour);
+
+        // Query MessageLog for the previous hour
+        var messages = await messageLogRepo.GetGuildMessagesAsync(
+            guildId,
+            since: previousHour,
+            limit: int.MaxValue,
+            cancellationToken: stoppingToken);
+
+        var messageList = messages
+            .Where(m => m.Timestamp >= previousHour && m.Timestamp < periodEnd)
+            .ToList();
+
+        if (messageList.Count == 0)
+        {
+            _logger.LogTrace("No messages found for guild {GuildId} in hour {Hour}", guildId, previousHour);
+            return 0;
+        }
+
+        // Group by ChannelId and compute aggregates
+        var channelGroups = messageList
+            .GroupBy(m => m.ChannelId)
+            .ToList();
+
+        _logger.LogDebug("Processing {ChannelCount} active channels for guild {GuildId}, hour {Hour}",
+            channelGroups.Count, guildId, previousHour);
+
+        var snapshotCount = 0;
+
+        foreach (var channelGroup in channelGroups)
+        {
+            if (stoppingToken.IsCancellationRequested) break;
+
+            var channelMessages = channelGroup.ToList();
+            var uniqueUsers = channelMessages.Select(m => m.AuthorId).Distinct().Count();
+            var totalContentLength = channelMessages.Sum(m => m.Content?.Length ?? 0);
+            var averageMessageLength = channelMessages.Count > 0
+                ? (double)totalContentLength / channelMessages.Count
+                : 0.0;
+
+            // Try to get channel name from Discord client
+            var channelName = await GetChannelNameAsync(guildId, channelGroup.Key);
+
+            var snapshot = new ChannelActivitySnapshot
+            {
+                GuildId = guildId,
+                ChannelId = channelGroup.Key,
+                ChannelName = channelName,
+                PeriodStart = previousHour,
+                Granularity = SnapshotGranularity.Hourly,
+                MessageCount = channelMessages.Count,
+                UniqueUsers = uniqueUsers,
+                PeakHour = null, // Null for hourly snapshots
+                PeakHourMessageCount = null,
+                AverageMessageLength = averageMessageLength,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await channelActivityRepo.UpsertAsync(snapshot, stoppingToken);
+            snapshotCount++;
+        }
+
+        _logger.LogInformation("Created {SnapshotCount} channel activity snapshots for guild {GuildId}, hour {Hour}",
+            snapshotCount, guildId, previousHour);
+
+        return snapshotCount;
+    }
+
+    /// <summary>
+    /// Gets the channel name from Discord, with fallback to "Unknown Channel".
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="channelId">The channel ID.</param>
+    /// <returns>Channel name or "Unknown Channel" if not found.</returns>
+    private async Task<string> GetChannelNameAsync(ulong guildId, ulong channelId)
+    {
+        try
+        {
+            var guild = _client.GetGuild(guildId);
+            if (guild == null)
+            {
+                _logger.LogTrace("Guild {GuildId} not found in cache for channel name lookup", guildId);
+                return "Unknown Channel";
+            }
+
+            var channel = guild.GetChannel(channelId);
+            if (channel != null)
+            {
+                return channel.Name;
+            }
+
+            _logger.LogTrace("Channel {ChannelId} not found in guild {GuildId}", channelId, guildId);
+            return "Unknown Channel";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error retrieving channel name for {ChannelId} in guild {GuildId}", channelId, guildId);
+            return "Unknown Channel";
+        }
+    }
+}
