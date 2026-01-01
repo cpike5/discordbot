@@ -259,6 +259,7 @@ try
     // Add Reminder services
     builder.Services.Configure<ReminderOptions>(
         builder.Configuration.GetSection(ReminderOptions.SectionName));
+    builder.Services.AddScoped<IReminderService, ReminderService>();
     builder.Services.AddHostedService<ReminderExecutionService>();
 
     // Add Moderation services (includes detection services and handlers)
