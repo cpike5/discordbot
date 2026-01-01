@@ -24,6 +24,7 @@ public class DetailsModelTests
     private readonly Mock<IWelcomeService> _mockWelcomeService;
     private readonly Mock<IScheduledMessageService> _mockScheduledMessageService;
     private readonly Mock<IRatWatchService> _mockRatWatchService;
+    private readonly Mock<IReminderRepository> _mockReminderRepository;
     private readonly Mock<ILogger<DetailsModel>> _mockLogger;
     private readonly DetailsModel _detailsModel;
 
@@ -34,6 +35,7 @@ public class DetailsModelTests
         _mockWelcomeService = new Mock<IWelcomeService>();
         _mockScheduledMessageService = new Mock<IScheduledMessageService>();
         _mockRatWatchService = new Mock<IRatWatchService>();
+        _mockReminderRepository = new Mock<IReminderRepository>();
         _mockLogger = new Mock<ILogger<DetailsModel>>();
 
         // Setup default scheduled message service behavior
@@ -49,12 +51,17 @@ public class DetailsModelTests
         _mockRatWatchService.Setup(s => s.GetLeaderboardAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<RatLeaderboardEntryDto>());
 
+        // Setup default Reminder repository behavior
+        _mockReminderRepository.Setup(r => r.GetGuildStatsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((0, 0, 0, 0));
+
         _detailsModel = new DetailsModel(
             _mockGuildService.Object,
             _mockCommandLogService.Object,
             _mockWelcomeService.Object,
             _mockScheduledMessageService.Object,
             _mockRatWatchService.Object,
+            _mockReminderRepository.Object,
             _mockLogger.Object);
 
         // Setup PageContext
@@ -614,6 +621,7 @@ public class DetailsModelTests
             _mockWelcomeService.Object,
             _mockScheduledMessageService.Object,
             _mockRatWatchService.Object,
+            _mockReminderRepository.Object,
             _mockLogger.Object);
 
         // Assert

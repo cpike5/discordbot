@@ -164,4 +164,33 @@ public class ReminderRepository : Repository<Reminder>, IReminderRepository
         _logger.LogDebug("Reminder {Id} for user {UserId} found: {Found}", id, userId, result != null);
         return result;
     }
+
+    /// <inheritdoc/>
+    public async Task<(int TotalCount, int PendingCount, int DeliveredTodayCount, int FailedCount)> GetGuildStatsAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving reminder stats for guild {GuildId}", guildId);
+
+        var today = DateTime.UtcNow.Date;
+        var tomorrow = today.AddDays(1);
+
+        var query = DbSet.AsNoTracking().Where(r => r.GuildId == guildId);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var pendingCount = await query.CountAsync(r => r.Status == ReminderStatus.Pending, cancellationToken);
+        var deliveredTodayCount = await query.CountAsync(
+            r => r.Status == ReminderStatus.Delivered &&
+                 r.DeliveredAt.HasValue &&
+                 r.DeliveredAt.Value >= today &&
+                 r.DeliveredAt.Value < tomorrow,
+            cancellationToken);
+        var failedCount = await query.CountAsync(r => r.Status == ReminderStatus.Failed, cancellationToken);
+
+        _logger.LogDebug(
+            "Guild {GuildId} reminder stats: Total={Total}, Pending={Pending}, DeliveredToday={DeliveredToday}, Failed={Failed}",
+            guildId, totalCount, pendingCount, deliveredTodayCount, failedCount);
+
+        return (totalCount, pendingCount, deliveredTodayCount, failedCount);
+    }
 }
