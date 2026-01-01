@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bot Health Metrics - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="performance-shared.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Main Content Area -->
+  <main class="min-h-screen">
+    <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+          <li>
+            <a href="../../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="index.html" class="text-text-secondary hover:text-accent-blue transition-colors">Bot Performance</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Health Metrics</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Bot Health Metrics</h1>
+          <p class="text-text-secondary mt-1">Connection status, uptime, and resource monitoring</p>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="health-status health-status-healthy">
+          <span class="health-status-dot"></span>
+          <span>Connected</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="performance-tabs mb-6">
+        <a href="index.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Overview
+        </a>
+        <a href="health-metrics.html" class="performance-tab active">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          Health Metrics
+        </a>
+        <a href="command-performance.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Commands
+        </a>
+        <a href="api-rate-limits.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          API & Rate Limits
+        </a>
+        <a href="system-health.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          System
+        </a>
+        <a href="alerts-incidents.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          Alerts
+        </a>
+      </div>
+
+      <!-- Uptime & Connection Status Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- Uptime Card -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Uptime</h2>
+              <p class="chart-card-subtitle">Current session statistics</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="uptime-display">
+              <div class="uptime-percentage healthy">99.7%</div>
+              <div class="uptime-label">Uptime (30 days)</div>
+              <div class="uptime-since">Online since Dec 15, 2025 at 14:32</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border-primary">
+              <div class="text-center">
+                <div class="text-xl font-bold text-text-primary">16d 8h</div>
+                <div class="text-xs text-text-tertiary">Current session</div>
+              </div>
+              <div class="text-center">
+                <div class="text-xl font-bold text-text-primary">3</div>
+                <div class="text-xs text-text-tertiary">Restarts (30d)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection State Card -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Connection State</h2>
+              <p class="chart-card-subtitle">Discord gateway status</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="health-status-large">
+              <svg class="health-status-icon text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div class="health-status-label text-success">Connected</div>
+              <div class="health-status-sublabel">Gateway: wss://gateway.discord.gg</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border-primary">
+              <div class="text-center">
+                <div class="text-sm font-medium text-text-primary">Shard 0/1</div>
+                <div class="text-xs text-text-tertiary">Active shard</div>
+              </div>
+              <div class="text-center">
+                <div class="text-sm font-medium text-text-primary">v10</div>
+                <div class="text-xs text-text-tertiary">Gateway version</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heartbeat Latency Gauge -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Heartbeat Latency</h2>
+              <p class="chart-card-subtitle">Discord gateway ping</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 180 100">
+                <!-- Background arc -->
+                <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
+                <!-- Green zone (0-100ms) -->
+                <path stroke="rgba(16, 185, 129, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 20 90 A 70 70 0 0 1 75 25" />
+                <!-- Yellow zone (100-200ms) -->
+                <path stroke="rgba(245, 158, 11, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 75 25 A 70 70 0 0 1 125 35" />
+                <!-- Red zone (200-500ms) -->
+                <path stroke="rgba(239, 68, 68, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 125 35 A 70 70 0 0 1 160 90" />
+                <!-- Value arc -->
+                <path class="gauge-fill gauge-fill-healthy" d="M 20 90 A 70 70 0 0 1 55 40" stroke-dasharray="110" stroke-dashoffset="0" />
+              </svg>
+              <div class="gauge-value">
+                <span class="gauge-value-number">45</span>
+                <span class="gauge-value-unit">ms</span>
+              </div>
+            </div>
+            <div class="gauge-thresholds">
+              <span class="gauge-threshold">0ms</span>
+              <span class="gauge-threshold">500ms</span>
+            </div>
+            <div class="sparkline-container mt-4 mx-auto">
+              <div class="sparkline-bar" style="height: 40%"></div>
+              <div class="sparkline-bar" style="height: 45%"></div>
+              <div class="sparkline-bar" style="height: 42%"></div>
+              <div class="sparkline-bar" style="height: 48%"></div>
+              <div class="sparkline-bar" style="height: 52%"></div>
+              <div class="sparkline-bar" style="height: 45%"></div>
+              <div class="sparkline-bar" style="height: 43%"></div>
+              <div class="sparkline-bar" style="height: 47%"></div>
+              <div class="sparkline-bar" style="height: 44%"></div>
+              <div class="sparkline-bar" style="height: 46%"></div>
+            </div>
+            <p class="text-xs text-text-tertiary text-center mt-2">Last 10 heartbeats</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Memory & CPU Gauges -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Memory Usage -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Memory Usage</h2>
+              <p class="chart-card-subtitle">Process memory consumption</p>
+            </div>
+            <span class="status-badge status-badge-connected">Normal</span>
+          </div>
+          <div class="chart-card-body">
+            <div class="flex items-center gap-8">
+              <div class="gauge-container">
+                <svg class="gauge-svg" viewBox="0 0 180 100">
+                  <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
+                  <path class="gauge-fill gauge-fill-healthy" d="M 20 90 A 70 70 0 0 1 90 20" stroke-dasharray="150" stroke-dashoffset="0" />
+                </svg>
+                <div class="gauge-value">
+                  <span class="gauge-value-number">256</span>
+                  <span class="gauge-value-unit">MB</span>
+                </div>
+              </div>
+              <div class="flex-1 space-y-3">
+                <div class="flex justify-between text-sm">
+                  <span class="text-text-secondary">Working Set</span>
+                  <span class="text-text-primary font-medium">256 MB</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-text-secondary">Private Memory</span>
+                  <span class="text-text-primary font-medium">198 MB</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-text-secondary">Max Allocated</span>
+                  <span class="text-text-primary font-medium">512 MB</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-text-secondary">GC Collections (Gen 2)</span>
+                  <span class="text-text-primary font-medium">14</span>
+                </div>
+              </div>
+            </div>
+            <div class="progress-labeled mt-6">
+              <div class="progress-header">
+                <span class="progress-label">Memory Utilization</span>
+                <span class="progress-value">50% of limit</span>
+              </div>
+              <div class="progress-bar-container progress-bar-lg">
+                <div class="progress-bar-fill progress-bar-healthy" style="width: 50%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CPU Usage -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">CPU Usage</h2>
+              <p class="chart-card-subtitle">Process CPU utilization</p>
+            </div>
+            <span class="status-badge status-badge-connected">Normal</span>
+          </div>
+          <div class="chart-card-body">
+            <div class="flex items-center gap-8">
+              <div class="gauge-container">
+                <svg class="gauge-svg" viewBox="0 0 180 100">
+                  <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
+                  <path class="gauge-fill gauge-fill-healthy" d="M 20 90 A 70 70 0 0 1 48 55" stroke-dasharray="55" stroke-dashoffset="0" />
+                </svg>
+                <div class="gauge-value">
+                  <span class="gauge-value-number">23</span>
+                  <span class="gauge-value-unit">%</span>
+                </div>
+              </div>
+              <div class="flex-1 space-y-3">
+                <div class="flex justify-between text-sm">
+                  <span class="text-text-secondary">Current Usage</span>
+                  <span class="text-text-primary font-medium">23%</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-text-secondary">Average (1h)</span>
+                  <span class="text-text-primary font-medium">18%</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-text-secondary">Peak (24h)</span>
+                  <span class="text-text-primary font-medium">67%</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-text-secondary">Thread Count</span>
+                  <span class="text-text-primary font-medium">24</span>
+                </div>
+              </div>
+            </div>
+            <div class="progress-labeled mt-6">
+              <div class="progress-header">
+                <span class="progress-label">CPU Utilization</span>
+                <span class="progress-value">23% average</span>
+              </div>
+              <div class="progress-bar-container progress-bar-lg">
+                <div class="progress-bar-fill progress-bar-healthy" style="width: 23%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Latency History Chart -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Latency History</h2>
+            <p class="chart-card-subtitle">Heartbeat latency over the last 24 hours</p>
+          </div>
+          <select class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus transition-colors">
+            <option>Last 24 hours</option>
+            <option>Last 7 days</option>
+            <option>Last 30 days</option>
+          </select>
+        </div>
+        <div class="chart-card-body">
+          <div class="chart-container chart-container-lg">
+            <canvas id="latencyHistoryChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reconnection History -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Reconnection History</h2>
+            <p class="chart-card-subtitle">Gateway disconnections and reconnections (last 7 days)</p>
+          </div>
+        </div>
+        <div class="chart-card-body">
+          <div class="timeline">
+            <!-- Reconnection Event 1 -->
+            <div class="timeline-entry">
+              <div class="timeline-dot timeline-dot-success"></div>
+              <div class="timeline-content">
+                <div class="timeline-time" id="reconnect-time-1">Dec 28, 2025 at 03:15 AM</div>
+                <div class="timeline-title">Successful reconnection</div>
+                <div class="timeline-description">Gateway resumed after planned Discord maintenance. Downtime: 45 seconds.</div>
+              </div>
+            </div>
+
+            <!-- Reconnection Event 2 -->
+            <div class="timeline-entry">
+              <div class="timeline-dot timeline-dot-warning"></div>
+              <div class="timeline-content">
+                <div class="timeline-time" id="reconnect-time-2">Dec 25, 2025 at 11:42 PM</div>
+                <div class="timeline-title">Gateway disconnection</div>
+                <div class="timeline-description">Unexpected disconnect due to high latency. Auto-reconnected after 12 seconds.</div>
+              </div>
+            </div>
+
+            <!-- Reconnection Event 3 -->
+            <div class="timeline-entry">
+              <div class="timeline-dot timeline-dot-success"></div>
+              <div class="timeline-content">
+                <div class="timeline-time" id="reconnect-time-3">Dec 22, 2025 at 06:30 AM</div>
+                <div class="timeline-title">Successful reconnection</div>
+                <div class="timeline-description">Bot restarted after configuration update. Clean restart with session resume.</div>
+              </div>
+            </div>
+
+            <!-- Empty state example (commented out) -->
+            <!--
+            <div class="empty-state">
+              <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div class="empty-state-title">No reconnections</div>
+              <div class="empty-state-description">The bot has maintained a stable connection with no disconnections in the selected time period.</div>
+            </div>
+            -->
+          </div>
+
+          <!-- Summary Stats -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border-primary">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-text-primary">3</div>
+              <div class="text-xs text-text-tertiary">Total Events</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-success">2</div>
+              <div class="text-xs text-text-tertiary">Planned</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-warning">1</div>
+              <div class="text-xs text-text-tertiary">Unexpected</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-text-primary">57s</div>
+              <div class="text-xs text-text-tertiary">Total Downtime</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Chart.js default dark theme settings
+      Chart.defaults.color = '#a8a5a3';
+      Chart.defaults.borderColor = '#3f4447';
+
+      // Latency History Chart
+      const latencyCtx = document.getElementById('latencyHistoryChart').getContext('2d');
+
+      // Generate sample data for 24 hours
+      const labels = [];
+      const data = [];
+      for (let i = 0; i < 24; i++) {
+        const hour = i.toString().padStart(2, '0') + ':00';
+        labels.push(hour);
+        // Simulate latency with some variation
+        const baseLatency = 45;
+        const variation = Math.sin(i / 3) * 15 + Math.random() * 20;
+        data.push(Math.round(baseLatency + variation));
+      }
+
+      new Chart(latencyCtx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Latency (ms)',
+            data: data,
+            borderColor: '#098ecf',
+            backgroundColor: 'rgba(9, 142, 207, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#098ecf',
+            pointBorderColor: '#098ecf',
+            pointRadius: 2,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              displayColors: false,
+              callbacks: {
+                label: function(context) {
+                  return context.parsed.y + ' ms';
+                }
+              }
+            },
+            annotation: {
+              annotations: {
+                warningLine: {
+                  type: 'line',
+                  yMin: 100,
+                  yMax: 100,
+                  borderColor: 'rgba(245, 158, 11, 0.5)',
+                  borderWidth: 2,
+                  borderDash: [5, 5]
+                },
+                criticalLine: {
+                  type: 'line',
+                  yMin: 200,
+                  yMax: 200,
+                  borderColor: 'rgba(239, 68, 68, 0.5)',
+                  borderWidth: 2,
+                  borderDash: [5, 5]
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 200,
+              grid: {
+                color: '#2f3336'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value + ' ms';
+                }
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Format timeline dates to local timezone
+      const formatDate = (dateStr) => {
+        const date = new Date(dateStr);
+        return date.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+      };
+
+      // These would normally come from actual UTC timestamps
+      // For demo purposes, we're just showing the formatted display
+    });
+  </script>
+
+</body>
+</html>

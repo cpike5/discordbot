@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API & Rate Limits - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="performance-shared.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Main Content Area -->
+  <main class="min-h-screen">
+    <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+          <li>
+            <a href="../../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="index.html" class="text-text-secondary hover:text-accent-blue transition-colors">Bot Performance</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">API & Rate Limits</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Discord API & Rate Limits</h1>
+          <p class="text-text-secondary mt-1">API usage, rate limit status, and request tracking</p>
+        </div>
+
+        <!-- API Status -->
+        <div class="health-status health-status-warning">
+          <span class="health-status-dot"></span>
+          <span>Rate Limit Warning</span>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="performance-tabs mb-6">
+        <a href="index.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Overview
+        </a>
+        <a href="health-metrics.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          Health Metrics
+        </a>
+        <a href="command-performance.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Commands
+        </a>
+        <a href="api-rate-limits.html" class="performance-tab active">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          API & Rate Limits
+        </a>
+        <a href="system-health.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          System
+        </a>
+        <a href="alerts-incidents.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          Alerts
+        </a>
+      </div>
+
+      <!-- Rate Limit Overview Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Global Rate Limit -->
+        <div class="chart-card">
+          <div class="chart-card-body p-4">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium text-text-secondary">Global Rate Limit</span>
+              <span class="status-badge status-badge-reconnecting">Warning</span>
+            </div>
+            <div class="text-3xl font-bold text-text-primary mb-1">45<span class="text-lg font-normal text-text-secondary">/50</span></div>
+            <div class="progress-bar-container progress-bar-lg mb-2">
+              <div class="progress-bar-fill progress-bar-warning" style="width: 90%;"></div>
+            </div>
+            <div class="flex justify-between text-xs text-text-tertiary">
+              <span>Requests used</span>
+              <span>Resets in 8s</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Latency -->
+        <div class="chart-card">
+          <div class="chart-card-body p-4">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium text-text-secondary">API Latency</span>
+              <span class="status-badge status-badge-connected">Normal</span>
+            </div>
+            <div class="text-3xl font-bold text-text-primary mb-1">68<span class="text-lg font-normal text-text-secondary">ms</span></div>
+            <div class="sparkline-container h-8 mt-2">
+              <div class="sparkline-bar" style="height: 50%"></div>
+              <div class="sparkline-bar" style="height: 55%"></div>
+              <div class="sparkline-bar" style="height: 48%"></div>
+              <div class="sparkline-bar" style="height: 62%"></div>
+              <div class="sparkline-bar" style="height: 58%"></div>
+              <div class="sparkline-bar" style="height: 52%"></div>
+              <div class="sparkline-bar" style="height: 68%"></div>
+              <div class="sparkline-bar" style="height: 55%"></div>
+            </div>
+            <div class="text-xs text-text-tertiary mt-2">Avg: 58ms | P95: 125ms</div>
+          </div>
+        </div>
+
+        <!-- Rate Limit Hits -->
+        <div class="chart-card">
+          <div class="chart-card-body p-4">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium text-text-secondary">Rate Limit Hits (24h)</span>
+              <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div class="text-3xl font-bold text-warning mb-1">12</div>
+            <div class="text-xs text-text-tertiary">Last hit: 5 minutes ago</div>
+            <div class="text-xs text-text-secondary mt-1">Recovered: 12 | Failed: 0</div>
+          </div>
+        </div>
+
+        <!-- Requests Today -->
+        <div class="chart-card">
+          <div class="chart-card-body p-4">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-medium text-text-secondary">Requests Today</span>
+              <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <div class="text-3xl font-bold text-text-primary mb-1">8,542</div>
+            <div class="text-xs text-text-tertiary">vs 7,891 yesterday</div>
+            <div class="text-xs text-success mt-1">+8.2% increase</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rate Limit Headroom Indicator -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Rate Limit Headroom</h2>
+            <p class="chart-card-subtitle">Current capacity and reset timing</p>
+          </div>
+          <div class="flex items-center gap-4">
+            <div class="text-right">
+              <div class="text-sm font-medium text-text-primary" id="remaining-requests">5 requests remaining</div>
+              <div class="text-xs text-text-tertiary" id="reset-timer">Resets in 8 seconds</div>
+            </div>
+            <button class="btn btn-sm btn-secondary" onclick="refreshRateLimits()">
+              <svg class="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div class="chart-card-body">
+          <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <!-- Visual gauge representation -->
+            <div class="lg:col-span-2">
+              <div class="gauge-container mx-auto" style="width: 220px; height: 120px;">
+                <svg class="gauge-svg" viewBox="0 0 220 120">
+                  <!-- Background arc -->
+                  <path stroke="#2f3336" stroke-width="16" stroke-linecap="round" fill="none" d="M 20 110 A 90 90 0 0 1 200 110" />
+                  <!-- Green zone (0-60%) -->
+                  <path stroke="rgba(16, 185, 129, 0.3)" stroke-width="16" stroke-linecap="round" fill="none" d="M 20 110 A 90 90 0 0 1 85 28" />
+                  <!-- Yellow zone (60-85%) -->
+                  <path stroke="rgba(245, 158, 11, 0.3)" stroke-width="16" stroke-linecap="round" fill="none" d="M 85 28 A 90 90 0 0 1 155 35" />
+                  <!-- Red zone (85-100%) -->
+                  <path stroke="rgba(239, 68, 68, 0.3)" stroke-width="16" stroke-linecap="round" fill="none" d="M 155 35 A 90 90 0 0 1 200 110" />
+                  <!-- Value arc (90% used) -->
+                  <path stroke="#f59e0b" stroke-width="16" stroke-linecap="round" fill="none" d="M 20 110 A 90 90 0 0 1 180 55" />
+                </svg>
+                <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 text-center">
+                  <span class="text-4xl font-bold text-warning">90%</span>
+                  <span class="block text-sm text-text-tertiary">Used</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bucket breakdown -->
+            <div class="lg:col-span-3 space-y-4">
+              <div class="progress-labeled">
+                <div class="progress-header">
+                  <span class="progress-label">Messages</span>
+                  <span class="progress-value">4/5 (80%)</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill progress-bar-warning" style="width: 80%;"></div>
+                </div>
+              </div>
+
+              <div class="progress-labeled">
+                <div class="progress-header">
+                  <span class="progress-label">Reactions</span>
+                  <span class="progress-value">1/1 (100%)</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill progress-bar-critical" style="width: 100%;"></div>
+                </div>
+              </div>
+
+              <div class="progress-labeled">
+                <div class="progress-header">
+                  <span class="progress-label">Channels</span>
+                  <span class="progress-value">2/10 (20%)</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill progress-bar-healthy" style="width: 20%;"></div>
+                </div>
+              </div>
+
+              <div class="progress-labeled">
+                <div class="progress-header">
+                  <span class="progress-label">Guilds</span>
+                  <span class="progress-value">0/5 (0%)</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill progress-bar-healthy" style="width: 0%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Latency Chart & Rate Limit Hits Timeline -->
+      <div class="performance-grid-2 mb-6">
+        <!-- API Latency Over Time -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">API Latency Over Time</h2>
+              <p class="chart-card-subtitle">Discord API response times (last 24 hours)</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="chart-container">
+              <canvas id="apiLatencyChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rate Limit Hits Log -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Rate Limit Hits Log</h2>
+              <p class="chart-card-subtitle">Recent rate limit encounters</p>
+            </div>
+          </div>
+          <div class="chart-card-body p-0">
+            <div class="divide-y divide-border-primary max-h-80 overflow-y-auto">
+              <!-- Rate limit hit entries -->
+              <div class="p-3 flex items-start gap-3">
+                <div class="w-2 h-2 rounded-full bg-warning mt-1.5 flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-text-primary">POST /channels/{id}/messages</span>
+                    <span class="text-xs text-text-tertiary">5 min ago</span>
+                  </div>
+                  <div class="text-xs text-text-secondary mt-0.5">Queued request, retry after 1.2s</div>
+                </div>
+              </div>
+
+              <div class="p-3 flex items-start gap-3">
+                <div class="w-2 h-2 rounded-full bg-warning mt-1.5 flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-text-primary">PUT /channels/{id}/messages/{id}/reactions</span>
+                    <span class="text-xs text-text-tertiary">12 min ago</span>
+                  </div>
+                  <div class="text-xs text-text-secondary mt-0.5">Queued request, retry after 0.8s</div>
+                </div>
+              </div>
+
+              <div class="p-3 flex items-start gap-3">
+                <div class="w-2 h-2 rounded-full bg-warning mt-1.5 flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-text-primary">POST /channels/{id}/messages</span>
+                    <span class="text-xs text-text-tertiary">28 min ago</span>
+                  </div>
+                  <div class="text-xs text-text-secondary mt-0.5">Queued request, retry after 2.1s</div>
+                </div>
+              </div>
+
+              <div class="p-3 flex items-start gap-3">
+                <div class="w-2 h-2 rounded-full bg-success mt-1.5 flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-text-primary">Global rate limit reset</span>
+                    <span class="text-xs text-text-tertiary">32 min ago</span>
+                  </div>
+                  <div class="text-xs text-text-secondary mt-0.5">Bucket refilled, 50 requests available</div>
+                </div>
+              </div>
+
+              <div class="p-3 flex items-start gap-3">
+                <div class="w-2 h-2 rounded-full bg-error mt-1.5 flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-sm font-medium text-text-primary">429 Too Many Requests</span>
+                    <span class="text-xs text-text-tertiary">45 min ago</span>
+                  </div>
+                  <div class="text-xs text-text-secondary mt-0.5">Global rate limit hit, waited 5.0s</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-Route Bucket Status Table -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Per-Route Bucket Status</h2>
+            <p class="chart-card-subtitle">Rate limit status by API endpoint</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Filter routes..."
+              class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary placeholder:text-text-tertiary focus:border-border-focus transition-colors w-48"
+            />
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="performance-table">
+            <thead>
+              <tr>
+                <th>Route</th>
+                <th>Method</th>
+                <th>Remaining</th>
+                <th>Limit</th>
+                <th>Usage</th>
+                <th>Reset</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-mono">/channels/{id}/messages</td>
+                <td><span class="px-2 py-0.5 text-xs font-medium bg-success/20 text-success rounded">POST</span></td>
+                <td class="font-medium">1</td>
+                <td>5</td>
+                <td>
+                  <div class="w-24">
+                    <div class="progress-bar-container">
+                      <div class="progress-bar-fill progress-bar-warning" style="width: 80%;"></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-text-secondary">3s</td>
+                <td><span class="status-badge status-badge-reconnecting">Throttled</span></td>
+              </tr>
+              <tr>
+                <td class="text-mono">/channels/{id}/messages/{id}/reactions</td>
+                <td><span class="px-2 py-0.5 text-xs font-medium bg-accent-blue/20 text-accent-blue rounded">PUT</span></td>
+                <td class="font-medium text-error">0</td>
+                <td>1</td>
+                <td>
+                  <div class="w-24">
+                    <div class="progress-bar-container">
+                      <div class="progress-bar-fill progress-bar-critical" style="width: 100%;"></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-text-secondary">0.8s</td>
+                <td><span class="status-badge status-badge-disconnected">Limited</span></td>
+              </tr>
+              <tr>
+                <td class="text-mono">/guilds/{id}/members</td>
+                <td><span class="px-2 py-0.5 text-xs font-medium bg-info/20 text-info rounded">GET</span></td>
+                <td class="font-medium">8</td>
+                <td>10</td>
+                <td>
+                  <div class="w-24">
+                    <div class="progress-bar-container">
+                      <div class="progress-bar-fill progress-bar-healthy" style="width: 20%;"></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-text-secondary">45s</td>
+                <td><span class="status-badge status-badge-connected">OK</span></td>
+              </tr>
+              <tr>
+                <td class="text-mono">/channels/{id}</td>
+                <td><span class="px-2 py-0.5 text-xs font-medium bg-warning/20 text-warning rounded">PATCH</span></td>
+                <td class="font-medium">2</td>
+                <td>2</td>
+                <td>
+                  <div class="w-24">
+                    <div class="progress-bar-container">
+                      <div class="progress-bar-fill progress-bar-healthy" style="width: 0%;"></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-text-secondary">120s</td>
+                <td><span class="status-badge status-badge-connected">OK</span></td>
+              </tr>
+              <tr>
+                <td class="text-mono">/applications/{id}/commands</td>
+                <td><span class="px-2 py-0.5 text-xs font-medium bg-accent-blue/20 text-accent-blue rounded">PUT</span></td>
+                <td class="font-medium">200</td>
+                <td>200</td>
+                <td>
+                  <div class="w-24">
+                    <div class="progress-bar-container">
+                      <div class="progress-bar-fill progress-bar-healthy" style="width: 0%;"></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-text-secondary">-</td>
+                <td><span class="status-badge status-badge-connected">OK</span></td>
+              </tr>
+              <tr>
+                <td class="text-mono">/interactions/{id}/{token}/callback</td>
+                <td><span class="px-2 py-0.5 text-xs font-medium bg-success/20 text-success rounded">POST</span></td>
+                <td class="font-medium">5</td>
+                <td>5</td>
+                <td>
+                  <div class="w-24">
+                    <div class="progress-bar-container">
+                      <div class="progress-bar-fill progress-bar-healthy" style="width: 0%;"></div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-text-secondary">1s</td>
+                <td><span class="status-badge status-badge-connected">OK</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Chart.js default dark theme settings
+      Chart.defaults.color = '#a8a5a3';
+      Chart.defaults.borderColor = '#3f4447';
+
+      // API Latency Chart
+      const latencyCtx = document.getElementById('apiLatencyChart').getContext('2d');
+      const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0') + ':00');
+
+      new Chart(latencyCtx, {
+        type: 'line',
+        data: {
+          labels: hours,
+          datasets: [{
+            label: 'API Latency',
+            data: [55, 52, 48, 45, 42, 48, 62, 78, 85, 92, 88, 82, 75, 82, 95, 105, 92, 78, 68, 62, 58, 55, 52, 58],
+            borderColor: '#098ecf',
+            backgroundColor: 'rgba(9, 142, 207, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 2,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  return context.parsed.y + ' ms';
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value + ' ms';
+                }
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Rate limit countdown simulation
+      let resetTime = 8;
+      const resetTimer = document.getElementById('reset-timer');
+      const remainingRequests = document.getElementById('remaining-requests');
+
+      setInterval(() => {
+        resetTime--;
+        if (resetTime <= 0) {
+          resetTime = 10;
+          remainingRequests.textContent = '50 requests remaining';
+          remainingRequests.classList.remove('text-warning');
+          remainingRequests.classList.add('text-success');
+        }
+        resetTimer.textContent = `Resets in ${resetTime} seconds`;
+      }, 1000);
+    });
+
+    function refreshRateLimits() {
+      // Simulate refresh
+      console.log('Refreshing rate limit data...');
+    }
+  </script>
+
+</body>
+</html>

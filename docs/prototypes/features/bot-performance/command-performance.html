@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Performance - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+  <link rel="stylesheet" href="performance-shared.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <!-- Chart.js for charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Main Content Area -->
+  <main class="min-h-screen">
+    <div class="p-4 lg:p-8 max-w-7xl mx-auto">
+
+      <!-- Breadcrumb Navigation -->
+      <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm flex-wrap">
+          <li>
+            <a href="../../dashboard.html" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <a href="index.html" class="text-text-secondary hover:text-accent-blue transition-colors">Bot Performance</a>
+          </li>
+          <li class="text-text-tertiary" aria-hidden="true">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </li>
+          <li>
+            <span class="text-text-primary font-medium" aria-current="page">Command Performance</span>
+          </li>
+        </ol>
+      </nav>
+
+      <!-- Page Header -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Command Performance</h1>
+          <p class="text-text-secondary mt-1">Response times, throughput, and error analysis</p>
+        </div>
+
+        <!-- Time Range Selector -->
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-1.5 text-sm font-medium text-accent-blue bg-accent-blue/20 border border-accent-blue/30 rounded-md">24h</button>
+          <button class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:text-text-primary transition-colors">7d</button>
+          <button class="px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-md hover:text-text-primary transition-colors">30d</button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="performance-tabs mb-6">
+        <a href="index.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Overview
+        </a>
+        <a href="health-metrics.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          Health Metrics
+        </a>
+        <a href="command-performance.html" class="performance-tab active">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          Commands
+        </a>
+        <a href="api-rate-limits.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          API & Rate Limits
+        </a>
+        <a href="system-health.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+          </svg>
+          System
+        </a>
+        <a href="alerts-incidents.html" class="performance-tab">
+          <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          Alerts
+        </a>
+      </div>
+
+      <!-- Response Time Metrics Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Average -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">Average</span>
+          </div>
+          <div class="metric-value">85<span class="metric-unit">ms</span></div>
+          <div class="metric-trend metric-trend-up">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+            -8ms vs yesterday
+          </div>
+        </div>
+
+        <!-- P50 -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">P50 (Median)</span>
+          </div>
+          <div class="metric-value">62<span class="metric-unit">ms</span></div>
+          <div class="metric-trend metric-trend-neutral">
+            No change
+          </div>
+        </div>
+
+        <!-- P95 -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">P95</span>
+          </div>
+          <div class="metric-value">245<span class="metric-unit">ms</span></div>
+          <div class="metric-trend metric-trend-up">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+            -15ms improvement
+          </div>
+        </div>
+
+        <!-- P99 -->
+        <div class="metric-card">
+          <div class="metric-header">
+            <span class="metric-label">P99</span>
+          </div>
+          <div class="metric-value">520<span class="metric-unit">ms</span></div>
+          <div class="metric-trend metric-trend-down">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+            +45ms increase
+          </div>
+        </div>
+      </div>
+
+      <!-- Response Time Over Time Chart -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Response Times Over Time</h2>
+            <p class="chart-card-subtitle">Avg, P95, and P99 latency trends</p>
+          </div>
+          <select class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus transition-colors">
+            <option>All Commands</option>
+            <option>/help</option>
+            <option>/ping</option>
+            <option>/stats</option>
+            <option>/ratwatch</option>
+          </select>
+        </div>
+        <div class="chart-card-body">
+          <div class="chart-container chart-container-lg">
+            <canvas id="responseTimeChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Throughput & Error Rate Row -->
+      <div class="performance-grid-2 mb-6">
+        <!-- Command Throughput -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Command Throughput</h2>
+              <p class="chart-card-subtitle">Commands executed per minute</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="chart-container">
+              <canvas id="throughputChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error Rate -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div>
+              <h2 class="chart-card-title">Error Rate Trend</h2>
+              <p class="chart-card-subtitle">Command failure percentage</p>
+            </div>
+          </div>
+          <div class="chart-card-body">
+            <div class="chart-container">
+              <canvas id="errorRateChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slowest Commands Table -->
+      <div class="chart-card mb-6">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Slowest Commands</h2>
+            <p class="chart-card-subtitle">Commands with highest average response time</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="performance-table">
+            <thead>
+              <tr>
+                <th>Command</th>
+                <th>Avg Time</th>
+                <th>Max Time</th>
+                <th>P95</th>
+                <th>Executions</th>
+                <th>Error Rate</th>
+                <th>Trend</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <code class="text-mono text-accent-blue">/stats server</code>
+                  </div>
+                </td>
+                <td class="font-medium">342ms</td>
+                <td class="text-warning">1,245ms</td>
+                <td>890ms</td>
+                <td>234</td>
+                <td>
+                  <span class="text-success">0.4%</span>
+                </td>
+                <td>
+                  <div class="sparkline-container h-6">
+                    <div class="sparkline-bar" style="height: 60%"></div>
+                    <div class="sparkline-bar" style="height: 70%"></div>
+                    <div class="sparkline-bar" style="height: 65%"></div>
+                    <div class="sparkline-bar elevated" style="height: 85%"></div>
+                    <div class="sparkline-bar" style="height: 55%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <code class="text-mono text-accent-blue">/ratwatch leaderboard</code>
+                  </div>
+                </td>
+                <td class="font-medium">287ms</td>
+                <td class="text-warning">980ms</td>
+                <td>645ms</td>
+                <td>567</td>
+                <td>
+                  <span class="text-success">0.2%</span>
+                </td>
+                <td>
+                  <div class="sparkline-container h-6">
+                    <div class="sparkline-bar" style="height: 50%"></div>
+                    <div class="sparkline-bar" style="height: 55%"></div>
+                    <div class="sparkline-bar" style="height: 52%"></div>
+                    <div class="sparkline-bar" style="height: 48%"></div>
+                    <div class="sparkline-bar" style="height: 45%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <code class="text-mono text-accent-blue">/help</code>
+                  </div>
+                </td>
+                <td class="font-medium">198ms</td>
+                <td>520ms</td>
+                <td>380ms</td>
+                <td>1,892</td>
+                <td>
+                  <span class="text-success">0.1%</span>
+                </td>
+                <td>
+                  <div class="sparkline-container h-6">
+                    <div class="sparkline-bar" style="height: 40%"></div>
+                    <div class="sparkline-bar" style="height: 42%"></div>
+                    <div class="sparkline-bar" style="height: 38%"></div>
+                    <div class="sparkline-bar" style="height: 35%"></div>
+                    <div class="sparkline-bar" style="height: 32%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <code class="text-mono text-accent-blue">/remind set</code>
+                  </div>
+                </td>
+                <td class="font-medium">156ms</td>
+                <td>445ms</td>
+                <td>320ms</td>
+                <td>423</td>
+                <td>
+                  <span class="text-success">0.5%</span>
+                </td>
+                <td>
+                  <div class="sparkline-container h-6">
+                    <div class="sparkline-bar" style="height: 30%"></div>
+                    <div class="sparkline-bar" style="height: 35%"></div>
+                    <div class="sparkline-bar" style="height: 32%"></div>
+                    <div class="sparkline-bar" style="height: 30%"></div>
+                    <div class="sparkline-bar" style="height: 28%"></div>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="flex items-center gap-2">
+                    <code class="text-mono text-accent-blue">/ping</code>
+                  </div>
+                </td>
+                <td class="font-medium">45ms</td>
+                <td>120ms</td>
+                <td>85ms</td>
+                <td>3,456</td>
+                <td>
+                  <span class="text-success">0.0%</span>
+                </td>
+                <td>
+                  <div class="sparkline-container h-6">
+                    <div class="sparkline-bar" style="height: 20%"></div>
+                    <div class="sparkline-bar" style="height: 18%"></div>
+                    <div class="sparkline-bar" style="height: 22%"></div>
+                    <div class="sparkline-bar" style="height: 19%"></div>
+                    <div class="sparkline-bar" style="height: 18%"></div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Commands with Timeouts -->
+      <div class="chart-card">
+        <div class="chart-card-header">
+          <div>
+            <h2 class="chart-card-title">Commands with Timeouts</h2>
+            <p class="chart-card-subtitle">Commands that exceeded 3 second response limit</p>
+          </div>
+          <span class="severity-badge severity-warning">4 timeouts (24h)</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="performance-table">
+            <thead>
+              <tr>
+                <th>Command</th>
+                <th>Timeout Count</th>
+                <th>Last Timeout</th>
+                <th>Avg Response Before Timeout</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <code class="text-mono text-accent-blue">/stats server</code>
+                </td>
+                <td class="font-medium text-warning">3</td>
+                <td id="timeout-1">2 hours ago</td>
+                <td>2,850ms</td>
+                <td>
+                  <span class="status-badge status-badge-reconnecting">Investigating</span>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <code class="text-mono text-accent-blue">/ratwatch report</code>
+                </td>
+                <td class="font-medium text-warning">1</td>
+                <td id="timeout-2">8 hours ago</td>
+                <td>3,120ms</td>
+                <td>
+                  <span class="status-badge status-badge-connected">Resolved</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty state example -->
+        <!--
+        <div class="empty-state">
+          <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div class="empty-state-title">No timeouts</div>
+          <div class="empty-state-description">All commands completed within the 3 second limit in the selected time period.</div>
+        </div>
+        -->
+      </div>
+
+    </div>
+  </main>
+
+  <!-- JavaScript -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Chart.js default dark theme settings
+      Chart.defaults.color = '#a8a5a3';
+      Chart.defaults.borderColor = '#3f4447';
+
+      // Response Time Chart
+      const responseCtx = document.getElementById('responseTimeChart').getContext('2d');
+      const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0') + ':00');
+
+      new Chart(responseCtx, {
+        type: 'line',
+        data: {
+          labels: hours,
+          datasets: [
+            {
+              label: 'Average',
+              data: [72, 68, 65, 62, 58, 55, 68, 85, 95, 102, 98, 92, 88, 95, 105, 112, 98, 88, 82, 78, 72, 68, 65, 70],
+              borderColor: '#098ecf',
+              backgroundColor: 'transparent',
+              tension: 0.4,
+              pointRadius: 2,
+              pointHoverRadius: 5
+            },
+            {
+              label: 'P95',
+              data: [185, 175, 168, 162, 155, 148, 195, 245, 285, 312, 298, 275, 258, 278, 325, 352, 295, 265, 238, 218, 195, 178, 165, 180],
+              borderColor: '#f59e0b',
+              backgroundColor: 'transparent',
+              tension: 0.4,
+              pointRadius: 2,
+              pointHoverRadius: 5,
+              borderDash: [5, 5]
+            },
+            {
+              label: 'P99',
+              data: [420, 395, 375, 358, 342, 328, 445, 520, 598, 645, 618, 575, 545, 585, 678, 725, 612, 545, 498, 458, 425, 398, 372, 405],
+              borderColor: '#ef4444',
+              backgroundColor: 'transparent',
+              tension: 0.4,
+              pointRadius: 2,
+              pointHoverRadius: 5,
+              borderDash: [2, 2]
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 12,
+                padding: 20
+              }
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + context.parsed.y + ' ms';
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value + ' ms';
+                }
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Throughput Chart
+      const throughputCtx = document.getElementById('throughputChart').getContext('2d');
+      new Chart(throughputCtx, {
+        type: 'bar',
+        data: {
+          labels: hours.filter((_, i) => i % 2 === 0),
+          datasets: [{
+            label: 'Commands/min',
+            data: [2, 1, 1, 2, 4, 8, 12, 15, 14, 12, 10, 6],
+            backgroundColor: '#cb4e1b',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  return context.parsed.y + ' commands/min';
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: {
+                color: '#2f3336'
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+
+      // Error Rate Chart
+      const errorCtx = document.getElementById('errorRateChart').getContext('2d');
+      new Chart(errorCtx, {
+        type: 'line',
+        data: {
+          labels: hours.filter((_, i) => i % 2 === 0),
+          datasets: [{
+            label: 'Error Rate',
+            data: [0.1, 0.2, 0.1, 0.3, 0.5, 0.4, 0.3, 0.6, 0.4, 0.3, 0.2, 0.2],
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3,
+            pointHoverRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: '#2f3336',
+              titleColor: '#d7d3d0',
+              bodyColor: '#a8a5a3',
+              borderColor: '#3f4447',
+              borderWidth: 1,
+              padding: 12,
+              callbacks: {
+                label: function(context) {
+                  return context.parsed.y.toFixed(1) + '%';
+                }
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 2,
+              grid: {
+                color: '#2f3336'
+              },
+              ticks: {
+                callback: function(value) {
+                  return value + '%';
+                }
+              }
+            },
+            x: {
+              grid: {
+                display: false
+              }
+            }
+          }
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
