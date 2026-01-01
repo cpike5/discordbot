@@ -290,9 +290,12 @@ public class InteractionHandler
         var success = result.IsSuccess;
         var errorMessage = result.IsSuccess ? null : result.ErrorReason;
 
+        // Build full command name including group prefix for subcommands
+        var fullCommandName = GetFullCommandName(commandInfo);
+
         // Record command metrics
         _botMetrics.RecordCommandExecution(
-            commandInfo.Name,
+            fullCommandName,
             success,
             executionTimeMs,
             context.Guild?.Id);
@@ -307,7 +310,7 @@ public class InteractionHandler
             {
                 _logger.LogInformation(
                     "Slash command '{CommandName}' executed successfully by {Username} in guild {GuildName} (ID: {GuildId}), ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
-                    commandInfo.Name,
+                    fullCommandName,
                     context.User.Username,
                     context.Guild?.Name ?? "DM",
                     context.Guild?.Id ?? 0,
@@ -318,7 +321,7 @@ public class InteractionHandler
             {
                 _logger.LogWarning(
                     "Slash command '{CommandName}' failed for {Username} in guild {GuildName} (ID: {GuildId}). Error: {Error}, ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
-                    commandInfo.Name,
+                    fullCommandName,
                     context.User.Username,
                     context.Guild?.Name ?? "DM",
                     context.Guild?.Id ?? 0,
@@ -359,7 +362,7 @@ public class InteractionHandler
         // Log command execution to database (fire and forget with error handling inside)
         _ = _commandExecutionLogger.LogCommandExecutionAsync(
             context,
-            commandInfo.Name,
+            fullCommandName,
             null, // Parameters - could be serialized if needed
             executionTimeMs,
             success,
@@ -367,7 +370,7 @@ public class InteractionHandler
             correlationId);
 
         // Broadcast command execution update to dashboard (fire-and-forget, failure tolerant)
-        _ = BroadcastCommandExecutedAsync(commandInfo.Name, context, success);
+        _ = BroadcastCommandExecutedAsync(fullCommandName, context, success);
     }
 
     /// <summary>
@@ -498,6 +501,19 @@ public class InteractionHandler
             IModalInteraction => "modal",
             _ => "unknown"
         };
+    }
+
+    /// <summary>
+    /// Gets the full command name including the group prefix for subcommands.
+    /// For example, "consent status" instead of just "status".
+    /// </summary>
+    /// <param name="commandInfo">The slash command info.</param>
+    /// <returns>The full command name with group prefix if applicable.</returns>
+    private static string GetFullCommandName(SlashCommandInfo commandInfo)
+    {
+        return string.IsNullOrEmpty(commandInfo.Module.SlashGroupName)
+            ? commandInfo.Name
+            : $"{commandInfo.Module.SlashGroupName} {commandInfo.Name}";
     }
 
     /// <summary>
