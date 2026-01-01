@@ -130,23 +130,23 @@
     </div>
 
     <!-- Tab Navigation -->
-    <div class="settings-tabs mb-6">
-        <button type="button" class="settings-tab settings-tab-active" data-tab="cases" onclick="switchTab('cases')">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="settings-tabs mb-6" role="tablist" aria-label="User moderation sections">
+        <button type="button" class="settings-tab settings-tab-active" id="tab-btn-cases" role="tab" aria-selected="true" aria-controls="tab-cases" data-tab="cases" onclick="switchTab('cases')">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
             </svg>
             Cases
             <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-error text-white">@Model.ViewModel.Cases.Count</span>
         </button>
-        <button type="button" class="settings-tab" data-tab="notes" onclick="switchTab('notes')">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button type="button" class="settings-tab" id="tab-btn-notes" role="tab" aria-selected="false" aria-controls="tab-notes" data-tab="notes" onclick="switchTab('notes')">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
             Notes
             <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-blue text-white">@Model.ViewModel.Notes.Count</span>
         </button>
-        <button type="button" class="settings-tab" data-tab="flags" onclick="switchTab('flags')">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button type="button" class="settings-tab" id="tab-btn-flags" role="tab" aria-selected="false" aria-controls="tab-flags" data-tab="flags" onclick="switchTab('flags')">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
             </svg>
             Flags
@@ -157,7 +157,7 @@
     <!-- Tab Content -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg">
         <!-- Cases Tab -->
-        <div id="tab-cases" class="tab-content">
+        <div id="tab-cases" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-cases">
             <div class="overflow-x-auto">
                 <table class="w-full" role="table" aria-label="Moderation cases">
                     <thead class="bg-bg-tertiary">
@@ -216,7 +216,7 @@
         </div>
 
         <!-- Notes Tab -->
-        <div id="tab-notes" class="tab-content hidden p-6">
+        <div id="tab-notes" class="tab-content hidden p-6" role="tabpanel" aria-labelledby="tab-btn-notes">
             <!-- Add Note Form -->
             <div class="mb-6">
                 <h3 class="text-sm font-semibold text-text-primary mb-2">Add New Note</h3>
@@ -258,7 +258,7 @@
         </div>
 
         <!-- Flags Tab -->
-        <div id="tab-flags" class="tab-content hidden">
+        <div id="tab-flags" class="tab-content hidden" role="tabpanel" aria-labelledby="tab-btn-flags">
             <div class="overflow-x-auto">
                 <table class="w-full" role="table" aria-label="Flagged events">
                     <thead class="bg-bg-tertiary">
