@@ -1,0 +1,885 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.Performance.HealthMetricsModel
+@{
+    ViewData["Title"] = "Health Metrics";
+    ViewData["Breadcrumbs"] = new List<(string Text, string? Url)>
+    {
+        ("Dashboard", "/"),
+        ("Bot Performance", null),
+        ("Health Metrics", null)
+    };
+}
+
+@section Styles {
+    <style>
+        /* Performance Page Shared Styles */
+        .performance-tabs {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 2px solid rgb(63, 68, 71);
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .performance-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: rgb(168, 165, 163);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+
+        .performance-tab:hover {
+            color: rgb(215, 211, 208);
+            border-bottom-color: rgb(99, 102, 104);
+        }
+
+        .performance-tab.active {
+            color: rgb(9, 142, 207);
+            border-bottom-color: rgb(9, 142, 207);
+        }
+
+        .tab-icon {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        /* Health Status Components */
+        .health-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .health-status-healthy {
+            background: rgba(16, 185, 129, 0.1);
+            color: rgb(16, 185, 129);
+        }
+
+        .health-status-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: rgb(245, 158, 11);
+        }
+
+        .health-status-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: rgb(239, 68, 68);
+        }
+
+        .health-status-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 9999px;
+            background: currentColor;
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @@keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Uptime Display */
+        .uptime-display {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .uptime-percentage {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+        }
+
+        .uptime-percentage.healthy { color: rgb(16, 185, 129); }
+        .uptime-percentage.warning { color: rgb(245, 158, 11); }
+        .uptime-percentage.error { color: rgb(239, 68, 68); }
+
+        .uptime-label {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+            margin-bottom: 0.5rem;
+        }
+
+        .uptime-since {
+            font-size: 0.75rem;
+            color: rgb(120, 116, 113);
+        }
+
+        /* Health Status Large (for connection state card) */
+        .health-status-large {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .health-status-icon {
+            width: 4rem;
+            height: 4rem;
+            margin: 0 auto 0.75rem;
+        }
+
+        .health-status-label {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .health-status-sublabel {
+            font-size: 0.75rem;
+            color: rgb(168, 165, 163);
+        }
+
+        /* Gauge Components */
+        .gauge-container {
+            position: relative;
+            width: 180px;
+            height: 100px;
+            margin: 0 auto;
+        }
+
+        .gauge-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .gauge-background {
+            fill: none;
+            stroke: rgb(47, 51, 54);
+            stroke-width: 12;
+            stroke-linecap: round;
+        }
+
+        .gauge-fill {
+            fill: none;
+            stroke-width: 12;
+            stroke-linecap: round;
+            transition: stroke 0.3s ease;
+        }
+
+        .gauge-fill-healthy { stroke: rgb(16, 185, 129); }
+        .gauge-fill-warning { stroke: rgb(245, 158, 11); }
+        .gauge-fill-error { stroke: rgb(239, 68, 68); }
+
+        .gauge-value {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .gauge-value-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: rgb(215, 211, 208);
+            line-height: 1;
+        }
+
+        .gauge-value-unit {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+            margin-left: 0.25rem;
+        }
+
+        .gauge-thresholds {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: rgb(120, 116, 113);
+            margin-top: 0.5rem;
+        }
+
+        /* Sparkline */
+        .sparkline-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 40px;
+            max-width: 180px;
+        }
+
+        .sparkline-bar {
+            flex: 1;
+            background: rgb(9, 142, 207);
+            border-radius: 2px;
+            min-width: 3px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .sparkline-bar:hover {
+            opacity: 1;
+        }
+
+        /* Chart Card */
+        .chart-card {
+            background: rgb(35, 38, 40);
+            border: 1px solid rgb(63, 68, 71);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .chart-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem;
+            border-bottom: 1px solid rgb(63, 68, 71);
+        }
+
+        .chart-card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: rgb(215, 211, 208);
+            margin: 0;
+        }
+
+        .chart-card-subtitle {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+            margin: 0.25rem 0 0;
+        }
+
+        .chart-card-body {
+            padding: 1.25rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-container-lg {
+            height: 400px;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-badge-connected {
+            background: rgba(16, 185, 129, 0.1);
+            color: rgb(16, 185, 129);
+        }
+
+        /* Progress Bar */
+        .progress-labeled {
+            margin-top: 1rem;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-label {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+        }
+
+        .progress-value {
+            font-size: 0.875rem;
+            color: rgb(215, 211, 208);
+            font-weight: 500;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            background: rgb(47, 51, 54);
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        .progress-bar-lg {
+            height: 0.5rem;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-bar-healthy {
+            background: rgb(16, 185, 129);
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgb(47, 51, 54);
+        }
+
+        .timeline-entry {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .timeline-entry:last-child {
+            margin-bottom: 0;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -1.625rem;
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 9999px;
+            border: 2px solid rgb(35, 38, 40);
+        }
+
+        .timeline-dot-success {
+            background: rgb(16, 185, 129);
+        }
+
+        .timeline-dot-warning {
+            background: rgb(245, 158, 11);
+        }
+
+        .timeline-dot-error {
+            background: rgb(239, 68, 68);
+        }
+
+        .timeline-content {
+            padding-left: 0.5rem;
+        }
+
+        .timeline-time {
+            font-size: 0.75rem;
+            color: rgb(120, 116, 113);
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: rgb(215, 211, 208);
+            margin-bottom: 0.25rem;
+        }
+
+        .timeline-description {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+        }
+    </style>
+}
+
+<!-- Page Header -->
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Bot Health Metrics</h1>
+        <p class="text-text-secondary mt-1">Connection status, uptime, and resource monitoring</p>
+    </div>
+
+    <!-- Connection Status -->
+    <div class="@Model.ViewModel.ConnectionStateClass">
+        <span class="health-status-dot"></span>
+        <span>@Model.ViewModel.Health.ConnectionState</span>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="performance-tabs mb-6">
+    <a href="#" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        Overview
+    </a>
+    <a href="/Admin/Performance/HealthMetrics" class="performance-tab active">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+        Health Metrics
+    </a>
+    <a href="#" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        Commands
+    </a>
+    <a href="#" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        API & Rate Limits
+    </a>
+    <a href="#" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+        </svg>
+        System
+    </a>
+    <a href="#" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        Alerts
+    </a>
+</div>
+
+<!-- Uptime & Connection Status Row -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Uptime Card -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Uptime</h2>
+                <p class="chart-card-subtitle">Current session statistics</p>
+            </div>
+        </div>
+        <div class="chart-card-body">
+            <div class="uptime-display">
+                <div class="uptime-percentage healthy">@Model.ViewModel.Uptime30DFormatted</div>
+                <div class="uptime-label">Uptime (30 days)</div>
+                <div class="uptime-since">Online since @Model.ViewModel.SessionStartFormatted</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border-primary">
+                <div class="text-center">
+                    <div class="text-xl font-bold text-text-primary">@Model.ViewModel.UptimeFormatted</div>
+                    <div class="text-xs text-text-tertiary">Current session</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xl font-bold text-text-primary">@Model.ViewModel.ConnectionStats.ReconnectionCount</div>
+                    <div class="text-xs text-text-tertiary">Restarts (30d)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection State Card -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Connection State</h2>
+                <p class="chart-card-subtitle">Discord gateway status</p>
+            </div>
+        </div>
+        <div class="chart-card-body">
+            <div class="health-status-large">
+                <svg class="health-status-icon text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="health-status-label text-success">@Model.ViewModel.Health.ConnectionState</div>
+                <div class="health-status-sublabel">Gateway: wss://gateway.discord.gg</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border-primary">
+                <div class="text-center">
+                    <div class="text-sm font-medium text-text-primary">Shard 0/1</div>
+                    <div class="text-xs text-text-tertiary">Active shard</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-sm font-medium text-text-primary">v10</div>
+                    <div class="text-xs text-text-tertiary">Gateway version</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Heartbeat Latency Gauge -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Heartbeat Latency</h2>
+                <p class="chart-card-subtitle">Discord gateway ping</p>
+            </div>
+        </div>
+        <div class="chart-card-body">
+            <div class="gauge-container">
+                <svg class="gauge-svg" viewBox="0 0 180 100">
+                    <!-- Background arc -->
+                    <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
+                    <!-- Green zone (0-100ms) -->
+                    <path stroke="rgba(16, 185, 129, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 20 90 A 70 70 0 0 1 75 25" />
+                    <!-- Yellow zone (100-200ms) -->
+                    <path stroke="rgba(245, 158, 11, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 75 25 A 70 70 0 0 1 125 35" />
+                    <!-- Red zone (200-500ms) -->
+                    <path stroke="rgba(239, 68, 68, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 125 35 A 70 70 0 0 1 160 90" />
+                    <!-- Value arc -->
+                    <path class="@Model.ViewModel.LatencyHealthClass" d="M 20 90 A 70 70 0 0 1 55 40" stroke-dasharray="110" stroke-dashoffset="0" />
+                </svg>
+                <div class="gauge-value">
+                    <span class="gauge-value-number" id="currentLatency">@Model.ViewModel.Health.LatencyMs</span>
+                    <span class="gauge-value-unit">ms</span>
+                </div>
+            </div>
+            <div class="gauge-thresholds">
+                <span class="gauge-threshold">0ms</span>
+                <span class="gauge-threshold">500ms</span>
+            </div>
+            @if (Model.ViewModel.RecentLatencySamples.Any())
+            {
+                <div class="sparkline-container mt-4 mx-auto">
+                    @foreach (var sample in Model.ViewModel.RecentLatencySamples)
+                    {
+                        var heightPercent = Math.Min((sample.LatencyMs / 200.0) * 100, 100);
+                        <div class="sparkline-bar" style="height: @(heightPercent)%"></div>
+                    }
+                </div>
+                <p class="text-xs text-text-tertiary text-center mt-2">Last @Model.ViewModel.RecentLatencySamples.Count heartbeats</p>
+            }
+            <p class="text-xs text-text-tertiary text-center mt-2">Avg: @Model.ViewModel.LatencyStats.Average.ToString("F0")ms | P95: @Model.ViewModel.LatencyStats.P95</p>
+        </div>
+    </div>
+</div>
+
+<!-- Memory & CPU Gauges -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <!-- Memory Usage -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Memory Usage</h2>
+                <p class="chart-card-subtitle">Process memory consumption</p>
+            </div>
+            <span class="status-badge status-badge-connected">Normal</span>
+        </div>
+        <div class="chart-card-body">
+            <div class="flex items-center gap-8">
+                <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 180 100">
+                        <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
+                        <path class="gauge-fill gauge-fill-healthy" d="M 20 90 A 70 70 0 0 1 90 20" stroke-dasharray="150" stroke-dashoffset="0" />
+                    </svg>
+                    <div class="gauge-value">
+                        <span class="gauge-value-number" id="memoryUsage">@Model.ViewModel.WorkingSetMB</span>
+                        <span class="gauge-value-unit">MB</span>
+                    </div>
+                </div>
+                <div class="flex-1 space-y-3">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-text-secondary">Working Set</span>
+                        <span class="text-text-primary font-medium">@Model.ViewModel.WorkingSetMB MB</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-text-secondary">Private Memory</span>
+                        <span class="text-text-primary font-medium">@Model.ViewModel.PrivateMemoryMB MB</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-text-secondary">Max Allocated</span>
+                        <span class="text-text-primary font-medium">@Model.ViewModel.MaxAllocatedMemoryMB MB</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-text-secondary">GC Collections (Gen 2)</span>
+                        <span class="text-text-primary font-medium">@Model.ViewModel.Gen2Collections</span>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-labeled mt-6">
+                <div class="progress-header">
+                    <span class="progress-label">Memory Utilization</span>
+                    <span class="progress-value">@Model.ViewModel.MemoryUtilizationPercent.ToString("F0")% of allocated</span>
+                </div>
+                <div class="progress-bar-container progress-bar-lg">
+                    <div class="progress-bar-fill progress-bar-healthy" style="width: @Model.ViewModel.MemoryUtilizationPercent.ToString("F0")%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CPU Usage -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">CPU Usage</h2>
+                <p class="chart-card-subtitle">Process CPU utilization</p>
+            </div>
+            <span class="status-badge status-badge-connected">Normal</span>
+        </div>
+        <div class="chart-card-body">
+            <div class="flex items-center gap-8">
+                <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 180 100">
+                        <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
+                        <path class="gauge-fill gauge-fill-healthy" d="M 20 90 A 70 70 0 0 1 48 55" stroke-dasharray="55" stroke-dashoffset="0" />
+                    </svg>
+                    <div class="gauge-value">
+                        <span class="gauge-value-number" id="cpuUsage">0</span>
+                        <span class="gauge-value-unit">%</span>
+                    </div>
+                </div>
+                <div class="flex-1 space-y-3">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-text-secondary">Thread Count</span>
+                        <span class="text-text-primary font-medium">@Model.ViewModel.ThreadCount</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Latency History Chart -->
+<div class="chart-card mb-6">
+    <div class="chart-card-header">
+        <div>
+            <h2 class="chart-card-title">Latency History</h2>
+            <p class="chart-card-subtitle">Heartbeat latency over time</p>
+        </div>
+        <select id="latencyTimeRange" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-border-focus transition-colors">
+            <option value="1">Last hour</option>
+            <option value="6">Last 6 hours</option>
+            <option value="24" selected>Last 24 hours</option>
+            <option value="168">Last 7 days</option>
+        </select>
+    </div>
+    <div class="chart-card-body">
+        <div class="chart-container chart-container-lg">
+            <canvas id="latencyHistoryChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Reconnection History -->
+<div class="chart-card">
+    <div class="chart-card-header">
+        <div>
+            <h2 class="chart-card-title">Reconnection History</h2>
+            <p class="chart-card-subtitle">Gateway disconnections and reconnections (last 7 days)</p>
+        </div>
+    </div>
+    <div class="chart-card-body">
+        <div class="timeline">
+            @if (Model.ViewModel.RecentConnectionEvents.Any())
+            {
+                @foreach (var evt in Model.ViewModel.RecentConnectionEvents.Take(10))
+                {
+                    var dotClass = evt.EventType.ToUpperInvariant() switch
+                    {
+                        "CONNECTED" => "timeline-dot-success",
+                        "CONNECTING" => "timeline-dot-warning",
+                        _ => "timeline-dot-error"
+                    };
+
+                    <div class="timeline-entry">
+                        <div class="timeline-dot @dotClass"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-time" data-utc-time="@evt.Timestamp.ToString("o")">@evt.Timestamp.ToLocalTime().ToString("MMM dd, yyyy 'at' HH:mm")</div>
+                            <div class="timeline-title">@evt.EventType</div>
+                            @if (!string.IsNullOrEmpty(evt.Reason) || !string.IsNullOrEmpty(evt.Details))
+                            {
+                                <div class="timeline-description">@(evt.Reason ?? evt.Details)</div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-center py-8">
+                    <svg class="w-12 h-12 mx-auto mb-3 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div class="text-text-secondary font-medium">No reconnections</div>
+                    <div class="text-text-tertiary text-sm">The bot has maintained a stable connection</div>
+                </div>
+            }
+        </div>
+
+        @if (Model.ViewModel.RecentConnectionEvents.Any())
+        {
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border-primary">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-text-primary">@Model.ViewModel.ConnectionStats.TotalEvents</div>
+                    <div class="text-xs text-text-tertiary">Total Events</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-success">@Model.ViewModel.RecentConnectionEvents.Count(e => e.EventType.Equals("Connected", StringComparison.OrdinalIgnoreCase))</div>
+                    <div class="text-xs text-text-tertiary">Connected</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-warning">@Model.ViewModel.ConnectionStats.ReconnectionCount</div>
+                    <div class="text-xs text-text-tertiary">Reconnections</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-text-primary">@Model.ViewModel.ConnectionStats.AverageSessionDuration.TotalMinutes.ToString("F0")m</div>
+                    <div class="text-xs text-text-tertiary">Avg Session</div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        // Chart.js default dark theme settings
+        Chart.defaults.color = '#a8a5a3';
+        Chart.defaults.borderColor = '#3f4447';
+
+        let latencyChart;
+
+        // Initialize latency chart
+        async function initLatencyChart(hours = 24) {
+            const response = await fetch(`/api/metrics/health/latency?hours=${hours}`);
+            const data = await response.json();
+
+            const ctx = document.getElementById('latencyHistoryChart').getContext('2d');
+
+            // Destroy existing chart if it exists
+            if (latencyChart) {
+                latencyChart.destroy();
+            }
+
+            // Format labels and data
+            const labels = data.samples.map(s => {
+                const date = new Date(s.timestamp);
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            });
+            const latencies = data.samples.map(s => s.latencyMs);
+
+            latencyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Latency (ms)',
+                        data: latencies,
+                        borderColor: '#098ecf',
+                        backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#098ecf',
+                        pointBorderColor: '#098ecf',
+                        pointRadius: 2,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#2f3336',
+                            titleColor: '#d7d3d0',
+                            bodyColor: '#a8a5a3',
+                            borderColor: '#3f4447',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + ' ms';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#2f3336'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + ' ms';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Time range selector handler
+        document.getElementById('latencyTimeRange')?.addEventListener('change', function(e) {
+            const hours = parseInt(e.target.value);
+            initLatencyChart(hours);
+        });
+
+        // SignalR real-time updates
+        if (typeof dashboardHub !== 'undefined') {
+            dashboardHub.on('HealthMetricsUpdate', function(data) {
+                // Update current latency
+                document.getElementById('currentLatency').textContent = data.latencyMs;
+
+                // Update memory usage
+                document.getElementById('memoryUsage').textContent = data.workingSetMB;
+
+                // Update CPU usage (if available)
+                if (data.cpuUsagePercent !== undefined) {
+                    document.getElementById('cpuUsage').textContent = Math.round(data.cpuUsagePercent);
+                }
+
+                // Update connection state if changed
+                // (This would require more complex DOM manipulation)
+            });
+        }
+
+        // Convert UTC timestamps to local timezone
+        function convertTimestampsToLocal() {
+            const timestampElements = document.querySelectorAll('[data-utc-time]');
+            timestampElements.forEach(element => {
+                const utcTime = element.getAttribute('data-utc-time');
+                if (utcTime) {
+                    try {
+                        const date = new Date(utcTime);
+                        // Format: "Jan 01, 2026 at 14:30"
+                        const formatted = date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: '2-digit',
+                            year: 'numeric'
+                        }) + ' at ' + date.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                        element.textContent = formatted;
+                    } catch (e) {
+                        console.error('Failed to parse timestamp:', utcTime, e);
+                    }
+                }
+            });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initLatencyChart(24);
+            convertTimestampsToLocal();
+
+            // Auto-refresh every 30 seconds
+            setInterval(async function() {
+                const response = await fetch('/api/metrics/health');
+                const health = await response.json();
+
+                document.getElementById('currentLatency').textContent = health.latencyMs;
+            }, 30000);
+        });
+    </script>
+}

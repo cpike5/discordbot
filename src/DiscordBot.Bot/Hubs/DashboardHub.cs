@@ -2,6 +2,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using static DiscordBot.Core.Interfaces.GatewayConnectionState;
 
 namespace DiscordBot.Bot.Hubs;
 
@@ -13,18 +14,26 @@ namespace DiscordBot.Bot.Hubs;
 public class DashboardHub : Hub
 {
     private readonly IBotService _botService;
+    private readonly IConnectionStateService _connectionStateService;
+    private readonly ILatencyHistoryService _latencyHistoryService;
     private readonly ILogger<DashboardHub> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DashboardHub"/> class.
     /// </summary>
     /// <param name="botService">The bot service for status retrieval.</param>
+    /// <param name="connectionStateService">The connection state service.</param>
+    /// <param name="latencyHistoryService">The latency history service.</param>
     /// <param name="logger">The logger.</param>
     public DashboardHub(
         IBotService botService,
+        IConnectionStateService connectionStateService,
+        ILatencyHistoryService latencyHistoryService,
         ILogger<DashboardHub> logger)
     {
         _botService = botService;
+        _connectionStateService = connectionStateService;
+        _latencyHistoryService = latencyHistoryService;
         _logger = logger;
     }
 
@@ -119,6 +128,38 @@ public class DashboardHub : Hub
             Context.ConnectionId);
 
         return _botService.GetStatus();
+    }
+
+    /// <summary>
+    /// Gets the current health metrics including connection state, uptime, and latency.
+    /// </summary>
+    /// <returns>The current performance health status.</returns>
+    public PerformanceHealthDto GetHealthStatus()
+    {
+        _logger.LogDebug(
+            "Health status requested by client: ConnectionId={ConnectionId}",
+            Context.ConnectionId);
+
+        var connectionState = _connectionStateService.GetCurrentState();
+        var sessionDuration = _connectionStateService.GetCurrentSessionDuration();
+        var currentLatency = _latencyHistoryService.GetCurrentLatency();
+
+        var health = new PerformanceHealthDto
+        {
+            Status = connectionState == GatewayConnectionState.Connected ? "Healthy" : "Unhealthy",
+            Uptime = sessionDuration,
+            LatencyMs = currentLatency,
+            ConnectionState = connectionState.ToString(),
+            Timestamp = DateTime.UtcNow
+        };
+
+        _logger.LogTrace(
+            "Health status retrieved: Status={Status}, Uptime={Uptime}, Latency={LatencyMs}ms",
+            health.Status,
+            health.Uptime,
+            health.LatencyMs);
+
+        return health;
     }
 
     /// <summary>

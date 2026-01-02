@@ -16,6 +16,8 @@ namespace DiscordBot.Tests.Hubs;
 public class DashboardHubTests
 {
     private readonly Mock<IBotService> _mockBotService;
+    private readonly Mock<IConnectionStateService> _mockConnectionStateService;
+    private readonly Mock<ILatencyHistoryService> _mockLatencyHistoryService;
     private readonly Mock<ILogger<DashboardHub>> _mockLogger;
     private readonly Mock<IGroupManager> _mockGroupManager;
     private readonly Mock<HubCallerContext> _mockContext;
@@ -24,11 +26,17 @@ public class DashboardHubTests
     public DashboardHubTests()
     {
         _mockBotService = new Mock<IBotService>();
+        _mockConnectionStateService = new Mock<IConnectionStateService>();
+        _mockLatencyHistoryService = new Mock<ILatencyHistoryService>();
         _mockLogger = new Mock<ILogger<DashboardHub>>();
         _mockGroupManager = new Mock<IGroupManager>();
         _mockContext = new Mock<HubCallerContext>();
 
-        _hub = new DashboardHub(_mockBotService.Object, _mockLogger.Object);
+        _hub = new DashboardHub(
+            _mockBotService.Object,
+            _mockConnectionStateService.Object,
+            _mockLatencyHistoryService.Object,
+            _mockLogger.Object);
 
         // Setup hub context with mocked group manager
         _mockContext.Setup(c => c.ConnectionId).Returns("test-connection-id-123");
