@@ -1,0 +1,47 @@
+<!-- Mobile Search Overlay -->
+<div id="mobileSearchOverlay" class="mobile-search-overlay">
+  <!-- Overlay Header with Search Input -->
+  <div class="mobile-search-header">
+    <div class="relative flex-1">
+      <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input
+        type="search"
+        id="mobile-search-input"
+        placeholder="Search servers, commands, logs..."
+        class="mobile-search-input"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+      />
+    </div>
+    <button onclick="closeMobileSearch()" class="mobile-search-close" aria-label="Close search">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Search Content Area -->
+  <div class="mobile-search-content">
+    <!-- Recent Searches Section -->
+    <div id="mobile-recent-searches" class="mobile-recent-searches">
+      <!-- Populated by JavaScript -->
+    </div>
+
+    <!-- Search Results Section -->
+    <div id="mobile-search-results" class="mobile-search-results hidden">
+      <!-- Populated by search functionality -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="mobile-search-empty" class="mobile-search-empty">
+      <svg class="w-16 h-16 text-text-tertiary opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <p class="text-text-secondary">Start typing to search</p>
+    </div>
+  </div>
+</div>

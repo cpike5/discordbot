@@ -275,6 +275,159 @@
     }
 
     // Initialize
+
+    // Mobile Search Overlay Functions
+    function openMobileSearch() {
+        const overlay = document.getElementById('mobileSearchOverlay');
+        const input = document.getElementById('mobile-search-input');
+
+        if (overlay) {
+            overlay.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            setTimeout(() => {
+                if (input) {
+                    input.focus();
+                }
+            }, 100);
+
+            renderMobileRecentSearches();
+        }
+    }
+
+    function closeMobileSearch() {
+        const overlay = document.getElementById('mobileSearchOverlay');
+        const input = document.getElementById('mobile-search-input');
+
+        if (overlay) {
+            overlay.classList.remove('active');
+            document.body.style.overflow = '';
+
+            if (input) {
+                input.value = '';
+            }
+
+            showMobileEmptyState();
+        }
+    }
+
+    function toggleMobileSearch() {
+        const overlay = document.getElementById('mobileSearchOverlay');
+
+        if (overlay && overlay.classList.contains('active')) {
+            closeMobileSearch();
+        } else {
+            openMobileSearch();
+        }
+    }
+
+    function renderMobileRecentSearches() {
+        const container = document.getElementById('mobile-recent-searches');
+        if (!container) return;
+
+        const searches = getRecentSearches();
+
+        if (searches.length === 0) {
+            container.innerHTML = '';
+            showMobileEmptyState();
+            return;
+        }
+
+        let html = '<div class="px-4 pt-4 pb-2 border-b border-border-primary"><div class="flex items-center justify-between mb-3"><h3 class="text-xs font-semibold text-text-secondary uppercase tracking-wider">Recent Searches</h3><button type="button" onclick="clearMobileRecentSearches()" class="text-xs text-text-tertiary hover:text-accent-orange transition-colors">Clear all</button></div><div class="space-y-1">';
+
+        searches.forEach(term => {
+            html += '<div class="flex items-center gap-2"><a href="/Search?query=' + encodeURIComponent(term) + '" class="flex-1 flex items-center gap-3 px-3 py-2 text-sm text-text-primary bg-bg-tertiary hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="flex-1 truncate">' + escapeHtml(term) + '</span></a><button type="button" onclick="removeMobileRecentSearch(\'' + escapeHtml(term) + '\')" class="p-2 text-text-tertiary hover:text-error hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>';
+        });
+
+        html += '</div></div>';
+
+        container.innerHTML = html;
+        container.classList.remove('hidden');
+        hideMobileEmptyState();
+    }
+
+    function removeMobileRecentSearch(term) {
+        removeRecentSearch(term);
+        renderMobileRecentSearches();
+    }
+
+    function clearMobileRecentSearches() {
+        clearAllRecentSearches();
+        renderMobileRecentSearches();
+    }
+
+    function showMobileEmptyState() {
+        const empty = document.getElementById('mobile-search-empty');
+        const recent = document.getElementById('mobile-recent-searches');
+        const results = document.getElementById('mobile-search-results');
+
+        if (empty) empty.classList.remove('hidden');
+        if (recent) recent.classList.add('hidden');
+        if (results) results.classList.add('hidden');
+    }
+
+    function hideMobileEmptyState() {
+        const empty = document.getElementById('mobile-search-empty');
+        if (empty) empty.classList.add('hidden');
+    }
+
+    function setupMobileSearchListeners() {
+        const overlay = document.getElementById('mobileSearchOverlay');
+        const input = document.getElementById('mobile-search-input');
+
+        if (!overlay || !input) return;
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay.classList.contains('active')) {
+                e.preventDefault();
+                closeMobileSearch();
+            }
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeMobileSearch();
+            }
+        });
+
+        input.addEventListener('input', () => {
+            const value = input.value.trim();
+
+            if (value.length === 0) {
+                renderMobileRecentSearches();
+            } else {
+                const recent = document.getElementById('mobile-recent-searches');
+                if (recent) recent.classList.add('hidden');
+                hideMobileEmptyState();
+
+                const results = document.getElementById('mobile-search-results');
+                if (results) {
+                    results.innerHTML = '<div class="p-4 text-center text-text-secondary"><p class="text-sm">Press Enter to search for "' + escapeHtml(value) + '"</p></div>';
+                    results.classList.remove('hidden');
+                }
+            }
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const value = input.value.trim();
+                if (value.length > 0) {
+                    saveRecentSearch(value);
+                    window.location.href = '/Search?query=' + encodeURIComponent(value);
+                }
+            }
+        });
+    }
+
+    // Expose mobile search functions globally
+    window.toggleMobileSearch = toggleMobileSearch;
+    window.openMobileSearch = openMobileSearch;
+    window.closeMobileSearch = closeMobileSearch;
+    window.removeMobileRecentSearch = removeMobileRecentSearch;
+    window.clearMobileRecentSearches = clearMobileRecentSearches;
+
+    document.addEventListener('DOMContentLoaded', setupMobileSearchListeners);
+
     document.addEventListener('keydown', handleKeydown);
     document.addEventListener('DOMContentLoaded', setupSearchInputListeners);
 

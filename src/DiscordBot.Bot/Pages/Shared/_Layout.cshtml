@@ -25,6 +25,9 @@
 
     <!-- Mobile Sidebar Overlay -->
     <div id="mobileOverlay" class="mobile-overlay lg:hidden" onclick="toggleMobileSidebar()"></div>
+    <!-- Mobile Search Overlay -->
+    @await Html.PartialAsync("_MobileSearchOverlay")
+
 
     <!-- Top Navigation Bar -->
     @await Html.PartialAsync("_Navbar")
