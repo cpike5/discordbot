@@ -19,6 +19,7 @@ public class SearchService : ISearchService
     private readonly ICommandLogService _commandLogService;
     private readonly IUserManagementService _userManagementService;
     private readonly IPageMetadataService _pageMetadataService;
+    private readonly ICommandMetadataService _commandMetadataService;
     private readonly IAuthorizationService _authorizationService;
     private readonly IMemoryCache _cache;
     private readonly CachingOptions _cachingOptions;
@@ -33,6 +34,7 @@ public class SearchService : ISearchService
         ICommandLogService commandLogService,
         IUserManagementService userManagementService,
         IPageMetadataService pageMetadataService,
+        ICommandMetadataService commandMetadataService,
         IAuthorizationService authorizationService,
         IMemoryCache cache,
         IOptions<CachingOptions> cachingOptions,
@@ -42,6 +44,7 @@ public class SearchService : ISearchService
         _commandLogService = commandLogService;
         _userManagementService = userManagementService;
         _pageMetadataService = pageMetadataService;
+        _commandMetadataService = commandMetadataService;
         _authorizationService = authorizationService;
         _cache = cache;
         _cachingOptions = cachingOptions.Value;
@@ -157,7 +160,7 @@ public class SearchService : ISearchService
                 SearchCategory.Guilds => await SearchGuildsAsync(searchTerm, maxResults, cancellationToken),
                 SearchCategory.CommandLogs => await SearchCommandLogsAsync(searchTerm, maxResults, cancellationToken),
                 SearchCategory.Users when canViewAdminCategories => await SearchUsersAsync(searchTerm, maxResults, cancellationToken),
-                SearchCategory.Commands => CreateEmptyResult(SearchCategory.Commands), // Phase 2
+                SearchCategory.Commands => await SearchCommandsAsync(searchTerm, maxResults, cancellationToken),
                 SearchCategory.AuditLogs when canViewAdminCategories => CreateEmptyResult(SearchCategory.AuditLogs), // Phase 3
                 SearchCategory.MessageLogs when canViewAdminCategories => CreateEmptyResult(SearchCategory.MessageLogs), // Phase 3
                 SearchCategory.Pages => await SearchPagesAsync(searchTerm, maxResults, user, cancellationToken),
@@ -341,6 +344,60 @@ public class SearchService : ISearchService
         };
     }
 
+
+    private async Task<SearchCategoryResult> SearchCommandsAsync(string searchTerm, int maxResults, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Searching commands for term: {SearchTerm}", searchTerm);
+
+        var modules = await _commandMetadataService.GetAllModulesAsync(cancellationToken);
+        var searchLower = searchTerm.ToLowerInvariant();
+
+        // Flatten all commands from all modules
+        var allCommands = modules.SelectMany(m => m.Commands).ToList();
+
+        var items = allCommands
+            .Select(cmd => new
+            {
+                Command = cmd,
+                Score = CalculateRelevanceScore(cmd.FullName, searchLower) +
+                        CalculateRelevanceScore(cmd.Name, searchLower) +
+                        CalculateRelevanceScore(cmd.Description, searchLower) / 2 +
+                        CalculateRelevanceScore(cmd.ModuleName, searchLower) / 2
+            })
+            .Where(x => x.Score > 0)
+            .OrderByDescending(x => x.Score)
+            .Take(maxResults)
+            .Select(x => new SearchResultItemDto
+            {
+                Id = x.Command.FullName,
+                Title = $"/{x.Command.FullName}",
+                Subtitle = x.Command.ModuleName,
+                Description = x.Command.Description,
+                BadgeText = x.Command.ModuleName,
+                BadgeVariant = "primary",
+                Url = $"/Commands#cmd-{x.Command.FullName.Replace(" ", "-")}",
+                RelevanceScore = x.Score,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["ParameterCount"] = x.Command.Parameters.Count.ToString(),
+                    ["PreconditionCount"] = x.Command.Preconditions.Count.ToString(),
+                    ["ModuleName"] = x.Command.ModuleName
+                }
+            })
+            .ToList();
+
+        return new SearchCategoryResult
+        {
+            Category = SearchCategory.Commands,
+            DisplayName = "Commands",
+            Items = items,
+            TotalCount = items.Count,
+            HasMore = allCommands.Count(cmd =>
+                CalculateRelevanceScore(cmd.FullName, searchLower) +
+                CalculateRelevanceScore(cmd.Name, searchLower) > 0) > maxResults,
+            ViewAllUrl = $"/Commands?search={Uri.EscapeDataString(searchTerm)}"
+        };
+    }
     private async Task<SearchCategoryResult> SearchPagesAsync(string searchTerm, int maxResults, ClaimsPrincipal user, CancellationToken cancellationToken)
     {
         _logger.LogDebug("Searching pages for term: {SearchTerm}", searchTerm);
@@ -468,7 +525,7 @@ public class SearchService : ISearchService
 
         // Pages are always searchable (filtered by authorization in SearchPagesAsync)
         categories.Add(SearchCategory.Pages);
-        // Commands will be added in a later phase
+        categories.Add(SearchCategory.Commands);
 
         return categories;
     }
