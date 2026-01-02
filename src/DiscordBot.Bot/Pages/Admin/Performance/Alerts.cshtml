@@ -542,7 +542,7 @@
                             <div class="alert-description">Metric: @incident.MetricName | Threshold: @incident.ThresholdValue | Actual: @incident.ActualValue</div>
                             <div class="alert-meta">
                                 <span class="severity-badge @AlertsPageViewModel.GetSeverityClass(incident.Severity)">@incident.Severity</span>
-                                <span data-utc-time="@incident.TriggeredAt.ToString("o")">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
+                                <span data-utc-time="@incident.TriggeredAt.ToString("o")" data-format="relative">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
                             </div>
                         </div>
                         @if (User.IsInRole("Admin"))
@@ -675,7 +675,7 @@
                             <div class="timeline-dot @AlertsPageViewModel.GetTimelineDotClass(incident.Severity)"></div>
                             <div class="timeline-content">
                                 <div class="timeline-time" data-utc-time="@incident.TriggeredAt.ToString("o")">
-                                    @incident.TriggeredAt.ToLocalTime().ToString("MMM dd, yyyy 'at' HH:mm")
+                                    @incident.TriggeredAt.ToString("MMM dd, yyyy 'at' HH:mm") UTC
                                 </div>
                                 <div class="timeline-title">@incident.Message</div>
                                 <div class="timeline-description">
@@ -728,7 +728,7 @@
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between">
                                         <span class="font-medium text-text-primary">@evt.MetricName</span>
-                                        <span class="text-xs text-text-tertiary" data-utc-time="@evt.Timestamp.ToString("o")">
+                                        <span class="text-xs text-text-tertiary" data-utc-time="@evt.Timestamp.ToString("o")" data-format="relative">
                                             @AlertsPageViewModel.FormatRelativeTime(evt.Timestamp)
                                         </span>
                                     </div>
@@ -812,19 +812,51 @@
             const timestampElements = document.querySelectorAll('[data-utc-time]');
             timestampElements.forEach(element => {
                 const utcTime = element.getAttribute('data-utc-time');
+                const format = element.getAttribute('data-format');
                 if (utcTime) {
                     try {
                         const date = new Date(utcTime);
-                        const formatted = date.toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: '2-digit',
-                            year: 'numeric'
-                        }) + ' at ' + date.toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: false
-                        });
-                        element.textContent = formatted;
+
+                        if (format === 'relative') {
+                            // For relative times, calculate the difference and format as "X ago"
+                            const now = new Date();
+                            const elapsed = now - date;
+                            const seconds = Math.floor(elapsed / 1000);
+                            const minutes = Math.floor(seconds / 60);
+                            const hours = Math.floor(minutes / 60);
+                            const days = Math.floor(hours / 24);
+                            const months = Math.floor(days / 30);
+
+                            let relativeText;
+                            if (months >= 1) {
+                                relativeText = months === 1 ? '1 month ago' : `${months} months ago`;
+                            } else if (days >= 1) {
+                                relativeText = days === 1 ? '1 day ago' : `${days} days ago`;
+                            } else if (hours >= 1) {
+                                relativeText = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+                            } else if (minutes >= 1) {
+                                relativeText = minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+                            } else {
+                                relativeText = 'Just now';
+                            }
+
+                            // Preserve any prefix text like "Triggered "
+                            const currentText = element.textContent.trim();
+                            const triggeredPrefix = currentText.startsWith('Triggered') ? 'Triggered ' : '';
+                            element.textContent = triggeredPrefix + relativeText;
+                        } else {
+                            // For absolute times, format as local date/time
+                            const formatted = date.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: '2-digit',
+                                year: 'numeric'
+                            }) + ' at ' + date.toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false
+                            });
+                            element.textContent = formatted;
+                        }
                     } catch (e) {
                         console.error('Failed to parse timestamp:', utcTime, e);
                     }
