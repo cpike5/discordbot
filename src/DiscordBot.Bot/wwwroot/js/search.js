@@ -130,6 +130,9 @@
         dropdown = document.createElement('div');
         dropdown.id = DROPDOWN_ID;
         dropdown.className = 'recent-searches-dropdown';
+        // Ensure hidden by default even if CSS hasn't loaded
+        dropdown.style.opacity = '0';
+        dropdown.style.visibility = 'hidden';
 
         // Insert after the search input's parent container
         const container = input.closest('.search-container');
@@ -151,7 +154,7 @@
         if (searches.length === 0) {
             dropdown.innerHTML = `
                 <div class="recent-searches-empty">
-                    <svg class="recent-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="recent-search-icon" width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                     <span>No recent searches</span>
@@ -172,13 +175,13 @@
             html += `
                 <li class="recent-search-item">
                     <a href="/Search?query=${encodeURIComponent(term)}" class="recent-search-link">
-                        <svg class="recent-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="recent-search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                         <span class="recent-search-term">${escapeHtml(term)}</span>
                     </a>
                     <button type="button" class="recent-search-remove" data-term="${escapeHtml(term)}" title="Remove">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
@@ -215,12 +218,16 @@
 
         renderRecentSearches();
         dropdown.classList.add('active');
+        dropdown.style.opacity = '';
+        dropdown.style.visibility = '';
     }
 
     function hideRecentSearches() {
         const dropdown = document.getElementById(DROPDOWN_ID);
         if (dropdown) {
             dropdown.classList.remove('active');
+            dropdown.style.opacity = '0';
+            dropdown.style.visibility = 'hidden';
         }
     }
 
