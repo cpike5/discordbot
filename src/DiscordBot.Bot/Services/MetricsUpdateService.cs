@@ -9,46 +9,46 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically updates observable gauge metrics.
 /// Updates metrics such as active guild count and estimated unique user count.
 /// </summary>
-public class MetricsUpdateService : BackgroundService
+public class MetricsUpdateService : MonitoredBackgroundService
 {
     private readonly DiscordSocketClient _client;
     private readonly BotMetrics _botMetrics;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
-    private readonly ILogger<MetricsUpdateService> _logger;
+
+    public override string ServiceName => "MetricsUpdateService";
 
     public MetricsUpdateService(
         DiscordSocketClient client,
         BotMetrics botMetrics,
         IOptions<BackgroundServicesOptions> bgOptions,
-        ILogger<MetricsUpdateService> logger)
+        ILogger<MetricsUpdateService> logger,
+        IServiceProvider serviceProvider)
+        : base(serviceProvider, logger)
     {
         _client = client;
         _botMetrics = botMetrics;
         _bgOptions = bgOptions;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         var updateInterval = TimeSpan.FromSeconds(_bgOptions.Value.MetricsUpdateIntervalSeconds);
 
-        _logger.LogInformation("Metrics update service starting, will update every {Interval} seconds", updateInterval.TotalSeconds);
-
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
             try
             {
                 UpdateMetrics();
+                ClearError();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating metrics");
+                RecordError(ex);
             }
 
             await Task.Delay(updateInterval, stoppingToken);
         }
-
-        _logger.LogInformation("Metrics update service stopping");
     }
 
     private void UpdateMetrics()
@@ -61,10 +61,5 @@ public class MetricsUpdateService : BackgroundService
         // For accurate count, you'd need to track unique user IDs across all guilds
         var estimatedUsers = _client.Guilds.Sum(g => g.MemberCount);
         _botMetrics.UpdateUniqueUserCount(estimatedUsers);
-
-        _logger.LogTrace(
-            "Updated metrics: Guilds={GuildCount}, EstimatedUsers={UserCount}",
-            guildCount,
-            estimatedUsers);
     }
 }

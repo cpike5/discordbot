@@ -59,6 +59,7 @@ public class AuditLogRetentionServiceTests
         });
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -105,6 +106,7 @@ public class AuditLogRetentionServiceTests
             .ReturnsAsync(0);
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -155,6 +157,7 @@ public class AuditLogRetentionServiceTests
             .ReturnsAsync(0);
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -211,6 +214,7 @@ public class AuditLogRetentionServiceTests
             .ReturnsAsync(0);
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -263,6 +267,7 @@ public class AuditLogRetentionServiceTests
             .ReturnsAsync(0);
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -314,6 +319,7 @@ public class AuditLogRetentionServiceTests
             .ThrowsAsync(new InvalidOperationException("Database error"));
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -368,6 +374,7 @@ public class AuditLogRetentionServiceTests
             .ReturnsAsync(0);
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -408,6 +415,7 @@ public class AuditLogRetentionServiceTests
     {
         // Arrange & Act
         var act = () => new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -433,6 +441,7 @@ public class AuditLogRetentionServiceTests
             .ReturnsAsync(0);
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -478,6 +487,7 @@ public class AuditLogRetentionServiceTests
             .ReturnsAsync(0);
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -518,6 +528,7 @@ public class AuditLogRetentionServiceTests
         });
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -569,6 +580,7 @@ public class AuditLogRetentionServiceTests
             .ReturnsAsync(0);
 
         var service = new AuditLogRetentionService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,

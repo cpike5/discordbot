@@ -10,34 +10,37 @@ namespace DiscordBot.Bot.Services;
 /// Background service that aggregates daily guild-level metrics into GuildMetricsSnapshot records.
 /// Runs at a configured UTC hour each day to process the previous day's data.
 /// </summary>
-public class GuildMetricsAggregationService : BackgroundService
+public class GuildMetricsAggregationService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly IOptions<AnalyticsRetentionOptions> _analyticsOptions;
-    private readonly ILogger<GuildMetricsAggregationService> _logger;
+
+    public override string ServiceName => "Guild Metrics Aggregation Service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GuildMetricsAggregationService"/> class.
     /// </summary>
+    /// <param name="serviceProvider">The service provider for health monitoring.</param>
     /// <param name="scopeFactory">The service scope factory for creating scoped services.</param>
     /// <param name="bgOptions">Background services configuration options.</param>
     /// <param name="analyticsOptions">Analytics retention configuration options.</param>
     /// <param name="logger">The logger.</param>
     public GuildMetricsAggregationService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<BackgroundServicesOptions> bgOptions,
         IOptions<AnalyticsRetentionOptions> analyticsOptions,
         ILogger<GuildMetricsAggregationService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _bgOptions = bgOptions;
         _analyticsOptions = analyticsOptions;
-        _logger = logger;
     }
 
     /// <inheritdoc/>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         if (!_analyticsOptions.Value.Enabled)
         {
@@ -69,9 +72,12 @@ public class GuildMetricsAggregationService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await AggregateDailyAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -81,6 +87,7 @@ public class GuildMetricsAggregationService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during guild metrics aggregation");
+                RecordError(ex);
             }
 
             // Wait for next aggregation interval (typically 24 hours)

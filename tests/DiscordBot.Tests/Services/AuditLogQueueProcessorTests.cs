@@ -48,6 +48,7 @@ public class AuditLogQueueProcessorTests
     {
         // Arrange & Act
         var act = () => new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -68,6 +69,7 @@ public class AuditLogQueueProcessorTests
             .ThrowsAsync(new OperationCanceledException());
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -93,6 +95,7 @@ public class AuditLogQueueProcessorTests
             .ThrowsAsync(new OperationCanceledException());
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -148,6 +151,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -177,6 +181,7 @@ public class AuditLogQueueProcessorTests
             .ThrowsAsync(new OperationCanceledException());
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -214,6 +219,7 @@ public class AuditLogQueueProcessorTests
         _queueMock.Setup(x => x.Count).Returns(0);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -260,6 +266,7 @@ public class AuditLogQueueProcessorTests
         _queueMock.Setup(x => x.Count).Returns(0);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -273,7 +280,7 @@ public class AuditLogQueueProcessorTests
         await service.StopAsync(CancellationToken.None);
         await executeTask;
 
-        // Assert
+        // Assert - expects at least one "stopped" message (service + health monitoring messages)
         _loggerMock.Verify(
             l => l.Log(
                 LogLevel.Information,
@@ -281,7 +288,7 @@ public class AuditLogQueueProcessorTests
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("stopped")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once,
+            Times.AtLeastOnce,
             "should log stopped message when service exits");
     }
 
@@ -310,6 +317,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -350,6 +358,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -386,6 +395,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -445,6 +455,7 @@ public class AuditLogQueueProcessorTests
             });
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -490,6 +501,7 @@ public class AuditLogQueueProcessorTests
             });
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -547,6 +559,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -601,6 +614,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -653,6 +667,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -708,6 +723,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -754,6 +770,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -805,6 +822,7 @@ public class AuditLogQueueProcessorTests
             .ThrowsAsync(new InvalidOperationException("Database connection failed"));
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -857,6 +875,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
@@ -903,6 +922,7 @@ public class AuditLogQueueProcessorTests
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);

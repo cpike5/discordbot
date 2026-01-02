@@ -11,34 +11,37 @@ namespace DiscordBot.Bot.Services;
 /// Background service that aggregates member activity from MessageLog into hourly MemberActivitySnapshot records.
 /// Runs at configured intervals to process the previous complete hour's data.
 /// </summary>
-public class MemberActivityAggregationService : BackgroundService
+public class MemberActivityAggregationService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly IOptions<AnalyticsRetentionOptions> _analyticsOptions;
-    private readonly ILogger<MemberActivityAggregationService> _logger;
+
+    public override string ServiceName => "Member Activity Aggregation Service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MemberActivityAggregationService"/> class.
     /// </summary>
+    /// <param name="serviceProvider">The service provider for health monitoring.</param>
     /// <param name="scopeFactory">The service scope factory for creating scoped services.</param>
     /// <param name="bgOptions">Background services configuration options.</param>
     /// <param name="analyticsOptions">Analytics retention configuration options.</param>
     /// <param name="logger">The logger.</param>
     public MemberActivityAggregationService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<BackgroundServicesOptions> bgOptions,
         IOptions<AnalyticsRetentionOptions> analyticsOptions,
         ILogger<MemberActivityAggregationService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _bgOptions = bgOptions;
         _analyticsOptions = analyticsOptions;
-        _logger = logger;
     }
 
     /// <inheritdoc/>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         if (!_analyticsOptions.Value.Enabled)
         {
@@ -59,9 +62,12 @@ public class MemberActivityAggregationService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await AggregateHourlyAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -71,6 +77,7 @@ public class MemberActivityAggregationService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during member activity aggregation");
+                RecordError(ex);
             }
 
             // Wait for next aggregation interval

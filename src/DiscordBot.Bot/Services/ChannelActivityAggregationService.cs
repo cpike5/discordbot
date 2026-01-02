@@ -11,38 +11,41 @@ namespace DiscordBot.Bot.Services;
 /// Background service that aggregates channel activity from MessageLog into hourly ChannelActivitySnapshot records.
 /// Runs at configured intervals to process the previous complete hour's data.
 /// </summary>
-public class ChannelActivityAggregationService : BackgroundService
+public class ChannelActivityAggregationService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly IOptions<AnalyticsRetentionOptions> _analyticsOptions;
     private readonly DiscordSocketClient _client;
-    private readonly ILogger<ChannelActivityAggregationService> _logger;
+
+    public override string ServiceName => "Channel Activity Aggregation Service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ChannelActivityAggregationService"/> class.
     /// </summary>
+    /// <param name="serviceProvider">The service provider for health monitoring.</param>
     /// <param name="scopeFactory">The service scope factory for creating scoped services.</param>
     /// <param name="bgOptions">Background services configuration options.</param>
     /// <param name="analyticsOptions">Analytics retention configuration options.</param>
     /// <param name="client">The Discord socket client for retrieving channel names.</param>
     /// <param name="logger">The logger.</param>
     public ChannelActivityAggregationService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<BackgroundServicesOptions> bgOptions,
         IOptions<AnalyticsRetentionOptions> analyticsOptions,
         DiscordSocketClient client,
         ILogger<ChannelActivityAggregationService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _bgOptions = bgOptions;
         _analyticsOptions = analyticsOptions;
         _client = client;
-        _logger = logger;
     }
 
     /// <inheritdoc/>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         if (!_analyticsOptions.Value.Enabled)
         {
@@ -63,9 +66,12 @@ public class ChannelActivityAggregationService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await AggregateHourlyAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -75,6 +81,7 @@ public class ChannelActivityAggregationService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during channel activity aggregation");
+                RecordError(ex);
             }
 
             // Wait for next aggregation interval

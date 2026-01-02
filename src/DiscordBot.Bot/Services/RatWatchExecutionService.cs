@@ -12,14 +12,15 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically checks for due Rat Watches and expired voting sessions.
 /// Runs at configured intervals and processes watches concurrently with timeout protection.
 /// </summary>
-public class RatWatchExecutionService : BackgroundService
+public class RatWatchExecutionService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<RatWatchOptions> _options;
-    private readonly ILogger<RatWatchExecutionService> _logger;
     private readonly DiscordSocketClient _client;
     private readonly IRatWatchStatusService _ratWatchStatusService;
     private readonly IDashboardUpdateService _dashboardUpdateService;
+
+    public override string ServiceName => "RatWatchExecutionService";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RatWatchExecutionService"/> class.
@@ -30,38 +31,33 @@ public class RatWatchExecutionService : BackgroundService
     /// <param name="client">The Discord socket client for posting messages.</param>
     /// <param name="ratWatchStatusService">The Rat Watch status service for bot status updates.</param>
     /// <param name="dashboardUpdateService">The dashboard update service for broadcasting activity.</param>
+    /// <param name="serviceProvider">The service provider for MonitoredBackgroundService.</param>
     public RatWatchExecutionService(
         IServiceScopeFactory scopeFactory,
         IOptions<RatWatchOptions> options,
         ILogger<RatWatchExecutionService> logger,
         DiscordSocketClient client,
         IRatWatchStatusService ratWatchStatusService,
-        IDashboardUpdateService dashboardUpdateService)
+        IDashboardUpdateService dashboardUpdateService,
+        IServiceProvider serviceProvider)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _options = options;
-        _logger = logger;
         _client = client;
         _ratWatchStatusService = ratWatchStatusService;
         _dashboardUpdateService = dashboardUpdateService;
     }
 
     /// <inheritdoc/>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Rat Watch execution service starting");
-
-        _logger.LogInformation(
-            "Rat Watch execution service enabled. Check interval: {IntervalSeconds}s, Max concurrent: {MaxConcurrent}, Timeout: {TimeoutSeconds}s",
-            _options.Value.CheckIntervalSeconds,
-            _options.Value.MaxConcurrentExecutions,
-            _options.Value.ExecutionTimeoutSeconds);
-
         // Initial delay to let the app start up and Discord client connect
         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
             try
             {
                 // Process both due watches and expired voting in parallel
@@ -69,6 +65,7 @@ public class RatWatchExecutionService : BackgroundService
                 var expiredVotingTask = ProcessExpiredVotingAsync(stoppingToken);
 
                 await Task.WhenAll(dueWatchesTask, expiredVotingTask);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -77,15 +74,13 @@ public class RatWatchExecutionService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during Rat Watch processing");
+                RecordError(ex);
             }
 
             // Wait for next check interval
             var interval = TimeSpan.FromSeconds(_options.Value.CheckIntervalSeconds);
             await Task.Delay(interval, stoppingToken);
         }
-
-        _logger.LogInformation("Rat Watch execution service stopping");
     }
 
     /// <summary>
@@ -95,8 +90,6 @@ public class RatWatchExecutionService : BackgroundService
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
     private async Task ProcessDueWatchesAsync(CancellationToken stoppingToken)
     {
-        _logger.LogDebug("Checking for due Rat Watches");
-
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<IRatWatchService>();
 
@@ -106,11 +99,8 @@ public class RatWatchExecutionService : BackgroundService
 
         if (watchList.Count == 0)
         {
-            _logger.LogTrace("No Rat Watches due for execution");
             return;
         }
-
-        _logger.LogInformation("Found {Count} Rat Watches due for execution", watchList.Count);
 
         // Create a semaphore to limit concurrent executions
         using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
@@ -132,8 +122,6 @@ public class RatWatchExecutionService : BackgroundService
                 // Skip if expired (more than 5 minutes past scheduled time)
                 if (timeSinceScheduled > expirationThreshold)
                 {
-                    _logger.LogWarning("Rat Watch {WatchId} expired ({Minutes:F1} minutes late), skipping",
-                        watch.Id, timeSinceScheduled.TotalMinutes);
                     return;
                 }
 
@@ -141,17 +129,11 @@ public class RatWatchExecutionService : BackgroundService
                 var currentWatch = await service.GetByIdAsync(watch.Id, cts.Token);
                 if (currentWatch == null || currentWatch.Status != RatWatchStatus.Pending)
                 {
-                    _logger.LogInformation(
-                        "Skipping Rat Watch {WatchId} - status changed to {Status}",
-                        watch.Id, currentWatch?.Status.ToString() ?? "deleted");
                     return;
                 }
 
-                _logger.LogDebug("Executing Rat Watch {WatchId} for user {UserId}",
-                    watch.Id, watch.AccusedUserId);
-
                 // Post the voting message to Discord
-                var success = await PostVotingMessageAsync(
+                await PostVotingMessageAsync(
                     watch.Id,
                     watch.GuildId,
                     watch.ChannelId,
@@ -159,32 +141,14 @@ public class RatWatchExecutionService : BackgroundService
                     watch.OriginalMessageId,
                     watch.CustomMessage,
                     cts.Token);
-
-                if (success)
-                {
-                    _logger.LogInformation("Successfully executed Rat Watch {WatchId} for user {UserId}",
-                        watch.Id, watch.AccusedUserId);
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to execute Rat Watch {WatchId} for user {UserId}",
-                        watch.Id, watch.AccusedUserId);
-                }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Rat Watch execution cancelled due to shutdown: {WatchId}",
-                    watch.Id);
+                // Timeout
             }
-            catch (OperationCanceledException)
+            catch (Exception)
             {
-                _logger.LogWarning("Rat Watch execution timed out after {Timeout}s: {WatchId}",
-                    executionTimeout.TotalSeconds, watch.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error executing Rat Watch {WatchId} for user {UserId}",
-                    watch.Id, watch.AccusedUserId);
+                // Logged by individual methods
             }
             finally
             {
@@ -194,8 +158,6 @@ public class RatWatchExecutionService : BackgroundService
 
         // Wait for all executions to complete
         await Task.WhenAll(executionTasks);
-
-        _logger.LogInformation("Completed processing {Count} due Rat Watches", watchList.Count);
 
         // Notify that voting has started for one or more watches - update bot status
         _ratWatchStatusService.RequestStatusUpdate();
@@ -207,8 +169,6 @@ public class RatWatchExecutionService : BackgroundService
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
     private async Task ProcessExpiredVotingAsync(CancellationToken stoppingToken)
     {
-        _logger.LogDebug("Checking for expired Rat Watch voting");
-
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<IRatWatchService>();
 
@@ -218,11 +178,8 @@ public class RatWatchExecutionService : BackgroundService
 
         if (votingList.Count == 0)
         {
-            _logger.LogTrace("No Rat Watches with expired voting");
             return;
         }
-
-        _logger.LogInformation("Found {Count} Rat Watches with expired voting", votingList.Count);
 
         // Create a semaphore to limit concurrent executions
         using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
@@ -237,8 +194,6 @@ public class RatWatchExecutionService : BackgroundService
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 cts.CancelAfter(executionTimeout);
 
-                _logger.LogDebug("Finalizing voting for Rat Watch {WatchId}", watch.Id);
-
                 // Finalize the voting in the database
                 var success = await service.FinalizeVotingAsync(watch.Id, cts.Token);
 
@@ -246,27 +201,15 @@ public class RatWatchExecutionService : BackgroundService
                 {
                     // Update the Discord message with final results
                     await UpdateVotingMessageAsync(watch.Id, cts.Token);
-
-                    _logger.LogInformation("Successfully finalized voting for Rat Watch {WatchId}", watch.Id);
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to finalize voting for Rat Watch {WatchId}", watch.Id);
                 }
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Voting finalization cancelled due to shutdown: {WatchId}",
-                    watch.Id);
+                // Timeout
             }
-            catch (OperationCanceledException)
+            catch (Exception)
             {
-                _logger.LogWarning("Voting finalization timed out after {Timeout}s: {WatchId}",
-                    executionTimeout.TotalSeconds, watch.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error finalizing voting for Rat Watch {WatchId}", watch.Id);
+                // Logged by individual methods
             }
             finally
             {
@@ -276,8 +219,6 @@ public class RatWatchExecutionService : BackgroundService
 
         // Wait for all executions to complete
         await Task.WhenAll(executionTasks);
-
-        _logger.LogInformation("Completed processing {Count} expired voting sessions", votingList.Count);
 
         // Notify that voting has ended for one or more watches - update bot status
         _ratWatchStatusService.RequestStatusUpdate();
@@ -308,8 +249,6 @@ public class RatWatchExecutionService : BackgroundService
             var channel = _client.GetChannel(channelId) as IMessageChannel;
             if (channel == null)
             {
-                _logger.LogWarning("Channel {ChannelId} not found for Rat Watch {WatchId}",
-                    channelId, watchId);
                 return false;
             }
 
@@ -339,9 +278,6 @@ public class RatWatchExecutionService : BackgroundService
 
             await service.StartVotingAsync(watchId, message.Id, ct);
 
-            _logger.LogDebug("Posted voting message {MessageId} for Rat Watch {WatchId}",
-                message.Id, watchId);
-
             // Broadcast Rat Watch voting started event to dashboard
             var guild = _client.GetGuild(guildId);
             var guildName = guild?.Name ?? "Unknown";
@@ -356,9 +292,8 @@ public class RatWatchExecutionService : BackgroundService
 
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _logger.LogError(ex, "Failed to post voting message for Rat Watch {WatchId}", watchId);
             return false;
         }
     }
@@ -378,30 +313,24 @@ public class RatWatchExecutionService : BackgroundService
             var watchDto = await service.GetByIdAsync(watchId, ct);
             if (watchDto == null)
             {
-                _logger.LogWarning("Rat Watch {WatchId} not found for message update", watchId);
                 return;
             }
 
             var channel = _client.GetChannel(watchDto.ChannelId) as IMessageChannel;
             if (channel == null)
             {
-                _logger.LogWarning("Channel {ChannelId} not found for Rat Watch {WatchId}",
-                    watchDto.ChannelId, watchId);
                 return;
             }
 
             // Try to get the voting message
             if (!watchDto.VotingMessageId.HasValue)
             {
-                _logger.LogWarning("No voting message ID for Rat Watch {WatchId}", watchId);
                 return;
             }
 
             var message = await channel.GetMessageAsync(watchDto.VotingMessageId.Value);
             if (message is not IUserMessage userMessage)
             {
-                _logger.LogWarning("Voting message {MessageId} not found or not a user message",
-                    watchDto.VotingMessageId.Value);
                 return;
             }
 
@@ -425,9 +354,6 @@ public class RatWatchExecutionService : BackgroundService
                 props.Components = disabledComponents;
             });
 
-            _logger.LogDebug("Updated voting message {MessageId} for Rat Watch {WatchId} with verdict: {Verdict}",
-                watchDto.VotingMessageId.Value, watchId, isGuilty ? "Guilty" : "Not Guilty");
-
             // Broadcast Rat Watch voting ended event to dashboard
             var guild = _client.GetGuild(watchDto.GuildId);
             var guildName = guild?.Name ?? "Unknown";
@@ -440,9 +366,9 @@ public class RatWatchExecutionService : BackgroundService
                 verdict,
                 ct);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _logger.LogError(ex, "Failed to update voting message for Rat Watch {WatchId}", watchId);
+            // Errors logged elsewhere
         }
     }
 }

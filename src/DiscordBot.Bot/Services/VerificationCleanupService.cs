@@ -8,23 +8,25 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically cleans up expired verification codes.
 /// Runs every 5 minutes.
 /// </summary>
-public class VerificationCleanupService : BackgroundService
+public class VerificationCleanupService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
-    private readonly ILogger<VerificationCleanupService> _logger;
+
+    public override string ServiceName => "Verification Cleanup Service";
 
     public VerificationCleanupService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<VerificationCleanupService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _bgOptions = bgOptions;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         var cleanupInterval = TimeSpan.FromMinutes(_bgOptions.Value.VerificationCleanupIntervalMinutes);
 
@@ -38,6 +40,8 @@ public class VerificationCleanupService : BackgroundService
         {
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
+                UpdateHeartbeat();
+
                 try
                 {
                     using var scope = _scopeFactory.CreateScope();
@@ -53,10 +57,13 @@ public class VerificationCleanupService : BackgroundService
                             "Verification cleanup completed: {CleanedCount} codes processed",
                             cleanedCount);
                     }
+
+                    ClearError();
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error occurred during verification code cleanup");
+                    RecordError(ex);
                 }
             }
         }

@@ -10,23 +10,25 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically cleans up expired interaction states.
 /// Runs every 1 minute to remove expired state entries.
 /// </summary>
-public class InteractionStateCleanupService : BackgroundService
+public class InteractionStateCleanupService : MonitoredBackgroundService
 {
     private readonly IInteractionStateService _stateService;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
-    private readonly ILogger<InteractionStateCleanupService> _logger;
+
+    public override string ServiceName => "Interaction State Cleanup Service";
 
     public InteractionStateCleanupService(
+        IServiceProvider serviceProvider,
         IInteractionStateService stateService,
         IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<InteractionStateCleanupService> logger)
+        : base(serviceProvider, logger)
     {
         _stateService = stateService;
         _bgOptions = bgOptions;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         var cleanupInterval = TimeSpan.FromMinutes(_bgOptions.Value.InteractionStateCleanupIntervalMinutes);
 
@@ -40,6 +42,8 @@ public class InteractionStateCleanupService : BackgroundService
         {
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
+                UpdateHeartbeat();
+
                 try
                 {
                     var removedCount = _stateService.CleanupExpired();
@@ -49,10 +53,13 @@ public class InteractionStateCleanupService : BackgroundService
                         "Cleanup completed: removed {RemovedCount} expired states, {ActiveCount} active states remaining",
                         removedCount,
                         activeCount);
+
+                    ClearError();
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error occurred during interaction state cleanup");
+                    RecordError(ex);
                 }
             }
         }

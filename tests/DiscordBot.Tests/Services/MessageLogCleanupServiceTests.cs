@@ -58,6 +58,7 @@ public class MessageLogCleanupServiceTests
         });
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -104,6 +105,7 @@ public class MessageLogCleanupServiceTests
             .ReturnsAsync(0);
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -154,6 +156,7 @@ public class MessageLogCleanupServiceTests
             .ReturnsAsync(0);
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -209,6 +212,7 @@ public class MessageLogCleanupServiceTests
             .ReturnsAsync(deletedCount);
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -256,6 +260,7 @@ public class MessageLogCleanupServiceTests
             .ReturnsAsync(0);
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -308,6 +313,7 @@ public class MessageLogCleanupServiceTests
             .ReturnsAsync(deletedCount);
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -358,6 +364,7 @@ public class MessageLogCleanupServiceTests
             .ThrowsAsync(new InvalidOperationException("Test exception"));
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -412,6 +419,7 @@ public class MessageLogCleanupServiceTests
             .ReturnsAsync(0);
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -452,6 +460,7 @@ public class MessageLogCleanupServiceTests
     {
         // Arrange & Act
         var act = () => new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -477,6 +486,7 @@ public class MessageLogCleanupServiceTests
             .ReturnsAsync(0);
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,
@@ -522,6 +532,7 @@ public class MessageLogCleanupServiceTests
             .ReturnsAsync(0);
 
         var service = new MessageLogCleanupService(
+            _serviceProviderMock.Object,
             _scopeFactoryMock.Object,
             _optionsMock.Object,
             _bgOptionsMock.Object,

@@ -9,29 +9,31 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically updates business metrics and SLO metrics.
 /// Runs less frequently than real-time metrics (every 5 minutes) to reduce database load.
 /// </summary>
-public class BusinessMetricsUpdateService : BackgroundService
+public class BusinessMetricsUpdateService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly BusinessMetrics _businessMetrics;
     private readonly SloMetrics _sloMetrics;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
-    private readonly ILogger<BusinessMetricsUpdateService> _logger;
+
+    public override string ServiceName => "Business Metrics Update Service";
 
     public BusinessMetricsUpdateService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory serviceScopeFactory,
         BusinessMetrics businessMetrics,
         SloMetrics sloMetrics,
         IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<BusinessMetricsUpdateService> logger)
+        : base(serviceProvider, logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
         _businessMetrics = businessMetrics;
         _sloMetrics = sloMetrics;
         _bgOptions = bgOptions;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         var updateInterval = TimeSpan.FromMinutes(_bgOptions.Value.BusinessMetricsUpdateIntervalMinutes);
         var initialDelay = TimeSpan.FromSeconds(_bgOptions.Value.BusinessMetricsInitialDelaySeconds);
@@ -43,13 +45,17 @@ public class BusinessMetricsUpdateService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await UpdateMetricsAsync(stoppingToken);
+                ClearError();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating business and SLO metrics");
+                RecordError(ex);
             }
 
             await Task.Delay(updateInterval, stoppingToken);

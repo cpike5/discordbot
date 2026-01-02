@@ -8,33 +8,36 @@ namespace DiscordBot.Bot.Services;
 /// Background service that processes audit log entries from the queue.
 /// Batches entries for efficient bulk insertion into the database.
 /// </summary>
-public class AuditLogQueueProcessor : BackgroundService
+public class AuditLogQueueProcessor : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IAuditLogQueue _queue;
-    private readonly ILogger<AuditLogQueueProcessor> _logger;
 
     private const int BatchSize = 10;
     private const int BatchTimeoutMilliseconds = 1000;
 
+    public override string ServiceName => "Audit Log Queue Processor";
+
     /// <summary>
     /// Initializes a new instance of the <see cref="AuditLogQueueProcessor"/> class.
     /// </summary>
+    /// <param name="serviceProvider">The service provider for health monitoring.</param>
     /// <param name="scopeFactory">The service scope factory for creating scoped dependencies.</param>
     /// <param name="queue">The audit log queue.</param>
     /// <param name="logger">The logger.</param>
     public AuditLogQueueProcessor(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IAuditLogQueue queue,
         ILogger<AuditLogQueueProcessor> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _queue = queue;
-        _logger = logger;
     }
 
     /// <inheritdoc/>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
             "Audit log queue processor starting. Batch size: {BatchSize}, Timeout: {TimeoutMs}ms",
@@ -42,9 +45,12 @@ public class AuditLogQueueProcessor : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await ProcessBatchAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -56,6 +62,7 @@ public class AuditLogQueueProcessor : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error processing audit log batch");
+                RecordError(ex);
                 // Wait a bit before retrying to avoid tight error loops
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
             }

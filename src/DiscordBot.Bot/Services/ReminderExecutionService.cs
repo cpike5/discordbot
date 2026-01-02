@@ -11,34 +11,37 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically checks for and delivers reminders that are due.
 /// Runs at configured intervals and processes reminders concurrently with retry logic for failed deliveries.
 /// </summary>
-public class ReminderExecutionService : BackgroundService
+public class ReminderExecutionService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<ReminderOptions> _options;
     private readonly DiscordSocketClient _client;
-    private readonly ILogger<ReminderExecutionService> _logger;
+
+    public override string ServiceName => "Reminder Execution Service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReminderExecutionService"/> class.
     /// </summary>
+    /// <param name="serviceProvider">The service provider for health monitoring.</param>
     /// <param name="scopeFactory">The service scope factory for creating scoped services.</param>
     /// <param name="options">The reminder configuration options.</param>
     /// <param name="client">The Discord socket client for sending DMs.</param>
     /// <param name="logger">The logger.</param>
     public ReminderExecutionService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<ReminderOptions> options,
         DiscordSocketClient client,
         ILogger<ReminderExecutionService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _options = options;
         _client = client;
-        _logger = logger;
     }
 
     /// <inheritdoc/>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Reminder execution service starting");
 
@@ -66,9 +69,12 @@ public class ReminderExecutionService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await ProcessDueRemindersAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -78,6 +84,7 @@ public class ReminderExecutionService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during reminder processing");
+                RecordError(ex);
             }
 
             // Wait for next check interval
