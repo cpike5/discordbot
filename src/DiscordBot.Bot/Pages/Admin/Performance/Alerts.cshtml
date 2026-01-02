@@ -890,7 +890,7 @@
             const ctx = document.getElementById('alertFrequencyChart');
             if (!ctx) return;
 
-            const data = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ViewModel.AlertFrequencyData));
+            const data = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ViewModel.AlertFrequencyData, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
 
             const labels = data.map(d => {
                 const date = new Date(d.date);
