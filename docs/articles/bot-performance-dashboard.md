@@ -14,8 +14,8 @@
   - [Performance Metrics Collection Infrastructure (#571)](#performance-metrics-collection-infrastructure-issue-571)
   - [Performance Dashboard API Endpoints (#572)](#performance-dashboard-api-endpoints-issue-572)
   - [Bot Health Metrics Dashboard (#563)](#bot-health-metrics-dashboard-issue-563)
-- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [System Health Monitoring (#568)](#system-health-monitoring-issue-568)
+- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [Command Performance Analytics (#565)](#command-performance-analytics-issue-565)
   - [Discord API & Rate Limit Monitoring (#566)](#discord-api--rate-limit-monitoring-issue-566)
   - [Performance Alerts & Incidents (#570)](#performance-alerts--incidents-issue-570)
@@ -696,19 +696,125 @@ The Health Metrics page supports real-time updates via SignalR (future implement
 
 ---
 
-## Open Sub-Issues (To Be Implemented)
-
 ### System Health Monitoring (Issue #568)
 
-> **Status:** To be documented when implemented
+**URL:** `/Admin/Performance/System`
+**Authorization:** `RequireViewer` policy
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/Performance/SystemHealth.cshtml.cs`
 
-*This section will be updated when [Issue #568](https://github.com/cpike5/discordbot/issues/568) is completed.*
+The System Health Dashboard provides monitoring for database performance, background services, cache effectiveness, and overall system health.
 
-**Planned Features:**
-- Database performance monitoring with slow query tracking
-- Background service health status dashboard
-- Cache performance metrics and hit rate analysis
-- System resource alerts and threshold configuration
+#### Features
+
+**Database Performance Card**
+- Average query execution time with color-coded status:
+  - Green: < 50ms
+  - Yellow: 50-100ms
+  - Red: > 100ms
+- Total query count since application start
+- Queries per second rate
+- Slow query count (queries exceeding threshold)
+- Query time trend chart (Chart.js line chart)
+
+**Slow Queries Table**
+- Recent slow queries (queries exceeding 100ms threshold)
+- Query text with truncation for long queries
+- Duration in milliseconds with color coding
+- Timestamp of execution
+- Query parameters (sanitized)
+
+**Background Services Status**
+- List of all registered background services
+- Real-time status indicators:
+  - Green with pulse: Running
+  - Yellow: Starting
+  - Gray: Stopped
+  - Red: Error
+- Last heartbeat time with relative time display
+- Error messages for failed services
+- Monitored services include:
+  - BotHostedService (Discord gateway)
+  - ReminderExecutionService
+  - ScheduledMessageExecutionService
+  - MessageLogCleanupService
+  - RatWatchExecutionService
+  - CommandPerformanceAggregator
+  - And other background services
+
+**Cache Performance Panel**
+- Per-prefix hit rate with progress bars:
+  - Green: ≥ 90% hit rate
+  - Yellow: 70-90% hit rate
+  - Red: < 70% hit rate
+- Hits and misses count per prefix
+- Cache entry count per prefix
+- Overall cache statistics summary:
+  - Total hits
+  - Total misses
+  - Total entries
+
+**Memory & GC Statistics**
+- Working Set memory (MB)
+- Private Bytes (MB)
+- Heap Size (GC total memory, MB)
+- GC collection counts by generation (Gen 0, 1, 2)
+- Memory usage chart over time (Chart.js line chart)
+
+#### View Model
+
+```csharp
+public record SystemHealthViewModel
+{
+    // Database metrics
+    public DatabaseMetricsDto DatabaseMetrics { get; init; }
+    public IReadOnlyList<SlowQueryDto> SlowQueries { get; init; }
+    public double QueriesPerSecond { get; init; }
+    public int DatabaseErrorCount { get; init; }
+
+    // Background services
+    public IReadOnlyList<BackgroundServiceHealthDto> BackgroundServices { get; init; }
+
+    // Cache statistics
+    public CacheStatisticsDto OverallCacheStats { get; init; }
+    public IReadOnlyList<CacheStatisticsDto> CacheStatsByPrefix { get; init; }
+
+    // Memory & GC
+    public long WorkingSetMB { get; init; }
+    public long PrivateMemoryMB { get; init; }
+    public long HeapSizeMB { get; init; }
+    public int Gen0Collections { get; init; }
+    public int Gen1Collections { get; init; }
+    public int Gen2Collections { get; init; }
+
+    // Overall status
+    public string SystemStatus { get; init; }
+    public string SystemStatusClass { get; init; }
+
+    // Helper methods
+    public static string GetQueryTimeStatusClass(double avgQueryTimeMs);
+    public static string GetCacheHitRateClass(double hitRate);
+    public static string GetServiceStatusClass(string status);
+    public static string GetSystemStatus(
+        IReadOnlyList<BackgroundServiceHealthDto> services,
+        double avgQueryTimeMs,
+        int errorCount);
+}
+```
+
+#### API Endpoints Used
+
+The page consumes these existing API endpoints:
+- `GET /api/metrics/system/database` - Database metrics and slow queries
+- `GET /api/metrics/system/services` - Background service health
+- `GET /api/metrics/system/cache` - Cache statistics by prefix
+
+#### Auto-Refresh
+
+The page automatically refreshes every 30 seconds to display current system health. Charts are updated in-place without full page reload for query time and memory metrics.
+
+---
+
+## Open Sub-Issues (To Be Implemented)
 
 ### Command Performance Analytics (Issue #565)
 
@@ -896,4 +1002,5 @@ The `CommandPerformanceAggregator` background service periodically queries the c
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2026-01-01 | Added System Health Monitoring (#568) documentation |
 | 1.0 | 2026-01-01 | Initial documentation (Issues #580, #571, #572, #563 completed) |
