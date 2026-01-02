@@ -1825,3 +1825,20 @@
     @apply px-1.5 py-0.5 text-xs font-medium text-text-tertiary bg-bg-tertiary border border-border-primary rounded;
   }
 }
+
+@layer utilities {
+  /* Search result highlighting */
+  .search-highlight {
+    background-color: rgba(251, 191, 36, 0.3);  /* accent-orange with transparency */
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+
+  /* Dark mode adjustment if needed */
+  @media (prefers-color-scheme: dark) {
+    .search-highlight {
+      background-color: rgba(251, 191, 36, 0.25);
+    }
+  }
+}
