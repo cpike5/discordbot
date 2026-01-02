@@ -13,8 +13,9 @@ namespace DiscordBot.Bot.Services;
 /// <summary>
 /// Background service that monitors performance metrics and creates/resolves incidents.
 /// Evaluates alert configurations at regular intervals and triggers alerts when thresholds are breached.
+/// Also implements <see cref="IMetricsProvider"/> to expose current metric values for display.
 /// </summary>
-public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealth
+public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealth, IMetricsProvider
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly IHubContext<DashboardHub> _hubContext;
@@ -548,4 +549,51 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
             DurationSeconds = durationSeconds
         };
     }
+
+    #region IMetricsProvider Implementation
+
+    /// <inheritdoc/>
+    public async Task<double?> GetCurrentValueAsync(string metricName)
+    {
+        // Ensure services are resolved (they might not be if called early)
+        if (_latencyHistoryService == null)
+        {
+            ResolveServices();
+        }
+
+        return await GetCurrentMetricValueAsync(metricName);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyDictionary<string, double?>> GetAllCurrentValuesAsync()
+    {
+        // Ensure services are resolved (they might not be if called early)
+        if (_latencyHistoryService == null)
+        {
+            ResolveServices();
+        }
+
+        var metricNames = new[]
+        {
+            "gateway_latency",
+            "command_p95_latency",
+            "error_rate",
+            "memory_usage",
+            "api_rate_limit_usage",
+            "database_query_time",
+            "bot_disconnected",
+            "service_failure"
+        };
+
+        var results = new Dictionary<string, double?>();
+
+        foreach (var metricName in metricNames)
+        {
+            results[metricName] = await GetCurrentMetricValueAsync(metricName);
+        }
+
+        return results;
+    }
+
+    #endregion
 }

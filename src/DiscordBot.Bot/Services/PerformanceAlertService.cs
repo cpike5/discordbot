@@ -12,31 +12,47 @@ namespace DiscordBot.Bot.Services;
 public class PerformanceAlertService : IPerformanceAlertService
 {
     private readonly IPerformanceAlertRepository _repository;
+    private readonly IMetricsProvider _metricsProvider;
     private readonly ILogger<PerformanceAlertService> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PerformanceAlertService"/> class.
     /// </summary>
     /// <param name="repository">The performance alert repository.</param>
+    /// <param name="metricsProvider">The metrics provider for getting current metric values.</param>
     /// <param name="logger">The logger.</param>
     public PerformanceAlertService(
         IPerformanceAlertRepository repository,
+        IMetricsProvider metricsProvider,
         ILogger<PerformanceAlertService> logger)
     {
         _repository = repository;
+        _metricsProvider = metricsProvider;
         _logger = logger;
     }
 
     /// <inheritdoc/>
     public async Task<IReadOnlyList<AlertConfigDto>> GetAllConfigsAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving all alert configurations");
+        _logger.LogDebug("Retrieving all alert configurations with current metric values");
 
         var configs = await _repository.GetAllConfigsAsync(cancellationToken);
 
-        var dtos = configs.Select(MapToDto).ToList();
+        // Get current metric values for enrichment
+        var currentValues = await _metricsProvider.GetAllCurrentValuesAsync();
 
-        _logger.LogInformation("Retrieved {Count} alert configurations", dtos.Count);
+        var dtos = configs.Select(config =>
+        {
+            var dto = MapToDto(config);
+            // Enrich with current value if available
+            if (currentValues.TryGetValue(config.MetricName, out var currentValue))
+            {
+                dto = dto with { CurrentValue = currentValue };
+            }
+            return dto;
+        }).ToList();
+
+        _logger.LogInformation("Retrieved {Count} alert configurations with current values", dtos.Count);
 
         return dtos;
     }
@@ -55,6 +71,10 @@ public class PerformanceAlertService : IPerformanceAlertService
         }
 
         var dto = MapToDto(config);
+
+        // Enrich with current value
+        var currentValue = await _metricsProvider.GetCurrentValueAsync(metricName);
+        dto = dto with { CurrentValue = currentValue };
 
         _logger.LogInformation("Retrieved alert configuration for metric {MetricName}", metricName);
 
@@ -309,10 +329,10 @@ public class PerformanceAlertService : IPerformanceAlertService
 
     /// <summary>
     /// Maps a PerformanceAlertConfig entity to an AlertConfigDto.
-    /// CurrentValue will be null as it's filled by the AlertMonitoringService.
+    /// CurrentValue is initially null but will be enriched by the calling methods.
     /// </summary>
     /// <param name="config">The entity to map.</param>
-    /// <returns>The DTO representation.</returns>
+    /// <returns>The DTO representation with CurrentValue as null.</returns>
     private static AlertConfigDto MapToDto(PerformanceAlertConfig config)
     {
         return new AlertConfigDto
@@ -325,7 +345,7 @@ public class PerformanceAlertService : IPerformanceAlertService
             CriticalThreshold = config.CriticalThreshold,
             ThresholdUnit = config.ThresholdUnit,
             IsEnabled = config.IsEnabled,
-            CurrentValue = null // Will be populated by monitoring service
+            CurrentValue = null // Enriched by calling methods via IMetricsProvider
         };
     }
 

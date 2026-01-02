@@ -56,6 +56,13 @@ public static class PerformanceMetricsServiceExtensions
         // Alert monitoring background service
         services.AddHostedService<AlertMonitoringService>();
 
+        // Register the metrics provider interface separately so it can be injected
+        // Points to the same AlertMonitoringService instance
+        services.AddSingleton<IMetricsProvider>(sp =>
+            sp.GetServices<IHostedService>()
+              .OfType<AlertMonitoringService>()
+              .First());
+
         return services;
     }
 }
