@@ -16,14 +16,8 @@ namespace DiscordBot.Bot.Services;
 /// </summary>
 public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealth
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IServiceProvider _serviceProvider;
     private readonly IHubContext<DashboardHub> _hubContext;
-    private readonly ILatencyHistoryService _latencyHistoryService;
-    private readonly ICommandPerformanceAggregator _commandPerformanceAggregator;
-    private readonly IApiRequestTracker _apiRequestTracker;
-    private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
-    private readonly IConnectionStateService _connectionStateService;
-    private readonly IBackgroundServiceHealthRegistry _healthRegistry;
     private readonly ILogger<AlertMonitoringService> _logger;
     private readonly PerformanceAlertOptions _options;
 
@@ -36,31 +30,41 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     private string? _lastError;
     private string _status = "Initializing";
 
+    // Lazily resolved services (to avoid circular dependency during DI resolution)
+    private ILatencyHistoryService? _latencyHistoryService;
+    private ICommandPerformanceAggregator? _commandPerformanceAggregator;
+    private IApiRequestTracker? _apiRequestTracker;
+    private IDatabaseMetricsCollector? _databaseMetricsCollector;
+    private IConnectionStateService? _connectionStateService;
+    private IBackgroundServiceHealthRegistry? _healthRegistry;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="AlertMonitoringService"/> class.
+    /// Uses minimal dependencies to avoid circular DI resolution issues.
     /// </summary>
     public AlertMonitoringService(
-        IServiceScopeFactory serviceScopeFactory,
+        IServiceProvider serviceProvider,
         IHubContext<DashboardHub> hubContext,
-        ILatencyHistoryService latencyHistoryService,
-        ICommandPerformanceAggregator commandPerformanceAggregator,
-        IApiRequestTracker apiRequestTracker,
-        IDatabaseMetricsCollector databaseMetricsCollector,
-        IConnectionStateService connectionStateService,
-        IBackgroundServiceHealthRegistry healthRegistry,
         ILogger<AlertMonitoringService> logger,
         IOptions<PerformanceAlertOptions> options)
     {
-        _serviceScopeFactory = serviceScopeFactory;
+        _serviceProvider = serviceProvider;
         _hubContext = hubContext;
-        _latencyHistoryService = latencyHistoryService;
-        _commandPerformanceAggregator = commandPerformanceAggregator;
-        _apiRequestTracker = apiRequestTracker;
-        _databaseMetricsCollector = databaseMetricsCollector;
-        _connectionStateService = connectionStateService;
-        _healthRegistry = healthRegistry;
         _logger = logger;
         _options = options.Value;
+    }
+
+    /// <summary>
+    /// Resolves required services lazily after startup is complete.
+    /// </summary>
+    private void ResolveServices()
+    {
+        _latencyHistoryService = _serviceProvider.GetRequiredService<ILatencyHistoryService>();
+        _commandPerformanceAggregator = _serviceProvider.GetRequiredService<ICommandPerformanceAggregator>();
+        _apiRequestTracker = _serviceProvider.GetRequiredService<IApiRequestTracker>();
+        _databaseMetricsCollector = _serviceProvider.GetRequiredService<IDatabaseMetricsCollector>();
+        _connectionStateService = _serviceProvider.GetRequiredService<IConnectionStateService>();
+        _healthRegistry = _serviceProvider.GetRequiredService<IBackgroundServiceHealthRegistry>();
     }
 
     /// <inheritdoc/>
@@ -83,8 +87,11 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
 
         _logger.LogInformation("AlertMonitoringService starting");
 
+        // Resolve services lazily after startup is complete
+        ResolveServices();
+
         // Register with health registry
-        _healthRegistry.Register(ServiceName, this);
+        _healthRegistry!.Register(ServiceName, this);
 
         try
         {
@@ -125,7 +132,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
         finally
         {
             _status = "Stopped";
-            _healthRegistry.Unregister(ServiceName);
+            _healthRegistry?.Unregister(ServiceName);
             _logger.LogInformation("AlertMonitoringService stopped");
         }
     }
@@ -135,7 +142,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private async Task MonitorMetricsAsync(CancellationToken cancellationToken)
     {
-        using var scope = _serviceScopeFactory.CreateScope();
+        using var scope = _serviceProvider.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IPerformanceAlertRepository>();
 
         var configs = await repository.GetAllConfigsAsync(cancellationToken);
@@ -359,7 +366,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     {
         try
         {
-            using var scope = _serviceScopeFactory.CreateScope();
+            using var scope = _serviceProvider.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IPerformanceAlertRepository>();
 
             var activeIncidents = await repository.GetActiveIncidentsAsync();
@@ -414,7 +421,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private double? GetGatewayLatency()
     {
-        var latency = _latencyHistoryService.GetCurrentLatency();
+        var latency = _latencyHistoryService!.GetCurrentLatency();
         return latency > 0 ? latency : null;
     }
 
@@ -424,7 +431,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private async Task<double?> GetCommandP95LatencyAsync()
     {
-        var aggregates = await _commandPerformanceAggregator.GetAggregatesAsync(1); // Last hour
+        var aggregates = await _commandPerformanceAggregator!.GetAggregatesAsync(1); // Last hour
 
         if (!aggregates.Any())
         {
@@ -447,7 +454,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private async Task<double?> GetErrorRateAsync()
     {
-        var aggregates = await _commandPerformanceAggregator.GetAggregatesAsync(1); // Last hour
+        var aggregates = await _commandPerformanceAggregator!.GetAggregatesAsync(1); // Last hour
 
         if (!aggregates.Any())
         {
@@ -480,7 +487,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private double? GetApiRateLimitUsage()
     {
-        var rateLimitEvents = _apiRequestTracker.GetRateLimitEvents(1); // Last hour
+        var rateLimitEvents = _apiRequestTracker!.GetRateLimitEvents(1); // Last hour
         return rateLimitEvents.Count;
     }
 
@@ -489,7 +496,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private double? GetDatabaseQueryTime()
     {
-        var metrics = _databaseMetricsCollector.GetMetrics();
+        var metrics = _databaseMetricsCollector!.GetMetrics();
         return metrics.AvgQueryTimeMs > 0 ? metrics.AvgQueryTimeMs : null;
     }
 
@@ -498,7 +505,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private bool IsBotDisconnected()
     {
-        var state = _connectionStateService.GetCurrentState();
+        var state = _connectionStateService!.GetCurrentState();
         return state != GatewayConnectionState.Connected;
     }
 
@@ -507,7 +514,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private bool HasServiceFailure()
     {
-        var services = _healthRegistry.GetAllHealth();
+        var services = _healthRegistry!.GetAllHealth();
         return services.Any(s => s.Status == "Error" || s.Status == "Unhealthy");
     }
 
