@@ -8,6 +8,27 @@
     gap: 0.5rem;
     border-bottom: 2px solid var(--color-border-primary);
     margin-bottom: 1.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+/* Custom scrollbar for webkit browsers */
+.performance-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.performance-tabs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.performance-tabs::-webkit-scrollbar-thumb {
+    background: var(--color-border-primary);
+    border-radius: 2px;
+}
+
+.performance-tabs::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border-secondary);
 }
 
 .performance-tab {
