@@ -38,6 +38,10 @@
   items:
     - name: Admin Commands
       href: admin-commands.md
+    - name: Utility Commands
+      href: utility-commands.md
+    - name: Reminder System
+      href: reminder-system.md
     - name: Permissions
       href: permissions.md
 - name: Operations
@@ -46,5 +50,3 @@
       href: metrics.md
     - name: Distributed Tracing
       href: tracing.md
-    - name: APM Tracing Plan
-      href: apm-tracing-plan.md

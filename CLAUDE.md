@@ -97,6 +97,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (use user secrets for DefaultAdmin) |
 | `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
 | `HistoricalMetricsOptions` | `HistoricalMetrics` | Historical metrics collection (sample interval, retention) |
+| `ReminderOptions` | `Reminder` | Reminder system settings (polling, delivery, limits) |
 
 ### Default Values
 
