@@ -16,9 +16,24 @@ public record MetricSnapshotDto
     public double DatabaseAvgQueryTimeMs { get; init; }
 
     /// <summary>
+    /// Total database queries executed since application start.
+    /// </summary>
+    public long DatabaseTotalQueries { get; init; }
+
+    /// <summary>
+    /// Number of slow queries detected in the sample period.
+    /// </summary>
+    public int DatabaseSlowQueryCount { get; init; }
+
+    /// <summary>
     /// Working set memory in MB.
     /// </summary>
     public long WorkingSetMB { get; init; }
+
+    /// <summary>
+    /// Private memory in MB.
+    /// </summary>
+    public long PrivateMemoryMB { get; init; }
 
     /// <summary>
     /// Heap size in MB.
