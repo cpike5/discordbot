@@ -14,7 +14,149 @@ Implementation of the Performance Alerts & Incidents dashboard completed the Bot
 
 ## Issues Encountered
 
-**No major issues were encountered during implementation.** The implementation proceeded smoothly, leveraging existing infrastructure and patterns established in previous sub-issues (#563, #565, #566, #568).
+### Critical: Circular DI Dependency Causing Startup Hang
+
+**Symptom:** Bot hung indefinitely on startup after logging "LatencyHistoryService initialized" - no error messages, no exceptions, just complete deadlock.
+
+**Root Cause:** The `AlertMonitoringService` (a `BackgroundService` registered as `IHostedService`) injected `ICommandPerformanceAggregator` directly in its constructor. However, `ICommandPerformanceAggregator` is resolved via a factory method that calls:
+
+```csharp
+services.AddSingleton<ICommandPerformanceAggregator>(sp =>
+{
+    // This enumerates ALL IHostedService instances to find the aggregator
+    var hostedServices = sp.GetServices<IHostedService>();
+    return hostedServices.OfType<ICommandPerformanceAggregator>().First();
+});
+```
+
+This created a **circular dependency during DI resolution:**
+1. Host starts building `IHostedService` instances
+2. `AlertMonitoringService` constructor requires `ICommandPerformanceAggregator`
+3. Factory tries to enumerate all `IHostedService` instances
+4. But we're still constructing a hosted service → **deadlock**
+
+**Solution:** Lazy service resolution pattern:
+
+```csharp
+// BEFORE (deadlock):
+public AlertMonitoringService(
+    ILatencyHistoryService latencyHistoryService,
+    ICommandPerformanceAggregator commandPerformanceAggregator,  // ← Problem!
+    IApiRequestTracker apiRequestTracker,
+    // ... other services
+)
+
+// AFTER (working):
+public AlertMonitoringService(
+    IServiceProvider serviceProvider,  // Only inject the container
+    IHubContext<DashboardHub> hubContext,
+    ILogger<AlertMonitoringService> logger,
+    IOptions<PerformanceAlertOptions> options)
+{
+    _serviceProvider = serviceProvider;
+    // Don't resolve metric services here!
+}
+
+private void ResolveServices()
+{
+    // Resolve lazily AFTER host startup completes
+    _latencyHistoryService = _serviceProvider.GetRequiredService<ILatencyHistoryService>();
+    _commandPerformanceAggregator = _serviceProvider.GetRequiredService<ICommandPerformanceAggregator>();
+    // ... other services
+}
+
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    await Task.Yield();  // Ensure host startup completes first
+    ResolveServices();   // Now safe to resolve services
+    // ... monitoring loop
+}
+```
+
+**Key Lessons:**
+
+1. **`Task.Yield()` alone doesn't fix circular DI** - The deadlock happens during constructor resolution, before `ExecuteAsync` is even called.
+
+2. **Factory-based service resolution can hide circular dependencies** - The `ICommandPerformanceAggregator` factory indirectly depends on all `IHostedService` instances, creating a non-obvious circular dependency.
+
+3. **Use lazy resolution for BackgroundServices that depend on factory-resolved services** - Inject only `IServiceProvider` and resolve dependencies in `ExecuteAsync` after `Task.Yield()`.
+
+4. **Startup hangs without exceptions are often DI deadlocks** - If the application hangs during startup with no error output, suspect circular dependencies.
+
+**Detection Strategy:** When a BackgroundService depends on a service resolved via factory that enumerates services (like `GetServices<T>()`), always use lazy resolution.
+
+---
+
+### Build Error: Missing ViewModel Namespace
+
+**Issue:** `AlertsPageViewModel` not found in `Alerts.cshtml`
+
+**Cause:** Missing `@using` directive for the ViewModels namespace.
+
+**Fix:** Added `@using DiscordBot.Bot.ViewModels.Pages` to the Razor page.
+
+---
+
+### MVC1001 Warning: [Authorize] on Razor Page Handlers
+
+**Issue:** Applying `[Authorize(Policy = "RequireAdmin")]` directly to Razor Page handler methods (`OnPostAcknowledgeAsync`) generates MVC1001 warning.
+
+**Cause:** Authorization attributes on handler methods are not supported in Razor Pages - they only work at the page class level.
+
+**Fix:** Use manual authorization check in the handler:
+
+```csharp
+public async Task<IActionResult> OnPostAcknowledgeAsync(...)
+{
+    var authResult = await _authorizationService.AuthorizeAsync(User, "RequireAdmin");
+    if (!authResult.Succeeded)
+    {
+        return Forbid();
+    }
+    // ... handler logic
+}
+```
+
+---
+
+### DashboardHub Constructor Change Breaking Tests
+
+**Issue:** After adding `IPerformanceAlertService` to `DashboardHub`, existing unit tests failed to compile.
+
+**Cause:** Tests were constructing `DashboardHub` with the old constructor signature.
+
+**Fix:** Updated test setup to include mock for the new dependency:
+
+```csharp
+private readonly Mock<IPerformanceAlertService> _mockAlertService;
+
+public DashboardHubTests()
+{
+    _mockAlertService = new Mock<IPerformanceAlertService>();
+
+    _hub = new DashboardHub(
+        _mockBotService.Object,
+        _mockConnectionStateService.Object,
+        _mockLatencyHistoryService.Object,
+        _mockAlertService.Object,  // New parameter
+        _mockLogger.Object);
+}
+```
+
+---
+
+### Database Migration Not Applied
+
+**Issue:** Alerts page showed "Failed to load alerts data" error after deployment.
+
+**Cause:** EF Core migration for `PerformanceAlertConfigs` and `PerformanceIncidents` tables hadn't been applied.
+
+**Fix:** Run migrations:
+```bash
+dotnet ef database update --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot
+```
+
+**Lesson:** Always verify migrations are applied after adding new entities, especially after context switching during development.
 
 ---
 
@@ -275,7 +417,8 @@ public enum IncidentStatus
 
 Based on this implementation:
 
-- [ ] Inject all required metric provider services
+- [ ] **Use lazy service resolution for BackgroundServices** - Inject `IServiceProvider`, resolve dependencies in `ExecuteAsync` after `Task.Yield()` to avoid circular DI deadlocks
+- [ ] Check if any dependencies are resolved via factories that enumerate `IHostedService`
 - [ ] Register background service with health registry
 - [ ] Implement heartbeat tracking in monitoring loop
 - [ ] Use consecutive thresholds to prevent alert noise
@@ -288,6 +431,7 @@ Based on this implementation:
 - [ ] Provide filtering and pagination for event history
 - [ ] Include admin notes field for incident acknowledgment
 - [ ] Test breach detection logic with edge cases
+- [ ] Always apply EF Core migrations after adding new entities
 
 ---
 
@@ -436,8 +580,18 @@ The Performance Alerts & Incidents feature successfully completed the Bot Perfor
 - Separation of configuration and incident entities enables flexible threshold management
 - Background service pattern scales well for periodic monitoring tasks
 - Parallel data loading significantly improves page performance
+- **Circular DI dependencies can cause silent startup deadlocks** - Use lazy service resolution for BackgroundServices that depend on factory-resolved services
 
-**No major issues were encountered**, demonstrating the value of:
+**Lessons from Issues Encountered:**
+
+The critical startup hang issue taught valuable lessons about .NET DI:
+- Factory-based service resolution (`GetServices<T>()`) can create hidden circular dependencies
+- BackgroundServices should avoid constructor injection of services resolved via factories that enumerate hosted services
+- Lazy service resolution in `ExecuteAsync` (after `Task.Yield()`) breaks the circular dependency
+- Silent hangs without exceptions are a telltale sign of DI deadlocks
+
+**What Went Well:**
 - Consistent architectural patterns across features
 - Comprehensive HTML prototypes guiding implementation
 - Incremental feature delivery with shared infrastructure
+- Quick identification and resolution of the DI deadlock pattern
