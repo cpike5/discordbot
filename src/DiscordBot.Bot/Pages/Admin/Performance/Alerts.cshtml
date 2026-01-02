@@ -1097,12 +1097,19 @@
             console.log('Found threshold inputs:', thresholdInputs.length);
             console.log('Found enabled toggles:', enabledToggles.length);
 
+            // Map HTML data-field values to API property names
+            const fieldNameMap = {
+                'warning': 'warningThreshold',
+                'critical': 'criticalThreshold',
+                'enabled': 'isEnabled'
+            };
+
             thresholdInputs.forEach(input => {
                 // Use 'input' event for immediate feedback while typing
                 input.addEventListener('input', function() {
                     const row = this.closest('tr');
                     const metricName = row.dataset.metric;
-                    const field = this.dataset.field;
+                    const field = fieldNameMap[this.dataset.field];
                     const value = parseFloat(this.value);
                     console.log('Threshold changed:', metricName, field, value);
                     trackConfigChange(metricName, field, value);
@@ -1113,7 +1120,7 @@
                 input.addEventListener('change', function() {
                     const row = this.closest('tr');
                     const metricName = row.dataset.metric;
-                    const field = this.dataset.field;
+                    const field = fieldNameMap[this.dataset.field];
                     const value = this.checked;
                     console.log('Toggle changed:', metricName, field, value);
                     trackConfigChange(metricName, field, value);
