@@ -576,6 +576,105 @@ public record RateLimitSummaryDto
 }
 
 /// <summary>
+/// Hourly API request volume for charting.
+/// </summary>
+public record ApiRequestVolumeDto
+{
+    /// <summary>
+    /// Gets or sets the timestamp for the hour bucket.
+    /// </summary>
+    public DateTime Timestamp { get; init; }
+
+    /// <summary>
+    /// Gets or sets the number of requests in this hour.
+    /// </summary>
+    public long RequestCount { get; init; }
+
+    /// <summary>
+    /// Gets or sets the category of requests (REST, Gateway, etc.).
+    /// </summary>
+    public string Category { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// API latency sample for time series charting.
+/// </summary>
+public record ApiLatencySampleDto
+{
+    /// <summary>
+    /// Gets or sets the timestamp of the sample.
+    /// </summary>
+    public DateTime Timestamp { get; init; }
+
+    /// <summary>
+    /// Gets or sets the average latency in milliseconds.
+    /// </summary>
+    public double AvgLatencyMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the 95th percentile latency.
+    /// </summary>
+    public double P95LatencyMs { get; init; }
+}
+
+/// <summary>
+/// Complete API latency statistics.
+/// </summary>
+public record ApiLatencyStatsDto
+{
+    /// <summary>
+    /// Gets or sets the average latency in milliseconds.
+    /// </summary>
+    public double AvgLatencyMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the minimum latency observed.
+    /// </summary>
+    public double MinLatencyMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the maximum latency observed.
+    /// </summary>
+    public double MaxLatencyMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the 50th percentile (median) latency.
+    /// </summary>
+    public double P50LatencyMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the 95th percentile latency.
+    /// </summary>
+    public double P95LatencyMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the 99th percentile latency.
+    /// </summary>
+    public double P99LatencyMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the number of samples used for statistics.
+    /// </summary>
+    public int SampleCount { get; init; }
+}
+
+/// <summary>
+/// Full API latency history with samples and statistics.
+/// </summary>
+public record ApiLatencyHistoryDto
+{
+    /// <summary>
+    /// Gets or sets the time series samples for charting.
+    /// </summary>
+    public IReadOnlyList<ApiLatencySampleDto> Samples { get; init; } = Array.Empty<ApiLatencySampleDto>();
+
+    /// <summary>
+    /// Gets or sets the aggregate statistics for the period.
+    /// </summary>
+    public ApiLatencyStatsDto Statistics { get; init; } = new();
+}
+
+/// <summary>
 /// Database metrics summary with overall metrics and recent slow queries.
 /// </summary>
 public record DatabaseMetricsSummaryDto

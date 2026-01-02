@@ -611,6 +611,62 @@ public class PerformanceMetricsController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Gets Discord API latency history with samples and statistics.
+    /// </summary>
+    /// <param name="hours">Number of hours of history to retrieve (1-168, default: 24).</param>
+    /// <returns>API latency history with time series samples and aggregate statistics.</returns>
+    [HttpGet("api/latency")]
+    [ProducesResponseType(typeof(ApiLatencyHistoryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status500InternalServerError)]
+    public ActionResult<ApiLatencyHistoryDto> GetApiLatency([FromQuery] int hours = 24)
+    {
+        try
+        {
+            if (hours < 1 || hours > 168)
+            {
+                _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
+
+                return BadRequest(new ApiErrorDto
+                {
+                    Message = "Invalid hours parameter",
+                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    TraceId = HttpContext.GetCorrelationId()
+                });
+            }
+
+            _logger.LogDebug("API latency history requested for {Hours} hours", hours);
+
+            var samples = _apiRequestTracker.GetLatencySamples(hours);
+            var statistics = _apiRequestTracker.GetLatencyStatistics(hours);
+
+            var history = new ApiLatencyHistoryDto
+            {
+                Samples = samples,
+                Statistics = statistics
+            };
+
+            _logger.LogTrace("Retrieved {SampleCount} API latency samples, avg {AvgMs:F1}ms",
+                samples.Count, statistics.AvgLatencyMs);
+
+            return Ok(history);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve API latency history for {Hours} hours", hours);
+
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorDto
+            {
+                Message = "Failed to retrieve API latency history",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status500InternalServerError,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+    }
+
     // ============================================================================
     // System Health Endpoints
     // ============================================================================
