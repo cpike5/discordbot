@@ -578,6 +578,19 @@
             <h2 class="chart-card-title">Alert Threshold Configuration</h2>
             <p class="chart-card-subtitle">Define warning and critical thresholds for key metrics</p>
         </div>
+        @if (User.IsInRole("Admin"))
+        {
+            <button id="saveConfigBtn"
+                    type="button"
+                    onclick="saveConfigChanges()"
+                    class="btn btn-primary hidden"
+                    style="display: none;">
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Save Changes
+            </button>
+        }
     </div>
     <div class="overflow-x-auto">
         <table class="config-table">
@@ -951,43 +964,120 @@
 
         // Configuration change tracking
         let configChanges = {};
+        const saveBtn = document.getElementById('saveConfigBtn');
 
         function trackConfigChange(metricName, field, value) {
             if (!configChanges[metricName]) {
                 configChanges[metricName] = {};
             }
             configChanges[metricName][field] = value;
+            updateSaveButtonVisibility();
         }
 
         function hasUnsavedChanges() {
             return Object.keys(configChanges).length > 0;
         }
 
+        function updateSaveButtonVisibility() {
+            if (saveBtn) {
+                if (hasUnsavedChanges()) {
+                    saveBtn.style.display = 'inline-flex';
+                    saveBtn.classList.remove('hidden');
+                } else {
+                    saveBtn.style.display = 'none';
+                    saveBtn.classList.add('hidden');
+                }
+            }
+        }
+
         async function saveConfigChanges() {
+            if (!hasUnsavedChanges()) return;
+
+            // Disable button and show saving state
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = `
+                    <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                `;
+            }
+
+            const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+            const token = tokenElement ? tokenElement.value : '';
+
+            let hasError = false;
             for (const [metricName, changes] of Object.entries(configChanges)) {
                 try {
                     const response = await fetch(`/api/alerts/config/${encodeURIComponent(metricName)}`, {
                         method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
-                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                            'RequestVerificationToken': token
                         },
                         body: JSON.stringify(changes)
                     });
 
                     if (!response.ok) {
-                        throw new Error(`Failed to update ${metricName}`);
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || `Failed to update ${metricName}`);
                     }
                 } catch (error) {
                     console.error('Failed to save config changes:', error);
-                    alert(`Failed to save configuration for ${metricName}. Please try again.`);
-                    return;
+                    hasError = true;
+                    showNotification(`Failed to save configuration for ${metricName}. Please try again.`, 'error');
+                    break;
                 }
             }
 
-            configChanges = {};
-            alert('Configuration saved successfully.');
-            location.reload();
+            if (!hasError) {
+                configChanges = {};
+                showNotification('Alert thresholds saved successfully.', 'success');
+                updateSaveButtonVisibility();
+            }
+
+            // Reset button state
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = `
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Changes
+                `;
+            }
+        }
+
+        function showNotification(message, type) {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md transform transition-all duration-300 translate-x-full ${
+                type === 'success' ? 'bg-success/10 border border-success/20 text-success' : 'bg-error/10 border border-error/20 text-error'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        ${type === 'success'
+                            ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+                            : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'}
+                    </svg>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                notification.classList.remove('translate-x-full');
+            });
+
+            // Remove after 4 seconds
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => notification.remove(), 300);
+            }, 4000);
         }
 
         // Initialize on page load
