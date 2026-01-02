@@ -73,7 +73,7 @@ public class MetricsCollectionService : MonitoredBackgroundService
         ResolveServices();
 
         // Small initial delay to let other services initialize
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        await Task.Delay(TimeSpan.FromSeconds(_options.InitialDelaySeconds), stoppingToken);
 
         _logger.LogInformation("MetricsCollectionService initialized, starting collection loop");
 
@@ -100,7 +100,7 @@ public class MetricsCollectionService : MonitoredBackgroundService
                 _logger.LogError(ex, "Error in metrics collection loop");
 
                 // Wait a bit before retrying after an error
-                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(_options.ErrorRetryDelaySeconds), stoppingToken);
             }
         }
     }
