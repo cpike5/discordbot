@@ -1,8 +1,8 @@
 # Bot Performance Dashboard
 
-**Last Updated:** 2026-01-01
+**Last Updated:** 2026-01-02
 **Feature Reference:** Issue #295 (Epic)
-**Status:** In Progress (7 of 9 sub-issues completed)
+**Status:** In Progress (8 of 9 sub-issues completed)
 
 ---
 
@@ -17,8 +17,8 @@
   - [System Health Monitoring (#568)](#system-health-monitoring-issue-568)
   - [Command Performance Analytics (#565)](#command-performance-analytics-issue-565)
   - [Discord API & Rate Limit Monitoring (#566)](#discord-api--rate-limit-monitoring-issue-566)
-- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [Performance Alerts & Incidents (#570)](#performance-alerts--incidents-issue-570)
+- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [Performance Dashboard UI Implementation (#573)](#performance-dashboard-ui-implementation-issue-573)
 - [Configuration](#configuration)
 - [Service Registration](#service-registration)
@@ -1226,8 +1226,6 @@ The page includes a shared performance dashboard navigation tab bar:
 
 ---
 
-## Open Sub-Issues (To Be Implemented)
-
 ### Performance Alerts & Incidents (Issue #570)
 
 **URL:** `/Admin/Performance/Alerts`
@@ -1452,6 +1450,30 @@ The AlertMonitoringService continuously monitors performance metrics and creates
 - Broadcasts incident state changes via SignalR to connected dashboard clients
 - Registers with background service health registry for monitoring
 
+> **⚠️ Critical Implementation Note: Lazy Service Resolution**
+>
+> This service uses **lazy service resolution** to avoid a circular DI dependency that would cause application startup to hang indefinitely. The `ICommandPerformanceAggregator` is resolved via a factory that enumerates all `IHostedService` instances - injecting it directly in a hosted service constructor creates a deadlock.
+>
+> **Pattern Used:**
+> ```csharp
+> // Constructor only injects IServiceProvider
+> public AlertMonitoringService(
+>     IServiceProvider serviceProvider,
+>     IHubContext<DashboardHub> hubContext,
+>     ILogger<AlertMonitoringService> logger,
+>     IOptions<PerformanceAlertOptions> options)
+>
+> // Services resolved lazily in ExecuteAsync after Task.Yield()
+> protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+> {
+>     await Task.Yield();  // Ensure host startup completes
+>     ResolveServices();   // Now safe to resolve dependencies
+>     // ... monitoring loop
+> }
+> ```
+>
+> See [Issue #570 Lessons Learned](../lessons-learned/issue-570-performance-alerts.md) for detailed analysis.
+
 **Breach Detection Logic:**
 - **Consecutive Breaches Required:** 2 (default) - prevents alert noise from temporary spikes
 - **Consecutive Normal Required:** 3 (default) - ensures metric has stabilized before auto-resolution
@@ -1582,6 +1604,8 @@ The page includes a shared performance dashboard navigation tab bar:
 
 ---
 
+## Open Sub-Issues (To Be Implemented)
+
 ### Performance Dashboard UI Implementation (Issue #573)
 
 > **Status:** To be documented when implemented
@@ -1653,6 +1677,12 @@ builder.Services.AddSingleton<ICommandPerformanceAggregator>(sp =>
 builder.Services.AddSingleton<IApiRequestTracker, ApiRequestTracker>();
 builder.Services.AddSingleton<IDatabaseMetricsCollector, DatabaseMetricsCollector>();
 ```
+
+> **⚠️ Warning: Circular DI Dependencies with Factory-Resolved Services**
+>
+> The `ICommandPerformanceAggregator` factory above calls `GetServices<IHostedService>()` to find the aggregator instance. Any `BackgroundService` that directly injects `ICommandPerformanceAggregator` in its constructor will create a circular dependency deadlock during startup.
+>
+> **Solution:** Use lazy service resolution - inject only `IServiceProvider` in the constructor and resolve dependencies in `ExecuteAsync()` after calling `Task.Yield()`. See `AlertMonitoringService` for the pattern.
 
 ---
 
@@ -1729,6 +1759,7 @@ The `CommandPerformanceAggregator` background service periodically queries the c
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.5 | 2026-01-02 | Marked Performance Alerts (#570) as completed; added circular DI dependency fix documentation |
 | 1.4 | 2026-01-02 | Added Performance Alerts & Incidents (#570) documentation |
 | 1.3 | 2026-01-01 | Added Discord API & Rate Limit Monitoring (#566) documentation |
 | 1.2 | 2026-01-01 | Added Command Performance Analytics (#565) documentation |
