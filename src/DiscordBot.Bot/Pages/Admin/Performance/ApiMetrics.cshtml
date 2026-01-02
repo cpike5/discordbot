@@ -1,0 +1,550 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.Performance.ApiMetricsModel
+@using DiscordBot.Bot.ViewModels.Pages
+@{
+    ViewData["Title"] = "API & Rate Limits";
+    ViewData["Breadcrumbs"] = new List<(string Text, string? Url)>
+    {
+        ("Dashboard", "/"),
+        ("Bot Performance", null),
+        ("API & Rate Limits", null)
+    };
+}
+
+@section Styles {
+    <style>
+        /* Performance Page Shared Styles */
+        .performance-tabs {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 2px solid rgb(63, 68, 71);
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .performance-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: rgb(168, 165, 163);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+
+        .performance-tab:hover {
+            color: rgb(215, 211, 208);
+            border-bottom-color: rgb(99, 102, 104);
+        }
+
+        .performance-tab.active {
+            color: rgb(9, 142, 207);
+            border-bottom-color: rgb(9, 142, 207);
+        }
+
+        .tab-icon {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        /* Metric Cards */
+        .metric-card {
+            background: rgb(35, 38, 40);
+            border: 1px solid rgb(63, 68, 71);
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+        }
+
+        .metric-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+            font-weight: 500;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: rgb(215, 211, 208);
+            line-height: 1;
+        }
+
+        .metric-unit {
+            font-size: 1rem;
+            font-weight: 500;
+            color: rgb(168, 165, 163);
+            margin-left: 0.25rem;
+        }
+
+        /* Chart Card */
+        .chart-card {
+            background: rgb(35, 38, 40);
+            border: 1px solid rgb(63, 68, 71);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .chart-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem;
+            border-bottom: 1px solid rgb(63, 68, 71);
+        }
+
+        .chart-card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: rgb(215, 211, 208);
+            margin: 0;
+        }
+
+        .chart-card-subtitle {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+            margin: 0.25rem 0 0;
+        }
+
+        .chart-card-body {
+            padding: 1.25rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        /* Performance Grid */
+        .performance-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @@media (min-width: 768px) {
+            .performance-grid-2 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Performance Table */
+        .performance-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .performance-table thead {
+            background: rgb(47, 51, 54);
+        }
+
+        .performance-table th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: rgb(168, 165, 163);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .performance-table td {
+            padding: 0.75rem 1rem;
+            border-top: 1px solid rgb(63, 68, 71);
+            font-size: 0.875rem;
+            color: rgb(215, 211, 208);
+        }
+
+        .performance-table tbody tr:hover {
+            background: rgba(9, 142, 207, 0.05);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-badge-connected {
+            background: rgba(16, 185, 129, 0.1);
+            color: rgb(16, 185, 129);
+        }
+
+        .status-badge-reconnecting {
+            background: rgba(245, 158, 11, 0.1);
+            color: rgb(245, 158, 11);
+        }
+
+        .status-badge-disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            color: rgb(239, 68, 68);
+        }
+
+        /* Health Status Badge */
+        .health-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .health-status-healthy {
+            background: rgba(16, 185, 129, 0.1);
+            color: rgb(16, 185, 129);
+        }
+
+        .health-status-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: rgb(245, 158, 11);
+        }
+
+        .health-status-critical {
+            background: rgba(239, 68, 68, 0.1);
+            color: rgb(239, 68, 68);
+        }
+
+        .health-status-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 9999px;
+            background: currentColor;
+        }
+
+        /* Time Range Selector */
+        .time-range-btn {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: 1px solid rgb(63, 68, 71);
+        }
+
+        .time-range-btn.active {
+            background: rgba(9, 142, 207, 0.2);
+            color: rgb(9, 142, 207);
+            border-color: rgba(9, 142, 207, 0.3);
+        }
+
+        .time-range-btn:not(.active) {
+            background: rgb(35, 38, 40);
+            color: rgb(168, 165, 163);
+        }
+
+        .time-range-btn:not(.active):hover {
+            color: rgb(215, 211, 208);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1.5rem;
+        }
+
+        .empty-state-icon {
+            width: 3rem;
+            height: 3rem;
+            margin: 0 auto 1rem;
+            color: rgb(168, 165, 163);
+        }
+
+        .empty-state-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: rgb(215, 211, 208);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state-description {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+        }
+    </style>
+}
+
+<!-- Page Header -->
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Discord API & Rate Limits</h1>
+        <p class="text-text-secondary mt-1">API usage, rate limit status, and request tracking</p>
+    </div>
+
+    <!-- API Health Status & Time Range -->
+    <div class="flex items-center gap-4">
+        <div class="health-status @Model.ViewModel.GetHealthStatusClass()">
+            <span class="health-status-dot"></span>
+            <span>@Model.ViewModel.GetHealthStatusText()</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="/Admin/Performance/ApiMetrics?hours=24" class="time-range-btn @(Model.Hours == 24 ? "active" : "")">24h</a>
+            <a href="/Admin/Performance/ApiMetrics?hours=168" class="time-range-btn @(Model.Hours == 168 ? "active" : "")">7d</a>
+            <a href="/Admin/Performance/ApiMetrics?hours=720" class="time-range-btn @(Model.Hours == 720 ? "active" : "")">30d</a>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="performance-tabs mb-6">
+    <a href="/Admin/Performance" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        Overview
+    </a>
+    <a href="/Admin/Performance/HealthMetrics" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+        Health Metrics
+    </a>
+    <a href="/Admin/Performance/Commands" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        Commands
+    </a>
+    <a href="/Admin/Performance/ApiMetrics" class="performance-tab active">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        API & Rate Limits
+    </a>
+    <a href="/Admin/Performance/SystemHealth" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+        </svg>
+        System
+    </a>
+</div>
+
+@if (Model.ViewModel.TotalRequests == 0)
+{
+    <!-- Empty State -->
+    <div class="chart-card">
+        <div class="empty-state">
+            <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <div class="empty-state-title">No API data available</div>
+            <div class="empty-state-description">API metrics will appear here once the bot starts making requests to Discord in the selected time period.</div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Summary Metrics Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Total Requests -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Total Requests</span>
+                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+            </div>
+            <div class="metric-value">
+                @Model.ViewModel.TotalRequests.ToString("N0")
+            </div>
+        </div>
+
+        <!-- API Latency -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Avg API Latency</span>
+            </div>
+            <div class="metric-value @ApiRateLimitsViewModel.GetLatencyClass(Model.ViewModel.AvgLatencyMs)">
+                @Model.ViewModel.AvgLatencyMs.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            @if (Model.ViewModel.LatencyStats != null)
+            {
+                <div class="text-xs text-text-tertiary mt-2">P95: @Model.ViewModel.LatencyStats.P95LatencyMs.ToString("F0")ms</div>
+            }
+        </div>
+
+        <!-- Rate Limit Hits -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Rate Limit Hits</span>
+                @if (Model.ViewModel.RateLimitHits > 0)
+                {
+                    <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                }
+            </div>
+            <div class="metric-value @(Model.ViewModel.RateLimitHits > 0 ? "text-warning" : "")">
+                @Model.ViewModel.RateLimitHits
+            </div>
+            @if (Model.ViewModel.RecentRateLimitEvents.Any())
+            {
+                var latest = Model.ViewModel.RecentRateLimitEvents.First();
+                var elapsed = DateTime.UtcNow - latest.Timestamp;
+                <div class="text-xs text-text-tertiary mt-2">
+                    Last: @(elapsed.TotalMinutes < 60 ? $"{elapsed.TotalMinutes:F0}m ago" : $"{elapsed.TotalHours:F0}h ago")
+                </div>
+            }
+        </div>
+
+        <!-- P95 Latency -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">P95 Latency</span>
+            </div>
+            <div class="metric-value @ApiRateLimitsViewModel.GetLatencyClass(Model.ViewModel.P95LatencyMs)">
+                @Model.ViewModel.P95LatencyMs.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            @if (Model.ViewModel.LatencyStats != null)
+            {
+                <div class="text-xs text-text-tertiary mt-2">P99: @Model.ViewModel.LatencyStats.P99LatencyMs.ToString("F0")ms</div>
+            }
+        </div>
+    </div>
+
+    <!-- API Latency Chart & Rate Limit Hits Log -->
+    <div class="performance-grid-2 mb-6">
+        <!-- API Latency Over Time -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">API Latency Over Time</h2>
+                    <p class="chart-card-subtitle">Discord API response times (last @Model.Hours hours)</p>
+                </div>
+            </div>
+            <div class="chart-card-body">
+                <div class="chart-container">
+                    <canvas id="apiLatencyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rate Limit Hits Log -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Rate Limit Hits Log</h2>
+                    <p class="chart-card-subtitle">Recent rate limit encounters (@Model.ViewModel.RecentRateLimitEvents.Count total)</p>
+                </div>
+            </div>
+            <div class="chart-card-body p-0">
+                @if (Model.ViewModel.RecentRateLimitEvents.Any())
+                {
+                    <div class="divide-y divide-border-primary max-h-80 overflow-y-auto">
+                        @foreach (var evt in Model.ViewModel.RecentRateLimitEvents)
+                        {
+                            var elapsed = DateTime.UtcNow - evt.Timestamp;
+                            var timeAgo = elapsed.TotalMinutes < 60
+                                ? $"{elapsed.TotalMinutes:F0}m ago"
+                                : elapsed.TotalHours < 24
+                                    ? $"{elapsed.TotalHours:F0}h ago"
+                                    : $"{elapsed.TotalDays:F0}d ago";
+
+                            <div class="p-3 flex items-start gap-3">
+                                <div class="w-2 h-2 rounded-full @(evt.IsGlobal ? "bg-error" : "bg-warning") mt-1.5 flex-shrink-0"></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-sm font-medium text-text-primary font-mono">@evt.Endpoint</span>
+                                        <span class="text-xs text-text-tertiary">@timeAgo</span>
+                                    </div>
+                                    <div class="text-xs text-text-secondary mt-0.5">
+                                        @if (evt.IsGlobal)
+                                        {
+                                            <span class="text-error font-medium">Global rate limit</span>
+                                            <span> - waited @(evt.RetryAfterMs / 1000.0)s</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Retry after @(evt.RetryAfterMs / 1000.0)s</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="empty-state-title">No rate limits hit</div>
+                        <div class="empty-state-description">All API requests completed within rate limits in the selected time period.</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Usage by Category Table -->
+    @if (Model.ViewModel.UsageByCategory.Any())
+    {
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Usage by Category</h2>
+                    <p class="chart-card-subtitle">API request breakdown by category</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="performance-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Request Count</th>
+                            <th>Avg Latency</th>
+                            <th>Error Count</th>
+                            <th>Error Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var usage in Model.ViewModel.UsageByCategory.OrderByDescending(u => u.RequestCount))
+                        {
+                            var errorRate = usage.RequestCount > 0 ? (usage.ErrorCount * 100.0 / usage.RequestCount) : 0;
+                            <tr>
+                                <td>
+                                    <span class="font-medium">@usage.Category</span>
+                                </td>
+                                <td class="font-mono">@usage.RequestCount.ToString("N0")</td>
+                                <td class="font-mono @ApiRateLimitsViewModel.GetLatencyClass(usage.AvgLatencyMs)">
+                                    @usage.AvgLatencyMs.ToString("F1")ms
+                                </td>
+                                <td class="font-mono @(usage.ErrorCount > 0 ? "text-error" : "")">
+                                    @usage.ErrorCount
+                                </td>
+                                <td class="font-mono @(errorRate > 1 ? "text-error" : errorRate > 0 ? "text-warning" : "")">
+                                    @errorRate.ToString("F1")%
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="~/js/api-metrics-chart.js" asp-append-version="true"></script>
+    <script>
+        // Pass server-side data to JavaScript
+        window.apiMetricsHours = @Model.Hours;
+    </script>
+}

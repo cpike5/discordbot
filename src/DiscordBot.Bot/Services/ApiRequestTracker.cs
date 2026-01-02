@@ -29,6 +29,12 @@ public class ApiRequestTracker : IApiRequestTracker
     private int _currentHourIndex;
     private DateTime _lastHourUpdate = DateTime.UtcNow;
 
+    // Latency tracking with circular buffer (store 5-minute buckets for 24 hours = 288 samples)
+    private readonly LatencySample[] _latencySamples = new LatencySample[288];
+    private int _latencyIndex;
+    private int _latencySampleCount;
+    private DateTime _lastLatencySampleTime = DateTime.UtcNow;
+
     // Severity level mapping
     private const int SeverityError = 4; // LogSeverity.Error
     private const int SeverityCritical = 5; // LogSeverity.Critical
@@ -59,13 +65,13 @@ public class ApiRequestTracker : IApiRequestTracker
             if (source.Contains("Rest", StringComparison.OrdinalIgnoreCase) ||
                 message.Contains("REST", StringComparison.OrdinalIgnoreCase))
             {
-                RecordRequest("REST", severity);
+                RecordRequestFromLog("REST", severity);
                 _logger.LogTrace("Tracked REST API request: {Message}", message);
             }
             else if (source.Contains("Gateway", StringComparison.OrdinalIgnoreCase) ||
                      message.Contains("Gateway", StringComparison.OrdinalIgnoreCase))
             {
-                RecordRequest("Gateway", severity);
+                RecordRequestFromLog("Gateway", severity);
                 _logger.LogTrace("Tracked Gateway event: {Message}", message);
             }
 
@@ -163,10 +169,28 @@ public class ApiRequestTracker : IApiRequestTracker
         }
     }
 
+    /// <inheritdoc/>
+    public void RecordRequest(string category, int latencyMs)
+    {
+        var apiCategory = _categories.GetOrAdd(category, _ => new ApiCategory());
+
+        Interlocked.Increment(ref apiCategory.RequestCount);
+        Interlocked.Add(ref apiCategory.TotalLatencyMs, latencyMs);
+
+        lock (_lock)
+        {
+            UpdateHourlyBucket();
+            _hourlyRequests[_currentHourIndex]++;
+            UpdateLatencySample(latencyMs);
+        }
+
+        _logger.LogTrace("Recorded API request: Category={Category}, Latency={LatencyMs}ms", category, latencyMs);
+    }
+
     /// <summary>
-    /// Records an API request for a specific category.
+    /// Records an API request for a specific category from log parsing (legacy method).
     /// </summary>
-    private void RecordRequest(string category, int severity)
+    private void RecordRequestFromLog(string category, int severity)
     {
         var apiCategory = _categories.GetOrAdd(category, _ => new ApiCategory());
 
@@ -181,6 +205,8 @@ public class ApiRequestTracker : IApiRequestTracker
         {
             UpdateHourlyBucket();
             _hourlyRequests[_currentHourIndex]++;
+            // Use a default latency for log-parsed requests
+            UpdateLatencySample(0);
         }
     }
 
@@ -243,6 +269,235 @@ public class ApiRequestTracker : IApiRequestTracker
     }
 
     /// <summary>
+    /// Updates the latency sample buffer with a new measurement.
+    /// Aggregates samples into 5-minute buckets.
+    /// </summary>
+    private void UpdateLatencySample(int latencyMs)
+    {
+        var now = DateTime.UtcNow;
+        var timeSinceLastSample = (now - _lastLatencySampleTime).TotalMinutes;
+
+        // Create a new 5-minute bucket if needed
+        if (timeSinceLastSample >= 5 || _latencySampleCount == 0)
+        {
+            var sample = new LatencySample
+            {
+                Timestamp = now,
+                TotalLatencyMs = latencyMs,
+                Count = latencyMs > 0 ? 1 : 0, // Don't count zero-latency (log-parsed) requests
+                MinLatencyMs = latencyMs > 0 ? latencyMs : int.MaxValue,
+                MaxLatencyMs = latencyMs
+            };
+
+            _latencySamples[_latencyIndex] = sample;
+            _latencyIndex = (_latencyIndex + 1) % _latencySamples.Length;
+
+            if (_latencySampleCount < _latencySamples.Length)
+            {
+                _latencySampleCount++;
+            }
+
+            _lastLatencySampleTime = now;
+        }
+        else if (latencyMs > 0)
+        {
+            // Update the current bucket
+            var currentIndex = (_latencyIndex - 1 + _latencySamples.Length) % _latencySamples.Length;
+            var sample = _latencySamples[currentIndex];
+            sample.TotalLatencyMs += latencyMs;
+            sample.Count++;
+            sample.MinLatencyMs = Math.Min(sample.MinLatencyMs, latencyMs);
+            sample.MaxLatencyMs = Math.Max(sample.MaxLatencyMs, latencyMs);
+            _latencySamples[currentIndex] = sample;
+        }
+    }
+
+    /// <inheritdoc/>
+    public ApiLatencyStatsDto GetLatencyStatistics(int hours = 24)
+    {
+        lock (_lock)
+        {
+            if (_latencySampleCount == 0)
+            {
+                return new ApiLatencyStatsDto
+                {
+                    AvgLatencyMs = 0,
+                    MinLatencyMs = 0,
+                    MaxLatencyMs = 0,
+                    P50LatencyMs = 0,
+                    P95LatencyMs = 0,
+                    P99LatencyMs = 0,
+                    SampleCount = 0
+                };
+            }
+
+            var cutoff = DateTime.UtcNow.AddHours(-hours);
+            var values = new List<double>();
+            var minLatency = double.MaxValue;
+            var maxLatency = 0.0;
+            var totalLatency = 0.0;
+            var totalCount = 0;
+
+            // Collect latency values from samples within the time window
+            var startIndex = _latencySampleCount < _latencySamples.Length ? 0 : _latencyIndex;
+            for (int i = 0; i < _latencySampleCount; i++)
+            {
+                var index = (startIndex + i) % _latencySamples.Length;
+                var sample = _latencySamples[index];
+
+                if (sample.Timestamp >= cutoff && sample.Count > 0)
+                {
+                    var avgLatency = (double)sample.TotalLatencyMs / sample.Count;
+                    values.Add(avgLatency);
+                    minLatency = Math.Min(minLatency, sample.MinLatencyMs);
+                    maxLatency = Math.Max(maxLatency, sample.MaxLatencyMs);
+                    totalLatency += sample.TotalLatencyMs;
+                    totalCount += sample.Count;
+                }
+            }
+
+            if (values.Count == 0 || totalCount == 0)
+            {
+                return new ApiLatencyStatsDto
+                {
+                    AvgLatencyMs = 0,
+                    MinLatencyMs = 0,
+                    MaxLatencyMs = 0,
+                    P50LatencyMs = 0,
+                    P95LatencyMs = 0,
+                    P99LatencyMs = 0,
+                    SampleCount = 0
+                };
+            }
+
+            // Sort for percentile calculation
+            values.Sort();
+
+            var stats = new ApiLatencyStatsDto
+            {
+                AvgLatencyMs = totalLatency / totalCount,
+                MinLatencyMs = minLatency,
+                MaxLatencyMs = maxLatency,
+                P50LatencyMs = CalculatePercentile(values, 50),
+                P95LatencyMs = CalculatePercentile(values, 95),
+                P99LatencyMs = CalculatePercentile(values, 99),
+                SampleCount = totalCount
+            };
+
+            _logger.LogDebug(
+                "Calculated API latency statistics for {Hours}h: Avg={Avg:F1}ms, P50={P50:F1}ms, P95={P95:F1}ms, P99={P99:F1}ms, Samples={Count}",
+                hours, stats.AvgLatencyMs, stats.P50LatencyMs, stats.P95LatencyMs, stats.P99LatencyMs, stats.SampleCount);
+
+            return stats;
+        }
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ApiLatencySampleDto> GetLatencySamples(int hours = 24)
+    {
+        lock (_lock)
+        {
+            if (_latencySampleCount == 0)
+            {
+                return Array.Empty<ApiLatencySampleDto>();
+            }
+
+            var cutoff = DateTime.UtcNow.AddHours(-hours);
+            var result = new List<ApiLatencySampleDto>();
+
+            // Read samples in chronological order
+            var startIndex = _latencySampleCount < _latencySamples.Length ? 0 : _latencyIndex;
+            for (int i = 0; i < _latencySampleCount; i++)
+            {
+                var index = (startIndex + i) % _latencySamples.Length;
+                var sample = _latencySamples[index];
+
+                if (sample.Timestamp >= cutoff && sample.Count > 0)
+                {
+                    var avgLatency = (double)sample.TotalLatencyMs / sample.Count;
+
+                    // For P95, we'll use the max latency in the bucket as an approximation
+                    var p95Latency = sample.MaxLatencyMs;
+
+                    result.Add(new ApiLatencySampleDto
+                    {
+                        Timestamp = sample.Timestamp,
+                        AvgLatencyMs = avgLatency,
+                        P95LatencyMs = p95Latency
+                    });
+                }
+            }
+
+            _logger.LogDebug("Retrieved {Count} API latency samples for last {Hours} hours", result.Count, hours);
+            return result;
+        }
+    }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<ApiRequestVolumeDto> GetRequestVolume(int hours = 24)
+    {
+        lock (_lock)
+        {
+            UpdateHourlyBucket();
+
+            var result = new List<ApiRequestVolumeDto>();
+            var hoursToInclude = Math.Min(hours, 24);
+
+            // Get request volume per hour
+            for (int i = hoursToInclude - 1; i >= 0; i--)
+            {
+                var hourIndex = (_currentHourIndex - i + 24) % 24;
+                var timestamp = DateTime.UtcNow.AddHours(-i);
+
+                // Round to the start of the hour
+                timestamp = new DateTime(timestamp.Year, timestamp.Month, timestamp.Day, timestamp.Hour, 0, 0, DateTimeKind.Utc);
+
+                var requestCount = _hourlyRequests[hourIndex];
+
+                if (requestCount > 0)
+                {
+                    result.Add(new ApiRequestVolumeDto
+                    {
+                        Timestamp = timestamp,
+                        RequestCount = requestCount,
+                        Category = "All" // Could be enhanced to track per-category volume
+                    });
+                }
+            }
+
+            _logger.LogDebug("Retrieved {Count} API request volume data points for last {Hours} hours", result.Count, hours);
+            return result;
+        }
+    }
+
+    /// <summary>
+    /// Calculates the percentile value from a sorted list of doubles.
+    /// </summary>
+    /// <param name="sortedValues">A sorted list of double values.</param>
+    /// <param name="percentile">The percentile to calculate (0-100).</param>
+    /// <returns>The value at the specified percentile.</returns>
+    private static double CalculatePercentile(List<double> sortedValues, double percentile)
+    {
+        if (sortedValues.Count == 0)
+        {
+            return 0;
+        }
+
+        if (sortedValues.Count == 1)
+        {
+            return sortedValues[0];
+        }
+
+        // Calculate the index using the nearest-rank method
+        var index = (int)Math.Ceiling((percentile / 100.0) * sortedValues.Count) - 1;
+
+        // Clamp to valid range
+        index = Math.Max(0, Math.Min(sortedValues.Count - 1, index));
+
+        return sortedValues[index];
+    }
+
+    /// <summary>
     /// Internal class for tracking API category metrics.
     /// </summary>
     private class ApiCategory
@@ -261,5 +516,18 @@ public class ApiRequestTracker : IApiRequestTracker
         public required string Endpoint { get; init; }
         public required int RetryAfterMs { get; init; }
         public required bool IsGlobal { get; init; }
+    }
+
+    /// <summary>
+    /// Internal struct for storing aggregated latency samples in the circular buffer.
+    /// Each sample represents a 5-minute bucket of aggregated latency measurements.
+    /// </summary>
+    private struct LatencySample
+    {
+        public DateTime Timestamp { get; set; }
+        public long TotalLatencyMs { get; set; }
+        public int Count { get; set; }
+        public int MinLatencyMs { get; set; }
+        public int MaxLatencyMs { get; set; }
     }
 }

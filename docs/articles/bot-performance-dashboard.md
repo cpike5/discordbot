@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-01
 **Feature Reference:** Issue #295 (Epic)
-**Status:** In Progress (6 of 9 sub-issues completed)
+**Status:** In Progress (7 of 9 sub-issues completed)
 
 ---
 
@@ -16,8 +16,8 @@
   - [Bot Health Metrics Dashboard (#563)](#bot-health-metrics-dashboard-issue-563)
   - [System Health Monitoring (#568)](#system-health-monitoring-issue-568)
   - [Command Performance Analytics (#565)](#command-performance-analytics-issue-565)
-- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [Discord API & Rate Limit Monitoring (#566)](#discord-api--rate-limit-monitoring-issue-566)
+- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [Performance Alerts & Incidents (#570)](#performance-alerts--incidents-issue-570)
   - [Performance Dashboard UI Implementation (#573)](#performance-dashboard-ui-implementation-issue-573)
 - [Configuration](#configuration)
@@ -449,6 +449,7 @@ Response:
 |----------|--------|-------------|--------------|
 | `/api/metrics/api/usage` | GET | Discord API usage statistics | `ApiUsageSummaryDto` |
 | `/api/metrics/api/rate-limits` | GET | Rate limit events | `RateLimitSummaryDto` |
+| `/api/metrics/api/latency` | GET | API latency history and statistics | `ApiLatencyHistoryDto` |
 
 **GET /api/metrics/api/usage**
 
@@ -496,6 +497,40 @@ Response:
       "retryAfterMs": 2500
     }
   ]
+}
+```
+
+**GET /api/metrics/api/latency**
+
+Returns Discord API latency samples and statistics for charting and analysis.
+
+Query Parameters:
+- `hours` (optional, default: 24): Number of hours of history (1-168)
+
+Response:
+```json
+{
+  "samples": [
+    {
+      "timestamp": "2026-01-01T10:00:00Z",
+      "avgLatencyMs": 85.5,
+      "p95LatencyMs": 125.0
+    },
+    {
+      "timestamp": "2026-01-01T11:00:00Z",
+      "avgLatencyMs": 82.3,
+      "p95LatencyMs": 118.5
+    }
+  ],
+  "statistics": {
+    "avgLatencyMs": 82.3,
+    "minLatencyMs": 45.0,
+    "maxLatencyMs": 250.0,
+    "p50LatencyMs": 75.0,
+    "p95LatencyMs": 125.0,
+    "p99LatencyMs": 200.0,
+    "sampleCount": 288
+  }
 }
 ```
 
@@ -978,20 +1013,220 @@ The page includes a shared performance dashboard navigation tab bar:
 
 ---
 
-## Open Sub-Issues (To Be Implemented)
-
 ### Discord API & Rate Limit Monitoring (Issue #566)
 
-> **Status:** To be documented when implemented
+**URL:** `/Admin/Performance/ApiMetrics`
+**Authorization:** `RequireViewer` policy
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/Performance/ApiMetrics.cshtml.cs`
 
-*This section will be updated when [Issue #566](https://github.com/cpike5/discordbot/issues/566) is completed.*
+The Discord API & Rate Limit Monitoring Dashboard provides comprehensive tracking of Discord API usage, latency metrics, and rate limit events to help administrators optimize bot performance and avoid rate limiting.
 
-**Planned Features:**
-- Discord API request tracking by endpoint
-- Rate limit event monitoring and alerts
-- API latency distribution charts
-- Request category breakdown
-- Rate limit bucket utilization
+#### Features
+
+**Summary Metric Cards**
+
+The page displays four key API performance metrics at the top:
+
+- **Total API Requests**: Aggregate count of all API requests across REST and Gateway categories within the selected time window
+- **Average Latency**: Mean API response time with color-coded status:
+  - Green: < 100ms (excellent)
+  - Yellow: 100-200ms (acceptable)
+  - Red: > 200ms (needs attention)
+- **Rate Limit Hits**: Number of rate limit events encountered in the time window with severity badge
+- **P95 Latency**: 95th percentile latency for SLA monitoring and performance guarantees
+
+**API Latency Over Time Chart**
+
+Interactive dual-line chart showing API performance trends:
+- Two data series: Average latency and P95 latency
+- Chart.js line chart with dark theme styling matching design system
+- Time buckets based on selected range (hourly for 24h/7d, daily for 30d)
+- Hover tooltips showing exact millisecond values and timestamps
+- Responsive time formatting based on selected range
+- Auto-refresh every 30 seconds without full page reload
+
+**Rate Limit Hits Log**
+
+Scrollable event list displaying recent rate limit encounters:
+- Event timestamp with relative time display
+- Endpoint or bucket that triggered the rate limit
+- Retry-after duration in milliseconds
+- Global rate limit flag indicator (distinguishes global vs. per-route limits)
+- Color-coded severity indicators:
+  - Orange: Standard rate limit hit
+  - Red: Global rate limit hit
+- Empty state message if no rate limits encountered
+- Maximum 50 most recent events displayed
+
+**Usage by Category Table**
+
+Breakdown of API requests by category with performance metrics:
+- **Category**: REST (HTTP API calls) and Gateway (WebSocket events)
+- **Request Count**: Total requests in category
+- **Average Latency**: Mean response time for category
+- **Error Count**: Failed requests in category
+- **Error Rate**: Percentage of requests that failed (calculated as errors/requests × 100)
+
+Table includes color-coded status indicators:
+- Green: Error rate < 1%
+- Yellow: Error rate 1-5%
+- Red: Error rate > 5%
+
+#### Time Range Selector
+
+Toggle buttons allowing users to view metrics for different time periods:
+- **24h**: Last 24 hours (hourly granularity for latency samples)
+- **7d**: Last 7 days (hourly granularity for latency samples)
+- **30d**: Last 30 days (daily granularity for latency samples)
+
+Active selection highlighted with blue background and border. Time range affects all charts, tables, and summary metrics.
+
+#### View Model
+
+```csharp
+public class ApiRateLimitsViewModel
+{
+    // Summary metrics
+    public long TotalRequests { get; set; }
+    public int RateLimitHits { get; set; }
+    public double AvgLatencyMs { get; set; }
+    public double P95LatencyMs { get; set; }
+
+    // Data collections
+    public IReadOnlyList<ApiUsageDto> UsageByCategory { get; set; }
+    public IReadOnlyList<RateLimitEventDto> RecentRateLimitEvents { get; set; }
+    public ApiLatencyStatsDto? LatencyStats { get; set; }
+
+    // Time range selection
+    public int Hours { get; set; } = 24;
+
+    // Helper methods
+    public string GetHealthStatus();        // Returns "healthy", "warning", or "critical"
+    public string GetHealthStatusText();    // Returns display text for status
+    public string GetHealthStatusClass();   // Returns Tailwind CSS class for status
+}
+```
+
+#### API Endpoints Used
+
+The page consumes these API endpoints documented in [Performance Dashboard API Endpoints](#performance-dashboard-api-endpoints-issue-572):
+
+- `GET /api/metrics/api/latency?hours={hours}` - API latency history with samples and statistics
+- `GET /api/metrics/api/usage?hours={hours}` - API usage statistics by category
+- `GET /api/metrics/api/rate-limits?hours={hours}` - Rate limit events with details
+
+#### New DTOs
+
+The following DTOs were added to support API metrics visualization:
+
+**ApiRequestVolumeDto**
+```csharp
+public record ApiRequestVolumeDto
+{
+    public DateTime Timestamp { get; init; }
+    public long RequestCount { get; init; }
+    public string Category { get; init; }  // "REST" or "Gateway"
+}
+```
+
+**ApiLatencySampleDto**
+```csharp
+public record ApiLatencySampleDto
+{
+    public DateTime Timestamp { get; init; }
+    public double AvgLatencyMs { get; init; }
+    public double P95LatencyMs { get; init; }
+}
+```
+
+**ApiLatencyStatsDto**
+```csharp
+public record ApiLatencyStatsDto
+{
+    public double AvgLatencyMs { get; init; }
+    public double MinLatencyMs { get; init; }
+    public double MaxLatencyMs { get; init; }
+    public double P50LatencyMs { get; init; }
+    public double P95LatencyMs { get; init; }
+    public double P99LatencyMs { get; init; }
+    public int SampleCount { get; init; }
+}
+```
+
+**ApiLatencyHistoryDto**
+```csharp
+public record ApiLatencyHistoryDto
+{
+    public IReadOnlyList<ApiLatencySampleDto> Samples { get; init; }
+    public ApiLatencyStatsDto Statistics { get; init; }
+}
+```
+
+#### Enhanced IApiRequestTracker Methods
+
+The `IApiRequestTracker` interface was enhanced with new methods for latency tracking:
+
+```csharp
+// Record an API request with latency measurement
+void RecordRequest(string category, int latencyMs);
+
+// Get aggregated latency statistics for a time window
+ApiLatencyStatsDto GetLatencyStatistics(int hours = 24);
+
+// Get time-series latency samples for charting
+IReadOnlyList<ApiLatencySampleDto> GetLatencySamples(int hours = 24);
+
+// Get request volume breakdown by category
+IReadOnlyList<ApiRequestVolumeDto> GetRequestVolume(int hours = 24);
+```
+
+#### Health Status Calculation
+
+The dashboard calculates overall API health status based on rate limits and latency:
+
+- **Critical** (Red): Rate limit hits > 10 OR avg latency > 500ms
+  - Indicates severe API performance degradation
+  - Immediate attention required
+- **Warning** (Yellow): Rate limit hits > 0 OR avg latency > 200ms
+  - Indicates potential performance issues
+  - Monitoring recommended
+- **Healthy** (Green): No rate limit hits AND avg latency < 200ms
+  - Normal operating conditions
+  - API performance within acceptable thresholds
+
+Health status displayed in summary card with color-coded badge and descriptive text.
+
+#### Auto-Refresh
+
+The page implements automatic refresh functionality to provide near real-time monitoring:
+- Charts and metrics refresh every 30 seconds
+- API calls made to `/api/metrics/api/latency` endpoint
+- No full page reload required - charts update in-place
+- Refresh pauses when browser tab is hidden (visibility API)
+- Refresh resumes when tab becomes visible again
+- JavaScript console logs refresh activity for debugging
+
+#### Empty State Handling
+
+When no API request data is available for the selected time period:
+- Cloud icon (API symbol) displayed in center
+- Message: "No API data available"
+- Description: "API metrics will appear here once the bot makes Discord API requests in the selected time period."
+- Helpful for new deployments or low-traffic periods
+
+#### Navigation
+
+The page includes a shared performance dashboard navigation tab bar:
+- Overview
+- Health Metrics
+- Commands
+- **API & Rate Limits** (active)
+- System
+- Alerts
+
+---
+
+## Open Sub-Issues (To Be Implemented)
 
 ### Performance Alerts & Incidents (Issue #570)
 
@@ -1153,6 +1388,7 @@ The `CommandPerformanceAggregator` background service periodically queries the c
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.3 | 2026-01-01 | Added Discord API & Rate Limit Monitoring (#566) documentation |
 | 1.2 | 2026-01-01 | Added Command Performance Analytics (#565) documentation |
 | 1.1 | 2026-01-01 | Added System Health Monitoring (#568) documentation |
 | 1.0 | 2026-01-01 | Initial documentation (Issues #580, #571, #572, #563 completed) |
