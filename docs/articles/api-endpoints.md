@@ -32,6 +32,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/metrics/system/database` | GET | Database query metrics |
 | `/api/metrics/system/services` | GET | Background service health status |
 | `/api/metrics/system/cache` | GET | Cache hit/miss statistics |
+| `/api/metrics/system/history` | GET | Historical system metrics |
+| `/api/metrics/system/history/database` | GET | Historical database metrics |
+| `/api/metrics/system/history/memory` | GET | Historical memory metrics |
 | `/api/alerts/config` | GET | All alert configurations |
 | `/api/alerts/config/{metricName}` | GET | Specific alert configuration |
 | `/api/alerts/config/{metricName}` | PUT | Update alert configuration |
@@ -923,6 +926,245 @@ Returns cache hit/miss statistics by key prefix.
 | `evictions` | int | Number of cache evictions |
 | `summary.overallHitRate` | double | Overall cache hit rate |
 | `summary.memoryUsageMb` | double | Approximate cache memory usage |
+
+---
+
+#### GET /api/metrics/system/history
+
+Retrieves historical system metric snapshots for charting and trend analysis.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `hours` | int | 24 | Time range in hours (1-720) |
+| `metric` | string | "all" | Metric filter: "database", "memory", "cache", "services", or "all" |
+
+**Aggregation Logic:**
+
+The endpoint automatically aggregates data based on the time range requested to optimize response size while maintaining meaningful granularity:
+
+| Hours Requested | Aggregation Strategy |
+|----------------|---------------------|
+| 1-6 hours | Raw samples (no aggregation) |
+| 7-24 hours | 5-minute buckets |
+| 25-168 hours (7 days) | 15-minute buckets |
+| 169-720 hours (30 days) | 1-hour buckets |
+
+**Response: 200 OK**
+
+```json
+{
+  "startTime": "2026-01-01T00:00:00Z",
+  "endTime": "2026-01-02T00:00:00Z",
+  "granularity": "5m",
+  "snapshots": [
+    {
+      "timestamp": "2026-01-01T00:00:00Z",
+      "databaseAvgQueryTimeMs": 12.5,
+      "databaseTotalQueries": 45230,
+      "databaseSlowQueryCount": 3,
+      "workingSetMB": 256,
+      "privateMemoryMB": 312,
+      "heapSizeMB": 128,
+      "gen0Collections": 15,
+      "gen1Collections": 3,
+      "gen2Collections": 0,
+      "cacheHitRatePercent": 94.2,
+      "cacheTotalEntries": 450,
+      "cacheTotalHits": 25000,
+      "cacheTotalMisses": 1500,
+      "servicesRunningCount": 8,
+      "servicesErrorCount": 0,
+      "servicesTotalCount": 8
+    }
+  ]
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `startTime` | datetime | UTC start of time range |
+| `endTime` | datetime | UTC end of time range |
+| `granularity` | string | Aggregation granularity ("raw", "5m", "15m", "1h") |
+| `snapshots` | array | Array of metric snapshots |
+| `timestamp` | datetime | UTC timestamp of snapshot |
+| `databaseAvgQueryTimeMs` | double | Average database query time in milliseconds |
+| `databaseTotalQueries` | int | Total database queries executed |
+| `databaseSlowQueryCount` | int | Number of slow queries (>100ms) |
+| `workingSetMB` | double | Working set memory in MB |
+| `privateMemoryMB` | double | Private memory in MB |
+| `heapSizeMB` | double | Managed heap size in MB |
+| `gen0Collections` | int | Generation 0 garbage collections |
+| `gen1Collections` | int | Generation 1 garbage collections |
+| `gen2Collections` | int | Generation 2 garbage collections |
+| `cacheHitRatePercent` | double | Cache hit rate percentage |
+| `cacheTotalEntries` | int | Total cache entries |
+| `cacheTotalHits` | long | Total cache hits |
+| `cacheTotalMisses` | long | Total cache misses |
+| `servicesRunningCount` | int | Count of running services |
+| `servicesErrorCount` | int | Count of services in error state |
+| `servicesTotalCount` | int | Total count of services |
+
+**Error Responses:**
+
+**400 Bad Request** - Invalid query parameters
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Parameter 'hours' must be between 1 and 720",
+  "timestamp": "2026-01-02T15:30:00Z"
+}
+```
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Invalid metric parameter. Must be one of: database, memory, cache, services, all",
+  "timestamp": "2026-01-02T15:30:00Z"
+}
+```
+
+---
+
+#### GET /api/metrics/system/history/database
+
+Retrieves historical database performance metrics with aggregated statistics.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `hours` | int | 24 | Time range in hours (1-720) |
+
+**Response: 200 OK**
+
+```json
+{
+  "startTime": "2026-01-01T00:00:00Z",
+  "endTime": "2026-01-02T00:00:00Z",
+  "samples": [
+    {
+      "timestamp": "2026-01-01T12:00:00Z",
+      "avgQueryTimeMs": 15.2,
+      "totalQueries": 45230,
+      "slowQueryCount": 3
+    },
+    {
+      "timestamp": "2026-01-01T13:00:00Z",
+      "avgQueryTimeMs": 18.5,
+      "totalQueries": 48120,
+      "slowQueryCount": 5
+    }
+  ],
+  "statistics": {
+    "avgQueryTimeMs": 14.8,
+    "minQueryTimeMs": 5.2,
+    "maxQueryTimeMs": 85.3,
+    "totalSlowQueries": 12
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `startTime` | datetime | UTC start of time range |
+| `endTime` | datetime | UTC end of time range |
+| `samples` | array | Array of database metric samples |
+| `timestamp` | datetime | UTC timestamp of sample |
+| `avgQueryTimeMs` | double | Average query execution time in milliseconds |
+| `totalQueries` | int | Total number of queries executed |
+| `slowQueryCount` | int | Number of slow queries (>100ms) |
+| `statistics` | object | Aggregated statistics over the time range |
+| `statistics.avgQueryTimeMs` | double | Average query time across all samples |
+| `statistics.minQueryTimeMs` | double | Minimum query time observed |
+| `statistics.maxQueryTimeMs` | double | Maximum query time observed |
+| `statistics.totalSlowQueries` | int | Total slow query count |
+
+**Error Responses:**
+
+**400 Bad Request** - Invalid query parameters
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Parameter 'hours' must be between 1 and 720",
+  "timestamp": "2026-01-02T15:30:00Z"
+}
+```
+
+---
+
+#### GET /api/metrics/system/history/memory
+
+Retrieves historical memory usage metrics with aggregated statistics.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `hours` | int | 24 | Time range in hours (1-720) |
+
+**Response: 200 OK**
+
+```json
+{
+  "startTime": "2026-01-01T00:00:00Z",
+  "endTime": "2026-01-02T00:00:00Z",
+  "samples": [
+    {
+      "timestamp": "2026-01-01T12:00:00Z",
+      "workingSetMB": 256,
+      "heapSizeMB": 128,
+      "privateMemoryMB": 312
+    },
+    {
+      "timestamp": "2026-01-01T13:00:00Z",
+      "workingSetMB": 268,
+      "heapSizeMB": 135,
+      "privateMemoryMB": 325
+    }
+  ],
+  "statistics": {
+    "avgWorkingSetMB": 248,
+    "maxWorkingSetMB": 312,
+    "avgHeapSizeMB": 125
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `startTime` | datetime | UTC start of time range |
+| `endTime` | datetime | UTC end of time range |
+| `samples` | array | Array of memory metric samples |
+| `timestamp` | datetime | UTC timestamp of sample |
+| `workingSetMB` | double | Working set memory in MB |
+| `heapSizeMB` | double | Managed heap size in MB |
+| `privateMemoryMB` | double | Private memory in MB |
+| `statistics` | object | Aggregated statistics over the time range |
+| `statistics.avgWorkingSetMB` | double | Average working set memory |
+| `statistics.maxWorkingSetMB` | double | Maximum working set memory observed |
+| `statistics.avgHeapSizeMB` | double | Average heap size |
+
+**Error Responses:**
+
+**400 Bad Request** - Invalid query parameters
+
+```json
+{
+  "error": "Bad Request",
+  "message": "Parameter 'hours' must be between 1 and 720",
+  "timestamp": "2026-01-02T15:30:00Z"
+}
+```
 
 ---
 

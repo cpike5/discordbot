@@ -1844,6 +1844,118 @@ All components use Tailwind CSS responsive classes for fluid scaling.
 
 ---
 
+### Historical Metrics System (Feature #613)
+
+The Historical Metrics System provides persistent storage and retrieval of system performance metrics over time, enabling real historical data visualization on the System Health page instead of placeholder values.
+
+#### Problem Solved
+
+Previously, all time-series system health data was lost on application restart and charts displayed randomly generated placeholder data. This system stores periodic metric snapshots in the database for trend analysis.
+
+#### MetricsCollectionService
+
+**Type:** Background Service (MonitoredBackgroundService)
+**Location:** `src/DiscordBot.Bot/Services/MetricsCollectionService.cs`
+
+Collects system metrics at regular intervals and persists them to the database.
+
+**Collected Metrics:**
+- Database: Average query time, total queries, slow query count
+- Memory: Working set (MB), private memory (MB), heap size (MB)
+- GC: Gen 0, Gen 1, Gen 2 collection counts
+- Cache: Hit rate percentage, total entries, hits, misses
+- Services: Running count, error count, total registered services
+
+**Key Features:**
+- Periodic sampling at configurable interval (default: 60 seconds)
+- Automatic cleanup of old snapshots beyond retention period
+- Registers with IBackgroundServiceHealthRegistry for health monitoring
+- Error-resilient: continues collection after transient failures
+
+#### Data Retention
+
+| Time Range | Sample Retention | Aggregation for Display |
+|------------|------------------|------------------------|
+| 0-24 hours | All samples (60s intervals) | Raw for 0-6h, 5-min buckets for 7-24h |
+| 24h-7 days | All samples | 15-minute buckets |
+| 7-30 days | All samples | 1-hour buckets |
+| 30+ days | Deleted | Cleanup service removes data |
+
+**Default Retention Period:** 30 days (configurable)
+**Estimated Storage:** ~8.6 MB for 30 days of data
+
+#### MetricSnapshot Entity
+
+Stored in `MetricSnapshots` table with index on Timestamp for efficient time-range queries.
+
+```csharp
+public class MetricSnapshot
+{
+    public long Id { get; set; }
+    public DateTime Timestamp { get; set; }  // UTC
+
+    // Database metrics
+    public double DatabaseAvgQueryTimeMs { get; set; }
+    public long DatabaseTotalQueries { get; set; }
+    public int DatabaseSlowQueryCount { get; set; }
+
+    // Memory metrics
+    public long WorkingSetMB { get; set; }
+    public long PrivateMemoryMB { get; set; }
+    public long HeapSizeMB { get; set; }
+
+    // GC metrics
+    public int Gen0Collections { get; set; }
+    public int Gen1Collections { get; set; }
+    public int Gen2Collections { get; set; }
+
+    // Cache metrics
+    public double CacheHitRatePercent { get; set; }
+    public int CacheTotalEntries { get; set; }
+    public long CacheTotalHits { get; set; }
+    public long CacheTotalMisses { get; set; }
+
+    // Service health
+    public int ServicesRunningCount { get; set; }
+    public int ServicesErrorCount { get; set; }
+    public int ServicesTotalCount { get; set; }
+}
+```
+
+#### API Endpoints
+
+See [API Endpoints Reference](api-endpoints.md#historical-metrics-endpoints) for full documentation:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/metrics/system/history` | All historical metrics with aggregation |
+| `GET /api/metrics/system/history/database` | Database-specific metrics with statistics |
+| `GET /api/metrics/system/history/memory` | Memory-specific metrics with statistics |
+
+#### UI Integration
+
+The System Health page (`/Admin/Performance/System`) includes:
+
+**Time Range Selector**
+- Buttons: 1h, 6h, 24h, 7d, 30d
+- Updates all charts dynamically without page reload
+- Active selection highlighted with blue styling
+
+**Charts Updated:**
+- **Database Query Time Chart**: Real historical avg query time data
+- **Memory & GC Chart**: Real working set and heap size over time
+
+**Timezone Handling:**
+- All timestamps stored in UTC
+- JavaScript converts to user's local timezone for display
+- Chart tooltips show full timestamp with local time
+
+#### Configuration
+
+See `HistoricalMetricsOptions` in the [Configuration](#configuration) section.
+
+---
+
 ## Configuration
 
 Performance metrics configuration is managed through the `PerformanceMetricsOptions` class.
@@ -1982,6 +2094,7 @@ The `CommandPerformanceAggregator` background service periodically queries the c
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.7 | 2026-01-02 | Added Historical Metrics System (#613) documentation; MetricsCollectionService, data retention, API endpoints |
 | 1.6 | 2026-01-02 | Marked Performance Dashboard UI (#573) as completed; added Overview page implementation documentation; all 9 sub-issues completed |
 | 1.5 | 2026-01-02 | Marked Performance Alerts (#570) as completed; added circular DI dependency fix documentation |
 | 1.4 | 2026-01-02 | Added Performance Alerts & Incidents (#570) documentation |
