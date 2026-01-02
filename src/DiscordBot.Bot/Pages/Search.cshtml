@@ -22,7 +22,13 @@
                 {
                     <p class="mt-1 text-text-secondary">
                         @{
-                            var totalResults = Model.ViewModel.GuildResults.Count + Model.ViewModel.CommandLogResults.Count + Model.ViewModel.UserResults.Count;
+                            var totalResults = Model.ViewModel.GuildResults.Count +
+                                             Model.ViewModel.CommandLogResults.Count +
+                                             Model.ViewModel.UserResults.Count +
+                                             Model.ViewModel.Commands.Count +
+                                             Model.ViewModel.AuditLogs.Count +
+                                             Model.ViewModel.MessageLogs.Count +
+                                             Model.ViewModel.Pages.Count;
                         }
                         Found @totalResults result@(totalResults != 1 ? "s" : "") for <span class="font-semibold text-text-primary">"@Model.ViewModel.SearchTerm"</span>
                     </p>
@@ -360,6 +366,275 @@
                                 </a>
                             }
                         </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Commands Section -->
+            @if (Model.ViewModel.Commands.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <h2 class="text-lg font-semibold text-text-primary">Commands</h2>
+                                @{
+                                    var commandsCountBadge = new BadgeViewModel
+                                    {
+                                        Text = Model.ViewModel.Commands.Count.ToString(),
+                                        Variant = BadgeVariant.Default,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="commandsCountBadge" />
+                            </div>
+                            @if (Model.ViewModel.TotalCommands > Model.ViewModel.Commands.Count && !string.IsNullOrEmpty(Model.ViewModel.CommandsViewAllUrl))
+                            {
+                                <a href="@Model.ViewModel.CommandsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @Model.ViewModel.TotalCommands results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Command Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var cmd in Model.ViewModel.Commands)
+                        {
+                            <a href="@cmd.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-mono text-sm font-semibold text-accent-blue"><highlight text="@cmd.Title" search-term="@Model.ViewModel.SearchTerm" /></span>
+                                        @if (!string.IsNullOrEmpty(cmd.BadgeText))
+                                        {
+                                            var cmdBadge = new BadgeViewModel
+                                            {
+                                                Text = cmd.BadgeText,
+                                                Variant = BadgeVariant.Blue,
+                                                Size = BadgeSize.Small
+                                            };
+                                            <partial name="Shared/Components/_Badge" model="cmdBadge" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(cmd.Description))
+                                    {
+                                        <p class="text-sm text-text-secondary"><highlight text="@cmd.Description" search-term="@Model.ViewModel.SearchTerm" max-length="100" /></p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Pages Section -->
+            @if (Model.ViewModel.Pages.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <h2 class="text-lg font-semibold text-text-primary">Pages</h2>
+                            @{
+                                var pagesCountBadge = new BadgeViewModel
+                                {
+                                    Text = Model.ViewModel.Pages.Count.ToString(),
+                                    Variant = BadgeVariant.Default,
+                                    Size = BadgeSize.Small
+                                };
+                            }
+                            <partial name="Shared/Components/_Badge" model="pagesCountBadge" />
+                        </div>
+                    </div>
+
+                    <!-- Page Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var pageItem in Model.ViewModel.Pages)
+                        {
+                            <a href="@pageItem.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-3 flex-wrap">
+                                            <h3 class="font-semibold text-text-primary"><highlight text="@pageItem.Title" search-term="@Model.ViewModel.SearchTerm" /></h3>
+                                            @if (!string.IsNullOrEmpty(pageItem.BadgeText))
+                                            {
+                                                var pageBadgeVariant = pageItem.BadgeVariant switch
+                                                {
+                                                    "primary" => BadgeVariant.Blue,
+                                                    "success" => BadgeVariant.Success,
+                                                    "warning" => BadgeVariant.Warning,
+                                                    "info" => BadgeVariant.Info,
+                                                    "secondary" => BadgeVariant.Default,
+                                                    _ => BadgeVariant.Default
+                                                };
+                                                var pageBadge = new BadgeViewModel
+                                                {
+                                                    Text = pageItem.BadgeText,
+                                                    Variant = pageBadgeVariant,
+                                                    Size = BadgeSize.Small
+                                                };
+                                                <partial name="Shared/Components/_Badge" model="pageBadge" />
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(pageItem.Description))
+                                        {
+                                            <p class="text-sm text-text-secondary mt-1"><highlight text="@pageItem.Description" search-term="@Model.ViewModel.SearchTerm" max-length="100" /></p>
+                                        }
+                                    </div>
+                                    <svg class="w-5 h-5 text-text-tertiary flex-shrink-0 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Audit Logs Section (Admin+ only) -->
+            @if (Model.ViewModel.CanViewUsers && Model.ViewModel.AuditLogs.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <h2 class="text-lg font-semibold text-text-primary">Audit Logs</h2>
+                                @{
+                                    var auditLogsCountBadge = new BadgeViewModel
+                                    {
+                                        Text = Model.ViewModel.AuditLogs.Count.ToString(),
+                                        Variant = BadgeVariant.Default,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="auditLogsCountBadge" />
+                            </div>
+                            @if (Model.ViewModel.TotalAuditLogs > Model.ViewModel.AuditLogs.Count && !string.IsNullOrEmpty(Model.ViewModel.AuditLogsViewAllUrl))
+                            {
+                                <a href="@Model.ViewModel.AuditLogsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @Model.ViewModel.TotalAuditLogs results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Audit Log Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var log in Model.ViewModel.AuditLogs)
+                        {
+                            <a href="@log.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-semibold text-text-primary"><highlight text="@log.Title" search-term="@Model.ViewModel.SearchTerm" /></span>
+                                        @if (!string.IsNullOrEmpty(log.BadgeText))
+                                        {
+                                            var auditBadgeVariant = log.BadgeVariant switch
+                                            {
+                                                "danger" => BadgeVariant.Error,
+                                                "warning" => BadgeVariant.Warning,
+                                                "info" => BadgeVariant.Info,
+                                                "primary" => BadgeVariant.Blue,
+                                                _ => BadgeVariant.Default
+                                            };
+                                            var auditBadge = new BadgeViewModel
+                                            {
+                                                Text = log.BadgeText,
+                                                Variant = auditBadgeVariant,
+                                                Size = BadgeSize.Small
+                                            };
+                                            <partial name="Shared/Components/_Badge" model="auditBadge" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(log.Subtitle))
+                                    {
+                                        <p class="text-sm text-text-secondary"><highlight text="@log.Subtitle" search-term="@Model.ViewModel.SearchTerm" /></p>
+                                    }
+                                    @if (log.Timestamp.HasValue)
+                                    {
+                                        <p class="text-xs text-text-tertiary">
+                                            <span data-utc="@log.Timestamp.Value.ToString("o")" data-format="datetime-short"></span>
+                                        </p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Message Logs Section (Admin+ only) -->
+            @if (Model.ViewModel.CanViewUsers && Model.ViewModel.MessageLogs.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                                </svg>
+                                <h2 class="text-lg font-semibold text-text-primary">Message Logs</h2>
+                                @{
+                                    var messageLogsCountBadge = new BadgeViewModel
+                                    {
+                                        Text = Model.ViewModel.MessageLogs.Count.ToString(),
+                                        Variant = BadgeVariant.Default,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="messageLogsCountBadge" />
+                            </div>
+                            @if (Model.ViewModel.TotalMessageLogs > Model.ViewModel.MessageLogs.Count && !string.IsNullOrEmpty(Model.ViewModel.MessageLogsViewAllUrl))
+                            {
+                                <a href="@Model.ViewModel.MessageLogsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @Model.ViewModel.TotalMessageLogs results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Message Log Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var msg in Model.ViewModel.MessageLogs)
+                        {
+                            <a href="@msg.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-semibold text-text-primary text-sm"><highlight text="@msg.Title" search-term="@Model.ViewModel.SearchTerm" max-length="60" show-context="true" /></span>
+                                        @if (!string.IsNullOrEmpty(msg.BadgeText))
+                                        {
+                                            var msgBadgeVariant = msg.BadgeVariant == "primary" ? BadgeVariant.Blue : BadgeVariant.Default;
+                                            var msgBadge = new BadgeViewModel
+                                            {
+                                                Text = msg.BadgeText,
+                                                Variant = msgBadgeVariant,
+                                                Size = BadgeSize.Small
+                                            };
+                                            <partial name="Shared/Components/_Badge" model="msgBadge" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(msg.Subtitle))
+                                    {
+                                        <p class="text-sm text-text-secondary"><highlight text="@msg.Subtitle" search-term="@Model.ViewModel.SearchTerm" /></p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(msg.Description))
+                                    {
+                                        <p class="text-xs text-text-tertiary">@msg.Description</p>
+                                    }
+                                </div>
+                            </a>
+                        }
                     </div>
                 </div>
             }

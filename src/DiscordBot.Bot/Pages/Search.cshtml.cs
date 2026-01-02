@@ -9,27 +9,21 @@ namespace DiscordBot.Bot.Pages;
 
 /// <summary>
 /// Page model for the unified search page.
-/// Searches across Guilds, Command Logs, and Users (Admin+ only).
+/// Searches across all categories using the centralized ISearchService.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
 public class SearchModel : PageModel
 {
-    private readonly IGuildService _guildService;
-    private readonly ICommandLogService _commandLogService;
-    private readonly IUserManagementService _userManagementService;
+    private readonly ISearchService _searchService;
     private readonly IAuthorizationService _authorizationService;
     private readonly ILogger<SearchModel> _logger;
 
     public SearchModel(
-        IGuildService guildService,
-        ICommandLogService commandLogService,
-        IUserManagementService userManagementService,
+        ISearchService searchService,
         IAuthorizationService authorizationService,
         ILogger<SearchModel> logger)
     {
-        _guildService = guildService;
-        _commandLogService = commandLogService;
-        _userManagementService = userManagementService;
+        _searchService = searchService;
         _authorizationService = authorizationService;
         _logger = logger;
     }
@@ -61,163 +55,120 @@ public class SearchModel : PageModel
 
         _logger.LogInformation("User {UserId} searching for term: {SearchTerm}", User.Identity?.Name, SearchTerm);
 
-        // Check if user has permission to view user results (Admin+ only)
+        // Check if user has permission to view admin categories
         var canViewUsers = (await _authorizationService.AuthorizeAsync(User, "RequireAdmin")).Succeeded;
 
-        // Execute searches in parallel for performance
-        var guildSearchTask = SearchGuildsAsync(SearchTerm, cancellationToken);
-        var commandLogSearchTask = SearchCommandLogsAsync(SearchTerm, cancellationToken);
-        var userSearchTask = canViewUsers
-            ? SearchUsersAsync(SearchTerm, cancellationToken)
-            : Task.FromResult((Results: Array.Empty<UserSearchResultItem>(), TotalCount: 0));
-
-        await Task.WhenAll(guildSearchTask, commandLogSearchTask, userSearchTask);
-
-        var (guildResults, guildTotalCount) = await guildSearchTask;
-        var (commandLogResults, commandLogTotalCount) = await commandLogSearchTask;
-        var (userResults, userTotalCount) = await userSearchTask;
-
-        ViewModel = new SearchResultsViewModel
+        // Execute unified search using the new ISearchService
+        var searchQuery = new SearchQueryDto
         {
             SearchTerm = SearchTerm,
-            CanViewUsers = canViewUsers,
-            GuildResults = guildResults,
-            TotalGuildResults = guildTotalCount,
-            CommandLogResults = commandLogResults,
-            TotalCommandLogResults = commandLogTotalCount,
-            UserResults = userResults,
-            TotalUserResults = userTotalCount
+            MaxResultsPerCategory = 5,
+            CategoryFilter = null // Search all categories
         };
 
-        _logger.LogInformation("Search completed. Found {GuildCount} guilds, {CommandLogCount} command logs, {UserCount} users",
-            guildResults.Length, commandLogResults.Length, userResults.Length);
+        var unifiedResult = await _searchService.SearchAsync(searchQuery, User, cancellationToken);
+
+        // Map UnifiedSearchResultDto to SearchResultsViewModel
+        ViewModel = new SearchResultsViewModel
+        {
+            SearchTerm = unifiedResult.SearchTerm,
+            CanViewUsers = canViewUsers,
+
+            // Map legacy Guilds category (backward compatibility)
+            GuildResults = unifiedResult.Guilds.Items
+                .Select(MapToGuildSearchResultItem)
+                .ToArray(),
+            TotalGuildResults = unifiedResult.Guilds.TotalCount,
+
+            // Map legacy CommandLogs category (backward compatibility)
+            CommandLogResults = unifiedResult.CommandLogs.Items
+                .Select(MapToCommandLogSearchResultItem)
+                .ToArray(),
+            TotalCommandLogResults = unifiedResult.CommandLogs.TotalCount,
+
+            // Map legacy Users category (backward compatibility)
+            UserResults = unifiedResult.Users.Items
+                .Select(MapToUserSearchResultItem)
+                .ToArray(),
+            TotalUserResults = unifiedResult.Users.TotalCount,
+
+            // Map new categories using SearchResultItemDto
+            Commands = unifiedResult.Commands.Items,
+            TotalCommands = unifiedResult.Commands.TotalCount,
+            CommandsViewAllUrl = unifiedResult.Commands.ViewAllUrl,
+
+            AuditLogs = unifiedResult.AuditLogs.Items,
+            TotalAuditLogs = unifiedResult.AuditLogs.TotalCount,
+            AuditLogsViewAllUrl = unifiedResult.AuditLogs.ViewAllUrl,
+
+            MessageLogs = unifiedResult.MessageLogs.Items,
+            TotalMessageLogs = unifiedResult.MessageLogs.TotalCount,
+            MessageLogsViewAllUrl = unifiedResult.MessageLogs.ViewAllUrl,
+
+            Pages = unifiedResult.Pages.Items,
+            TotalPages = unifiedResult.Pages.TotalCount,
+            PagesViewAllUrl = unifiedResult.Pages.ViewAllUrl
+        };
+
+        _logger.LogInformation("Search completed. Found {TotalResults} total results across all categories",
+            unifiedResult.TotalResultCount);
 
         return Page();
     }
 
     /// <summary>
-    /// Searches guilds by name or ID.
+    /// Maps a SearchResultItemDto to GuildSearchResultItem for backward compatibility.
     /// </summary>
-    private async Task<(GuildSearchResultItem[] Results, int TotalCount)> SearchGuildsAsync(
-        string searchTerm,
-        CancellationToken cancellationToken)
+    private GuildSearchResultItem MapToGuildSearchResultItem(SearchResultItemDto dto)
     {
-        try
+        return new GuildSearchResultItem
         {
-            var query = new GuildSearchQueryDto
-            {
-                SearchTerm = searchTerm,
-                Page = 1,
-                PageSize = 5,
-                SortBy = "Name",
-                SortDescending = false
-            };
-
-            var paginatedResponse = await _guildService.GetGuildsAsync(query, cancellationToken);
-
-            var results = paginatedResponse.Items
-                .Select(g => new GuildSearchResultItem
-                {
-                    Id = g.Id,
-                    Name = g.Name,
-                    IconUrl = g.IconUrl,
-                    MemberCount = g.MemberCount,
-                    IsActive = g.IsActive
-                })
-                .ToArray();
-
-            _logger.LogDebug("Guild search returned {Count} results out of {Total} total", results.Length, paginatedResponse.TotalCount);
-
-            return (results, paginatedResponse.TotalCount);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error searching guilds for term: {SearchTerm}", searchTerm);
-            return (Array.Empty<GuildSearchResultItem>(), 0);
-        }
+            Id = ulong.Parse(dto.Id),
+            Name = dto.Title,
+            IconUrl = dto.IconUrl,
+            MemberCount = dto.Metadata.TryGetValue("MemberCount", out var memberCount) && memberCount != "Unknown"
+                ? int.Parse(memberCount)
+                : null,
+            IsActive = dto.BadgeText?.Equals("Active", StringComparison.OrdinalIgnoreCase) ?? false
+        };
     }
 
     /// <summary>
-    /// Searches command logs by command name, username, or guild name.
+    /// Maps a SearchResultItemDto to CommandLogSearchResultItem for backward compatibility.
     /// </summary>
-    private async Task<(CommandLogSearchResultItem[] Results, int TotalCount)> SearchCommandLogsAsync(
-        string searchTerm,
-        CancellationToken cancellationToken)
+    private CommandLogSearchResultItem MapToCommandLogSearchResultItem(SearchResultItemDto dto)
     {
-        try
+        // Parse subtitle to extract username and guild name
+        // Format: "{username} in {guildName}"
+        var subtitle = dto.Subtitle ?? "";
+        var parts = subtitle.Split(" in ", 2);
+        var username = parts.Length > 0 ? parts[0] : "";
+        var guildName = parts.Length > 1 ? parts[1] : null;
+
+        return new CommandLogSearchResultItem
         {
-            var query = new CommandLogQueryDto
-            {
-                SearchTerm = searchTerm,
-                Page = 1,
-                PageSize = 5
-            };
-
-            var paginatedResponse = await _commandLogService.GetLogsAsync(query, cancellationToken);
-
-            var results = paginatedResponse.Items
-                .Select(log => new CommandLogSearchResultItem
-                {
-                    Id = log.Id,
-                    CommandName = log.CommandName,
-                    ExecutedAt = log.ExecutedAt,
-                    GuildName = log.GuildName,
-                    UserIdentifier = log.Username ?? log.UserId.ToString(),
-                    Success = log.Success
-                })
-                .ToArray();
-
-            _logger.LogDebug("Command log search returned {Count} results out of {Total} total", results.Length, paginatedResponse.TotalCount);
-
-            return (results, paginatedResponse.TotalCount);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error searching command logs for term: {SearchTerm}", searchTerm);
-            return (Array.Empty<CommandLogSearchResultItem>(), 0);
-        }
+            Id = Guid.Parse(dto.Id),
+            CommandName = dto.Title.TrimStart('/'),
+            ExecutedAt = dto.Timestamp ?? DateTime.UtcNow,
+            GuildName = guildName == "DM" ? null : guildName,
+            UserIdentifier = username,
+            Success = dto.BadgeText?.Equals("Success", StringComparison.OrdinalIgnoreCase) ?? false
+        };
     }
 
     /// <summary>
-    /// Searches users by email or display name (Admin+ only).
+    /// Maps a SearchResultItemDto to UserSearchResultItem for backward compatibility.
     /// </summary>
-    private async Task<(UserSearchResultItem[] Results, int TotalCount)> SearchUsersAsync(
-        string searchTerm,
-        CancellationToken cancellationToken)
+    private UserSearchResultItem MapToUserSearchResultItem(SearchResultItemDto dto)
     {
-        try
+        return new UserSearchResultItem
         {
-            var query = new UserSearchQueryDto
-            {
-                SearchTerm = searchTerm,
-                Page = 1,
-                PageSize = 5,
-                SortBy = "Email",
-                SortDescending = false
-            };
-
-            var paginatedResponse = await _userManagementService.GetUsersAsync(query, cancellationToken);
-
-            var results = paginatedResponse.Items
-                .Select(u => new UserSearchResultItem
-                {
-                    Id = u.Id,
-                    Email = u.Email,
-                    DisplayName = u.DisplayName,
-                    Role = u.HighestRole,
-                    AvatarUrl = u.DiscordAvatarUrl,
-                    IsActive = u.IsActive
-                })
-                .ToArray();
-
-            _logger.LogDebug("User search returned {Count} results out of {Total} total", results.Length, paginatedResponse.TotalCount);
-
-            return (results, paginatedResponse.TotalCount);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error searching users for term: {SearchTerm}", searchTerm);
-            return (Array.Empty<UserSearchResultItem>(), 0);
-        }
+            Id = dto.Id,
+            Email = dto.Subtitle ?? "",
+            DisplayName = dto.Title,
+            Role = dto.BadgeText ?? "Viewer",
+            AvatarUrl = dto.IconUrl,
+            IsActive = dto.Metadata.TryGetValue("IsActive", out var isActive) && bool.Parse(isActive)
+        };
     }
 }
