@@ -964,7 +964,6 @@
 
         // Configuration change tracking
         let configChanges = {};
-        const saveBtn = document.getElementById('saveConfigBtn');
 
         function trackConfigChange(metricName, field, value) {
             if (!configChanges[metricName]) {
@@ -979,6 +978,7 @@
         }
 
         function updateSaveButtonVisibility() {
+            const saveBtn = document.getElementById('saveConfigBtn');
             if (saveBtn) {
                 if (hasUnsavedChanges()) {
                     saveBtn.style.display = 'inline-flex';
@@ -992,6 +992,8 @@
 
         async function saveConfigChanges() {
             if (!hasUnsavedChanges()) return;
+
+            const saveBtn = document.getElementById('saveConfigBtn');
 
             // Disable button and show saving state
             if (saveBtn) {
