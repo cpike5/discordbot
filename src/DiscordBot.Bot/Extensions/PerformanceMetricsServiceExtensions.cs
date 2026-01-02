@@ -29,6 +29,8 @@ public static class PerformanceMetricsServiceExtensions
             configuration.GetSection(PerformanceMetricsOptions.SectionName));
         services.Configure<PerformanceAlertOptions>(
             configuration.GetSection(PerformanceAlertOptions.SectionName));
+        services.Configure<HistoricalMetricsOptions>(
+            configuration.GetSection(HistoricalMetricsOptions.SectionName));
 
         // Core metrics services (singleton - maintain in-memory state)
         services.AddSingleton<IConnectionStateService, ConnectionStateService>();
@@ -62,6 +64,10 @@ public static class PerformanceMetricsServiceExtensions
             sp.GetServices<IHostedService>()
               .OfType<AlertMonitoringService>()
               .First());
+
+        // Historical metrics collection service
+        services.AddScoped<IMetricSnapshotRepository, MetricSnapshotRepository>();
+        services.AddHostedService<MetricsCollectionService>();
 
         return services;
     }
