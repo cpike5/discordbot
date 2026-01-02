@@ -223,7 +223,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <summary>
     /// Gets aggregated command performance metrics.
     /// </summary>
-    /// <param name="hours">Number of hours of history to aggregate (1-168, default: 24).</param>
+    /// <param name="hours">Number of hours of history to aggregate (1-720, default: 24).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of command performance aggregates.</returns>
     [HttpGet("commands/performance")]
@@ -236,14 +236,14 @@ public class PerformanceMetricsController : ControllerBase
     {
         try
         {
-            if (hours < 1 || hours > 168)
+            if (hours < 1 || hours > 720)
             {
                 _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
 
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Invalid hours parameter",
-                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId()
                 });
@@ -275,7 +275,7 @@ public class PerformanceMetricsController : ControllerBase
     /// Gets the slowest command executions.
     /// </summary>
     /// <param name="limit">Maximum number of results to return (1-100, default: 10).</param>
-    /// <param name="hours">Number of hours of history to query (1-168, default: 24).</param>
+    /// <param name="hours">Number of hours of history to query (1-720, default: 24).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of slowest commands.</returns>
     [HttpGet("commands/slowest")]
@@ -302,14 +302,14 @@ public class PerformanceMetricsController : ControllerBase
                 });
             }
 
-            if (hours < 1 || hours > 168)
+            if (hours < 1 || hours > 720)
             {
                 _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
 
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Invalid hours parameter",
-                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId()
                 });
@@ -340,7 +340,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <summary>
     /// Gets command execution throughput over time.
     /// </summary>
-    /// <param name="hours">Number of hours of history to include (1-168, default: 24).</param>
+    /// <param name="hours">Number of hours of history to include (1-720, default: 24).</param>
     /// <param name="granularity">Time bucket granularity: "hour" or "day" (default: "hour").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of throughput measurements over time.</returns>
@@ -355,14 +355,14 @@ public class PerformanceMetricsController : ControllerBase
     {
         try
         {
-            if (hours < 1 || hours > 168)
+            if (hours < 1 || hours > 720)
             {
                 _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
 
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Invalid hours parameter",
-                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId()
                 });
@@ -406,7 +406,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <summary>
     /// Gets command error breakdown and statistics.
     /// </summary>
-    /// <param name="hours">Number of hours of history to analyze (1-168, default: 24).</param>
+    /// <param name="hours">Number of hours of history to analyze (1-720, default: 24).</param>
     /// <param name="limit">Maximum number of commands to return (1-100, default: 50).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Command error summary with rate and breakdown.</returns>
@@ -421,14 +421,14 @@ public class PerformanceMetricsController : ControllerBase
     {
         try
         {
-            if (hours < 1 || hours > 168)
+            if (hours < 1 || hours > 720)
             {
                 _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
 
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Invalid hours parameter",
-                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId()
                 });

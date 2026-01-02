@@ -620,13 +620,36 @@ else
         const hours = @Model.Hours;
         const granularity = hours >= 168 ? 'day' : 'hour';
 
+        // Show error message in a chart container
+        function showChartError(chartId, message) {
+            const container = document.getElementById(chartId)?.parentElement;
+            if (container) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-center p-4">
+                        <svg class="w-8 h-8 text-red-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <div class="text-red-400 font-medium">Failed to load chart</div>
+                        <div class="text-text-secondary text-sm mt-1">${message}</div>
+                    </div>`;
+            }
+        }
+
         // Initialize Response Time Chart
         async function initResponseTimeChart() {
             try {
                 const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${response.status}`);
+                }
                 const throughputData = await response.json();
 
                 const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
+                if (!aggregatesResponse.ok) {
+                    const errorData = await aggregatesResponse.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${aggregatesResponse.status}`);
+                }
                 const aggregates = await aggregatesResponse.json();
 
                 // Create labels from throughput data
@@ -737,6 +760,7 @@ else
                 });
             } catch (error) {
                 console.error('Failed to load response time chart:', error);
+                showChartError('responseTimeChart', error.message);
             }
         }
 
@@ -744,6 +768,10 @@ else
         async function initThroughputChart() {
             try {
                 const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${response.status}`);
+                }
                 const data = await response.json();
 
                 const labels = data.map(t => {
@@ -809,6 +837,7 @@ else
                 });
             } catch (error) {
                 console.error('Failed to load throughput chart:', error);
+                showChartError('throughputChart', error.message);
             }
         }
 
@@ -816,9 +845,17 @@ else
         async function initErrorRateChart() {
             try {
                 const throughputResponse = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                if (!throughputResponse.ok) {
+                    const errorData = await throughputResponse.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${throughputResponse.status}`);
+                }
                 const throughputData = await throughputResponse.json();
 
                 const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
+                if (!aggregatesResponse.ok) {
+                    const errorData = await aggregatesResponse.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${aggregatesResponse.status}`);
+                }
                 const aggregates = await aggregatesResponse.json();
 
                 const labels = throughputData.map(t => {
@@ -902,6 +939,7 @@ else
                 });
             } catch (error) {
                 console.error('Failed to load error rate chart:', error);
+                showChartError('errorRateChart', error.message);
             }
         }
 
