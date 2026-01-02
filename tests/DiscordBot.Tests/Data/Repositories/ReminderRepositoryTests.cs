@@ -862,4 +862,194 @@ public class ReminderRepositoryTests : IDisposable
     }
 
     #endregion
+
+    #region GetGuildStatsAsync Tests
+
+    [Fact]
+    public async Task GetGuildStatsAsync_ReturnsCorrectTotalCount()
+    {
+        // Arrange
+        await CreateTestGuildAsync();
+
+        var reminder1 = CreateReminder(status: ReminderStatus.Pending);
+        var reminder2 = CreateReminder(status: ReminderStatus.Delivered);
+        var reminder3 = CreateReminder(status: ReminderStatus.Failed);
+        var reminder4 = CreateReminder(status: ReminderStatus.Cancelled);
+
+        await _context.Reminders.AddRangeAsync(reminder1, reminder2, reminder3, reminder4);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (totalCount, _, _, _) = await _repository.GetGuildStatsAsync(123456789);
+
+        // Assert
+        totalCount.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task GetGuildStatsAsync_ReturnsCorrectPendingCount()
+    {
+        // Arrange
+        await CreateTestGuildAsync();
+
+        var pending1 = CreateReminder(status: ReminderStatus.Pending);
+        var pending2 = CreateReminder(status: ReminderStatus.Pending);
+        var delivered = CreateReminder(status: ReminderStatus.Delivered);
+        var failed = CreateReminder(status: ReminderStatus.Failed);
+
+        await _context.Reminders.AddRangeAsync(pending1, pending2, delivered, failed);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (_, pendingCount, _, _) = await _repository.GetGuildStatsAsync(123456789);
+
+        // Assert
+        pendingCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetGuildStatsAsync_ReturnsCorrectFailedCount()
+    {
+        // Arrange
+        await CreateTestGuildAsync();
+
+        var pending = CreateReminder(status: ReminderStatus.Pending);
+        var failed1 = CreateReminder(status: ReminderStatus.Failed);
+        var failed2 = CreateReminder(status: ReminderStatus.Failed);
+        var delivered = CreateReminder(status: ReminderStatus.Delivered);
+
+        await _context.Reminders.AddRangeAsync(pending, failed1, failed2, delivered);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (_, _, _, failedCount) = await _repository.GetGuildStatsAsync(123456789);
+
+        // Assert
+        failedCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetGuildStatsAsync_ReturnsCorrectDeliveredTodayCount()
+    {
+        // Arrange
+        await CreateTestGuildAsync();
+
+        var now = DateTime.UtcNow;
+        var today = now.Date;
+
+        // Delivered today
+        var deliveredToday1 = CreateReminder(status: ReminderStatus.Delivered);
+        deliveredToday1.DeliveredAt = today.AddHours(2);
+
+        var deliveredToday2 = CreateReminder(status: ReminderStatus.Delivered);
+        deliveredToday2.DeliveredAt = today.AddHours(5);
+
+        // Delivered yesterday (should not count)
+        var deliveredYesterday = CreateReminder(status: ReminderStatus.Delivered);
+        deliveredYesterday.DeliveredAt = today.AddDays(-1).AddHours(10);
+
+        // Pending (should not count)
+        var pending = CreateReminder(status: ReminderStatus.Pending);
+
+        await _context.Reminders.AddRangeAsync(deliveredToday1, deliveredToday2, deliveredYesterday, pending);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (_, _, deliveredTodayCount, _) = await _repository.GetGuildStatsAsync(123456789);
+
+        // Assert
+        deliveredTodayCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetGuildStatsAsync_ExcludesRemindersFromOtherGuilds()
+    {
+        // Arrange
+        await CreateTestGuildAsync(123456789);
+        await CreateTestGuildAsync(111111111);
+
+        var guild1Reminder = CreateReminder(guildId: 123456789, status: ReminderStatus.Pending);
+        var guild2Reminder1 = CreateReminder(guildId: 111111111, status: ReminderStatus.Pending);
+        var guild2Reminder2 = CreateReminder(guildId: 111111111, status: ReminderStatus.Pending);
+
+        await _context.Reminders.AddRangeAsync(guild1Reminder, guild2Reminder1, guild2Reminder2);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (totalCount, pendingCount, _, _) = await _repository.GetGuildStatsAsync(123456789);
+
+        // Assert
+        totalCount.Should().Be(1);
+        pendingCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task GetGuildStatsAsync_WithNoReminders_ReturnsZeros()
+    {
+        // Arrange
+        await CreateTestGuildAsync();
+
+        // Act
+        var (totalCount, pendingCount, deliveredTodayCount, failedCount) =
+            await _repository.GetGuildStatsAsync(123456789);
+
+        // Assert
+        totalCount.Should().Be(0);
+        pendingCount.Should().Be(0);
+        deliveredTodayCount.Should().Be(0);
+        failedCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetGuildStatsAsync_DeliveredTodayCountHandlesBoundaryCorrectly()
+    {
+        // Arrange
+        await CreateTestGuildAsync();
+
+        var today = DateTime.UtcNow.Date;
+
+        // At midnight today (should count)
+        var atMidnight = CreateReminder(status: ReminderStatus.Delivered);
+        atMidnight.DeliveredAt = today;
+
+        // Just before midnight tomorrow (should count)
+        var justBeforeTomorrow = CreateReminder(status: ReminderStatus.Delivered);
+        justBeforeTomorrow.DeliveredAt = today.AddDays(1).AddSeconds(-1);
+
+        // Exactly at midnight tomorrow (should NOT count)
+        var atTomorrow = CreateReminder(status: ReminderStatus.Delivered);
+        atTomorrow.DeliveredAt = today.AddDays(1);
+
+        await _context.Reminders.AddRangeAsync(atMidnight, justBeforeTomorrow, atTomorrow);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (_, _, deliveredTodayCount, _) = await _repository.GetGuildStatsAsync(123456789);
+
+        // Assert
+        deliveredTodayCount.Should().Be(2, "should include reminders delivered today but exclude tomorrow");
+    }
+
+    [Fact]
+    public async Task GetGuildStatsAsync_DeliveredWithNullDeliveredAt_NotCountedAsDeliveredToday()
+    {
+        // Arrange
+        await CreateTestGuildAsync();
+
+        // Edge case: Delivered status but null DeliveredAt (shouldn't happen, but handle gracefully)
+        var deliveredNoDate = CreateReminder(status: ReminderStatus.Delivered);
+        deliveredNoDate.DeliveredAt = null;
+
+        await _context.Reminders.AddAsync(deliveredNoDate);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (totalCount, _, deliveredTodayCount, _) = await _repository.GetGuildStatsAsync(123456789);
+
+        // Assert
+        totalCount.Should().Be(1);
+        deliveredTodayCount.Should().Be(0, "null DeliveredAt should not count as delivered today");
+    }
+
+    #endregion
 }
