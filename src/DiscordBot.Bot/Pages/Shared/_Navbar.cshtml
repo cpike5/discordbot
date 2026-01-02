@@ -51,15 +51,23 @@
         id="navbar-search"
         name="q"
         placeholder="Search servers, commands, logs..."
-        class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+        class="w-full pl-10 pr-24 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
       />
+      <!-- Keyboard Shortcut Hint (desktop only) -->
+      <div class="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-0.5 pointer-events-none">
+        <kbd class="search-kbd">
+          <span class="mac:inline hidden">⌘</span>
+          <span class="mac:hidden">Ctrl</span>
+        </kbd>
+        <kbd class="search-kbd">K</kbd>
+      </div>
     </div>
   </form>
 
   <!-- Right Section: Actions & User Menu -->
   <div class="flex items-center gap-2">
     <!-- Mobile Search Toggle -->
-    <button class="md:hidden p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Search">
+    <button onclick="toggleMobileSearch()" class="md:hidden p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Search">
       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>

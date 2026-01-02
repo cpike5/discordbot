@@ -197,9 +197,11 @@ try
     builder.Services.AddScoped<ICommandLogService, CommandLogService>();
     builder.Services.AddScoped<ICommandAnalyticsService, CommandAnalyticsService>();
     builder.Services.AddScoped<ICommandMetadataService, CommandMetadataService>();
+    builder.Services.AddSingleton<IPageMetadataService, PageMetadataService>();
     builder.Services.AddScoped<ICommandRegistrationService, CommandRegistrationService>();
     builder.Services.AddScoped<IUserManagementService, UserManagementService>();
     builder.Services.AddScoped<IWelcomeService, WelcomeService>();
+    builder.Services.AddScoped<ISearchService, SearchService>();
 
     // Add Time Parsing service
     builder.Services.AddScoped<ITimeParsingService, TimeParsingService>();

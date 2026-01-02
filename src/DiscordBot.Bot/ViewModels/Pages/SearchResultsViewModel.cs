@@ -1,8 +1,10 @@
+using DiscordBot.Core.DTOs;
+
 namespace DiscordBot.Bot.ViewModels.Pages;
 
 /// <summary>
 /// View model for the unified search results page.
-/// Contains categorized search results from Guilds, Command Logs, and Users.
+/// Contains categorized search results from Guilds, Command Logs, Users, Commands, Audit Logs, Message Logs, and Pages.
 /// </summary>
 public class SearchResultsViewModel
 {
@@ -17,7 +19,7 @@ public class SearchResultsViewModel
     public bool CanViewUsers { get; set; }
 
     /// <summary>
-    /// Gets or sets the guild search results.
+    /// Gets or sets the guild search results (backward compatibility).
     /// </summary>
     public IReadOnlyList<GuildSearchResultItem> GuildResults { get; set; } = Array.Empty<GuildSearchResultItem>();
 
@@ -27,7 +29,7 @@ public class SearchResultsViewModel
     public int TotalGuildResults { get; set; }
 
     /// <summary>
-    /// Gets or sets the command log search results.
+    /// Gets or sets the command log search results (backward compatibility).
     /// </summary>
     public IReadOnlyList<CommandLogSearchResultItem> CommandLogResults { get; set; } = Array.Empty<CommandLogSearchResultItem>();
 
@@ -37,7 +39,7 @@ public class SearchResultsViewModel
     public int TotalCommandLogResults { get; set; }
 
     /// <summary>
-    /// Gets or sets the user search results (only populated for Admin+ users).
+    /// Gets or sets the user search results (only populated for Admin+ users, backward compatibility).
     /// </summary>
     public IReadOnlyList<UserSearchResultItem> UserResults { get; set; } = Array.Empty<UserSearchResultItem>();
 
@@ -47,9 +49,76 @@ public class SearchResultsViewModel
     public int TotalUserResults { get; set; }
 
     /// <summary>
+    /// Gets or sets the command search results from the new unified search.
+    /// </summary>
+    public IReadOnlyList<SearchResultItemDto> Commands { get; set; } = Array.Empty<SearchResultItemDto>();
+
+    /// <summary>
+    /// Gets or sets the total number of commands matching the search.
+    /// </summary>
+    public int TotalCommands { get; set; }
+
+    /// <summary>
+    /// Gets or sets the audit log search results (Admin+ only).
+    /// </summary>
+    public IReadOnlyList<SearchResultItemDto> AuditLogs { get; set; } = Array.Empty<SearchResultItemDto>();
+
+    /// <summary>
+    /// Gets or sets the total number of audit logs matching the search.
+    /// </summary>
+    public int TotalAuditLogs { get; set; }
+
+    /// <summary>
+    /// Gets or sets the message log search results (Admin+ only).
+    /// </summary>
+    public IReadOnlyList<SearchResultItemDto> MessageLogs { get; set; } = Array.Empty<SearchResultItemDto>();
+
+    /// <summary>
+    /// Gets or sets the total number of message logs matching the search.
+    /// </summary>
+    public int TotalMessageLogs { get; set; }
+
+    /// <summary>
+    /// Gets or sets the page search results.
+    /// </summary>
+    public IReadOnlyList<SearchResultItemDto> Pages { get; set; } = Array.Empty<SearchResultItemDto>();
+
+    /// <summary>
+    /// Gets or sets the total number of pages matching the search.
+    /// </summary>
+    public int TotalPages { get; set; }
+
+    /// <summary>
+    /// Gets the "View all" URL for commands category.
+    /// </summary>
+    public string? CommandsViewAllUrl { get; set; }
+
+    /// <summary>
+    /// Gets the "View all" URL for audit logs category.
+    /// </summary>
+    public string? AuditLogsViewAllUrl { get; set; }
+
+    /// <summary>
+    /// Gets the "View all" URL for message logs category.
+    /// </summary>
+    public string? MessageLogsViewAllUrl { get; set; }
+
+    /// <summary>
+    /// Gets the "View all" URL for pages category.
+    /// </summary>
+    public string? PagesViewAllUrl { get; set; }
+
+    /// <summary>
     /// Gets whether there are any search results across all categories.
     /// </summary>
-    public bool HasResults => GuildResults.Any() || CommandLogResults.Any() || UserResults.Any();
+    public bool HasResults =>
+        GuildResults.Any() ||
+        CommandLogResults.Any() ||
+        UserResults.Any() ||
+        Commands.Any() ||
+        AuditLogs.Any() ||
+        MessageLogs.Any() ||
+        Pages.Any();
 }
 
 /// <summary>

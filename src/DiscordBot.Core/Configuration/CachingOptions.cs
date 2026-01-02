@@ -58,4 +58,25 @@ public class CachingOptions
     /// Default is 1 minute.
     /// </summary>
     public int GuildMemberDetailDurationMinutes { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets the cache duration (in seconds) for search results.
+    /// Used to reduce database and API calls when performing repeated searches.
+    /// Default is 30 seconds.
+    /// </summary>
+    public int SearchResultsCacheDurationSeconds { get; set; } = 30;
+
+    /// <summary>
+    /// Gets or sets the cache duration (in minutes) for command metadata.
+    /// Used to cache registered command information for search functionality.
+    /// Default is 60 minutes.
+    /// </summary>
+    public int CommandMetadataCacheDurationMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// Gets or sets the cache duration (in minutes) for page metadata.
+    /// Used to cache admin UI page information for search functionality.
+    /// Default is 60 minutes.
+    /// </summary>
+    public int PageMetadataCacheDurationMinutes { get; set; } = 60;
 }
