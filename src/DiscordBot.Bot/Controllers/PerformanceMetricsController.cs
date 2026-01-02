@@ -21,6 +21,7 @@ public class PerformanceMetricsController : ControllerBase
     private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
     private readonly IInstrumentedCache _instrumentedCache;
+    private readonly IMetricSnapshotRepository _metricSnapshotRepository;
     private readonly ILogger<PerformanceMetricsController> _logger;
 
     /// <summary>
@@ -33,6 +34,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <param name="databaseMetricsCollector">The database metrics collector.</param>
     /// <param name="backgroundServiceHealthRegistry">The background service health registry.</param>
     /// <param name="instrumentedCache">The instrumented cache.</param>
+    /// <param name="metricSnapshotRepository">The metric snapshot repository for historical data.</param>
     /// <param name="logger">The logger.</param>
     public PerformanceMetricsController(
         IConnectionStateService connectionStateService,
@@ -42,6 +44,7 @@ public class PerformanceMetricsController : ControllerBase
         IDatabaseMetricsCollector databaseMetricsCollector,
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
         IInstrumentedCache instrumentedCache,
+        IMetricSnapshotRepository metricSnapshotRepository,
         ILogger<PerformanceMetricsController> logger)
     {
         _connectionStateService = connectionStateService;
@@ -51,6 +54,7 @@ public class PerformanceMetricsController : ControllerBase
         _databaseMetricsCollector = databaseMetricsCollector;
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
         _instrumentedCache = instrumentedCache;
+        _metricSnapshotRepository = metricSnapshotRepository;
         _logger = logger;
     }
 
@@ -814,5 +818,294 @@ public class PerformanceMetricsController : ControllerBase
                 TraceId = HttpContext.GetCorrelationId()
             });
         }
+    }
+
+    // ============================================================================
+    // Historical Metrics Endpoints
+    // ============================================================================
+
+    /// <summary>
+    /// Gets historical system metrics for charting.
+    /// </summary>
+    /// <param name="hours">Time range in hours (1-720, default: 24).</param>
+    /// <param name="metric">Metric filter: "database", "memory", "cache", "services", or "all" (default: "all").</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Historical metrics with time range and aggregation info.</returns>
+    [HttpGet("system/history")]
+    [ProducesResponseType(typeof(HistoricalMetricsResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<HistoricalMetricsResponseDto>> GetHistoricalMetrics(
+        [FromQuery] int hours = 24,
+        [FromQuery] string metric = "all",
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (hours < 1 || hours > 720)
+            {
+                _logger.LogWarning("Invalid hours parameter for historical metrics: {Hours}", hours);
+
+                return BadRequest(new ApiErrorDto
+                {
+                    Message = "Invalid hours parameter",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    TraceId = HttpContext.GetCorrelationId()
+                });
+            }
+
+            var validMetrics = new[] { "all", "database", "memory", "cache", "services" };
+            if (!validMetrics.Contains(metric.ToLowerInvariant()))
+            {
+                _logger.LogWarning("Invalid metric parameter: {Metric}", metric);
+
+                return BadRequest(new ApiErrorDto
+                {
+                    Message = "Invalid metric parameter",
+                    Detail = "Metric must be 'database', 'memory', 'cache', 'services', or 'all'.",
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    TraceId = HttpContext.GetCorrelationId()
+                });
+            }
+
+            _logger.LogDebug("Historical metrics requested: hours={Hours}, metric={Metric}", hours, metric);
+
+            var endTime = DateTime.UtcNow;
+            var startTime = endTime.AddHours(-hours);
+
+            // Determine aggregation based on time range
+            var (aggregationMinutes, granularityLabel) = GetAggregationForTimeRange(hours);
+
+            var snapshots = await _metricSnapshotRepository.GetRangeAsync(
+                startTime,
+                endTime,
+                aggregationMinutes,
+                cancellationToken);
+
+            var response = new HistoricalMetricsResponseDto
+            {
+                StartTime = startTime,
+                EndTime = endTime,
+                Granularity = granularityLabel,
+                Snapshots = snapshots
+            };
+
+            _logger.LogTrace("Retrieved {SnapshotCount} historical metric snapshots for {Hours} hours",
+                snapshots.Count, hours);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve historical metrics for {Hours} hours", hours);
+
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorDto
+            {
+                Message = "Failed to retrieve historical metrics",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status500InternalServerError,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+    }
+
+    /// <summary>
+    /// Gets historical database performance metrics.
+    /// </summary>
+    /// <param name="hours">Time range in hours (1-720, default: 24).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Historical database metrics with samples and statistics.</returns>
+    [HttpGet("system/history/database")]
+    [ProducesResponseType(typeof(DatabaseHistoryResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<DatabaseHistoryResponseDto>> GetDatabaseHistory(
+        [FromQuery] int hours = 24,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (hours < 1 || hours > 720)
+            {
+                _logger.LogWarning("Invalid hours parameter for database history: {Hours}", hours);
+
+                return BadRequest(new ApiErrorDto
+                {
+                    Message = "Invalid hours parameter",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    TraceId = HttpContext.GetCorrelationId()
+                });
+            }
+
+            _logger.LogDebug("Database history requested for {Hours} hours", hours);
+
+            var endTime = DateTime.UtcNow;
+            var startTime = endTime.AddHours(-hours);
+
+            // Determine aggregation based on time range
+            var (aggregationMinutes, _) = GetAggregationForTimeRange(hours);
+
+            var snapshots = await _metricSnapshotRepository.GetRangeAsync(
+                startTime,
+                endTime,
+                aggregationMinutes,
+                cancellationToken);
+
+            // Transform to database-specific samples
+            var samples = snapshots.Select(s => new DatabaseHistorySampleDto
+            {
+                Timestamp = s.Timestamp,
+                AvgQueryTimeMs = s.DatabaseAvgQueryTimeMs,
+                TotalQueries = s.DatabaseTotalQueries,
+                SlowQueryCount = s.DatabaseSlowQueryCount
+            }).ToList();
+
+            // Calculate statistics
+            var statistics = new DatabaseHistoryStatisticsDto();
+            if (samples.Count > 0)
+            {
+                statistics = new DatabaseHistoryStatisticsDto
+                {
+                    AvgQueryTimeMs = samples.Average(s => s.AvgQueryTimeMs),
+                    MinQueryTimeMs = samples.Min(s => s.AvgQueryTimeMs),
+                    MaxQueryTimeMs = samples.Max(s => s.AvgQueryTimeMs),
+                    TotalSlowQueries = samples.Sum(s => s.SlowQueryCount)
+                };
+            }
+
+            var response = new DatabaseHistoryResponseDto
+            {
+                StartTime = startTime,
+                EndTime = endTime,
+                Samples = samples,
+                Statistics = statistics
+            };
+
+            _logger.LogTrace("Retrieved {SampleCount} database history samples for {Hours} hours",
+                samples.Count, hours);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve database history for {Hours} hours", hours);
+
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorDto
+            {
+                Message = "Failed to retrieve database history",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status500InternalServerError,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+    }
+
+    /// <summary>
+    /// Gets historical memory metrics.
+    /// </summary>
+    /// <param name="hours">Time range in hours (1-720, default: 24).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Historical memory metrics with samples and statistics.</returns>
+    [HttpGet("system/history/memory")]
+    [ProducesResponseType(typeof(MemoryHistoryResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status500InternalServerError)]
+    public async Task<ActionResult<MemoryHistoryResponseDto>> GetMemoryHistory(
+        [FromQuery] int hours = 24,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (hours < 1 || hours > 720)
+            {
+                _logger.LogWarning("Invalid hours parameter for memory history: {Hours}", hours);
+
+                return BadRequest(new ApiErrorDto
+                {
+                    Message = "Invalid hours parameter",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    TraceId = HttpContext.GetCorrelationId()
+                });
+            }
+
+            _logger.LogDebug("Memory history requested for {Hours} hours", hours);
+
+            var endTime = DateTime.UtcNow;
+            var startTime = endTime.AddHours(-hours);
+
+            // Determine aggregation based on time range
+            var (aggregationMinutes, _) = GetAggregationForTimeRange(hours);
+
+            var snapshots = await _metricSnapshotRepository.GetRangeAsync(
+                startTime,
+                endTime,
+                aggregationMinutes,
+                cancellationToken);
+
+            // Transform to memory-specific samples
+            var samples = snapshots.Select(s => new MemoryHistorySampleDto
+            {
+                Timestamp = s.Timestamp,
+                WorkingSetMB = s.WorkingSetMB,
+                HeapSizeMB = s.HeapSizeMB,
+                PrivateMemoryMB = s.PrivateMemoryMB
+            }).ToList();
+
+            // Calculate statistics
+            var statistics = new MemoryHistoryStatisticsDto();
+            if (samples.Count > 0)
+            {
+                statistics = new MemoryHistoryStatisticsDto
+                {
+                    AvgWorkingSetMB = samples.Average(s => s.WorkingSetMB),
+                    MaxWorkingSetMB = samples.Max(s => s.WorkingSetMB),
+                    AvgHeapSizeMB = samples.Average(s => s.HeapSizeMB)
+                };
+            }
+
+            var response = new MemoryHistoryResponseDto
+            {
+                StartTime = startTime,
+                EndTime = endTime,
+                Samples = samples,
+                Statistics = statistics
+            };
+
+            _logger.LogTrace("Retrieved {SampleCount} memory history samples for {Hours} hours",
+                samples.Count, hours);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve memory history for {Hours} hours", hours);
+
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorDto
+            {
+                Message = "Failed to retrieve memory history",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status500InternalServerError,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+    }
+
+    /// <summary>
+    /// Determines the aggregation bucket size based on the requested time range.
+    /// </summary>
+    /// <param name="hours">The requested time range in hours.</param>
+    /// <returns>Tuple of (aggregation minutes, granularity label).</returns>
+    private static (int aggregationMinutes, string granularityLabel) GetAggregationForTimeRange(int hours)
+    {
+        return hours switch
+        {
+            <= 6 => (0, "raw"),              // 1-6 hours: raw samples
+            <= 24 => (5, "5m"),              // 7-24 hours: 5-minute buckets
+            <= 168 => (15, "15m"),           // 25-168 hours (7 days): 15-minute buckets
+            _ => (60, "1h")                  // 169-720 hours (30 days): 1-hour buckets
+        };
     }
 }

@@ -705,3 +705,184 @@ public record CacheSummaryDto
     /// </summary>
     public IReadOnlyList<CacheStatisticsDto> ByType { get; init; } = Array.Empty<CacheStatisticsDto>();
 }
+
+// ============================================================================
+// Historical Metrics DTOs
+// ============================================================================
+
+/// <summary>
+/// Response for historical system metrics endpoint with time range and aggregation info.
+/// </summary>
+public record HistoricalMetricsResponseDto
+{
+    /// <summary>
+    /// Gets or sets the start time of the data range (UTC).
+    /// </summary>
+    public DateTime StartTime { get; init; }
+
+    /// <summary>
+    /// Gets or sets the end time of the data range (UTC).
+    /// </summary>
+    public DateTime EndTime { get; init; }
+
+    /// <summary>
+    /// Gets or sets the data granularity (e.g., "raw", "5m", "15m", "1h").
+    /// </summary>
+    public string Granularity { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the collection of metric snapshots.
+    /// </summary>
+    public IReadOnlyList<MetricSnapshotDto> Snapshots { get; init; } = Array.Empty<MetricSnapshotDto>();
+}
+
+/// <summary>
+/// A single historical database metrics sample.
+/// </summary>
+public record DatabaseHistorySampleDto
+{
+    /// <summary>
+    /// Gets or sets the timestamp of the sample (UTC).
+    /// </summary>
+    public DateTime Timestamp { get; init; }
+
+    /// <summary>
+    /// Gets or sets the average query time in milliseconds.
+    /// </summary>
+    public double AvgQueryTimeMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the total queries at this snapshot.
+    /// </summary>
+    public long TotalQueries { get; init; }
+
+    /// <summary>
+    /// Gets or sets the slow query count at this snapshot.
+    /// </summary>
+    public int SlowQueryCount { get; init; }
+}
+
+/// <summary>
+/// Statistics for database metrics over the requested time range.
+/// </summary>
+public record DatabaseHistoryStatisticsDto
+{
+    /// <summary>
+    /// Gets or sets the average query time across all samples.
+    /// </summary>
+    public double AvgQueryTimeMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the minimum query time observed.
+    /// </summary>
+    public double MinQueryTimeMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the maximum query time observed.
+    /// </summary>
+    public double MaxQueryTimeMs { get; init; }
+
+    /// <summary>
+    /// Gets or sets the total slow queries across all samples.
+    /// </summary>
+    public int TotalSlowQueries { get; init; }
+}
+
+/// <summary>
+/// Response for historical database metrics endpoint.
+/// </summary>
+public record DatabaseHistoryResponseDto
+{
+    /// <summary>
+    /// Gets or sets the start time of the data range (UTC).
+    /// </summary>
+    public DateTime StartTime { get; init; }
+
+    /// <summary>
+    /// Gets or sets the end time of the data range (UTC).
+    /// </summary>
+    public DateTime EndTime { get; init; }
+
+    /// <summary>
+    /// Gets or sets the collection of database metrics samples.
+    /// </summary>
+    public IReadOnlyList<DatabaseHistorySampleDto> Samples { get; init; } = Array.Empty<DatabaseHistorySampleDto>();
+
+    /// <summary>
+    /// Gets or sets the aggregate statistics for the time range.
+    /// </summary>
+    public DatabaseHistoryStatisticsDto Statistics { get; init; } = new();
+}
+
+/// <summary>
+/// A single historical memory metrics sample.
+/// </summary>
+public record MemoryHistorySampleDto
+{
+    /// <summary>
+    /// Gets or sets the timestamp of the sample (UTC).
+    /// </summary>
+    public DateTime Timestamp { get; init; }
+
+    /// <summary>
+    /// Gets or sets the working set memory in MB.
+    /// </summary>
+    public long WorkingSetMB { get; init; }
+
+    /// <summary>
+    /// Gets or sets the heap size in MB.
+    /// </summary>
+    public long HeapSizeMB { get; init; }
+
+    /// <summary>
+    /// Gets or sets the private memory in MB.
+    /// </summary>
+    public long PrivateMemoryMB { get; init; }
+}
+
+/// <summary>
+/// Statistics for memory metrics over the requested time range.
+/// </summary>
+public record MemoryHistoryStatisticsDto
+{
+    /// <summary>
+    /// Gets or sets the average working set memory in MB.
+    /// </summary>
+    public double AvgWorkingSetMB { get; init; }
+
+    /// <summary>
+    /// Gets or sets the maximum working set memory in MB.
+    /// </summary>
+    public long MaxWorkingSetMB { get; init; }
+
+    /// <summary>
+    /// Gets or sets the average heap size in MB.
+    /// </summary>
+    public double AvgHeapSizeMB { get; init; }
+}
+
+/// <summary>
+/// Response for historical memory metrics endpoint.
+/// </summary>
+public record MemoryHistoryResponseDto
+{
+    /// <summary>
+    /// Gets or sets the start time of the data range (UTC).
+    /// </summary>
+    public DateTime StartTime { get; init; }
+
+    /// <summary>
+    /// Gets or sets the end time of the data range (UTC).
+    /// </summary>
+    public DateTime EndTime { get; init; }
+
+    /// <summary>
+    /// Gets or sets the collection of memory metrics samples.
+    /// </summary>
+    public IReadOnlyList<MemoryHistorySampleDto> Samples { get; init; } = Array.Empty<MemoryHistorySampleDto>();
+
+    /// <summary>
+    /// Gets or sets the aggregate statistics for the time range.
+    /// </summary>
+    public MemoryHistoryStatisticsDto Statistics { get; init; } = new();
+}

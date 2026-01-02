@@ -63,7 +63,10 @@ public class MetricSnapshotRepository : IMetricSnapshotRepository
                 {
                     Timestamp = m.Timestamp,
                     DatabaseAvgQueryTimeMs = m.DatabaseAvgQueryTimeMs,
+                    DatabaseTotalQueries = m.DatabaseTotalQueries,
+                    DatabaseSlowQueryCount = m.DatabaseSlowQueryCount,
                     WorkingSetMB = m.WorkingSetMB,
+                    PrivateMemoryMB = m.PrivateMemoryMB,
                     HeapSizeMB = m.HeapSizeMB,
                     CacheHitRatePercent = m.CacheHitRatePercent,
                     ServicesRunningCount = m.ServicesRunningCount,
@@ -103,7 +106,10 @@ public class MetricSnapshotRepository : IMetricSnapshotRepository
                 {
                     Timestamp = g.Key,
                     DatabaseAvgQueryTimeMs = g.Average(m => m.DatabaseAvgQueryTimeMs),
+                    DatabaseTotalQueries = (long)g.Average(m => m.DatabaseTotalQueries),
+                    DatabaseSlowQueryCount = (int)g.Sum(m => m.DatabaseSlowQueryCount),
                     WorkingSetMB = (long)g.Average(m => m.WorkingSetMB),
+                    PrivateMemoryMB = (long)g.Average(m => m.PrivateMemoryMB),
                     HeapSizeMB = (long)g.Average(m => m.HeapSizeMB),
                     CacheHitRatePercent = g.Average(m => m.CacheHitRatePercent),
                     ServicesRunningCount = (int)g.Average(m => m.ServicesRunningCount),
