@@ -542,10 +542,18 @@
                             <div class="alert-description">Metric: @incident.MetricName | Threshold: @incident.ThresholdValue | Actual: @incident.ActualValue</div>
                             <div class="alert-meta">
                                 <span class="severity-badge @AlertsPageViewModel.GetSeverityClass(incident.Severity)">@incident.Severity</span>
+                                @if (incident.IsAcknowledged)
+                                {
+                                    <span class="status-badge status-badge-secondary">Acknowledged</span>
+                                    @if (!string.IsNullOrEmpty(incident.AcknowledgedBy))
+                                    {
+                                        <span class="text-text-tertiary">by @incident.AcknowledgedBy</span>
+                                    }
+                                }
                                 <span data-utc-time="@incident.TriggeredAt.ToString("o")" data-format="relative">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
                             </div>
                         </div>
-                        @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+                        @if ((User.IsInRole("Admin") || User.IsInRole("SuperAdmin")) && !incident.IsAcknowledged)
                         {
                             <div class="alert-actions flex items-center gap-2">
                                 <form method="post" asp-page-handler="Acknowledge" asp-route-id="@incident.Id">
