@@ -273,6 +273,9 @@ try
     // Add Moderation services (includes detection services and handlers)
     builder.Services.AddModerationServices(builder.Configuration);
 
+    // Add Performance Metrics services (latency, connection state, API tracking, database metrics)
+    builder.Services.AddPerformanceMetrics(builder.Configuration);
+
     // Add HttpClient for Discord API calls
     builder.Services.AddHttpClient("Discord", client =>
     {
