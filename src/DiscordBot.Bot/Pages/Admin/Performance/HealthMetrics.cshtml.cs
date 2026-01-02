@@ -78,9 +78,9 @@ public class HealthMetricsModel : PageModel
             var gen2Collections = GC.CollectionCount(2);
             var threadCount = process.Threads.Count;
 
-            // Format session start time
+            // Format session start time (UTC for client-side conversion)
             var sessionStart = _connectionStateService.GetLastConnectedTime();
-            var sessionStartFormatted = sessionStart?.ToLocalTime().ToString("MMM dd, yyyy 'at' HH:mm") ?? "Unknown";
+            var sessionStartFormatted = sessionStart?.ToString("MMM dd, yyyy 'at' HH:mm") + " UTC" ?? "Unknown";
 
             // Create health DTO
             var health = new Core.DTOs.PerformanceHealthDto
@@ -106,6 +106,7 @@ public class HealthMetricsModel : PageModel
                 ConnectionStateClass = HealthMetricsViewModel.GetConnectionStateClass(connectionState.ToString()),
                 LatencyHealthClass = HealthMetricsViewModel.GetLatencyHealthClass(currentLatency),
                 SessionStartFormatted = sessionStartFormatted,
+                SessionStartUtc = sessionStart,
                 WorkingSetMB = workingSetMB,
                 PrivateMemoryMB = privateMemoryMB,
                 MaxAllocatedMemoryMB = maxAllocatedMemoryMB,

@@ -758,7 +758,7 @@
                                 }
                                 <div class="alert-meta">
                                     <span class="@severityBadgeClass">@alert.Severity</span>
-                                    <span data-utc-time="@alert.TriggeredAt.ToString("o")">@((DateTime.UtcNow - alert.TriggeredAt).TotalMinutes < 60 ? $"{(int)(DateTime.UtcNow - alert.TriggeredAt).TotalMinutes} minutes ago" : $"{(int)(DateTime.UtcNow - alert.TriggeredAt).TotalHours} hours ago")</span>
+                                    <span data-utc-time="@alert.TriggeredAt.ToString("o")" data-format="relative">@((DateTime.UtcNow - alert.TriggeredAt).TotalMinutes < 60 ? $"{(int)(DateTime.UtcNow - alert.TriggeredAt).TotalMinutes} minutes ago" : $"{(int)(DateTime.UtcNow - alert.TriggeredAt).TotalHours} hours ago")</span>
                                 </div>
                             </div>
                         </div>
@@ -981,9 +981,59 @@
             }
         }
 
+        // Convert UTC timestamps to local timezone
+        function convertTimestampsToLocal() {
+            const timestampElements = document.querySelectorAll('[data-utc-time]');
+            timestampElements.forEach(element => {
+                const utcTime = element.getAttribute('data-utc-time');
+                const format = element.getAttribute('data-format');
+                if (utcTime) {
+                    try {
+                        const date = new Date(utcTime);
+
+                        if (format === 'relative') {
+                            // For relative times, calculate the difference and format as "X ago"
+                            const now = new Date();
+                            const elapsed = now - date;
+                            const minutes = Math.floor(elapsed / 60000);
+                            const hours = Math.floor(minutes / 60);
+                            const days = Math.floor(hours / 24);
+
+                            let relativeText;
+                            if (days >= 1) {
+                                relativeText = days === 1 ? '1 day ago' : `${days} days ago`;
+                            } else if (hours >= 1) {
+                                relativeText = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+                            } else if (minutes >= 1) {
+                                relativeText = minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+                            } else {
+                                relativeText = 'Just now';
+                            }
+                            element.textContent = relativeText;
+                        } else {
+                            // For absolute times, format as local date/time
+                            const formatted = date.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: '2-digit',
+                                year: 'numeric'
+                            }) + ' at ' + date.toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false
+                            });
+                            element.textContent = formatted;
+                        }
+                    } catch (e) {
+                        console.error('Failed to parse timestamp:', utcTime, e);
+                    }
+                }
+            });
+        }
+
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
             initCharts();
+            convertTimestampsToLocal();
 
             // Auto-refresh every 30 seconds
             setInterval(refreshData, 30000);

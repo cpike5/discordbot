@@ -533,7 +533,7 @@ else
                                     @cmd.DurationMs.ToString("F0")ms
                                 </td>
                                 <td>
-                                    <span data-utc-time="@cmd.ExecutedAt.ToString("o")">@cmd.ExecutedAt.ToLocalTime().ToString("MMM dd, HH:mm")</span>
+                                    <span data-utc-time="@cmd.ExecutedAt.ToString("o")">@cmd.ExecutedAt.ToString("MMM dd, HH:mm") UTC</span>
                                 </td>
                                 <td class="text-text-secondary">@cmd.UserId</td>
                                 <td class="text-text-secondary">@(cmd.GuildId?.ToString() ?? "DM")</td>
@@ -579,7 +579,7 @@ else
                                 </td>
                                 <td class="font-medium text-warning">@timeout.TimeoutCount</td>
                                 <td>
-                                    <span data-utc-time="@timeout.LastTimeout.ToString("o")">@timeout.LastTimeout.ToLocalTime().ToString("MMM dd, HH:mm")</span>
+                                    <span data-utc-time="@timeout.LastTimeout.ToString("o")">@timeout.LastTimeout.ToString("MMM dd, HH:mm") UTC</span>
                                 </td>
                                 <td>@timeout.AvgResponseBeforeTimeout.ToString("F0")ms</td>
                                 <td>

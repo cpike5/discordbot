@@ -58,9 +58,14 @@ public record HealthMetricsViewModel
     public string LatencyHealthClass { get; init; } = string.Empty;
 
     /// <summary>
-    /// Gets the formatted start time of the current session.
+    /// Gets the formatted start time of the current session (UTC fallback text).
     /// </summary>
     public string SessionStartFormatted { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the UTC start time of the current session for client-side conversion.
+    /// </summary>
+    public DateTime? SessionStartUtc { get; init; }
 
     /// <summary>
     /// Gets the current working set memory in MB.
