@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-02
 **Feature Reference:** Issue #295 (Epic)
-**Status:** In Progress (8 of 9 sub-issues completed)
+**Status:** Completed (9 of 9 sub-issues completed)
 
 ---
 
@@ -18,7 +18,6 @@
   - [Command Performance Analytics (#565)](#command-performance-analytics-issue-565)
   - [Discord API & Rate Limit Monitoring (#566)](#discord-api--rate-limit-monitoring-issue-566)
   - [Performance Alerts & Incidents (#570)](#performance-alerts--incidents-issue-570)
-- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [Performance Dashboard UI Implementation (#573)](#performance-dashboard-ui-implementation-issue-573)
 - [Configuration](#configuration)
 - [Service Registration](#service-registration)
@@ -1604,20 +1603,244 @@ The page includes a shared performance dashboard navigation tab bar:
 
 ---
 
-## Open Sub-Issues (To Be Implemented)
-
 ### Performance Dashboard UI Implementation (Issue #573)
 
-> **Status:** To be documented when implemented
+**URL:** `/Admin/Performance`
+**Authorization:** `RequireViewer` policy
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/Performance/Index.cshtml.cs`
 
-*This section will be updated when [Issue #573](https://github.com/cpike5/discordbot/issues/573) is completed.*
+The Performance Dashboard Overview provides a unified view of all bot performance metrics with quick navigation to detailed dashboards.
 
-**Planned Features:**
-- Complete Razor Pages implementation for all dashboard views
-- Chart.js integration for all metric visualizations
-- Real-time updates via SignalR
-- Responsive design with mobile support
-- Dashboard navigation and layout
+#### Features
+
+**Overall Health Status Badge**
+
+Displays current system health with visual indicators:
+- **Healthy** (Green with pulse animation): All systems operational
+- **Warning** (Yellow): Some metrics degraded but functional
+- **Critical** (Red with pulse): Severe performance issues detected
+- Calculated from background service status and active alerts
+
+**Quick Status Cards**
+
+Five clickable cards linking to detailed dashboards:
+- **Bot Health** → `/Admin/Performance/HealthMetrics` - Connection state, uptime, latency
+- **Avg Response** → `/Admin/Performance/Commands` - Command performance metrics
+- **API Status** → `/Admin/Performance/ApiMetrics` - Discord API usage and rate limits
+- **System** → `/Admin/Performance/System` - Database, services, cache health
+- **Active Alerts** → `/Admin/Performance/Alerts` - Performance incidents
+
+Each card displays:
+- Icon representing the metric category
+- Primary metric value with color coding
+- Descriptive label
+- Status indicator (Healthy/Warning/Critical badge)
+
+**Key Metrics Row**
+
+Four metric cards showing 24-hour rolling statistics:
+- **Uptime %**: 30-day rolling average uptime percentage
+- **Avg Latency**: Current gateway heartbeat latency in milliseconds
+- **Commands Today**: 24-hour command execution count
+- **Error Rate**: 24-hour error percentage
+
+All metrics include:
+- Large display value
+- Unit label
+- Status icon (checkmark, warning triangle, etc.)
+- Color-coded status (green/yellow/red)
+
+**Charts**
+
+Two interactive Chart.js visualizations:
+
+**Response Time Trend**
+- Line chart showing hourly average command response times
+- Last 24 hours of data
+- Y-axis: milliseconds (0-500ms typical range)
+- X-axis: time buckets (hourly)
+- Smooth curve rendering
+- Color-coded threshold lines (green < 100ms, yellow < 500ms, red > 500ms)
+
+**Command Throughput**
+- Bar chart showing commands executed per hour
+- Last 24 hours of data
+- Y-axis: command count
+- X-axis: time buckets (hourly)
+- Orange bars with rounded corners matching design system
+- Hover tooltips showing exact counts
+
+**Resource Usage**
+
+Four progress bars displaying current resource utilization:
+
+**Memory Usage**
+- Progress bar showing working set memory vs. maximum allocated
+- Value displayed: `{current}MB / {max}MB`
+- Color coding:
+  - Green: < 70% utilization
+  - Yellow: 70-85% utilization
+  - Red: > 85% utilization
+
+**CPU Usage**
+- Progress bar showing current CPU percentage
+- Value displayed: `{percent}%`
+- Color coding: Green < 70%, Yellow 70-90%, Red > 90%
+
+**Database Connections**
+- Progress bar showing active connections vs. connection pool max
+- Value displayed: `{used} / {max} connections`
+- Color coding based on utilization percentage
+
+**API Rate Limit Headroom**
+- Progress bar showing percentage of rate limit consumed
+- Value displayed: `{percent}% remaining`
+- Inverted color scheme (high remaining = green, low = red)
+
+**Recent Alerts**
+
+Scrollable list of up to 5 most recent active performance incidents:
+- Severity badge (Critical/Warning/Info) with color coding
+- Metric name (e.g., "Gateway Latency", "Error Rate")
+- Descriptive message (e.g., "Gateway latency exceeded 200ms")
+- Triggered timestamp with relative time display (e.g., "5 minutes ago")
+- "Acknowledge" link for Admin+ users
+- Empty state when no active alerts exist
+
+**Quick Actions**
+
+Four action buttons providing common administrative tasks:
+- **Restart Bot**: Links to `/Admin/BotControl` for bot restart
+- **Clear Cache**: Placeholder for cache clearing functionality
+- **Export Metrics**: Placeholder for metric export functionality
+- **Configure Alerts**: Links to `/Admin/Performance/Alerts` threshold configuration
+
+#### View Model
+
+```csharp
+public class PerformanceOverviewViewModel
+{
+    // Overall status
+    public string OverallHealthStatus { get; set; }         // "Healthy", "Warning", "Critical"
+    public string OverallHealthStatusClass { get; set; }    // CSS class for badge color
+
+    // Bot health
+    public string ConnectionState { get; set; }             // "Connected", "Disconnected", etc.
+    public int CurrentLatencyMs { get; set; }               // Current gateway latency
+    public double UptimePercentage { get; set; }            // 30-day rolling uptime %
+
+    // Command metrics
+    public int CommandsToday { get; set; }                  // 24-hour command count
+    public double AvgResponseTimeMs { get; set; }           // 24-hour avg response time
+    public double ErrorRate { get; set; }                   // 24-hour error percentage
+
+    // Active alerts
+    public int ActiveAlertCount { get; set; }               // Count of active incidents
+    public IReadOnlyList<PerformanceIncidentDto> RecentAlerts { get; set; }  // Up to 5 recent
+
+    // Resource usage
+    public double MemoryUsagePercent { get; set; }          // Working set / max memory %
+    public long MemoryUsageMB { get; set; }                 // Current memory in MB
+    public long MaxMemoryMB { get; set; }                   // Max allocated memory
+    public double CpuUsagePercent { get; set; }             // Current CPU %
+    public int DbConnectionsUsed { get; set; }              // Active DB connections
+    public int DbConnectionsMax { get; set; }               // Max DB connection pool size
+    public double ApiRateLimitPercent { get; set; }         // % of rate limit consumed
+}
+```
+
+#### API Endpoints Used
+
+The page consumes these existing API endpoints:
+- `GET /api/metrics/health` - Overall health status and connection state
+- `GET /api/metrics/commands/performance?hours=24` - Command aggregates for today
+- `GET /api/metrics/commands/throughput?hours=24&granularity=hour` - Throughput data for chart
+- `GET /api/alerts/active` - Active incidents for recent alerts section
+- `GET /api/alerts/summary` - Active alert counts
+
+#### Overall Health Calculation
+
+The overall health status is calculated based on multiple factors:
+
+**Critical** (Red with pulse):
+- Bot disconnected (`ConnectionState != "Connected"`)
+- Any critical severity alerts active
+- Error rate > 5% in last 24 hours
+- Memory usage > 90%
+- Gateway latency > 200ms
+
+**Warning** (Yellow):
+- Any warning severity alerts active
+- Error rate > 1% in last 24 hours
+- Memory usage > 70%
+- Gateway latency > 100ms
+- Background service degraded or unhealthy
+
+**Healthy** (Green with pulse):
+- Bot connected
+- No active alerts
+- All metrics within normal thresholds
+- Background services healthy
+
+#### Auto-Refresh
+
+The page implements automatic refresh functionality:
+- Charts refresh every 30 seconds
+- Status cards update without full page reload
+- Uses `fetch()` API to retrieve latest data from endpoints
+- Refresh pauses when browser tab is hidden
+- Refresh resumes when tab becomes visible again
+- Error handling for failed API requests
+
+JavaScript refresh implementation:
+```javascript
+let refreshInterval;
+
+function startAutoRefresh() {
+    refreshInterval = setInterval(async () => {
+        if (!document.hidden) {
+            await refreshCharts();
+            await refreshMetrics();
+            await refreshAlerts();
+        }
+    }, 30000); // 30 seconds
+}
+
+async function refreshCharts() {
+    const response = await fetch('/api/metrics/commands/throughput?hours=24&granularity=hour');
+    const data = await response.json();
+    updateChart(throughputChart, data);
+}
+```
+
+#### Navigation
+
+The sidebar "Bot Performance" link points to this Overview page as the main entry point. All performance dashboard pages include a shared tab navigation bar:
+
+- **Overview** (active) - `/Admin/Performance`
+- Health Metrics - `/Admin/Performance/HealthMetrics`
+- Commands - `/Admin/Performance/Commands`
+- API & Rate Limits - `/Admin/Performance/ApiMetrics`
+- System - `/Admin/Performance/System`
+- Alerts - `/Admin/Performance/Alerts`
+
+The tab bar is implemented as a shared partial view: `Pages/Admin/Performance/Shared/_PerformanceNav.cshtml`
+
+#### Empty State Handling
+
+When the bot has no data (new deployment, no commands executed):
+- Charts display empty state message: "No data available yet"
+- Metric cards show `0` or `N/A` with neutral gray styling
+- Recent alerts section shows: "No active alerts - all systems operational"
+
+#### Responsive Design
+
+The dashboard is fully responsive:
+- Desktop (≥1024px): 4-column grid for metric cards, side-by-side charts
+- Tablet (768-1023px): 2-column grid, stacked charts
+- Mobile (<768px): Single column layout, reduced chart heights
+
+All components use Tailwind CSS responsive classes for fluid scaling.
 
 ---
 
@@ -1759,6 +1982,7 @@ The `CommandPerformanceAggregator` background service periodically queries the c
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.6 | 2026-01-02 | Marked Performance Dashboard UI (#573) as completed; added Overview page implementation documentation; all 9 sub-issues completed |
 | 1.5 | 2026-01-02 | Marked Performance Alerts (#570) as completed; added circular DI dependency fix documentation |
 | 1.4 | 2026-01-02 | Added Performance Alerts & Incidents (#570) documentation |
 | 1.3 | 2026-01-01 | Added Discord API & Rate Limit Monitoring (#566) documentation |
