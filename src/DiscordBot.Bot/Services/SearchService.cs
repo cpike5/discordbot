@@ -18,6 +18,7 @@ public class SearchService : ISearchService
     private readonly IGuildService _guildService;
     private readonly ICommandLogService _commandLogService;
     private readonly IUserManagementService _userManagementService;
+    private readonly IPageMetadataService _pageMetadataService;
     private readonly IAuthorizationService _authorizationService;
     private readonly IMemoryCache _cache;
     private readonly CachingOptions _cachingOptions;
@@ -31,6 +32,7 @@ public class SearchService : ISearchService
         IGuildService guildService,
         ICommandLogService commandLogService,
         IUserManagementService userManagementService,
+        IPageMetadataService pageMetadataService,
         IAuthorizationService authorizationService,
         IMemoryCache cache,
         IOptions<CachingOptions> cachingOptions,
@@ -39,6 +41,7 @@ public class SearchService : ISearchService
         _guildService = guildService;
         _commandLogService = commandLogService;
         _userManagementService = userManagementService;
+        _pageMetadataService = pageMetadataService;
         _authorizationService = authorizationService;
         _cache = cache;
         _cachingOptions = cachingOptions.Value;
@@ -157,7 +160,7 @@ public class SearchService : ISearchService
                 SearchCategory.Commands => CreateEmptyResult(SearchCategory.Commands), // Phase 2
                 SearchCategory.AuditLogs when canViewAdminCategories => CreateEmptyResult(SearchCategory.AuditLogs), // Phase 3
                 SearchCategory.MessageLogs when canViewAdminCategories => CreateEmptyResult(SearchCategory.MessageLogs), // Phase 3
-                SearchCategory.Pages => CreateEmptyResult(SearchCategory.Pages), // Phase 4
+                SearchCategory.Pages => await SearchPagesAsync(searchTerm, maxResults, user, cancellationToken),
                 _ => CreateEmptyResult(category)
             };
         }
@@ -338,6 +341,81 @@ public class SearchService : ISearchService
         };
     }
 
+    private async Task<SearchCategoryResult> SearchPagesAsync(string searchTerm, int maxResults, ClaimsPrincipal user, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Searching pages for term: {SearchTerm}", searchTerm);
+
+        var allPages = _pageMetadataService.SearchPages(searchTerm);
+        var searchLower = searchTerm.ToLowerInvariant();
+
+        // Check exact match for "Jump to" button
+        var exactMatch = _pageMetadataService.FindExactMatch(searchTerm);
+
+        // Filter pages based on user authorization
+        var authorizedPages = new List<PageMetadataDto>();
+        foreach (var page in allPages)
+        {
+            if (string.IsNullOrWhiteSpace(page.RequiredPolicy))
+            {
+                // No policy required, accessible to all authenticated users
+                authorizedPages.Add(page);
+            }
+            else
+            {
+                // Check if user has required policy
+                var authResult = await _authorizationService.AuthorizeAsync(user, page.RequiredPolicy);
+                if (authResult.Succeeded)
+                {
+                    authorizedPages.Add(page);
+                }
+            }
+        }
+
+        var items = authorizedPages
+            .Take(maxResults)
+            .Select(p => new SearchResultItemDto
+            {
+                Id = p.Route,
+                Title = p.Name,
+                Subtitle = p.Section,
+                Description = p.Description ?? string.Empty,
+                BadgeText = p.Section ?? "Main",
+                BadgeVariant = GetSectionBadgeVariant(p.Section),
+                Url = p.Route,
+                RelevanceScore = CalculateRelevanceScore(p.Name, searchLower),
+                Metadata = new Dictionary<string, string>
+                {
+                    ["Section"] = p.Section ?? "Main",
+                    ["isExactMatch"] = (exactMatch != null && exactMatch.Route == p.Route).ToString()
+                }
+            })
+            .ToList();
+
+        return new SearchCategoryResult
+        {
+            Category = SearchCategory.Pages,
+            DisplayName = "Pages",
+            Items = items,
+            TotalCount = authorizedPages.Count,
+            HasMore = authorizedPages.Count > maxResults,
+            ViewAllUrl = null // No "view all" page for navigation
+        };
+    }
+
+    private string GetSectionBadgeVariant(string? section)
+    {
+        return section switch
+        {
+            "Main" => "primary",
+            "Guild" => "success",
+            "Admin" => "warning",
+            "Performance" => "info",
+            "Account" => "secondary",
+            "Dev" => "dark",
+            _ => "secondary"
+        };
+    }
+
     /// <summary>
     /// Calculates a relevance score for a field value against the search term.
     /// </summary>
@@ -388,7 +466,9 @@ public class SearchService : ISearchService
             // AuditLogs and MessageLogs will be added in Phase 3
         }
 
-        // Commands and Pages will be added in later phases
+        // Pages are always searchable (filtered by authorization in SearchPagesAsync)
+        categories.Add(SearchCategory.Pages);
+        // Commands will be added in a later phase
 
         return categories;
     }
