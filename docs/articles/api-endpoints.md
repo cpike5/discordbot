@@ -32,6 +32,16 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/metrics/system/database` | GET | Database query metrics |
 | `/api/metrics/system/services` | GET | Background service health status |
 | `/api/metrics/system/cache` | GET | Cache hit/miss statistics |
+| `/api/alerts/config` | GET | All alert configurations |
+| `/api/alerts/config/{metricName}` | GET | Specific alert configuration |
+| `/api/alerts/config/{metricName}` | PUT | Update alert configuration |
+| `/api/alerts/active` | GET | Currently active incidents |
+| `/api/alerts/incidents` | GET | Paginated incident history |
+| `/api/alerts/incidents/{id}` | GET | Specific incident by ID |
+| `/api/alerts/incidents/{id}/acknowledge` | POST | Acknowledge incident |
+| `/api/alerts/incidents/acknowledge-all` | POST | Acknowledge all active incidents |
+| `/api/alerts/summary` | GET | Active alert summary statistics |
+| `/api/alerts/stats` | GET | Alert frequency statistics |
 | `/api/bot/status` | GET | Bot status (uptime, latency, guilds) |
 | `/api/bot/guilds` | GET | Connected guilds from Discord |
 | `/api/bot/restart` | POST | Restart bot (not supported) |
@@ -959,6 +969,435 @@ All Performance Metrics API endpoints may return the following error responses:
   "timestamp": "2024-12-08T15:30:00Z"
 }
 ```
+
+---
+
+### Alerts Endpoints
+
+Performance alert configuration and incident management endpoints.
+
+**Base Path:** `/api/alerts`
+
+#### GET /api/alerts/config
+
+Returns all alert configurations with their current metric values.
+
+**Authorization:** `RequireViewer` policy
+
+**Query Parameters:** None
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": 1,
+    "metricName": "gateway_latency",
+    "displayName": "Gateway Latency",
+    "description": "Discord gateway heartbeat latency",
+    "warningThreshold": 100.0,
+    "criticalThreshold": 200.0,
+    "thresholdUnit": "ms",
+    "isEnabled": true,
+    "currentValue": 85.5
+  },
+  {
+    "metricName": "command_p95_latency",
+    "displayName": "Command P95 Latency",
+    "description": "95th percentile command response time",
+    "warningThreshold": 300.0,
+    "criticalThreshold": 500.0,
+    "thresholdUnit": "ms",
+    "isEnabled": true,
+    "currentValue": 245.3
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | int | Configuration ID |
+| `metricName` | string | Internal metric identifier |
+| `displayName` | string | Human-readable metric name |
+| `description` | string | Description of what triggers alerts |
+| `warningThreshold` | double? | Warning-level threshold (null if not set) |
+| `criticalThreshold` | double? | Critical-level threshold (null if not set) |
+| `thresholdUnit` | string | Unit of measurement (ms, %, MB, count, event) |
+| `isEnabled` | bool | Whether alerts are enabled for this metric |
+| `currentValue` | double? | Current metric value (null if unavailable) |
+
+---
+
+#### GET /api/alerts/config/{metricName}
+
+Returns a specific alert configuration by metric name.
+
+**Authorization:** `RequireViewer` policy
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `metricName` | string | Internal metric identifier |
+
+**Example Request:**
+
+```bash
+GET /api/alerts/config/gateway_latency
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "id": 1,
+  "metricName": "gateway_latency",
+  "displayName": "Gateway Latency",
+  "description": "Discord gateway heartbeat latency",
+  "warningThreshold": 100.0,
+  "criticalThreshold": 200.0,
+  "thresholdUnit": "ms",
+  "isEnabled": true,
+  "currentValue": 85.5
+}
+```
+
+**Response: 404 Not Found** - Configuration not found
+
+---
+
+#### PUT /api/alerts/config/{metricName}
+
+Updates an alert configuration with new threshold values or enabled state.
+
+**Authorization:** `RequireAdmin` policy
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `metricName` | string | Internal metric identifier to update |
+
+**Request Body:**
+
+```json
+{
+  "warningThreshold": 150.0,
+  "criticalThreshold": 250.0,
+  "isEnabled": true
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `warningThreshold` | double? | No | New warning threshold (null to keep existing) |
+| `criticalThreshold` | double? | No | New critical threshold (null to keep existing) |
+| `isEnabled` | bool? | No | Enable/disable alerts (null to keep existing) |
+
+**Response: 200 OK**
+
+```json
+{
+  "id": 1,
+  "metricName": "gateway_latency",
+  "displayName": "Gateway Latency",
+  "description": "Discord gateway heartbeat latency",
+  "warningThreshold": 150.0,
+  "criticalThreshold": 250.0,
+  "thresholdUnit": "ms",
+  "isEnabled": true,
+  "currentValue": 85.5
+}
+```
+
+**Response: 400 Bad Request** - Invalid threshold values
+
+**Response: 404 Not Found** - Configuration not found
+
+---
+
+#### GET /api/alerts/active
+
+Returns all currently active (unresolved) incidents.
+
+**Authorization:** `RequireViewer` policy
+
+**Query Parameters:** None
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "metricName": "command_p95_latency",
+    "severity": "Warning",
+    "status": "Active",
+    "triggeredAt": "2026-01-02T10:30:00Z",
+    "resolvedAt": null,
+    "thresholdValue": 300.0,
+    "actualValue": 345.2,
+    "message": "Command P95 latency exceeded warning threshold",
+    "isAcknowledged": false,
+    "acknowledgedBy": null,
+    "acknowledgedAt": null,
+    "notes": null,
+    "durationSeconds": null
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | guid | Unique incident identifier |
+| `metricName` | string | Metric that triggered the incident |
+| `severity` | string | Alert severity (Info, Warning, Critical) |
+| `status` | string | Incident status (Active, Acknowledged, Resolved) |
+| `triggeredAt` | datetime | When incident was created (UTC) |
+| `resolvedAt` | datetime? | When incident was resolved (UTC, null if active) |
+| `thresholdValue` | double | Configured threshold that was breached |
+| `actualValue` | double | Actual metric value at trigger time |
+| `message` | string | Descriptive incident message |
+| `isAcknowledged` | bool | Whether an admin has acknowledged the incident |
+| `acknowledgedBy` | string? | User ID who acknowledged (null if not acknowledged) |
+| `acknowledgedAt` | datetime? | When acknowledged (UTC, null if not acknowledged) |
+| `notes` | string? | Admin notes about the incident |
+| `durationSeconds` | double? | Duration from trigger to resolution (null if active) |
+
+---
+
+#### GET /api/alerts/incidents
+
+Returns paginated incident history with optional filtering.
+
+**Authorization:** `RequireViewer` policy
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `pageNumber` | int | No | 1 | Page number (1-based) |
+| `pageSize` | int | No | 20 | Items per page |
+| `severity` | string | No | - | Filter by severity (Info, Warning, Critical) |
+| `status` | string | No | - | Filter by status (Active, Acknowledged, Resolved) |
+| `startDate` | datetime | No | - | Filter incidents triggered on or after this date (UTC) |
+| `endDate` | datetime | No | - | Filter incidents triggered before this date (UTC) |
+| `metricName` | string | No | - | Filter by metric name |
+
+**Example Request:**
+
+```bash
+GET /api/alerts/incidents?pageNumber=1&pageSize=20&severity=Critical&status=Resolved
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "items": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "metricName": "memory_usage",
+      "severity": "Critical",
+      "status": "Resolved",
+      "triggeredAt": "2026-01-02T08:15:00Z",
+      "resolvedAt": "2026-01-02T08:22:30Z",
+      "thresholdValue": 480.0,
+      "actualValue": 495.3,
+      "message": "Memory usage exceeded critical threshold",
+      "isAcknowledged": true,
+      "acknowledgedBy": "admin@example.com",
+      "acknowledgedAt": "2026-01-02T08:18:00Z",
+      "notes": "Memory spike during cache refresh, resolved automatically",
+      "durationSeconds": 450
+    }
+  ],
+  "totalCount": 125,
+  "pageNumber": 1,
+  "pageSize": 20,
+  "totalPages": 7
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `items` | array | Collection of incidents for current page |
+| `totalCount` | int | Total incidents matching query (all pages) |
+| `pageNumber` | int | Current page number |
+| `pageSize` | int | Items per page |
+| `totalPages` | int | Total number of pages |
+
+---
+
+#### GET /api/alerts/incidents/{id}
+
+Returns a specific incident by ID.
+
+**Authorization:** `RequireViewer` policy
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | guid | Incident identifier |
+
+**Example Request:**
+
+```bash
+GET /api/alerts/incidents/a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+**Response: 200 OK**
+
+Returns single `PerformanceIncidentDto` object (see structure in `/api/alerts/active`).
+
+**Response: 404 Not Found** - Incident not found
+
+---
+
+#### POST /api/alerts/incidents/{id}/acknowledge
+
+Acknowledges an incident, marking it as reviewed by an administrator.
+
+**Authorization:** `RequireAdmin` policy
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | guid | Incident identifier to acknowledge |
+
+**Request Body:**
+
+```json
+{
+  "notes": "Investigated and identified root cause. Threshold adjusted."
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `notes` | string? | No | Optional notes about investigation or resolution |
+
+**Response: 200 OK**
+
+Returns updated `PerformanceIncidentDto` with acknowledgment fields populated.
+
+**Response: 404 Not Found** - Incident not found
+
+---
+
+#### POST /api/alerts/incidents/acknowledge-all
+
+Acknowledges all currently active incidents at once.
+
+**Authorization:** `RequireAdmin` policy
+
+**Request Body:** None required
+
+**Response: 200 OK**
+
+```json
+{
+  "acknowledgedCount": 5
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `acknowledgedCount` | int | Number of incidents acknowledged |
+
+---
+
+#### GET /api/alerts/summary
+
+Returns active alert summary statistics for dashboard display.
+
+**Authorization:** `RequireViewer` policy
+
+**Query Parameters:** None
+
+**Response: 200 OK**
+
+```json
+{
+  "activeCount": 3,
+  "criticalCount": 1,
+  "warningCount": 2,
+  "infoCount": 0
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `activeCount` | int | Total number of active incidents |
+| `criticalCount` | int | Number of critical-severity active incidents |
+| `warningCount` | int | Number of warning-severity active incidents |
+| `infoCount` | int | Number of info-severity active incidents |
+
+---
+
+#### GET /api/alerts/stats
+
+Returns alert frequency statistics for charts. Daily incident counts by severity.
+
+**Authorization:** `RequireViewer` policy
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `days` | int | No | 30 | 1-365 | Number of days to include |
+
+**Example Request:**
+
+```bash
+GET /api/alerts/stats?days=30
+```
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "date": "2026-01-02",
+    "criticalCount": 2,
+    "warningCount": 5,
+    "infoCount": 1
+  },
+  {
+    "date": "2026-01-01",
+    "criticalCount": 0,
+    "warningCount": 3,
+    "infoCount": 0
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `date` | date | Date for this data point (YYYY-MM-DD) |
+| `criticalCount` | int | Number of critical incidents on this date |
+| `warningCount` | int | Number of warning incidents on this date |
+| `infoCount` | int | Number of info incidents on this date |
+
+**Response: 400 Bad Request** - Invalid days parameter
 
 ---
 

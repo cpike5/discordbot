@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Data.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,6 +27,8 @@ public static class PerformanceMetricsServiceExtensions
         // Bind configuration
         services.Configure<PerformanceMetricsOptions>(
             configuration.GetSection(PerformanceMetricsOptions.SectionName));
+        services.Configure<PerformanceAlertOptions>(
+            configuration.GetSection(PerformanceAlertOptions.SectionName));
 
         // Core metrics services (singleton - maintain in-memory state)
         services.AddSingleton<IConnectionStateService, ConnectionStateService>();
@@ -45,6 +48,13 @@ public static class PerformanceMetricsServiceExtensions
             sp.GetServices<IHostedService>()
               .OfType<CommandPerformanceAggregator>()
               .First());
+
+        // Performance alert services
+        services.AddScoped<IPerformanceAlertRepository, PerformanceAlertRepository>();
+        services.AddScoped<IPerformanceAlertService, PerformanceAlertService>();
+
+        // Alert monitoring background service
+        services.AddHostedService<AlertMonitoringService>();
 
         return services;
     }

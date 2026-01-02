@@ -18,6 +18,7 @@ public class DashboardHubTests
     private readonly Mock<IBotService> _mockBotService;
     private readonly Mock<IConnectionStateService> _mockConnectionStateService;
     private readonly Mock<ILatencyHistoryService> _mockLatencyHistoryService;
+    private readonly Mock<IPerformanceAlertService> _mockAlertService;
     private readonly Mock<ILogger<DashboardHub>> _mockLogger;
     private readonly Mock<IGroupManager> _mockGroupManager;
     private readonly Mock<HubCallerContext> _mockContext;
@@ -28,6 +29,7 @@ public class DashboardHubTests
         _mockBotService = new Mock<IBotService>();
         _mockConnectionStateService = new Mock<IConnectionStateService>();
         _mockLatencyHistoryService = new Mock<ILatencyHistoryService>();
+        _mockAlertService = new Mock<IPerformanceAlertService>();
         _mockLogger = new Mock<ILogger<DashboardHub>>();
         _mockGroupManager = new Mock<IGroupManager>();
         _mockContext = new Mock<HubCallerContext>();
@@ -36,6 +38,7 @@ public class DashboardHubTests
             _mockBotService.Object,
             _mockConnectionStateService.Object,
             _mockLatencyHistoryService.Object,
+            _mockAlertService.Object,
             _mockLogger.Object);
 
         // Setup hub context with mocked group manager
