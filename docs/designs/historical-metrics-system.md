@@ -1,10 +1,12 @@
 # Historical Metrics System Design Specification
 
-**Version:** 1.0
+**Version:** 1.1
 **Created:** 2026-01-02
-**Status:** Draft
+**Updated:** 2026-01-02
+**Status:** Implemented
 **Parent Epic:** #295 - Bot Performance Dashboard
 **Related Issue:** #610 - System Health page charts display placeholder data
+**Implemented In:** #613 - Feature: Historical Metrics System
 
 ---
 
@@ -1052,4 +1054,5 @@ public partial class AddMetricSnapshots : Migration
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2026-01-02 | Status updated to Implemented; all sub-issues (#614-#618) completed |
 | 1.0 | 2026-01-02 | Initial specification |
