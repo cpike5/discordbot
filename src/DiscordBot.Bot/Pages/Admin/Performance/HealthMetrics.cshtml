@@ -141,64 +141,48 @@
             color: rgb(168, 165, 163);
         }
 
-        /* Gauge Components */
-        .gauge-container {
+        /* Gauge Components - Chart.js based */
+        .gauge-chart-container {
             position: relative;
             width: 180px;
-            height: 100px;
+            height: 110px;
             margin: 0 auto;
         }
 
-        .gauge-svg {
-            width: 100%;
-            height: 100%;
+        .gauge-chart-container canvas {
+            max-width: 100%;
         }
 
-        .gauge-background {
-            fill: none;
-            stroke: rgb(47, 51, 54);
-            stroke-width: 12;
-            stroke-linecap: round;
-        }
-
-        .gauge-fill {
-            fill: none;
-            stroke-width: 12;
-            stroke-linecap: round;
-            transition: stroke 0.3s ease;
-        }
-
-        .gauge-fill-healthy { stroke: rgb(16, 185, 129); }
-        .gauge-fill-warning { stroke: rgb(245, 158, 11); }
-        .gauge-fill-error { stroke: rgb(239, 68, 68); }
-
-        .gauge-value {
+        .gauge-center-text {
             position: absolute;
-            top: 50%;
+            bottom: 15px;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translateX(-50%);
             text-align: center;
+            pointer-events: none;
         }
 
-        .gauge-value-number {
+        .gauge-center-value {
             font-size: 2rem;
-            font-weight: bold;
+            font-weight: 700;
             color: rgb(215, 211, 208);
             line-height: 1;
         }
 
-        .gauge-value-unit {
+        .gauge-center-unit {
             font-size: 0.875rem;
+            font-weight: 500;
             color: rgb(168, 165, 163);
-            margin-left: 0.25rem;
+            margin-left: 2px;
         }
 
-        .gauge-thresholds {
+        .gauge-labels {
             display: flex;
             justify-content: space-between;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             color: rgb(120, 116, 113);
-            margin-top: 0.5rem;
+            padding: 0 10px;
+            margin-top: -5px;
         }
 
         /* Sparkline */
@@ -490,16 +474,6 @@
                 <div class="health-status-label text-success">@Model.ViewModel.Health.ConnectionState</div>
                 <div class="health-status-sublabel">Gateway: wss://gateway.discord.gg</div>
             </div>
-            <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border-primary">
-                <div class="text-center">
-                    <div class="text-sm font-medium text-text-primary">Shard 0/1</div>
-                    <div class="text-xs text-text-tertiary">Active shard</div>
-                </div>
-                <div class="text-center">
-                    <div class="text-sm font-medium text-text-primary">v10</div>
-                    <div class="text-xs text-text-tertiary">Gateway version</div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -512,36 +486,22 @@
             </div>
         </div>
         <div class="chart-card-body">
-            <div class="gauge-container">
-                <svg class="gauge-svg" viewBox="0 0 180 100">
-                    <!-- Background arc -->
-                    <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
-                    <!-- Green zone (0-100ms) -->
-                    <path stroke="rgba(16, 185, 129, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 20 90 A 70 70 0 0 1 75 25" />
-                    <!-- Yellow zone (100-200ms) -->
-                    <path stroke="rgba(245, 158, 11, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 75 25 A 70 70 0 0 1 125 35" />
-                    <!-- Red zone (200-500ms) -->
-                    <path stroke="rgba(239, 68, 68, 0.3)" stroke-width="12" stroke-linecap="round" fill="none" d="M 125 35 A 70 70 0 0 1 160 90" />
-                    <!-- Value arc -->
-                    <path class="@Model.ViewModel.LatencyHealthClass" d="M 20 90 A 70 70 0 0 1 55 40" stroke-dasharray="110" stroke-dashoffset="0" />
-                </svg>
-                <div class="gauge-value">
-                    <span class="gauge-value-number" id="currentLatency">@Model.ViewModel.Health.LatencyMs</span>
-                    <span class="gauge-value-unit">ms</span>
+            <div class="gauge-chart-container">
+                <canvas id="latencyGauge"></canvas>
+                <div class="gauge-center-text">
+                    <span class="gauge-center-value" id="currentLatency">@Model.ViewModel.Health.LatencyMs</span>
+                    <span class="gauge-center-unit">ms</span>
                 </div>
             </div>
-            <div class="gauge-thresholds">
-                <span class="gauge-threshold">0ms</span>
-                <span class="gauge-threshold">500ms</span>
+            <div class="gauge-labels">
+                <span>0</span>
+                <span>250</span>
+                <span>500</span>
             </div>
             @if (Model.ViewModel.RecentLatencySamples.Any())
             {
-                <div class="sparkline-container mt-4 mx-auto">
-                    @foreach (var sample in Model.ViewModel.RecentLatencySamples)
-                    {
-                        var heightPercent = Math.Min((sample.LatencyMs / 200.0) * 100, 100);
-                        <div class="sparkline-bar" style="height: @(heightPercent)%"></div>
-                    }
+                <div class="mt-4">
+                    <canvas id="latencySparkline" height="50"></canvas>
                 </div>
                 <p class="text-xs text-text-tertiary text-center mt-2">Last @Model.ViewModel.RecentLatencySamples.Count heartbeats</p>
             }
@@ -563,14 +523,11 @@
         </div>
         <div class="chart-card-body">
             <div class="flex items-center gap-8">
-                <div class="gauge-container">
-                    <svg class="gauge-svg" viewBox="0 0 180 100">
-                        <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
-                        <path class="gauge-fill gauge-fill-healthy" d="M 20 90 A 70 70 0 0 1 90 20" stroke-dasharray="150" stroke-dashoffset="0" />
-                    </svg>
-                    <div class="gauge-value">
-                        <span class="gauge-value-number" id="memoryUsage">@Model.ViewModel.WorkingSetMB</span>
-                        <span class="gauge-value-unit">MB</span>
+                <div class="gauge-chart-container">
+                    <canvas id="memoryGauge"></canvas>
+                    <div class="gauge-center-text">
+                        <span class="gauge-center-value" id="memoryUsage">@Model.ViewModel.WorkingSetMB</span>
+                        <span class="gauge-center-unit">MB</span>
                     </div>
                 </div>
                 <div class="flex-1 space-y-3">
@@ -592,14 +549,10 @@
                     </div>
                 </div>
             </div>
-            <div class="progress-labeled mt-6">
-                <div class="progress-header">
-                    <span class="progress-label">Memory Utilization</span>
-                    <span class="progress-value">@Model.ViewModel.MemoryUtilizationPercent.ToString("F0")% of allocated</span>
-                </div>
-                <div class="progress-bar-container progress-bar-lg">
-                    <div class="progress-bar-fill progress-bar-healthy" style="width: @Model.ViewModel.MemoryUtilizationPercent.ToString("F0")%;"></div>
-                </div>
+            <div class="gauge-labels" style="max-width: 180px;">
+                <span>0</span>
+                <span>512</span>
+                <span>1024</span>
             </div>
         </div>
     </div>
@@ -615,14 +568,11 @@
         </div>
         <div class="chart-card-body">
             <div class="flex items-center gap-8">
-                <div class="gauge-container">
-                    <svg class="gauge-svg" viewBox="0 0 180 100">
-                        <path class="gauge-background" d="M 20 90 A 70 70 0 0 1 160 90" />
-                        <path class="gauge-fill gauge-fill-healthy" d="M 20 90 A 70 70 0 0 1 48 55" stroke-dasharray="55" stroke-dashoffset="0" />
-                    </svg>
-                    <div class="gauge-value">
-                        <span class="gauge-value-number" id="cpuUsage">0</span>
-                        <span class="gauge-value-unit">%</span>
+                <div class="gauge-chart-container">
+                    <canvas id="cpuGauge"></canvas>
+                    <div class="gauge-center-text">
+                        <span class="gauge-center-value" id="cpuUsage">0</span>
+                        <span class="gauge-center-unit">%</span>
                     </div>
                 </div>
                 <div class="flex-1 space-y-3">
@@ -631,6 +581,11 @@
                         <span class="text-text-primary font-medium">@Model.ViewModel.ThreadCount</span>
                     </div>
                 </div>
+            </div>
+            <div class="gauge-labels" style="max-width: 180px;">
+                <span>0%</span>
+                <span>50%</span>
+                <span>100%</span>
             </div>
         </div>
     </div>
@@ -736,6 +691,120 @@
         Chart.defaults.borderColor = '#3f4447';
 
         let latencyChart;
+        let latencyGaugeChart;
+        let memoryGaugeChart;
+        let cpuGaugeChart;
+        let sparklineChart;
+
+        // Gauge color helper - returns color based on value and thresholds
+        function getGaugeColor(value, thresholds, colors) {
+            for (let i = thresholds.length - 1; i >= 0; i--) {
+                if (value >= thresholds[i]) {
+                    return colors[i];
+                }
+            }
+            return colors[0];
+        }
+
+        // Create a semi-circular gauge chart
+        function createGaugeChart(canvasId, value, maxValue, thresholds, colors) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return null;
+
+            const percentage = Math.min((value / maxValue) * 100, 100);
+            const remaining = 100 - percentage;
+            const gaugeColor = getGaugeColor(value, thresholds, colors);
+
+            return new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [percentage, remaining],
+                        backgroundColor: [gaugeColor, 'rgba(47, 51, 54, 0.8)'],
+                        borderWidth: 0,
+                        circumference: 180,
+                        rotation: 270
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    }
+                }
+            });
+        }
+
+        // Update gauge chart value
+        function updateGaugeChart(chart, value, maxValue, thresholds, colors) {
+            if (!chart) return;
+            const percentage = Math.min((value / maxValue) * 100, 100);
+            const remaining = 100 - percentage;
+            const gaugeColor = getGaugeColor(value, thresholds, colors);
+
+            chart.data.datasets[0].data = [percentage, remaining];
+            chart.data.datasets[0].backgroundColor[0] = gaugeColor;
+            chart.update('none');
+        }
+
+        // Initialize sparkline chart
+        function initSparklineChart() {
+            const ctx = document.getElementById('latencySparkline');
+            if (!ctx) return;
+
+            const samples = [@Html.Raw(string.Join(",", Model.ViewModel.RecentLatencySamples.Select(s => s.LatencyMs)))];
+
+            sparklineChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: samples.map((_, i) => i + 1),
+                    datasets: [{
+                        data: samples,
+                        backgroundColor: samples.map(v => {
+                            if (v < 100) return 'rgba(16, 185, 129, 0.8)';
+                            if (v < 200) return 'rgba(245, 158, 11, 0.8)';
+                            return 'rgba(239, 68, 68, 0.8)';
+                        }),
+                        borderRadius: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#2f3336',
+                            titleColor: '#d7d3d0',
+                            bodyColor: '#a8a5a3',
+                            borderColor: '#3f4447',
+                            borderWidth: 1,
+                            callbacks: {
+                                title: () => '',
+                                label: (context) => context.parsed.y + ' ms'
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Gauge configurations
+        const latencyThresholds = [0, 100, 200];
+        const latencyColors = ['rgb(16, 185, 129)', 'rgb(245, 158, 11)', 'rgb(239, 68, 68)'];
+
+        const memoryThresholds = [0, 512, 768];
+        const memoryColors = ['rgb(16, 185, 129)', 'rgb(245, 158, 11)', 'rgb(239, 68, 68)'];
+
+        const cpuThresholds = [0, 50, 80];
+        const cpuColors = ['rgb(16, 185, 129)', 'rgb(245, 158, 11)', 'rgb(239, 68, 68)'];
 
         // Initialize latency chart
         async function initLatencyChart(hours = 24) {
@@ -870,6 +939,19 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize gauge charts
+            const initialLatency = @Model.ViewModel.Health.LatencyMs;
+            const initialMemory = @Model.ViewModel.WorkingSetMB;
+            const initialCpu = @Model.ViewModel.CpuUsagePercent;
+
+            latencyGaugeChart = createGaugeChart('latencyGauge', initialLatency, 500, latencyThresholds, latencyColors);
+            memoryGaugeChart = createGaugeChart('memoryGauge', initialMemory, 1024, memoryThresholds, memoryColors);
+            cpuGaugeChart = createGaugeChart('cpuGauge', initialCpu, 100, cpuThresholds, cpuColors);
+
+            // Initialize sparkline
+            initSparklineChart();
+
+            // Initialize latency history chart
             initLatencyChart(24);
             convertTimestampsToLocal();
 
@@ -878,7 +960,19 @@
                 const response = await fetch('/api/metrics/health');
                 const health = await response.json();
 
+                // Update text values
                 document.getElementById('currentLatency').textContent = health.latencyMs;
+                document.getElementById('memoryUsage').textContent = health.workingSetMB || health.memoryMB || initialMemory;
+
+                // Update gauge charts
+                updateGaugeChart(latencyGaugeChart, health.latencyMs, 500, latencyThresholds, latencyColors);
+                if (health.workingSetMB || health.memoryMB) {
+                    updateGaugeChart(memoryGaugeChart, health.workingSetMB || health.memoryMB, 1024, memoryThresholds, memoryColors);
+                }
+                if (health.cpuUsagePercent !== undefined) {
+                    document.getElementById('cpuUsage').textContent = Math.round(health.cpuUsagePercent);
+                    updateGaugeChart(cpuGaugeChart, health.cpuUsagePercent, 100, cpuThresholds, cpuColors);
+                }
             }, 30000);
         });
     </script>
