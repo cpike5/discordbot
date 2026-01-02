@@ -443,7 +443,14 @@
             <div class="uptime-display">
                 <div class="uptime-percentage healthy">@Model.ViewModel.Uptime30DFormatted</div>
                 <div class="uptime-label">Uptime (30 days)</div>
-                <div class="uptime-since">Online since @Model.ViewModel.SessionStartFormatted</div>
+                @if (Model.ViewModel.SessionStartUtc.HasValue)
+                {
+                    <div class="uptime-since">Online since <span data-utc-time="@Model.ViewModel.SessionStartUtc.Value.ToString("o")">@Model.ViewModel.SessionStartFormatted</span></div>
+                }
+                else
+                {
+                    <div class="uptime-since">Online since Unknown</div>
+                }
             </div>
             <div class="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-border-primary">
                 <div class="text-center">
@@ -636,7 +643,7 @@
                     <div class="timeline-entry">
                         <div class="timeline-dot @dotClass"></div>
                         <div class="timeline-content">
-                            <div class="timeline-time" data-utc-time="@evt.Timestamp.ToString("o")">@evt.Timestamp.ToLocalTime().ToString("MMM dd, yyyy 'at' HH:mm")</div>
+                            <div class="timeline-time" data-utc-time="@evt.Timestamp.ToString("o")">@evt.Timestamp.ToString("MMM dd, yyyy 'at' HH:mm") UTC</div>
                             <div class="timeline-title">@evt.EventType</div>
                             @if (!string.IsNullOrEmpty(evt.Reason) || !string.IsNullOrEmpty(evt.Details))
                             {
