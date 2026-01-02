@@ -200,6 +200,7 @@ try
     builder.Services.AddScoped<ICommandRegistrationService, CommandRegistrationService>();
     builder.Services.AddScoped<IUserManagementService, UserManagementService>();
     builder.Services.AddScoped<IWelcomeService, WelcomeService>();
+    builder.Services.AddScoped<ISearchService, SearchService>();
 
     // Add Time Parsing service
     builder.Services.AddScoped<ITimeParsingService, TimeParsingService>();
