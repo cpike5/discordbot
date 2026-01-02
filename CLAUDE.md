@@ -227,6 +227,7 @@ Located in `src/DiscordBot.Bot/Pages/`:
 | Health Metrics | `/Admin/Performance/HealthMetrics` | Bot health metrics dashboard |
 | Command Performance | `/Admin/Performance/Commands` | Command response times, throughput, errors |
 | System Health | `/Admin/Performance/System` | Database, cache, and service monitoring |
+| Performance Alerts | `/Admin/Performance/Alerts` | Alert thresholds and incident management |
 | Users | `/Admin/Users` | User management (SuperAdmin) |
 | User Details | `/Admin/Users/Details?id={id}` | User profile and roles |
 | User Create | `/Admin/Users/Create` | Create new user |

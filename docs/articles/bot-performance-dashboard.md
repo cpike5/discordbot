@@ -1230,16 +1230,357 @@ The page includes a shared performance dashboard navigation tab bar:
 
 ### Performance Alerts & Incidents (Issue #570)
 
-> **Status:** To be documented when implemented
+**URL:** `/Admin/Performance/Alerts`
+**Authorization:** `RequireViewer` policy (Admin required for acknowledge actions)
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/Performance/Alerts.cshtml.cs`
 
-*This section will be updated when [Issue #570](https://github.com/cpike5/discordbot/issues/570) is completed.*
+The Performance Alerts & Incidents Dashboard provides comprehensive monitoring and management of performance-related alerts, including threshold configuration, active incident tracking, and historical incident analysis.
 
-**Planned Features:**
-- Alert configuration UI with threshold management
-- Active alert dashboard
-- Incident tracking and acknowledgement workflow
-- Alert history and analytics
-- Notification integration (Discord webhooks, email)
+#### Features
+
+**Active Alerts Card**
+
+Displays currently active (unresolved) performance incidents with real-time status indicators:
+- Incident severity badges (Critical, Warning, Info) with color coding:
+  - Red (Critical): Metrics exceeding critical thresholds
+  - Yellow (Warning): Metrics exceeding warning thresholds
+  - Blue (Info): Informational alerts
+- Metric name and descriptive message
+- Current metric value vs. threshold value
+- Triggered timestamp with relative time display
+- Acknowledge button for Admin+ users (individual incident acknowledgment)
+- "Acknowledge All" button to bulk-acknowledge all active incidents
+- Empty state when no active alerts exist
+
+**Alert Threshold Configuration Table**
+
+Interactive table for managing alert thresholds per metric:
+- Metric display name with description tooltip
+- Current metric value with real-time updates
+- Warning threshold input field
+- Critical threshold input field
+- Threshold unit display (ms, %, MB, count, event)
+- Enabled/disabled toggle switch
+- Save button to persist threshold changes (Admin+ only)
+- Visual indicators for metrics currently in alert state
+
+Configurable metrics include:
+- Gateway Latency
+- Command P95 Latency
+- Error Rate
+- Memory Usage
+- API Rate Limit Usage
+- Database Query Time
+- Bot Disconnected (event-based)
+- Service Failure (event-based)
+
+**Incident History Timeline**
+
+Chronological list of recent incidents (last 10 by default) with full details:
+- Incident severity badge
+- Metric name and descriptive message
+- Triggered timestamp
+- Resolved timestamp (if resolved)
+- Incident duration in human-readable format
+- Acknowledged status with acknowledging user and timestamp
+- Administrator notes (if provided during acknowledgment)
+- Status badge (Active, Acknowledged, Resolved)
+
+**Auto-Recovery Event Log**
+
+Displays recent automatic incident resolutions:
+- Recovery timestamp with relative time
+- Metric name that auto-recovered
+- Issue description (e.g., "Command response time exceeded 1000ms")
+- Action taken (e.g., "Metric returned to normal range")
+- Result details (e.g., "Incident auto-resolved after 3 consecutive normal readings")
+- Incident duration before recovery
+- Shows last 10 auto-recovery events
+
+**Alert Frequency Chart**
+
+Stacked bar chart showing daily alert counts by severity (Chart.js):
+- Last 30 days of incident frequency
+- Stacked bars with color coding:
+  - Red: Critical incidents
+  - Yellow: Warning incidents
+  - Blue: Info incidents
+- Hover tooltips showing exact counts per severity
+- Helps identify trending alert patterns and problem periods
+
+#### View Model
+
+```csharp
+public record AlertsPageViewModel
+{
+    public IReadOnlyList<PerformanceIncidentDto> ActiveIncidents { get; init; }
+    public IReadOnlyList<AlertConfigDto> AlertConfigs { get; init; }
+    public IReadOnlyList<PerformanceIncidentDto> RecentIncidents { get; init; }
+    public IReadOnlyList<AutoRecoveryEventDto> AutoRecoveryEvents { get; init; }
+    public IReadOnlyList<AlertFrequencyDataDto> AlertFrequencyData { get; init; }
+    public ActiveAlertSummaryDto AlertSummary { get; init; }
+}
+```
+
+#### API Endpoints Used
+
+The page consumes these API endpoints:
+- `GET /api/alerts/config` - Get all alert configurations with current metric values
+- `GET /api/alerts/config/{metricName}` - Get specific alert configuration
+- `PUT /api/alerts/config/{metricName}` - Update alert threshold configuration (Admin+)
+- `GET /api/alerts/active` - Get currently active incidents
+- `GET /api/alerts/incidents` - Get paginated incident history
+- `GET /api/alerts/incidents/{id}` - Get specific incident by ID
+- `POST /api/alerts/incidents/{id}/acknowledge` - Acknowledge single incident (Admin+)
+- `POST /api/alerts/incidents/acknowledge-all` - Acknowledge all active incidents (Admin+)
+- `GET /api/alerts/summary` - Get active alert summary statistics
+- `GET /api/alerts/stats` - Get alert frequency statistics for charting
+
+#### New DTOs Introduced
+
+**Alert Configuration DTOs**
+```csharp
+public record AlertConfigDto
+{
+    public int Id { get; init; }
+    public string MetricName { get; init; }
+    public string DisplayName { get; init; }
+    public string? Description { get; init; }
+    public double? WarningThreshold { get; init; }
+    public double? CriticalThreshold { get; init; }
+    public string ThresholdUnit { get; init; }
+    public bool IsEnabled { get; init; }
+    public double? CurrentValue { get; init; }
+}
+
+public record AlertConfigUpdateDto
+{
+    public double? WarningThreshold { get; init; }
+    public double? CriticalThreshold { get; init; }
+    public bool? IsEnabled { get; init; }
+}
+```
+
+**Incident DTOs**
+```csharp
+public record PerformanceIncidentDto
+{
+    public Guid Id { get; init; }
+    public string MetricName { get; init; }
+    public AlertSeverity Severity { get; init; }
+    public IncidentStatus Status { get; init; }
+    public DateTime TriggeredAt { get; init; }
+    public DateTime? ResolvedAt { get; init; }
+    public double ThresholdValue { get; init; }
+    public double ActualValue { get; init; }
+    public string Message { get; init; }
+    public bool IsAcknowledged { get; init; }
+    public string? AcknowledgedBy { get; init; }
+    public DateTime? AcknowledgedAt { get; init; }
+    public string? Notes { get; init; }
+    public double? DurationSeconds { get; init; }
+}
+
+public record IncidentQueryDto
+{
+    public int PageNumber { get; init; } = 1;
+    public int PageSize { get; init; } = 20;
+    public AlertSeverity? Severity { get; init; }
+    public IncidentStatus? Status { get; init; }
+    public DateTime? StartDate { get; init; }
+    public DateTime? EndDate { get; init; }
+    public string? MetricName { get; init; }
+}
+
+public record IncidentPagedResultDto
+{
+    public IReadOnlyList<PerformanceIncidentDto> Items { get; init; }
+    public int TotalCount { get; init; }
+    public int PageNumber { get; init; }
+    public int PageSize { get; init; }
+    public int TotalPages { get; init; }
+}
+
+public record AcknowledgeIncidentDto
+{
+    public string? Notes { get; init; }
+}
+```
+
+**Summary & Statistics DTOs**
+```csharp
+public record ActiveAlertSummaryDto
+{
+    public int ActiveCount { get; init; }
+    public int CriticalCount { get; init; }
+    public int WarningCount { get; init; }
+    public int InfoCount { get; init; }
+}
+
+public record AlertFrequencyDataDto
+{
+    public DateTime Date { get; init; }
+    public int CriticalCount { get; init; }
+    public int WarningCount { get; init; }
+    public int InfoCount { get; init; }
+}
+
+public record AutoRecoveryEventDto
+{
+    public DateTime Timestamp { get; init; }
+    public string MetricName { get; init; }
+    public string Issue { get; init; }
+    public string Action { get; init; }
+    public string Result { get; init; }
+    public double DurationSeconds { get; init; }
+}
+```
+
+#### Background Service: AlertMonitoringService
+
+**Type:** Background Hosted Service
+**Interface:** `IBackgroundServiceHealth`
+**Location:** `src/DiscordBot.Bot/Services/AlertMonitoringService.cs`
+
+The AlertMonitoringService continuously monitors performance metrics and creates or resolves incidents based on configured thresholds.
+
+**Key Responsibilities:**
+- Evaluates all enabled alert configurations every 30 seconds (configurable)
+- Tracks consecutive threshold breaches and normal readings
+- Creates new incidents when consecutive breach threshold is met
+- Auto-resolves incidents when consecutive normal reading threshold is met
+- Broadcasts incident state changes via SignalR to connected dashboard clients
+- Registers with background service health registry for monitoring
+
+**Breach Detection Logic:**
+- **Consecutive Breaches Required:** 2 (default) - prevents alert noise from temporary spikes
+- **Consecutive Normal Required:** 3 (default) - ensures metric has stabilized before auto-resolution
+- Tracks breach/normal counts per metric in-memory using `ConcurrentDictionary`
+- Resets counters when metric crosses threshold boundary
+
+**Monitored Metrics:**
+- `gateway_latency` - Discord gateway heartbeat latency (from `ILatencyHistoryService`)
+- `command_p95_latency` - 95th percentile command response time (from `ICommandPerformanceAggregator`)
+- `error_rate` - Percentage of failed commands (from `ICommandPerformanceAggregator`)
+- `memory_usage` - Working set memory in MB (from `Process.GetCurrentProcess()`)
+- `api_rate_limit_usage` - Calculated from API request tracker
+- `database_query_time` - Average query time (from `IDatabaseMetricsCollector`)
+- `bot_disconnected` - Event-based (from `IConnectionStateService`)
+- `service_failure` - Event-based (from `IBackgroundServiceHealthRegistry`)
+
+**SignalR Notifications:**
+
+Broadcasts real-time updates to connected clients via `DashboardHub`:
+- `IncidentCreated` - New incident triggered
+- `IncidentResolved` - Incident auto-resolved
+- Allows dashboard to update without polling
+
+**Health Tracking:**
+- Records heartbeat every monitoring cycle
+- Tracks last error and status (Initializing, Running, Stopped)
+- Registered with `IBackgroundServiceHealthRegistry` for system health monitoring
+
+#### Configuration: PerformanceAlertOptions
+
+**Configuration Section:** `PerformanceAlerts`
+**Location:** `src/DiscordBot.Core/Configuration/PerformanceAlertOptions.cs`
+
+```json
+{
+  "PerformanceAlerts": {
+    "CheckIntervalSeconds": 30,
+    "ConsecutiveBreachesRequired": 2,
+    "ConsecutiveNormalRequired": 3,
+    "IncidentRetentionDays": 90
+  }
+}
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `CheckIntervalSeconds` | int | 30 | Interval between metric evaluations |
+| `ConsecutiveBreachesRequired` | int | 2 | Consecutive threshold breaches before creating incident |
+| `ConsecutiveNormalRequired` | int | 3 | Consecutive normal readings before auto-resolving incident |
+| `IncidentRetentionDays` | int | 90 | Days to retain resolved incidents before cleanup |
+
+#### Default Alert Thresholds
+
+The following default thresholds are seeded during database migration:
+
+| Metric Name | Display Name | Warning Threshold | Critical Threshold | Unit | Enabled |
+|-------------|--------------|-------------------|-------------------|------|---------|
+| `gateway_latency` | Gateway Latency | 100 | 200 | ms | Yes |
+| `command_p95_latency` | Command P95 Latency | 300 | 500 | ms | Yes |
+| `error_rate` | Error Rate | 1.0 | 5.0 | % | Yes |
+| `memory_usage` | Memory Usage | 400 | 480 | MB | Yes |
+| `api_rate_limit_usage` | API Rate Limit | 85 | 95 | % | Yes |
+| `database_query_time` | Database Query Time | 50 | 100 | ms | Yes |
+| `bot_disconnected` | Bot Disconnected | - | 1 | event | Yes |
+| `service_failure` | Service Failure | - | 1 | event | Yes |
+
+**Notes:**
+- Event-based metrics (bot_disconnected, service_failure) only have critical thresholds
+- Thresholds can be customized per deployment via the Alerts page UI
+- All metrics are enabled by default but can be disabled individually
+
+#### Incident Lifecycle
+
+**1. Metric Breach Detected**
+- AlertMonitoringService evaluates metric every 30 seconds
+- If metric exceeds threshold, breach counter increments
+- Normal counter resets to 0
+
+**2. Incident Triggered**
+- After 2 consecutive breaches (default), new incident created
+- Incident status: Active
+- Severity determined by threshold type (Warning or Critical)
+- SignalR notification sent to dashboard clients
+
+**3. Metric Returns to Normal**
+- When metric drops below threshold, normal counter increments
+- Breach counter resets to 0
+
+**4. Auto-Resolution**
+- After 3 consecutive normal readings (default), incident auto-resolves
+- Incident status: Resolved
+- ResolvedAt timestamp recorded
+- Auto-recovery event created for display in event log
+- SignalR notification sent to dashboard clients
+
+**5. Manual Acknowledgment (Optional)**
+- Admin+ users can acknowledge incidents before resolution
+- Incident status: Acknowledged (if still active) or remains Resolved
+- AcknowledgedBy, AcknowledgedAt, and Notes recorded
+- Does not affect auto-resolution logic
+
+**6. Retention & Cleanup**
+- Resolved incidents retained for 90 days (default)
+- Cleanup task removes old incidents beyond retention period
+
+#### Authorization
+
+- **Viewer+**: Can view all alerts, incidents, and configurations
+- **Admin+**: Can update alert thresholds and acknowledge incidents
+- **SuperAdmin**: Full access to all alert management features
+
+#### Empty State Handling
+
+When no active incidents exist:
+- Bell icon with checkmark (indicating system healthy)
+- Message: "No active alerts"
+- Description: "All performance metrics are within normal thresholds."
+
+#### Navigation
+
+The page includes a shared performance dashboard navigation tab bar:
+- Overview
+- Health Metrics
+- Commands
+- API & Rate Limits
+- System
+- **Alerts** (active)
+
+---
 
 ### Performance Dashboard UI Implementation (Issue #573)
 
@@ -1388,6 +1729,7 @@ The `CommandPerformanceAggregator` background service periodically queries the c
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.4 | 2026-01-02 | Added Performance Alerts & Incidents (#570) documentation |
 | 1.3 | 2026-01-01 | Added Discord API & Rate Limit Monitoring (#566) documentation |
 | 1.2 | 2026-01-01 | Added Command Performance Analytics (#565) documentation |
 | 1.1 | 2026-01-01 | Added System Health Monitoring (#568) documentation |

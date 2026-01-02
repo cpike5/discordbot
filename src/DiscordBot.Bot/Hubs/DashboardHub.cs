@@ -8,14 +8,20 @@ namespace DiscordBot.Bot.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time dashboard updates.
-/// Provides methods for guild-specific subscriptions and status retrieval.
+/// Provides methods for guild-specific subscriptions, status retrieval, and alert notifications.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
 public class DashboardHub : Hub
 {
+    /// <summary>
+    /// The name of the SignalR group for alert notifications.
+    /// </summary>
+    public const string AlertsGroupName = "alerts";
+
     private readonly IBotService _botService;
     private readonly IConnectionStateService _connectionStateService;
     private readonly ILatencyHistoryService _latencyHistoryService;
+    private readonly IPerformanceAlertService _alertService;
     private readonly ILogger<DashboardHub> _logger;
 
     /// <summary>
@@ -24,16 +30,19 @@ public class DashboardHub : Hub
     /// <param name="botService">The bot service for status retrieval.</param>
     /// <param name="connectionStateService">The connection state service.</param>
     /// <param name="latencyHistoryService">The latency history service.</param>
+    /// <param name="alertService">The performance alert service.</param>
     /// <param name="logger">The logger.</param>
     public DashboardHub(
         IBotService botService,
         IConnectionStateService connectionStateService,
         ILatencyHistoryService latencyHistoryService,
+        IPerformanceAlertService alertService,
         ILogger<DashboardHub> logger)
     {
         _botService = botService;
         _connectionStateService = connectionStateService;
         _latencyHistoryService = latencyHistoryService;
+        _alertService = alertService;
         _logger = logger;
     }
 
@@ -160,6 +169,59 @@ public class DashboardHub : Hub
             health.LatencyMs);
 
         return health;
+    }
+
+    /// <summary>
+    /// Joins the alerts group to receive real-time alert notifications.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task JoinAlertsGroup()
+    {
+        var userName = Context.User?.Identity?.Name ?? "unknown";
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, AlertsGroupName);
+
+        _logger.LogDebug(
+            "Client joined alerts group: ConnectionId={ConnectionId}, User={UserName}",
+            Context.ConnectionId,
+            userName);
+    }
+
+    /// <summary>
+    /// Leaves the alerts group to stop receiving alert notifications.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task LeaveAlertsGroup()
+    {
+        var userName = Context.User?.Identity?.Name ?? "unknown";
+
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, AlertsGroupName);
+
+        _logger.LogDebug(
+            "Client left alerts group: ConnectionId={ConnectionId}, User={UserName}",
+            Context.ConnectionId,
+            userName);
+    }
+
+    /// <summary>
+    /// Gets the current active alert count for dashboard display.
+    /// </summary>
+    /// <returns>The active alert summary with counts by severity.</returns>
+    public async Task<ActiveAlertSummaryDto> GetActiveAlertCount()
+    {
+        _logger.LogDebug(
+            "Active alert count requested by client: ConnectionId={ConnectionId}",
+            Context.ConnectionId);
+
+        var summary = await _alertService.GetActiveAlertSummaryAsync();
+
+        _logger.LogTrace(
+            "Active alert count retrieved: ActiveCount={ActiveCount}, Critical={CriticalCount}, Warning={WarningCount}",
+            summary.ActiveCount,
+            summary.CriticalCount,
+            summary.WarningCount);
+
+        return summary;
     }
 
     /// <summary>
