@@ -174,7 +174,7 @@
         searches.forEach(term => {
             html += `
                 <li class="recent-search-item">
-                    <a href="/Search?query=${encodeURIComponent(term)}" class="recent-search-link">
+                    <a href="/Search?q=${encodeURIComponent(term)}" class="recent-search-link">
                         <svg class="recent-search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
@@ -343,7 +343,7 @@
         let html = '<div class="px-4 pt-4 pb-2 border-b border-border-primary"><div class="flex items-center justify-between mb-3"><h3 class="text-xs font-semibold text-text-secondary uppercase tracking-wider">Recent Searches</h3><button type="button" onclick="clearMobileRecentSearches()" class="text-xs text-text-tertiary hover:text-accent-orange transition-colors">Clear all</button></div><div class="space-y-1">';
 
         searches.forEach(term => {
-            html += '<div class="flex items-center gap-2"><a href="/Search?query=' + encodeURIComponent(term) + '" class="flex-1 flex items-center gap-3 px-3 py-2 text-sm text-text-primary bg-bg-tertiary hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="flex-1 truncate">' + escapeHtml(term) + '</span></a><button type="button" onclick="removeMobileRecentSearch(\'' + escapeHtml(term) + '\')" class="p-2 text-text-tertiary hover:text-error hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>';
+            html += '<div class="flex items-center gap-2"><a href="/Search?q=' + encodeURIComponent(term) + '" class="flex-1 flex items-center gap-3 px-3 py-2 text-sm text-text-primary bg-bg-tertiary hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span class="flex-1 truncate">' + escapeHtml(term) + '</span></a><button type="button" onclick="removeMobileRecentSearch(\'' + escapeHtml(term) + '\')" class="p-2 text-text-tertiary hover:text-error hover:bg-bg-hover rounded-lg transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button></div>';
         });
 
         html += '</div></div>';
@@ -420,7 +420,7 @@
                 const value = input.value.trim();
                 if (value.length > 0) {
                     saveRecentSearch(value);
-                    window.location.href = '/Search?query=' + encodeURIComponent(value);
+                    window.location.href = '/Search?q=' + encodeURIComponent(value);
                 }
             }
         });
