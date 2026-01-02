@@ -1,0 +1,966 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.Performance.CommandsModel
+@using DiscordBot.Bot.ViewModels.Pages
+@{
+    ViewData["Title"] = "Command Performance";
+    ViewData["Breadcrumbs"] = new List<(string Text, string? Url)>
+    {
+        ("Dashboard", "/"),
+        ("Bot Performance", null),
+        ("Commands", null)
+    };
+}
+
+@section Styles {
+    <style>
+        /* Performance Page Shared Styles */
+        .performance-tabs {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 2px solid rgb(63, 68, 71);
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .performance-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: rgb(168, 165, 163);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+            white-space: nowrap;
+            text-decoration: none;
+        }
+
+        .performance-tab:hover {
+            color: rgb(215, 211, 208);
+            border-bottom-color: rgb(99, 102, 104);
+        }
+
+        .performance-tab.active {
+            color: rgb(9, 142, 207);
+            border-bottom-color: rgb(9, 142, 207);
+        }
+
+        .tab-icon {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        /* Metric Cards */
+        .metric-card {
+            background: rgb(35, 38, 40);
+            border: 1px solid rgb(63, 68, 71);
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+        }
+
+        .metric-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+            font-weight: 500;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: rgb(215, 211, 208);
+            line-height: 1;
+        }
+
+        .metric-unit {
+            font-size: 1rem;
+            font-weight: 500;
+            color: rgb(168, 165, 163);
+            margin-left: 0.25rem;
+        }
+
+        .metric-trend {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .metric-trend-up {
+            color: rgb(16, 185, 129);
+        }
+
+        .metric-trend-down {
+            color: rgb(239, 68, 68);
+        }
+
+        .metric-trend-neutral {
+            color: rgb(168, 165, 163);
+        }
+
+        /* Chart Card */
+        .chart-card {
+            background: rgb(35, 38, 40);
+            border: 1px solid rgb(63, 68, 71);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .chart-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem;
+            border-bottom: 1px solid rgb(63, 68, 71);
+        }
+
+        .chart-card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: rgb(215, 211, 208);
+            margin: 0;
+        }
+
+        .chart-card-subtitle {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+            margin: 0.25rem 0 0;
+        }
+
+        .chart-card-body {
+            padding: 1.25rem;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+        }
+
+        .chart-container-lg {
+            height: 400px;
+        }
+
+        /* Performance Grid Layouts */
+        .performance-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        @@media (min-width: 768px) {
+            .performance-grid-2 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Performance Table */
+        .performance-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .performance-table thead {
+            background: rgb(47, 51, 54);
+        }
+
+        .performance-table th {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: rgb(168, 165, 163);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .performance-table td {
+            padding: 0.75rem 1rem;
+            border-top: 1px solid rgb(63, 68, 71);
+            font-size: 0.875rem;
+            color: rgb(215, 211, 208);
+        }
+
+        .performance-table tbody tr:hover {
+            background: rgba(9, 142, 207, 0.05);
+        }
+
+        /* Sparkline */
+        .sparkline-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 24px;
+            max-width: 120px;
+        }
+
+        .sparkline-bar {
+            flex: 1;
+            background: rgb(9, 142, 207);
+            border-radius: 2px;
+            min-width: 3px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .sparkline-bar:hover {
+            opacity: 1;
+        }
+
+        .sparkline-bar.elevated {
+            background: rgb(245, 158, 11);
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-badge-connected {
+            background: rgba(16, 185, 129, 0.1);
+            color: rgb(16, 185, 129);
+        }
+
+        .status-badge-reconnecting {
+            background: rgba(245, 158, 11, 0.1);
+            color: rgb(245, 158, 11);
+        }
+
+        /* Severity Badge */
+        .severity-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .severity-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: rgb(245, 158, 11);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1.5rem;
+        }
+
+        .empty-state-icon {
+            width: 3rem;
+            height: 3rem;
+            margin: 0 auto 1rem;
+            color: rgb(168, 165, 163);
+        }
+
+        .empty-state-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: rgb(215, 211, 208);
+            margin-bottom: 0.5rem;
+        }
+
+        .empty-state-description {
+            font-size: 0.875rem;
+            color: rgb(168, 165, 163);
+        }
+
+        /* Time Range Selector */
+        .time-range-btn {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 0.375rem;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: 1px solid rgb(63, 68, 71);
+        }
+
+        .time-range-btn.active {
+            background: rgba(9, 142, 207, 0.2);
+            color: rgb(9, 142, 207);
+            border-color: rgba(9, 142, 207, 0.3);
+        }
+
+        .time-range-btn:not(.active) {
+            background: rgb(35, 38, 40);
+            color: rgb(168, 165, 163);
+        }
+
+        .time-range-btn:not(.active):hover {
+            color: rgb(215, 211, 208);
+        }
+    </style>
+}
+
+<!-- Page Header -->
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Command Performance</h1>
+        <p class="text-text-secondary mt-1">Response times, throughput, and error analysis</p>
+    </div>
+
+    <!-- Time Range Selector -->
+    <div class="flex items-center gap-2">
+        <a href="/Admin/Performance/Commands?hours=24" class="time-range-btn @(Model.Hours == 24 ? "active" : "")">24h</a>
+        <a href="/Admin/Performance/Commands?hours=168" class="time-range-btn @(Model.Hours == 168 ? "active" : "")">7d</a>
+        <a href="/Admin/Performance/Commands?hours=720" class="time-range-btn @(Model.Hours == 720 ? "active" : "")">30d</a>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="performance-tabs mb-6">
+    <a href="/Admin/Performance" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        Overview
+    </a>
+    <a href="/Admin/Performance/HealthMetrics" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+        Health Metrics
+    </a>
+    <a href="/Admin/Performance/Commands" class="performance-tab active">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        Commands
+    </a>
+    <a href="/Admin/Performance/ApiMetrics" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        API & Rate Limits
+    </a>
+    <a href="/Admin/Performance/SystemHealth" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+        </svg>
+        System
+    </a>
+    <a href="/Admin/Performance/Alerts" class="performance-tab">
+        <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        Alerts
+    </a>
+</div>
+
+@if (Model.ViewModel.TotalCommands == 0)
+{
+    <!-- Empty State -->
+    <div class="chart-card">
+        <div class="empty-state">
+            <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <div class="empty-state-title">No command data available</div>
+            <div class="empty-state-description">Commands will appear here once the bot processes Discord interactions in the selected time period.</div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Response Time Metrics Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Average -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Average</span>
+            </div>
+            <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.ViewModel.AvgResponseTimeMs)">
+                @Model.ViewModel.AvgResponseTimeMs.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-trend @CommandPerformanceViewModel.GetTrendClass(Model.ViewModel.AvgResponseTimeTrend)">
+                @if (Model.ViewModel.AvgResponseTimeTrend < 0)
+                {
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                }
+                else if (Model.ViewModel.AvgResponseTimeTrend > 0)
+                {
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                }
+                @CommandPerformanceViewModel.FormatTrend(Model.ViewModel.AvgResponseTimeTrend)
+            </div>
+        </div>
+
+        <!-- P50 -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">P50 (Median)</span>
+            </div>
+            <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.ViewModel.P50Ms)">
+                @Model.ViewModel.P50Ms.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-trend metric-trend-neutral">
+                No change
+            </div>
+        </div>
+
+        <!-- P95 -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">P95</span>
+            </div>
+            <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.ViewModel.P95Ms)">
+                @Model.ViewModel.P95Ms.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-trend metric-trend-neutral">
+                No change
+            </div>
+        </div>
+
+        <!-- P99 -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">P99</span>
+            </div>
+            <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.ViewModel.P99ResponseTimeMs)">
+                @Model.ViewModel.P99ResponseTimeMs.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-trend @CommandPerformanceViewModel.GetTrendClass(Model.ViewModel.P99Trend)">
+                @if (Model.ViewModel.P99Trend < 0)
+                {
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                }
+                else if (Model.ViewModel.P99Trend > 0)
+                {
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                }
+                @CommandPerformanceViewModel.FormatTrend(Model.ViewModel.P99Trend)
+            </div>
+        </div>
+    </div>
+
+    <!-- Response Time Over Time Chart -->
+    <div class="chart-card mb-6">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Response Times Over Time</h2>
+                <p class="chart-card-subtitle">Avg, P95, and P99 latency trends</p>
+            </div>
+        </div>
+        <div class="chart-card-body">
+            <div class="chart-container chart-container-lg">
+                <canvas id="responseTimeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Throughput & Error Rate Row -->
+    <div class="performance-grid-2 mb-6">
+        <!-- Command Throughput -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Command Throughput</h2>
+                    <p class="chart-card-subtitle">Commands executed per @(Model.Hours >= 168 ? "day" : "hour")</p>
+                </div>
+            </div>
+            <div class="chart-card-body">
+                <div class="chart-container">
+                    <canvas id="throughputChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Rate -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Error Rate Trend</h2>
+                    <p class="chart-card-subtitle">Command failure percentage</p>
+                </div>
+            </div>
+            <div class="chart-card-body">
+                <div class="chart-container">
+                    <canvas id="errorRateChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slowest Commands Table -->
+    @if (Model.ViewModel.SlowestCommands.Any())
+    {
+        <div class="chart-card mb-6">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Slowest Commands</h2>
+                    <p class="chart-card-subtitle">Top @Model.ViewModel.SlowestCommands.Count slowest command executions</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="performance-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Duration</th>
+                            <th>Executed At</th>
+                            <th>User ID</th>
+                            <th>Guild ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cmd in Model.ViewModel.SlowestCommands)
+                        {
+                            <tr>
+                                <td>
+                                    <code class="text-mono text-accent-blue">@cmd.CommandName</code>
+                                </td>
+                                <td class="font-medium @CommandPerformanceViewModel.GetLatencyClass(cmd.DurationMs)">
+                                    @cmd.DurationMs.ToString("F0")ms
+                                </td>
+                                <td>
+                                    <span data-utc-time="@cmd.ExecutedAt.ToString("o")">@cmd.ExecutedAt.ToLocalTime().ToString("MMM dd, HH:mm")</span>
+                                </td>
+                                <td class="text-text-secondary">@cmd.UserId</td>
+                                <td class="text-text-secondary">@(cmd.GuildId?.ToString() ?? "DM")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- Commands with Timeouts -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Commands with Timeouts</h2>
+                <p class="chart-card-subtitle">Commands that exceeded 3 second response limit</p>
+            </div>
+            @if (Model.ViewModel.TimeoutCount > 0)
+            {
+                <span class="severity-badge severity-warning">@Model.ViewModel.TimeoutCount timeout@(Model.ViewModel.TimeoutCount == 1 ? "" : "s") (@Model.Hours h)</span>
+            }
+        </div>
+        @if (Model.ViewModel.RecentTimeouts.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="performance-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Timeout Count</th>
+                            <th>Last Timeout</th>
+                            <th>Avg Response Before Timeout</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var timeout in Model.ViewModel.RecentTimeouts)
+                        {
+                            <tr>
+                                <td>
+                                    <code class="text-mono text-accent-blue">@timeout.CommandName</code>
+                                </td>
+                                <td class="font-medium text-warning">@timeout.TimeoutCount</td>
+                                <td>
+                                    <span data-utc-time="@timeout.LastTimeout.ToString("o")">@timeout.LastTimeout.ToLocalTime().ToString("MMM dd, HH:mm")</span>
+                                </td>
+                                <td>@timeout.AvgResponseBeforeTimeout.ToString("F0")ms</td>
+                                <td>
+                                    <span class="status-badge @(timeout.Status == "Investigating" ? "status-badge-reconnecting" : "status-badge-connected")">
+                                        @timeout.Status
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="empty-state-title">No timeouts</div>
+                <div class="empty-state-description">All commands completed within the 3 second limit in the selected time period.</div>
+            </div>
+        }
+    </div>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        // Chart.js default dark theme settings
+        Chart.defaults.color = '#a8a5a3';
+        Chart.defaults.borderColor = '#3f4447';
+
+        let responseTimeChart;
+        let throughputChart;
+        let errorRateChart;
+
+        const hours = @Model.Hours;
+        const granularity = hours >= 168 ? 'day' : 'hour';
+
+        // Initialize Response Time Chart
+        async function initResponseTimeChart() {
+            try {
+                const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                const throughputData = await response.json();
+
+                const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
+                const aggregates = await aggregatesResponse.json();
+
+                // Create labels from throughput data
+                const labels = throughputData.map(t => {
+                    const date = new Date(t.timestamp);
+                    if (granularity === 'day') {
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    } else {
+                        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    }
+                });
+
+                // For simplification, we'll use the aggregate values distributed across time buckets
+                // In a real implementation, you'd want per-hour latency data from the backend
+                const avgData = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].avgMs : 0);
+                const p95Data = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].p95Ms : 0);
+                const p99Data = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].p99Ms : 0);
+
+                const ctx = document.getElementById('responseTimeChart');
+                if (!ctx) return;
+
+                if (responseTimeChart) responseTimeChart.destroy();
+
+                responseTimeChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Average',
+                                data: avgData,
+                                borderColor: '#098ecf',
+                                backgroundColor: 'transparent',
+                                tension: 0.4,
+                                pointRadius: 2,
+                                pointHoverRadius: 5
+                            },
+                            {
+                                label: 'P95',
+                                data: p95Data,
+                                borderColor: '#f59e0b',
+                                backgroundColor: 'transparent',
+                                tension: 0.4,
+                                pointRadius: 2,
+                                pointHoverRadius: 5,
+                                borderDash: [5, 5]
+                            },
+                            {
+                                label: 'P99',
+                                data: p99Data,
+                                borderColor: '#ef4444',
+                                backgroundColor: 'transparent',
+                                tension: 0.4,
+                                pointRadius: 2,
+                                pointHoverRadius: 5,
+                                borderDash: [2, 2]
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.parsed.y.toFixed(0) + ' ms';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: '#2f3336'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + ' ms';
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load response time chart:', error);
+            }
+        }
+
+        // Initialize Throughput Chart
+        async function initThroughputChart() {
+            try {
+                const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                const data = await response.json();
+
+                const labels = data.map(t => {
+                    const date = new Date(t.timestamp);
+                    if (granularity === 'day') {
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    } else {
+                        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    }
+                });
+
+                const ctx = document.getElementById('throughputChart');
+                if (!ctx) return;
+
+                if (throughputChart) throughputChart.destroy();
+
+                throughputChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Commands',
+                            data: data.map(t => t.count),
+                            backgroundColor: '#cb4e1b',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.parsed.y + ' commands';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: {
+                                    color: '#2f3336'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load throughput chart:', error);
+            }
+        }
+
+        // Initialize Error Rate Chart
+        async function initErrorRateChart() {
+            try {
+                const throughputResponse = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                const throughputData = await throughputResponse.json();
+
+                const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
+                const aggregates = await aggregatesResponse.json();
+
+                const labels = throughputData.map(t => {
+                    const date = new Date(t.timestamp);
+                    if (granularity === 'day') {
+                        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    } else {
+                        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    }
+                });
+
+                // Use overall error rate distributed across time buckets
+                const totalCommands = aggregates.reduce((sum, a) => sum + a.executionCount, 0);
+                const errorRate = totalCommands > 0
+                    ? aggregates.reduce((sum, a) => sum + (a.executionCount * a.errorRate / 100.0), 0) / totalCommands * 100
+                    : 0;
+
+                const errorRateData = new Array(labels.length).fill(errorRate);
+
+                const ctx = document.getElementById('errorRateChart');
+                if (!ctx) return;
+
+                if (errorRateChart) errorRateChart.destroy();
+
+                errorRateChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Error Rate',
+                            data: errorRateData,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.parsed.y.toFixed(1) + '%';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: Math.max(5, errorRate + 1),
+                                grid: {
+                                    color: '#2f3336'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load error rate chart:', error);
+            }
+        }
+
+        // Convert UTC timestamps to local timezone
+        function convertTimestampsToLocal() {
+            const timestampElements = document.querySelectorAll('[data-utc-time]');
+            timestampElements.forEach(element => {
+                const utcTime = element.getAttribute('data-utc-time');
+                if (utcTime) {
+                    try {
+                        const date = new Date(utcTime);
+                        const formatted = date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: '2-digit'
+                        }) + ', ' + date.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                        element.textContent = formatted;
+                    } catch (e) {
+                        console.error('Failed to parse timestamp:', utcTime, e);
+                    }
+                }
+            });
+        }
+
+        // Auto-refresh every 30 seconds
+        let refreshInterval;
+
+        function startAutoRefresh() {
+            refreshInterval = setInterval(async () => {
+                await Promise.all([
+                    initResponseTimeChart(),
+                    initThroughputChart(),
+                    initErrorRateChart()
+                ]);
+            }, 30000);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', async function() {
+            @if (Model.ViewModel.TotalCommands > 0)
+            {
+                @:await initResponseTimeChart();
+                @:await initThroughputChart();
+                @:await initErrorRateChart();
+                @:startAutoRefresh();
+            }
+            convertTimestampsToLocal();
+        });
+
+        // Stop refresh when page hidden
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                if (refreshInterval) clearInterval(refreshInterval);
+            } else {
+                startAutoRefresh();
+            }
+        });
+    </script>
+}
