@@ -971,6 +971,39 @@
             }
             configChanges[metricName][field] = value;
             updateSaveButtonVisibility();
+            updateCurrentValueColor(metricName);
+        }
+
+        function updateCurrentValueColor(metricName) {
+            const row = document.querySelector(`tr[data-metric="${metricName}"]`);
+            if (!row) return;
+
+            const warningInput = row.querySelector('input[data-field="warning"]');
+            const criticalInput = row.querySelector('input[data-field="critical"]');
+            const currentValueSpan = row.querySelector('td:nth-child(4) span');
+
+            if (!currentValueSpan) return;
+
+            // Extract current value from the span text (e.g., "85.50%" -> 85.50)
+            const currentText = currentValueSpan.textContent.trim();
+            const currentValue = parseFloat(currentText);
+
+            if (isNaN(currentValue)) return; // N/A case
+
+            const warningThreshold = warningInput ? parseFloat(warningInput.value) : null;
+            const criticalThreshold = criticalInput ? parseFloat(criticalInput.value) : null;
+
+            // Remove existing color classes
+            currentValueSpan.classList.remove('text-success', 'text-warning', 'text-error');
+
+            // Apply new color based on thresholds
+            if (criticalThreshold !== null && !isNaN(criticalThreshold) && currentValue >= criticalThreshold) {
+                currentValueSpan.classList.add('text-error');
+            } else if (warningThreshold !== null && !isNaN(warningThreshold) && currentValue >= warningThreshold) {
+                currentValueSpan.classList.add('text-warning');
+            } else {
+                currentValueSpan.classList.add('text-success');
+            }
         }
 
         function hasUnsavedChanges() {
