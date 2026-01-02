@@ -497,7 +497,7 @@
             <h2 class="chart-card-title">Active Alerts</h2>
             <p class="chart-card-subtitle">Current issues requiring attention</p>
         </div>
-        @if (Model.ViewModel.ActiveIncidents.Any() && User.IsInRole("Admin"))
+        @if (Model.ViewModel.ActiveIncidents.Any() && (User.IsInRole("Admin") || User.IsInRole("SuperAdmin")))
         {
             <form method="post" asp-page-handler="AcknowledgeAll">
                 @Html.AntiForgeryToken()
@@ -545,7 +545,7 @@
                                 <span data-utc-time="@incident.TriggeredAt.ToString("o")" data-format="relative">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
                             </div>
                         </div>
-                        @if (User.IsInRole("Admin"))
+                        @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
                         {
                             <div class="alert-actions flex items-center gap-2">
                                 <form method="post" asp-page-handler="Acknowledge" asp-route-id="@incident.Id">
@@ -578,7 +578,7 @@
             <h2 class="chart-card-title">Alert Threshold Configuration</h2>
             <p class="chart-card-subtitle">Define warning and critical thresholds for key metrics</p>
         </div>
-        @if (User.IsInRole("Admin"))
+        @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
         {
             <button id="saveConfigBtn"
                     type="button"
