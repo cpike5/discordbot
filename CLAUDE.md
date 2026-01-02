@@ -225,6 +225,7 @@ Located in `src/DiscordBot.Bot/Pages/`:
 | Public Leaderboard | `/Guilds/{guildId:long}/Leaderboard` | Public Rat Watch leaderboard (no auth) |
 | Global Rat Watch Analytics | `/Admin/RatWatchAnalytics` | Cross-guild Rat Watch metrics (Admin+) |
 | Health Metrics | `/Admin/Performance/HealthMetrics` | Bot health metrics dashboard |
+| System Health | `/Admin/Performance/System` | Database, cache, and service monitoring |
 | Users | `/Admin/Users` | User management (SuperAdmin) |
 | User Details | `/Admin/Users/Details?id={id}` | User profile and roles |
 | User Create | `/Admin/Users/Create` | Create new user |
