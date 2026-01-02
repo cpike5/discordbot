@@ -9,26 +9,28 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically cleans up old message logs according to the retention policy.
 /// Respects the configured retention period and runs cleanup at scheduled intervals.
 /// </summary>
-public class MessageLogCleanupService : BackgroundService
+public class MessageLogCleanupService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<MessageLogRetentionOptions> _options;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
-    private readonly ILogger<MessageLogCleanupService> _logger;
+
+    public override string ServiceName => "Message Log Cleanup Service";
 
     public MessageLogCleanupService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<MessageLogRetentionOptions> options,
         IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<MessageLogCleanupService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _options = options;
         _bgOptions = bgOptions;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Message log cleanup service starting");
 
@@ -51,9 +53,12 @@ public class MessageLogCleanupService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await PerformCleanupAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -63,6 +68,7 @@ public class MessageLogCleanupService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during message log cleanup");
+                RecordError(ex);
             }
 
             // Wait for next cleanup interval

@@ -11,10 +11,9 @@ namespace DiscordBot.Bot.Services;
 /// Caches results to avoid expensive recalculations on every API request.
 /// Implements ICommandPerformanceAggregator for query access.
 /// </summary>
-public class CommandPerformanceAggregator : BackgroundService, ICommandPerformanceAggregator
+public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommandPerformanceAggregator
 {
     private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly ILogger<CommandPerformanceAggregator> _logger;
     private readonly PerformanceMetricsOptions _options;
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
@@ -22,13 +21,16 @@ public class CommandPerformanceAggregator : BackgroundService, ICommandPerforman
     private DateTime _cacheExpiry = DateTime.MinValue;
     private TimeSpan _cacheTtl;
 
+    public override string ServiceName => "Command Performance Aggregator";
+
     public CommandPerformanceAggregator(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory serviceScopeFactory,
         ILogger<CommandPerformanceAggregator> logger,
         IOptions<PerformanceMetricsOptions> options)
+        : base(serviceProvider, logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
-        _logger = logger;
         _options = options.Value;
         _cacheTtl = TimeSpan.FromMinutes(_options.CommandAggregationCacheTtlMinutes);
     }
@@ -36,7 +38,7 @@ public class CommandPerformanceAggregator : BackgroundService, ICommandPerforman
     /// <summary>
     /// Background task that periodically refreshes the cache.
     /// </summary>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("CommandPerformanceAggregator background service starting");
 
@@ -45,13 +47,17 @@ public class CommandPerformanceAggregator : BackgroundService, ICommandPerforman
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await RefreshCacheAsync(stoppingToken);
+                ClearError();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error refreshing command performance cache");
+                RecordError(ex);
             }
 
             // Wait for the cache TTL before next refresh

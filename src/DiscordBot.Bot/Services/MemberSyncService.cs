@@ -14,62 +14,55 @@ namespace DiscordBot.Bot.Services;
 /// Background service that synchronizes Discord guild members with the local database.
 /// Performs initial full sync for all guilds on startup and runs daily reconciliation.
 /// </summary>
-public class MemberSyncService : BackgroundService
+public class MemberSyncService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMemberSyncQueue _syncQueue;
     private readonly DiscordSocketClient _client;
     private readonly IOptions<BackgroundServicesOptions> _options;
-    private readonly ILogger<MemberSyncService> _logger;
     private readonly SemaphoreSlim _apiSemaphore = new(1, 1);
     private DateTime _lastApiCall = DateTime.MinValue;
     private DateTime _lastReconciliation = DateTime.MinValue;
+
+    public override string ServiceName => "MemberSyncService";
 
     public MemberSyncService(
         IServiceScopeFactory scopeFactory,
         IMemberSyncQueue syncQueue,
         DiscordSocketClient client,
         IOptions<BackgroundServicesOptions> options,
-        ILogger<MemberSyncService> logger)
+        ILogger<MemberSyncService> logger,
+        IServiceProvider serviceProvider)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _syncQueue = syncQueue;
         _client = client;
         _options = options;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Member sync service starting");
-
         // Check if member sync is enabled
         if (!_options.Value.MemberSyncEnabled)
         {
-            _logger.LogInformation("Member sync is disabled via configuration");
+            SetStatus("Disabled");
             return;
         }
 
-        _logger.LogInformation(
-            "Member sync service enabled. Initial delay: {InitialDelayMinutes} minutes, " +
-            "Reconciliation interval: {ReconciliationHours} hours, Batch size: {BatchSize}, API delay: {ApiDelayMs}ms",
-            _options.Value.MemberSyncInitialDelayMinutes,
-            _options.Value.MemberSyncReconciliationIntervalHours,
-            _options.Value.MemberSyncBatchSize,
-            _options.Value.MemberSyncApiDelayMs);
-
         // Initial delay to let the bot fully connect
         var initialDelay = TimeSpan.FromMinutes(_options.Value.MemberSyncInitialDelayMinutes);
-        _logger.LogInformation("Waiting {InitialDelay} before starting member sync", initialDelay);
         await Task.Delay(initialDelay, stoppingToken);
 
         // Queue initial sync for all guilds in database
+        SetStatus("Queuing");
         await QueueInitialSyncAsync(stoppingToken);
 
         // Start processing queue
         _ = ProcessQueueAsync(stoppingToken);
 
         // Schedule daily reconciliation
+        SetStatus("Running");
         await RunReconciliationLoopAsync(stoppingToken);
     }
 
@@ -103,14 +96,14 @@ public class MemberSyncService : BackgroundService
     /// </summary>
     private async Task ProcessQueueAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Starting member sync queue processor");
-
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
             try
             {
                 var (guildId, reason) = await _syncQueue.DequeueAsync(stoppingToken);
                 await ProcessSyncRequestAsync(guildId, reason, stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -119,12 +112,10 @@ public class MemberSyncService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing member sync request from queue");
+                RecordError(ex);
                 // Continue processing next item
             }
         }
-
-        _logger.LogInformation("Member sync queue processor stopping");
     }
 
     /// <summary>
@@ -137,11 +128,10 @@ public class MemberSyncService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
             try
             {
                 await Task.Delay(reconciliationInterval, stoppingToken);
-
-                _logger.LogInformation("Starting daily reconciliation");
 
                 using var scope = _scopeFactory.CreateScope();
                 var guildRepository = scope.ServiceProvider.GetRequiredService<IGuildRepository>();
@@ -153,7 +143,7 @@ public class MemberSyncService : BackgroundService
                 }
 
                 _lastReconciliation = DateTime.UtcNow;
-                _logger.LogInformation("Daily reconciliation queued for {Count} guilds", guilds.Count);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -161,7 +151,7 @@ public class MemberSyncService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during daily reconciliation scheduling");
+                RecordError(ex);
             }
         }
     }

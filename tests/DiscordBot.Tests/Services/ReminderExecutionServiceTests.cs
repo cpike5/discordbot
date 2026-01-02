@@ -72,6 +72,7 @@ public class ReminderExecutionServiceTests
     {
         // Act
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             _options,
             _mockClient.Object,
@@ -90,6 +91,7 @@ public class ReminderExecutionServiceTests
     {
         // Arrange & Act
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             _options,
             _mockClient.Object,
@@ -120,6 +122,7 @@ public class ReminderExecutionServiceTests
 
         // Act
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             options,
             _mockClient.Object,
@@ -148,6 +151,7 @@ public class ReminderExecutionServiceTests
 
         // Act
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             options,
             _mockClient.Object,
@@ -175,6 +179,7 @@ public class ReminderExecutionServiceTests
 
         // Act
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             options,
             _mockClient.Object,
@@ -203,6 +208,7 @@ public class ReminderExecutionServiceTests
 
         // Act
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             options,
             _mockClient.Object,
@@ -231,6 +237,7 @@ public class ReminderExecutionServiceTests
         _mockClient.SetupGet(c => c.ConnectionState).Returns(() => connectionStateSequence.Dequeue());
 
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             _options,
             _mockClient.Object,
@@ -261,6 +268,7 @@ public class ReminderExecutionServiceTests
         _mockClient.SetupGet(c => c.ConnectionState).Returns(ConnectionState.Disconnected);
 
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             _options,
             _mockClient.Object,
@@ -285,6 +293,7 @@ public class ReminderExecutionServiceTests
     {
         // Arrange
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             _options,
             _mockClient.Object,
@@ -314,6 +323,7 @@ public class ReminderExecutionServiceTests
     {
         // Arrange
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             _options,
             _mockClient.Object,
@@ -343,6 +353,7 @@ public class ReminderExecutionServiceTests
         });
 
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             fastOptions,
             _mockClient.Object,
@@ -414,6 +425,7 @@ public class ReminderExecutionServiceTests
             .Returns(Task.CompletedTask);
 
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             fastOptions,
             _mockClient.Object,
@@ -745,6 +757,7 @@ public class ReminderExecutionServiceTests
             .Returns(Task.CompletedTask);
 
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             fastOptions,
             _mockClient.Object,
@@ -782,6 +795,7 @@ public class ReminderExecutionServiceTests
         });
 
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             fastOptions,
             _mockClient.Object,
@@ -836,6 +850,7 @@ public class ReminderExecutionServiceTests
             });
 
         var service = new ReminderExecutionService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             fastOptions,
             _mockClient.Object,

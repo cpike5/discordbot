@@ -407,7 +407,7 @@
             </div>
         </div>
         <div class="chart-card-body p-0">
-            <div class="divide-y divide-border-primary">
+            <div class="divide-y divide-border-primary max-h-80 overflow-y-auto">
                 @if (Model.ViewModel.BackgroundServices.Any())
                 {
                     @foreach (var service in Model.ViewModel.BackgroundServices)

@@ -9,26 +9,28 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically cleans up old audit logs according to the retention policy.
 /// Respects the configured retention period and runs cleanup at scheduled intervals.
 /// </summary>
-public class AuditLogRetentionService : BackgroundService
+public class AuditLogRetentionService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<AuditLogRetentionOptions> _options;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
-    private readonly ILogger<AuditLogRetentionService> _logger;
+
+    public override string ServiceName => "Audit Log Retention Service";
 
     public AuditLogRetentionService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<AuditLogRetentionOptions> options,
         IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<AuditLogRetentionService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _options = options;
         _bgOptions = bgOptions;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Audit log retention service starting");
 
@@ -51,9 +53,12 @@ public class AuditLogRetentionService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await PerformCleanupAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -63,6 +68,7 @@ public class AuditLogRetentionService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during audit log cleanup");
+                RecordError(ex);
             }
 
             // Wait for next cleanup interval

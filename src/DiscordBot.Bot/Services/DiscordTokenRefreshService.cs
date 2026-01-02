@@ -11,41 +11,44 @@ namespace DiscordBot.Bot.Services;
 /// Background service that proactively refreshes Discord OAuth tokens before they expire.
 /// Intervals and thresholds are configurable via BackgroundServicesOptions.
 /// </summary>
-public class DiscordTokenRefreshService : BackgroundService
+public class DiscordTokenRefreshService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly DiscordOAuthOptions _oauthOptions;
     private readonly BackgroundServicesOptions _bgOptions;
-    private readonly ILogger<DiscordTokenRefreshService> _logger;
+
+    public override string ServiceName => "Discord Token Refresh Service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordTokenRefreshService"/> class.
     /// </summary>
+    /// <param name="serviceProvider">The service provider for health monitoring.</param>
     /// <param name="scopeFactory">Factory for creating service scopes (needed for scoped services).</param>
     /// <param name="httpClientFactory">Factory for creating HTTP clients for Discord API calls.</param>
     /// <param name="oauthOptions">Discord OAuth configuration options.</param>
     /// <param name="bgOptions">Background services configuration options.</param>
     /// <param name="logger">Logger for diagnostic information.</param>
     public DiscordTokenRefreshService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IHttpClientFactory httpClientFactory,
         IOptions<DiscordOAuthOptions> oauthOptions,
         IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<DiscordTokenRefreshService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _httpClientFactory = httpClientFactory;
         _oauthOptions = oauthOptions.Value;
         _bgOptions = bgOptions.Value;
-        _logger = logger;
     }
 
     /// <summary>
     /// Executes the background token refresh loop.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token for graceful shutdown.</param>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         var refreshInterval = TimeSpan.FromMinutes(_bgOptions.TokenRefreshIntervalMinutes);
         var initialDelay = TimeSpan.FromMinutes(_bgOptions.TokenRefreshInitialDelayMinutes);
@@ -58,9 +61,12 @@ public class DiscordTokenRefreshService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await RefreshExpiringTokensAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -70,6 +76,7 @@ public class DiscordTokenRefreshService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during token refresh cycle, will retry on next interval");
+                RecordError(ex);
             }
 
             try

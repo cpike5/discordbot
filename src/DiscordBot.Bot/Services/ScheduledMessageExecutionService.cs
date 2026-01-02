@@ -8,11 +8,12 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically checks for and executes scheduled messages that are due.
 /// Runs at configured intervals and processes messages concurrently with timeout protection.
 /// </summary>
-public class ScheduledMessageExecutionService : BackgroundService
+public class ScheduledMessageExecutionService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<ScheduledMessagesOptions> _options;
-    private readonly ILogger<ScheduledMessageExecutionService> _logger;
+
+    public override string ServiceName => "ScheduledMessageExecutionService";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScheduledMessageExecutionService"/> class.
@@ -20,35 +21,31 @@ public class ScheduledMessageExecutionService : BackgroundService
     /// <param name="scopeFactory">The service scope factory for creating scoped services.</param>
     /// <param name="options">The scheduled messages configuration options.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="serviceProvider">The service provider for MonitoredBackgroundService.</param>
     public ScheduledMessageExecutionService(
         IServiceScopeFactory scopeFactory,
         IOptions<ScheduledMessagesOptions> options,
-        ILogger<ScheduledMessageExecutionService> logger)
+        ILogger<ScheduledMessageExecutionService> logger,
+        IServiceProvider serviceProvider)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _options = options;
-        _logger = logger;
     }
 
     /// <inheritdoc/>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Scheduled message execution service starting");
-
-        _logger.LogInformation(
-            "Scheduled message execution service enabled. Check interval: {IntervalSeconds}s, Max concurrent: {MaxConcurrent}, Timeout: {TimeoutSeconds}s",
-            _options.Value.CheckIntervalSeconds,
-            _options.Value.MaxConcurrentExecutions,
-            _options.Value.ExecutionTimeoutSeconds);
-
         // Initial delay to let the app start up and Discord client connect
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
             try
             {
                 await ProcessDueMessagesAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -57,15 +54,13 @@ public class ScheduledMessageExecutionService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during scheduled message processing");
+                RecordError(ex);
             }
 
             // Wait for next check interval
             var interval = TimeSpan.FromSeconds(_options.Value.CheckIntervalSeconds);
             await Task.Delay(interval, stoppingToken);
         }
-
-        _logger.LogInformation("Scheduled message execution service stopping");
     }
 
     /// <summary>
@@ -74,8 +69,6 @@ public class ScheduledMessageExecutionService : BackgroundService
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
     private async Task ProcessDueMessagesAsync(CancellationToken stoppingToken)
     {
-        _logger.LogDebug("Checking for due scheduled messages");
-
         using var scope = _scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IScheduledMessageRepository>();
         var service = scope.ServiceProvider.GetRequiredService<IScheduledMessageService>();
@@ -86,11 +79,8 @@ public class ScheduledMessageExecutionService : BackgroundService
 
         if (messageList.Count == 0)
         {
-            _logger.LogTrace("No scheduled messages due for execution");
             return;
         }
-
-        _logger.LogInformation("Found {Count} scheduled messages due for execution", messageList.Count);
 
         // Create a semaphore to limit concurrent executions
         using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
@@ -105,36 +95,15 @@ public class ScheduledMessageExecutionService : BackgroundService
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                 cts.CancelAfter(executionTimeout);
 
-                _logger.LogDebug("Executing scheduled message {MessageId}: {Title}",
-                    message.Id, message.Title);
-
-                var success = await service.ExecuteScheduledMessageAsync(message.Id, cts.Token);
-
-                if (success)
-                {
-                    _logger.LogInformation("Successfully executed scheduled message {MessageId}: {Title}",
-                        message.Id, message.Title);
-                }
-                else
-                {
-                    _logger.LogWarning("Failed to execute scheduled message {MessageId}: {Title}",
-                        message.Id, message.Title);
-                }
+                await service.ExecuteScheduledMessageAsync(message.Id, cts.Token);
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Scheduled message execution cancelled due to shutdown: {MessageId}",
-                    message.Id);
+                // Timeout
             }
-            catch (OperationCanceledException)
+            catch (Exception)
             {
-                _logger.LogWarning("Scheduled message execution timed out after {Timeout}s: {MessageId}",
-                    executionTimeout.TotalSeconds, message.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error executing scheduled message {MessageId}: {Title}",
-                    message.Id, message.Title);
+                // Logged by service
             }
             finally
             {
@@ -144,7 +113,5 @@ public class ScheduledMessageExecutionService : BackgroundService
 
         // Wait for all executions to complete
         await Task.WhenAll(executionTasks);
-
-        _logger.LogInformation("Completed processing {Count} scheduled messages", messageList.Count);
     }
 }

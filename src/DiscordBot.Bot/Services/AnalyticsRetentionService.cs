@@ -9,34 +9,37 @@ namespace DiscordBot.Bot.Services;
 /// Background service that periodically cleans up old analytics snapshots according to the retention policy.
 /// Deletes hourly snapshots older than configured retention period and daily snapshots beyond their retention.
 /// </summary>
-public class AnalyticsRetentionService : BackgroundService
+public class AnalyticsRetentionService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<AnalyticsRetentionOptions> _options;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
-    private readonly ILogger<AnalyticsRetentionService> _logger;
+
+    public override string ServiceName => "Analytics Retention Service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AnalyticsRetentionService"/> class.
     /// </summary>
+    /// <param name="serviceProvider">The service provider for health monitoring.</param>
     /// <param name="scopeFactory">The service scope factory for creating scoped services.</param>
     /// <param name="options">Analytics retention configuration options.</param>
     /// <param name="bgOptions">Background services configuration options.</param>
     /// <param name="logger">The logger.</param>
     public AnalyticsRetentionService(
+        IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<AnalyticsRetentionOptions> options,
         IOptions<BackgroundServicesOptions> bgOptions,
         ILogger<AnalyticsRetentionService> logger)
+        : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _options = options;
         _bgOptions = bgOptions;
-        _logger = logger;
     }
 
     /// <inheritdoc/>
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         if (!_options.Value.Enabled)
         {
@@ -59,9 +62,12 @@ public class AnalyticsRetentionService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            UpdateHeartbeat();
+
             try
             {
                 await PerformCleanupAsync(stoppingToken);
+                ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -71,6 +77,7 @@ public class AnalyticsRetentionService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during analytics retention cleanup");
+                RecordError(ex);
             }
 
             // Wait for next cleanup interval

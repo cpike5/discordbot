@@ -60,6 +60,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
         _sloMetrics = new SloMetrics(meterFactory);
 
         _service = new BusinessMetricsUpdateService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             _businessMetrics,
             _sloMetrics,
@@ -72,6 +73,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
     {
         // Arrange & Act
         var service = new BusinessMetricsUpdateService(
+            _mockServiceProvider.Object,
             _mockScopeFactory.Object,
             _businessMetrics,
             _sloMetrics,
