@@ -78,6 +78,9 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// <inheritdoc/>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        // Yield immediately to prevent blocking host startup
+        await Task.Yield();
+
         _logger.LogInformation("AlertMonitoringService starting");
 
         // Register with health registry
@@ -385,16 +388,17 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     {
         try
         {
+            // Metric names must match the seeded data in the migration (snake_case)
             return metricName switch
             {
-                "GatewayLatency" => GetGatewayLatencyAsync(),
-                "CommandP95Latency" => await GetCommandP95LatencyAsync(),
-                "ErrorRate" => await GetErrorRateAsync(),
-                "MemoryUsage" => GetMemoryUsageAsync(),
-                "ApiRateLimitUsage" => GetApiRateLimitUsageAsync(),
-                "DatabaseQueryTime" => GetDatabaseQueryTimeAsync(),
-                "BotDisconnected" => IsBotDisconnected() ? 1.0 : 0.0,
-                "ServiceFailure" => HasServiceFailure() ? 1.0 : 0.0,
+                "gateway_latency" => GetGatewayLatency(),
+                "command_p95_latency" => await GetCommandP95LatencyAsync(),
+                "error_rate" => await GetErrorRateAsync(),
+                "memory_usage" => GetMemoryUsage(),
+                "api_rate_limit_usage" => GetApiRateLimitUsage(),
+                "database_query_time" => GetDatabaseQueryTime(),
+                "bot_disconnected" => IsBotDisconnected() ? 1.0 : 0.0,
+                "service_failure" => HasServiceFailure() ? 1.0 : 0.0,
                 _ => null
             };
         }
@@ -408,7 +412,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// <summary>
     /// Gets the current gateway latency in milliseconds.
     /// </summary>
-    private double? GetGatewayLatencyAsync()
+    private double? GetGatewayLatency()
     {
         var latency = _latencyHistoryService.GetCurrentLatency();
         return latency > 0 ? latency : null;
@@ -464,7 +468,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// <summary>
     /// Gets the current memory usage in megabytes.
     /// </summary>
-    private double? GetMemoryUsageAsync()
+    private double? GetMemoryUsage()
     {
         var process = System.Diagnostics.Process.GetCurrentProcess();
         var memoryMb = process.WorkingSet64 / (1024.0 * 1024.0);
@@ -474,7 +478,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// <summary>
     /// Gets the API rate limit usage as a count of rate limit hits.
     /// </summary>
-    private double? GetApiRateLimitUsageAsync()
+    private double? GetApiRateLimitUsage()
     {
         var rateLimitEvents = _apiRequestTracker.GetRateLimitEvents(1); // Last hour
         return rateLimitEvents.Count;
@@ -483,7 +487,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// <summary>
     /// Gets the database query time in milliseconds (average).
     /// </summary>
-    private double? GetDatabaseQueryTimeAsync()
+    private double? GetDatabaseQueryTime()
     {
         var metrics = _databaseMetricsCollector.GetMetrics();
         return metrics.AvgQueryTimeMs > 0 ? metrics.AvgQueryTimeMs : null;
