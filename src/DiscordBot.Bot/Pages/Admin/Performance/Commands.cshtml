@@ -917,13 +917,13 @@ else
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                max: Math.max(5, errorRate + 1),
+                                max: Math.ceil(Math.max(5, errorRate + 1)),
                                 grid: {
                                     color: '#2f3336'
                                 },
                                 ticks: {
                                     callback: function(value) {
-                                        return value + '%';
+                                        return value.toFixed(1) + '%';
                                     }
                                 }
                             },
