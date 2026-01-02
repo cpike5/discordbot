@@ -271,6 +271,49 @@
             height: 1rem;
             flex-shrink: 0;
         }
+
+        /* Time Range Selector */
+        .time-range-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: rgb(168, 165, 163);
+            background: transparent;
+            border: none;
+            border-right: 1px solid rgb(63, 68, 71);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .time-range-btn:last-child {
+            border-right: none;
+        }
+
+        .time-range-btn:hover {
+            background: rgba(9, 142, 207, 0.1);
+            color: rgb(215, 211, 208);
+        }
+
+        .time-range-btn.active {
+            background: rgb(9, 142, 207);
+            color: white;
+            font-weight: 600;
+        }
+
+        /* Chart States */
+        .chart-loading, .chart-empty, .chart-error {
+            position: absolute;
+            inset: 0;
+            background: rgb(35, 38, 40);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .chart-loading.hidden, .chart-empty.hidden, .chart-error.hidden {
+            display: none;
+        }
     </style>
 }
 
@@ -368,15 +411,53 @@
             </div>
         </div>
 
+        <!-- Time Range Selector -->
+        <div class="flex items-center gap-2 mb-4">
+            <span class="text-sm text-text-secondary">Time Range:</span>
+            <div class="inline-flex rounded-lg border border-border-primary overflow-hidden">
+                <button class="time-range-btn" data-hours="1">1h</button>
+                <button class="time-range-btn" data-hours="6">6h</button>
+                <button class="time-range-btn active" data-hours="24">24h</button>
+                <button class="time-range-btn" data-hours="168">7d</button>
+                <button class="time-range-btn" data-hours="720">30d</button>
+            </div>
+        </div>
+
         <!-- Query Time Chart -->
         <div class="chart-container chart-container-sm">
             <canvas id="queryTimeChart"></canvas>
-        </div>
-        <div class="sample-data-notice">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Chart shows sample data. Historical metrics collection coming soon.</span>
+
+            <!-- Loading State -->
+            <div class="chart-loading hidden" id="queryTimeLoading">
+                <div class="flex items-center justify-center h-full">
+                    <svg class="animate-spin h-8 w-8 text-brand" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="chart-empty hidden" id="queryTimeEmpty">
+                <div class="flex flex-col items-center justify-center h-full text-text-tertiary">
+                    <svg class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p>No data available for this time range</p>
+                    <p class="text-sm mt-1">Data collection may still be initializing</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div class="chart-error hidden" id="queryTimeError">
+                <div class="flex flex-col items-center justify-center h-full text-text-tertiary">
+                    <svg class="h-12 w-12 mb-2 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>Failed to load metrics</p>
+                    <button class="mt-2 text-sm text-brand hover:underline chart-retry-btn" id="queryTimeRetry">Retry</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -594,12 +675,38 @@
 
         <div class="chart-container">
             <canvas id="memoryChart"></canvas>
-        </div>
-        <div class="sample-data-notice">
-            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>Chart shows sample data. Historical metrics collection coming soon.</span>
+
+            <!-- Loading State -->
+            <div class="chart-loading hidden" id="memoryLoading">
+                <div class="flex items-center justify-center h-full">
+                    <svg class="animate-spin h-8 w-8 text-brand" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="chart-empty hidden" id="memoryEmpty">
+                <div class="flex flex-col items-center justify-center h-full text-text-tertiary">
+                    <svg class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p>No data available for this time range</p>
+                    <p class="text-sm mt-1">Data collection may still be initializing</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div class="chart-error hidden" id="memoryError">
+                <div class="flex flex-col items-center justify-center h-full text-text-tertiary">
+                    <svg class="h-12 w-12 mb-2 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>Failed to load metrics</p>
+                    <button class="mt-2 text-sm text-brand hover:underline chart-retry-btn" id="memoryRetry">Retry</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -613,24 +720,102 @@
 
         let queryTimeChart;
         let memoryChart;
+        let selectedHours = 24; // Default time range
+
+        // Format timestamp based on selected time range
+        function formatTimestamp(isoString, hours) {
+            const date = new Date(isoString);
+            if (hours <= 24) {
+                return date.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+            } else if (hours <= 168) {
+                return date.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    hour: '2-digit',
+                    hour12: false
+                });
+            } else {
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                });
+            }
+        }
+
+        // Format full timestamp for tooltips
+        function formatFullTimestamp(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: '2-digit'
+            }) + ', ' + date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            });
+        }
+
+        // Show/hide chart states
+        function showChartState(chartName, state) {
+            const states = ['loading', 'empty', 'error'];
+            states.forEach(s => {
+                const element = document.getElementById(`${chartName}${s.charAt(0).toUpperCase() + s.slice(1)}`);
+                if (element) {
+                    if (s === state) {
+                        element.classList.remove('hidden');
+                    } else {
+                        element.classList.add('hidden');
+                    }
+                }
+            });
+        }
 
         // Initialize query time chart
-        async function initQueryTimeChart() {
+        async function initQueryTimeChart(hours = selectedHours) {
             const ctx = document.getElementById('queryTimeChart');
             if (!ctx) return;
 
+            showChartState('queryTime', 'loading');
+
+            // Destroy existing chart
+            if (queryTimeChart) {
+                queryTimeChart.destroy();
+                queryTimeChart = null;
+            }
+
             try {
-                const response = await fetch('/api/metrics/system/database');
+                const response = await fetch(`/api/metrics/system/history/database?hours=${hours}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
                 const data = await response.json();
 
-                // Use histogram data if available, otherwise generate sample data
-                const hours = Array.from({ length: 12 }, (_, i) => (i * 2).toString().padStart(2, '0') + ':00');
-                const queryTimes = Array.from({ length: 12 }, () => Math.random() * 30 + 10);
+                // Hide all states
+                showChartState('queryTime', null);
+
+                // Check if we have data
+                if (!data.samples || data.samples.length === 0) {
+                    showChartState('queryTime', 'empty');
+                    return;
+                }
+
+                // Map data to chart format
+                const labels = data.samples.map(s => formatTimestamp(s.timestamp, hours));
+                const queryTimes = data.samples.map(s => s.avgQueryTimeMs);
+
+                // Determine point display based on time range
+                const showPoints = hours <= 6;
 
                 queryTimeChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: hours,
+                        labels: labels,
                         datasets: [{
                             label: 'Avg Query Time',
                             data: queryTimes,
@@ -638,7 +823,8 @@
                             backgroundColor: 'rgba(9, 142, 207, 0.1)',
                             fill: true,
                             tension: 0.4,
-                            pointRadius: 3
+                            pointRadius: showPoints ? 3 : 0,
+                            pointHoverRadius: 5
                         }]
                     },
                     options: {
@@ -654,8 +840,12 @@
                                 borderWidth: 1,
                                 padding: 12,
                                 callbacks: {
+                                    title: function(context) {
+                                        const index = context[0].dataIndex;
+                                        return formatFullTimestamp(data.samples[index].timestamp);
+                                    },
                                     label: function(context) {
-                                        return context.parsed.y.toFixed(1) + ' ms';
+                                        return 'Avg Query Time: ' + context.parsed.y.toFixed(1) + ' ms';
                                     }
                                 }
                             }
@@ -677,87 +867,136 @@
                     }
                 });
             } catch (error) {
-                console.error('Failed to initialize query time chart:', error);
+                console.error('Failed to load database metrics:', error);
+                showChartState('queryTime', 'error');
             }
         }
 
         // Initialize memory chart
-        function initMemoryChart() {
+        async function initMemoryChart(hours = selectedHours) {
             const ctx = document.getElementById('memoryChart');
             if (!ctx) return;
 
-            const hours = Array.from({ length: 12 }, (_, i) => (i * 2).toString().padStart(2, '0') + ':00');
-            const workingSetData = Array.from({ length: 12 }, () => @Model.ViewModel.WorkingSetMB + (Math.random() * 20 - 10));
-            const heapData = Array.from({ length: 12 }, () => @Model.ViewModel.HeapSizeMB + (Math.random() * 15 - 7.5));
+            showChartState('memory', 'loading');
 
-            memoryChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: hours,
-                    datasets: [
-                        {
-                            label: 'Working Set',
-                            data: workingSetData,
-                            borderColor: '#098ecf',
-                            backgroundColor: 'transparent',
-                            tension: 0.4,
-                            pointRadius: 2
-                        },
-                        {
-                            label: 'Heap Size',
-                            data: heapData,
-                            borderColor: '#10b981',
-                            backgroundColor: 'transparent',
-                            tension: 0.4,
-                            pointRadius: 2
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 20
+            // Destroy existing chart
+            if (memoryChart) {
+                memoryChart.destroy();
+                memoryChart = null;
+            }
+
+            try {
+                const response = await fetch(`/api/metrics/system/history/memory?hours=${hours}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                // Hide all states
+                showChartState('memory', null);
+
+                // Check if we have data
+                if (!data.samples || data.samples.length === 0) {
+                    showChartState('memory', 'empty');
+                    return;
+                }
+
+                // Map data to chart format
+                const labels = data.samples.map(s => formatTimestamp(s.timestamp, hours));
+                const workingSetData = data.samples.map(s => s.workingSetMB);
+                const heapData = data.samples.map(s => s.heapSizeMB);
+
+                // Determine point display based on time range
+                const showPoints = hours <= 6;
+
+                memoryChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Working Set',
+                                data: workingSetData,
+                                borderColor: '#098ecf',
+                                backgroundColor: 'transparent',
+                                tension: 0.4,
+                                pointRadius: showPoints ? 2 : 0,
+                                pointHoverRadius: 5
+                            },
+                            {
+                                label: 'Heap Size',
+                                data: heapData,
+                                borderColor: '#10b981',
+                                backgroundColor: 'transparent',
+                                tension: 0.4,
+                                pointRadius: showPoints ? 2 : 0,
+                                pointHoverRadius: 5
                             }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
                         },
-                        tooltip: {
-                            backgroundColor: '#2f3336',
-                            titleColor: '#d7d3d0',
-                            bodyColor: '#a8a5a3',
-                            borderColor: '#3f4447',
-                            borderWidth: 1,
-                            padding: 12,
-                            callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' MB';
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 20
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                callbacks: {
+                                    title: function(context) {
+                                        const index = context[0].dataIndex;
+                                        return formatFullTimestamp(data.samples[index].timestamp);
+                                    },
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' MB';
+                                    }
                                 }
                             }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            grid: { color: '#2f3336' },
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(0) + ' MB';
-                                }
-                            }
                         },
-                        x: {
-                            grid: { display: false }
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                grid: { color: '#2f3336' },
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toFixed(0) + ' MB';
+                                    }
+                                }
+                            },
+                            x: {
+                                grid: { display: false }
+                            }
                         }
                     }
-                }
-            });
+                });
+            } catch (error) {
+                console.error('Failed to load memory metrics:', error);
+                showChartState('memory', 'error');
+            }
+        }
+
+        // Refresh all charts
+        async function refreshCharts() {
+            await Promise.all([
+                initQueryTimeChart(selectedHours),
+                initMemoryChart(selectedHours)
+            ]);
         }
 
         // Convert UTC timestamps to local timezone
@@ -786,13 +1025,57 @@
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', function() {
-            initQueryTimeChart();
-            initMemoryChart();
+            // Load saved time range from localStorage
+            const savedHours = localStorage.getItem('systemHealthTimeRange');
+            if (savedHours) {
+                selectedHours = parseInt(savedHours, 10);
+                // Update active button
+                document.querySelectorAll('.time-range-btn').forEach(btn => {
+                    if (parseInt(btn.dataset.hours, 10) === selectedHours) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            // Initialize charts
+            initQueryTimeChart(selectedHours);
+            initMemoryChart(selectedHours);
             convertTimestampsToLocal();
+
+            // Time range selector event handlers
+            document.querySelectorAll('.time-range-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const hours = parseInt(this.dataset.hours, 10);
+
+                    // Update active state
+                    document.querySelectorAll('.time-range-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+
+                    // Save to localStorage
+                    localStorage.setItem('systemHealthTimeRange', hours);
+                    selectedHours = hours;
+
+                    // Refresh charts
+                    refreshCharts();
+                });
+            });
+
+            // Retry button handlers
+            document.getElementById('queryTimeRetry')?.addEventListener('click', function() {
+                initQueryTimeChart(selectedHours);
+            });
+
+            document.getElementById('memoryRetry')?.addEventListener('click', function() {
+                initMemoryChart(selectedHours);
+            });
 
             // Auto-refresh every 30 seconds
             setInterval(async function() {
-                location.reload();
+                refreshCharts();
             }, 30000);
         });
     </script>
