@@ -1813,4 +1813,15 @@
       animation: spin 1s linear infinite;
     }
   }
+
+  /* Mac-specific styling for keyboard shortcuts */
+  .mac .mac\:inline { display: inline; }
+  .mac .mac\:hidden { display: none; }
+  html:not(.mac) .mac\:inline { display: none; }
+  html:not(.mac) .mac\:hidden { display: inline; }
+
+  /* Search keyboard shortcut hint */
+  .search-kbd {
+    @apply px-1.5 py-0.5 text-xs font-medium text-text-tertiary bg-bg-tertiary border border-border-primary rounded;
+  }
 }
