@@ -979,14 +979,18 @@
 
         function updateSaveButtonVisibility() {
             const saveBtn = document.getElementById('saveConfigBtn');
+            console.log('updateSaveButtonVisibility called, saveBtn:', saveBtn, 'hasUnsavedChanges:', hasUnsavedChanges());
             if (saveBtn) {
                 if (hasUnsavedChanges()) {
+                    console.log('Showing save button');
                     saveBtn.style.display = 'inline-flex';
                     saveBtn.classList.remove('hidden');
                 } else {
                     saveBtn.style.display = 'none';
                     saveBtn.classList.add('hidden');
                 }
+            } else {
+                console.log('Save button not found in DOM!');
             }
         }
 
