@@ -20,6 +20,8 @@ public class SearchService : ISearchService
     private readonly IUserManagementService _userManagementService;
     private readonly IPageMetadataService _pageMetadataService;
     private readonly ICommandMetadataService _commandMetadataService;
+    private readonly IAuditLogService _auditLogService;
+    private readonly IMessageLogService _messageLogService;
     private readonly IAuthorizationService _authorizationService;
     private readonly IMemoryCache _cache;
     private readonly CachingOptions _cachingOptions;
@@ -35,6 +37,8 @@ public class SearchService : ISearchService
         IUserManagementService userManagementService,
         IPageMetadataService pageMetadataService,
         ICommandMetadataService commandMetadataService,
+        IAuditLogService auditLogService,
+        IMessageLogService messageLogService,
         IAuthorizationService authorizationService,
         IMemoryCache cache,
         IOptions<CachingOptions> cachingOptions,
@@ -45,6 +49,8 @@ public class SearchService : ISearchService
         _userManagementService = userManagementService;
         _pageMetadataService = pageMetadataService;
         _commandMetadataService = commandMetadataService;
+        _auditLogService = auditLogService;
+        _messageLogService = messageLogService;
         _authorizationService = authorizationService;
         _cache = cache;
         _cachingOptions = cachingOptions.Value;
@@ -161,8 +167,8 @@ public class SearchService : ISearchService
                 SearchCategory.CommandLogs => await SearchCommandLogsAsync(searchTerm, maxResults, cancellationToken),
                 SearchCategory.Users when canViewAdminCategories => await SearchUsersAsync(searchTerm, maxResults, cancellationToken),
                 SearchCategory.Commands => await SearchCommandsAsync(searchTerm, maxResults, cancellationToken),
-                SearchCategory.AuditLogs when canViewAdminCategories => CreateEmptyResult(SearchCategory.AuditLogs), // Phase 3
-                SearchCategory.MessageLogs when canViewAdminCategories => CreateEmptyResult(SearchCategory.MessageLogs), // Phase 3
+                SearchCategory.AuditLogs when canViewAdminCategories => await SearchAuditLogsAsync(searchTerm, maxResults, cancellationToken),
+                SearchCategory.MessageLogs when canViewAdminCategories => await SearchMessageLogsAsync(searchTerm, maxResults, cancellationToken),
                 SearchCategory.Pages => await SearchPagesAsync(searchTerm, maxResults, user, cancellationToken),
                 _ => CreateEmptyResult(category)
             };
@@ -344,6 +350,123 @@ public class SearchService : ISearchService
         };
     }
 
+    private async Task<SearchCategoryResult> SearchAuditLogsAsync(string searchTerm, int maxResults, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Searching audit logs for term: {SearchTerm}", searchTerm);
+
+        var query = new AuditLogQueryDto
+        {
+            SearchTerm = searchTerm,
+            Page = 1,
+            PageSize = 100
+        };
+
+        var (logs, totalCount) = await _auditLogService.GetLogsAsync(query, cancellationToken);
+        var searchLower = searchTerm.ToLowerInvariant();
+
+        var items = logs
+            .Select(log => new
+            {
+                Log = log,
+                Score = CalculateRelevanceScore(log.ActionName, searchLower) +
+                        CalculateRelevanceScore(log.CategoryName, searchLower) +
+                        CalculateRelevanceScore(log.ActorDisplayName ?? "", searchLower) / 2 +
+                        CalculateRelevanceScore(log.GuildName ?? "", searchLower) / 2
+            })
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Log.Timestamp)
+            .Take(maxResults)
+            .Select(x => new SearchResultItemDto
+            {
+                Id = x.Log.Id.ToString(),
+                Title = $"{x.Log.CategoryName}: {x.Log.ActionName}",
+                Subtitle = x.Log.ActorDisplayName ?? "System",
+                Description = $"Target: {x.Log.TargetType ?? "N/A"} ({x.Log.TargetId ?? "N/A"})",
+                BadgeText = x.Log.CategoryName,
+                BadgeVariant = GetAuditLogBadgeVariant(x.Log.CategoryName),
+                Url = $"/Admin/AuditLogs/Details/{x.Log.Id}",
+                RelevanceScore = x.Score,
+                Timestamp = x.Log.Timestamp,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["Action"] = x.Log.ActionName,
+                    ["ActorType"] = x.Log.ActorTypeName,
+                    ["GuildId"] = x.Log.GuildId?.ToString() ?? "N/A"
+                }
+            })
+            .ToList();
+
+        return new SearchCategoryResult
+        {
+            Category = SearchCategory.AuditLogs,
+            DisplayName = "Audit Logs",
+            Items = items,
+            TotalCount = totalCount,
+            HasMore = totalCount > maxResults,
+            ViewAllUrl = $"/Admin/AuditLogs?search={Uri.EscapeDataString(searchTerm)}"
+        };
+    }
+
+    private async Task<SearchCategoryResult> SearchMessageLogsAsync(string searchTerm, int maxResults, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Searching message logs for term: {SearchTerm}", searchTerm);
+
+        var query = new MessageLogQueryDto
+        {
+            SearchTerm = searchTerm,
+            Page = 1,
+            PageSize = 100
+        };
+
+        var logs = await _messageLogService.GetLogsAsync(query, cancellationToken);
+        var searchLower = searchTerm.ToLowerInvariant();
+
+        var items = logs.Items
+            .Select(log => new
+            {
+                Log = log,
+                Score = CalculateRelevanceScore(log.Content, searchLower) +
+                        CalculateRelevanceScore(log.AuthorUsername ?? "", searchLower) / 2 +
+                        CalculateRelevanceScore(log.ChannelName ?? "", searchLower) / 3 +
+                        CalculateRelevanceScore(log.GuildName ?? "", searchLower) / 3
+            })
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Log.Timestamp)
+            .Take(maxResults)
+            .Select(x => new SearchResultItemDto
+            {
+                Id = x.Log.Id.ToString(),
+                Title = x.Log.Content.Length > 60
+                    ? x.Log.Content.Substring(0, 57) + "..."
+                    : x.Log.Content,
+                Subtitle = $"{x.Log.AuthorUsername} in #{x.Log.ChannelName}",
+                Description = $"Guild: {x.Log.GuildName ?? "DM"} | {x.Log.Timestamp:MMM d, yyyy h:mm tt}",
+                BadgeText = x.Log.Source.ToString(),
+                BadgeVariant = x.Log.Source == MessageSource.ServerChannel ? "primary" : "secondary",
+                Url = $"/Admin/MessageLogs/Details/{x.Log.Id}",
+                RelevanceScore = x.Score,
+                Timestamp = x.Log.Timestamp,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["AuthorId"] = x.Log.AuthorId.ToString(),
+                    ["ChannelId"] = x.Log.ChannelId.ToString(),
+                    ["GuildId"] = x.Log.GuildId?.ToString() ?? "DM",
+                    ["HasAttachments"] = x.Log.HasAttachments.ToString(),
+                    ["HasEmbeds"] = x.Log.HasEmbeds.ToString()
+                }
+            })
+            .ToList();
+
+        return new SearchCategoryResult
+        {
+            Category = SearchCategory.MessageLogs,
+            DisplayName = "Message Logs",
+            Items = items,
+            TotalCount = logs.TotalCount,
+            HasMore = logs.TotalCount > maxResults,
+            ViewAllUrl = $"/Admin/MessageLogs?search={Uri.EscapeDataString(searchTerm)}"
+        };
+    }
 
     private async Task<SearchCategoryResult> SearchCommandsAsync(string searchTerm, int maxResults, CancellationToken cancellationToken)
     {
@@ -473,6 +596,18 @@ public class SearchService : ISearchService
         };
     }
 
+    private string GetAuditLogBadgeVariant(string categoryName)
+    {
+        return categoryName switch
+        {
+            "Security" => "danger",
+            "Configuration" => "warning",
+            "Moderation" => "info",
+            "User" => "primary",
+            _ => "secondary"
+        };
+    }
+
     /// <summary>
     /// Calculates a relevance score for a field value against the search term.
     /// </summary>
@@ -520,7 +655,8 @@ public class SearchService : ISearchService
         if (canViewAdminCategories)
         {
             categories.Add(SearchCategory.Users);
-            // AuditLogs and MessageLogs will be added in Phase 3
+            categories.Add(SearchCategory.AuditLogs);
+            categories.Add(SearchCategory.MessageLogs);
         }
 
         // Pages are always searchable (filtered by authorization in SearchPagesAsync)
