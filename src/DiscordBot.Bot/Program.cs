@@ -272,6 +272,10 @@ try
     builder.Services.AddHostedService<GuildMetricsAggregationService>();
     builder.Services.AddHostedService<AnalyticsRetentionService>();
 
+    // Add Historical Metrics configuration
+    builder.Services.Configure<HistoricalMetricsOptions>(
+        builder.Configuration.GetSection(HistoricalMetricsOptions.SectionName));
+
     // Add Moderation services (includes detection services and handlers)
     builder.Services.AddModerationServices(builder.Configuration);
 
