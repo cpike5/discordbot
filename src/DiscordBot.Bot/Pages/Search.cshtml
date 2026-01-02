@@ -408,7 +408,7 @@
                             <a href="@cmd.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
                                 <div class="flex flex-col gap-2">
                                     <div class="flex items-center gap-3 flex-wrap">
-                                        <span class="font-mono text-sm font-semibold text-accent-blue"><highlight text="@cmd.Title" search-term="@Model.ViewModel.SearchTerm" /></span>
+                                        <span class="font-mono text-sm font-semibold text-accent-blue">@cmd.Title</span>
                                         @if (!string.IsNullOrEmpty(cmd.BadgeText))
                                         {
                                             var cmdBadge = new BadgeViewModel
