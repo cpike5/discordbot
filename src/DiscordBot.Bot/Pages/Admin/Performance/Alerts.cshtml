@@ -1020,18 +1020,14 @@
 
         function updateSaveButtonVisibility() {
             const saveBtn = document.getElementById('saveConfigBtn');
-            console.log('updateSaveButtonVisibility called, saveBtn:', saveBtn, 'hasUnsavedChanges:', hasUnsavedChanges());
             if (saveBtn) {
                 if (hasUnsavedChanges()) {
-                    console.log('Showing save button');
                     saveBtn.style.display = 'inline-flex';
                     saveBtn.classList.remove('hidden');
                 } else {
                     saveBtn.style.display = 'none';
                     saveBtn.classList.add('hidden');
                 }
-            } else {
-                console.log('Save button not found in DOM!');
             }
         }
 
@@ -1135,8 +1131,6 @@
             // Track config changes
             const thresholdInputs = document.querySelectorAll('.threshold-input');
             const enabledToggles = document.querySelectorAll('.enabled-toggle');
-            console.log('Found threshold inputs:', thresholdInputs.length);
-            console.log('Found enabled toggles:', enabledToggles.length);
 
             // Map HTML data-field values to API property names
             const fieldNameMap = {
@@ -1152,7 +1146,6 @@
                     const metricName = row.dataset.metric;
                     const field = fieldNameMap[this.dataset.field];
                     const value = parseFloat(this.value);
-                    console.log('Threshold changed:', metricName, field, value);
                     trackConfigChange(metricName, field, value);
                 });
             });
@@ -1163,7 +1156,6 @@
                     const metricName = row.dataset.metric;
                     const field = fieldNameMap[this.dataset.field];
                     const value = this.checked;
-                    console.log('Toggle changed:', metricName, field, value);
                     trackConfigChange(metricName, field, value);
                 });
             });
