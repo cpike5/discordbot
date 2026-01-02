@@ -64,17 +64,33 @@ public class CommandPerformanceAggregator : BackgroundService, ICommandPerforman
     /// <inheritdoc/>
     public async Task<IReadOnlyList<CommandPerformanceAggregateDto>> GetAggregatesAsync(int hours = 24)
     {
-        await EnsureCacheValidAsync();
+        // For the default 24-hour window, use the cached data
+        if (hours == 24)
+        {
+            await EnsureCacheValidAsync();
 
-        await _cacheLock.WaitAsync();
-        try
-        {
-            return _cachedAggregates.Values.ToList();
+            await _cacheLock.WaitAsync();
+            try
+            {
+                return _cachedAggregates.Values.ToList();
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
         }
-        finally
-        {
-            _cacheLock.Release();
-        }
+
+        // For other time windows, query directly from the database
+        using var scope = _serviceScopeFactory.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ICommandLogRepository>();
+
+        var since = DateTime.UtcNow.AddHours(-hours);
+        var logs = await repository.GetByDateRangeAsync(since, DateTime.UtcNow);
+
+        return logs
+            .GroupBy(l => l.CommandName)
+            .Select(g => CalculateAggregate(g.Key, g.ToList()))
+            .ToList();
     }
 
     /// <inheritdoc/>

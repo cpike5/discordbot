@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-01
 **Feature Reference:** Issue #295 (Epic)
-**Status:** In Progress
+**Status:** In Progress (6 of 9 sub-issues completed)
 
 ---
 
@@ -15,8 +15,8 @@
   - [Performance Dashboard API Endpoints (#572)](#performance-dashboard-api-endpoints-issue-572)
   - [Bot Health Metrics Dashboard (#563)](#bot-health-metrics-dashboard-issue-563)
   - [System Health Monitoring (#568)](#system-health-monitoring-issue-568)
-- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [Command Performance Analytics (#565)](#command-performance-analytics-issue-565)
+- [Open Sub-Issues (To Be Implemented)](#open-sub-issues-to-be-implemented)
   - [Discord API & Rate Limit Monitoring (#566)](#discord-api--rate-limit-monitoring-issue-566)
   - [Performance Alerts & Incidents (#570)](#performance-alerts--incidents-issue-570)
   - [Performance Dashboard UI Implementation (#573)](#performance-dashboard-ui-implementation-issue-573)
@@ -814,20 +814,171 @@ The page automatically refreshes every 30 seconds to display current system heal
 
 ---
 
-## Open Sub-Issues (To Be Implemented)
-
 ### Command Performance Analytics (Issue #565)
 
-> **Status:** To be documented when implemented
+**URL:** `/Admin/Performance/Commands`
+**Authorization:** `RequireViewer` policy
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/Performance/Commands.cshtml.cs`
 
-*This section will be updated when [Issue #565](https://github.com/cpike5/discordbot/issues/565) is completed.*
+The Command Performance Analytics Dashboard provides comprehensive monitoring and analysis of Discord bot command execution, including response time metrics, throughput analysis, error tracking, and timeout detection.
 
-**Planned Features:**
-- Command response time analytics dashboard
-- Slowest commands visualization
-- Command throughput charts (hourly/daily)
-- Error rate tracking by command
-- Performance regression detection
+#### Features
+
+**Summary Metric Cards**
+
+The page displays four key performance metrics at the top:
+- **Average Response Time**: Mean command execution time across all commands with trend indicator
+- **P50 (Median)**: 50th percentile response time, representing typical execution speed
+- **P95**: 95th percentile response time, capturing slower executions
+- **P99**: 99th percentile response time, identifying worst-case performance
+
+All metrics include color-coded status indicators:
+- Green: < 100ms (excellent)
+- Yellow: 100-500ms (acceptable)
+- Red: > 500ms (needs attention)
+
+**Response Times Over Time Chart**
+
+Interactive line chart showing command performance trends:
+- Three data series: Average, P95, and P99 response times
+- Time buckets based on selected range (hourly for 24h/7d, daily for 30d)
+- Chart.js line chart with smooth curves
+- Hover tooltips showing exact millisecond values
+- Legend positioned at bottom for readability
+
+**Command Throughput Chart**
+
+Bar chart displaying command execution volume:
+- Commands executed per hour (24h/7d ranges) or per day (30d range)
+- Orange bars with rounded corners matching design system
+- Helps identify peak usage periods
+- Updates dynamically based on time range selection
+
+**Error Rate Trend Chart**
+
+Line chart showing command failure percentage over time:
+- Red filled area chart for visual emphasis
+- Y-axis automatically scales to error rate + buffer
+- Displays overall error rate distributed across time buckets
+- Helps identify error spikes and patterns
+
+**Slowest Commands Table**
+
+Server-side rendered table showing top 10 slowest individual command executions:
+- Command name (displayed as inline code)
+- Duration in milliseconds with color coding
+- Execution timestamp (converted to user's local timezone)
+- User ID who triggered the command
+- Guild ID (or "DM" for direct messages)
+- Sortable and filterable view of performance outliers
+
+**Commands with Timeouts**
+
+Critical performance monitoring table for commands exceeding Discord's 3-second interaction limit:
+- Command name
+- Timeout count (number of occurrences)
+- Last timeout timestamp
+- Average response time before timeout
+- Status badge:
+  - "Investigating" (orange) if timeout occurred within last 2 hours
+  - "Resolved" (green) if timeout is older than 2 hours
+- Empty state message if no timeouts detected
+- Severity badge in header showing total timeout count
+
+#### Time Range Selector
+
+Toggle buttons allowing users to view metrics for different time periods:
+- **24h**: Last 24 hours (hourly granularity)
+- **7d**: Last 7 days (hourly granularity)
+- **30d**: Last 30 days (daily granularity)
+
+Active selection highlighted with blue background and border.
+
+#### View Model
+
+```csharp
+public record CommandPerformanceViewModel
+{
+    // Summary metrics
+    public int TotalCommands { get; init; }
+    public double AvgResponseTimeMs { get; init; }
+    public double ErrorRate { get; init; }
+    public double P99ResponseTimeMs { get; init; }
+    public double P50Ms { get; init; }
+    public double P95Ms { get; init; }
+
+    // Tables and lists
+    public IReadOnlyList<SlowestCommandDto> SlowestCommands { get; init; }
+    public int TimeoutCount { get; init; }
+    public IReadOnlyList<CommandTimeoutDto> RecentTimeouts { get; init; }
+
+    // Trends (for future implementation - currently set to 0)
+    public double AvgResponseTimeTrend { get; init; }
+    public double ErrorRateTrend { get; init; }
+    public double P99Trend { get; init; }
+
+    // Helper methods
+    public static string GetTrendClass(double trend);
+    public static string FormatTrend(double trend, string unit = "ms");
+    public static string GetLatencyClass(double ms);
+    public static string GetErrorRateClass(double rate);
+}
+
+public record CommandTimeoutDto
+{
+    public string CommandName { get; init; }
+    public int TimeoutCount { get; init; }
+    public DateTime LastTimeout { get; init; }
+    public double AvgResponseBeforeTimeout { get; init; }
+    public string Status { get; init; } // "Investigating" or "Resolved"
+}
+```
+
+#### API Endpoints Used
+
+The page consumes these existing API endpoints documented in [Performance Dashboard API Endpoints](#performance-dashboard-api-endpoints-issue-572):
+- `GET /api/metrics/commands/performance?hours={hours}` - Aggregated command performance metrics
+- `GET /api/metrics/commands/slowest?limit=10&hours={hours}` - Slowest command executions
+- `GET /api/metrics/commands/throughput?hours={hours}&granularity={granularity}` - Command execution counts over time
+
+#### Timeout Detection
+
+Commands are flagged as timeouts based on Discord's interaction response limit:
+- **Threshold**: 3000ms (3 seconds)
+- **Rationale**: Discord requires interactions to receive an initial response within 3 seconds
+- **Status Logic**:
+  - Timeouts within last 2 hours: Status = "Investigating"
+  - Older timeouts: Status = "Resolved"
+- Calculated from slowest commands data by filtering executions > 3000ms
+
+#### Auto-Refresh
+
+The page implements automatic refresh functionality:
+- Charts refresh every 30 seconds
+- Refresh pauses when browser tab is hidden
+- Refresh resumes when tab becomes visible again
+- No full page reload - charts update in-place via API calls
+
+#### Empty State Handling
+
+When no command data is available for the selected time period:
+- Lightning bolt icon (command symbol)
+- Message: "No command data available"
+- Description: "Commands will appear here once the bot processes Discord interactions in the selected time period."
+
+#### Navigation
+
+The page includes a shared performance dashboard navigation tab bar:
+- Overview
+- Health Metrics
+- **Commands** (active)
+- API & Rate Limits
+- System
+- Alerts
+
+---
+
+## Open Sub-Issues (To Be Implemented)
 
 ### Discord API & Rate Limit Monitoring (Issue #566)
 
@@ -1002,5 +1153,6 @@ The `CommandPerformanceAggregator` background service periodically queries the c
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.2 | 2026-01-01 | Added Command Performance Analytics (#565) documentation |
 | 1.1 | 2026-01-01 | Added System Health Monitoring (#568) documentation |
 | 1.0 | 2026-01-01 | Initial documentation (Issues #580, #571, #572, #563 completed) |
