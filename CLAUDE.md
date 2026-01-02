@@ -98,6 +98,14 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
 | `HistoricalMetricsOptions` | `HistoricalMetrics` | Historical metrics collection (sample interval, retention) |
 | `ReminderOptions` | `Reminder` | Reminder system settings (polling, delivery, limits) |
+| `ScheduledMessagesOptions` | `ScheduledMessages` | Scheduled message delivery settings |
+| `AuditLogRetentionOptions` | `AuditLogRetention` | Audit log cleanup settings |
+| `RatWatchOptions` | `RatWatch` | Rat Watch feature settings (voting, timeouts) |
+| `ModerationOptions` | `Moderation` | Moderation system settings |
+| `AutoModerationOptions` | `AutoModeration` | Auto-moderation rules and thresholds |
+| `AnalyticsRetentionOptions` | `AnalyticsRetention` | Analytics data retention settings |
+| `PerformanceMetricsOptions` | `PerformanceMetrics` | Performance metrics collection settings |
+| `PerformanceAlertOptions` | `PerformanceAlerts` | Alert thresholds and notification settings |
 
 ### Default Values
 
@@ -140,6 +148,11 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
 | [member-directory.md](docs/articles/member-directory.md) | Member Directory feature |
 | [form-implementation-standards.md](docs/articles/form-implementation-standards.md) | Razor Pages form patterns, validation, AJAX forms |
+| [reminder-system.md](docs/articles/reminder-system.md) | Personal reminders with natural language time parsing |
+| [utility-commands.md](docs/articles/utility-commands.md) | Utility commands (/userinfo, /serverinfo, /roleinfo) |
+| [bot-performance-dashboard.md](docs/articles/bot-performance-dashboard.md) | Performance monitoring and metrics dashboard |
+| [scheduled-messages.md](docs/articles/scheduled-messages.md) | Scheduled/recurring message system |
+| [audit-log-system.md](docs/articles/audit-log-system.md) | Audit logging with fluent builder API |
 
 
 ## HTML Prototypes
@@ -166,7 +179,27 @@ All HTML prototypes are located in `docs/prototypes/`. Open them directly in a b
 - Slash commands only (no prefix commands)
 - `InteractionHandler` discovers and registers command modules from assembly
 - Command modules inherit from `InteractionModuleBase<SocketInteractionContext>`
-- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`
+- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`, `RequireGuildActive`, `RequireModerationEnabled`, `RequireModerator`
+
+**Command Modules:**
+| Module | Commands |
+|--------|----------|
+| `GeneralModule` | `/ping` |
+| `AdminModule` | `/admin info`, `/admin kick`, `/admin ban` |
+| `VerifyAccountModule` | `/verify` |
+| `RatWatchModule` | Rat Watch (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard`, `/rat-settings` |
+| `ScheduleModule` | `/schedule-message create/list/delete/edit` |
+| `WelcomeModule` | `/welcome setup/test/disable` |
+| `ReminderModule` | `/remind set/list/delete` |
+| `UtilityModule` | `/userinfo`, `/serverinfo`, `/roleinfo` |
+| `ModerationActionModule` | `/warn`, `/kick`, `/ban`, `/mute`, `/purge` |
+| `ModerationHistoryModule` | `/mod-history` |
+| `ModStatsModule` | `/mod-stats` |
+| `ModNoteModule` | `/mod-notes add/list/delete` |
+| `ModTagModule` | `/mod-tag add/remove/list` |
+| `WatchlistModule` | `/watchlist add/remove/list` |
+| `InvestigateModule` | `/investigate` |
+| `ConsentModule` | `/consent`, `/privacy` |
 
 **Interactive Components Pattern:**
 - Use `ComponentIdBuilder` to create custom IDs: `{handler}:{action}:{userId}:{correlationId}:{data}`
@@ -216,6 +249,9 @@ Located in `src/DiscordBot.Bot/Pages/`:
 | Guild Edit | `/Guilds/Edit/{id:long}` | Edit guild settings |
 | Guild Welcome | `/Guilds/Welcome/{id:long}` | Welcome message config |
 | Guild Moderation Settings | `/Guilds/{guildId:long}/ModerationSettings` | Guild auto-moderation config |
+| Guild Analytics | `/Guilds/{guildId:long}/Analytics` | Guild analytics overview |
+| Guild Engagement Analytics | `/Guilds/{guildId:long}/Analytics/Engagement` | Member engagement metrics |
+| Guild Moderation Analytics | `/Guilds/{guildId:long}/Analytics/Moderation` | Moderation activity analytics |
 | Scheduled Messages | `/Guilds/ScheduledMessages/{guildId:long}` | Guild scheduled messages |
 | Scheduled Message Create | `/Guilds/ScheduledMessages/Create/{guildId:long}` | New scheduled message |
 | Scheduled Message Edit | `/Guilds/ScheduledMessages/Edit/{guildId:long}/{id:guid}` | Edit scheduled message |
@@ -223,12 +259,17 @@ Located in `src/DiscordBot.Bot/Pages/`:
 | Rat Watch Analytics | `/Guilds/RatWatch/{guildId:long}/Analytics` | Rat Watch analytics and metrics |
 | Rat Watch Incidents | `/Guilds/RatWatch/{guildId:long}/Incidents` | Incident browser with filtering |
 | Member Directory | `/Guilds/{guildId:long}/Members` | Guild member list with search/filter |
+| Member Moderation | `/Guilds/{guildId:long}/Members/{memberId:long}/Moderation` | Member moderation history |
+| Flagged Events | `/Guilds/{guildId:long}/FlaggedEvents` | Auto-moderation flagged events |
+| Flagged Event Details | `/Guilds/{guildId:long}/FlaggedEvents/{id:guid}` | Single flagged event |
 | Reminders | `/Guilds/{guildId:long}/Reminders` | Guild reminders management |
 | Public Leaderboard | `/Guilds/{guildId:long}/Leaderboard` | Public Rat Watch leaderboard (no auth) |
 | Global Rat Watch Analytics | `/Admin/RatWatchAnalytics` | Cross-guild Rat Watch metrics (Admin+) |
+| Performance Dashboard | `/Admin/Performance` | Performance overview dashboard |
 | Health Metrics | `/Admin/Performance/HealthMetrics` | Bot health metrics dashboard |
 | Command Performance | `/Admin/Performance/Commands` | Command response times, throughput, errors |
-| System Health | `/Admin/Performance/System` | Database, cache, and service monitoring |
+| System Health | `/Admin/Performance/SystemHealth` | Database, cache, and service monitoring |
+| API Metrics | `/Admin/Performance/ApiMetrics` | Discord API usage and rate limits |
 | Performance Alerts | `/Admin/Performance/Alerts` | Alert thresholds and incident management |
 | Users | `/Admin/Users` | User management (SuperAdmin) |
 | User Details | `/Admin/Users/Details?id={id}` | User profile and roles |

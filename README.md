@@ -177,6 +177,38 @@ Accountability system for tracking commitments. See [rat-watch.md](docs/articles
 - `/schedule-message delete` - Delete a scheduled message
 - `/schedule-message edit` - Edit an existing scheduled message
 
+### Reminder Commands
+
+Personal reminders delivered via DM. See [reminder-system.md](docs/articles/reminder-system.md) for full documentation.
+
+- `/remind set <time> <message>` - Set a personal reminder (e.g., "10m", "tomorrow 3pm")
+- `/remind list` - View your pending reminders
+- `/remind delete <id>` - Delete a pending reminder
+
+### Utility Commands
+
+Information commands available to all guild members. See [utility-commands.md](docs/articles/utility-commands.md) for details.
+
+- `/userinfo [user]` - Display detailed information about a user
+- `/serverinfo` - Display server statistics and information
+- `/roleinfo <role>` - Display role information and permissions
+
+### Moderation Commands
+
+Moderation tools for server staff. Requires moderation to be enabled for the guild.
+
+- `/warn <user> [reason]` - Issue a formal warning
+- `/kick <user> [reason]` - Kick a user from the server
+- `/ban <user> [reason]` - Ban a user from the server
+- `/mute <user> <duration> [reason]` - Temporarily mute a user
+- `/purge <count>` - Delete multiple messages from channel
+- `/mod-history <user>` - View a user's moderation history
+- `/mod-stats` - View moderation statistics
+- `/mod-notes add/list/delete` - Manage moderator notes on users
+- `/mod-tag add/remove/list` - Manage user tags for tracking
+- `/watchlist add/remove/list` - Manage user watchlist
+- `/investigate <user>` - Comprehensive user investigation
+
 ## Logging
 
 The bot uses Serilog for structured logging with two outputs:
@@ -398,9 +430,16 @@ This project is for educational and development purposes.
 
 ### Features
 - [Rat Watch](docs/articles/rat-watch.md) - Accountability system with voting and leaderboards
+- [Reminder System](docs/articles/reminder-system.md) - Personal reminders with natural language time parsing
+- [Utility Commands](docs/articles/utility-commands.md) - User/server/role information commands
+- [Scheduled Messages](docs/articles/scheduled-messages.md) - Automated message scheduling
+- [Member Directory](docs/articles/member-directory.md) - Guild member management
+- [Bot Performance Dashboard](docs/articles/bot-performance-dashboard.md) - Performance monitoring
 - [User Management](docs/articles/user-management.md) - Admin UI user management
 - [Bot Verification](docs/articles/bot-verification.md) - Discord account linking flow
 
 ### Development
 - [CLAUDE.md](CLAUDE.md) - Guidance for Claude Code AI assistant
 - [Issue Tracking Process](docs/articles/issue-tracking-process.md) - GitHub workflow and labels
+- [Testing Guide](docs/articles/testing-guide.md) - Unit and integration testing
+- [Form Implementation Standards](docs/articles/form-implementation-standards.md) - Razor Pages form patterns
