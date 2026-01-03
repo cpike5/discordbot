@@ -1,7 +1,7 @@
 # Distributed Tracing with OpenTelemetry
 
-**Version:** 1.0
-**Last Updated:** 2025-12-24
+**Version:** 1.1
+**Last Updated:** 2026-01-03
 **Target Framework:** .NET 8 with OpenTelemetry SDK
 
 ---
@@ -160,10 +160,16 @@ Tracing configuration is defined under the `OpenTelemetry:Tracing` section:
     "ServiceVersion": "0.1.0",
     "Tracing": {
       "Enabled": true,
-      "SamplingRatio": 1.0,
       "EnableConsoleExporter": false,
       "OtlpEndpoint": null,
-      "OtlpProtocol": "grpc"
+      "OtlpProtocol": "grpc",
+      "Sampling": {
+        "DefaultRate": 0.1,
+        "ErrorRate": 1.0,
+        "SlowThresholdMs": 5000,
+        "HighPriorityRate": 0.5,
+        "LowPriorityRate": 0.01
+      }
     }
   }
 }
@@ -174,10 +180,20 @@ Tracing configuration is defined under the `OpenTelemetry:Tracing` section:
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `Enabled` | bool | true | Enable/disable distributed tracing |
-| `SamplingRatio` | double | 1.0 (dev), 0.1 (prod) | Trace sampling ratio (0.0-1.0) |
 | `EnableConsoleExporter` | bool | false | Export traces to console output |
 | `OtlpEndpoint` | string | null | OTLP collector endpoint (e.g., "http://jaeger:4317") |
 | `OtlpProtocol` | string | "grpc" | OTLP protocol: "grpc" or "http" |
+| `Sampling` | object | see below | Priority-based sampling configuration (configured via `SamplingOptions`) |
+
+#### Sampling Configuration Options
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `DefaultRate` | double | 0.1 | Default sampling rate for normal operations (0.0-1.0). Recommended: 1.0 for dev, 0.1 for prod |
+| `ErrorRate` | double | 1.0 | Sampling rate for operations with errors or critical conditions (0.0-1.0). Always sample errors by default |
+| `SlowThresholdMs` | int | 5000 | Threshold in milliseconds that defines a slow operation (sampled at ErrorRate) |
+| `HighPriorityRate` | double | 0.5 | Sampling rate for high-priority operations (0.0-1.0). Includes moderation, welcome flow, Rat Watch, scheduled messages |
+| `LowPriorityRate` | double | 0.01 | Sampling rate for low-priority operations (0.0-1.0). Includes health checks, metrics endpoints, cache operations |
 
 ### Environment-Specific Configuration
 
@@ -187,8 +203,10 @@ Tracing configuration is defined under the `OpenTelemetry:Tracing` section:
 {
   "OpenTelemetry": {
     "Tracing": {
-      "SamplingRatio": 1.0,
-      "EnableConsoleExporter": true
+      "EnableConsoleExporter": true,
+      "Sampling": {
+        "DefaultRate": 1.0
+      }
     }
   }
 }
@@ -200,9 +218,14 @@ Tracing configuration is defined under the `OpenTelemetry:Tracing` section:
 {
   "OpenTelemetry": {
     "Tracing": {
-      "SamplingRatio": 0.1,
       "EnableConsoleExporter": false,
-      "OtlpEndpoint": "http://jaeger:4317"
+      "OtlpEndpoint": "http://jaeger:4317",
+      "Sampling": {
+        "DefaultRate": 0.1,
+        "ErrorRate": 1.0,
+        "HighPriorityRate": 0.5,
+        "LowPriorityRate": 0.01
+      }
     }
   }
 }
@@ -210,25 +233,96 @@ Tracing configuration is defined under the `OpenTelemetry:Tracing` section:
 
 ### Sampling Strategy
 
-| Environment | Sampling Ratio | Rationale |
-|-------------|----------------|-----------|
-| Development | 100% (1.0) | Full visibility for debugging and testing |
-| Production | 10% (0.1) | Balance observability with overhead and costs |
+The bot implements **priority-based sampling** to intelligently balance observability needs with infrastructure costs and performance overhead. This head-based sampling approach categorizes operations into different priority tiers, each with configurable sampling rates.
 
-**Sampling Implementation:**
+#### Sampling Priority Tiers
 
-Sampling is head-based using `TraceIdRatioBasedSampler`, configured automatically based on environment or explicit `SamplingRatio` setting:
+| Priority | Default Rate | When Applied | Operations Included |
+|----------|--------------|--------------|---------------------|
+| **Always Sample** | 100% (1.0) | Critical errors and important security events | Discord API errors, rate limit hits (remaining=0), auto-moderation detections (spam, raids, content filtering) |
+| **High Priority** | 50% (0.5) | Important business operations requiring good visibility | Welcome flow (new member joins), moderation actions (/warn, /kick, /ban, /mute), Rat Watch operations, scheduled message executions |
+| **Default** | 10% (0.1) prod<br>100% (1.0) dev | Standard operations | General Discord commands, database operations, API requests |
+| **Low Priority** | 1% (0.01) | High-frequency, low-value operations | Health check endpoints (/health), metrics scraping (/metrics), cache get/set operations |
+
+**Environment Defaults:**
+
+| Environment | DefaultRate | Rationale |
+|-------------|-------------|-----------|
+| Development | 100% (1.0) | Full visibility for debugging and local testing |
+| Production | 10% (0.1) | Balance observability with overhead, storage costs, and network bandwidth |
+
+#### Implementation Details
+
+**Head-Based Sampling:**
+
+Sampling decisions are made at span creation time using the custom `PrioritySampler` class (`src/DiscordBot.Bot/Tracing/PrioritySampler.cs`). The sampler inspects span names and attributes to determine the appropriate sampling rate.
+
+**Parent-Child Trace Continuity:**
+
+When a parent span is sampled, all child spans are automatically sampled to maintain complete trace context. This ensures that sampled traces provide end-to-end visibility without gaps.
 
 ```csharp
-var isProduction = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
-var samplingRatio = configuration.GetValue<double?>("OpenTelemetry:Tracing:SamplingRatio")
-    ?? (isProduction ? 0.1 : 1.0);
-
-if (samplingRatio < 1.0)
+// If parent was sampled, sample this span too
+if (parentContext.TraceId != default && (parentContext.TraceFlags & ActivityTraceFlags.Recorded) != 0)
 {
-    tracing.SetSampler(new TraceIdRatioBasedSampler(samplingRatio));
+    return new SamplingResult(SamplingDecision.RecordAndSample);
 }
 ```
+
+**Pattern Matching:**
+
+The sampler uses span name pattern matching and attribute inspection to classify operations:
+
+```csharp
+// Always sample: Discord API errors
+if (attributes.ContainsKey("discord.api.error_code"))
+{
+    return 1.0; // 100% sampling
+}
+
+// High priority: Moderation commands
+if (spanName.Contains("/warn") || spanName.Contains("/ban"))
+{
+    return 0.5; // 50% sampling (HighPriorityRate)
+}
+
+// Low priority: Health checks
+if (spanName.Contains("/health"))
+{
+    return 0.01; // 1% sampling (LowPriorityRate)
+}
+```
+
+**Adjusting Rates Per Environment:**
+
+Override sampling rates in environment-specific configuration files:
+
+```json
+// appsettings.Staging.json - More aggressive sampling for pre-production testing
+{
+  "OpenTelemetry": {
+    "Tracing": {
+      "Sampling": {
+        "DefaultRate": 0.5,
+        "HighPriorityRate": 1.0,
+        "LowPriorityRate": 0.1
+      }
+    }
+  }
+}
+```
+
+#### Custom Sampler Reference
+
+**Location:** `src/DiscordBot.Bot/Tracing/PrioritySampler.cs`
+
+The `PrioritySampler` class implements `OpenTelemetry.Trace.Sampler` and provides three classification methods:
+
+- `IsAlwaysSampleOperation()` - Identifies critical operations (errors, rate limits, security events)
+- `IsHighPriorityOperation()` - Identifies important business operations (moderation, welcome, Rat Watch)
+- `IsLowPriorityOperation()` - Identifies high-frequency monitoring operations (health checks, metrics)
+
+See the source file for complete pattern matching logic and extensibility points.
 
 ---
 
@@ -557,8 +651,9 @@ Component custom IDs follow the pattern `{handler}:{action}:{userId}:{correlatio
    ```
 
 3. **Verify Sampling:**
-   - Development should have `SamplingRatio: 1.0` for 100% sampling
-   - Check if your request was sampled (only applies if < 1.0)
+   - Development should have `Sampling.DefaultRate: 1.0` for 100% sampling
+   - Check if your request was sampled based on priority tier
+   - Low priority operations (health checks) may not be sampled even at default rate
 
 4. **Test Console Exporter:**
    ```json
@@ -627,12 +722,16 @@ Component custom IDs follow the pattern `{handler}:{action}:{userId}:{correlatio
 
 **Solutions:**
 
-1. **Reduce Sampling Ratio:**
+1. **Reduce Sampling Rates:**
    ```json
    {
      "OpenTelemetry": {
        "Tracing": {
-         "SamplingRatio": 0.1
+         "Sampling": {
+           "DefaultRate": 0.05,
+           "HighPriorityRate": 0.25,
+           "LowPriorityRate": 0.001
+         }
        }
      }
    }
@@ -685,13 +784,18 @@ Component custom IDs follow the pattern `{handler}:{action}:{userId}:{correlatio
 
 ### Sampling Impact
 
-| Sampling Ratio | Traces Exported | Memory Usage | Network Bandwidth |
-|----------------|-----------------|--------------|-------------------|
-| 100% (1.0) | All requests | ~50MB per 10k requests | High |
-| 10% (0.1) | 1 in 10 requests | ~5MB per 10k requests | Low |
-| 1% (0.01) | 1 in 100 requests | ~0.5MB per 10k requests | Minimal |
+| Sampling Configuration | Approximate Traces Exported | Memory Usage | Network Bandwidth |
+|----------------------|---------------------------|--------------|-------------------|
+| **Development** (DefaultRate: 1.0) | ~95% of all requests | ~48MB per 10k requests | High |
+| **Production Default** (DefaultRate: 0.1, High: 0.5, Low: 0.01) | ~15-25% of all requests | ~8-12MB per 10k requests | Low |
+| **Production Conservative** (DefaultRate: 0.05, High: 0.25, Low: 0.001) | ~8-12% of all requests | ~4-6MB per 10k requests | Minimal |
 
-**Recommendation:** Use 100% sampling in development, 10% in production. Adjust based on traffic volume and costs.
+**Notes:**
+- "Always Sample" operations (errors, rate limits, auto-moderation) are sampled at 100% regardless of configuration
+- Actual export percentages depend on the mix of operation types in your workload
+- High-priority operations (moderation, welcome flow) significantly impact export volume in active communities
+
+**Recommendation:** Use priority-based sampling with DefaultRate 1.0 in development, 0.1 in production. Monitor actual costs and adjust rates based on traffic volume and budget.
 
 ### Memory Management
 
@@ -884,8 +988,9 @@ using var activity = BotActivitySource.Source.StartActivity(
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2026-01-03 | Added priority-based sampling strategy documentation with `SamplingOptions`, updated configuration examples |
 | 1.0 | 2025-12-24 | Initial distributed tracing documentation (Issue #105) |
 
 ---
 
-*Last Updated: December 24, 2025*
+*Last Updated: January 3, 2026*
