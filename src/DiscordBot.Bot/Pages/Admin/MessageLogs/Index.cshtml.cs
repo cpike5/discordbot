@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -15,13 +16,22 @@ namespace DiscordBot.Bot.Pages.Admin.MessageLogs;
 public class IndexModel : PageModel
 {
     private readonly IMessageLogService _messageLogService;
+    private readonly IGuildService _guildService;
+    private readonly IMessageLogRepository _messageLogRepository;
+    private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IMessageLogService messageLogService,
+        IGuildService guildService,
+        IMessageLogRepository messageLogRepository,
+        DiscordSocketClient discordClient,
         ILogger<IndexModel> logger)
     {
         _messageLogService = messageLogService;
+        _guildService = guildService;
+        _messageLogRepository = messageLogRepository;
+        _discordClient = discordClient;
         _logger = logger;
     }
 
@@ -51,6 +61,21 @@ public class IndexModel : PageModel
 
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = 25;
+
+    /// <summary>
+    /// Display name for the selected author (populated from message logs).
+    /// </summary>
+    public string? AuthorUsername { get; set; }
+
+    /// <summary>
+    /// Display name for the selected guild.
+    /// </summary>
+    public string? GuildName { get; set; }
+
+    /// <summary>
+    /// Display name for the selected channel.
+    /// </summary>
+    public string? ChannelName { get; set; }
 
     public MessageLogListViewModel ViewModel { get; set; } = new();
 
@@ -100,6 +125,9 @@ public class IndexModel : PageModel
         _logger.LogInformation("Retrieved {Count} message logs (page {Page} of {TotalPages})",
             result.Items.Count, result.Page, result.TotalPages);
 
+        // Populate display names for autocomplete fields
+        await PopulateDisplayNamesAsync();
+
         // Build view model
         ViewModel = new MessageLogListViewModel
         {
@@ -117,5 +145,38 @@ public class IndexModel : PageModel
         };
 
         return Page();
+    }
+
+    /// <summary>
+    /// Populates the display names for filter fields from their IDs.
+    /// </summary>
+    private async Task PopulateDisplayNamesAsync()
+    {
+        // Get author username from message logs if AuthorId is specified
+        if (AuthorId.HasValue)
+        {
+            // Get the most recent message from this author to get their username
+            var messages = await _messageLogRepository.GetUserMessagesAsync(
+                AuthorId.Value,
+                limit: 1);
+
+            var message = messages.FirstOrDefault();
+            AuthorUsername = message?.User?.Username;
+        }
+
+        // Get guild name if GuildId is specified
+        if (GuildId.HasValue)
+        {
+            var guild = await _guildService.GetGuildByIdAsync(GuildId.Value);
+            GuildName = guild?.Name;
+        }
+
+        // Get channel name if ChannelId is specified
+        if (ChannelId.HasValue && GuildId.HasValue)
+        {
+            var socketGuild = _discordClient.GetGuild(GuildId.Value);
+            var channel = socketGuild?.GetChannel(ChannelId.Value);
+            ChannelName = channel?.Name;
+        }
     }
 }
