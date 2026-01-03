@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -19,6 +20,8 @@ public class DiscordTokenRefreshService : MonitoredBackgroundService
     private readonly BackgroundServicesOptions _bgOptions;
 
     public override string ServiceName => "Discord Token Refresh Service";
+
+    protected virtual string TracingServiceName => "discord_token_refresh_service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordTokenRefreshService"/> class.
@@ -59,13 +62,25 @@ public class DiscordTokenRefreshService : MonitoredBackgroundService
         // Wait a bit before first run to allow application to fully start
         await Task.Delay(initialDelay, stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await RefreshExpiringTokensAsync(stoppingToken);
+                var tokensRefreshed = await RefreshExpiringTokensAsync(stoppingToken);
+                BotActivitySource.SetRecordsProcessed(activity, tokensRefreshed);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -76,6 +91,7 @@ public class DiscordTokenRefreshService : MonitoredBackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during token refresh cycle, will retry on next interval");
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
             }
 
@@ -97,7 +113,8 @@ public class DiscordTokenRefreshService : MonitoredBackgroundService
     /// Refreshes all tokens that are expiring within the threshold window.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task RefreshExpiringTokensAsync(CancellationToken cancellationToken)
+    /// <returns>The number of tokens successfully refreshed.</returns>
+    private async Task<int> RefreshExpiringTokensAsync(CancellationToken cancellationToken)
     {
         var expirationThreshold = TimeSpan.FromHours(_bgOptions.TokenExpirationThresholdHours);
         var refreshDelay = TimeSpan.FromSeconds(_bgOptions.TokenRefreshDelaySeconds);
@@ -117,13 +134,13 @@ public class DiscordTokenRefreshService : MonitoredBackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to retrieve expiring tokens from database");
-            return;
+            return 0;
         }
 
         if (expiringTokens.Count == 0)
         {
             _logger.LogDebug("No tokens require refresh at this time");
-            return;
+            return 0;
         }
 
         _logger.LogInformation("Found {Count} token(s) requiring refresh", expiringTokens.Count);
@@ -162,6 +179,8 @@ public class DiscordTokenRefreshService : MonitoredBackgroundService
 
         _logger.LogInformation("Token refresh cycle completed: {SuccessCount} successful, {FailureCount} failed",
             successCount, failureCount);
+
+        return successCount;
     }
 
     /// <summary>

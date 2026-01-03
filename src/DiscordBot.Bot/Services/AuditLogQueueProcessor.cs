@@ -1,6 +1,7 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Bot.Tracing;
 
 namespace DiscordBot.Bot.Services;
 
@@ -17,6 +18,11 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
     private const int BatchTimeoutMilliseconds = 1000;
 
     public override string ServiceName => "Audit Log Queue Processor";
+
+    /// <summary>
+    /// Gets the service name formatted for tracing (snake_case).
+    /// </summary>
+    private string TracingServiceName => ServiceName.ToLowerInvariant().Replace(" ", "_");
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AuditLogQueueProcessor"/> class.
@@ -43,13 +49,26 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
             "Audit log queue processor starting. Batch size: {BatchSize}, Timeout: {TimeoutMs}ms",
             BatchSize, BatchTimeoutMilliseconds);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await ProcessBatchAsync(stoppingToken);
+                var processedCount = await ProcessBatchAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsProcessed(activity, processedCount);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -61,6 +80,7 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 _logger.LogError(ex, "Error processing audit log batch");
                 RecordError(ex);
                 // Wait a bit before retrying to avoid tight error loops
@@ -76,7 +96,8 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
     /// Collects up to BatchSize entries or waits up to BatchTimeoutMilliseconds.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
-    private async Task ProcessBatchAsync(CancellationToken stoppingToken)
+    /// <returns>The number of records processed.</returns>
+    private async Task<int> ProcessBatchAsync(CancellationToken stoppingToken)
     {
         var batch = new List<AuditLogCreateDto>(BatchSize);
         var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
@@ -107,8 +128,27 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
             // Process the batch
             if (batch.Count > 0)
             {
-                await WriteBatchToRepositoryAsync(batch, stoppingToken);
+                using var batchActivity = BotActivitySource.StartBackgroundBatchActivity(
+                    TracingServiceName,
+                    batch.Count,
+                    "audit_logs");
+
+                try
+                {
+                    await WriteBatchToRepositoryAsync(batch, stoppingToken);
+                    BotActivitySource.SetRecordsProcessed(batchActivity, batch.Count);
+                    BotActivitySource.SetSuccess(batchActivity);
+                }
+                catch (Exception ex)
+                {
+                    BotActivitySource.RecordException(batchActivity, ex);
+                    throw;
+                }
+
+                return batch.Count;
             }
+
+            return 0;
         }
         finally
         {

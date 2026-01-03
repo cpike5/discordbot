@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -18,6 +19,11 @@ public class ReminderExecutionService : MonitoredBackgroundService
     private readonly DiscordSocketClient _client;
 
     public override string ServiceName => "Reminder Execution Service";
+
+    /// <summary>
+    /// Gets the tracing service name in snake_case format.
+    /// </summary>
+    private string TracingServiceName => "reminder_execution_service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReminderExecutionService"/> class.
@@ -67,13 +73,26 @@ public class ReminderExecutionService : MonitoredBackgroundService
 
         _logger.LogInformation("Discord client connected, reminder execution service ready");
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await ProcessDueRemindersAsync(stoppingToken);
+                var remindersProcessed = await ProcessDueRemindersAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsProcessed(activity, remindersProcessed);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -84,6 +103,7 @@ public class ReminderExecutionService : MonitoredBackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during reminder processing");
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
             }
 
@@ -99,7 +119,8 @@ public class ReminderExecutionService : MonitoredBackgroundService
     /// Processes all due reminders by delivering them concurrently with retry logic.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
-    private async Task ProcessDueRemindersAsync(CancellationToken stoppingToken)
+    /// <returns>The number of reminders processed.</returns>
+    private async Task<int> ProcessDueRemindersAsync(CancellationToken stoppingToken)
     {
         _logger.LogDebug("Checking for due reminders");
 
@@ -113,45 +134,63 @@ public class ReminderExecutionService : MonitoredBackgroundService
         if (reminderList.Count == 0)
         {
             _logger.LogTrace("No reminders due for delivery");
-            return;
+            return 0;
         }
 
         _logger.LogInformation("Found {Count} reminders due for delivery", reminderList.Count);
 
-        // Create a semaphore to limit concurrent deliveries
-        using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentDeliveries);
+        using var batchActivity = BotActivitySource.StartBackgroundBatchActivity(
+            TracingServiceName,
+            reminderList.Count,
+            "reminders");
 
-        // Deliver reminders concurrently with semaphore protection
-        var deliveryTasks = reminderList.Select(async reminder =>
+        try
         {
-            await semaphore.WaitAsync(stoppingToken);
-            try
-            {
-                _logger.LogDebug("Delivering reminder {ReminderId} to user {UserId}",
-                    reminder.Id, reminder.UserId);
+            // Create a semaphore to limit concurrent deliveries
+            using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentDeliveries);
 
-                await DeliverReminderAsync(reminder, stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            // Deliver reminders concurrently with semaphore protection
+            var deliveryTasks = reminderList.Select(async reminder =>
             {
-                _logger.LogInformation("Reminder delivery cancelled due to shutdown: {ReminderId}",
-                    reminder.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error delivering reminder {ReminderId} to user {UserId}",
-                    reminder.Id, reminder.UserId);
-            }
-            finally
-            {
-                semaphore.Release();
-            }
-        });
+                await semaphore.WaitAsync(stoppingToken);
+                try
+                {
+                    _logger.LogDebug("Delivering reminder {ReminderId} to user {UserId}",
+                        reminder.Id, reminder.UserId);
 
-        // Wait for all deliveries to complete
-        await Task.WhenAll(deliveryTasks);
+                    await DeliverReminderAsync(reminder, stoppingToken);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    _logger.LogInformation("Reminder delivery cancelled due to shutdown: {ReminderId}",
+                        reminder.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error delivering reminder {ReminderId} to user {UserId}",
+                        reminder.Id, reminder.UserId);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
 
-        _logger.LogInformation("Completed processing {Count} due reminders", reminderList.Count);
+            // Wait for all deliveries to complete
+            await Task.WhenAll(deliveryTasks);
+
+            _logger.LogInformation("Completed processing {Count} due reminders", reminderList.Count);
+
+            BotActivitySource.SetRecordsProcessed(batchActivity, reminderList.Count);
+            BotActivitySource.SetSuccess(batchActivity);
+
+            return reminderList.Count;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(batchActivity, ex);
+            throw;
+        }
     }
 
     /// <summary>

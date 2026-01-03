@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -26,6 +27,8 @@ public class MetricsCollectionService : MonitoredBackgroundService
 
     /// <inheritdoc/>
     public override string ServiceName => "MetricsCollectionService";
+
+    protected virtual string TracingServiceName => "metrics_collection_service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MetricsCollectionService"/> class.
@@ -77,8 +80,18 @@ public class MetricsCollectionService : MonitoredBackgroundService
 
         _logger.LogInformation("MetricsCollectionService initialized, starting collection loop");
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             try
             {
                 // Collect and persist snapshot
@@ -89,6 +102,8 @@ public class MetricsCollectionService : MonitoredBackgroundService
 
                 // Update heartbeat on successful iteration
                 UpdateHeartbeat();
+                BotActivitySource.SetRecordsProcessed(activity, 1); // 1 snapshot collected
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
 
                 // Wait for the configured interval
@@ -98,6 +113,7 @@ public class MetricsCollectionService : MonitoredBackgroundService
             {
                 RecordError(ex);
                 _logger.LogError(ex, "Error in metrics collection loop");
+                BotActivitySource.RecordException(activity, ex);
 
                 // Wait a bit before retrying after an error
                 await Task.Delay(TimeSpan.FromSeconds(_options.ErrorRetryDelaySeconds), stoppingToken);

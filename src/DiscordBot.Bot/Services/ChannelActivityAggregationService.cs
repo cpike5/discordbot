@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -19,6 +20,12 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
     private readonly DiscordSocketClient _client;
 
     public override string ServiceName => "Channel Activity Aggregation Service";
+
+    /// <summary>
+    /// Gets the service name in snake_case format for tracing spans.
+    /// </summary>
+    protected virtual string TracingServiceName =>
+        ServiceName.ToLowerInvariant().Replace(" ", "_");
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ChannelActivityAggregationService"/> class.
@@ -64,13 +71,26 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
         var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.AnalyticsAggregationInitialDelayMinutes);
         await Task.Delay(initialDelay, stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await AggregateHourlyAsync(stoppingToken);
+                var snapshotsProcessed = await AggregateHourlyAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsProcessed(activity, snapshotsProcessed);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -80,6 +100,7 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 _logger.LogError(ex, "Error during channel activity aggregation");
                 RecordError(ex);
             }
@@ -96,7 +117,8 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
     /// Aggregates channel activity for all guilds for the previous complete hour.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
-    private async Task AggregateHourlyAsync(CancellationToken stoppingToken)
+    /// <returns>Total number of snapshots created/updated across all guilds.</returns>
+    private async Task<int> AggregateHourlyAsync(CancellationToken stoppingToken)
     {
         _logger.LogDebug("Starting hourly channel activity aggregation");
 
@@ -112,7 +134,7 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
         if (guildList.Count == 0)
         {
             _logger.LogTrace("No guilds found for channel activity aggregation");
-            return;
+            return 0;
         }
 
         _logger.LogInformation("Aggregating channel activity for {GuildCount} guilds", guildList.Count);
@@ -141,6 +163,8 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
 
         _logger.LogInformation("Completed hourly channel activity aggregation. Created/updated {SnapshotCount} snapshots across {GuildCount} guilds",
             totalSnapshots, guildList.Count);
+
+        return totalSnapshots;
     }
 
     /// <summary>

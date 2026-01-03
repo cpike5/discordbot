@@ -219,6 +219,116 @@ public static class BotActivitySource
     }
 
     /// <summary>
+    /// Starts an activity for a background service execution cycle.
+    /// </summary>
+    /// <param name="serviceName">The name of the background service.</param>
+    /// <param name="executionCycle">The current execution cycle number.</param>
+    /// <param name="correlationId">Optional correlation ID for the execution.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartBackgroundServiceActivity(
+        string serviceName,
+        int executionCycle,
+        string? correlationId = null)
+    {
+        var spanName = string.Format(TracingConstants.Spans.BackgroundServiceExecute, serviceName);
+
+        var activity = Source.StartActivity(
+            name: spanName,
+            kind: ActivityKind.Internal);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.BackgroundServiceName, serviceName);
+        activity.SetTag(TracingConstants.Attributes.BackgroundExecutionCycle, executionCycle);
+
+        if (!string.IsNullOrEmpty(correlationId))
+        {
+            activity.SetTag(TracingConstants.Attributes.CorrelationId, correlationId);
+            activity.AddBaggage(TracingConstants.Baggage.CorrelationId, correlationId);
+        }
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for a background service batch processing operation.
+    /// </summary>
+    /// <param name="serviceName">The name of the background service.</param>
+    /// <param name="batchSize">The number of items in the batch.</param>
+    /// <param name="batchType">Optional description of what is being batched.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartBackgroundBatchActivity(
+        string serviceName,
+        int batchSize,
+        string? batchType = null)
+    {
+        var spanName = string.Format(TracingConstants.Spans.BackgroundServiceBatch, serviceName);
+
+        var activity = Source.StartActivity(
+            name: spanName,
+            kind: ActivityKind.Internal);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.BackgroundServiceName, serviceName);
+        activity.SetTag(TracingConstants.Attributes.BackgroundBatchSize, batchSize);
+
+        if (!string.IsNullOrEmpty(batchType))
+        {
+            activity.SetTag(TracingConstants.Attributes.BackgroundItemType, batchType);
+        }
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for a background service cleanup operation.
+    /// </summary>
+    /// <param name="serviceName">The name of the background service.</param>
+    /// <param name="targetType">The type of records being cleaned up.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartBackgroundCleanupActivity(
+        string serviceName,
+        string targetType)
+    {
+        var spanName = string.Format(TracingConstants.Spans.BackgroundServiceCleanup, serviceName);
+
+        var activity = Source.StartActivity(
+            name: spanName,
+            kind: ActivityKind.Internal);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.BackgroundServiceName, serviceName);
+        activity.SetTag(TracingConstants.Attributes.BackgroundItemType, targetType);
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Records the number of items processed on an activity.
+    /// </summary>
+    /// <param name="activity">The activity to record on.</param>
+    /// <param name="recordsProcessed">The number of records processed.</param>
+    public static void SetRecordsProcessed(Activity? activity, int recordsProcessed)
+    {
+        activity?.SetTag(TracingConstants.Attributes.BackgroundRecordsProcessed, recordsProcessed);
+    }
+
+    /// <summary>
+    /// Records the number of items deleted on an activity.
+    /// </summary>
+    /// <param name="activity">The activity to record on.</param>
+    /// <param name="recordsDeleted">The number of records deleted.</param>
+    public static void SetRecordsDeleted(Activity? activity, int recordsDeleted)
+    {
+        activity?.SetTag(TracingConstants.Attributes.BackgroundRecordsDeleted, recordsDeleted);
+    }
+
+    /// <summary>
     /// Sanitizes custom IDs to remove potentially sensitive data like user-specific correlation IDs.
     /// Extracts the handler:action portion for tracing.
     /// </summary>

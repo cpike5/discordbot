@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -16,6 +17,11 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
 
     public override string ServiceName => "Analytics Retention Service";
+
+    /// <summary>
+    /// Gets the service name formatted for tracing (snake_case).
+    /// </summary>
+    private string TracingServiceName => "analytics_retention_service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AnalyticsRetentionService"/> class.
@@ -60,13 +66,26 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
         var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.AnalyticsAggregationInitialDelayMinutes);
         await Task.Delay(initialDelay, stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await PerformCleanupAsync(stoppingToken);
+                var totalDeleted = await PerformCleanupAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsDeleted(activity, totalDeleted);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -76,6 +95,7 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 _logger.LogError(ex, "Error during analytics retention cleanup");
                 RecordError(ex);
             }
@@ -92,7 +112,8 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
     /// Performs a single cleanup operation by removing old snapshots across all repositories.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during cleanup.</param>
-    private async Task PerformCleanupAsync(CancellationToken stoppingToken)
+    /// <returns>The total number of analytics records deleted.</returns>
+    private async Task<int> PerformCleanupAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Starting analytics retention cleanup");
 
@@ -136,6 +157,8 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
         totalDeleted += guildMetricsDeleted;
 
         _logger.LogInformation("Analytics retention cleanup completed. Deleted {TotalCount} total snapshots", totalDeleted);
+
+        return totalDeleted;
     }
 
     /// <summary>
@@ -150,41 +173,57 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
         Func<DateTime, int, CancellationToken, Task<int>> deleteFunc,
         CancellationToken stoppingToken)
     {
-        var cutoff = DateTime.UtcNow.AddDays(-_options.Value.HourlyRetentionDays);
-        var batchSize = _options.Value.CleanupBatchSize;
-        var totalDeleted = 0;
+        var targetType = $"hourly_{snapshotType.Replace(" ", "_")}";
+        using var cleanupActivity = BotActivitySource.StartBackgroundCleanupActivity(
+            TracingServiceName,
+            targetType);
 
-        _logger.LogDebug("Cleaning up hourly {SnapshotType} snapshots older than {Cutoff}", snapshotType, cutoff);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            var deleted = await deleteFunc(cutoff, batchSize, stoppingToken);
+            var cutoff = DateTime.UtcNow.AddDays(-_options.Value.HourlyRetentionDays);
+            var batchSize = _options.Value.CleanupBatchSize;
+            var totalDeleted = 0;
 
-            if (deleted == 0)
+            _logger.LogDebug("Cleaning up hourly {SnapshotType} snapshots older than {Cutoff}", snapshotType, cutoff);
+
+            while (!stoppingToken.IsCancellationRequested)
             {
-                break; // No more records to delete
+                var deleted = await deleteFunc(cutoff, batchSize, stoppingToken);
+
+                if (deleted == 0)
+                {
+                    break; // No more records to delete
+                }
+
+                totalDeleted += deleted;
+                _logger.LogDebug("Deleted {Count} hourly {SnapshotType} snapshots (batch)", deleted, snapshotType);
+
+                // If we deleted fewer than batch size, we're done
+                if (deleted < batchSize)
+                {
+                    break;
+                }
+
+                // Brief delay between batches to avoid long-running transactions
+                await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
             }
 
-            totalDeleted += deleted;
-            _logger.LogDebug("Deleted {Count} hourly {SnapshotType} snapshots (batch)", deleted, snapshotType);
-
-            // If we deleted fewer than batch size, we're done
-            if (deleted < batchSize)
+            if (totalDeleted > 0)
             {
-                break;
+                _logger.LogInformation("Deleted {Count} hourly {SnapshotType} snapshots older than {RetentionDays} days",
+                    totalDeleted, snapshotType, _options.Value.HourlyRetentionDays);
             }
 
-            // Brief delay between batches to avoid long-running transactions
-            await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
-        }
+            BotActivitySource.SetRecordsDeleted(cleanupActivity, totalDeleted);
+            BotActivitySource.SetSuccess(cleanupActivity);
 
-        if (totalDeleted > 0)
+            return totalDeleted;
+        }
+        catch (Exception ex)
         {
-            _logger.LogInformation("Deleted {Count} hourly {SnapshotType} snapshots older than {RetentionDays} days",
-                totalDeleted, snapshotType, _options.Value.HourlyRetentionDays);
+            BotActivitySource.RecordException(cleanupActivity, ex);
+            throw;
         }
-
-        return totalDeleted;
     }
 
     /// <summary>
@@ -199,41 +238,57 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
         Func<DateTime, int, CancellationToken, Task<int>> deleteFunc,
         CancellationToken stoppingToken)
     {
-        var cutoff = DateTime.UtcNow.AddDays(-_options.Value.DailyRetentionDays);
-        var batchSize = _options.Value.CleanupBatchSize;
-        var totalDeleted = 0;
+        var targetType = $"daily_{snapshotType.Replace(" ", "_")}";
+        using var cleanupActivity = BotActivitySource.StartBackgroundCleanupActivity(
+            TracingServiceName,
+            targetType);
 
-        _logger.LogDebug("Cleaning up daily {SnapshotType} snapshots older than {Cutoff}", snapshotType, cutoff);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            var deleted = await deleteFunc(cutoff, batchSize, stoppingToken);
+            var cutoff = DateTime.UtcNow.AddDays(-_options.Value.DailyRetentionDays);
+            var batchSize = _options.Value.CleanupBatchSize;
+            var totalDeleted = 0;
 
-            if (deleted == 0)
+            _logger.LogDebug("Cleaning up daily {SnapshotType} snapshots older than {Cutoff}", snapshotType, cutoff);
+
+            while (!stoppingToken.IsCancellationRequested)
             {
-                break; // No more records to delete
+                var deleted = await deleteFunc(cutoff, batchSize, stoppingToken);
+
+                if (deleted == 0)
+                {
+                    break; // No more records to delete
+                }
+
+                totalDeleted += deleted;
+                _logger.LogDebug("Deleted {Count} daily {SnapshotType} snapshots (batch)", deleted, snapshotType);
+
+                // If we deleted fewer than batch size, we're done
+                if (deleted < batchSize)
+                {
+                    break;
+                }
+
+                // Brief delay between batches
+                await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
             }
 
-            totalDeleted += deleted;
-            _logger.LogDebug("Deleted {Count} daily {SnapshotType} snapshots (batch)", deleted, snapshotType);
-
-            // If we deleted fewer than batch size, we're done
-            if (deleted < batchSize)
+            if (totalDeleted > 0)
             {
-                break;
+                _logger.LogInformation("Deleted {Count} daily {SnapshotType} snapshots older than {RetentionDays} days",
+                    totalDeleted, snapshotType, _options.Value.DailyRetentionDays);
             }
 
-            // Brief delay between batches
-            await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
-        }
+            BotActivitySource.SetRecordsDeleted(cleanupActivity, totalDeleted);
+            BotActivitySource.SetSuccess(cleanupActivity);
 
-        if (totalDeleted > 0)
+            return totalDeleted;
+        }
+        catch (Exception ex)
         {
-            _logger.LogInformation("Deleted {Count} daily {SnapshotType} snapshots older than {RetentionDays} days",
-                totalDeleted, snapshotType, _options.Value.DailyRetentionDays);
+            BotActivitySource.RecordException(cleanupActivity, ex);
+            throw;
         }
-
-        return totalDeleted;
     }
 
     /// <summary>
@@ -246,40 +301,55 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
         IGuildMetricsRepository guildMetricsRepo,
         CancellationToken stoppingToken)
     {
-        var cutoffDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-_options.Value.DailyRetentionDays));
-        var batchSize = _options.Value.CleanupBatchSize;
-        var totalDeleted = 0;
+        using var cleanupActivity = BotActivitySource.StartBackgroundCleanupActivity(
+            TracingServiceName,
+            "guild_metrics");
 
-        _logger.LogDebug("Cleaning up guild metrics snapshots older than {Cutoff}", cutoffDate);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            var deleted = await guildMetricsRepo.DeleteOlderThanAsync(cutoffDate, batchSize, stoppingToken);
+            var cutoffDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-_options.Value.DailyRetentionDays));
+            var batchSize = _options.Value.CleanupBatchSize;
+            var totalDeleted = 0;
 
-            if (deleted == 0)
+            _logger.LogDebug("Cleaning up guild metrics snapshots older than {Cutoff}", cutoffDate);
+
+            while (!stoppingToken.IsCancellationRequested)
             {
-                break; // No more records to delete
+                var deleted = await guildMetricsRepo.DeleteOlderThanAsync(cutoffDate, batchSize, stoppingToken);
+
+                if (deleted == 0)
+                {
+                    break; // No more records to delete
+                }
+
+                totalDeleted += deleted;
+                _logger.LogDebug("Deleted {Count} guild metrics snapshots (batch)", deleted);
+
+                // If we deleted fewer than batch size, we're done
+                if (deleted < batchSize)
+                {
+                    break;
+                }
+
+                // Brief delay between batches
+                await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
             }
 
-            totalDeleted += deleted;
-            _logger.LogDebug("Deleted {Count} guild metrics snapshots (batch)", deleted);
-
-            // If we deleted fewer than batch size, we're done
-            if (deleted < batchSize)
+            if (totalDeleted > 0)
             {
-                break;
+                _logger.LogInformation("Deleted {Count} guild metrics snapshots older than {RetentionDays} days",
+                    totalDeleted, _options.Value.DailyRetentionDays);
             }
 
-            // Brief delay between batches
-            await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
-        }
+            BotActivitySource.SetRecordsDeleted(cleanupActivity, totalDeleted);
+            BotActivitySource.SetSuccess(cleanupActivity);
 
-        if (totalDeleted > 0)
+            return totalDeleted;
+        }
+        catch (Exception ex)
         {
-            _logger.LogInformation("Deleted {Count} guild metrics snapshots older than {RetentionDays} days",
-                totalDeleted, _options.Value.DailyRetentionDays);
+            BotActivitySource.RecordException(cleanupActivity, ex);
+            throw;
         }
-
-        return totalDeleted;
     }
 }

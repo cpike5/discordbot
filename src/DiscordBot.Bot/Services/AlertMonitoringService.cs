@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -71,6 +72,8 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// <inheritdoc/>
     public string ServiceName => "AlertMonitoringService";
 
+    protected virtual string TracingServiceName => "alert_monitoring_service";
+
     /// <inheritdoc/>
     public string Status => _status;
 
@@ -102,14 +105,26 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
             _status = "Running";
             _logger.LogInformation("AlertMonitoringService initialized, starting monitoring loop");
 
+            var executionCycle = 0;
+
             while (!stoppingToken.IsCancellationRequested)
             {
+                executionCycle++;
+                var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+                using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                    TracingServiceName,
+                    executionCycle,
+                    correlationId);
+
                 try
                 {
                     // Record heartbeat
                     _lastHeartbeat = DateTime.UtcNow;
 
-                    await MonitorMetricsAsync(stoppingToken);
+                    var configsChecked = await MonitorMetricsAsync(stoppingToken);
+                    BotActivitySource.SetRecordsProcessed(activity, configsChecked);
+                    BotActivitySource.SetSuccess(activity);
 
                     // Wait for the configured interval
                     await Task.Delay(TimeSpan.FromSeconds(_options.CheckIntervalSeconds), stoppingToken);
@@ -119,6 +134,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
                     _lastError = ex.Message;
                     _status = "Error";
                     _logger.LogError(ex, "Error in alert monitoring loop");
+                    BotActivitySource.RecordException(activity, ex);
 
                     // Wait a bit before retrying after an error
                     await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
@@ -141,7 +157,8 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// <summary>
     /// Monitors all enabled alert configurations and checks for threshold breaches.
     /// </summary>
-    private async Task MonitorMetricsAsync(CancellationToken cancellationToken)
+    /// <returns>The number of alert configurations checked.</returns>
+    private async Task<int> MonitorMetricsAsync(CancellationToken cancellationToken)
     {
         using var scope = _serviceProvider.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IPerformanceAlertRepository>();
@@ -155,6 +172,8 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
         {
             await CheckMetricAsync(config, repository, cancellationToken);
         }
+
+        return enabledConfigs.Count;
     }
 
     /// <summary>

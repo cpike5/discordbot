@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -18,6 +19,12 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
     private readonly IOptions<AnalyticsRetentionOptions> _analyticsOptions;
 
     public override string ServiceName => "Member Activity Aggregation Service";
+
+    /// <summary>
+    /// Gets the service name in snake_case format for tracing spans.
+    /// </summary>
+    protected virtual string TracingServiceName =>
+        ServiceName.ToLowerInvariant().Replace(" ", "_");
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MemberActivityAggregationService"/> class.
@@ -60,13 +67,26 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
         var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.AnalyticsAggregationInitialDelayMinutes);
         await Task.Delay(initialDelay, stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await AggregateHourlyAsync(stoppingToken);
+                var snapshotsProcessed = await AggregateHourlyAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsProcessed(activity, snapshotsProcessed);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -76,6 +96,7 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 _logger.LogError(ex, "Error during member activity aggregation");
                 RecordError(ex);
             }
@@ -92,7 +113,8 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
     /// Aggregates member activity for all guilds for the previous complete hour.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
-    private async Task AggregateHourlyAsync(CancellationToken stoppingToken)
+    /// <returns>Total number of snapshots created/updated across all guilds.</returns>
+    private async Task<int> AggregateHourlyAsync(CancellationToken stoppingToken)
     {
         _logger.LogDebug("Starting hourly member activity aggregation");
 
@@ -108,7 +130,7 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
         if (guildList.Count == 0)
         {
             _logger.LogTrace("No guilds found for member activity aggregation");
-            return;
+            return 0;
         }
 
         _logger.LogInformation("Aggregating member activity for {GuildCount} guilds", guildList.Count);
@@ -137,6 +159,8 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
 
         _logger.LogInformation("Completed hourly member activity aggregation. Created/updated {SnapshotCount} snapshots across {GuildCount} guilds",
             totalSnapshots, guildList.Count);
+
+        return totalSnapshots;
     }
 
     /// <summary>

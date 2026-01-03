@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -17,6 +18,12 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
     private readonly IOptions<AnalyticsRetentionOptions> _analyticsOptions;
 
     public override string ServiceName => "Guild Metrics Aggregation Service";
+
+    /// <summary>
+    /// Gets the service name in snake_case format for tracing spans.
+    /// </summary>
+    protected virtual string TracingServiceName =>
+        ServiceName.ToLowerInvariant().Replace(" ", "_");
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GuildMetricsAggregationService"/> class.
@@ -70,13 +77,26 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
             await Task.Delay(delayUntilNextRun, stoppingToken);
         }
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await AggregateDailyAsync(stoppingToken);
+                var snapshotsProcessed = await AggregateDailyAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsProcessed(activity, snapshotsProcessed);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -86,6 +106,7 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 _logger.LogError(ex, "Error during guild metrics aggregation");
                 RecordError(ex);
             }
@@ -123,7 +144,8 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
     /// Aggregates daily guild metrics for all guilds for the previous complete day.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
-    private async Task AggregateDailyAsync(CancellationToken stoppingToken)
+    /// <returns>Total number of snapshots created/updated across all guilds.</returns>
+    private async Task<int> AggregateDailyAsync(CancellationToken stoppingToken)
     {
         _logger.LogDebug("Starting daily guild metrics aggregation");
 
@@ -143,7 +165,7 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
         if (guildList.Count == 0)
         {
             _logger.LogTrace("No guilds found for guild metrics aggregation");
-            return;
+            return 0;
         }
 
         _logger.LogInformation("Aggregating daily metrics for {GuildCount} guilds", guildList.Count);
@@ -179,6 +201,8 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
 
         _logger.LogInformation("Completed daily guild metrics aggregation. Created/updated {SnapshotCount} snapshots across {GuildCount} guilds",
             totalSnapshots, guildList.Count);
+
+        return totalSnapshots;
     }
 
     /// <summary>

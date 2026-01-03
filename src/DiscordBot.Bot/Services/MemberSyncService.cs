@@ -2,6 +2,7 @@ using System.Text.Json;
 using Discord;
 using Discord.Net;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -25,6 +26,12 @@ public class MemberSyncService : MonitoredBackgroundService
     private DateTime _lastReconciliation = DateTime.MinValue;
 
     public override string ServiceName => "MemberSyncService";
+
+    /// <summary>
+    /// Gets the service name in snake_case format for tracing.
+    /// </summary>
+    protected virtual string TracingServiceName =>
+        ServiceName.ToLowerInvariant().Replace(" ", "_");
 
     public MemberSyncService(
         IServiceScopeFactory scopeFactory,
@@ -96,13 +103,26 @@ public class MemberSyncService : MonitoredBackgroundService
     /// </summary>
     private async Task ProcessQueueAsync(CancellationToken stoppingToken)
     {
+        var queueExecutionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            queueExecutionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                $"{TracingServiceName}_queue",
+                queueExecutionCycle,
+                correlationId);
+
             UpdateHeartbeat();
             try
             {
                 var (guildId, reason) = await _syncQueue.DequeueAsync(stoppingToken);
                 await ProcessSyncRequestAsync(guildId, reason, stoppingToken);
+
+                BotActivitySource.SetRecordsProcessed(activity, 1);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -112,6 +132,7 @@ public class MemberSyncService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
                 // Continue processing next item
             }
@@ -125,9 +146,18 @@ public class MemberSyncService : MonitoredBackgroundService
     {
         var reconciliationInterval = TimeSpan.FromHours(_options.Value.MemberSyncReconciliationIntervalHours);
         _lastReconciliation = DateTime.UtcNow;
+        var reconciliationCycle = 0;
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            reconciliationCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                $"{TracingServiceName}_reconciliation",
+                reconciliationCycle,
+                correlationId);
+
             UpdateHeartbeat();
             try
             {
@@ -142,6 +172,9 @@ public class MemberSyncService : MonitoredBackgroundService
                     _syncQueue.EnqueueGuild(guild.Id, MemberSyncReason.DailyReconciliation);
                 }
 
+                BotActivitySource.SetRecordsProcessed(activity, guilds.Count);
+                BotActivitySource.SetSuccess(activity);
+
                 _lastReconciliation = DateTime.UtcNow;
                 ClearError();
             }
@@ -151,6 +184,7 @@ public class MemberSyncService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
             }
         }
@@ -198,27 +232,43 @@ public class MemberSyncService : MonitoredBackgroundService
             var userRepository = scope.ServiceProvider.GetRequiredService<IUserRepository>();
             var memberRepository = scope.ServiceProvider.GetRequiredService<IGuildMemberRepository>();
 
-            _logger.LogDebug("Upserting {Count} users to database", users.Count);
-            var usersAffected = await userRepository.BatchUpsertAsync(users, ct);
+            using var batchActivity = BotActivitySource.StartBackgroundBatchActivity(
+                TracingServiceName,
+                members.Count,
+                "member_upsert");
 
-            _logger.LogDebug("Upserting {Count} guild members to database", guildMembers.Count);
-            var membersAffected = await memberRepository.BatchUpsertAsync(guildMembers, ct);
-
-            // For reconciliation, mark absent members as inactive
-            if (reason == MemberSyncReason.DailyReconciliation || reason == MemberSyncReason.InitialSync)
+            try
             {
-                var activeUserIds = members.Select(m => m.Id).ToList();
-                var inactiveCount = await memberRepository.MarkInactiveExceptAsync(guildId, activeUserIds, ct);
+                _logger.LogDebug("Upserting {Count} users to database", users.Count);
+                var usersAffected = await userRepository.BatchUpsertAsync(users, ct);
+
+                _logger.LogDebug("Upserting {Count} guild members to database", guildMembers.Count);
+                var membersAffected = await memberRepository.BatchUpsertAsync(guildMembers, ct);
+
+                // For reconciliation, mark absent members as inactive
+                if (reason == MemberSyncReason.DailyReconciliation || reason == MemberSyncReason.InitialSync)
+                {
+                    var activeUserIds = members.Select(m => m.Id).ToList();
+                    var inactiveCount = await memberRepository.MarkInactiveExceptAsync(guildId, activeUserIds, ct);
+
+                    _logger.LogInformation(
+                        "Reconciliation completed for guild {GuildId}. Marked {InactiveCount} members as inactive",
+                        guildId, inactiveCount);
+                }
+
+                BotActivitySource.SetRecordsProcessed(batchActivity, membersAffected);
+                BotActivitySource.SetSuccess(batchActivity);
 
                 _logger.LogInformation(
-                    "Reconciliation completed for guild {GuildId}. Marked {InactiveCount} members as inactive",
-                    guildId, inactiveCount);
+                    "Member sync completed for guild {GuildId} ({GuildName}). " +
+                    "Reason: {Reason}, Members: {MemberCount}, Users affected: {UsersAffected}, Members affected: {MembersAffected}",
+                    guildId, guild.Name, reason, members.Count, usersAffected, membersAffected);
             }
-
-            _logger.LogInformation(
-                "Member sync completed for guild {GuildId} ({GuildName}). " +
-                "Reason: {Reason}, Members: {MemberCount}, Users affected: {UsersAffected}, Members affected: {MembersAffected}",
-                guildId, guild.Name, reason, members.Count, usersAffected, membersAffected);
+            catch (Exception ex)
+            {
+                BotActivitySource.RecordException(batchActivity, ex);
+                throw;
+            }
         }
         catch (Exception ex)
         {

@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,11 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
     private readonly IOptions<ScheduledMessagesOptions> _options;
 
     public override string ServiceName => "ScheduledMessageExecutionService";
+
+    /// <summary>
+    /// Gets the tracing service name in snake_case format.
+    /// </summary>
+    private string TracingServiceName => "scheduled_message_execution_service";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScheduledMessageExecutionService"/> class.
@@ -39,12 +45,26 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
         // Initial delay to let the app start up and Discord client connect
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
+
             try
             {
-                await ProcessDueMessagesAsync(stoppingToken);
+                var messagesProcessed = await ProcessDueMessagesAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsProcessed(activity, messagesProcessed);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -54,6 +74,7 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
             }
 
@@ -67,7 +88,8 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
     /// Processes all due scheduled messages by executing them concurrently with timeout protection.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
-    private async Task ProcessDueMessagesAsync(CancellationToken stoppingToken)
+    /// <returns>The number of messages processed.</returns>
+    private async Task<int> ProcessDueMessagesAsync(CancellationToken stoppingToken)
     {
         using var scope = _scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IScheduledMessageRepository>();
@@ -79,39 +101,57 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
 
         if (messageList.Count == 0)
         {
-            return;
+            return 0;
         }
 
-        // Create a semaphore to limit concurrent executions
-        using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
-        var executionTimeout = TimeSpan.FromSeconds(_options.Value.ExecutionTimeoutSeconds);
+        using var batchActivity = BotActivitySource.StartBackgroundBatchActivity(
+            TracingServiceName,
+            messageList.Count,
+            "scheduled_messages");
 
-        // Execute messages concurrently with semaphore and timeout protection
-        var executionTasks = messageList.Select(async message =>
+        try
         {
-            await semaphore.WaitAsync(stoppingToken);
-            try
-            {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                cts.CancelAfter(executionTimeout);
+            // Create a semaphore to limit concurrent executions
+            using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
+            var executionTimeout = TimeSpan.FromSeconds(_options.Value.ExecutionTimeoutSeconds);
 
-                await service.ExecuteScheduledMessageAsync(message.Id, cts.Token);
-            }
-            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+            // Execute messages concurrently with semaphore and timeout protection
+            var executionTasks = messageList.Select(async message =>
             {
-                // Timeout
-            }
-            catch (Exception)
-            {
-                // Logged by service
-            }
-            finally
-            {
-                semaphore.Release();
-            }
-        });
+                await semaphore.WaitAsync(stoppingToken);
+                try
+                {
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    cts.CancelAfter(executionTimeout);
 
-        // Wait for all executions to complete
-        await Task.WhenAll(executionTasks);
+                    await service.ExecuteScheduledMessageAsync(message.Id, cts.Token);
+                }
+                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+                {
+                    // Timeout
+                }
+                catch (Exception)
+                {
+                    // Logged by service
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            // Wait for all executions to complete
+            await Task.WhenAll(executionTasks);
+
+            BotActivitySource.SetRecordsProcessed(batchActivity, messageList.Count);
+            BotActivitySource.SetSuccess(batchActivity);
+
+            return messageList.Count;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(batchActivity, ex);
+            throw;
+        }
     }
 }

@@ -68,6 +68,17 @@ public static class TracingConstants
         // Application-specific
         public const string CorrelationId = "correlation.id";
         public const string ErrorMessage = "error.message";
+
+        // Background service attributes
+        public const string BackgroundServiceName = "background.service.name";
+        public const string BackgroundExecutionCycle = "background.execution.cycle";
+        public const string BackgroundBatchSize = "background.batch.size";
+        public const string BackgroundRecordsProcessed = "background.records.processed";
+        public const string BackgroundRecordsDeleted = "background.records.deleted";
+        public const string BackgroundDurationMs = "background.duration.ms";
+        public const string BackgroundInterval = "background.interval";
+        public const string BackgroundItemId = "background.item.id";
+        public const string BackgroundItemType = "background.item.type";
     }
 
     /// <summary>
@@ -102,6 +113,13 @@ public static class TracingConstants
         // Service operations
         public const string ServiceWelcomeSend = "service.welcome.send";
         public const string ServiceAutoModExecuteAction = "service.automod.execute_action";
+
+        // Background service spans
+        public const string BackgroundServiceExecute = "background.{0}.execute";
+        public const string BackgroundServiceBatch = "background.{0}.batch";
+        public const string BackgroundServiceItem = "background.{0}.item";
+        public const string BackgroundServiceCleanup = "background.{0}.cleanup";
+        public const string BackgroundServiceAggregation = "background.{0}.aggregation";
     }
 
     /// <summary>
