@@ -2098,3 +2098,212 @@
     transition: none;
   }
 }
+
+/* ============================================
+   AUTOCOMPLETE COMPONENT STYLES
+   Reusable autocomplete/typeahead component
+   Part of Issue #327 - Filter Autocomplete
+   ============================================ */
+
+/* Autocomplete wrapper - ensures proper positioning */
+.autocomplete-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Loading state indicator */
+.autocomplete-loading {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'%3e%3ccircle cx='12' cy='12' r='10' stroke='%233f4447' stroke-width='2'%3e%3c/circle%3e%3cpath stroke='%23098ecf' stroke-width='2' stroke-linecap='round' d='M12 2a10 10 0 0 1 10 10'%3e%3canimateTransform attributeName='transform' type='rotate' from='0 12 12' to='360 12 12' dur='1s' repeatCount='indefinite'/%3e%3c/path%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1.25rem 1.25rem;
+  padding-right: 2.5rem !important;
+}
+
+/* Clear button */
+.autocomplete-clear {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0.25rem;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  z-index: 1;
+}
+
+.autocomplete-clear:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-hover);
+}
+
+.autocomplete-clear.hidden {
+  display: none;
+}
+
+/* Make room for clear button in input */
+.autocomplete-wrapper .form-input {
+  padding-right: 2.25rem;
+}
+
+/* Dropdown container */
+.autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.15s ease-out;
+  z-index: var(--z-popover);
+}
+
+.autocomplete-dropdown.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Position above input when needed */
+.autocomplete-dropdown.above {
+  top: auto;
+  bottom: calc(100% + 0.25rem);
+  transform: translateY(8px);
+}
+
+.autocomplete-dropdown.above.active {
+  transform: translateY(0);
+}
+
+/* Dropdown item */
+.autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  cursor: pointer;
+  transition: background-color 0.1s ease-out;
+}
+
+.autocomplete-item:first-child {
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.autocomplete-item:last-child {
+  border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.autocomplete-item:only-child {
+  border-radius: 0.5rem;
+}
+
+.autocomplete-item:hover,
+.autocomplete-item.selected {
+  background-color: var(--color-bg-hover);
+}
+
+.autocomplete-item.selected {
+  background-color: rgba(9, 142, 207, 0.15);
+}
+
+/* Item icon container */
+.autocomplete-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.375rem;
+  flex-shrink: 0;
+}
+
+/* Icon variants based on entity type */
+.autocomplete-icon-default {
+  background-color: rgba(9, 142, 207, 0.15);
+  color: var(--color-accent-blue);
+}
+
+.autocomplete-icon-channel {
+  background-color: rgba(122, 120, 118, 0.15);
+  color: var(--color-text-secondary);
+}
+
+.autocomplete-icon-guild {
+  background-color: rgba(203, 78, 27, 0.15);
+  color: var(--color-accent-orange);
+  border-radius: 0.25rem;
+}
+
+/* Item text */
+.autocomplete-item-text {
+  flex: 1;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Item metadata (e.g., channel type) */
+.autocomplete-item-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+/* No results message */
+.autocomplete-no-results {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-text-tertiary);
+}
+
+/* Error message */
+.autocomplete-error {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--color-error);
+}
+
+/* Screen reader only utility (if not already defined) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .autocomplete-dropdown {
+    transition: none;
+  }
+
+  .autocomplete-loading {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24'%3e%3ccircle cx='12' cy='12' r='10' stroke='%23098ecf' stroke-width='2' stroke-dasharray='32' stroke-dashoffset='0'%3e%3c/circle%3e%3c/svg%3e");
+  }
+}
