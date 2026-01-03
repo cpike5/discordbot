@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -29,102 +30,162 @@ public class CommandLogService : ICommandLogService
     /// <inheritdoc/>
     public async Task<PaginatedResponseDto<CommandLogDto>> GetLogsAsync(CommandLogQueryDto query, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Querying command logs with filters: SearchTerm={SearchTerm}, GuildId={GuildId}, UserId={UserId}, CommandName={CommandName}, Page={Page}, PageSize={PageSize}",
-            query.SearchTerm, query.GuildId, query.UserId, query.CommandName, query.Page, query.PageSize);
-
-        // Validate pagination parameters
-        if (query.Page < 1)
-        {
-            query.Page = 1;
-        }
-
-        if (query.PageSize < 1 || query.PageSize > 100)
-        {
-            query.PageSize = 50;
-        }
-
-        // Execute database query with performance timing
-        var stopwatch = Stopwatch.StartNew();
-
-        var (items, totalCount) = await _commandLogRepository.GetFilteredLogsAsync(
-            searchTerm: query.SearchTerm,
+        using var activity = BotActivitySource.StartServiceActivity(
+            "command_log",
+            "get_logs",
             guildId: query.GuildId,
-            userId: query.UserId,
-            commandName: query.CommandName,
-            startDate: query.StartDate,
-            endDate: query.EndDate,
-            successOnly: query.SuccessOnly,
-            page: query.Page,
-            pageSize: query.PageSize,
-            cancellationToken: cancellationToken);
+            userId: query.UserId);
 
-        stopwatch.Stop();
-        var queryTimeMs = stopwatch.ElapsedMilliseconds;
-
-        // Log performance metrics
-        _logger.LogInformation(
-            "Retrieved {Count} of {TotalCount} command logs (Page {Page}/{TotalPages}) in {QueryTimeMs}ms",
-            items.Count, totalCount, query.Page, (int)Math.Ceiling((double)totalCount / query.PageSize), queryTimeMs);
-
-        // Warn if query took too long
-        if (queryTimeMs > 500)
+        try
         {
-            _logger.LogWarning(
-                "Command log query exceeded 500ms threshold: {QueryTimeMs}ms. Filters: SearchTerm={SearchTerm}, GuildId={GuildId}, UserId={UserId}, CommandName={CommandName}",
-                queryTimeMs, query.SearchTerm, query.GuildId, query.UserId, query.CommandName);
+            _logger.LogDebug("Querying command logs with filters: SearchTerm={SearchTerm}, GuildId={GuildId}, UserId={UserId}, CommandName={CommandName}, Page={Page}, PageSize={PageSize}",
+                query.SearchTerm, query.GuildId, query.UserId, query.CommandName, query.Page, query.PageSize);
+
+            // Validate pagination parameters
+            if (query.Page < 1)
+            {
+                query.Page = 1;
+            }
+
+            if (query.PageSize < 1 || query.PageSize > 100)
+            {
+                query.PageSize = 50;
+            }
+
+            // Execute database query with performance timing
+            var stopwatch = Stopwatch.StartNew();
+
+            var (items, totalCount) = await _commandLogRepository.GetFilteredLogsAsync(
+                searchTerm: query.SearchTerm,
+                guildId: query.GuildId,
+                userId: query.UserId,
+                commandName: query.CommandName,
+                startDate: query.StartDate,
+                endDate: query.EndDate,
+                successOnly: query.SuccessOnly,
+                page: query.Page,
+                pageSize: query.PageSize,
+                cancellationToken: cancellationToken);
+
+            stopwatch.Stop();
+            var queryTimeMs = stopwatch.ElapsedMilliseconds;
+
+            // Log performance metrics
+            _logger.LogInformation(
+                "Retrieved {Count} of {TotalCount} command logs (Page {Page}/{TotalPages}) in {QueryTimeMs}ms",
+                items.Count, totalCount, query.Page, (int)Math.Ceiling((double)totalCount / query.PageSize), queryTimeMs);
+
+            // Warn if query took too long
+            if (queryTimeMs > 500)
+            {
+                _logger.LogWarning(
+                    "Command log query exceeded 500ms threshold: {QueryTimeMs}ms. Filters: SearchTerm={SearchTerm}, GuildId={GuildId}, UserId={UserId}, CommandName={CommandName}",
+                    queryTimeMs, query.SearchTerm, query.GuildId, query.UserId, query.CommandName);
+            }
+
+            var pagedLogs = items.Select(MapToDto).ToList();
+
+            var result = new PaginatedResponseDto<CommandLogDto>
+            {
+                Items = pagedLogs.AsReadOnly(),
+                Page = query.Page,
+                PageSize = query.PageSize,
+                TotalCount = totalCount
+            };
+
+            BotActivitySource.SetRecordsReturned(activity, pagedLogs.Count);
+            BotActivitySource.SetSuccess(activity);
+            return result;
         }
-
-        var pagedLogs = items.Select(MapToDto).ToList();
-
-        return new PaginatedResponseDto<CommandLogDto>
+        catch (Exception ex)
         {
-            Items = pagedLogs.AsReadOnly(),
-            Page = query.Page,
-            PageSize = query.PageSize,
-            TotalCount = totalCount
-        };
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<IDictionary<string, int>> GetCommandStatsAsync(DateTime? since = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving command usage statistics since {Since}", since);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "command_log",
+            "get_command_stats");
 
-        var stats = await _commandLogRepository.GetCommandUsageStatsAsync(since, cancellationToken);
+        try
+        {
+            _logger.LogDebug("Retrieving command usage statistics since {Since}", since);
 
-        _logger.LogInformation("Retrieved usage statistics for {Count} commands", stats.Count);
+            var stats = await _commandLogRepository.GetCommandUsageStatsAsync(since, cancellationToken);
 
-        return stats;
+            _logger.LogInformation("Retrieved usage statistics for {Count} commands", stats.Count);
+
+            BotActivitySource.SetRecordsReturned(activity, stats.Count);
+            BotActivitySource.SetSuccess(activity);
+            return stats;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<CommandLogDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving command log with ID {Id}", id);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "command_log",
+            "get_by_id");
 
-        var log = await _commandLogRepository.GetByIdAsync(id, cancellationToken);
-
-        if (log is null)
+        try
         {
-            _logger.LogWarning("Command log with ID {Id} not found", id);
-            return null;
+            _logger.LogDebug("Retrieving command log with ID {Id}", id);
+
+            var log = await _commandLogRepository.GetByIdAsync(id, cancellationToken);
+
+            if (log is null)
+            {
+                _logger.LogWarning("Command log with ID {Id} not found", id);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            _logger.LogInformation("Retrieved command log {Id} for command {CommandName}", id, log.CommandName);
+
+            BotActivitySource.SetSuccess(activity);
+            return MapToDto(log);
         }
-
-        _logger.LogInformation("Retrieved command log {Id} for command {CommandName}", id, log.CommandName);
-
-        return MapToDto(log);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<IDictionary<ulong, int>> GetCommandCountsByGuildAsync(DateTime since, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving command counts by guild since {Since}", since);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "command_log",
+            "get_command_counts_by_guild");
 
-        var counts = await _commandLogRepository.GetCommandCountsByGuildAsync(since, cancellationToken);
+        try
+        {
+            _logger.LogDebug("Retrieving command counts by guild since {Since}", since);
 
-        _logger.LogInformation("Retrieved command counts for {GuildCount} guilds", counts.Count);
+            var counts = await _commandLogRepository.GetCommandCountsByGuildAsync(since, cancellationToken);
 
-        return counts;
+            _logger.LogInformation("Retrieved command counts for {GuildCount} guilds", counts.Count);
+
+            BotActivitySource.SetRecordsReturned(activity, counts.Count);
+            BotActivitySource.SetSuccess(activity);
+            return counts;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>

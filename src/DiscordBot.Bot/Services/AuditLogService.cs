@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -47,57 +48,89 @@ public class AuditLogService : IAuditLogService
         AuditLogQueryDto query,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug(
-            "Querying audit logs with filters: Category={Category}, Action={Action}, ActorId={ActorId}, GuildId={GuildId}, Page={Page}, PageSize={PageSize}",
-            query.Category, query.Action, query.ActorId, query.GuildId, query.Page, query.PageSize);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "audit_log",
+            "get_logs",
+            guildId: query.GuildId,
+            userId: query.ActorId != null ? ulong.TryParse(query.ActorId, out var actorId) ? actorId : null : null);
 
-        // Validate pagination parameters
-        if (query.Page < 1)
+        try
         {
-            query.Page = 1;
-        }
+            _logger.LogDebug(
+                "Querying audit logs with filters: Category={Category}, Action={Action}, ActorId={ActorId}, GuildId={GuildId}, Page={Page}, PageSize={PageSize}",
+                query.Category, query.Action, query.ActorId, query.GuildId, query.Page, query.PageSize);
 
-        if (query.PageSize < 1 || query.PageSize > 100)
+            // Validate pagination parameters
+            if (query.Page < 1)
+            {
+                query.Page = 1;
+            }
+
+            if (query.PageSize < 1 || query.PageSize > 100)
+            {
+                query.PageSize = 20;
+            }
+
+            // Execute repository query
+            var (items, totalCount) = await _repository.GetLogsAsync(query, cancellationToken);
+
+            // Map entities to DTOs
+            var dtos = items.Select(MapToDto).ToList();
+
+            // Enrich DTOs with user display names and guild names
+            await EnrichDtosAsync(dtos, cancellationToken);
+
+            _logger.LogInformation(
+                "Retrieved {Count} of {TotalCount} audit logs (Page {Page}/{TotalPages})",
+                dtos.Count, totalCount, query.Page, (int)Math.Ceiling((double)totalCount / query.PageSize));
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return (dtos.AsReadOnly(), totalCount);
+        }
+        catch (Exception ex)
         {
-            query.PageSize = 20;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        // Execute repository query
-        var (items, totalCount) = await _repository.GetLogsAsync(query, cancellationToken);
-
-        // Map entities to DTOs
-        var dtos = items.Select(MapToDto).ToList();
-
-        // Enrich DTOs with user display names and guild names
-        await EnrichDtosAsync(dtos, cancellationToken);
-
-        _logger.LogInformation(
-            "Retrieved {Count} of {TotalCount} audit logs (Page {Page}/{TotalPages})",
-            dtos.Count, totalCount, query.Page, (int)Math.Ceiling((double)totalCount / query.PageSize));
-
-        return (dtos.AsReadOnly(), totalCount);
     }
 
     /// <inheritdoc/>
     public async Task<AuditLogDto?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving audit log with ID {Id}", id);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "audit_log",
+            "get_by_id",
+            entityId: id.ToString());
 
-        var log = await _repository.GetByIdAsync(id, cancellationToken);
-
-        if (log is null)
+        try
         {
-            _logger.LogWarning("Audit log with ID {Id} not found", id);
-            return null;
+            _logger.LogDebug("Retrieving audit log with ID {Id}", id);
+
+            var log = await _repository.GetByIdAsync(id, cancellationToken);
+
+            if (log is null)
+            {
+                _logger.LogWarning("Audit log with ID {Id} not found", id);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            _logger.LogDebug(
+                "Retrieved audit log {Id}: {Category}.{Action} by {ActorType} {ActorId}",
+                id, log.Category, log.Action, log.ActorType, log.ActorId);
+
+            var dto = MapToDto(log);
+            await EnrichDtosAsync(new List<AuditLogDto> { dto }, cancellationToken);
+
+            BotActivitySource.SetSuccess(activity);
+            return dto;
         }
-
-        _logger.LogDebug(
-            "Retrieved audit log {Id}: {Category}.{Action} by {ActorType} {ActorId}",
-            id, log.Category, log.Action, log.ActorType, log.ActorId);
-
-        var dto = MapToDto(log);
-        await EnrichDtosAsync(new List<AuditLogDto> { dto }, cancellationToken);
-        return dto;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -105,20 +138,34 @@ public class AuditLogService : IAuditLogService
         string correlationId,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving audit logs with correlation ID {CorrelationId}", correlationId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "audit_log",
+            "get_by_correlation_id");
 
-        var logs = await _repository.GetByCorrelationIdAsync(correlationId, cancellationToken);
+        try
+        {
+            _logger.LogDebug("Retrieving audit logs with correlation ID {CorrelationId}", correlationId);
 
-        var dtos = logs.Select(MapToDto).ToList();
+            var logs = await _repository.GetByCorrelationIdAsync(correlationId, cancellationToken);
 
-        // Enrich DTOs with user display names and guild names
-        await EnrichDtosAsync(dtos, cancellationToken);
+            var dtos = logs.Select(MapToDto).ToList();
 
-        _logger.LogInformation(
-            "Retrieved {Count} audit logs for correlation ID {CorrelationId}",
-            dtos.Count, correlationId);
+            // Enrich DTOs with user display names and guild names
+            await EnrichDtosAsync(dtos, cancellationToken);
 
-        return dtos.AsReadOnly();
+            _logger.LogInformation(
+                "Retrieved {Count} audit logs for correlation ID {CorrelationId}",
+                dtos.Count, correlationId);
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return dtos.AsReadOnly();
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -126,34 +173,76 @@ public class AuditLogService : IAuditLogService
         ulong? guildId = null,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving audit log statistics for guildId: {GuildId}", guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "audit_log",
+            "get_stats",
+            guildId: guildId);
 
-        var stats = await _repository.GetStatsAsync(guildId, cancellationToken);
+        try
+        {
+            _logger.LogDebug("Retrieving audit log statistics for guildId: {GuildId}", guildId);
 
-        _logger.LogInformation(
-            "Retrieved audit log statistics - Total: {Total}, Last24h: {Last24h}, Last7d: {Last7d}, Last30d: {Last30d}",
-            stats.TotalEntries, stats.Last24Hours, stats.Last7Days, stats.Last30Days);
+            var stats = await _repository.GetStatsAsync(guildId, cancellationToken);
 
-        return stats;
+            _logger.LogInformation(
+                "Retrieved audit log statistics - Total: {Total}, Last24h: {Last24h}, Last7d: {Last7d}, Last30d: {Last30d}",
+                stats.TotalEntries, stats.Last24Hours, stats.Last7Days, stats.Last30Days);
+
+            BotActivitySource.SetSuccess(activity);
+            return stats;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public Task LogAsync(AuditLogCreateDto dto, CancellationToken cancellationToken = default)
     {
-        _logger.LogTrace(
-            "Enqueuing audit log entry: {Category}.{Action} by {ActorType} {ActorId}",
-            dto.Category, dto.Action, dto.ActorType, dto.ActorId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "audit_log",
+            "log",
+            guildId: dto.GuildId);
 
-        // Enqueue for background processing (fire-and-forget)
-        _queue.Enqueue(dto);
+        try
+        {
+            _logger.LogTrace(
+                "Enqueuing audit log entry: {Category}.{Action} by {ActorType} {ActorId}",
+                dto.Category, dto.Action, dto.ActorType, dto.ActorId);
 
-        return Task.CompletedTask;
+            // Enqueue for background processing (fire-and-forget)
+            _queue.Enqueue(dto);
+
+            BotActivitySource.SetSuccess(activity);
+            return Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public IAuditLogBuilder CreateBuilder()
     {
-        return new AuditLogBuilder(this, _queue, _logger);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "audit_log",
+            "create_builder");
+
+        try
+        {
+            var builder = new AuditLogBuilder(this, _queue, _logger);
+            BotActivitySource.SetSuccess(activity);
+            return builder;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>

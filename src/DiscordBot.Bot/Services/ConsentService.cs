@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -36,82 +37,112 @@ public class ConsentService : IConsentService
         ulong discordUserId,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving consent status for Discord user {DiscordUserId}", discordUserId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "consent",
+            "get_consent_status",
+            userId: discordUserId);
 
-        // Get all user consents
-        var userConsents = await _consentRepository.GetUserConsentsAsync(discordUserId, cancellationToken);
-
-        // Build status DTOs for all consent types
-        var consentStatuses = new List<ConsentStatusDto>();
-
-        foreach (ConsentType consentType in Enum.GetValues(typeof(ConsentType)))
+        try
         {
-            var activeConsent = userConsents
-                .Where(c => c.ConsentType == consentType && c.IsActive)
-                .OrderByDescending(c => c.GrantedAt)
-                .FirstOrDefault();
+            _logger.LogDebug("Retrieving consent status for Discord user {DiscordUserId}", discordUserId);
 
-            consentStatuses.Add(new ConsentStatusDto
+            // Get all user consents
+            var userConsents = await _consentRepository.GetUserConsentsAsync(discordUserId, cancellationToken);
+
+            // Build status DTOs for all consent types
+            var consentStatuses = new List<ConsentStatusDto>();
+
+            foreach (ConsentType consentType in Enum.GetValues(typeof(ConsentType)))
             {
-                Type = (int)consentType,
-                TypeDisplayName = GetConsentTypeDisplayName(consentType),
-                Description = GetConsentTypeDescription(consentType),
-                IsGranted = activeConsent != null,
-                GrantedAt = activeConsent?.GrantedAt,
-                GrantedVia = activeConsent?.GrantedVia
-            });
+                var activeConsent = userConsents
+                    .Where(c => c.ConsentType == consentType && c.IsActive)
+                    .OrderByDescending(c => c.GrantedAt)
+                    .FirstOrDefault();
+
+                consentStatuses.Add(new ConsentStatusDto
+                {
+                    Type = (int)consentType,
+                    TypeDisplayName = GetConsentTypeDisplayName(consentType),
+                    Description = GetConsentTypeDescription(consentType),
+                    IsGranted = activeConsent != null,
+                    GrantedAt = activeConsent?.GrantedAt,
+                    GrantedVia = activeConsent?.GrantedVia
+                });
+            }
+
+            _logger.LogDebug("Retrieved {Count} consent statuses for Discord user {DiscordUserId}",
+                consentStatuses.Count, discordUserId);
+
+            BotActivitySource.SetRecordsReturned(activity, consentStatuses.Count);
+            BotActivitySource.SetSuccess(activity);
+            return consentStatuses;
         }
-
-        _logger.LogDebug("Retrieved {Count} consent statuses for Discord user {DiscordUserId}",
-            consentStatuses.Count, discordUserId);
-
-        return consentStatuses;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     public async Task<IEnumerable<ConsentHistoryEntryDto>> GetConsentHistoryAsync(
         ulong discordUserId,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving consent history for Discord user {DiscordUserId}", discordUserId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "consent",
+            "get_consent_history",
+            userId: discordUserId);
 
-        // Get all user consents (including revoked)
-        var userConsents = await _consentRepository.GetUserConsentsAsync(discordUserId, cancellationToken);
-
-        var historyEntries = new List<ConsentHistoryEntryDto>();
-
-        foreach (var consent in userConsents.OrderByDescending(c => c.GrantedAt))
+        try
         {
-            // Add "Granted" entry
-            historyEntries.Add(new ConsentHistoryEntryDto
-            {
-                Type = (int)consent.ConsentType,
-                TypeDisplayName = GetConsentTypeDisplayName(consent.ConsentType),
-                Action = "Granted",
-                Timestamp = consent.GrantedAt,
-                Source = consent.GrantedVia ?? "Unknown"
-            });
+            _logger.LogDebug("Retrieving consent history for Discord user {DiscordUserId}", discordUserId);
 
-            // Add "Revoked" entry if consent was revoked
-            if (consent.RevokedAt.HasValue)
+            // Get all user consents (including revoked)
+            var userConsents = await _consentRepository.GetUserConsentsAsync(discordUserId, cancellationToken);
+
+            var historyEntries = new List<ConsentHistoryEntryDto>();
+
+            foreach (var consent in userConsents.OrderByDescending(c => c.GrantedAt))
             {
+                // Add "Granted" entry
                 historyEntries.Add(new ConsentHistoryEntryDto
                 {
                     Type = (int)consent.ConsentType,
                     TypeDisplayName = GetConsentTypeDisplayName(consent.ConsentType),
-                    Action = "Revoked",
-                    Timestamp = consent.RevokedAt.Value,
-                    Source = consent.RevokedVia ?? "Unknown"
+                    Action = "Granted",
+                    Timestamp = consent.GrantedAt,
+                    Source = consent.GrantedVia ?? "Unknown"
                 });
+
+                // Add "Revoked" entry if consent was revoked
+                if (consent.RevokedAt.HasValue)
+                {
+                    historyEntries.Add(new ConsentHistoryEntryDto
+                    {
+                        Type = (int)consent.ConsentType,
+                        TypeDisplayName = GetConsentTypeDisplayName(consent.ConsentType),
+                        Action = "Revoked",
+                        Timestamp = consent.RevokedAt.Value,
+                        Source = consent.RevokedVia ?? "Unknown"
+                    });
+                }
             }
+
+            // Sort by timestamp descending (most recent first)
+            var sortedHistory = historyEntries.OrderByDescending(h => h.Timestamp).ToList();
+
+            _logger.LogDebug("Retrieved {Count} consent history entries for Discord user {DiscordUserId}",
+                sortedHistory.Count, discordUserId);
+
+            BotActivitySource.SetRecordsReturned(activity, sortedHistory.Count);
+            BotActivitySource.SetSuccess(activity);
+            return sortedHistory;
         }
-
-        // Sort by timestamp descending (most recent first)
-        var sortedHistory = historyEntries.OrderByDescending(h => h.Timestamp).ToList();
-
-        _logger.LogDebug("Retrieved {Count} consent history entries for Discord user {DiscordUserId}",
-            sortedHistory.Count, discordUserId);
-
-        return sortedHistory;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     public async Task<ConsentUpdateResult> GrantConsentAsync(
@@ -119,7 +150,32 @@ public class ConsentService : IConsentService
         ConsentType type,
         CancellationToken cancellationToken = default)
     {
-        return await GrantConsentAsync(discordUserId, type, WebUISource, cancellationToken);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "consent",
+            "grant_consent",
+            userId: discordUserId);
+
+        try
+        {
+            var result = await GrantConsentAsync(discordUserId, type, WebUISource, cancellationToken);
+
+            if (result.Succeeded)
+            {
+                BotActivitySource.SetSuccess(activity);
+            }
+            else
+            {
+                activity?.SetTag("consent.error_code", result.ErrorCode);
+                activity?.SetTag("consent.error_message", result.ErrorMessage);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -197,7 +253,32 @@ public class ConsentService : IConsentService
         ConsentType type,
         CancellationToken cancellationToken = default)
     {
-        return await RevokeConsentAsync(discordUserId, type, WebUISource, cancellationToken);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "consent",
+            "revoke_consent",
+            userId: discordUserId);
+
+        try
+        {
+            var result = await RevokeConsentAsync(discordUserId, type, WebUISource, cancellationToken);
+
+            if (result.Succeeded)
+            {
+                BotActivitySource.SetSuccess(activity);
+            }
+            else
+            {
+                activity?.SetTag("consent.error_code", result.ErrorCode);
+                activity?.SetTag("consent.error_message", result.ErrorMessage);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -292,59 +373,92 @@ public class ConsentService : IConsentService
         ConsentType consentType,
         CancellationToken cancellationToken = default)
     {
-        var cacheKey = GetCacheKey(discordUserId, consentType);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "consent",
+            "has_consent",
+            userId: discordUserId);
 
-        // Try to get from cache
-        if (_cache.TryGetValue<bool>(cacheKey, out var cachedValue))
+        try
         {
+            var cacheKey = GetCacheKey(discordUserId, consentType);
+
+            // Try to get from cache
+            if (_cache.TryGetValue<bool>(cacheKey, out var cachedValue))
+            {
+                _logger.LogDebug(
+                    "Consent check cache hit for user {DiscordUserId} and type {ConsentType}. HasConsent={HasConsent}",
+                    discordUserId, consentType, cachedValue);
+                activity?.SetTag("cache.hit", true);
+                BotActivitySource.SetSuccess(activity);
+                return cachedValue;
+            }
+
             _logger.LogDebug(
-                "Consent check cache hit for user {DiscordUserId} and type {ConsentType}. HasConsent={HasConsent}",
-                discordUserId, consentType, cachedValue);
-            return cachedValue;
+                "Consent check cache miss for user {DiscordUserId} and type {ConsentType}, querying repository",
+                discordUserId, consentType);
+            activity?.SetTag("cache.hit", false);
+
+            // Query repository
+            var hasConsent = await _consentRepository.HasActiveConsentAsync(
+                discordUserId, consentType, cancellationToken);
+
+            // Cache the result
+            var cacheOptions = new MemoryCacheEntryOptions()
+                .SetAbsoluteExpiration(TimeSpan.FromMinutes(_cachingOptions.ConsentCacheDurationMinutes));
+
+            _cache.Set(cacheKey, hasConsent, cacheOptions);
+
+            _logger.LogDebug(
+                "Cached consent check result for user {DiscordUserId} and type {ConsentType}. HasConsent={HasConsent}",
+                discordUserId, consentType, hasConsent);
+
+            activity?.SetTag("consent.has_consent", hasConsent);
+            BotActivitySource.SetSuccess(activity);
+            return hasConsent;
         }
-
-        _logger.LogDebug(
-            "Consent check cache miss for user {DiscordUserId} and type {ConsentType}, querying repository",
-            discordUserId, consentType);
-
-        // Query repository
-        var hasConsent = await _consentRepository.HasActiveConsentAsync(
-            discordUserId, consentType, cancellationToken);
-
-        // Cache the result
-        var cacheOptions = new MemoryCacheEntryOptions()
-            .SetAbsoluteExpiration(TimeSpan.FromMinutes(_cachingOptions.ConsentCacheDurationMinutes));
-
-        _cache.Set(cacheKey, hasConsent, cacheOptions);
-
-        _logger.LogDebug(
-            "Cached consent check result for user {DiscordUserId} and type {ConsentType}. HasConsent={HasConsent}",
-            discordUserId, consentType, hasConsent);
-
-        return hasConsent;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     public async Task<IEnumerable<ConsentType>> GetActiveConsentsAsync(
         ulong discordUserId,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving active consent types for Discord user {DiscordUserId}", discordUserId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "consent",
+            "get_active_consents",
+            userId: discordUserId);
 
-        // Get all user consents
-        var userConsents = await _consentRepository.GetUserConsentsAsync(discordUserId, cancellationToken);
+        try
+        {
+            _logger.LogDebug("Retrieving active consent types for Discord user {DiscordUserId}", discordUserId);
 
-        // Filter to active consents and get distinct consent types
-        var activeConsentTypes = userConsents
-            .Where(c => c.IsActive)
-            .Select(c => c.ConsentType)
-            .Distinct()
-            .ToList();
+            // Get all user consents
+            var userConsents = await _consentRepository.GetUserConsentsAsync(discordUserId, cancellationToken);
 
-        _logger.LogDebug(
-            "Retrieved {Count} active consent types for Discord user {DiscordUserId}",
-            activeConsentTypes.Count, discordUserId);
+            // Filter to active consents and get distinct consent types
+            var activeConsentTypes = userConsents
+                .Where(c => c.IsActive)
+                .Select(c => c.ConsentType)
+                .Distinct()
+                .ToList();
 
-        return activeConsentTypes;
+            _logger.LogDebug(
+                "Retrieved {Count} active consent types for Discord user {DiscordUserId}",
+                activeConsentTypes.Count, discordUserId);
+
+            BotActivitySource.SetRecordsReturned(activity, activeConsentTypes.Count);
+            BotActivitySource.SetSuccess(activity);
+            return activeConsentTypes;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     public async Task<IDictionary<ulong, bool>> HasConsentBatchAsync(
@@ -352,60 +466,82 @@ public class ConsentService : IConsentService
         ConsentType consentType,
         CancellationToken cancellationToken = default)
     {
-        var userIdsList = discordUserIds.ToList();
-        var result = new Dictionary<ulong, bool>();
+        using var activity = BotActivitySource.StartServiceActivity(
+            "consent",
+            "has_consent_batch");
 
-        _logger.LogDebug(
-            "Batch checking consent {ConsentType} for {Count} users",
-            consentType, userIdsList.Count);
-
-        // Check cache first
-        var uncachedUserIds = new List<ulong>();
-        foreach (var userId in userIdsList)
+        try
         {
-            var cacheKey = GetCacheKey(userId, consentType);
-            if (_cache.TryGetValue<bool>(cacheKey, out var cachedValue))
+            var userIdsList = discordUserIds.ToList();
+            var result = new Dictionary<ulong, bool>();
+
+            activity?.SetTag("consent.batch_size", userIdsList.Count);
+
+            _logger.LogDebug(
+                "Batch checking consent {ConsentType} for {Count} users",
+                consentType, userIdsList.Count);
+
+            // Check cache first
+            var uncachedUserIds = new List<ulong>();
+            foreach (var userId in userIdsList)
             {
-                result[userId] = cachedValue;
-            }
-            else
-            {
-                uncachedUserIds.Add(userId);
-            }
-        }
-
-        _logger.LogDebug(
-            "Batch consent check: {CachedCount} found in cache, {UncachedCount} require database query",
-            result.Count, uncachedUserIds.Count);
-
-        // Query database for uncached users
-        if (uncachedUserIds.Any())
-        {
-            var usersWithConsent = await _consentRepository.GetUsersWithActiveConsentAsync(
-                uncachedUserIds, consentType, cancellationToken);
-
-            var usersWithConsentSet = new HashSet<ulong>(usersWithConsent);
-
-            var cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(_cachingOptions.ConsentCacheDurationMinutes));
-
-            // Add results to dictionary and cache
-            foreach (var userId in uncachedUserIds)
-            {
-                var hasConsent = usersWithConsentSet.Contains(userId);
-                result[userId] = hasConsent;
-
-                // Cache the result
                 var cacheKey = GetCacheKey(userId, consentType);
-                _cache.Set(cacheKey, hasConsent, cacheOptions);
+                if (_cache.TryGetValue<bool>(cacheKey, out var cachedValue))
+                {
+                    result[userId] = cachedValue;
+                }
+                else
+                {
+                    uncachedUserIds.Add(userId);
+                }
             }
+
+            _logger.LogDebug(
+                "Batch consent check: {CachedCount} found in cache, {UncachedCount} require database query",
+                result.Count, uncachedUserIds.Count);
+
+            activity?.SetTag("cache.hits", result.Count);
+            activity?.SetTag("cache.misses", uncachedUserIds.Count);
+
+            // Query database for uncached users
+            if (uncachedUserIds.Any())
+            {
+                var usersWithConsent = await _consentRepository.GetUsersWithActiveConsentAsync(
+                    uncachedUserIds, consentType, cancellationToken);
+
+                var usersWithConsentSet = new HashSet<ulong>(usersWithConsent);
+
+                var cacheOptions = new MemoryCacheEntryOptions()
+                    .SetAbsoluteExpiration(TimeSpan.FromMinutes(_cachingOptions.ConsentCacheDurationMinutes));
+
+                // Add results to dictionary and cache
+                foreach (var userId in uncachedUserIds)
+                {
+                    var hasConsent = usersWithConsentSet.Contains(userId);
+                    result[userId] = hasConsent;
+
+                    // Cache the result
+                    var cacheKey = GetCacheKey(userId, consentType);
+                    _cache.Set(cacheKey, hasConsent, cacheOptions);
+                }
+            }
+
+            var withConsentCount = result.Count(kvp => kvp.Value);
+
+            _logger.LogDebug(
+                "Batch consent check completed for {Count} users. Users with consent: {WithConsentCount}",
+                userIdsList.Count, withConsentCount);
+
+            activity?.SetTag("consent.with_consent_count", withConsentCount);
+            BotActivitySource.SetRecordsReturned(activity, result.Count);
+            BotActivitySource.SetSuccess(activity);
+            return result;
         }
-
-        _logger.LogDebug(
-            "Batch consent check completed for {Count} users. Users with consent: {WithConsentCount}",
-            userIdsList.Count, result.Count(kvp => kvp.Value));
-
-        return result;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
