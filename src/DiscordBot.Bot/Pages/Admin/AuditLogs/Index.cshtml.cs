@@ -18,15 +18,18 @@ public class IndexModel : PageModel
 {
     private readonly IAuditLogService _auditLogService;
     private readonly IGuildService _guildService;
+    private readonly IMessageLogRepository _messageLogRepository;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IAuditLogService auditLogService,
         IGuildService guildService,
+        IMessageLogRepository messageLogRepository,
         ILogger<IndexModel> logger)
     {
         _auditLogService = auditLogService;
         _guildService = guildService;
+        _messageLogRepository = messageLogRepository;
         _logger = logger;
     }
 
@@ -69,6 +72,11 @@ public class IndexModel : PageModel
     public IReadOnlyList<GuildDto> AvailableGuilds { get; set; } = Array.Empty<GuildDto>();
 
     /// <summary>
+    /// Display name for the selected actor (populated for autocomplete).
+    /// </summary>
+    public string? ActorDisplayName { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the audit log list.
     /// </summary>
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -90,6 +98,14 @@ public class IndexModel : PageModel
 
             // Load available guilds for filter dropdown
             AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
+
+            // Populate actor display name for autocomplete
+            if (!string.IsNullOrEmpty(ActorId) && ulong.TryParse(ActorId, out var actorUserId))
+            {
+                var userMessages = await _messageLogRepository.GetUserMessagesAsync(actorUserId, limit: 1, cancellationToken: cancellationToken);
+                var message = userMessages.FirstOrDefault();
+                ActorDisplayName = message?.User?.Username;
+            }
 
             // Convert date filters from user timezone to UTC
             // The user submits dates in their local timezone, we need to convert to UTC for querying
