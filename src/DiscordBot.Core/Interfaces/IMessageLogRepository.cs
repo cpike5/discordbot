@@ -140,4 +140,18 @@ public interface IMessageLogRepository : IRepository<MessageLog>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Timestamp of the newest message, or null if no messages exist.</returns>
     Task<DateTime?> GetNewestMessageDateAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches for message authors by username for autocomplete functionality.
+    /// </summary>
+    /// <param name="searchTerm">The search term to match against usernames (case-insensitive).</param>
+    /// <param name="guildId">Optional guild ID to filter results to specific guild.</param>
+    /// <param name="limit">Maximum number of results to return (default 25).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of distinct user ID and username pairs matching the search term.</returns>
+    Task<IEnumerable<(ulong UserId, string Username)>> SearchAuthorsAsync(
+        string searchTerm,
+        ulong? guildId = null,
+        int limit = 25,
+        CancellationToken cancellationToken = default);
 }
