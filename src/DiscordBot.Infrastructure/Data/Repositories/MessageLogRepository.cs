@@ -378,4 +378,43 @@ public class MessageLogRepository : Repository<MessageLog>, IMessageLogRepositor
         _logger.LogDebug("Newest message date: {Date}", newestDate);
         return newestDate;
     }
+
+    public async Task<IEnumerable<(ulong UserId, string Username)>> SearchAuthorsAsync(
+        string searchTerm,
+        ulong? guildId = null,
+        int limit = 25,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Searching authors with term: {SearchTerm}, guildId: {GuildId}, limit: {Limit}",
+            searchTerm, guildId, limit);
+
+        var query = DbSet
+            .AsNoTracking()
+            .Include(m => m.User)
+            .Where(m => m.User != null && m.User.Username.ToLower().Contains(searchTerm.ToLower()));
+
+        // Apply optional guild filter
+        if (guildId.HasValue)
+        {
+            query = query.Where(m => m.GuildId == guildId.Value);
+        }
+
+        // Get distinct authors by selecting the latest username for each user
+        var authors = await query
+            .GroupBy(m => m.AuthorId)
+            .Select(g => new
+            {
+                UserId = g.Key,
+                Username = g.OrderByDescending(m => m.Timestamp).First().User!.Username
+            })
+            .OrderBy(a => a.Username)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        var results = authors.Select(a => (a.UserId, a.Username)).ToList();
+
+        _logger.LogTrace("Found {Count} authors matching search term: {SearchTerm}", results.Count, searchTerm);
+        return results;
+    }
 }
