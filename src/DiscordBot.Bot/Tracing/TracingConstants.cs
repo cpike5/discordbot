@@ -26,6 +26,37 @@ public static class TracingConstants
         public const string InteractionId = "discord.interaction.id";
         public const string ComponentType = "discord.component.type";
         public const string ComponentId = "discord.component.id";
+        public const string ChannelId = "discord.channel.id";
+        public const string MessageId = "discord.message.id";
+        public const string ConnectionLatencyMs = "discord.connection.latency_ms";
+        public const string ConnectionState = "discord.connection.state";
+        public const string MemberIsBot = "discord.member.is_bot";
+        public const string MemberAccountAgeDays = "discord.member.account_age_days";
+        public const string MemberUpdateType = "discord.member.update.type";
+        public const string MemberRoleId = "discord.member.role.id";
+        public const string GuildsCount = "discord.guilds.count";
+        public const string EventType = "discord.event.type";
+
+        // Auto-moderation attributes
+        public const string AutoModRuleType = "automod.rule.type";
+        public const string AutoModRuleId = "automod.rule.id";
+        public const string AutoModSeverity = "automod.severity";
+        public const string AutoModActionType = "automod.action.type";
+        public const string AutoModDetectionConfidence = "automod.detection.confidence";
+
+        // Bot lifecycle attributes
+        public const string BotLifecycleStage = "bot.lifecycle.stage";
+        public const string BotShardId = "bot.shard.id";
+
+        // Welcome message attributes
+        public const string WelcomeChannelId = "welcome.channel.id";
+        public const string WelcomeType = "welcome.type";
+        public const string WelcomeMessageTemplateUsed = "welcome.message.template_used";
+        public const string WelcomeDeliverySuccess = "welcome.delivery.success";
+
+        // Message attributes
+        public const string MessageHasAttachments = "message.has_attachments";
+        public const string MessageHasEmbeds = "message.has_embeds";
 
         // Database attributes (following OTel semantic conventions)
         public const string DbSystem = "db.system";
@@ -37,6 +68,40 @@ public static class TracingConstants
         // Application-specific
         public const string CorrelationId = "correlation.id";
         public const string ErrorMessage = "error.message";
+    }
+
+    /// <summary>
+    /// Span names for distributed tracing operations.
+    /// </summary>
+    public static class Spans
+    {
+        // Bot lifecycle
+        public const string BotLifecycleStart = "bot.lifecycle.start";
+        public const string BotLifecycleStop = "bot.lifecycle.stop";
+
+        // Discord Gateway events
+        public const string DiscordGatewayConnected = "discord.gateway.connected";
+        public const string DiscordGatewayDisconnected = "discord.gateway.disconnected";
+        public const string DiscordGatewayReady = "discord.gateway.ready";
+
+        // Message events
+        public const string DiscordEventMessageReceived = "discord.event.message.received";
+        public const string DiscordEventMessageUpdated = "discord.event.message.updated";
+        public const string DiscordEventMessageDeleted = "discord.event.message.deleted";
+
+        // Member events
+        public const string DiscordEventMemberJoined = "discord.event.member.joined";
+        public const string DiscordEventMemberLeft = "discord.event.member.left";
+        public const string DiscordEventMemberUpdated = "discord.event.member.updated";
+
+        // Auto-moderation events
+        public const string DiscordEventAutoModSpamDetected = "discord.event.automod.spam_detected";
+        public const string DiscordEventAutoModRaidDetected = "discord.event.automod.raid_detected";
+        public const string DiscordEventAutoModContentFiltered = "discord.event.automod.content_filtered";
+
+        // Service operations
+        public const string ServiceWelcomeSend = "service.welcome.send";
+        public const string ServiceAutoModExecuteAction = "service.automod.execute_action";
     }
 
     /// <summary>

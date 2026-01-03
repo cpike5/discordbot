@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -70,11 +71,23 @@ public class AutoModerationHandler
 
             if (spamResult != null)
             {
+                using var spamActivity = BotActivitySource.StartEventActivity(
+                    TracingConstants.Spans.DiscordEventAutoModSpamDetected,
+                    guildId: guildId,
+                    channelId: channelId,
+                    userId: userId);
+
+                spamActivity?.SetTag(TracingConstants.Attributes.AutoModRuleType, spamResult.RuleType.ToString());
+                spamActivity?.SetTag(TracingConstants.Attributes.AutoModSeverity, spamResult.Severity.ToString());
+                spamActivity?.SetTag(TracingConstants.Attributes.MessageId, messageId.ToString());
+
                 _logger.LogInformation(
                     "Spam detected in message {MessageId} from user {UserId}: {Description}",
                     messageId, userId, spamResult.Description);
 
                 await HandleDetectionResultAsync(guildId, userId, channelId, spamResult, message);
+
+                BotActivitySource.SetSuccess(spamActivity);
             }
 
             // Run content filter
@@ -83,11 +96,23 @@ public class AutoModerationHandler
 
             if (contentResult != null)
             {
+                using var contentActivity = BotActivitySource.StartEventActivity(
+                    TracingConstants.Spans.DiscordEventAutoModContentFiltered,
+                    guildId: guildId,
+                    channelId: channelId,
+                    userId: userId);
+
+                contentActivity?.SetTag(TracingConstants.Attributes.AutoModRuleType, contentResult.RuleType.ToString());
+                contentActivity?.SetTag(TracingConstants.Attributes.AutoModSeverity, contentResult.Severity.ToString());
+                contentActivity?.SetTag(TracingConstants.Attributes.MessageId, messageId.ToString());
+
                 _logger.LogInformation(
                     "Prohibited content detected in message {MessageId} from user {UserId}: {Description}",
                     messageId, userId, contentResult.Description);
 
                 await HandleDetectionResultAsync(guildId, userId, channelId, contentResult, message);
+
+                BotActivitySource.SetSuccess(contentActivity);
             }
 
             // Check if user is on watchlist - log activity
@@ -119,11 +144,25 @@ public class AutoModerationHandler
 
             if (raidResult != null)
             {
+                using var raidActivity = BotActivitySource.StartEventActivity(
+                    TracingConstants.Spans.DiscordEventAutoModRaidDetected,
+                    guildId: guildId,
+                    userId: userId);
+
+                var accountAgeDays = (DateTime.UtcNow - accountCreated).Days;
+
+                raidActivity?.SetTag(TracingConstants.Attributes.AutoModRuleType, raidResult.RuleType.ToString());
+                raidActivity?.SetTag(TracingConstants.Attributes.AutoModSeverity, raidResult.Severity.ToString());
+                raidActivity?.SetTag(TracingConstants.Attributes.MemberAccountAgeDays, accountAgeDays);
+                raidActivity?.SetTag(TracingConstants.Attributes.MemberIsBot, user.IsBot);
+
                 _logger.LogWarning(
                     "Raid activity detected for user {UserId} join in guild {GuildId}: {Description}",
                     userId, guildId, raidResult.Description);
 
                 await HandleDetectionResultAsync(guildId, userId, null, raidResult, null, user);
+
+                BotActivitySource.SetSuccess(raidActivity);
             }
 
             // Check if user is on watchlist - alert moderators
@@ -182,16 +221,27 @@ public class AutoModerationHandler
         SocketMessage? message,
         SocketGuildUser? user)
     {
+        using var activity = BotActivitySource.StartEventActivity(
+            TracingConstants.Spans.ServiceAutoModExecuteAction,
+            guildId: guildId,
+            userId: userId);
+
         try
         {
+            activity?.SetTag(TracingConstants.Attributes.AutoModActionType, action.ToString());
+
             var guild = _client.GetGuild(guildId);
             if (guild == null)
             {
                 _logger.LogWarning(
                     "Cannot execute auto-action {Action} for user {UserId}: guild {GuildId} not found",
                     action, userId, guildId);
+                activity?.SetTag("guild.found", false);
+                BotActivitySource.SetSuccess(activity);
                 return;
             }
+
+            activity?.SetTag("guild.found", true);
 
             switch (action)
             {
@@ -202,6 +252,12 @@ public class AutoModerationHandler
                         _logger.LogInformation(
                             "Auto-action: Deleted message {MessageId} from user {UserId} in guild {GuildId}",
                             message.Id, userId, guildId);
+                        activity?.SetTag("action.success", true);
+                    }
+                    else
+                    {
+                        activity?.SetTag("action.success", false);
+                        activity?.SetTag("action.failure_reason", "message_not_available");
                     }
                     break;
 
@@ -211,6 +267,8 @@ public class AutoModerationHandler
                     _logger.LogInformation(
                         "Auto-action: Warn action for user {UserId} in guild {GuildId} (case creation not implemented in handler)",
                         userId, guildId);
+                    activity?.SetTag("action.success", false);
+                    activity?.SetTag("action.failure_reason", "not_implemented");
                     break;
 
                 case AutoAction.Mute:
@@ -224,12 +282,16 @@ public class AutoModerationHandler
                         _logger.LogInformation(
                             "Auto-action: Muted user {UserId} ({Username}) in guild {GuildId} for 1 hour",
                             userId, guildUser.Username, guildId);
+                        activity?.SetTag("action.success", true);
+                        activity?.SetTag("action.timeout_hours", 1);
                     }
                     else
                     {
                         _logger.LogWarning(
                             "Cannot mute user {UserId} in guild {GuildId}: user not found",
                             userId, guildId);
+                        activity?.SetTag("action.success", false);
+                        activity?.SetTag("action.failure_reason", "user_not_found");
                     }
                     break;
 
@@ -242,12 +304,15 @@ public class AutoModerationHandler
                         _logger.LogInformation(
                             "Auto-action: Kicked user {UserId} ({Username}) from guild {GuildId}",
                             userId, kickUser.Username, guildId);
+                        activity?.SetTag("action.success", true);
                     }
                     else
                     {
                         _logger.LogWarning(
                             "Cannot kick user {UserId} from guild {GuildId}: user not found",
                             userId, guildId);
+                        activity?.SetTag("action.success", false);
+                        activity?.SetTag("action.failure_reason", "user_not_found");
                     }
                     break;
 
@@ -257,20 +322,26 @@ public class AutoModerationHandler
                     _logger.LogInformation(
                         "Auto-action: Banned user {UserId} from guild {GuildId}",
                         userId, guildId);
+                    activity?.SetTag("action.success", true);
                     break;
 
                 default:
                     _logger.LogDebug(
                         "Auto-action {Action} for user {UserId} in guild {GuildId} - no action taken",
                         action, userId, guildId);
+                    activity?.SetTag("action.success", false);
+                    activity?.SetTag("action.failure_reason", "no_action_configured");
                     break;
             }
+
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Failed to execute auto-action {Action} for user {UserId} in guild {GuildId}",
                 action, userId, guildId);
+            BotActivitySource.RecordException(activity, ex);
         }
     }
 
