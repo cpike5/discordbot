@@ -79,6 +79,14 @@ public static class TracingConstants
         public const string BackgroundInterval = "background.interval";
         public const string BackgroundItemId = "background.item.id";
         public const string BackgroundItemType = "background.item.type";
+
+        // Service layer attributes
+        public const string ServiceName = "service.name";
+        public const string ServiceOperation = "service.operation";
+        public const string ServiceEntityType = "service.entity.type";
+        public const string ServiceEntityId = "service.entity.id";
+        public const string ServiceRecordsReturned = "service.records.returned";
+        public const string ServiceOperationSuccess = "service.operation.success";
     }
 
     /// <summary>
@@ -120,6 +128,10 @@ public static class TracingConstants
         public const string BackgroundServiceItem = "background.{0}.item";
         public const string BackgroundServiceCleanup = "background.{0}.cleanup";
         public const string BackgroundServiceAggregation = "background.{0}.aggregation";
+
+        // Service operation span template
+        // Format: service.{service_name}.{operation} e.g. service.guild.get_by_id
+        public const string ServiceOperation = "service.{0}.{1}";
     }
 
     /// <summary>

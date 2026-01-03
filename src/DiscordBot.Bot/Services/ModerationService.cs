@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -30,264 +31,409 @@ public class ModerationService : IModerationService
     /// <inheritdoc/>
     public async Task<ModerationCaseDto> CreateCaseAsync(ModerationCaseCreateDto dto, CancellationToken ct = default)
     {
-        _logger.LogInformation("Creating moderation case for user {TargetUserId} in guild {GuildId}, type: {Type}",
-            dto.TargetUserId, dto.GuildId, dto.Type);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "create_case",
+            guildId: dto.GuildId,
+            userId: dto.TargetUserId);
 
-        // Get next case number atomically
-        var caseNumber = await _caseRepository.GetNextCaseNumberAsync(dto.GuildId, ct);
-
-        var now = DateTime.UtcNow;
-        var moderationCase = new ModerationCase
+        try
         {
-            Id = Guid.NewGuid(),
-            CaseNumber = caseNumber,
-            GuildId = dto.GuildId,
-            TargetUserId = dto.TargetUserId,
-            ModeratorUserId = dto.ModeratorUserId,
-            Type = dto.Type,
-            Reason = dto.Reason,
-            Duration = dto.Duration,
-            CreatedAt = now,
-            ExpiresAt = dto.Duration.HasValue ? now.Add(dto.Duration.Value) : null,
-            RelatedFlaggedEventId = dto.RelatedFlaggedEventId
-        };
+            _logger.LogInformation("Creating moderation case for user {TargetUserId} in guild {GuildId}, type: {Type}",
+                dto.TargetUserId, dto.GuildId, dto.Type);
 
-        await _caseRepository.AddAsync(moderationCase, ct);
+            // Get next case number atomically
+            var caseNumber = await _caseRepository.GetNextCaseNumberAsync(dto.GuildId, ct);
 
-        _logger.LogInformation("Moderation case {CaseNumber} created successfully for user {TargetUserId} in guild {GuildId}",
-            caseNumber, dto.TargetUserId, dto.GuildId);
+            var now = DateTime.UtcNow;
+            var moderationCase = new ModerationCase
+            {
+                Id = Guid.NewGuid(),
+                CaseNumber = caseNumber,
+                GuildId = dto.GuildId,
+                TargetUserId = dto.TargetUserId,
+                ModeratorUserId = dto.ModeratorUserId,
+                Type = dto.Type,
+                Reason = dto.Reason,
+                Duration = dto.Duration,
+                CreatedAt = now,
+                ExpiresAt = dto.Duration.HasValue ? now.Add(dto.Duration.Value) : null,
+                RelatedFlaggedEventId = dto.RelatedFlaggedEventId
+            };
 
-        return await MapToDtoAsync(moderationCase, ct);
+            await _caseRepository.AddAsync(moderationCase, ct);
+
+            _logger.LogInformation("Moderation case {CaseNumber} created successfully for user {TargetUserId} in guild {GuildId}",
+                caseNumber, dto.TargetUserId, dto.GuildId);
+
+            var result = await MapToDtoAsync(moderationCase, ct);
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<ModerationCaseDto?> GetCaseAsync(Guid caseId, CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving moderation case {CaseId}", caseId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "get_case",
+            entityId: caseId.ToString());
 
-        var moderationCase = await _caseRepository.GetByIdAsync(caseId, ct);
-        if (moderationCase == null)
+        try
         {
-            _logger.LogWarning("Moderation case {CaseId} not found", caseId);
-            return null;
-        }
+            _logger.LogDebug("Retrieving moderation case {CaseId}", caseId);
 
-        return await MapToDtoAsync(moderationCase, ct);
+            var moderationCase = await _caseRepository.GetByIdAsync(caseId, ct);
+            if (moderationCase == null)
+            {
+                _logger.LogWarning("Moderation case {CaseId} not found", caseId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            var result = await MapToDtoAsync(moderationCase, ct);
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<ModerationCaseDto?> GetCaseByNumberAsync(ulong guildId, long caseNumber, CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving moderation case #{CaseNumber} in guild {GuildId}", caseNumber, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "get_case_by_number",
+            guildId: guildId);
 
-        var moderationCase = await _caseRepository.GetByCaseNumberAsync(guildId, caseNumber, ct);
-        if (moderationCase == null)
+        try
         {
-            _logger.LogWarning("Moderation case #{CaseNumber} not found in guild {GuildId}", caseNumber, guildId);
-            return null;
-        }
+            _logger.LogDebug("Retrieving moderation case #{CaseNumber} in guild {GuildId}", caseNumber, guildId);
 
-        return await MapToDtoAsync(moderationCase, ct);
+            var moderationCase = await _caseRepository.GetByCaseNumberAsync(guildId, caseNumber, ct);
+            if (moderationCase == null)
+            {
+                _logger.LogWarning("Moderation case #{CaseNumber} not found in guild {GuildId}", caseNumber, guildId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            var result = await MapToDtoAsync(moderationCase, ct);
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<(IEnumerable<ModerationCaseDto> Items, int TotalCount)> GetCasesAsync(ModerationCaseQueryDto query, CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving moderation cases for guild {GuildId} with filters", query.GuildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "get_cases",
+            guildId: query.GuildId,
+            userId: query.TargetUserId);
 
-        var (cases, totalCount) = await _caseRepository.GetByGuildAsync(
-            query.GuildId,
-            query.Type,
-            query.TargetUserId,
-            query.ModeratorUserId,
-            query.StartDate,
-            query.EndDate,
-            query.Page,
-            query.PageSize,
-            ct);
-
-        var dtos = new List<ModerationCaseDto>();
-        foreach (var moderationCase in cases)
+        try
         {
-            dtos.Add(await MapToDtoAsync(moderationCase, ct));
+            _logger.LogDebug("Retrieving moderation cases for guild {GuildId} with filters", query.GuildId);
+
+            var (cases, totalCount) = await _caseRepository.GetByGuildAsync(
+                query.GuildId,
+                query.Type,
+                query.TargetUserId,
+                query.ModeratorUserId,
+                query.StartDate,
+                query.EndDate,
+                query.Page,
+                query.PageSize,
+                ct);
+
+            var dtos = new List<ModerationCaseDto>();
+            foreach (var moderationCase in cases)
+            {
+                dtos.Add(await MapToDtoAsync(moderationCase, ct));
+            }
+
+            _logger.LogDebug("Retrieved {Count} moderation cases out of {TotalCount} for guild {GuildId}",
+                dtos.Count, totalCount, query.GuildId);
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return (dtos, totalCount);
         }
-
-        _logger.LogDebug("Retrieved {Count} moderation cases out of {TotalCount} for guild {GuildId}",
-            dtos.Count, totalCount, query.GuildId);
-
-        return (dtos, totalCount);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<ModerationCaseDto?> UpdateCaseReasonAsync(ulong guildId, long caseNumber, string reason, ulong moderatorId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Updating reason for moderation case #{CaseNumber} in guild {GuildId} by moderator {ModeratorId}",
-            caseNumber, guildId, moderatorId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "update_case_reason",
+            guildId: guildId);
 
-        var moderationCase = await _caseRepository.GetByCaseNumberAsync(guildId, caseNumber, ct);
-        if (moderationCase == null)
+        try
         {
-            _logger.LogWarning("Moderation case #{CaseNumber} not found in guild {GuildId}", caseNumber, guildId);
-            return null;
+            _logger.LogInformation("Updating reason for moderation case #{CaseNumber} in guild {GuildId} by moderator {ModeratorId}",
+                caseNumber, guildId, moderatorId);
+
+            var moderationCase = await _caseRepository.GetByCaseNumberAsync(guildId, caseNumber, ct);
+            if (moderationCase == null)
+            {
+                _logger.LogWarning("Moderation case #{CaseNumber} not found in guild {GuildId}", caseNumber, guildId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            moderationCase.Reason = reason;
+            await _caseRepository.UpdateAsync(moderationCase, ct);
+
+            _logger.LogInformation("Moderation case #{CaseNumber} reason updated successfully in guild {GuildId}",
+                caseNumber, guildId);
+
+            var result = await MapToDtoAsync(moderationCase, ct);
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
         }
-
-        moderationCase.Reason = reason;
-        await _caseRepository.UpdateAsync(moderationCase, ct);
-
-        _logger.LogInformation("Moderation case #{CaseNumber} reason updated successfully in guild {GuildId}",
-            caseNumber, guildId);
-
-        return await MapToDtoAsync(moderationCase, ct);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<(IEnumerable<ModerationCaseDto> Items, int TotalCount)> GetUserCasesAsync(ulong guildId, ulong userId, int page = 1, int pageSize = 10, CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving moderation cases for user {UserId} in guild {GuildId}", userId, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "get_user_cases",
+            guildId: guildId,
+            userId: userId);
 
-        var (cases, totalCount) = await _caseRepository.GetByUserAsync(guildId, userId, page, pageSize, ct);
-
-        var dtos = new List<ModerationCaseDto>();
-        foreach (var moderationCase in cases)
+        try
         {
-            dtos.Add(await MapToDtoAsync(moderationCase, ct));
+            _logger.LogDebug("Retrieving moderation cases for user {UserId} in guild {GuildId}", userId, guildId);
+
+            var (cases, totalCount) = await _caseRepository.GetByUserAsync(guildId, userId, page, pageSize, ct);
+
+            var dtos = new List<ModerationCaseDto>();
+            foreach (var moderationCase in cases)
+            {
+                dtos.Add(await MapToDtoAsync(moderationCase, ct));
+            }
+
+            _logger.LogDebug("Retrieved {Count} moderation cases out of {TotalCount} for user {UserId} in guild {GuildId}",
+                dtos.Count, totalCount, userId, guildId);
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return (dtos, totalCount);
         }
-
-        _logger.LogDebug("Retrieved {Count} moderation cases out of {TotalCount} for user {UserId} in guild {GuildId}",
-            dtos.Count, totalCount, userId, guildId);
-
-        return (dtos, totalCount);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<byte[]> ExportUserHistoryAsync(ulong guildId, ulong userId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Exporting moderation history for user {UserId} in guild {GuildId}", userId, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "export_user_history",
+            guildId: guildId,
+            userId: userId);
 
-        var (cases, _) = await _caseRepository.GetByUserAsync(guildId, userId, 1, int.MaxValue, ct);
-
-        var dtos = new List<ModerationCaseDto>();
-        foreach (var moderationCase in cases)
+        try
         {
-            dtos.Add(await MapToDtoAsync(moderationCase, ct));
+            _logger.LogInformation("Exporting moderation history for user {UserId} in guild {GuildId}", userId, guildId);
+
+            var (cases, _) = await _caseRepository.GetByUserAsync(guildId, userId, 1, int.MaxValue, ct);
+
+            var dtos = new List<ModerationCaseDto>();
+            foreach (var moderationCase in cases)
+            {
+                dtos.Add(await MapToDtoAsync(moderationCase, ct));
+            }
+
+            var exportData = new
+            {
+                GuildId = guildId,
+                UserId = userId,
+                ExportedAt = DateTime.UtcNow,
+                TotalCases = dtos.Count,
+                Cases = dtos
+            };
+
+            var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+
+            _logger.LogInformation("Exported {Count} moderation cases for user {UserId} in guild {GuildId}",
+                dtos.Count, userId, guildId);
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return System.Text.Encoding.UTF8.GetBytes(json);
         }
-
-        var exportData = new
+        catch (Exception ex)
         {
-            GuildId = guildId,
-            UserId = userId,
-            ExportedAt = DateTime.UtcNow,
-            TotalCases = dtos.Count,
-            Cases = dtos
-        };
-
-        var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions
-        {
-            WriteIndented = true
-        });
-
-        _logger.LogInformation("Exported {Count} moderation cases for user {UserId} in guild {GuildId}",
-            dtos.Count, userId, guildId);
-
-        return System.Text.Encoding.UTF8.GetBytes(json);
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<ModeratorStatsSummaryDto> GetModeratorStatsAsync(ulong guildId, ulong? moderatorId = null, DateTime? startDate = null, DateTime? endDate = null, CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving moderator statistics for guild {GuildId}, moderator: {ModeratorId}", guildId, moderatorId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "get_moderator_stats",
+            guildId: guildId,
+            userId: moderatorId);
 
-        var (cases, _) = await _caseRepository.GetByGuildAsync(
-            guildId,
-            null,
-            null,
-            moderatorId,
-            startDate,
-            endDate,
-            1,
-            int.MaxValue,
-            ct);
-
-        var casesList = cases.ToList();
-
-        // Aggregate by case type
-        var warnCount = casesList.Count(c => c.Type == CaseType.Warn);
-        var kickCount = casesList.Count(c => c.Type == CaseType.Kick);
-        var banCount = casesList.Count(c => c.Type == CaseType.Ban);
-        var muteCount = casesList.Count(c => c.Type == CaseType.Mute);
-
-        var summary = new ModeratorStatsSummaryDto
+        try
         {
-            GuildId = guildId,
-            ModeratorId = moderatorId,
-            StartDate = startDate,
-            EndDate = endDate,
-            TotalCases = casesList.Count,
-            WarnCount = warnCount,
-            KickCount = kickCount,
-            BanCount = banCount,
-            MuteCount = muteCount
-        };
+            _logger.LogDebug("Retrieving moderator statistics for guild {GuildId}, moderator: {ModeratorId}", guildId, moderatorId);
 
-        // If querying guild-wide stats, get top moderators
-        if (moderatorId == null)
-        {
-            var moderatorGroups = casesList
-                .GroupBy(c => c.ModeratorUserId)
-                .Select(g => new
-                {
-                    ModeratorId = g.Key,
-                    Cases = g.ToList(),
-                    TotalActions = g.Count(),
-                    WarnCount = g.Count(c => c.Type == CaseType.Warn),
-                    KickCount = g.Count(c => c.Type == CaseType.Kick),
-                    BanCount = g.Count(c => c.Type == CaseType.Ban),
-                    MuteCount = g.Count(c => c.Type == CaseType.Mute)
-                })
-                .OrderByDescending(g => g.TotalActions)
-                .Take(10)
-                .ToList();
+            var (cases, _) = await _caseRepository.GetByGuildAsync(
+                guildId,
+                null,
+                null,
+                moderatorId,
+                startDate,
+                endDate,
+                1,
+                int.MaxValue,
+                ct);
 
-            var topModerators = new List<ModeratorStatsEntryDto>();
-            foreach (var group in moderatorGroups)
+            var casesList = cases.ToList();
+
+            // Aggregate by case type
+            var warnCount = casesList.Count(c => c.Type == CaseType.Warn);
+            var kickCount = casesList.Count(c => c.Type == CaseType.Kick);
+            var banCount = casesList.Count(c => c.Type == CaseType.Ban);
+            var muteCount = casesList.Count(c => c.Type == CaseType.Mute);
+
+            var summary = new ModeratorStatsSummaryDto
             {
-                var username = await GetUsernameAsync(group.ModeratorId);
-                topModerators.Add(new ModeratorStatsEntryDto
+                GuildId = guildId,
+                ModeratorId = moderatorId,
+                StartDate = startDate,
+                EndDate = endDate,
+                TotalCases = casesList.Count,
+                WarnCount = warnCount,
+                KickCount = kickCount,
+                BanCount = banCount,
+                MuteCount = muteCount
+            };
+
+            // If querying guild-wide stats, get top moderators
+            if (moderatorId == null)
+            {
+                var moderatorGroups = casesList
+                    .GroupBy(c => c.ModeratorUserId)
+                    .Select(g => new
+                    {
+                        ModeratorId = g.Key,
+                        Cases = g.ToList(),
+                        TotalActions = g.Count(),
+                        WarnCount = g.Count(c => c.Type == CaseType.Warn),
+                        KickCount = g.Count(c => c.Type == CaseType.Kick),
+                        BanCount = g.Count(c => c.Type == CaseType.Ban),
+                        MuteCount = g.Count(c => c.Type == CaseType.Mute)
+                    })
+                    .OrderByDescending(g => g.TotalActions)
+                    .Take(10)
+                    .ToList();
+
+                var topModerators = new List<ModeratorStatsEntryDto>();
+                foreach (var group in moderatorGroups)
                 {
-                    UserId = group.ModeratorId,
-                    Username = username,
-                    TotalActions = group.TotalActions,
-                    WarnCount = group.WarnCount,
-                    KickCount = group.KickCount,
-                    BanCount = group.BanCount,
-                    MuteCount = group.MuteCount
-                });
+                    var username = await GetUsernameAsync(group.ModeratorId);
+                    topModerators.Add(new ModeratorStatsEntryDto
+                    {
+                        UserId = group.ModeratorId,
+                        Username = username,
+                        TotalActions = group.TotalActions,
+                        WarnCount = group.WarnCount,
+                        KickCount = group.KickCount,
+                        BanCount = group.BanCount,
+                        MuteCount = group.MuteCount
+                    });
+                }
+
+                summary.TopModerators = topModerators;
+            }
+            else
+            {
+                summary.ModeratorUsername = await GetUsernameAsync(moderatorId.Value);
             }
 
-            summary.TopModerators = topModerators;
+            _logger.LogDebug("Calculated moderator statistics for guild {GuildId}: {TotalCases} total cases",
+                guildId, summary.TotalCases);
+
+            BotActivitySource.SetSuccess(activity);
+            return summary;
         }
-        else
+        catch (Exception ex)
         {
-            summary.ModeratorUsername = await GetUsernameAsync(moderatorId.Value);
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        _logger.LogDebug("Calculated moderator statistics for guild {GuildId}: {TotalCases} total cases",
-            guildId, summary.TotalCases);
-
-        return summary;
     }
 
     /// <inheritdoc/>
     public async Task<IEnumerable<ModerationCase>> GetExpiredTemporaryActionsAsync(CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving expired temporary moderation actions");
+        using var activity = BotActivitySource.StartServiceActivity(
+            "moderation",
+            "get_expired_temporary_actions");
 
-        var expired = await _caseRepository.GetExpiredCasesAsync(DateTime.UtcNow, ct);
-        var expiredList = expired.ToList();
+        try
+        {
+            _logger.LogDebug("Retrieving expired temporary moderation actions");
 
-        _logger.LogDebug("Found {Count} expired temporary actions", expiredList.Count);
+            var expired = await _caseRepository.GetExpiredCasesAsync(DateTime.UtcNow, ct);
+            var expiredList = expired.ToList();
 
-        return expiredList;
+            _logger.LogDebug("Found {Count} expired temporary actions", expiredList.Count);
+
+            BotActivitySource.SetRecordsReturned(activity, expiredList.Count);
+            BotActivitySource.SetSuccess(activity);
+            return expiredList;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>

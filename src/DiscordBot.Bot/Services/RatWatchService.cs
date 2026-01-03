@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -47,56 +48,90 @@ public class RatWatchService : IRatWatchService
     /// <inheritdoc/>
     public async Task<RatWatchDto> CreateWatchAsync(RatWatchCreateDto dto, CancellationToken ct = default)
     {
-        _logger.LogInformation("Creating Rat Watch for user {AccusedUserId} in guild {GuildId}, scheduled at {ScheduledAt}",
-            dto.AccusedUserId, dto.GuildId, dto.ScheduledAt);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "create_watch",
+            guildId: dto.GuildId,
+            userId: dto.AccusedUserId);
 
-        // Check for duplicate watches
-        var duplicate = await _watchRepository.FindDuplicateAsync(
-            dto.GuildId, dto.AccusedUserId, dto.ScheduledAt, ct);
-
-        if (duplicate != null)
+        try
         {
-            _logger.LogWarning("Duplicate Rat Watch found for user {AccusedUserId} at {ScheduledAt}",
-                dto.AccusedUserId, dto.ScheduledAt);
-            throw new InvalidOperationException("A watch already exists for this user at this time.");
+            _logger.LogInformation("Creating Rat Watch for user {AccusedUserId} in guild {GuildId}, scheduled at {ScheduledAt}",
+                dto.AccusedUserId, dto.GuildId, dto.ScheduledAt);
+
+            // Check for duplicate watches
+            var duplicate = await _watchRepository.FindDuplicateAsync(
+                dto.GuildId, dto.AccusedUserId, dto.ScheduledAt, ct);
+
+            if (duplicate != null)
+            {
+                _logger.LogWarning("Duplicate Rat Watch found for user {AccusedUserId} at {ScheduledAt}",
+                    dto.AccusedUserId, dto.ScheduledAt);
+                throw new InvalidOperationException("A watch already exists for this user at this time.");
+            }
+
+            var now = DateTime.UtcNow;
+            var watch = new RatWatch
+            {
+                Id = Guid.NewGuid(),
+                GuildId = dto.GuildId,
+                ChannelId = dto.ChannelId,
+                AccusedUserId = dto.AccusedUserId,
+                InitiatorUserId = dto.InitiatorUserId,
+                OriginalMessageId = dto.OriginalMessageId,
+                CustomMessage = dto.CustomMessage,
+                ScheduledAt = dto.ScheduledAt,
+                CreatedAt = now,
+                Status = RatWatchStatus.Pending
+            };
+
+            await _watchRepository.AddAsync(watch, ct);
+
+            _logger.LogInformation("Rat Watch {WatchId} created successfully for user {AccusedUserId}",
+                watch.Id, dto.AccusedUserId);
+
+            var result = await MapToDtoAsync(watch, ct);
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
         }
-
-        var now = DateTime.UtcNow;
-        var watch = new RatWatch
+        catch (Exception ex)
         {
-            Id = Guid.NewGuid(),
-            GuildId = dto.GuildId,
-            ChannelId = dto.ChannelId,
-            AccusedUserId = dto.AccusedUserId,
-            InitiatorUserId = dto.InitiatorUserId,
-            OriginalMessageId = dto.OriginalMessageId,
-            CustomMessage = dto.CustomMessage,
-            ScheduledAt = dto.ScheduledAt,
-            CreatedAt = now,
-            Status = RatWatchStatus.Pending
-        };
-
-        await _watchRepository.AddAsync(watch, ct);
-
-        _logger.LogInformation("Rat Watch {WatchId} created successfully for user {AccusedUserId}",
-            watch.Id, dto.AccusedUserId);
-
-        return await MapToDtoAsync(watch, ct);
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<RatWatchDto?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving Rat Watch {WatchId}", id);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_by_id",
+            entityId: id.ToString());
 
-        var watch = await _watchRepository.GetByIdWithVotesAsync(id, ct);
-        if (watch == null)
+        try
         {
-            _logger.LogWarning("Rat Watch {WatchId} not found", id);
-            return null;
-        }
+            _logger.LogDebug("Retrieving Rat Watch {WatchId}", id);
 
-        return await MapToDtoAsync(watch, ct);
+            var watch = await _watchRepository.GetByIdWithVotesAsync(id, ct);
+            if (watch == null)
+            {
+                _logger.LogWarning("Rat Watch {WatchId} not found", id);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            var result = await MapToDtoAsync(watch, ct);
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -106,179 +141,278 @@ public class RatWatchService : IRatWatchService
         int pageSize,
         CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving Rat Watches for guild {GuildId}, page {Page}, pageSize {PageSize}",
-            guildId, page, pageSize);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_by_guild",
+            guildId: guildId);
 
-        var (watches, totalCount) = await _watchRepository.GetByGuildAsync(guildId, page, pageSize, ct);
-        var dtos = new List<RatWatchDto>();
-
-        foreach (var watch in watches)
+        try
         {
-            dtos.Add(await MapToDtoAsync(watch, ct));
+            _logger.LogDebug("Retrieving Rat Watches for guild {GuildId}, page {Page}, pageSize {PageSize}",
+                guildId, page, pageSize);
+
+            var (watches, totalCount) = await _watchRepository.GetByGuildAsync(guildId, page, pageSize, ct);
+            var dtos = new List<RatWatchDto>();
+
+            foreach (var watch in watches)
+            {
+                dtos.Add(await MapToDtoAsync(watch, ct));
+            }
+
+            _logger.LogInformation("Retrieved {Count} of {Total} Rat Watches for guild {GuildId}",
+                dtos.Count, totalCount, guildId);
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return (dtos, totalCount);
         }
-
-        _logger.LogInformation("Retrieved {Count} of {Total} Rat Watches for guild {GuildId}",
-            dtos.Count, totalCount, guildId);
-
-        return (dtos, totalCount);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<bool> CancelWatchAsync(Guid id, string reason, CancellationToken ct = default)
     {
-        _logger.LogInformation("Cancelling Rat Watch {WatchId}, reason: {Reason}", id, reason);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "cancel_watch",
+            entityId: id.ToString());
 
-        var watch = await _watchRepository.GetByIdAsync(id, ct);
-        if (watch == null)
+        try
         {
-            _logger.LogWarning("Rat Watch {WatchId} not found for cancellation", id);
-            return false;
-        }
+            _logger.LogInformation("Cancelling Rat Watch {WatchId}, reason: {Reason}", id, reason);
 
-        if (watch.Status != RatWatchStatus.Pending)
+            var watch = await _watchRepository.GetByIdAsync(id, ct);
+            if (watch == null)
+            {
+                _logger.LogWarning("Rat Watch {WatchId} not found for cancellation", id);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            if (watch.Status != RatWatchStatus.Pending)
+            {
+                _logger.LogWarning("Cannot cancel Rat Watch {WatchId} with status {Status}", id, watch.Status);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            watch.Status = RatWatchStatus.Cancelled;
+            watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
+            await _watchRepository.UpdateAsync(watch, ct);
+
+            // Refresh bot status to clear "Watching for rats..." if no other active watches
+            _ratWatchStatusService.RequestStatusUpdate();
+
+            _logger.LogInformation("Rat Watch {WatchId} cancelled successfully", id);
+
+            BotActivitySource.SetSuccess(activity);
+            return true;
+        }
+        catch (Exception ex)
         {
-            _logger.LogWarning("Cannot cancel Rat Watch {WatchId} with status {Status}", id, watch.Status);
-            return false;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        watch.Status = RatWatchStatus.Cancelled;
-        watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
-        await _watchRepository.UpdateAsync(watch, ct);
-
-        // Refresh bot status to clear "Watching for rats..." if no other active watches
-        _ratWatchStatusService.RequestStatusUpdate();
-
-        _logger.LogInformation("Rat Watch {WatchId} cancelled successfully", id);
-        return true;
     }
 
     /// <inheritdoc/>
     public async Task<bool> ClearWatchAsync(Guid watchId, ulong userId, CancellationToken ct = default)
     {
-        _logger.LogInformation("User {UserId} attempting to clear Rat Watch {WatchId}", userId, watchId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "clear_watch",
+            userId: userId,
+            entityId: watchId.ToString());
 
-        var watch = await _watchRepository.GetByIdAsync(watchId, ct);
-        if (watch == null)
+        try
         {
-            _logger.LogWarning("Rat Watch {WatchId} not found for clearing", watchId);
-            return false;
-        }
+            _logger.LogInformation("User {UserId} attempting to clear Rat Watch {WatchId}", userId, watchId);
 
-        if (watch.AccusedUserId != userId)
+            var watch = await _watchRepository.GetByIdAsync(watchId, ct);
+            if (watch == null)
+            {
+                _logger.LogWarning("Rat Watch {WatchId} not found for clearing", watchId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            if (watch.AccusedUserId != userId)
+            {
+                _logger.LogWarning("User {UserId} is not the accused user for Rat Watch {WatchId}", userId, watchId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            if (watch.Status != RatWatchStatus.Pending)
+            {
+                _logger.LogWarning("Cannot clear Rat Watch {WatchId} with status {Status}", watchId, watch.Status);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            watch.Status = RatWatchStatus.ClearedEarly;
+            watch.ClearedAt = DateTime.UtcNow;
+            watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
+            await _watchRepository.UpdateAsync(watch, ct);
+
+            _logger.LogInformation("Rat Watch {WatchId} cleared early by user {UserId}", watchId, userId);
+
+            BotActivitySource.SetSuccess(activity);
+            return true;
+        }
+        catch (Exception ex)
         {
-            _logger.LogWarning("User {UserId} is not the accused user for Rat Watch {WatchId}", userId, watchId);
-            return false;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        if (watch.Status != RatWatchStatus.Pending)
-        {
-            _logger.LogWarning("Cannot clear Rat Watch {WatchId} with status {Status}", watchId, watch.Status);
-            return false;
-        }
-
-        watch.Status = RatWatchStatus.ClearedEarly;
-        watch.ClearedAt = DateTime.UtcNow;
-        watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
-        await _watchRepository.UpdateAsync(watch, ct);
-
-        _logger.LogInformation("Rat Watch {WatchId} cleared early by user {UserId}", watchId, userId);
-        return true;
     }
 
     /// <inheritdoc/>
     public async Task<bool> CastVoteAsync(Guid watchId, ulong voterId, bool isGuilty, CancellationToken ct = default)
     {
-        _logger.LogDebug("User {VoterId} casting vote on Rat Watch {WatchId}: {Vote}",
-            voterId, watchId, isGuilty ? "Guilty" : "Not Guilty");
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "cast_vote",
+            userId: voterId,
+            entityId: watchId.ToString());
 
-        var watch = await _watchRepository.GetByIdAsync(watchId, ct);
-        if (watch == null)
+        try
         {
-            _logger.LogWarning("Rat Watch {WatchId} not found for voting", watchId);
-            return false;
-        }
-
-        if (watch.Status != RatWatchStatus.Voting)
-        {
-            _logger.LogWarning("Cannot vote on Rat Watch {WatchId} with status {Status}", watchId, watch.Status);
-            return false;
-        }
-
-        // Check if user already voted
-        var existingVote = await _voteRepository.GetUserVoteAsync(watchId, voterId, ct);
-
-        if (existingVote != null)
-        {
-            // Update existing vote
-            existingVote.IsGuiltyVote = isGuilty;
-            existingVote.VotedAt = DateTime.UtcNow;
-            await _voteRepository.UpdateAsync(existingVote, ct);
-
-            _logger.LogInformation("User {VoterId} changed vote on Rat Watch {WatchId} to {Vote}",
+            _logger.LogDebug("User {VoterId} casting vote on Rat Watch {WatchId}: {Vote}",
                 voterId, watchId, isGuilty ? "Guilty" : "Not Guilty");
-        }
-        else
-        {
-            // Create new vote
-            var vote = new RatVote
+
+            var watch = await _watchRepository.GetByIdAsync(watchId, ct);
+            if (watch == null)
             {
-                Id = Guid.NewGuid(),
-                RatWatchId = watchId,
-                VoterUserId = voterId,
-                IsGuiltyVote = isGuilty,
-                VotedAt = DateTime.UtcNow
-            };
+                _logger.LogWarning("Rat Watch {WatchId} not found for voting", watchId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
 
-            await _voteRepository.AddAsync(vote, ct);
+            if (watch.Status != RatWatchStatus.Voting)
+            {
+                _logger.LogWarning("Cannot vote on Rat Watch {WatchId} with status {Status}", watchId, watch.Status);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
 
-            _logger.LogInformation("User {VoterId} cast vote on Rat Watch {WatchId}: {Vote}",
-                voterId, watchId, isGuilty ? "Guilty" : "Not Guilty");
+            // Check if user already voted
+            var existingVote = await _voteRepository.GetUserVoteAsync(watchId, voterId, ct);
+
+            if (existingVote != null)
+            {
+                // Update existing vote
+                existingVote.IsGuiltyVote = isGuilty;
+                existingVote.VotedAt = DateTime.UtcNow;
+                await _voteRepository.UpdateAsync(existingVote, ct);
+
+                _logger.LogInformation("User {VoterId} changed vote on Rat Watch {WatchId} to {Vote}",
+                    voterId, watchId, isGuilty ? "Guilty" : "Not Guilty");
+            }
+            else
+            {
+                // Create new vote
+                var vote = new RatVote
+                {
+                    Id = Guid.NewGuid(),
+                    RatWatchId = watchId,
+                    VoterUserId = voterId,
+                    IsGuiltyVote = isGuilty,
+                    VotedAt = DateTime.UtcNow
+                };
+
+                await _voteRepository.AddAsync(vote, ct);
+
+                _logger.LogInformation("User {VoterId} cast vote on Rat Watch {WatchId}: {Vote}",
+                    voterId, watchId, isGuilty ? "Guilty" : "Not Guilty");
+            }
+
+            BotActivitySource.SetSuccess(activity);
+            return true;
         }
-
-        return true;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<(int Guilty, int NotGuilty)> GetVoteTallyAsync(Guid watchId, CancellationToken ct = default)
     {
-        _logger.LogTrace("Getting vote tally for Rat Watch {WatchId}", watchId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_vote_tally",
+            entityId: watchId.ToString());
 
-        var (guiltyCount, notGuiltyCount) = await _voteRepository.GetVoteTallyAsync(watchId, ct);
+        try
+        {
+            _logger.LogTrace("Getting vote tally for Rat Watch {WatchId}", watchId);
 
-        _logger.LogDebug("Vote tally for Rat Watch {WatchId}: {Guilty} guilty, {NotGuilty} not guilty",
-            watchId, guiltyCount, notGuiltyCount);
+            var (guiltyCount, notGuiltyCount) = await _voteRepository.GetVoteTallyAsync(watchId, ct);
 
-        return (guiltyCount, notGuiltyCount);
+            _logger.LogDebug("Vote tally for Rat Watch {WatchId}: {Guilty} guilty, {NotGuilty} not guilty",
+                watchId, guiltyCount, notGuiltyCount);
+
+            BotActivitySource.SetSuccess(activity);
+            return (guiltyCount, notGuiltyCount);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<RatStatsDto> GetUserStatsAsync(ulong guildId, ulong userId, CancellationToken ct = default)
     {
-        _logger.LogDebug("Getting Rat Watch stats for user {UserId} in guild {GuildId}", userId, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_user_stats",
+            guildId: guildId,
+            userId: userId);
 
-        var guiltyCount = await _recordRepository.GetGuiltyCountAsync(guildId, userId, ct);
-        var recentRecords = await _recordRepository.GetRecentRecordsAsync(guildId, userId, 5, ct);
-
-        var username = await GetUsernameAsync(userId, guildId);
-
-        var recordDtos = recentRecords.Select(r => new RatRecordDto
+        try
         {
-            RecordedAt = r.RecordedAt,
-            GuiltyVotes = r.GuiltyVotes,
-            NotGuiltyVotes = r.NotGuiltyVotes,
-            OriginalMessageLink = r.OriginalMessageLink
-        }).ToList();
+            _logger.LogDebug("Getting Rat Watch stats for user {UserId} in guild {GuildId}", userId, guildId);
 
-        _logger.LogInformation("User {UserId} in guild {GuildId} has {GuiltyCount} guilty verdicts",
-            userId, guildId, guiltyCount);
+            var guiltyCount = await _recordRepository.GetGuiltyCountAsync(guildId, userId, ct);
+            var recentRecords = await _recordRepository.GetRecentRecordsAsync(guildId, userId, 5, ct);
 
-        return new RatStatsDto
+            var username = await GetUsernameAsync(userId, guildId);
+
+            var recordDtos = recentRecords.Select(r => new RatRecordDto
+            {
+                RecordedAt = r.RecordedAt,
+                GuiltyVotes = r.GuiltyVotes,
+                NotGuiltyVotes = r.NotGuiltyVotes,
+                OriginalMessageLink = r.OriginalMessageLink
+            }).ToList();
+
+            _logger.LogInformation("User {UserId} in guild {GuildId} has {GuiltyCount} guilty verdicts",
+                userId, guildId, guiltyCount);
+
+            var result = new RatStatsDto
+            {
+                UserId = userId,
+                Username = username,
+                TotalGuiltyCount = guiltyCount,
+                RecentRecords = recordDtos
+            };
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
         {
-            UserId = userId,
-            Username = username,
-            TotalGuiltyCount = guiltyCount,
-            RecentRecords = recordDtos
-        };
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -287,176 +421,266 @@ public class RatWatchService : IRatWatchService
         int limit = 10,
         CancellationToken ct = default)
     {
-        _logger.LogDebug("Getting Rat Watch leaderboard for guild {GuildId}, limit {Limit}", guildId, limit);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_leaderboard",
+            guildId: guildId);
 
-        var leaderboardData = await _recordRepository.GetLeaderboardAsync(guildId, limit, ct);
-        var entries = new List<RatLeaderboardEntryDto>();
-        var rank = 1;
-
-        foreach (var (userId, guiltyCount) in leaderboardData)
+        try
         {
-            var username = await GetUsernameAsync(userId, guildId);
+            _logger.LogDebug("Getting Rat Watch leaderboard for guild {GuildId}, limit {Limit}", guildId, limit);
 
-            entries.Add(new RatLeaderboardEntryDto
+            var leaderboardData = await _recordRepository.GetLeaderboardAsync(guildId, limit, ct);
+            var entries = new List<RatLeaderboardEntryDto>();
+            var rank = 1;
+
+            foreach (var (userId, guiltyCount) in leaderboardData)
             {
-                Rank = rank++,
-                UserId = userId,
-                Username = username,
-                GuiltyCount = guiltyCount
-            });
+                var username = await GetUsernameAsync(userId, guildId);
+
+                entries.Add(new RatLeaderboardEntryDto
+                {
+                    Rank = rank++,
+                    UserId = userId,
+                    Username = username,
+                    GuiltyCount = guiltyCount
+                });
+            }
+
+            _logger.LogInformation("Retrieved {Count} leaderboard entries for guild {GuildId}", entries.Count, guildId);
+
+            BotActivitySource.SetRecordsReturned(activity, entries.Count);
+            BotActivitySource.SetSuccess(activity);
+            return entries;
         }
-
-        _logger.LogInformation("Retrieved {Count} leaderboard entries for guild {GuildId}", entries.Count, guildId);
-
-        return entries;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<IEnumerable<RatWatch>> GetDueWatchesAsync(CancellationToken ct = default)
     {
-        var now = DateTime.UtcNow;
-        _logger.LogTrace("Getting due Rat Watches before {Time}", now);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_due_watches");
 
-        var dueWatches = await _watchRepository.GetPendingWatchesAsync(now, ct);
+        try
+        {
+            var now = DateTime.UtcNow;
+            _logger.LogTrace("Getting due Rat Watches before {Time}", now);
 
-        _logger.LogDebug("Found {Count} due Rat Watches", dueWatches.Count());
+            var dueWatches = await _watchRepository.GetPendingWatchesAsync(now, ct);
 
-        return dueWatches;
+            _logger.LogDebug("Found {Count} due Rat Watches", dueWatches.Count());
+
+            BotActivitySource.SetRecordsReturned(activity, dueWatches.Count());
+            BotActivitySource.SetSuccess(activity);
+            return dueWatches;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<bool> StartVotingAsync(Guid watchId, ulong? votingMessageId = null, CancellationToken ct = default)
     {
-        _logger.LogInformation("Starting voting for Rat Watch {WatchId}", watchId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "start_voting",
+            entityId: watchId.ToString());
 
-        var watch = await _watchRepository.GetByIdAsync(watchId, ct);
-        if (watch == null)
+        try
         {
-            _logger.LogWarning("Rat Watch {WatchId} not found for starting voting", watchId);
-            return false;
-        }
+            _logger.LogInformation("Starting voting for Rat Watch {WatchId}", watchId);
 
-        if (watch.Status != RatWatchStatus.Pending)
+            var watch = await _watchRepository.GetByIdAsync(watchId, ct);
+            if (watch == null)
+            {
+                _logger.LogWarning("Rat Watch {WatchId} not found for starting voting", watchId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            if (watch.Status != RatWatchStatus.Pending)
+            {
+                _logger.LogWarning("Cannot start voting for Rat Watch {WatchId} with status {Status}",
+                    watchId, watch.Status);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            watch.Status = RatWatchStatus.Voting;
+            watch.VotingStartedAt = DateTime.UtcNow;
+
+            if (votingMessageId.HasValue)
+            {
+                watch.VotingMessageId = votingMessageId.Value;
+            }
+
+            watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
+            await _watchRepository.UpdateAsync(watch, ct);
+
+            _logger.LogInformation("Voting started for Rat Watch {WatchId}", watchId);
+
+            BotActivitySource.SetSuccess(activity);
+            return true;
+        }
+        catch (Exception ex)
         {
-            _logger.LogWarning("Cannot start voting for Rat Watch {WatchId} with status {Status}",
-                watchId, watch.Status);
-            return false;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        watch.Status = RatWatchStatus.Voting;
-        watch.VotingStartedAt = DateTime.UtcNow;
-
-        if (votingMessageId.HasValue)
-        {
-            watch.VotingMessageId = votingMessageId.Value;
-        }
-
-        watch.Guild = null; // Detach navigation to avoid EF tracking conflicts
-        await _watchRepository.UpdateAsync(watch, ct);
-
-        _logger.LogInformation("Voting started for Rat Watch {WatchId}", watchId);
-        return true;
     }
 
     /// <inheritdoc/>
     public async Task<IEnumerable<RatWatch>> GetExpiredVotingAsync(CancellationToken ct = default)
     {
-        _logger.LogTrace("Getting expired voting Rat Watches");
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_expired_voting");
 
-        // Get guild settings to determine voting duration
-        var settings = await _settingsRepository.GetAllAsync(ct);
-        var votingDurations = settings.ToDictionary(s => s.GuildId, s => s.VotingDurationMinutes);
-
-        var now = DateTime.UtcNow;
-        var allVoting = await _watchRepository.GetActiveVotingAsync(now, ct);
-
-        // Filter to only those where voting window has expired based on guild settings
-        var expiredVoting = allVoting.Where(w =>
+        try
         {
-            if (!w.VotingStartedAt.HasValue)
+            _logger.LogTrace("Getting expired voting Rat Watches");
+
+            // Get guild settings to determine voting duration
+            var settings = await _settingsRepository.GetAllAsync(ct);
+            var votingDurations = settings.ToDictionary(s => s.GuildId, s => s.VotingDurationMinutes);
+
+            var now = DateTime.UtcNow;
+            var allVoting = await _watchRepository.GetActiveVotingAsync(now, ct);
+
+            // Filter to only those where voting window has expired based on guild settings
+            var expiredVoting = allVoting.Where(w =>
             {
-                return false;
-            }
+                if (!w.VotingStartedAt.HasValue)
+                {
+                    return false;
+                }
 
-            var votingDuration = votingDurations.GetValueOrDefault(w.GuildId, _options.DefaultVotingDurationMinutes);
-            var votingEndTime = w.VotingStartedAt.Value.AddMinutes(votingDuration);
+                var votingDuration = votingDurations.GetValueOrDefault(w.GuildId, _options.DefaultVotingDurationMinutes);
+                var votingEndTime = w.VotingStartedAt.Value.AddMinutes(votingDuration);
 
-            return now >= votingEndTime;
-        }).ToList();
+                return now >= votingEndTime;
+            }).ToList();
 
-        _logger.LogDebug("Found {Count} Rat Watches with expired voting", expiredVoting.Count);
+            _logger.LogDebug("Found {Count} Rat Watches with expired voting", expiredVoting.Count);
 
-        return expiredVoting;
+            BotActivitySource.SetRecordsReturned(activity, expiredVoting.Count);
+            BotActivitySource.SetSuccess(activity);
+            return expiredVoting;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<bool> FinalizeVotingAsync(Guid watchId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Finalizing voting for Rat Watch {WatchId}", watchId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "finalize_voting",
+            entityId: watchId.ToString());
 
-        var watch = await _watchRepository.GetByIdWithVotesAsync(watchId, ct);
-        if (watch == null)
+        try
         {
-            _logger.LogWarning("Rat Watch {WatchId} not found for finalizing voting", watchId);
-            return false;
-        }
+            _logger.LogInformation("Finalizing voting for Rat Watch {WatchId}", watchId);
 
-        if (watch.Status != RatWatchStatus.Voting)
-        {
-            _logger.LogWarning("Cannot finalize voting for Rat Watch {WatchId} with status {Status}",
-                watchId, watch.Status);
-            return false;
-        }
-
-        var (guiltyCount, notGuiltyCount) = await GetVoteTallyAsync(watchId, ct);
-
-        // Determine verdict (ties go to not guilty)
-        var isGuilty = guiltyCount > notGuiltyCount;
-
-        watch.Status = isGuilty ? RatWatchStatus.Guilty : RatWatchStatus.NotGuilty;
-        watch.VotingEndedAt = DateTime.UtcNow;
-        await _watchRepository.UpdateAsync(watch, ct);
-
-        _logger.LogInformation("Rat Watch {WatchId} finalized with verdict: {Verdict} ({Guilty} guilty, {NotGuilty} not guilty)",
-            watchId, watch.Status, guiltyCount, notGuiltyCount);
-
-        // Create record if guilty
-        if (isGuilty)
-        {
-            var messageLink = $"https://discord.com/channels/{watch.GuildId}/{watch.ChannelId}/{watch.OriginalMessageId}";
-
-            var record = new RatRecord
+            var watch = await _watchRepository.GetByIdWithVotesAsync(watchId, ct);
+            if (watch == null)
             {
-                Id = Guid.NewGuid(),
-                RatWatchId = watchId,
-                GuildId = watch.GuildId,
-                UserId = watch.AccusedUserId,
-                GuiltyVotes = guiltyCount,
-                NotGuiltyVotes = notGuiltyCount,
-                RecordedAt = DateTime.UtcNow,
-                OriginalMessageLink = messageLink
-            };
+                _logger.LogWarning("Rat Watch {WatchId} not found for finalizing voting", watchId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
 
-            await _recordRepository.AddAsync(record, ct);
+            if (watch.Status != RatWatchStatus.Voting)
+            {
+                _logger.LogWarning("Cannot finalize voting for Rat Watch {WatchId} with status {Status}",
+                    watchId, watch.Status);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
 
-            _logger.LogInformation("Created Rat Record {RecordId} for user {UserId} in guild {GuildId}",
-                record.Id, watch.AccusedUserId, watch.GuildId);
+            var (guiltyCount, notGuiltyCount) = await GetVoteTallyAsync(watchId, ct);
+
+            // Determine verdict (ties go to not guilty)
+            var isGuilty = guiltyCount > notGuiltyCount;
+
+            watch.Status = isGuilty ? RatWatchStatus.Guilty : RatWatchStatus.NotGuilty;
+            watch.VotingEndedAt = DateTime.UtcNow;
+            await _watchRepository.UpdateAsync(watch, ct);
+
+            _logger.LogInformation("Rat Watch {WatchId} finalized with verdict: {Verdict} ({Guilty} guilty, {NotGuilty} not guilty)",
+                watchId, watch.Status, guiltyCount, notGuiltyCount);
+
+            // Create record if guilty
+            if (isGuilty)
+            {
+                var messageLink = $"https://discord.com/channels/{watch.GuildId}/{watch.ChannelId}/{watch.OriginalMessageId}";
+
+                var record = new RatRecord
+                {
+                    Id = Guid.NewGuid(),
+                    RatWatchId = watchId,
+                    GuildId = watch.GuildId,
+                    UserId = watch.AccusedUserId,
+                    GuiltyVotes = guiltyCount,
+                    NotGuiltyVotes = notGuiltyCount,
+                    RecordedAt = DateTime.UtcNow,
+                    OriginalMessageLink = messageLink
+                };
+
+                await _recordRepository.AddAsync(record, ct);
+
+                _logger.LogInformation("Created Rat Record {RecordId} for user {UserId} in guild {GuildId}",
+                    record.Id, watch.AccusedUserId, watch.GuildId);
+            }
+
+            BotActivitySource.SetSuccess(activity);
+            return true;
         }
-
-        return true;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<GuildRatWatchSettings> GetGuildSettingsAsync(ulong guildId, CancellationToken ct = default)
     {
-        _logger.LogDebug("Getting Rat Watch settings for guild {GuildId}", guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_guild_settings",
+            guildId: guildId);
 
-        var settings = await _settingsRepository.GetOrCreateAsync(guildId, ct);
+        try
+        {
+            _logger.LogDebug("Getting Rat Watch settings for guild {GuildId}", guildId);
 
-        _logger.LogDebug("Retrieved Rat Watch settings for guild {GuildId}: Enabled={Enabled}, Timezone={Timezone}",
-            guildId, settings.IsEnabled, settings.Timezone);
+            var settings = await _settingsRepository.GetOrCreateAsync(guildId, ct);
 
-        return settings;
+            _logger.LogDebug("Retrieved Rat Watch settings for guild {GuildId}: Enabled={Enabled}, Timezone={Timezone}",
+                guildId, settings.IsEnabled, settings.Timezone);
+
+            BotActivitySource.SetSuccess(activity);
+            return settings;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -465,60 +689,90 @@ public class RatWatchService : IRatWatchService
         Action<GuildRatWatchSettings> update,
         CancellationToken ct = default)
     {
-        _logger.LogInformation("Updating Rat Watch settings for guild {GuildId}", guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "update_guild_settings",
+            guildId: guildId);
 
-        var settings = await _settingsRepository.GetOrCreateAsync(guildId, ct);
+        try
+        {
+            _logger.LogInformation("Updating Rat Watch settings for guild {GuildId}", guildId);
 
-        // Log current values before update
-        _logger.LogDebug(
-            "Current settings for guild {GuildId}: Timezone={Timezone}, MaxAdvanceHours={MaxAdvanceHours}, VotingDurationMinutes={VotingDurationMinutes}, IsEnabled={IsEnabled}, PublicLeaderboard={PublicLeaderboard}",
-            guildId, settings.Timezone, settings.MaxAdvanceHours, settings.VotingDurationMinutes, settings.IsEnabled, settings.PublicLeaderboardEnabled);
+            var settings = await _settingsRepository.GetOrCreateAsync(guildId, ct);
 
-        update(settings);
-        settings.UpdatedAt = DateTime.UtcNow;
+            // Log current values before update
+            _logger.LogDebug(
+                "Current settings for guild {GuildId}: Timezone={Timezone}, MaxAdvanceHours={MaxAdvanceHours}, VotingDurationMinutes={VotingDurationMinutes}, IsEnabled={IsEnabled}, PublicLeaderboard={PublicLeaderboard}",
+                guildId, settings.Timezone, settings.MaxAdvanceHours, settings.VotingDurationMinutes, settings.IsEnabled, settings.PublicLeaderboardEnabled);
 
-        // Log new values after update
-        _logger.LogDebug(
-            "New settings for guild {GuildId}: Timezone={Timezone}, MaxAdvanceHours={MaxAdvanceHours}, VotingDurationMinutes={VotingDurationMinutes}, IsEnabled={IsEnabled}, PublicLeaderboard={PublicLeaderboard}",
-            guildId, settings.Timezone, settings.MaxAdvanceHours, settings.VotingDurationMinutes, settings.IsEnabled, settings.PublicLeaderboardEnabled);
+            update(settings);
+            settings.UpdatedAt = DateTime.UtcNow;
 
-        await _settingsRepository.UpdateAsync(settings, ct);
+            // Log new values after update
+            _logger.LogDebug(
+                "New settings for guild {GuildId}: Timezone={Timezone}, MaxAdvanceHours={MaxAdvanceHours}, VotingDurationMinutes={VotingDurationMinutes}, IsEnabled={IsEnabled}, PublicLeaderboard={PublicLeaderboard}",
+                guildId, settings.Timezone, settings.MaxAdvanceHours, settings.VotingDurationMinutes, settings.IsEnabled, settings.PublicLeaderboardEnabled);
 
-        _logger.LogInformation("Rat Watch settings updated for guild {GuildId}", guildId);
+            await _settingsRepository.UpdateAsync(settings, ct);
 
-        return settings;
+            _logger.LogInformation("Rat Watch settings updated for guild {GuildId}", guildId);
+
+            BotActivitySource.SetSuccess(activity);
+            return settings;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public DateTime? ParseScheduleTime(string input, string timezone)
     {
-        if (string.IsNullOrWhiteSpace(input))
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "parse_schedule_time");
+
+        try
         {
-            _logger.LogDebug("Parse schedule time failed: input is null or whitespace");
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                _logger.LogDebug("Parse schedule time failed: input is null or whitespace");
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            input = input.Trim().ToLowerInvariant();
+
+            // Try relative time first (e.g., "10m", "2h", "1h30m")
+            var relativeTime = ParseRelativeTime(input);
+            if (relativeTime.HasValue)
+            {
+                _logger.LogDebug("Parsed relative time '{Input}' to UTC: {Result}", input, relativeTime.Value);
+                BotActivitySource.SetSuccess(activity);
+                return relativeTime.Value;
+            }
+
+            // Try absolute time (e.g., "10pm", "22:00", "10:30pm")
+            var absoluteTime = ParseAbsoluteTime(input, timezone);
+            if (absoluteTime.HasValue)
+            {
+                _logger.LogDebug("Parsed absolute time '{Input}' with timezone '{Timezone}' to UTC: {Result}",
+                    input, timezone, absoluteTime.Value);
+                BotActivitySource.SetSuccess(activity);
+                return absoluteTime.Value;
+            }
+
+            _logger.LogDebug("Failed to parse schedule time: {Input}", input);
+            BotActivitySource.SetSuccess(activity);
             return null;
         }
-
-        input = input.Trim().ToLowerInvariant();
-
-        // Try relative time first (e.g., "10m", "2h", "1h30m")
-        var relativeTime = ParseRelativeTime(input);
-        if (relativeTime.HasValue)
+        catch (Exception ex)
         {
-            _logger.LogDebug("Parsed relative time '{Input}' to UTC: {Result}", input, relativeTime.Value);
-            return relativeTime.Value;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        // Try absolute time (e.g., "10pm", "22:00", "10:30pm")
-        var absoluteTime = ParseAbsoluteTime(input, timezone);
-        if (absoluteTime.HasValue)
-        {
-            _logger.LogDebug("Parsed absolute time '{Input}' with timezone '{Timezone}' to UTC: {Result}",
-                input, timezone, absoluteTime.Value);
-            return absoluteTime.Value;
-        }
-
-        _logger.LogDebug("Failed to parse schedule time: {Input}", input);
-        return null;
     }
 
     /// <summary>
@@ -684,8 +938,24 @@ public class RatWatchService : IRatWatchService
     /// <inheritdoc/>
     public async Task<bool> HasActiveWatchesAsync(CancellationToken ct = default)
     {
-        _logger.LogTrace("Checking for any active Rat Watches");
-        return await _watchRepository.HasActiveWatchesAsync(ct);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "has_active_watches");
+
+        try
+        {
+            _logger.LogTrace("Checking for any active Rat Watches");
+
+            var result = await _watchRepository.HasActiveWatchesAsync(ct);
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -694,32 +964,47 @@ public class RatWatchService : IRatWatchService
         RatWatchIncidentFilterDto filter,
         CancellationToken ct = default)
     {
-        _logger.LogDebug(
-            "Getting filtered Rat Watches for guild {GuildId} with filters: Statuses={Statuses}, StartDate={StartDate}, EndDate={EndDate}, AccusedUser={AccusedUser}, InitiatorUser={InitiatorUser}, MinVoteCount={MinVoteCount}, Keyword={Keyword}, Page={Page}, PageSize={PageSize}",
-            guildId,
-            filter.Statuses != null ? string.Join(",", filter.Statuses) : "null",
-            filter.StartDate,
-            filter.EndDate,
-            filter.AccusedUser,
-            filter.InitiatorUser,
-            filter.MinVoteCount,
-            filter.Keyword,
-            filter.Page,
-            filter.PageSize);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_filtered_by_guild",
+            guildId: guildId);
 
-        var (watches, totalCount) = await _watchRepository.GetFilteredByGuildAsync(guildId, filter, ct);
-        var dtos = new List<RatWatchDto>();
-
-        foreach (var watch in watches)
+        try
         {
-            dtos.Add(await MapToDtoAsync(watch, ct));
+            _logger.LogDebug(
+                "Getting filtered Rat Watches for guild {GuildId} with filters: Statuses={Statuses}, StartDate={StartDate}, EndDate={EndDate}, AccusedUser={AccusedUser}, InitiatorUser={InitiatorUser}, MinVoteCount={MinVoteCount}, Keyword={Keyword}, Page={Page}, PageSize={PageSize}",
+                guildId,
+                filter.Statuses != null ? string.Join(",", filter.Statuses) : "null",
+                filter.StartDate,
+                filter.EndDate,
+                filter.AccusedUser,
+                filter.InitiatorUser,
+                filter.MinVoteCount,
+                filter.Keyword,
+                filter.Page,
+                filter.PageSize);
+
+            var (watches, totalCount) = await _watchRepository.GetFilteredByGuildAsync(guildId, filter, ct);
+            var dtos = new List<RatWatchDto>();
+
+            foreach (var watch in watches)
+            {
+                dtos.Add(await MapToDtoAsync(watch, ct));
+            }
+
+            _logger.LogInformation(
+                "Retrieved {Count} of {Total} filtered Rat Watches for guild {GuildId}",
+                dtos.Count, totalCount, guildId);
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return (dtos, totalCount);
         }
-
-        _logger.LogInformation(
-            "Retrieved {Count} of {Total} filtered Rat Watches for guild {GuildId}",
-            dtos.Count, totalCount, guildId);
-
-        return (dtos, totalCount);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -28,80 +29,142 @@ public class ModNoteService : IModNoteService
     /// <inheritdoc/>
     public async Task<ModNoteDto> AddNoteAsync(ulong guildId, ulong targetUserId, string content, ulong authorId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Adding mod note for user {TargetUserId} in guild {GuildId} by moderator {AuthorId}",
-            targetUserId, guildId, authorId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "mod_note",
+            "add_note",
+            guildId: guildId,
+            userId: targetUserId);
 
-        var note = new ModNote
+        try
         {
-            Id = Guid.NewGuid(),
-            GuildId = guildId,
-            TargetUserId = targetUserId,
-            AuthorUserId = authorId,
-            Content = content,
-            CreatedAt = DateTime.UtcNow
-        };
+            _logger.LogInformation("Adding mod note for user {TargetUserId} in guild {GuildId} by moderator {AuthorId}",
+                targetUserId, guildId, authorId);
 
-        await _noteRepository.AddAsync(note, ct);
+            var note = new ModNote
+            {
+                Id = Guid.NewGuid(),
+                GuildId = guildId,
+                TargetUserId = targetUserId,
+                AuthorUserId = authorId,
+                Content = content,
+                CreatedAt = DateTime.UtcNow
+            };
 
-        _logger.LogInformation("Mod note {NoteId} created successfully for user {TargetUserId} in guild {GuildId}",
-            note.Id, targetUserId, guildId);
+            await _noteRepository.AddAsync(note, ct);
 
-        return await MapToDtoAsync(note, ct);
+            _logger.LogInformation("Mod note {NoteId} created successfully for user {TargetUserId} in guild {GuildId}",
+                note.Id, targetUserId, guildId);
+
+            var result = await MapToDtoAsync(note, ct);
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<IEnumerable<ModNoteDto>> GetNotesAsync(ulong guildId, ulong targetUserId, CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving mod notes for user {TargetUserId} in guild {GuildId}", targetUserId, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "mod_note",
+            "get_notes",
+            guildId: guildId,
+            userId: targetUserId);
 
-        var notes = await _noteRepository.GetByUserAsync(guildId, targetUserId, ct);
-        var notesList = notes.ToList();
-
-        var dtos = new List<ModNoteDto>();
-        foreach (var note in notesList)
+        try
         {
-            dtos.Add(await MapToDtoAsync(note, ct));
+            _logger.LogDebug("Retrieving mod notes for user {TargetUserId} in guild {GuildId}", targetUserId, guildId);
+
+            var notes = await _noteRepository.GetByUserAsync(guildId, targetUserId, ct);
+            var notesList = notes.ToList();
+
+            var dtos = new List<ModNoteDto>();
+            foreach (var note in notesList)
+            {
+                dtos.Add(await MapToDtoAsync(note, ct));
+            }
+
+            _logger.LogDebug("Retrieved {Count} mod notes for user {TargetUserId} in guild {GuildId}",
+                dtos.Count, targetUserId, guildId);
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return dtos;
         }
-
-        _logger.LogDebug("Retrieved {Count} mod notes for user {TargetUserId} in guild {GuildId}",
-            dtos.Count, targetUserId, guildId);
-
-        return dtos;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<bool> DeleteNoteAsync(Guid noteId, ulong deletedByUserId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Deleting mod note {NoteId} by moderator {DeletedByUserId}", noteId, deletedByUserId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "mod_note",
+            "delete_note",
+            userId: deletedByUserId);
 
-        var note = await _noteRepository.GetByIdAsync(noteId, ct);
-        if (note == null)
+        try
         {
-            _logger.LogWarning("Mod note {NoteId} not found", noteId);
-            return false;
+            _logger.LogInformation("Deleting mod note {NoteId} by moderator {DeletedByUserId}", noteId, deletedByUserId);
+
+            var note = await _noteRepository.GetByIdAsync(noteId, ct);
+            if (note == null)
+            {
+                _logger.LogWarning("Mod note {NoteId} not found", noteId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            await _noteRepository.DeleteAsync(note, ct);
+
+            _logger.LogInformation("Mod note {NoteId} deleted successfully by moderator {DeletedByUserId}",
+                noteId, deletedByUserId);
+
+            BotActivitySource.SetSuccess(activity);
+            return true;
         }
-
-        await _noteRepository.DeleteAsync(note, ct);
-
-        _logger.LogInformation("Mod note {NoteId} deleted successfully by moderator {DeletedByUserId}",
-            noteId, deletedByUserId);
-
-        return true;
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<ModNoteDto?> GetNoteAsync(Guid noteId, CancellationToken ct = default)
     {
-        _logger.LogDebug("Retrieving mod note {NoteId}", noteId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "mod_note",
+            "get_note");
 
-        var note = await _noteRepository.GetByIdAsync(noteId, ct);
-        if (note == null)
+        try
         {
-            _logger.LogWarning("Mod note {NoteId} not found", noteId);
-            return null;
-        }
+            _logger.LogDebug("Retrieving mod note {NoteId}", noteId);
 
-        return await MapToDtoAsync(note, ct);
+            var note = await _noteRepository.GetByIdAsync(noteId, ct);
+            if (note == null)
+            {
+                _logger.LogWarning("Mod note {NoteId} not found", noteId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            var result = await MapToDtoAsync(note, ct);
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>

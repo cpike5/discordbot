@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -37,29 +38,44 @@ public class ReminderService : IReminderService
         DateTime triggerAt,
         CancellationToken cancellationToken = default)
     {
-        var reminder = new Reminder
+        using var activity = BotActivitySource.StartServiceActivity(
+            "reminder",
+            "create",
+            userId: userId,
+            guildId: guildId);
+
+        try
         {
-            Id = Guid.NewGuid(),
-            GuildId = guildId,
-            ChannelId = channelId,
-            UserId = userId,
-            Message = message,
-            TriggerAt = triggerAt,
-            CreatedAt = DateTime.UtcNow,
-            Status = ReminderStatus.Pending,
-            DeliveryAttempts = 0
-        };
+            var reminder = new Reminder
+            {
+                Id = Guid.NewGuid(),
+                GuildId = guildId,
+                ChannelId = channelId,
+                UserId = userId,
+                Message = message,
+                TriggerAt = triggerAt,
+                CreatedAt = DateTime.UtcNow,
+                Status = ReminderStatus.Pending,
+                DeliveryAttempts = 0
+            };
 
-        await _reminderRepository.AddAsync(reminder, cancellationToken);
+            await _reminderRepository.AddAsync(reminder, cancellationToken);
 
-        _logger.LogInformation(
-            "Reminder created: ID {ReminderId} for user {UserId} in guild {GuildId}, triggers at {TriggerAt}",
-            reminder.Id,
-            userId,
-            guildId,
-            triggerAt);
+            _logger.LogInformation(
+                "Reminder created: ID {ReminderId} for user {UserId} in guild {GuildId}, triggers at {TriggerAt}",
+                reminder.Id,
+                userId,
+                guildId,
+                triggerAt);
 
-        return reminder;
+            BotActivitySource.SetSuccess(activity);
+            return reminder;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc />
@@ -69,12 +85,29 @@ public class ReminderService : IReminderService
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        return await _reminderRepository.GetByUserAsync(
-            userId,
-            page,
-            pageSize,
-            pendingOnly: true,
-            cancellationToken);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "reminder",
+            "get_user_reminders",
+            userId: userId);
+
+        try
+        {
+            var result = await _reminderRepository.GetByUserAsync(
+                userId,
+                page,
+                pageSize,
+                pendingOnly: true,
+                cancellationToken);
+
+            BotActivitySource.SetRecordsReturned(activity, result.Items.Count());
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc />
@@ -83,35 +116,52 @@ public class ReminderService : IReminderService
         ulong userId,
         CancellationToken cancellationToken = default)
     {
-        var reminder = await _reminderRepository.GetByIdForUserAsync(id, userId, cancellationToken);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "reminder",
+            "cancel",
+            userId: userId,
+            entityId: id.ToString());
 
-        if (reminder == null)
+        try
         {
-            _logger.LogDebug(
-                "Cancel reminder failed: reminder {ReminderId} not found or not owned by user {UserId}",
+            var reminder = await _reminderRepository.GetByIdForUserAsync(id, userId, cancellationToken);
+
+            if (reminder == null)
+            {
+                _logger.LogDebug(
+                    "Cancel reminder failed: reminder {ReminderId} not found or not owned by user {UserId}",
+                    id,
+                    userId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            if (reminder.Status != ReminderStatus.Pending)
+            {
+                _logger.LogDebug(
+                    "Cancel reminder failed: reminder {ReminderId} is not pending (status: {Status})",
+                    id,
+                    reminder.Status);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            reminder.Status = ReminderStatus.Cancelled;
+            await _reminderRepository.UpdateAsync(reminder, cancellationToken);
+
+            _logger.LogInformation(
+                "Reminder cancelled: ID {ReminderId} by user {UserId}",
                 id,
                 userId);
-            return null;
-        }
 
-        if (reminder.Status != ReminderStatus.Pending)
+            BotActivitySource.SetSuccess(activity);
+            return reminder;
+        }
+        catch (Exception ex)
         {
-            _logger.LogDebug(
-                "Cancel reminder failed: reminder {ReminderId} is not pending (status: {Status})",
-                id,
-                reminder.Status);
-            return null;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        reminder.Status = ReminderStatus.Cancelled;
-        await _reminderRepository.UpdateAsync(reminder, cancellationToken);
-
-        _logger.LogInformation(
-            "Reminder cancelled: ID {ReminderId} by user {UserId}",
-            id,
-            userId);
-
-        return reminder;
     }
 
     /// <inheritdoc />
@@ -119,6 +169,22 @@ public class ReminderService : IReminderService
         ulong userId,
         CancellationToken cancellationToken = default)
     {
-        return await _reminderRepository.GetPendingCountByUserAsync(userId, cancellationToken);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "reminder",
+            "get_pending_count",
+            userId: userId);
+
+        try
+        {
+            var count = await _reminderRepository.GetPendingCountByUserAsync(userId, cancellationToken);
+
+            BotActivitySource.SetSuccess(activity);
+            return count;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 }

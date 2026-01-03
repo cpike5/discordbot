@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -39,19 +40,34 @@ public class WelcomeService : IWelcomeService
     /// <inheritdoc/>
     public async Task<WelcomeConfigurationDto?> GetConfigurationAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving welcome configuration for guild {GuildId}", guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "welcome",
+            "get_configuration",
+            guildId: guildId);
 
-        var config = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
-        if (config == null)
+        try
         {
-            _logger.LogDebug("Welcome configuration not found for guild {GuildId}", guildId);
-            return null;
+            _logger.LogDebug("Retrieving welcome configuration for guild {GuildId}", guildId);
+
+            var config = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
+            if (config == null)
+            {
+                _logger.LogDebug("Welcome configuration not found for guild {GuildId}", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            _logger.LogInformation("Retrieved welcome configuration for guild {GuildId}: IsEnabled={IsEnabled}, ChannelId={ChannelId}, Message={Message}",
+                guildId, config.IsEnabled, config.WelcomeChannelId, config.WelcomeMessage?.Substring(0, Math.Min(50, config.WelcomeMessage?.Length ?? 0)));
+
+            BotActivitySource.SetSuccess(activity);
+            return MapToDto(config);
         }
-
-        _logger.LogInformation("Retrieved welcome configuration for guild {GuildId}: IsEnabled={IsEnabled}, ChannelId={ChannelId}, Message={Message}",
-            guildId, config.IsEnabled, config.WelcomeChannelId, config.WelcomeMessage?.Substring(0, Math.Min(50, config.WelcomeMessage?.Length ?? 0)));
-
-        return MapToDto(config);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
@@ -60,221 +76,275 @@ public class WelcomeService : IWelcomeService
         WelcomeConfigurationUpdateDto updateDto,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Updating welcome configuration for guild {GuildId}", guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "welcome",
+            "update_configuration",
+            guildId: guildId);
 
-        var config = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
-
-        // If configuration doesn't exist, create a new one
-        if (config == null)
+        try
         {
-            _logger.LogInformation("Creating new welcome configuration for guild {GuildId}. IsEnabled={IsEnabled}, ChannelId={ChannelId}",
-                guildId, updateDto.IsEnabled, updateDto.WelcomeChannelId);
+            _logger.LogInformation("Updating welcome configuration for guild {GuildId}", guildId);
 
-            config = new WelcomeConfiguration
+            var config = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
+
+            // If configuration doesn't exist, create a new one
+            if (config == null)
             {
-                GuildId = guildId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
+                _logger.LogInformation("Creating new welcome configuration for guild {GuildId}. IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                    guildId, updateDto.IsEnabled, updateDto.WelcomeChannelId);
 
-            // Apply all non-null fields from the update DTO
-            ApplyUpdate(config, updateDto);
+                config = new WelcomeConfiguration
+                {
+                    GuildId = guildId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
 
-            _logger.LogDebug("After ApplyUpdate: IsEnabled={IsEnabled}, ChannelId={ChannelId}",
-                config.IsEnabled, config.WelcomeChannelId);
+                // Apply all non-null fields from the update DTO
+                ApplyUpdate(config, updateDto);
 
-            await _repository.AddAsync(config, cancellationToken);
+                _logger.LogDebug("After ApplyUpdate: IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                    config.IsEnabled, config.WelcomeChannelId);
 
-            // Audit log for creation
-            try
-            {
-                _auditLogService.CreateBuilder()
-                    .ForCategory(AuditLogCategory.Configuration)
-                    .WithAction(AuditLogAction.Created)
-                    .BySystem()
-                    .InGuild(guildId)
-                    .OnTarget("WelcomeConfiguration", guildId.ToString())
-                    .WithDetails(new
-                    {
-                        isEnabled = config.IsEnabled,
-                        welcomeChannelId = config.WelcomeChannelId,
-                        hasMessage = !string.IsNullOrEmpty(config.WelcomeMessage)
-                    })
-                    .Enqueue();
+                await _repository.AddAsync(config, cancellationToken);
+
+                // Audit log for creation
+                try
+                {
+                    _auditLogService.CreateBuilder()
+                        .ForCategory(AuditLogCategory.Configuration)
+                        .WithAction(AuditLogAction.Created)
+                        .BySystem()
+                        .InGuild(guildId)
+                        .OnTarget("WelcomeConfiguration", guildId.ToString())
+                        .WithDetails(new
+                        {
+                            isEnabled = config.IsEnabled,
+                            welcomeChannelId = config.WelcomeChannelId,
+                            hasMessage = !string.IsNullOrEmpty(config.WelcomeMessage)
+                        })
+                        .Enqueue();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to log audit entry for welcome config creation {GuildId}", guildId);
+                }
+
+                _logger.LogInformation("Welcome configuration created for guild {GuildId}", guildId);
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, "Failed to log audit entry for welcome config creation {GuildId}", guildId);
+                _logger.LogInformation("Updating existing welcome configuration for guild {GuildId}. IsEnabled={IsEnabled}, ChannelId={ChannelId}",
+                    guildId, updateDto.IsEnabled, updateDto.WelcomeChannelId);
+
+                // Update existing configuration
+                ApplyUpdate(config, updateDto);
+                config.UpdatedAt = DateTime.UtcNow;
+
+                await _repository.UpdateAsync(config, cancellationToken);
+
+                // Audit log for update
+                try
+                {
+                    _auditLogService.CreateBuilder()
+                        .ForCategory(AuditLogCategory.Configuration)
+                        .WithAction(AuditLogAction.Updated)
+                        .BySystem()
+                        .InGuild(guildId)
+                        .OnTarget("WelcomeConfiguration", guildId.ToString())
+                        .WithDetails(new
+                        {
+                            isEnabled = config.IsEnabled,
+                            welcomeChannelId = config.WelcomeChannelId,
+                            hasMessage = !string.IsNullOrEmpty(config.WelcomeMessage)
+                        })
+                        .Enqueue();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to log audit entry for welcome config update {GuildId}", guildId);
+                }
+
+                _logger.LogInformation("Welcome configuration updated for guild {GuildId}", guildId);
             }
 
-            _logger.LogInformation("Welcome configuration created for guild {GuildId}", guildId);
+            BotActivitySource.SetSuccess(activity);
+            return MapToDto(config);
         }
-        else
+        catch (Exception ex)
         {
-            _logger.LogInformation("Updating existing welcome configuration for guild {GuildId}. IsEnabled={IsEnabled}, ChannelId={ChannelId}",
-                guildId, updateDto.IsEnabled, updateDto.WelcomeChannelId);
-
-            // Update existing configuration
-            ApplyUpdate(config, updateDto);
-            config.UpdatedAt = DateTime.UtcNow;
-
-            await _repository.UpdateAsync(config, cancellationToken);
-
-            // Audit log for update
-            try
-            {
-                _auditLogService.CreateBuilder()
-                    .ForCategory(AuditLogCategory.Configuration)
-                    .WithAction(AuditLogAction.Updated)
-                    .BySystem()
-                    .InGuild(guildId)
-                    .OnTarget("WelcomeConfiguration", guildId.ToString())
-                    .WithDetails(new
-                    {
-                        isEnabled = config.IsEnabled,
-                        welcomeChannelId = config.WelcomeChannelId,
-                        hasMessage = !string.IsNullOrEmpty(config.WelcomeMessage)
-                    })
-                    .Enqueue();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to log audit entry for welcome config update {GuildId}", guildId);
-            }
-
-            _logger.LogInformation("Welcome configuration updated for guild {GuildId}", guildId);
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        return MapToDto(config);
     }
 
     /// <inheritdoc/>
     public async Task<bool> SendWelcomeMessageAsync(ulong guildId, ulong userId, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Attempting to send welcome message for user {UserId} in guild {GuildId}", userId, guildId);
-
-        var config = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
-        if (config == null)
-        {
-            _logger.LogDebug("No welcome configuration found for guild {GuildId}, skipping welcome message", guildId);
-            return false;
-        }
-
-        if (!config.IsEnabled)
-        {
-            _logger.LogDebug("Welcome messages are disabled for guild {GuildId}, skipping", guildId);
-            return false;
-        }
-
-        if (!config.WelcomeChannelId.HasValue)
-        {
-            _logger.LogWarning("Welcome messages are enabled for guild {GuildId}, but no channel is configured", guildId);
-            return false;
-        }
-
-        var guild = _client.GetGuild(guildId);
-        if (guild == null)
-        {
-            _logger.LogWarning("Guild {GuildId} not found in Discord client, cannot send welcome message", guildId);
-            return false;
-        }
-
-        var channel = guild.GetTextChannel(config.WelcomeChannelId.Value);
-        if (channel == null)
-        {
-            _logger.LogWarning("Welcome channel {ChannelId} not found in guild {GuildId}, cannot send welcome message",
-                config.WelcomeChannelId.Value, guildId);
-            return false;
-        }
-
-        var user = guild.GetUser(userId);
-        if (user == null)
-        {
-            _logger.LogWarning("User {UserId} not found in guild {GuildId}, cannot send welcome message", userId, guildId);
-            return false;
-        }
+        using var activity = BotActivitySource.StartServiceActivity(
+            "welcome",
+            "send_message",
+            guildId: guildId,
+            userId: userId);
 
         try
         {
-            // Replace template variables in the message
-            var message = ReplaceTemplateVariables(config.WelcomeMessage, guild, user);
+            _logger.LogDebug("Attempting to send welcome message for user {UserId} in guild {GuildId}", userId, guildId);
 
-            if (config.UseEmbed)
+            var config = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
+            if (config == null)
             {
-                var embedBuilder = new EmbedBuilder()
-                    .WithDescription(message)
-                    .WithCurrentTimestamp();
-
-                // Add color if specified
-                if (!string.IsNullOrWhiteSpace(config.EmbedColor))
-                {
-                    if (TryParseHexColor(config.EmbedColor, out var color))
-                    {
-                        embedBuilder.WithColor(color);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Invalid embed color '{Color}' for guild {GuildId}, using default",
-                            config.EmbedColor, guildId);
-                    }
-                }
-
-                // Add user avatar if configured
-                if (config.IncludeAvatar)
-                {
-                    embedBuilder.WithThumbnailUrl(user.GetDisplayAvatarUrl(size: 256));
-                }
-
-                await channel.SendMessageAsync(embed: embedBuilder.Build());
-            }
-            else
-            {
-                await channel.SendMessageAsync(message);
+                _logger.LogDebug("No welcome configuration found for guild {GuildId}, skipping welcome message", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
             }
 
-            _logger.LogInformation("Welcome message sent for user {UserId} ({Username}) in guild {GuildId}",
-                userId, user.Username, guildId);
+            if (!config.IsEnabled)
+            {
+                _logger.LogDebug("Welcome messages are disabled for guild {GuildId}, skipping", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
 
-            return true;
+            if (!config.WelcomeChannelId.HasValue)
+            {
+                _logger.LogWarning("Welcome messages are enabled for guild {GuildId}, but no channel is configured", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            var guild = _client.GetGuild(guildId);
+            if (guild == null)
+            {
+                _logger.LogWarning("Guild {GuildId} not found in Discord client, cannot send welcome message", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            var channel = guild.GetTextChannel(config.WelcomeChannelId.Value);
+            if (channel == null)
+            {
+                _logger.LogWarning("Welcome channel {ChannelId} not found in guild {GuildId}, cannot send welcome message",
+                    config.WelcomeChannelId.Value, guildId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            var user = guild.GetUser(userId);
+            if (user == null)
+            {
+                _logger.LogWarning("User {UserId} not found in guild {GuildId}, cannot send welcome message", userId, guildId);
+                BotActivitySource.SetSuccess(activity);
+                return false;
+            }
+
+            try
+            {
+                // Replace template variables in the message
+                var message = ReplaceTemplateVariables(config.WelcomeMessage, guild, user);
+
+                if (config.UseEmbed)
+                {
+                    var embedBuilder = new EmbedBuilder()
+                        .WithDescription(message)
+                        .WithCurrentTimestamp();
+
+                    // Add color if specified
+                    if (!string.IsNullOrWhiteSpace(config.EmbedColor))
+                    {
+                        if (TryParseHexColor(config.EmbedColor, out var color))
+                        {
+                            embedBuilder.WithColor(color);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Invalid embed color '{Color}' for guild {GuildId}, using default",
+                                config.EmbedColor, guildId);
+                        }
+                    }
+
+                    // Add user avatar if configured
+                    if (config.IncludeAvatar)
+                    {
+                        embedBuilder.WithThumbnailUrl(user.GetDisplayAvatarUrl(size: 256));
+                    }
+
+                    await channel.SendMessageAsync(embed: embedBuilder.Build());
+                }
+                else
+                {
+                    await channel.SendMessageAsync(message);
+                }
+
+                _logger.LogInformation("Welcome message sent for user {UserId} ({Username}) in guild {GuildId}",
+                    userId, user.Username, guildId);
+
+                BotActivitySource.SetSuccess(activity);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send welcome message for user {UserId} in guild {GuildId}", userId, guildId);
+                BotActivitySource.RecordException(activity, ex);
+                return false;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send welcome message for user {UserId} in guild {GuildId}", userId, guildId);
-            return false;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
     }
 
     /// <inheritdoc/>
     public async Task<string?> PreviewWelcomeMessageAsync(ulong guildId, ulong previewUserId, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Generating welcome message preview for guild {GuildId} with user {UserId}", guildId, previewUserId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "welcome",
+            "preview_message",
+            guildId: guildId,
+            userId: previewUserId);
 
-        var config = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
-        if (config == null)
+        try
         {
-            _logger.LogDebug("No welcome configuration found for guild {GuildId}, cannot generate preview", guildId);
-            return null;
-        }
+            _logger.LogDebug("Generating welcome message preview for guild {GuildId} with user {UserId}", guildId, previewUserId);
 
-        var guild = _client.GetGuild(guildId);
-        if (guild == null)
+            var config = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
+            if (config == null)
+            {
+                _logger.LogDebug("No welcome configuration found for guild {GuildId}, cannot generate preview", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            var guild = _client.GetGuild(guildId);
+            if (guild == null)
+            {
+                _logger.LogWarning("Guild {GuildId} not found in Discord client, cannot generate preview", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            var user = guild.GetUser(previewUserId);
+            if (user == null)
+            {
+                _logger.LogWarning("User {UserId} not found in guild {GuildId}, cannot generate preview", previewUserId, guildId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            var preview = ReplaceTemplateVariables(config.WelcomeMessage, guild, user);
+
+            _logger.LogDebug("Generated welcome message preview for guild {GuildId}", guildId);
+
+            BotActivitySource.SetSuccess(activity);
+            return preview;
+        }
+        catch (Exception ex)
         {
-            _logger.LogWarning("Guild {GuildId} not found in Discord client, cannot generate preview", guildId);
-            return null;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        var user = guild.GetUser(previewUserId);
-        if (user == null)
-        {
-            _logger.LogWarning("User {UserId} not found in guild {GuildId}, cannot generate preview", previewUserId, guildId);
-            return null;
-        }
-
-        var preview = ReplaceTemplateVariables(config.WelcomeMessage, guild, user);
-
-        _logger.LogDebug("Generated welcome message preview for guild {GuildId}", guildId);
-
-        return preview;
     }
 
     /// <summary>

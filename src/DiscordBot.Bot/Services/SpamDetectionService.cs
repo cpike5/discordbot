@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -51,222 +52,292 @@ public class SpamDetectionService : ISpamDetectionService
         DateTime accountCreated,
         CancellationToken ct = default)
     {
-        _logger.LogDebug("Analyzing message {MessageId} from user {UserId} in guild {GuildId} for spam patterns",
-            messageId, userId, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "spam_detection",
+            "analyze_message",
+            guildId: guildId,
+            userId: userId);
 
-        // Get spam configuration for guild using a scope for the scoped service
-        using var scope = _scopeFactory.CreateScope();
-        var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
-        var config = await configService.GetSpamConfigAsync(guildId, ct);
+        activity?.SetTag(TracingConstants.Attributes.ChannelId, channelId.ToString());
 
-        // If spam detection is disabled, return null
-        if (!config.Enabled)
+        try
         {
-            _logger.LogTrace("Spam detection is disabled for guild {GuildId}", guildId);
-            return null;
-        }
+            _logger.LogDebug("Analyzing message {MessageId} from user {UserId} in guild {GuildId} for spam patterns",
+                messageId, userId, guildId);
 
-        // Calculate content hash for duplicate detection
-        var contentHash = ComputeHash(NormalizeContent(content));
+            // Get spam configuration for guild using a scope for the scoped service
+            using var scope = _scopeFactory.CreateScope();
+            var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+            var config = await configService.GetSpamConfigAsync(guildId, ct);
 
-        // Record the message
-        RecordMessage(guildId, userId, contentHash, DateTime.UtcNow);
-
-        var window = TimeSpan.FromSeconds(config.WindowSeconds);
-
-        // Check message flood
-        var messageCount = GetMessageCount(guildId, userId, window);
-        var threshold = config.MaxMessagesPerWindow;
-
-        // Apply new account multiplier (accounts < 7 days old have stricter limits)
-        var accountAge = DateTime.UtcNow - accountCreated;
-        if (accountAge < TimeSpan.FromDays(7))
-        {
-            threshold = (int)(threshold * 0.7); // 30% stricter for new accounts
-            _logger.LogDebug("Applied new account multiplier for user {UserId}, adjusted threshold from {Original} to {Adjusted}",
-                userId, config.MaxMessagesPerWindow, threshold);
-        }
-
-        // Check duplicate messages
-        var duplicateCount = GetDuplicateCount(guildId, userId, contentHash, window);
-
-        // Check @everyone/@here abuse
-        var hasEveryoneOrHere = content.Contains("@everyone", StringComparison.OrdinalIgnoreCase) ||
-                                content.Contains("@here", StringComparison.OrdinalIgnoreCase);
-
-        // Determine severity and create detection result
-        DetectionResultDto? result = null;
-
-        // Message flood checks with tiered severity
-        if (messageCount >= threshold * 2)
-        {
-            _logger.LogWarning("Critical spam detected for user {UserId} in guild {GuildId}: {Count} messages in {Window}s (threshold: {Threshold})",
-                userId, guildId, messageCount, config.WindowSeconds, threshold);
-
-            result = new DetectionResultDto
+            // If spam detection is disabled, return null
+            if (!config.Enabled)
             {
-                RuleType = RuleType.Spam,
-                Severity = Severity.Critical,
-                Description = $"Message flood detected: {messageCount} messages in {config.WindowSeconds} seconds (threshold: {threshold})",
-                Evidence = new Dictionary<string, object>
-                {
-                    ["messageCount"] = messageCount,
-                    ["windowSeconds"] = config.WindowSeconds,
-                    ["threshold"] = threshold,
-                    ["messageId"] = messageId,
-                    ["channelId"] = channelId
-                },
-                ShouldAutoAction = config.AutoAction != AutoAction.None,
-                RecommendedAction = config.AutoAction
-            };
-        }
-        else if (messageCount >= threshold * 1.5)
-        {
-            _logger.LogWarning("High spam detected for user {UserId} in guild {GuildId}: {Count} messages in {Window}s (threshold: {Threshold})",
-                userId, guildId, messageCount, config.WindowSeconds, threshold);
+                _logger.LogTrace("Spam detection is disabled for guild {GuildId}", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
 
-            result = new DetectionResultDto
+            // Calculate content hash for duplicate detection
+            var contentHash = ComputeHash(NormalizeContent(content));
+
+            // Record the message
+            RecordMessage(guildId, userId, contentHash, DateTime.UtcNow);
+
+            var window = TimeSpan.FromSeconds(config.WindowSeconds);
+
+            // Check message flood
+            var messageCount = GetMessageCount(guildId, userId, window);
+            var threshold = config.MaxMessagesPerWindow;
+
+            // Apply new account multiplier (accounts < 7 days old have stricter limits)
+            var accountAge = DateTime.UtcNow - accountCreated;
+            if (accountAge < TimeSpan.FromDays(7))
             {
-                RuleType = RuleType.Spam,
-                Severity = Severity.High,
-                Description = $"Message flood detected: {messageCount} messages in {config.WindowSeconds} seconds (threshold: {threshold})",
-                Evidence = new Dictionary<string, object>
-                {
-                    ["messageCount"] = messageCount,
-                    ["windowSeconds"] = config.WindowSeconds,
-                    ["threshold"] = threshold,
-                    ["messageId"] = messageId,
-                    ["channelId"] = channelId
-                },
-                ShouldAutoAction = config.AutoAction != AutoAction.None,
-                RecommendedAction = config.AutoAction
-            };
-        }
-        else if (messageCount >= threshold)
-        {
-            _logger.LogInformation("Medium spam detected for user {UserId} in guild {GuildId}: {Count} messages in {Window}s (threshold: {Threshold})",
-                userId, guildId, messageCount, config.WindowSeconds, threshold);
+                threshold = (int)(threshold * 0.7); // 30% stricter for new accounts
+                _logger.LogDebug("Applied new account multiplier for user {UserId}, adjusted threshold from {Original} to {Adjusted}",
+                    userId, config.MaxMessagesPerWindow, threshold);
+            }
 
-            result = new DetectionResultDto
+            // Check duplicate messages
+            var duplicateCount = GetDuplicateCount(guildId, userId, contentHash, window);
+
+            // Check @everyone/@here abuse
+            var hasEveryoneOrHere = content.Contains("@everyone", StringComparison.OrdinalIgnoreCase) ||
+                                    content.Contains("@here", StringComparison.OrdinalIgnoreCase);
+
+            // Determine severity and create detection result
+            DetectionResultDto? result = null;
+
+            // Message flood checks with tiered severity
+            if (messageCount >= threshold * 2)
             {
-                RuleType = RuleType.Spam,
-                Severity = Severity.Medium,
-                Description = $"Message flood detected: {messageCount} messages in {config.WindowSeconds} seconds (threshold: {threshold})",
-                Evidence = new Dictionary<string, object>
+                _logger.LogWarning("Critical spam detected for user {UserId} in guild {GuildId}: {Count} messages in {Window}s (threshold: {Threshold})",
+                    userId, guildId, messageCount, config.WindowSeconds, threshold);
+
+                result = new DetectionResultDto
                 {
-                    ["messageCount"] = messageCount,
-                    ["windowSeconds"] = config.WindowSeconds,
-                    ["threshold"] = threshold,
-                    ["messageId"] = messageId,
-                    ["channelId"] = channelId
-                },
-                ShouldAutoAction = config.AutoAction != AutoAction.None,
-                RecommendedAction = config.AutoAction
-            };
-        }
-
-        // Duplicate message check (only if not already flagged for flood)
-        if (result == null && duplicateCount >= 3)
-        {
-            _logger.LogInformation("Duplicate messages detected for user {UserId} in guild {GuildId}: {Count} identical messages in {Window}s",
-                userId, guildId, duplicateCount, config.WindowSeconds);
-
-            result = new DetectionResultDto
+                    RuleType = RuleType.Spam,
+                    Severity = Severity.Critical,
+                    Description = $"Message flood detected: {messageCount} messages in {config.WindowSeconds} seconds (threshold: {threshold})",
+                    Evidence = new Dictionary<string, object>
+                    {
+                        ["messageCount"] = messageCount,
+                        ["windowSeconds"] = config.WindowSeconds,
+                        ["threshold"] = threshold,
+                        ["messageId"] = messageId,
+                        ["channelId"] = channelId
+                    },
+                    ShouldAutoAction = config.AutoAction != AutoAction.None,
+                    RecommendedAction = config.AutoAction
+                };
+            }
+            else if (messageCount >= threshold * 1.5)
             {
-                RuleType = RuleType.Spam,
-                Severity = Severity.Medium,
-                Description = $"Duplicate message spam: {duplicateCount} identical messages in {config.WindowSeconds} seconds",
-                Evidence = new Dictionary<string, object>
+                _logger.LogWarning("High spam detected for user {UserId} in guild {GuildId}: {Count} messages in {Window}s (threshold: {Threshold})",
+                    userId, guildId, messageCount, config.WindowSeconds, threshold);
+
+                result = new DetectionResultDto
                 {
-                    ["duplicateCount"] = duplicateCount,
-                    ["windowSeconds"] = config.WindowSeconds,
-                    ["contentHash"] = contentHash,
-                    ["messageId"] = messageId,
-                    ["channelId"] = channelId
-                },
-                ShouldAutoAction = config.AutoAction != AutoAction.None,
-                RecommendedAction = config.AutoAction
-            };
-        }
-
-        // @everyone/@here abuse check (only if not already flagged)
-        if (result == null && hasEveryoneOrHere && messageCount >= 2)
-        {
-            _logger.LogWarning("@everyone/@here abuse detected for user {UserId} in guild {GuildId}: used in {Count} messages",
-                userId, guildId, messageCount);
-
-            result = new DetectionResultDto
+                    RuleType = RuleType.Spam,
+                    Severity = Severity.High,
+                    Description = $"Message flood detected: {messageCount} messages in {config.WindowSeconds} seconds (threshold: {threshold})",
+                    Evidence = new Dictionary<string, object>
+                    {
+                        ["messageCount"] = messageCount,
+                        ["windowSeconds"] = config.WindowSeconds,
+                        ["threshold"] = threshold,
+                        ["messageId"] = messageId,
+                        ["channelId"] = channelId
+                    },
+                    ShouldAutoAction = config.AutoAction != AutoAction.None,
+                    RecommendedAction = config.AutoAction
+                };
+            }
+            else if (messageCount >= threshold)
             {
-                RuleType = RuleType.Spam,
-                Severity = Severity.High,
-                Description = $"@everyone/@here abuse detected: used in {messageCount} messages in {config.WindowSeconds} seconds",
-                Evidence = new Dictionary<string, object>
-                {
-                    ["messageCount"] = messageCount,
-                    ["windowSeconds"] = config.WindowSeconds,
-                    ["messageId"] = messageId,
-                    ["channelId"] = channelId,
-                    ["mentionType"] = content.Contains("@everyone", StringComparison.OrdinalIgnoreCase) ? "everyone" : "here"
-                },
-                ShouldAutoAction = config.AutoAction != AutoAction.None,
-                RecommendedAction = config.AutoAction
-            };
-        }
+                _logger.LogInformation("Medium spam detected for user {UserId} in guild {GuildId}: {Count} messages in {Window}s (threshold: {Threshold})",
+                    userId, guildId, messageCount, config.WindowSeconds, threshold);
 
-        return result;
+                result = new DetectionResultDto
+                {
+                    RuleType = RuleType.Spam,
+                    Severity = Severity.Medium,
+                    Description = $"Message flood detected: {messageCount} messages in {config.WindowSeconds} seconds (threshold: {threshold})",
+                    Evidence = new Dictionary<string, object>
+                    {
+                        ["messageCount"] = messageCount,
+                        ["windowSeconds"] = config.WindowSeconds,
+                        ["threshold"] = threshold,
+                        ["messageId"] = messageId,
+                        ["channelId"] = channelId
+                    },
+                    ShouldAutoAction = config.AutoAction != AutoAction.None,
+                    RecommendedAction = config.AutoAction
+                };
+            }
+
+            // Duplicate message check (only if not already flagged for flood)
+            if (result == null && duplicateCount >= 3)
+            {
+                _logger.LogInformation("Duplicate messages detected for user {UserId} in guild {GuildId}: {Count} identical messages in {Window}s",
+                    userId, guildId, duplicateCount, config.WindowSeconds);
+
+                result = new DetectionResultDto
+                {
+                    RuleType = RuleType.Spam,
+                    Severity = Severity.Medium,
+                    Description = $"Duplicate message spam: {duplicateCount} identical messages in {config.WindowSeconds} seconds",
+                    Evidence = new Dictionary<string, object>
+                    {
+                        ["duplicateCount"] = duplicateCount,
+                        ["windowSeconds"] = config.WindowSeconds,
+                        ["contentHash"] = contentHash,
+                        ["messageId"] = messageId,
+                        ["channelId"] = channelId
+                    },
+                    ShouldAutoAction = config.AutoAction != AutoAction.None,
+                    RecommendedAction = config.AutoAction
+                };
+            }
+
+            // @everyone/@here abuse check (only if not already flagged)
+            if (result == null && hasEveryoneOrHere && messageCount >= 2)
+            {
+                _logger.LogWarning("@everyone/@here abuse detected for user {UserId} in guild {GuildId}: used in {Count} messages",
+                    userId, guildId, messageCount);
+
+                result = new DetectionResultDto
+                {
+                    RuleType = RuleType.Spam,
+                    Severity = Severity.High,
+                    Description = $"@everyone/@here abuse detected: used in {messageCount} messages in {config.WindowSeconds} seconds",
+                    Evidence = new Dictionary<string, object>
+                    {
+                        ["messageCount"] = messageCount,
+                        ["windowSeconds"] = config.WindowSeconds,
+                        ["messageId"] = messageId,
+                        ["channelId"] = channelId,
+                        ["mentionType"] = content.Contains("@everyone", StringComparison.OrdinalIgnoreCase) ? "everyone" : "here"
+                    },
+                    ShouldAutoAction = config.AutoAction != AutoAction.None,
+                    RecommendedAction = config.AutoAction
+                };
+            }
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public void RecordMessage(ulong guildId, ulong userId, string contentHash, DateTime timestamp)
     {
-        var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "spam_detection",
+            "record_message",
+            guildId: guildId,
+            userId: userId);
 
-        // Get or create the message list for this user
-        var messages = _cache.GetOrCreate(cacheKey, entry =>
+        try
         {
-            entry.SlidingExpiration = MaxRetention;
-            return new ConcurrentBag<MessageRecord>();
-        });
+            var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
 
-        if (messages == null)
-        {
-            messages = new ConcurrentBag<MessageRecord>();
-            _cache.Set(cacheKey, messages, MaxRetention);
+            // Get or create the message list for this user
+            var messages = _cache.GetOrCreate(cacheKey, entry =>
+            {
+                entry.SlidingExpiration = MaxRetention;
+                return new ConcurrentBag<MessageRecord>();
+            });
+
+            if (messages == null)
+            {
+                messages = new ConcurrentBag<MessageRecord>();
+                _cache.Set(cacheKey, messages, MaxRetention);
+            }
+
+            // Add the new message
+            messages.Add(new MessageRecord(timestamp, contentHash));
+
+            // Clean up old entries to prevent unbounded growth
+            CleanupOldEntries(messages, timestamp);
+
+            BotActivitySource.SetSuccess(activity);
         }
-
-        // Add the new message
-        messages.Add(new MessageRecord(timestamp, contentHash));
-
-        // Clean up old entries to prevent unbounded growth
-        CleanupOldEntries(messages, timestamp);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public int GetMessageCount(ulong guildId, ulong userId, TimeSpan window)
     {
-        var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "spam_detection",
+            "get_message_count",
+            guildId: guildId,
+            userId: userId);
 
-        if (!_cache.TryGetValue<ConcurrentBag<MessageRecord>>(cacheKey, out var messages) || messages == null)
+        try
         {
-            return 0;
-        }
+            var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
 
-        var cutoff = DateTime.UtcNow - window;
-        return messages.Count(m => m.Timestamp >= cutoff);
+            if (!_cache.TryGetValue<ConcurrentBag<MessageRecord>>(cacheKey, out var messages) || messages == null)
+            {
+                BotActivitySource.SetSuccess(activity);
+                return 0;
+            }
+
+            var cutoff = DateTime.UtcNow - window;
+            var count = messages.Count(m => m.Timestamp >= cutoff);
+
+            BotActivitySource.SetSuccess(activity);
+            return count;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public int GetDuplicateCount(ulong guildId, ulong userId, string contentHash, TimeSpan window)
     {
-        var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "spam_detection",
+            "get_duplicate_count",
+            guildId: guildId,
+            userId: userId);
 
-        if (!_cache.TryGetValue<ConcurrentBag<MessageRecord>>(cacheKey, out var messages) || messages == null)
+        try
         {
-            return 0;
-        }
+            var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
 
-        var cutoff = DateTime.UtcNow - window;
-        return messages.Count(m => m.Timestamp >= cutoff && m.ContentHash == contentHash);
+            if (!_cache.TryGetValue<ConcurrentBag<MessageRecord>>(cacheKey, out var messages) || messages == null)
+            {
+                BotActivitySource.SetSuccess(activity);
+                return 0;
+            }
+
+            var cutoff = DateTime.UtcNow - window;
+            var count = messages.Count(m => m.Timestamp >= cutoff && m.ContentHash == contentHash);
+
+            BotActivitySource.SetSuccess(activity);
+            return count;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>

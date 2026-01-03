@@ -309,6 +309,62 @@ public static class BotActivitySource
     }
 
     /// <summary>
+    /// Starts an activity for a service layer operation.
+    /// </summary>
+    /// <param name="serviceName">The name of the service (e.g., "guild", "rat_watch").</param>
+    /// <param name="operation">The operation being performed (e.g., "get_by_id", "create").</param>
+    /// <param name="guildId">Optional guild ID for the operation.</param>
+    /// <param name="userId">Optional user ID for the operation.</param>
+    /// <param name="entityId">Optional entity ID being operated on.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartServiceActivity(
+        string serviceName,
+        string operation,
+        ulong? guildId = null,
+        ulong? userId = null,
+        string? entityId = null)
+    {
+        var spanName = string.Format(TracingConstants.Spans.ServiceOperation, serviceName, operation);
+
+        var activity = Source.StartActivity(
+            name: spanName,
+            kind: ActivityKind.Internal);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.ServiceName, serviceName);
+        activity.SetTag(TracingConstants.Attributes.ServiceOperation, operation);
+
+        if (guildId.HasValue)
+        {
+            activity.SetTag(TracingConstants.Attributes.GuildId, guildId.Value.ToString());
+        }
+
+        if (userId.HasValue)
+        {
+            activity.SetTag(TracingConstants.Attributes.UserId, userId.Value.ToString());
+        }
+
+        if (!string.IsNullOrEmpty(entityId))
+        {
+            activity.SetTag(TracingConstants.Attributes.ServiceEntityId, entityId);
+        }
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Sets the number of records returned from a service operation.
+    /// </summary>
+    /// <param name="activity">The activity to record on.</param>
+    /// <param name="count">The number of records returned.</param>
+    public static void SetRecordsReturned(Activity? activity, int count)
+    {
+        activity?.SetTag(TracingConstants.Attributes.ServiceRecordsReturned, count);
+    }
+
+    /// <summary>
     /// Records the number of items processed on an activity.
     /// </summary>
     /// <param name="activity">The activity to record on.</param>

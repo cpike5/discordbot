@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 
@@ -40,47 +41,62 @@ public class InvestigationService : IInvestigationService
     /// <inheritdoc/>
     public async Task<UserModerationProfileDto> InvestigateUserAsync(ulong guildId, ulong userId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Investigating user {UserId} in guild {GuildId}", userId, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "investigation",
+            "investigate_user",
+            guildId: guildId,
+            userId: userId);
 
-        // Fetch user info from Discord
-        var username = await GetUsernameAsync(userId);
-        var accountCreatedAt = GetAccountCreationDate(userId);
-        var joinedGuildAt = await GetGuildJoinDateAsync(guildId, userId);
-
-        // Fetch all moderation data in parallel for better performance
-        var casesTask = _moderationService.GetUserCasesAsync(guildId, userId, 1, int.MaxValue, ct);
-        var notesTask = _modNoteService.GetNotesAsync(guildId, userId, ct);
-        var tagsTask = _modTagService.GetUserTagsAsync(guildId, userId, ct);
-        var watchlistEntryTask = _watchlistService.GetEntryAsync(guildId, userId, ct);
-        var flaggedEventsTask = _flaggedEventService.GetUserEventsAsync(guildId, userId, ct);
-
-        await Task.WhenAll(casesTask, notesTask, tagsTask, watchlistEntryTask, flaggedEventsTask);
-
-        var (cases, _) = await casesTask;
-        var notes = await notesTask;
-        var tags = await tagsTask;
-        var watchlistEntry = await watchlistEntryTask;
-        var flaggedEvents = await flaggedEventsTask;
-
-        var profile = new UserModerationProfileDto
+        try
         {
-            UserId = userId,
-            Username = username,
-            GuildId = guildId,
-            AccountCreatedAt = accountCreatedAt,
-            JoinedGuildAt = joinedGuildAt,
-            Cases = cases.ToList(),
-            Notes = notes.ToList(),
-            Tags = tags.ToList(),
-            FlaggedEvents = flaggedEvents.ToList(),
-            IsOnWatchlist = watchlistEntry != null,
-            WatchlistEntry = watchlistEntry
-        };
+            _logger.LogInformation("Investigating user {UserId} in guild {GuildId}", userId, guildId);
 
-        _logger.LogInformation("Investigation completed for user {UserId} in guild {GuildId}: {CaseCount} cases, {NoteCount} notes, {TagCount} tags, {EventCount} flagged events, watchlist: {IsOnWatchlist}",
-            userId, guildId, profile.Cases.Count, profile.Notes.Count, profile.Tags.Count, profile.FlaggedEvents.Count, profile.IsOnWatchlist);
+            // Fetch user info from Discord
+            var username = await GetUsernameAsync(userId);
+            var accountCreatedAt = GetAccountCreationDate(userId);
+            var joinedGuildAt = await GetGuildJoinDateAsync(guildId, userId);
 
-        return profile;
+            // Fetch all moderation data in parallel for better performance
+            var casesTask = _moderationService.GetUserCasesAsync(guildId, userId, 1, int.MaxValue, ct);
+            var notesTask = _modNoteService.GetNotesAsync(guildId, userId, ct);
+            var tagsTask = _modTagService.GetUserTagsAsync(guildId, userId, ct);
+            var watchlistEntryTask = _watchlistService.GetEntryAsync(guildId, userId, ct);
+            var flaggedEventsTask = _flaggedEventService.GetUserEventsAsync(guildId, userId, ct);
+
+            await Task.WhenAll(casesTask, notesTask, tagsTask, watchlistEntryTask, flaggedEventsTask);
+
+            var (cases, _) = await casesTask;
+            var notes = await notesTask;
+            var tags = await tagsTask;
+            var watchlistEntry = await watchlistEntryTask;
+            var flaggedEvents = await flaggedEventsTask;
+
+            var profile = new UserModerationProfileDto
+            {
+                UserId = userId,
+                Username = username,
+                GuildId = guildId,
+                AccountCreatedAt = accountCreatedAt,
+                JoinedGuildAt = joinedGuildAt,
+                Cases = cases.ToList(),
+                Notes = notes.ToList(),
+                Tags = tags.ToList(),
+                FlaggedEvents = flaggedEvents.ToList(),
+                IsOnWatchlist = watchlistEntry != null,
+                WatchlistEntry = watchlistEntry
+            };
+
+            _logger.LogInformation("Investigation completed for user {UserId} in guild {GuildId}: {CaseCount} cases, {NoteCount} notes, {TagCount} tags, {EventCount} flagged events, watchlist: {IsOnWatchlist}",
+                userId, guildId, profile.Cases.Count, profile.Notes.Count, profile.Tags.Count, profile.FlaggedEvents.Count, profile.IsOnWatchlist);
+
+            BotActivitySource.SetSuccess(activity);
+            return profile;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>

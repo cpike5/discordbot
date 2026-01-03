@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -53,207 +54,272 @@ public class RaidDetectionService : IRaidDetectionService
         DateTime accountCreated,
         CancellationToken ct = default)
     {
-        _logger.LogDebug("Analyzing join for user {UserId} in guild {GuildId} for raid patterns", userId, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "raid_detection",
+            "analyze_join",
+            guildId: guildId,
+            userId: userId);
 
-        // Get raid protection configuration for guild using a scope for the scoped service
-        using var scope = _scopeFactory.CreateScope();
-        var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
-        var config = await configService.GetRaidProtectionConfigAsync(guildId, ct);
-
-        // If raid protection is disabled, return null
-        if (!config.Enabled)
+        try
         {
-            _logger.LogTrace("Raid protection is disabled for guild {GuildId}", guildId);
-            return null;
-        }
+            _logger.LogDebug("Analyzing join for user {UserId} in guild {GuildId} for raid patterns", userId, guildId);
 
-        // Record the join
-        RecordJoin(guildId, userId, DateTime.UtcNow);
+            // Get raid protection configuration for guild using a scope for the scoped service
+            using var scope = _scopeFactory.CreateScope();
+            var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+            var config = await configService.GetRaidProtectionConfigAsync(guildId, ct);
 
-        var window = TimeSpan.FromSeconds(config.WindowSeconds);
-        var joinCount = GetRecentJoinCount(guildId, window);
-        var threshold = config.MaxJoinsPerWindow;
-
-        // Check account age
-        var accountAge = DateTime.UtcNow - accountCreated;
-        var isNewAccount = config.MinAccountAgeHours > 0 &&
-                          accountAge < TimeSpan.FromHours(config.MinAccountAgeHours);
-
-        // Determine severity and create detection result
-        DetectionResultDto? result = null;
-
-        // Mass join detection with tiered severity
-        if (joinCount >= threshold * 2)
-        {
-            // Critical: 2x threshold
-            _logger.LogCritical("Critical raid detected in guild {GuildId}: {Count} joins in {Window}s (threshold: {Threshold}), new account ratio: {Ratio:P0}",
-                guildId, joinCount, config.WindowSeconds, threshold, GetNewAccountRatio(guildId, window, config.MinAccountAgeHours));
-
-            result = new DetectionResultDto
+            // If raid protection is disabled, return null
+            if (!config.Enabled)
             {
-                RuleType = RuleType.Raid,
-                Severity = Severity.Critical,
-                Description = $"Critical raid detected: {joinCount} joins in {config.WindowSeconds} seconds (threshold: {threshold})",
-                Evidence = new Dictionary<string, object>
-                {
-                    ["joinCount"] = joinCount,
-                    ["windowSeconds"] = config.WindowSeconds,
-                    ["threshold"] = threshold,
-                    ["newAccountCount"] = GetNewAccountCount(guildId, window, config.MinAccountAgeHours),
-                    ["userId"] = userId,
-                    ["accountAge"] = accountAge.ToString()
-                },
-                ShouldAutoAction = config.AutoAction != RaidAutoAction.None && config.AutoAction != RaidAutoAction.AlertOnly,
-                RecommendedAction = AutoAction.Kick // For raids, recommend kicking suspicious joins
-            };
-        }
-        else if (joinCount >= threshold)
-        {
-            // High: 1x threshold
-            _logger.LogWarning("Raid detected in guild {GuildId}: {Count} joins in {Window}s (threshold: {Threshold})",
-                guildId, joinCount, config.WindowSeconds, threshold);
+                _logger.LogTrace("Raid protection is disabled for guild {GuildId}", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
 
-            result = new DetectionResultDto
+            // Record the join
+            RecordJoin(guildId, userId, DateTime.UtcNow);
+
+            var window = TimeSpan.FromSeconds(config.WindowSeconds);
+            var joinCount = GetRecentJoinCount(guildId, window);
+            var threshold = config.MaxJoinsPerWindow;
+
+            // Check account age
+            var accountAge = DateTime.UtcNow - accountCreated;
+            var isNewAccount = config.MinAccountAgeHours > 0 &&
+                              accountAge < TimeSpan.FromHours(config.MinAccountAgeHours);
+
+            // Determine severity and create detection result
+            DetectionResultDto? result = null;
+
+            // Mass join detection with tiered severity
+            if (joinCount >= threshold * 2)
             {
-                RuleType = RuleType.Raid,
-                Severity = Severity.High,
-                Description = $"Raid detected: {joinCount} joins in {config.WindowSeconds} seconds (threshold: {threshold})",
-                Evidence = new Dictionary<string, object>
-                {
-                    ["joinCount"] = joinCount,
-                    ["windowSeconds"] = config.WindowSeconds,
-                    ["threshold"] = threshold,
-                    ["newAccountCount"] = GetNewAccountCount(guildId, window, config.MinAccountAgeHours),
-                    ["userId"] = userId,
-                    ["accountAge"] = accountAge.ToString()
-                },
-                ShouldAutoAction = config.AutoAction != RaidAutoAction.None && config.AutoAction != RaidAutoAction.AlertOnly,
-                RecommendedAction = AutoAction.Kick // For raids, recommend kicking suspicious joins
-            };
-        }
-        else if (isNewAccount && joinCount >= threshold * 0.5)
-        {
-            // Medium: New account during elevated join activity
-            _logger.LogInformation("New account join during elevated activity in guild {GuildId}: user {UserId}, account age {AccountAge}, recent joins: {JoinCount}",
-                guildId, userId, accountAge, joinCount);
+                // Critical: 2x threshold
+                _logger.LogCritical("Critical raid detected in guild {GuildId}: {Count} joins in {Window}s (threshold: {Threshold}), new account ratio: {Ratio:P0}",
+                    guildId, joinCount, config.WindowSeconds, threshold, GetNewAccountRatio(guildId, window, config.MinAccountAgeHours));
 
-            result = new DetectionResultDto
+                result = new DetectionResultDto
+                {
+                    RuleType = RuleType.Raid,
+                    Severity = Severity.Critical,
+                    Description = $"Critical raid detected: {joinCount} joins in {config.WindowSeconds} seconds (threshold: {threshold})",
+                    Evidence = new Dictionary<string, object>
+                    {
+                        ["joinCount"] = joinCount,
+                        ["windowSeconds"] = config.WindowSeconds,
+                        ["threshold"] = threshold,
+                        ["newAccountCount"] = GetNewAccountCount(guildId, window, config.MinAccountAgeHours),
+                        ["userId"] = userId,
+                        ["accountAge"] = accountAge.ToString()
+                    },
+                    ShouldAutoAction = config.AutoAction != RaidAutoAction.None && config.AutoAction != RaidAutoAction.AlertOnly,
+                    RecommendedAction = AutoAction.Kick // For raids, recommend kicking suspicious joins
+                };
+            }
+            else if (joinCount >= threshold)
             {
-                RuleType = RuleType.Raid,
-                Severity = Severity.Medium,
-                Description = $"New account join during elevated activity: account age {accountAge.TotalHours:F1} hours, {joinCount} recent joins",
-                Evidence = new Dictionary<string, object>
-                {
-                    ["joinCount"] = joinCount,
-                    ["windowSeconds"] = config.WindowSeconds,
-                    ["accountAge"] = accountAge.ToString(),
-                    ["minAccountAgeHours"] = config.MinAccountAgeHours,
-                    ["userId"] = userId
-                },
-                ShouldAutoAction = false, // Don't auto-action on medium severity
-                RecommendedAction = AutoAction.None // Monitor only, no action
-            };
-        }
+                // High: 1x threshold
+                _logger.LogWarning("Raid detected in guild {GuildId}: {Count} joins in {Window}s (threshold: {Threshold})",
+                    guildId, joinCount, config.WindowSeconds, threshold);
 
-        return result;
+                result = new DetectionResultDto
+                {
+                    RuleType = RuleType.Raid,
+                    Severity = Severity.High,
+                    Description = $"Raid detected: {joinCount} joins in {config.WindowSeconds} seconds (threshold: {threshold})",
+                    Evidence = new Dictionary<string, object>
+                    {
+                        ["joinCount"] = joinCount,
+                        ["windowSeconds"] = config.WindowSeconds,
+                        ["threshold"] = threshold,
+                        ["newAccountCount"] = GetNewAccountCount(guildId, window, config.MinAccountAgeHours),
+                        ["userId"] = userId,
+                        ["accountAge"] = accountAge.ToString()
+                    },
+                    ShouldAutoAction = config.AutoAction != RaidAutoAction.None && config.AutoAction != RaidAutoAction.AlertOnly,
+                    RecommendedAction = AutoAction.Kick // For raids, recommend kicking suspicious joins
+                };
+            }
+            else if (isNewAccount && joinCount >= threshold * 0.5)
+            {
+                // Medium: New account during elevated join activity
+                _logger.LogInformation("New account join during elevated activity in guild {GuildId}: user {UserId}, account age {AccountAge}, recent joins: {JoinCount}",
+                    guildId, userId, accountAge, joinCount);
+
+                result = new DetectionResultDto
+                {
+                    RuleType = RuleType.Raid,
+                    Severity = Severity.Medium,
+                    Description = $"New account join during elevated activity: account age {accountAge.TotalHours:F1} hours, {joinCount} recent joins",
+                    Evidence = new Dictionary<string, object>
+                    {
+                        ["joinCount"] = joinCount,
+                        ["windowSeconds"] = config.WindowSeconds,
+                        ["accountAge"] = accountAge.ToString(),
+                        ["minAccountAgeHours"] = config.MinAccountAgeHours,
+                        ["userId"] = userId
+                    },
+                    ShouldAutoAction = false, // Don't auto-action on medium severity
+                    RecommendedAction = AutoAction.None // Monitor only, no action
+                };
+            }
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public void RecordJoin(ulong guildId, ulong userId, DateTime joinTime)
     {
-        var cacheKey = string.Format(CacheKeyPattern, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "raid_detection",
+            "record_join",
+            guildId: guildId,
+            userId: userId);
 
-        // Get or create the join list for this guild
-        var joins = _cache.GetOrCreate(cacheKey, entry =>
+        try
         {
-            entry.SlidingExpiration = MaxRetention;
-            return new ConcurrentBag<JoinRecord>();
-        });
+            var cacheKey = string.Format(CacheKeyPattern, guildId);
 
-        if (joins == null)
-        {
-            joins = new ConcurrentBag<JoinRecord>();
-            _cache.Set(cacheKey, joins, MaxRetention);
+            // Get or create the join list for this guild
+            var joins = _cache.GetOrCreate(cacheKey, entry =>
+            {
+                entry.SlidingExpiration = MaxRetention;
+                return new ConcurrentBag<JoinRecord>();
+            });
+
+            if (joins == null)
+            {
+                joins = new ConcurrentBag<JoinRecord>();
+                _cache.Set(cacheKey, joins, MaxRetention);
+            }
+
+            // Add the new join (we don't have account creation time here, will be set to min value)
+            joins.Add(new JoinRecord(joinTime, userId, DateTime.MinValue));
+
+            // Clean up old entries to prevent unbounded growth
+            CleanupOldEntries(joins, joinTime);
+
+            BotActivitySource.SetSuccess(activity);
         }
-
-        // Add the new join (we don't have account creation time here, will be set to min value)
-        joins.Add(new JoinRecord(joinTime, userId, DateTime.MinValue));
-
-        // Clean up old entries to prevent unbounded growth
-        CleanupOldEntries(joins, joinTime);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public int GetRecentJoinCount(ulong guildId, TimeSpan window)
     {
-        var cacheKey = string.Format(CacheKeyPattern, guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "raid_detection",
+            "get_recent_join_count",
+            guildId: guildId);
 
-        if (!_cache.TryGetValue<ConcurrentBag<JoinRecord>>(cacheKey, out var joins) || joins == null)
+        try
         {
-            return 0;
-        }
+            var cacheKey = string.Format(CacheKeyPattern, guildId);
 
-        var cutoff = DateTime.UtcNow - window;
-        return joins.Count(j => j.Timestamp >= cutoff);
+            if (!_cache.TryGetValue<ConcurrentBag<JoinRecord>>(cacheKey, out var joins) || joins == null)
+            {
+                BotActivitySource.SetSuccess(activity);
+                return 0;
+            }
+
+            var cutoff = DateTime.UtcNow - window;
+            var count = joins.Count(j => j.Timestamp >= cutoff);
+
+            BotActivitySource.SetSuccess(activity);
+            return count;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc />
     public async Task TriggerLockdownAsync(ulong guildId, CancellationToken ct = default)
     {
-        _logger.LogWarning("Triggering raid lockdown for guild {GuildId}", guildId);
-
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
-        {
-            _logger.LogError("Cannot trigger lockdown: guild {GuildId} not found in client cache", guildId);
-            return;
-        }
+        using var activity = BotActivitySource.StartServiceActivity(
+            "raid_detection",
+            "trigger_lockdown",
+            guildId: guildId);
 
         try
         {
-            // Store the current verification level
-            var currentLevel = guild.VerificationLevel;
-            var lockdownStateKey = string.Format(LockdownStateKeyPattern, guildId);
-            _cache.Set(lockdownStateKey, currentLevel, TimeSpan.FromHours(24));
+            _logger.LogWarning("Triggering raid lockdown for guild {GuildId}", guildId);
 
-            _logger.LogInformation("Stored previous verification level {Level} for guild {GuildId}", currentLevel, guildId);
-
-            // Set verification level to High
-            await guild.ModifyAsync(props =>
+            var guild = _discordClient.GetGuild(guildId);
+            if (guild == null)
             {
-                props.VerificationLevel = Discord.VerificationLevel.High;
-            });
-
-            _logger.LogInformation("Set verification level to High for guild {GuildId}", guildId);
-
-            // Optionally disable invites (if AutoAction allows)
-            using var scope = _scopeFactory.CreateScope();
-            var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
-            var config = await configService.GetRaidProtectionConfigAsync(guildId, ct);
-            if (config.AutoAction == RaidAutoAction.LockInvites || config.AutoAction == RaidAutoAction.LockServer)
-            {
-                var invites = await guild.GetInvitesAsync();
-                foreach (var invite in invites)
-                {
-                    try
-                    {
-                        await invite.DeleteAsync();
-                        _logger.LogDebug("Deleted invite {InviteCode} for guild {GuildId}", invite.Code, guildId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to delete invite {InviteCode} for guild {GuildId}", invite.Code, guildId);
-                    }
-                }
-
-                _logger.LogInformation("Disabled {Count} active invites for guild {GuildId}", invites.Count, guildId);
+                _logger.LogError("Cannot trigger lockdown: guild {GuildId} not found in client cache", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return;
             }
 
-            _logger.LogWarning("Raid lockdown activated for guild {GuildId}", guildId);
+            try
+            {
+                // Store the current verification level
+                var currentLevel = guild.VerificationLevel;
+                var lockdownStateKey = string.Format(LockdownStateKeyPattern, guildId);
+                _cache.Set(lockdownStateKey, currentLevel, TimeSpan.FromHours(24));
+
+                _logger.LogInformation("Stored previous verification level {Level} for guild {GuildId}", currentLevel, guildId);
+
+                // Set verification level to High
+                await guild.ModifyAsync(props =>
+                {
+                    props.VerificationLevel = Discord.VerificationLevel.High;
+                });
+
+                _logger.LogInformation("Set verification level to High for guild {GuildId}", guildId);
+
+                // Optionally disable invites (if AutoAction allows)
+                using var scope = _scopeFactory.CreateScope();
+                var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+                var config = await configService.GetRaidProtectionConfigAsync(guildId, ct);
+                if (config.AutoAction == RaidAutoAction.LockInvites || config.AutoAction == RaidAutoAction.LockServer)
+                {
+                    var invites = await guild.GetInvitesAsync();
+                    foreach (var invite in invites)
+                    {
+                        try
+                        {
+                            await invite.DeleteAsync();
+                            _logger.LogDebug("Deleted invite {InviteCode} for guild {GuildId}", invite.Code, guildId);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to delete invite {InviteCode} for guild {GuildId}", invite.Code, guildId);
+                        }
+                    }
+
+                    _logger.LogInformation("Disabled {Count} active invites for guild {GuildId}", invites.Count, guildId);
+                }
+
+                _logger.LogWarning("Raid lockdown activated for guild {GuildId}", guildId);
+
+                BotActivitySource.SetSuccess(activity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to trigger raid lockdown for guild {GuildId}", guildId);
+                throw;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to trigger raid lockdown for guild {GuildId}", guildId);
+            BotActivitySource.RecordException(activity, ex);
             throw;
         }
     }
@@ -261,45 +327,61 @@ public class RaidDetectionService : IRaidDetectionService
     /// <inheritdoc />
     public async Task LiftLockdownAsync(ulong guildId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Lifting raid lockdown for guild {GuildId}", guildId);
-
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
-        {
-            _logger.LogError("Cannot lift lockdown: guild {GuildId} not found in client cache", guildId);
-            return;
-        }
+        using var activity = BotActivitySource.StartServiceActivity(
+            "raid_detection",
+            "lift_lockdown",
+            guildId: guildId);
 
         try
         {
-            // Restore the previous verification level
-            var lockdownStateKey = string.Format(LockdownStateKeyPattern, guildId);
-            if (_cache.TryGetValue<Discord.VerificationLevel>(lockdownStateKey, out var previousLevel))
-            {
-                await guild.ModifyAsync(props =>
-                {
-                    props.VerificationLevel = previousLevel;
-                });
+            _logger.LogInformation("Lifting raid lockdown for guild {GuildId}", guildId);
 
-                _logger.LogInformation("Restored verification level to {Level} for guild {GuildId}", previousLevel, guildId);
-
-                // Remove the stored state
-                _cache.Remove(lockdownStateKey);
-            }
-            else
+            var guild = _discordClient.GetGuild(guildId);
+            if (guild == null)
             {
-                _logger.LogWarning("No previous verification level found for guild {GuildId}, setting to Low", guildId);
-                await guild.ModifyAsync(props =>
-                {
-                    props.VerificationLevel = Discord.VerificationLevel.Low;
-                });
+                _logger.LogError("Cannot lift lockdown: guild {GuildId} not found in client cache", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return;
             }
 
-            _logger.LogInformation("Raid lockdown lifted for guild {GuildId}", guildId);
+            try
+            {
+                // Restore the previous verification level
+                var lockdownStateKey = string.Format(LockdownStateKeyPattern, guildId);
+                if (_cache.TryGetValue<Discord.VerificationLevel>(lockdownStateKey, out var previousLevel))
+                {
+                    await guild.ModifyAsync(props =>
+                    {
+                        props.VerificationLevel = previousLevel;
+                    });
+
+                    _logger.LogInformation("Restored verification level to {Level} for guild {GuildId}", previousLevel, guildId);
+
+                    // Remove the stored state
+                    _cache.Remove(lockdownStateKey);
+                }
+                else
+                {
+                    _logger.LogWarning("No previous verification level found for guild {GuildId}, setting to Low", guildId);
+                    await guild.ModifyAsync(props =>
+                    {
+                        props.VerificationLevel = Discord.VerificationLevel.Low;
+                    });
+                }
+
+                _logger.LogInformation("Raid lockdown lifted for guild {GuildId}", guildId);
+
+                BotActivitySource.SetSuccess(activity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to lift raid lockdown for guild {GuildId}", guildId);
+                throw;
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to lift raid lockdown for guild {GuildId}", guildId);
+            BotActivitySource.RecordException(activity, ex);
             throw;
         }
     }

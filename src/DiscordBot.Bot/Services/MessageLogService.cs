@@ -1,4 +1,5 @@
 using System.Text;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -35,232 +36,325 @@ public class MessageLogService : IMessageLogService
     /// <inheritdoc/>
     public async Task<PaginatedResponseDto<MessageLogDto>> GetLogsAsync(MessageLogQueryDto query, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug(
-            "Querying message logs with filters: AuthorId={AuthorId}, GuildId={GuildId}, ChannelId={ChannelId}, Source={Source}, SearchTerm={SearchTerm}, Page={Page}, PageSize={PageSize}",
-            query.AuthorId, query.GuildId, query.ChannelId, query.Source, query.SearchTerm, query.Page, query.PageSize);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "message_log",
+            "get_logs",
+            guildId: query.GuildId,
+            userId: query.AuthorId);
 
-        // Validate pagination parameters
-        if (query.Page < 1)
+        try
         {
-            query.Page = 1;
+            _logger.LogDebug(
+                "Querying message logs with filters: AuthorId={AuthorId}, GuildId={GuildId}, ChannelId={ChannelId}, Source={Source}, SearchTerm={SearchTerm}, Page={Page}, PageSize={PageSize}",
+                query.AuthorId, query.GuildId, query.ChannelId, query.Source, query.SearchTerm, query.Page, query.PageSize);
+
+            // Validate pagination parameters
+            if (query.Page < 1)
+            {
+                query.Page = 1;
+            }
+
+            if (query.PageSize < 1 || query.PageSize > 100)
+            {
+                query.PageSize = 25;
+            }
+
+            // Execute repository query
+            var (items, totalCount) = await _repository.GetPaginatedAsync(query, cancellationToken);
+
+            // Map entities to DTOs
+            var dtos = items.Select(MapToDto).ToList();
+
+            _logger.LogInformation(
+                "Retrieved {Count} of {TotalCount} message logs (Page {Page}/{TotalPages})",
+                dtos.Count, totalCount, query.Page, (int)Math.Ceiling((double)totalCount / query.PageSize));
+
+            var result = new PaginatedResponseDto<MessageLogDto>
+            {
+                Items = dtos.AsReadOnly(),
+                Page = query.Page,
+                PageSize = query.PageSize,
+                TotalCount = totalCount
+            };
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return result;
         }
-
-        if (query.PageSize < 1 || query.PageSize > 100)
+        catch (Exception ex)
         {
-            query.PageSize = 25;
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        // Execute repository query
-        var (items, totalCount) = await _repository.GetPaginatedAsync(query, cancellationToken);
-
-        // Map entities to DTOs
-        var dtos = items.Select(MapToDto).ToList();
-
-        _logger.LogInformation(
-            "Retrieved {Count} of {TotalCount} message logs (Page {Page}/{TotalPages})",
-            dtos.Count, totalCount, query.Page, (int)Math.Ceiling((double)totalCount / query.PageSize));
-
-        return new PaginatedResponseDto<MessageLogDto>
-        {
-            Items = dtos.AsReadOnly(),
-            Page = query.Page,
-            PageSize = query.PageSize,
-            TotalCount = totalCount
-        };
     }
 
     /// <inheritdoc/>
     public async Task<MessageLogDto?> GetByIdAsync(long id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving message log with ID {Id}", id);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "message_log",
+            "get_by_id");
 
-        var log = await _repository.GetByIdAsync(id, cancellationToken);
-
-        if (log is null)
+        try
         {
-            _logger.LogWarning("Message log with ID {Id} not found", id);
-            return null;
+            _logger.LogDebug("Retrieving message log with ID {Id}", id);
+
+            var log = await _repository.GetByIdAsync(id, cancellationToken);
+
+            if (log is null)
+            {
+                _logger.LogWarning("Message log with ID {Id} not found", id);
+                BotActivitySource.SetSuccess(activity);
+                return null;
+            }
+
+            _logger.LogDebug("Retrieved message log {Id} for author {AuthorId}", id, log.AuthorId);
+
+            var result = MapToDto(log);
+            BotActivitySource.SetSuccess(activity);
+            return result;
         }
-
-        _logger.LogDebug("Retrieved message log {Id} for author {AuthorId}", id, log.AuthorId);
-
-        return MapToDto(log);
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<MessageLogStatsDto> GetStatsAsync(ulong? guildId = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving message statistics for guildId: {GuildId}", guildId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "message_log",
+            "get_stats",
+            guildId: guildId);
 
-        // Get basic statistics
-        var (total, dmCount, serverCount, uniqueAuthors) = await _repository.GetBasicStatsAsync(guildId, cancellationToken);
-
-        // Get trend data for last 7 days
-        var messagesByDay = await _repository.GetMessagesByDayAsync(7, guildId, cancellationToken);
-        var dailyCounts = messagesByDay
-            .Select(x => new DailyMessageCount(x.Date, x.Count))
-            .ToList();
-
-        // Get oldest and newest message timestamps
-        var oldestMessage = await _repository.GetOldestMessageDateAsync(cancellationToken);
-        var newestMessage = await _repository.GetNewestMessageDateAsync(cancellationToken);
-
-        var stats = new MessageLogStatsDto
+        try
         {
-            TotalMessages = total,
-            DmMessages = dmCount,
-            ServerMessages = serverCount,
-            UniqueAuthors = uniqueAuthors,
-            MessagesByDay = dailyCounts,
-            OldestMessage = oldestMessage,
-            NewestMessage = newestMessage
-        };
+            _logger.LogDebug("Retrieving message statistics for guildId: {GuildId}", guildId);
 
-        _logger.LogInformation(
-            "Retrieved message statistics - Total: {Total}, DM: {DmCount}, Server: {ServerCount}, UniqueAuthors: {UniqueAuthors}",
-            total, dmCount, serverCount, uniqueAuthors);
+            // Get basic statistics
+            var (total, dmCount, serverCount, uniqueAuthors) = await _repository.GetBasicStatsAsync(guildId, cancellationToken);
 
-        return stats;
+            // Get trend data for last 7 days
+            var messagesByDay = await _repository.GetMessagesByDayAsync(7, guildId, cancellationToken);
+            var dailyCounts = messagesByDay
+                .Select(x => new DailyMessageCount(x.Date, x.Count))
+                .ToList();
+
+            // Get oldest and newest message timestamps
+            var oldestMessage = await _repository.GetOldestMessageDateAsync(cancellationToken);
+            var newestMessage = await _repository.GetNewestMessageDateAsync(cancellationToken);
+
+            var stats = new MessageLogStatsDto
+            {
+                TotalMessages = total,
+                DmMessages = dmCount,
+                ServerMessages = serverCount,
+                UniqueAuthors = uniqueAuthors,
+                MessagesByDay = dailyCounts,
+                OldestMessage = oldestMessage,
+                NewestMessage = newestMessage
+            };
+
+            _logger.LogInformation(
+                "Retrieved message statistics - Total: {Total}, DM: {DmCount}, Server: {ServerCount}, UniqueAuthors: {UniqueAuthors}",
+                total, dmCount, serverCount, uniqueAuthors);
+
+            BotActivitySource.SetSuccess(activity);
+            return stats;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<int> DeleteUserMessagesAsync(ulong userId, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Deleting all messages for user {UserId} (GDPR compliance)", userId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "message_log",
+            "delete_user_messages",
+            userId: userId);
 
-        var deletedCount = await _repository.DeleteByUserIdAsync(userId, cancellationToken);
+        try
+        {
+            _logger.LogInformation("Deleting all messages for user {UserId} (GDPR compliance)", userId);
 
-        _logger.LogInformation(
-            "Deleted {Count} messages for user {UserId} per GDPR data deletion request",
-            deletedCount, userId);
+            var deletedCount = await _repository.DeleteByUserIdAsync(userId, cancellationToken);
 
-        return deletedCount;
+            _logger.LogInformation(
+                "Deleted {Count} messages for user {UserId} per GDPR data deletion request",
+                deletedCount, userId);
+
+            BotActivitySource.SetRecordsReturned(activity, deletedCount);
+            BotActivitySource.SetSuccess(activity);
+            return deletedCount;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<int> CleanupOldMessagesAsync(CancellationToken cancellationToken = default)
     {
-        var options = _retentionOptions.Value;
+        using var activity = BotActivitySource.StartServiceActivity(
+            "message_log",
+            "cleanup_old_messages");
 
-        if (!options.Enabled)
+        try
         {
-            _logger.LogDebug("Message log cleanup is disabled in configuration");
-            return 0;
-        }
+            var options = _retentionOptions.Value;
 
-        var cutoffDate = DateTime.UtcNow.AddDays(-options.RetentionDays);
-
-        _logger.LogInformation(
-            "Starting message log cleanup: deleting messages older than {CutoffDate} (RetentionDays: {RetentionDays})",
-            cutoffDate, options.RetentionDays);
-
-        var totalDeleted = 0;
-        var batchCount = 0;
-
-        // Delete in batches to prevent long-running transactions
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            var batchDeleted = await _repository.DeleteBatchOlderThanAsync(
-                cutoffDate,
-                options.CleanupBatchSize,
-                cancellationToken);
-
-            if (batchDeleted == 0)
+            if (!options.Enabled)
             {
-                // No more records to delete
-                break;
+                _logger.LogDebug("Message log cleanup is disabled in configuration");
+                BotActivitySource.SetSuccess(activity);
+                return 0;
             }
 
-            totalDeleted += batchDeleted;
-            batchCount++;
+            var cutoffDate = DateTime.UtcNow.AddDays(-options.RetentionDays);
 
-            _logger.LogDebug(
-                "Cleanup batch {BatchCount} deleted {BatchDeleted} messages (total: {TotalDeleted})",
-                batchCount, batchDeleted, totalDeleted);
-
-            // If we deleted fewer than the batch size, we're done
-            if (batchDeleted < options.CleanupBatchSize)
-            {
-                break;
-            }
-        }
-
-        if (totalDeleted > 0)
-        {
             _logger.LogInformation(
-                "Message log cleanup completed: deleted {TotalDeleted} messages in {BatchCount} batches",
-                totalDeleted, batchCount);
-        }
-        else
-        {
-            _logger.LogDebug("Message log cleanup completed: no old messages to delete");
-        }
+                "Starting message log cleanup: deleting messages older than {CutoffDate} (RetentionDays: {RetentionDays})",
+                cutoffDate, options.RetentionDays);
 
-        return totalDeleted;
+            var totalDeleted = 0;
+            var batchCount = 0;
+
+            // Delete in batches to prevent long-running transactions
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var batchDeleted = await _repository.DeleteBatchOlderThanAsync(
+                    cutoffDate,
+                    options.CleanupBatchSize,
+                    cancellationToken);
+
+                if (batchDeleted == 0)
+                {
+                    // No more records to delete
+                    break;
+                }
+
+                totalDeleted += batchDeleted;
+                batchCount++;
+
+                _logger.LogDebug(
+                    "Cleanup batch {BatchCount} deleted {BatchDeleted} messages (total: {TotalDeleted})",
+                    batchCount, batchDeleted, totalDeleted);
+
+                // If we deleted fewer than the batch size, we're done
+                if (batchDeleted < options.CleanupBatchSize)
+                {
+                    break;
+                }
+            }
+
+            if (totalDeleted > 0)
+            {
+                _logger.LogInformation(
+                    "Message log cleanup completed: deleted {TotalDeleted} messages in {BatchCount} batches",
+                    totalDeleted, batchCount);
+            }
+            else
+            {
+                _logger.LogDebug("Message log cleanup completed: no old messages to delete");
+            }
+
+            BotActivitySource.SetRecordsReturned(activity, totalDeleted);
+            BotActivitySource.SetSuccess(activity);
+            return totalDeleted;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task<byte[]> ExportToCsvAsync(MessageLogQueryDto query, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation(
-            "Exporting message logs to CSV with filters: AuthorId={AuthorId}, GuildId={GuildId}, ChannelId={ChannelId}, Source={Source}",
-            query.AuthorId, query.GuildId, query.ChannelId, query.Source);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "message_log",
+            "export_to_csv",
+            guildId: query.GuildId,
+            userId: query.AuthorId);
 
-        // Set large page size to get all matching records (or use chunked export for very large datasets)
-        var exportQuery = new MessageLogQueryDto
+        try
         {
-            AuthorId = query.AuthorId,
-            GuildId = query.GuildId,
-            ChannelId = query.ChannelId,
-            Source = query.Source,
-            StartDate = query.StartDate,
-            EndDate = query.EndDate,
-            SearchTerm = query.SearchTerm,
-            Page = 1,
-            PageSize = 10000 // Export up to 10k records at once
-        };
+            _logger.LogInformation(
+                "Exporting message logs to CSV with filters: AuthorId={AuthorId}, GuildId={GuildId}, ChannelId={ChannelId}, Source={Source}",
+                query.AuthorId, query.GuildId, query.ChannelId, query.Source);
 
-        var (items, totalCount) = await _repository.GetPaginatedAsync(exportQuery, cancellationToken);
+            // Set large page size to get all matching records (or use chunked export for very large datasets)
+            var exportQuery = new MessageLogQueryDto
+            {
+                AuthorId = query.AuthorId,
+                GuildId = query.GuildId,
+                ChannelId = query.ChannelId,
+                Source = query.Source,
+                StartDate = query.StartDate,
+                EndDate = query.EndDate,
+                SearchTerm = query.SearchTerm,
+                Page = 1,
+                PageSize = 10000 // Export up to 10k records at once
+            };
 
-        if (totalCount > 10000)
-        {
-            _logger.LogWarning(
-                "Export query matched {TotalCount} records, but only exporting first {PageSize}. Consider adding filters.",
-                totalCount, exportQuery.PageSize);
+            var (items, totalCount) = await _repository.GetPaginatedAsync(exportQuery, cancellationToken);
+
+            if (totalCount > 10000)
+            {
+                _logger.LogWarning(
+                    "Export query matched {TotalCount} records, but only exporting first {PageSize}. Consider adding filters.",
+                    totalCount, exportQuery.PageSize);
+            }
+
+            // Build CSV content
+            var csv = new StringBuilder();
+
+            // Write CSV header
+            csv.AppendLine("Id,DiscordMessageId,AuthorId,ChannelId,GuildId,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId");
+
+            // Write data rows
+            foreach (var message in items)
+            {
+                csv.AppendLine(FormatCsvRow(
+                    message.Id,
+                    message.DiscordMessageId,
+                    message.AuthorId,
+                    message.ChannelId,
+                    message.GuildId?.ToString() ?? "",
+                    message.Source.ToString(),
+                    EscapeCsvField(message.Content),
+                    message.Timestamp.ToString("O"),
+                    message.LoggedAt.ToString("O"),
+                    message.HasAttachments,
+                    message.HasEmbeds,
+                    message.ReplyToMessageId?.ToString() ?? ""
+                ));
+            }
+
+            var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
+
+            _logger.LogInformation(
+                "Exported {Count} message logs to CSV ({Size} bytes)",
+                items.Count(), csvBytes.Length);
+
+            BotActivitySource.SetRecordsReturned(activity, items.Count());
+            BotActivitySource.SetSuccess(activity);
+            return csvBytes;
         }
-
-        // Build CSV content
-        var csv = new StringBuilder();
-
-        // Write CSV header
-        csv.AppendLine("Id,DiscordMessageId,AuthorId,ChannelId,GuildId,Source,Content,Timestamp,LoggedAt,HasAttachments,HasEmbeds,ReplyToMessageId");
-
-        // Write data rows
-        foreach (var message in items)
+        catch (Exception ex)
         {
-            csv.AppendLine(FormatCsvRow(
-                message.Id,
-                message.DiscordMessageId,
-                message.AuthorId,
-                message.ChannelId,
-                message.GuildId?.ToString() ?? "",
-                message.Source.ToString(),
-                EscapeCsvField(message.Content),
-                message.Timestamp.ToString("O"),
-                message.LoggedAt.ToString("O"),
-                message.HasAttachments,
-                message.HasEmbeds,
-                message.ReplyToMessageId?.ToString() ?? ""
-            ));
+            BotActivitySource.RecordException(activity, ex);
+            throw;
         }
-
-        var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
-
-        _logger.LogInformation(
-            "Exported {Count} message logs to CSV ({Size} bytes)",
-            items.Count(), csvBytes.Length);
-
-        return csvBytes;
     }
 
     /// <summary>

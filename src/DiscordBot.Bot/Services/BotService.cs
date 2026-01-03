@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
@@ -44,112 +45,182 @@ public class BotService : IBotService
     /// <inheritdoc/>
     public BotStatusDto GetStatus()
     {
-        _logger.LogDebug("Retrieving bot status");
+        using var activity = BotActivitySource.StartServiceActivity(
+            "bot",
+            "get_status");
 
-        var status = new BotStatusDto
+        try
         {
-            Uptime = DateTime.UtcNow - _startTime,
-            GuildCount = _client.Guilds.Count,
-            LatencyMs = _client.Latency,
-            StartTime = _startTime,
-            BotUsername = _client.CurrentUser?.Username ?? "Unknown",
-            ConnectionState = _client.ConnectionState.ToString()
-        };
+            _logger.LogDebug("Retrieving bot status");
 
-        _logger.LogTrace("Bot status: ConnectionState={ConnectionState}, GuildCount={GuildCount}, Latency={Latency}ms",
-            status.ConnectionState, status.GuildCount, status.LatencyMs);
+            var status = new BotStatusDto
+            {
+                Uptime = DateTime.UtcNow - _startTime,
+                GuildCount = _client.Guilds.Count,
+                LatencyMs = _client.Latency,
+                StartTime = _startTime,
+                BotUsername = _client.CurrentUser?.Username ?? "Unknown",
+                ConnectionState = _client.ConnectionState.ToString()
+            };
 
-        return status;
+            _logger.LogTrace("Bot status: ConnectionState={ConnectionState}, GuildCount={GuildCount}, Latency={Latency}ms",
+                status.ConnectionState, status.GuildCount, status.LatencyMs);
+
+            BotActivitySource.SetSuccess(activity);
+            return status;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public IReadOnlyList<GuildInfoDto> GetConnectedGuilds()
     {
-        _logger.LogDebug("Retrieving connected guilds from Discord client");
+        using var activity = BotActivitySource.StartServiceActivity(
+            "bot",
+            "get_connected_guilds");
 
-        var guilds = _client.Guilds
-            .Select(g => new GuildInfoDto
-            {
-                Id = g.Id,
-                Name = g.Name,
-                MemberCount = g.MemberCount,
-                IconUrl = g.IconUrl,
-                JoinedAt = g.CurrentUser?.JoinedAt?.UtcDateTime
-            })
-            .ToList();
+        try
+        {
+            _logger.LogDebug("Retrieving connected guilds from Discord client");
 
-        _logger.LogDebug("Retrieved {Count} connected guilds", guilds.Count);
+            var guilds = _client.Guilds
+                .Select(g => new GuildInfoDto
+                {
+                    Id = g.Id,
+                    Name = g.Name,
+                    MemberCount = g.MemberCount,
+                    IconUrl = g.IconUrl,
+                    JoinedAt = g.CurrentUser?.JoinedAt?.UtcDateTime
+                })
+                .ToList();
 
-        return guilds.AsReadOnly();
+            _logger.LogDebug("Retrieved {Count} connected guilds", guilds.Count);
+
+            BotActivitySource.SetRecordsReturned(activity, guilds.Count);
+            BotActivitySource.SetSuccess(activity);
+            return guilds.AsReadOnly();
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public async Task RestartAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogWarning("Bot soft restart requested");
+        using var activity = BotActivitySource.StartServiceActivity(
+            "bot",
+            "restart");
 
-        // Disconnect from Discord
-        await _client.StopAsync();
-        await _client.LogoutAsync();
+        try
+        {
+            _logger.LogWarning("Bot soft restart requested");
 
-        _logger.LogInformation("Bot disconnected, waiting before reconnect...");
+            // Disconnect from Discord
+            await _client.StopAsync();
+            await _client.LogoutAsync();
 
-        // Brief delay to ensure clean disconnect
-        await Task.Delay(2000, cancellationToken);
+            _logger.LogInformation("Bot disconnected, waiting before reconnect...");
 
-        // Reconnect
-        await _client.LoginAsync(TokenType.Bot, _config.Token);
-        await _client.StartAsync();
+            // Brief delay to ensure clean disconnect
+            await Task.Delay(2000, cancellationToken);
 
-        _logger.LogInformation("Bot reconnected successfully");
+            // Reconnect
+            await _client.LoginAsync(TokenType.Bot, _config.Token);
+            await _client.StartAsync();
 
-        // Broadcast updated bot status after restart (fire-and-forget, failure tolerant)
-        _ = BroadcastBotStatusAsync();
+            _logger.LogInformation("Bot reconnected successfully");
+
+            // Broadcast updated bot status after restart (fire-and-forget, failure tolerant)
+            _ = BroadcastBotStatusAsync();
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public Task ShutdownAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogWarning("Shutdown requested via API");
-        _lifetime.StopApplication();
-        _logger.LogInformation("Application shutdown initiated");
-        return Task.CompletedTask;
+        using var activity = BotActivitySource.StartServiceActivity(
+            "bot",
+            "shutdown");
+
+        try
+        {
+            _logger.LogWarning("Shutdown requested via API");
+            _lifetime.StopApplication();
+            _logger.LogInformation("Application shutdown initiated");
+
+            BotActivitySource.SetSuccess(activity);
+            return Task.CompletedTask;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <inheritdoc/>
     public BotConfigurationDto GetConfiguration()
     {
-        _logger.LogDebug("Retrieving bot configuration");
+        using var activity = BotActivitySource.StartServiceActivity(
+            "bot",
+            "get_configuration");
 
-        var token = _config.Token ?? string.Empty;
-        var maskedToken = token.Length > 4
-            ? $"{new string('\u2022', 20)}{token[^4..]}"
-            : new string('\u2022', 24);
-
-        // Get Discord.NET version
-        var discordNetVersion = typeof(DiscordSocketClient).Assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? typeof(DiscordSocketClient).Assembly.GetName().Version?.ToString()
-            ?? "Unknown";
-
-        // Get application version
-        var appVersion = Assembly.GetEntryAssembly()
-            ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-            ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
-            ?? "Unknown";
-
-        return new BotConfigurationDto
+        try
         {
-            TokenMasked = maskedToken,
-            TestGuildId = _config.TestGuildId,
-            HasTestGuild = _config.TestGuildId.HasValue,
-            DatabaseProvider = "SQLite", // TODO: Get from actual configuration
-            DiscordNetVersion = discordNetVersion,
-            AppVersion = appVersion,
-            RuntimeVersion = Environment.Version.ToString(),
-            DefaultRateLimitInvokes = _config.DefaultRateLimitInvokes,
-            DefaultRateLimitPeriodSeconds = _config.DefaultRateLimitPeriodSeconds
-        };
+            _logger.LogDebug("Retrieving bot configuration");
+
+            var token = _config.Token ?? string.Empty;
+            var maskedToken = token.Length > 4
+                ? $"{new string('\u2022', 20)}{token[^4..]}"
+                : new string('\u2022', 24);
+
+            // Get Discord.NET version
+            var discordNetVersion = typeof(DiscordSocketClient).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? typeof(DiscordSocketClient).Assembly.GetName().Version?.ToString()
+                ?? "Unknown";
+
+            // Get application version
+            var appVersion = Assembly.GetEntryAssembly()
+                ?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                ?? Assembly.GetEntryAssembly()?.GetName().Version?.ToString()
+                ?? "Unknown";
+
+            var configuration = new BotConfigurationDto
+            {
+                TokenMasked = maskedToken,
+                TestGuildId = _config.TestGuildId,
+                HasTestGuild = _config.TestGuildId.HasValue,
+                DatabaseProvider = "SQLite", // TODO: Get from actual configuration
+                DiscordNetVersion = discordNetVersion,
+                AppVersion = appVersion,
+                RuntimeVersion = Environment.Version.ToString(),
+                DefaultRateLimitInvokes = _config.DefaultRateLimitInvokes,
+                DefaultRateLimitPeriodSeconds = _config.DefaultRateLimitPeriodSeconds
+            };
+
+            BotActivitySource.SetSuccess(activity);
+            return configuration;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
