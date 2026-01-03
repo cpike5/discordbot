@@ -2,6 +2,7 @@
 @model DiscordBot.Bot.Pages.Admin.Performance.AlertsModel
 @using DiscordBot.Core.Enums
 @using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Alerts & Incidents";
     ViewData["Breadcrumbs"] = new List<(string Text, string? Url)>
@@ -103,9 +104,13 @@
         {
             <form method="post" asp-page-handler="AcknowledgeAll">
                 @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-sm btn-secondary">
-                    Acknowledge All
-                </button>
+                @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+                {
+                    Text = "Acknowledge All",
+                    Type = "submit",
+                    Variant = ButtonVariant.Secondary,
+                    Size = ButtonSize.Small
+                })
             </form>
         }
     </div>
@@ -162,7 +167,13 @@
                             <div class="alert-actions flex items-center gap-2">
                                 <form method="post" asp-page-handler="Acknowledge" asp-route-id="@incident.Id">
                                     @Html.AntiForgeryToken()
-                                    <button type="submit" class="btn btn-sm btn-secondary">Acknowledge</button>
+                                    @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+                                    {
+                                        Text = "Acknowledge",
+                                        Type = "submit",
+                                        Variant = ButtonVariant.Secondary,
+                                        Size = ButtonSize.Small
+                                    })
                                 </form>
                             </div>
                         }
@@ -192,16 +203,19 @@
         </div>
         @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
         {
-            <button id="saveConfigBtn"
-                    type="button"
-                    onclick="saveConfigChanges()"
-                    class="btn btn-primary hidden"
-                    style="display: none;">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                </svg>
-                Save Changes
-            </button>
+            @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+            {
+                Text = "Save Changes",
+                Type = "button",
+                Variant = ButtonVariant.Primary,
+                OnClick = "saveConfigChanges()",
+                IconLeft = "M5 13l4 4L19 7",
+                AdditionalAttributes = new Dictionary<string, string>
+                {
+                    { "id", "saveConfigBtn" },
+                    { "style", "display: none;" }
+                }
+            })
         }
     </div>
     <div class="overflow-x-auto">
