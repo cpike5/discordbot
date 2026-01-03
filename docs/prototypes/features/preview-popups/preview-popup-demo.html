@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User and Guild Preview Popups - Discord Bot Admin</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../../css/main.css">
+
+    <!-- Tailwind CSS CDN with shared config -->
+    <script src="../../css/tailwind.config.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = window.tailwindConfig;</script>
+
+    <style>
+        /* Preview Popup Animations */
+        .preview-popup {
+            opacity: 0;
+            transform: translateY(-4px) scale(0.98);
+            pointer-events: none;
+            transition: opacity 150ms ease-out, transform 150ms ease-out;
+        }
+
+        .preview-popup.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        /* Skeleton loading animation */
+        @keyframes skeleton-pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.7; }
+        }
+
+        .skeleton-animate {
+            animation: skeleton-pulse 1.5s ease-in-out infinite;
+        }
+
+        /* Preview trigger styling */
+        .preview-trigger {
+            cursor: pointer;
+            border-bottom: 1px dashed transparent;
+            transition: border-color 150ms ease-out;
+        }
+
+        .preview-trigger:hover,
+        .preview-trigger:focus {
+            border-bottom-color: var(--color-accent-blue);
+        }
+
+        /* Badge styles for features */
+        .feature-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.125rem 0.5rem;
+            font-size: 0.625rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-bg-secondary border-b border-border-primary sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg bg-accent-orange flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-text-primary">Preview Popups</h1>
+                        <p class="text-sm text-text-secondary">User and Guild Profile Preview Demo</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-xs text-text-tertiary">Issue #671</span>
+                    <a href="../../component-showcase.html" class="px-3 py-1.5 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                        Back to Showcase
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Introduction -->
+        <section class="mb-8">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-2">Preview Popup Feature</h2>
+                <p class="text-text-secondary mb-4">
+                    Hover over or click usernames and guild names throughout the admin UI to see quick profile previews.
+                    This provides context without navigating away from the current page.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-info-bg text-info border border-info-border rounded-full">
+                        <span class="w-1.5 h-1.5 bg-info rounded-full"></span>
+                        300ms Hover Delay
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-success-bg text-success border border-success-border rounded-full">
+                        <span class="w-1.5 h-1.5 bg-success rounded-full"></span>
+                        Click for Mobile
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium bg-accent-orange-muted text-accent-orange border border-accent-orange/30 rounded-full">
+                        <span class="w-1.5 h-1.5 bg-accent-orange rounded-full"></span>
+                        Keyboard Accessible
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Demo Section: Command Logs Table -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Command Logs (User Popups)</h2>
+            <p class="text-sm text-text-secondary mb-4">Hover over usernames to see their profile preview.</p>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <table class="w-full">
+                    <thead class="bg-bg-primary/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Command</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Guild</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Executed</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        <tr class="hover:bg-bg-hover transition-colors">
+                            <td class="px-4 py-3 text-sm text-text-primary font-mono">/rat-stats</td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="preview-trigger text-accent-blue hover:text-accent-blue-hover"
+                                      data-preview-type="user"
+                                      data-user-id="123456789012345678"
+                                      tabindex="0"
+                                      role="button"
+                                      aria-haspopup="dialog"
+                                      aria-expanded="false">
+                                    JohnDoe#1234
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="preview-trigger text-text-primary hover:text-accent-blue"
+                                      data-preview-type="guild"
+                                      data-guild-id="987654321098765432"
+                                      tabindex="0"
+                                      role="button"
+                                      aria-haspopup="dialog"
+                                      aria-expanded="false">
+                                    Gaming Hub
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-text-secondary" data-utc="2026-01-03T14:32:00Z"></td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success-bg text-success rounded-full">Success</span>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-bg-hover transition-colors">
+                            <td class="px-4 py-3 text-sm text-text-primary font-mono">/warn</td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="preview-trigger text-accent-blue hover:text-accent-blue-hover"
+                                      data-preview-type="user"
+                                      data-user-id="234567890123456789"
+                                      tabindex="0"
+                                      role="button"
+                                      aria-haspopup="dialog"
+                                      aria-expanded="false">
+                                    ModeratorMike#5678
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="preview-trigger text-text-primary hover:text-accent-blue"
+                                      data-preview-type="guild"
+                                      data-guild-id="876543210987654321"
+                                      tabindex="0"
+                                      role="button"
+                                      aria-haspopup="dialog"
+                                      aria-expanded="false">
+                                    Tech Community
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-text-secondary" data-utc="2026-01-03T13:15:00Z"></td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success-bg text-success rounded-full">Success</span>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-bg-hover transition-colors">
+                            <td class="px-4 py-3 text-sm text-text-primary font-mono">/schedule-message</td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="preview-trigger text-accent-blue hover:text-accent-blue-hover"
+                                      data-preview-type="user"
+                                      data-user-id="345678901234567890"
+                                      tabindex="0"
+                                      role="button"
+                                      aria-haspopup="dialog"
+                                      aria-expanded="false">
+                                    AdminAlice#9012
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="preview-trigger text-text-primary hover:text-accent-blue"
+                                      data-preview-type="guild"
+                                      data-guild-id="765432109876543210"
+                                      tabindex="0"
+                                      role="button"
+                                      aria-haspopup="dialog"
+                                      aria-expanded="false">
+                                    Art Gallery
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-text-secondary" data-utc="2026-01-03T11:45:00Z"></td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-error-bg text-error rounded-full">Failed</span>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-bg-hover transition-colors">
+                            <td class="px-4 py-3 text-sm text-text-primary font-mono">/ping</td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="preview-trigger text-accent-blue hover:text-accent-blue-hover"
+                                      data-preview-type="user"
+                                      data-user-id="notfound"
+                                      tabindex="0"
+                                      role="button"
+                                      aria-haspopup="dialog"
+                                      aria-expanded="false">
+                                    DeletedUser#0000
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm">
+                                <span class="preview-trigger text-text-primary hover:text-accent-blue"
+                                      data-preview-type="guild"
+                                      data-guild-id="987654321098765432"
+                                      tabindex="0"
+                                      role="button"
+                                      aria-haspopup="dialog"
+                                      aria-expanded="false">
+                                    Gaming Hub
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-text-secondary" data-utc="2026-01-03T09:20:00Z"></td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success-bg text-success rounded-full">Success</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Demo Section: Guild List -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Connected Guilds (Guild Popups)</h2>
+            <p class="text-sm text-text-secondary mb-4">Hover over guild names to see their profile preview.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Guild Card 1 -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Gaming Hub" class="w-12 h-12 rounded-full" />
+                        <div>
+                            <h3 class="preview-trigger text-text-primary font-semibold hover:text-accent-blue"
+                                data-preview-type="guild"
+                                data-guild-id="987654321098765432"
+                                tabindex="0"
+                                role="button"
+                                aria-haspopup="dialog"
+                                aria-expanded="false">
+                                Gaming Hub
+                            </h3>
+                            <p class="text-xs text-text-tertiary">1,234 members</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success-bg text-success rounded-full">Online</span>
+                        <span class="text-xs text-text-tertiary">Bot joined: Mar 2024</span>
+                    </div>
+                </div>
+
+                <!-- Guild Card 2 -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="Tech Community" class="w-12 h-12 rounded-full" />
+                        <div>
+                            <h3 class="preview-trigger text-text-primary font-semibold hover:text-accent-blue"
+                                data-preview-type="guild"
+                                data-guild-id="876543210987654321"
+                                tabindex="0"
+                                role="button"
+                                aria-haspopup="dialog"
+                                aria-expanded="false">
+                                Tech Community
+                            </h3>
+                            <p class="text-xs text-text-tertiary">567 members</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-success-bg text-success rounded-full">Online</span>
+                        <span class="text-xs text-text-tertiary">Bot joined: Jan 2024</span>
+                    </div>
+                </div>
+
+                <!-- Guild Card 3 -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <img src="https://cdn.discordapp.com/embed/avatars/2.png" alt="Art Gallery" class="w-12 h-12 rounded-full" />
+                        <div>
+                            <h3 class="preview-trigger text-text-primary font-semibold hover:text-accent-blue"
+                                data-preview-type="guild"
+                                data-guild-id="765432109876543210"
+                                tabindex="0"
+                                role="button"
+                                aria-haspopup="dialog"
+                                aria-expanded="false">
+                                Art Gallery
+                            </h3>
+                            <p class="text-xs text-text-tertiary">892 members</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-warning-bg text-warning rounded-full">Partial</span>
+                        <span class="text-xs text-text-tertiary">Bot joined: Jun 2024</span>
+                    </div>
+                </div>
+
+                <!-- Guild Card 4 - Not Found Example -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-12 h-12 rounded-full bg-bg-tertiary flex items-center justify-center">
+                            <svg class="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="preview-trigger text-text-primary font-semibold hover:text-accent-blue"
+                                data-preview-type="guild"
+                                data-guild-id="notfound"
+                                tabindex="0"
+                                role="button"
+                                aria-haspopup="dialog"
+                                aria-expanded="false">
+                                Unknown Server
+                            </h3>
+                            <p class="text-xs text-text-tertiary">? members</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-error-bg text-error rounded-full">Unavailable</span>
+                        <span class="text-xs text-text-tertiary">Error state demo</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- States Demo Section -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Popup States</h2>
+            <p class="text-sm text-text-secondary mb-4">View different states of the preview popups.</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Loading State -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-primary/50">
+                        <h3 class="text-sm font-semibold text-text-primary">Loading State</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 w-72 shadow-xl">
+                            <!-- Skeleton Header -->
+                            <div class="flex items-center gap-3 pb-3 border-b border-border-secondary">
+                                <div class="w-12 h-12 rounded-full bg-bg-hover skeleton-animate"></div>
+                                <div class="flex-1">
+                                    <div class="h-4 w-24 bg-bg-hover rounded skeleton-animate mb-2"></div>
+                                    <div class="h-3 w-16 bg-bg-hover rounded skeleton-animate"></div>
+                                </div>
+                            </div>
+                            <!-- Skeleton Body -->
+                            <div class="pt-3 space-y-2">
+                                <div class="h-3 w-full bg-bg-hover rounded skeleton-animate"></div>
+                                <div class="h-3 w-3/4 bg-bg-hover rounded skeleton-animate"></div>
+                                <div class="h-3 w-1/2 bg-bg-hover rounded skeleton-animate"></div>
+                            </div>
+                            <!-- Skeleton Actions -->
+                            <div class="flex gap-2 pt-3 mt-3 border-t border-border-secondary">
+                                <div class="h-7 flex-1 bg-bg-hover rounded skeleton-animate"></div>
+                                <div class="h-7 flex-1 bg-bg-hover rounded skeleton-animate"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Normal User State -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-primary/50">
+                        <h3 class="text-sm font-semibold text-text-primary">User Popup (Normal)</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="bg-bg-tertiary border border-border-primary rounded-lg w-72 shadow-xl overflow-hidden">
+                            <!-- Header -->
+                            <div class="flex items-center gap-3 p-4 border-b border-border-secondary">
+                                <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="JohnDoe" class="w-12 h-12 rounded-full" />
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-text-primary truncate">JohnDoe#1234</p>
+                                    <p class="text-xs text-text-secondary truncate">@johndoe</p>
+                                </div>
+                            </div>
+                            <!-- Body -->
+                            <div class="p-4 space-y-2 text-xs">
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">Member since</span>
+                                    <span class="text-text-secondary">Jan 2024</span>
+                                </div>
+                                <div class="flex justify-between items-start">
+                                    <span class="text-text-tertiary">Roles</span>
+                                    <div class="flex flex-wrap gap-1 justify-end max-w-[140px]">
+                                        <span class="px-1.5 py-0.5 text-[10px] font-medium bg-error text-white rounded">Admin</span>
+                                        <span class="px-1.5 py-0.5 text-[10px] font-medium bg-accent-blue text-white rounded">Mod</span>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">Last active</span>
+                                    <span class="text-text-secondary">2 hours ago</span>
+                                </div>
+                            </div>
+                            <!-- Actions -->
+                            <div class="flex gap-2 p-3 border-t border-border-secondary bg-bg-secondary">
+                                <button class="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors">
+                                    View Profile
+                                </button>
+                                <button class="flex-1 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors">
+                                    Mod History
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-primary/50">
+                        <h3 class="text-sm font-semibold text-text-primary">Error State</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 w-72 shadow-xl">
+                            <div class="text-center py-4">
+                                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-error-bg flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                </div>
+                                <p class="text-sm font-medium text-text-primary mb-1">User Not Found</p>
+                                <p class="text-xs text-text-tertiary">This user may have been deleted or is unavailable.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Guild Popup States -->
+        <section class="mb-12">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Popup States</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Normal Guild State -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-primary/50">
+                        <h3 class="text-sm font-semibold text-text-primary">Guild Popup (Normal)</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="bg-bg-tertiary border border-border-primary rounded-lg w-80 shadow-xl overflow-hidden">
+                            <!-- Header -->
+                            <div class="flex items-center gap-3 p-4 border-b border-border-secondary">
+                                <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Gaming Hub" class="w-14 h-14 rounded-full" />
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-text-primary truncate">Gaming Hub</p>
+                                    <p class="text-xs text-text-secondary">1,234 members</p>
+                                </div>
+                            </div>
+                            <!-- Body -->
+                            <div class="p-4 space-y-2 text-xs">
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">Owner</span>
+                                    <span class="text-accent-blue">ServerOwner#0001</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">Bot joined</span>
+                                    <span class="text-text-secondary">Mar 15, 2024</span>
+                                </div>
+                                <div class="flex justify-between items-start">
+                                    <span class="text-text-tertiary">Features</span>
+                                    <div class="flex flex-wrap gap-1 justify-end max-w-[180px]">
+                                        <span class="feature-badge bg-accent-orange-muted text-accent-orange">Moderation</span>
+                                        <span class="feature-badge bg-success-bg text-success">Rat Watch</span>
+                                        <span class="feature-badge bg-accent-blue-muted text-accent-blue">Welcome</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Actions -->
+                            <div class="flex gap-2 p-3 border-t border-border-secondary bg-bg-secondary">
+                                <button class="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors">
+                                    View Guild
+                                </button>
+                                <button class="flex-1 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors">
+                                    Settings
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Guild Error State -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-border-primary bg-bg-primary/50">
+                        <h3 class="text-sm font-semibold text-text-primary">Guild Popup (Error)</h3>
+                    </div>
+                    <div class="p-4">
+                        <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 w-80 shadow-xl">
+                            <div class="text-center py-4">
+                                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-error-bg flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                    </svg>
+                                </div>
+                                <p class="text-sm font-medium text-text-primary mb-1">Guild Unavailable</p>
+                                <p class="text-xs text-text-tertiary">The bot may have been removed from this server or the server was deleted.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Implementation Notes -->
+        <section class="mb-8">
+            <h2 class="text-lg font-semibold text-text-primary mb-4">Implementation Notes</h2>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-sm font-semibold text-text-primary mb-3">Behavior</h3>
+                        <ul class="space-y-2 text-sm text-text-secondary">
+                            <li class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                300ms hover delay before showing popup
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                100ms delay before hiding (allows moving to popup)
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Click toggle for touch devices
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Smart viewport edge detection
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-text-primary mb-3">Accessibility</h3>
+                        <ul class="space-y-2 text-sm text-text-secondary">
+                            <li class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Focus triggers popup (keyboard users)
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Escape key dismisses popup
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                ARIA attributes (role, aria-haspopup, aria-expanded)
+                            </li>
+                            <li class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Focus trapping inside popup content
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="pt-8 border-t border-border-primary">
+            <div class="flex items-center justify-between text-sm text-text-tertiary">
+                <p>Discord Bot Admin UI - Preview Popups Prototype</p>
+                <p>Issue #671</p>
+            </div>
+        </footer>
+
+    </main>
+
+    <!-- User Preview Popup Template (hidden, cloned for actual use) -->
+    <div id="userPopupTemplate" class="hidden">
+        <div class="preview-popup fixed z-[1100] bg-bg-tertiary border border-border-primary rounded-lg w-72 shadow-xl overflow-hidden"
+             role="dialog"
+             aria-labelledby="popupUserName">
+            <!-- Content will be injected dynamically -->
+        </div>
+    </div>
+
+    <!-- Guild Preview Popup Template (hidden, cloned for actual use) -->
+    <div id="guildPopupTemplate" class="hidden">
+        <div class="preview-popup fixed z-[1100] bg-bg-tertiary border border-border-primary rounded-lg w-80 shadow-xl overflow-hidden"
+             role="dialog"
+             aria-labelledby="popupGuildName">
+            <!-- Content will be injected dynamically -->
+        </div>
+    </div>
+
+    <!-- Active Popup Container -->
+    <div id="popupContainer"></div>
+
+    <script>
+        // Mock data for users
+        const mockUsers = {
+            '123456789012345678': {
+                id: '123456789012345678',
+                username: 'JohnDoe#1234',
+                displayName: '@johndoe',
+                avatar: 'https://cdn.discordapp.com/embed/avatars/0.png',
+                memberSince: 'Jan 2024',
+                roles: [
+                    { name: 'Admin', color: '#ef4444' },
+                    { name: 'Moderator', color: '#098ecf' }
+                ],
+                lastActive: '2 hours ago'
+            },
+            '234567890123456789': {
+                id: '234567890123456789',
+                username: 'ModeratorMike#5678',
+                displayName: '@modmike',
+                avatar: 'https://cdn.discordapp.com/embed/avatars/1.png',
+                memberSince: 'Mar 2023',
+                roles: [
+                    { name: 'Moderator', color: '#098ecf' }
+                ],
+                lastActive: '15 minutes ago'
+            },
+            '345678901234567890': {
+                id: '345678901234567890',
+                username: 'AdminAlice#9012',
+                displayName: '@alice_admin',
+                avatar: 'https://cdn.discordapp.com/embed/avatars/2.png',
+                memberSince: 'Dec 2022',
+                roles: [
+                    { name: 'Admin', color: '#ef4444' },
+                    { name: 'Support', color: '#10b981' }
+                ],
+                lastActive: '1 day ago'
+            }
+        };
+
+        // Mock data for guilds
+        const mockGuilds = {
+            '987654321098765432': {
+                id: '987654321098765432',
+                name: 'Gaming Hub',
+                icon: 'https://cdn.discordapp.com/embed/avatars/0.png',
+                memberCount: '1,234',
+                owner: 'ServerOwner#0001',
+                botJoined: 'Mar 15, 2024',
+                features: [
+                    { name: 'Moderation', type: 'orange' },
+                    { name: 'Rat Watch', type: 'success' },
+                    { name: 'Welcome', type: 'blue' }
+                ]
+            },
+            '876543210987654321': {
+                id: '876543210987654321',
+                name: 'Tech Community',
+                icon: 'https://cdn.discordapp.com/embed/avatars/1.png',
+                memberCount: '567',
+                owner: 'TechAdmin#0002',
+                botJoined: 'Jan 10, 2024',
+                features: [
+                    { name: 'Moderation', type: 'orange' },
+                    { name: 'Scheduled', type: 'blue' }
+                ]
+            },
+            '765432109876543210': {
+                id: '765432109876543210',
+                name: 'Art Gallery',
+                icon: 'https://cdn.discordapp.com/embed/avatars/2.png',
+                memberCount: '892',
+                owner: 'ArtMaster#0003',
+                botJoined: 'Jun 22, 2024',
+                features: [
+                    { name: 'Welcome', type: 'blue' }
+                ]
+            }
+        };
+
+        // Preview popup manager
+        class PreviewPopupManager {
+            constructor() {
+                this.activePopup = null;
+                this.activeTrigger = null;
+                this.showTimeout = null;
+                this.hideTimeout = null;
+                this.SHOW_DELAY = 300;
+                this.HIDE_DELAY = 100;
+
+                this.init();
+            }
+
+            init() {
+                // Find all preview triggers
+                const triggers = document.querySelectorAll('.preview-trigger');
+
+                triggers.forEach(trigger => {
+                    // Mouse events
+                    trigger.addEventListener('mouseenter', (e) => this.handleMouseEnter(e));
+                    trigger.addEventListener('mouseleave', (e) => this.handleMouseLeave(e));
+
+                    // Click event (mobile support)
+                    trigger.addEventListener('click', (e) => this.handleClick(e));
+
+                    // Keyboard events
+                    trigger.addEventListener('focus', (e) => this.handleFocus(e));
+                    trigger.addEventListener('blur', (e) => this.handleBlur(e));
+                    trigger.addEventListener('keydown', (e) => this.handleKeyDown(e));
+                });
+
+                // Global escape key handler
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && this.activePopup) {
+                        this.hidePopup();
+                    }
+                });
+
+                // Click outside to close
+                document.addEventListener('click', (e) => {
+                    if (this.activePopup &&
+                        !this.activePopup.contains(e.target) &&
+                        !e.target.closest('.preview-trigger')) {
+                        this.hidePopup();
+                    }
+                });
+            }
+
+            handleMouseEnter(e) {
+                clearTimeout(this.hideTimeout);
+                this.showTimeout = setTimeout(() => {
+                    this.showPopup(e.target);
+                }, this.SHOW_DELAY);
+            }
+
+            handleMouseLeave(e) {
+                clearTimeout(this.showTimeout);
+                this.hideTimeout = setTimeout(() => {
+                    // Check if mouse moved to popup
+                    if (!this.isMouseOverPopup()) {
+                        this.hidePopup();
+                    }
+                }, this.HIDE_DELAY);
+            }
+
+            handleClick(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (this.activeTrigger === e.target && this.activePopup) {
+                    this.hidePopup();
+                } else {
+                    clearTimeout(this.showTimeout);
+                    this.showPopup(e.target);
+                }
+            }
+
+            handleFocus(e) {
+                clearTimeout(this.hideTimeout);
+                this.showTimeout = setTimeout(() => {
+                    this.showPopup(e.target);
+                }, this.SHOW_DELAY);
+            }
+
+            handleBlur(e) {
+                clearTimeout(this.showTimeout);
+                // Small delay to allow clicking buttons in popup
+                this.hideTimeout = setTimeout(() => {
+                    if (!this.activePopup?.contains(document.activeElement)) {
+                        this.hidePopup();
+                    }
+                }, 150);
+            }
+
+            handleKeyDown(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.handleClick(e);
+                }
+            }
+
+            isMouseOverPopup() {
+                if (!this.activePopup) return false;
+                const rect = this.activePopup.getBoundingClientRect();
+                const mousePos = this._lastMousePosition || { x: 0, y: 0 };
+                return mousePos.x >= rect.left && mousePos.x <= rect.right &&
+                       mousePos.y >= rect.top && mousePos.y <= rect.bottom;
+            }
+
+            async showPopup(trigger) {
+                // Hide existing popup if any
+                if (this.activePopup) {
+                    this.hidePopup();
+                }
+
+                this.activeTrigger = trigger;
+                const type = trigger.dataset.previewType;
+                const id = type === 'user' ? trigger.dataset.userId : trigger.dataset.guildId;
+
+                // Create and position popup
+                const popup = this.createPopup(type);
+                document.getElementById('popupContainer').appendChild(popup);
+                this.activePopup = popup;
+
+                // Position the popup
+                this.positionPopup(trigger, popup);
+
+                // Show loading state
+                this.showLoadingState(popup, type);
+
+                // Make visible
+                requestAnimationFrame(() => {
+                    popup.classList.add('visible');
+                });
+
+                // Update ARIA
+                trigger.setAttribute('aria-expanded', 'true');
+
+                // Add mouseenter/mouseleave to popup
+                popup.addEventListener('mouseenter', () => {
+                    clearTimeout(this.hideTimeout);
+                });
+                popup.addEventListener('mouseleave', () => {
+                    this.hideTimeout = setTimeout(() => {
+                        this.hidePopup();
+                    }, this.HIDE_DELAY);
+                });
+
+                // Simulate API fetch with delay
+                await this.simulateFetch(500);
+
+                // Load data
+                const data = type === 'user' ? mockUsers[id] : mockGuilds[id];
+
+                if (data) {
+                    this.showContent(popup, type, data);
+                } else {
+                    this.showErrorState(popup, type);
+                }
+            }
+
+            hidePopup() {
+                if (this.activePopup) {
+                    this.activePopup.classList.remove('visible');
+
+                    // Remove after animation
+                    setTimeout(() => {
+                        this.activePopup?.remove();
+                        this.activePopup = null;
+                    }, 150);
+                }
+
+                if (this.activeTrigger) {
+                    this.activeTrigger.setAttribute('aria-expanded', 'false');
+                    this.activeTrigger = null;
+                }
+            }
+
+            createPopup(type) {
+                const width = type === 'user' ? 'w-72' : 'w-80';
+                const popup = document.createElement('div');
+                popup.className = `preview-popup fixed z-[1100] bg-bg-tertiary border border-border-primary rounded-lg ${width} shadow-xl overflow-hidden`;
+                popup.setAttribute('role', 'dialog');
+                popup.setAttribute('aria-label', type === 'user' ? 'User preview' : 'Guild preview');
+                return popup;
+            }
+
+            positionPopup(trigger, popup) {
+                const triggerRect = trigger.getBoundingClientRect();
+                const popupWidth = popup.offsetWidth || (popup.classList.contains('w-80') ? 320 : 288);
+                const popupHeight = 200; // Approximate height
+
+                let left = triggerRect.left;
+                let top = triggerRect.bottom + 8;
+
+                // Check right edge
+                if (left + popupWidth > window.innerWidth - 16) {
+                    left = window.innerWidth - popupWidth - 16;
+                }
+
+                // Check left edge
+                if (left < 16) {
+                    left = 16;
+                }
+
+                // Check bottom edge - flip to top if needed
+                if (top + popupHeight > window.innerHeight - 16) {
+                    top = triggerRect.top - popupHeight - 8;
+                }
+
+                popup.style.left = `${left}px`;
+                popup.style.top = `${top}px`;
+            }
+
+            showLoadingState(popup, type) {
+                popup.innerHTML = `
+                    <div class="p-4">
+                        <div class="flex items-center gap-3 pb-3 border-b border-border-secondary">
+                            <div class="w-12 h-12 rounded-full bg-bg-hover skeleton-animate"></div>
+                            <div class="flex-1">
+                                <div class="h-4 w-24 bg-bg-hover rounded skeleton-animate mb-2"></div>
+                                <div class="h-3 w-16 bg-bg-hover rounded skeleton-animate"></div>
+                            </div>
+                        </div>
+                        <div class="pt-3 space-y-2">
+                            <div class="h-3 w-full bg-bg-hover rounded skeleton-animate"></div>
+                            <div class="h-3 w-3/4 bg-bg-hover rounded skeleton-animate"></div>
+                            <div class="h-3 w-1/2 bg-bg-hover rounded skeleton-animate"></div>
+                        </div>
+                        <div class="flex gap-2 pt-3 mt-3 border-t border-border-secondary">
+                            <div class="h-7 flex-1 bg-bg-hover rounded skeleton-animate"></div>
+                            <div class="h-7 flex-1 bg-bg-hover rounded skeleton-animate"></div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            showContent(popup, type, data) {
+                if (type === 'user') {
+                    this.showUserContent(popup, data);
+                } else {
+                    this.showGuildContent(popup, data);
+                }
+            }
+
+            showUserContent(popup, user) {
+                const rolesHtml = user.roles.map(role =>
+                    `<span class="px-1.5 py-0.5 text-[10px] font-medium text-white rounded" style="background-color: ${role.color}">${role.name}</span>`
+                ).join('');
+
+                popup.innerHTML = `
+                    <div class="flex items-center gap-3 p-4 border-b border-border-secondary">
+                        <img src="${user.avatar}" alt="${user.username}" class="w-12 h-12 rounded-full" />
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-text-primary truncate">${user.username}</p>
+                            <p class="text-xs text-text-secondary truncate">${user.displayName}</p>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-2 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-text-tertiary">Member since</span>
+                            <span class="text-text-secondary">${user.memberSince}</span>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <span class="text-text-tertiary">Roles</span>
+                            <div class="flex flex-wrap gap-1 justify-end max-w-[140px]">
+                                ${rolesHtml}
+                            </div>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-text-tertiary">Last active</span>
+                            <span class="text-text-secondary">${user.lastActive}</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 p-3 border-t border-border-secondary bg-bg-secondary">
+                        <button class="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors" onclick="alert('Navigate to user profile')">
+                            View Profile
+                        </button>
+                        <button class="flex-1 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors" onclick="alert('Navigate to mod history')">
+                            Mod History
+                        </button>
+                    </div>
+                `;
+            }
+
+            showGuildContent(popup, guild) {
+                const featureColors = {
+                    orange: 'bg-accent-orange-muted text-accent-orange',
+                    success: 'bg-success-bg text-success',
+                    blue: 'bg-accent-blue-muted text-accent-blue'
+                };
+
+                const featuresHtml = guild.features.map(feature =>
+                    `<span class="feature-badge ${featureColors[feature.type]}">${feature.name}</span>`
+                ).join('');
+
+                popup.innerHTML = `
+                    <div class="flex items-center gap-3 p-4 border-b border-border-secondary">
+                        <img src="${guild.icon}" alt="${guild.name}" class="w-14 h-14 rounded-full" />
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-text-primary truncate">${guild.name}</p>
+                            <p class="text-xs text-text-secondary">${guild.memberCount} members</p>
+                        </div>
+                    </div>
+                    <div class="p-4 space-y-2 text-xs">
+                        <div class="flex justify-between">
+                            <span class="text-text-tertiary">Owner</span>
+                            <span class="text-accent-blue">${guild.owner}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-text-tertiary">Bot joined</span>
+                            <span class="text-text-secondary">${guild.botJoined}</span>
+                        </div>
+                        <div class="flex justify-between items-start">
+                            <span class="text-text-tertiary">Features</span>
+                            <div class="flex flex-wrap gap-1 justify-end max-w-[180px]">
+                                ${featuresHtml}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 p-3 border-t border-border-secondary bg-bg-secondary">
+                        <button class="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors" onclick="alert('Navigate to guild details')">
+                            View Guild
+                        </button>
+                        <button class="flex-1 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors" onclick="alert('Navigate to guild settings')">
+                            Settings
+                        </button>
+                    </div>
+                `;
+            }
+
+            showErrorState(popup, type) {
+                const message = type === 'user'
+                    ? { title: 'User Not Found', description: 'This user may have been deleted or is unavailable.' }
+                    : { title: 'Guild Unavailable', description: 'The bot may have been removed from this server or the server was deleted.' };
+
+                popup.innerHTML = `
+                    <div class="p-4">
+                        <div class="text-center py-4">
+                            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-error-bg flex items-center justify-center">
+                                <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <p class="text-sm font-medium text-text-primary mb-1">${message.title}</p>
+                            <p class="text-xs text-text-tertiary">${message.description}</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            simulateFetch(delay) {
+                return new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+
+        // Format timestamps in local time
+        function formatTimestamps() {
+            document.querySelectorAll('[data-utc]').forEach(el => {
+                const utc = el.dataset.utc;
+                if (utc) {
+                    const date = new Date(utc);
+                    el.textContent = date.toLocaleString('en-US', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short'
+                    });
+                }
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            new PreviewPopupManager();
+            formatTimestamps();
+
+            // Track mouse position for popup detection
+            document.addEventListener('mousemove', (e) => {
+                window._lastMousePosition = { x: e.clientX, y: e.clientY };
+            });
+        });
+    </script>
+
+</body>
+</html>
