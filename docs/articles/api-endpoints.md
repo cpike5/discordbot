@@ -105,6 +105,10 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/moderation-config` | GET | Get moderation config |
 | `/api/guilds/{guildId}/moderation-config` | PUT | Update moderation config |
 | `/api/guilds/{guildId}/moderation-config/preset` | POST | Apply config preset |
+| `/api/autocomplete/users` | GET | Search users by username |
+| `/api/autocomplete/guilds` | GET | Search guilds by name |
+| `/api/autocomplete/channels` | GET | Search channels by name within a guild |
+| `/api/autocomplete/commands` | GET | Search registered commands by name |
 
 ---
 
@@ -6176,10 +6180,271 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/scheduled-mess
 
 ---
 
+## Autocomplete API
+
+The Autocomplete API provides search endpoints used by UI filter components to provide type-ahead suggestions. All endpoints return JSON arrays of suggestion objects.
+
+**Base Path:** `/api/autocomplete`
+
+**Authorization:** All endpoints require authentication (minimum Viewer role)
+
+**Common Response Format:**
+
+```json
+[
+  {
+    "id": "123456789012345678",
+    "displayText": "Display Name"
+  }
+]
+```
+
+---
+
+### GET /api/autocomplete/users
+
+Search for users by username in message logs.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `search` | string | Yes | Search term to match against usernames (min 1 character) |
+| `guildId` | ulong | No | Optional guild ID to filter results to a specific guild |
+
+**Example Request:**
+
+```bash
+GET /api/autocomplete/users?search=john
+GET /api/autocomplete/users?search=john&guildId=123456789012345678
+```
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": "123456789012345678",
+    "displayText": "JohnDoe"
+  },
+  {
+    "id": "234567890123456789",
+    "displayText": "Johnny123"
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Discord user ID (snowflake as string) |
+| `displayText` | string | Username to display |
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| 400 Bad Request | Search term is empty or whitespace |
+| 401 Unauthorized | Not authenticated |
+| 403 Forbidden | Insufficient permissions (requires Viewer role) |
+
+**Notes:**
+- Results are limited to 25 entries
+- Search is case-insensitive and matches partial usernames
+- Only returns users who have message log entries
+
+---
+
+### GET /api/autocomplete/guilds
+
+Search for guilds by name.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `search` | string | Yes | Search term to match against guild names |
+
+**Example Request:**
+
+```bash
+GET /api/autocomplete/guilds?search=gaming
+```
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": "123456789012345678",
+    "displayText": "Gaming Community"
+  },
+  {
+    "id": "234567890123456789",
+    "displayText": "Gaming Hub"
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Discord guild ID (snowflake as string) |
+| `displayText` | string | Guild name |
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| 400 Bad Request | Search term is empty or whitespace |
+| 401 Unauthorized | Not authenticated |
+| 403 Forbidden | Insufficient permissions (requires Viewer role) |
+
+**Notes:**
+- Results are limited to 25 entries
+- Search is case-insensitive and matches partial guild names
+- Only returns guilds stored in the database
+
+---
+
+### GET /api/autocomplete/channels
+
+Search for channels by name within a specific guild.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `search` | string | Yes | Search term to match against channel names |
+| `guildId` | ulong | Yes | Guild ID to search channels in |
+
+**Example Request:**
+
+```bash
+GET /api/autocomplete/channels?search=general&guildId=123456789012345678
+```
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": "111222333444555666",
+    "displayText": "general",
+    "channelType": "Text"
+  },
+  {
+    "id": "222333444555666777",
+    "displayText": "general-voice",
+    "channelType": "Voice"
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Discord channel ID (snowflake as string) |
+| `displayText` | string | Channel name |
+| `channelType` | string | Channel type: Text, Voice, News, Stage, Public Thread, Private Thread, Category |
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| 400 Bad Request | Search term is empty or guild ID not provided |
+| 401 Unauthorized | Not authenticated |
+| 403 Forbidden | Insufficient permissions (requires Viewer role) |
+| 404 Not Found | Guild not connected to the bot |
+
+**Notes:**
+- Results are limited to 25 entries
+- Search is case-insensitive and matches partial channel names
+- Results are sorted alphabetically by channel name
+- Returns text channels, voice channels, news channels, stage channels, and threads
+
+---
+
+### GET /api/autocomplete/commands
+
+Search for registered slash commands by name.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `search` | string | Yes | Search term to match against command names |
+
+**Example Request:**
+
+```bash
+GET /api/autocomplete/commands?search=ping
+```
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": "ping",
+    "displayText": "/ping - Check bot latency and response time"
+  },
+  {
+    "id": "admin ping",
+    "displayText": "/admin ping - Admin-only ping command"
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Full command name (e.g., "ping" or "admin info") |
+| `displayText` | string | Command name with description (e.g., "/ping - Description") |
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| 400 Bad Request | Search term is empty or whitespace |
+| 401 Unauthorized | Not authenticated |
+| 403 Forbidden | Insufficient permissions (requires Viewer role) |
+
+**Notes:**
+- Results are limited to 25 entries
+- Search is case-insensitive and matches partial command names
+- Includes subcommands (e.g., "admin info", "admin kick")
+- Results are sorted alphabetically by full command name
+
+---
+
+### Example: Search Users
+
+```bash
+curl -X GET "http://localhost:5000/api/autocomplete/users?search=john" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-token-here"
+```
+
+### Example: Search Channels in a Guild
+
+```bash
+curl -X GET "http://localhost:5000/api/autocomplete/channels?search=general&guildId=123456789012345678" \
+  -H "accept: application/json" \
+  -H "Authorization: Bearer your-token-here"
+```
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.5 | 2026-01-02 | Added Autocomplete API documentation (Issue #554) |
 | 1.4 | 2025-12-30 | Added Welcome, Scheduled Messages, and Audit Log endpoint documentation (Issue #308) |
 | 1.3 | 2025-12-24 | Added Message Log endpoints documentation (Issue #140) |
 | 1.2 | 2025-12-24 | Added `/metrics` endpoint documentation (Issue #104) |
@@ -6200,4 +6465,4 @@ curl -X POST "http://localhost:5000/api/guilds/123456789012345678/scheduled-mess
 
 ---
 
-*Last Updated: December 31, 2025*
+*Last Updated: January 2, 2026*

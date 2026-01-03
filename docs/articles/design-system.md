@@ -1,7 +1,7 @@
 # Discord Bot Admin UI - Design System
 
-**Version:** 1.3
-**Last Updated:** 2025-12-29
+**Version:** 1.4
+**Last Updated:** 2026-01-02
 **Target Framework:** .NET Blazor / HTML/CSS Prototypes
 
 ---
@@ -859,6 +859,87 @@ The floating label pattern provides a modern, space-efficient form design where 
   box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
 }
 ```
+
+#### Autocomplete Input
+
+The autocomplete input provides type-ahead search with dropdown suggestions. It extends the standard form input with a suggestion dropdown, loading state, and clear button.
+
+**Usage:** Filter inputs for users, guilds, channels, commands
+
+**Structure:**
+- Visible search input (`.form-input`)
+- Hidden input for selected value
+- Dropdown with suggestions
+- Clear button
+
+```html
+<div class="autocomplete-wrapper">
+  <input type="text" class="form-input" placeholder="Search..." />
+  <input type="hidden" name="userId" />
+  <!-- Dropdown and clear button created by JavaScript -->
+</div>
+```
+
+**Key CSS Classes:**
+
+| Class | Purpose |
+|-------|---------|
+| `.autocomplete-wrapper` | Container with relative positioning |
+| `.autocomplete-dropdown` | Positioned dropdown list |
+| `.autocomplete-dropdown.active` | Visible dropdown |
+| `.autocomplete-item` | Individual suggestion row |
+| `.autocomplete-item.selected` | Highlighted/focused item |
+| `.autocomplete-clear` | Clear selection button |
+| `.autocomplete-loading` | Loading spinner state |
+
+**States:**
+
+| State | Appearance |
+|-------|------------|
+| Default | Standard input with border |
+| Focus | Blue border with focus ring |
+| Loading | Spinner icon in input |
+| Open | Dropdown visible below input |
+| Selected Item | Blue background tint |
+| Hover Item | Darker background |
+
+**Styling (defined in site.css):**
+
+```css
+.autocomplete-dropdown {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  max-height: 20rem;
+  background-color: #2f3336;
+  border: 1px solid #3f4447;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: var(--z-popover);
+}
+
+.autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.autocomplete-item.selected {
+  background-color: rgba(9, 142, 207, 0.15);
+}
+```
+
+**Accessibility:**
+- `role="combobox"` on input
+- `role="listbox"` on dropdown
+- `aria-expanded`, `aria-activedescendant` for state
+- Full keyboard navigation (arrows, enter, escape)
+- Screen reader announcements for results
+
+See [Autocomplete Component](autocomplete-component.md) for complete implementation documentation.
 
 #### Checkbox and Radio
 
@@ -3018,6 +3099,14 @@ Start with mobile styles, then enhance for larger screens:
 ---
 
 ## Changelog
+
+### Version 1.4 (2026-01-02)
+- Added Autocomplete Input subsection to Form Inputs (Section 4)
+  - Documented autocomplete component structure and CSS classes
+  - Documented visual states (default, focus, loading, open)
+  - Documented accessibility features (ARIA, keyboard navigation)
+  - Linked to comprehensive [Autocomplete Component](autocomplete-component.md) documentation
+  - Related to Issue #554: Document autocomplete component and API endpoints
 
 ### Version 1.3 (2025-12-29)
 - Added Responsive Patterns section (Section 10)
