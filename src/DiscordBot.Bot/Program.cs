@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Bot.Services;
@@ -282,12 +283,14 @@ try
     // Add Performance Metrics services (latency, connection state, API tracking, database metrics)
     builder.Services.AddPerformanceMetrics(builder.Configuration);
 
-    // Add HttpClient for Discord API calls
+    // Add HttpClient for Discord API calls with tracing handler
+    builder.Services.AddTransient<DiscordApiTracingHandler>();
     builder.Services.AddHttpClient("Discord", client =>
     {
         client.BaseAddress = new Uri("https://discord.com/api/v10/");
         client.DefaultRequestHeaders.Add("User-Agent", "DiscordBot-Admin");
-    });
+    })
+    .AddHttpMessageHandler<DiscordApiTracingHandler>();
 
     // Add Web API services
     builder.Services.AddControllers();

@@ -87,6 +87,25 @@ public static class TracingConstants
         public const string ServiceEntityId = "service.entity.id";
         public const string ServiceRecordsReturned = "service.records.returned";
         public const string ServiceOperationSuccess = "service.operation.success";
+
+        // Discord API attributes
+        public const string DiscordApiEndpoint = "discord.api.endpoint";
+        public const string DiscordApiMethod = "discord.api.method";
+        public const string DiscordApiResponseStatus = "discord.api.response.status";
+        public const string DiscordApiErrorCode = "discord.api.error.code";
+        public const string DiscordApiErrorMessage = "discord.api.error.message";
+
+        // Discord API rate limit attributes
+        public const string DiscordApiRateLimitLimit = "discord.api.rate_limit.limit";
+        public const string DiscordApiRateLimitRemaining = "discord.api.rate_limit.remaining";
+        public const string DiscordApiRateLimitReset = "discord.api.rate_limit.reset";
+        public const string DiscordApiRateLimitResetAfter = "discord.api.rate_limit.reset_after";
+        public const string DiscordApiRateLimitBucket = "discord.api.rate_limit.bucket";
+        public const string DiscordApiRateLimitGlobal = "discord.api.rate_limit.global";
+
+        // Discord API retry attributes
+        public const string DiscordApiRetryAttempt = "discord.api.retry.attempt";
+        public const string DiscordApiRetryBackoffMs = "discord.api.retry.backoff_ms";
     }
 
     /// <summary>
@@ -132,6 +151,10 @@ public static class TracingConstants
         // Service operation span template
         // Format: service.{service_name}.{operation} e.g. service.guild.get_by_id
         public const string ServiceOperation = "service.{0}.{1}";
+
+        // Discord API spans
+        public const string DiscordApiRequest = "discord.api.{0} {1}";
+        public const string DiscordApiRetry = "discord.api.retry";
     }
 
     /// <summary>
