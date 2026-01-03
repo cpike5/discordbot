@@ -1,6 +1,6 @@
 # Changelog: v0.4.0 → v0.5.0
 
-**Release Date:** TBD (Development)
+**Release Date:** January 2, 2026
 **PRs Merged:** 63
 
 ---
