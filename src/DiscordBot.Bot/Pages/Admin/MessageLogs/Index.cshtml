@@ -1,7 +1,46 @@
 @page
 @model DiscordBot.Bot.Pages.Admin.MessageLogs.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Message Logs";
+
+    // Autocomplete view models for filter fields
+    var authorAutocomplete = new AutocompleteInputViewModel
+    {
+        Id = "AuthorId",
+        Name = "AuthorId",
+        Label = "User",
+        Placeholder = "Search by username...",
+        Endpoint = "/api/autocomplete/users",
+        InitialValue = Model.AuthorId?.ToString(),
+        InitialDisplayText = Model.AuthorUsername,
+        NoResultsMessage = "No users found"
+    };
+
+    var guildAutocomplete = new AutocompleteInputViewModel
+    {
+        Id = "GuildId",
+        Name = "GuildId",
+        Label = "Guild",
+        Placeholder = "Search by guild name...",
+        Endpoint = "/api/autocomplete/guilds",
+        InitialValue = Model.GuildId?.ToString(),
+        InitialDisplayText = Model.GuildName,
+        NoResultsMessage = "No guilds found"
+    };
+
+    var channelAutocomplete = new AutocompleteInputViewModel
+    {
+        Id = "ChannelId",
+        Name = "ChannelId",
+        Label = "Channel",
+        Placeholder = "Select a guild first...",
+        Endpoint = "/api/autocomplete/channels",
+        GuildIdSourceElement = "GuildId",
+        InitialValue = Model.ChannelId?.ToString(),
+        InitialDisplayText = Model.ChannelName,
+        NoResultsMessage = "No channels found"
+    };
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -25,47 +64,17 @@
             <h2 class="text-sm font-semibold text-text-primary">Filters</h2>
         </div>
 
-        <form method="get" class="space-y-4">
+        <form method="get" class="space-y-4" id="messageLogsFilterForm">
             <!-- Row 1: User ID, Guild ID, Channel ID -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- Author ID -->
-                <div>
-                    <label for="authorId" class="block text-sm font-medium text-text-primary mb-1">User ID</label>
-                    <input
-                        type="text"
-                        id="authorId"
-                        name="AuthorId"
-                        value="@Model.AuthorId"
-                        placeholder="Enter Discord User ID..."
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
-                    />
-                </div>
+                <partial name="Shared/Components/_AutocompleteInput" model="authorAutocomplete" />
 
                 <!-- Guild ID -->
-                <div>
-                    <label for="guildId" class="block text-sm font-medium text-text-primary mb-1">Guild ID</label>
-                    <input
-                        type="text"
-                        id="guildId"
-                        name="GuildId"
-                        value="@Model.GuildId"
-                        placeholder="Enter Guild ID..."
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
-                    />
-                </div>
+                <partial name="Shared/Components/_AutocompleteInput" model="guildAutocomplete" />
 
                 <!-- Channel ID -->
-                <div>
-                    <label for="channelId" class="block text-sm font-medium text-text-primary mb-1">Channel ID</label>
-                    <input
-                        type="text"
-                        id="channelId"
-                        name="ChannelId"
-                        value="@Model.ChannelId"
-                        placeholder="Enter Channel ID..."
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
-                    />
-                </div>
+                <partial name="Shared/Components/_AutocompleteInput" model="channelAutocomplete" />
             </div>
 
             <!-- Row 2: Date Range -->
@@ -303,3 +312,8 @@
         }
     </div>
 </div>
+
+@section Scripts {
+    <script src="~/js/autocomplete.js" asp-append-version="true"></script>
+    <script src="~/js/message-logs.js" asp-append-version="true"></script>
+}
