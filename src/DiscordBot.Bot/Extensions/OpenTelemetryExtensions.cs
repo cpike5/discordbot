@@ -1,5 +1,7 @@
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Configuration;
+using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -111,10 +113,22 @@ public static class OpenTelemetryExtensions
             ?? typeof(OpenTelemetryExtensions).Assembly
                 .GetName().Version?.ToString() ?? "1.0.0";
 
-        // Determine sampling ratio based on environment
+        // Configure sampling options
+        services.Configure<SamplingOptions>(
+            configuration.GetSection($"OpenTelemetry:Tracing:{SamplingOptions.SectionName}"));
+
+        // Determine if environment is production
         var isProduction = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production";
-        var samplingRatio = configuration.GetValue<double?>("OpenTelemetry:Tracing:SamplingRatio")
-            ?? (isProduction ? 0.1 : 1.0);
+
+        // Override default sampling rate based on environment if not explicitly configured
+        services.PostConfigure<SamplingOptions>(options =>
+        {
+            // If DefaultRate is still at default 0.1, set to 1.0 for non-production
+            if (!isProduction && Math.Abs(options.DefaultRate - 0.1) < 0.001)
+            {
+                options.DefaultRate = 1.0;
+            }
+        });
 
         var enableConsoleExporter = configuration.GetValue<bool>("OpenTelemetry:Tracing:EnableConsoleExporter");
         var otlpEndpoint = configuration["OpenTelemetry:Tracing:OtlpEndpoint"];
@@ -174,11 +188,14 @@ public static class OpenTelemetryExtensions
                     options.SetDbStatementForStoredProcedure = !isProduction;
                 });
 
-                // Configure sampler
-                if (samplingRatio < 1.0)
+                // Configure priority-based sampler
+                // The sampler is created via DI to access IOptions<SamplingOptions> and ILogger
+                tracing.SetSampler(sp =>
                 {
-                    tracing.SetSampler(new TraceIdRatioBasedSampler(samplingRatio));
-                }
+                    var samplingOptions = sp.GetRequiredService<IOptions<SamplingOptions>>();
+                    var logger = sp.GetRequiredService<ILogger<PrioritySampler>>();
+                    return new PrioritySampler(samplingOptions, logger);
+                });
 
                 // Add console exporter for development
                 if (enableConsoleExporter)
