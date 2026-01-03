@@ -157,8 +157,9 @@ public class ModTagService : IModTagService
             UserId = userId,
             TagId = tag.Id,
             AppliedByUserId = appliedById,
-            AppliedAt = DateTime.UtcNow,
-            Tag = tag
+            AppliedAt = DateTime.UtcNow
+            // Note: Do NOT set Tag navigation property here - it causes EF Core tracking
+            // errors when the tag's Guild is already tracked. The foreign key is sufficient.
         };
 
         await _userTagRepository.AddAsync(userTag, ct);
@@ -166,7 +167,7 @@ public class ModTagService : IModTagService
         _logger.LogInformation("Tag '{TagName}' applied successfully to user {UserId} in guild {GuildId}",
             tagName, userId, guildId);
 
-        return await MapUserTagToDtoAsync(userTag, ct);
+        return await MapUserTagToDtoAsync(userTag, tag, ct);
     }
 
     /// <inheritdoc/>
@@ -211,7 +212,7 @@ public class ModTagService : IModTagService
         var dtos = new List<UserModTagDto>();
         foreach (var userTag in userTagsList)
         {
-            dtos.Add(await MapUserTagToDtoAsync(userTag, ct));
+            dtos.Add(await MapUserTagToDtoAsync(userTag, null, ct));
         }
 
         _logger.LogDebug("Retrieved {Count} tags for user {UserId} in guild {GuildId}",
@@ -294,10 +295,16 @@ public class ModTagService : IModTagService
     /// <summary>
     /// Maps a UserModTag entity to a DTO with resolved usernames.
     /// </summary>
-    private async Task<UserModTagDto> MapUserTagToDtoAsync(UserModTag userTag, CancellationToken ct = default)
+    /// <param name="userTag">The user tag entity to map.</param>
+    /// <param name="tag">Optional tag entity to use if navigation property is not loaded.</param>
+    /// <param name="ct">Cancellation token.</param>
+    private async Task<UserModTagDto> MapUserTagToDtoAsync(UserModTag userTag, ModTag? tag = null, CancellationToken ct = default)
     {
         var username = await GetUsernameAsync(userTag.UserId);
         var appliedByUsername = await GetUsernameAsync(userTag.AppliedByUserId);
+
+        // Use provided tag or fall back to navigation property
+        var resolvedTag = tag ?? userTag.Tag;
 
         return new UserModTagDto
         {
@@ -306,9 +313,9 @@ public class ModTagService : IModTagService
             UserId = userTag.UserId,
             Username = username,
             TagId = userTag.TagId,
-            TagName = userTag.Tag?.Name ?? string.Empty,
-            TagColor = userTag.Tag?.Color ?? string.Empty,
-            TagCategory = userTag.Tag?.Category ?? default,
+            TagName = resolvedTag?.Name ?? string.Empty,
+            TagColor = resolvedTag?.Color ?? string.Empty,
+            TagCategory = resolvedTag?.Category ?? default,
             AppliedByUserId = userTag.AppliedByUserId,
             AppliedByUsername = appliedByUsername,
             AppliedAt = userTag.AppliedAt
