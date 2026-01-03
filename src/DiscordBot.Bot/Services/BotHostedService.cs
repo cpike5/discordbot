@@ -3,6 +3,7 @@ using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Metrics;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -96,63 +97,70 @@ public class BotHostedService : IHostedService
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting Discord bot hosted service");
-
-        // Wire Discord.NET logging to ILogger
-        _client.Log += LogDiscordMessageAsync;
-
-        // Wire connection state changes for dashboard updates
-        _client.Connected += OnConnectedAsync;
-        _client.Disconnected += OnDisconnectedAsync;
-        _client.LatencyUpdated += OnLatencyUpdatedAsync;
-
-        // Wire guild join/leave events to business metrics
-        _client.JoinedGuild += OnJoinedGuildAsync;
-        _client.LeftGuild += OnLeftGuildAsync;
-
-        // Wire message logging handler
-        _client.MessageReceived += _messageLoggingHandler.HandleMessageReceivedAsync;
-
-        // Wire auto-moderation handler for message and join monitoring
-        _client.MessageReceived += _autoModerationHandler.HandleMessageReceivedAsync;
-        _client.UserJoined += _autoModerationHandler.HandleUserJoinedAsync;
-
-        // Wire welcome handler for new member joins
-        _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
-
-        // Wire member event handlers for directory sync
-        _client.UserJoined += _memberEventHandler.HandleUserJoinedAsync;
-        _client.UserLeft += _memberEventHandler.HandleUserLeftAsync;
-        _client.GuildMemberUpdated += _memberEventHandler.HandleGuildMemberUpdatedAsync;
-
-        // Queue member sync for new guilds
-        _client.JoinedGuild += OnBotJoinedGuild;
-
-        // Subscribe to settings changes for real-time updates
-        _settingsService.SettingsChanged += OnSettingsChangedAsync;
-
-        // Subscribe to Rat Watch status updates
-        _ratWatchStatusService.StatusUpdateRequested += OnRatWatchStatusUpdateRequested;
-
-        // Register custom status source with CustomStatus priority
-        _botStatusService.RegisterStatusSource(
-            "CustomStatus",
-            StatusSourcePriority.CustomStatus,
-            GetCustomStatusAsync);
-
-        // Initialize interaction handler (discovers and registers commands)
-        await _interactionHandler.InitializeAsync();
-
-        // Validate token
-        if (string.IsNullOrWhiteSpace(_config.Token))
-        {
-            _logger.LogCritical("Discord bot token is missing in configuration. Please configure it via user secrets or appsettings.json");
-            _lifetime.StopApplication();
-            return;
-        }
+        using var activity = BotActivitySource.StartLifecycleActivity("startup");
 
         try
         {
+            _logger.LogInformation("Starting Discord bot hosted service");
+
+            // Wire Discord.NET logging to ILogger
+            _client.Log += LogDiscordMessageAsync;
+
+            // Wire connection state changes for dashboard updates
+            _client.Connected += OnConnectedAsync;
+            _client.Disconnected += OnDisconnectedAsync;
+            _client.LatencyUpdated += OnLatencyUpdatedAsync;
+
+            // Wire guild join/leave events to business metrics
+            _client.JoinedGuild += OnJoinedGuildAsync;
+            _client.LeftGuild += OnLeftGuildAsync;
+
+            // Wire message logging handler
+            _client.MessageReceived += _messageLoggingHandler.HandleMessageReceivedAsync;
+
+            // Wire auto-moderation handler for message and join monitoring
+            _client.MessageReceived += _autoModerationHandler.HandleMessageReceivedAsync;
+            _client.UserJoined += _autoModerationHandler.HandleUserJoinedAsync;
+
+            // Wire welcome handler for new member joins
+            _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
+
+            // Wire member event handlers for directory sync
+            _client.UserJoined += _memberEventHandler.HandleUserJoinedAsync;
+            _client.UserLeft += _memberEventHandler.HandleUserLeftAsync;
+            _client.GuildMemberUpdated += _memberEventHandler.HandleGuildMemberUpdatedAsync;
+
+            // Queue member sync for new guilds
+            _client.JoinedGuild += OnBotJoinedGuild;
+
+            // Subscribe to settings changes for real-time updates
+            _settingsService.SettingsChanged += OnSettingsChangedAsync;
+
+            // Subscribe to Rat Watch status updates
+            _ratWatchStatusService.StatusUpdateRequested += OnRatWatchStatusUpdateRequested;
+
+            // Register custom status source with CustomStatus priority
+            _botStatusService.RegisterStatusSource(
+                "CustomStatus",
+                StatusSourcePriority.CustomStatus,
+                GetCustomStatusAsync);
+
+            // Initialize interaction handler (discovers and registers commands)
+            await _interactionHandler.InitializeAsync();
+
+            // Validate token
+            if (string.IsNullOrWhiteSpace(_config.Token))
+            {
+                _logger.LogCritical("Discord bot token is missing in configuration. Please configure it via user secrets or appsettings.json");
+                activity?.SetTag(TracingConstants.Attributes.ErrorMessage, "Missing Discord token");
+                BotActivitySource.RecordException(activity, new InvalidOperationException("Discord bot token is missing"));
+                _lifetime.StopApplication();
+                return;
+            }
+
+            activity?.SetTag("bot.version", _applicationOptions.Version);
+            activity?.SetTag("bot.environment", _environment.EnvironmentName);
+
             // Login and start the bot
             await _client.LoginAsync(TokenType.Bot, _config.Token);
             await _client.StartAsync();
@@ -172,10 +180,13 @@ public class BotHostedService : IHostedService
                     StartTime = _startTime
                 })
             });
+
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
             _logger.LogCritical(ex, "Failed to start Discord bot");
+            BotActivitySource.RecordException(activity, ex);
             _lifetime.StopApplication();
         }
     }
@@ -186,12 +197,17 @@ public class BotHostedService : IHostedService
     /// </summary>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Stopping Discord bot hosted service");
-
-        var uptime = DateTime.UtcNow - _startTime;
+        using var activity = BotActivitySource.StartLifecycleActivity("shutdown");
 
         try
         {
+            _logger.LogInformation("Stopping Discord bot hosted service");
+
+            var uptime = DateTime.UtcNow - _startTime;
+
+            activity?.SetTag("bot.uptime_seconds", uptime.TotalSeconds);
+            activity?.SetTag("bot.shutdown_reason", "ApplicationStopping");
+
             // Unsubscribe from events
             _client.Connected -= OnConnectedAsync;
             _client.Disconnected -= OnDisconnectedAsync;
@@ -225,10 +241,12 @@ public class BotHostedService : IHostedService
             await _client.LogoutAsync();
 
             _logger.LogInformation("Discord bot stopped successfully");
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error occurred while stopping Discord bot");
+            BotActivitySource.RecordException(activity, ex);
         }
     }
 
@@ -269,30 +287,47 @@ public class BotHostedService : IHostedService
     /// </summary>
     private Task OnConnectedAsync()
     {
-        _logger.LogInformation("Bot connected to Discord");
+        using var activity = BotActivitySource.StartGatewayActivity(
+            TracingConstants.Spans.DiscordGatewayConnected,
+            latency: _client.Latency,
+            connectionState: _client.ConnectionState.ToString());
 
-        // Record connection state change for performance metrics
-        _connectionStateService?.RecordConnected();
-
-        // Check for active Rat Watches and set appropriate status (fire-and-forget)
-        // This prioritizes Rat Watch status over custom status
-        _ = ApplyStartupStatusAsync();
-
-        // Broadcast status update (fire-and-forget, failure tolerant)
-        _ = BroadcastBotStatusAsync();
-
-        // Log connection event to audit log (fire-and-forget)
-        _auditLogQueue.Enqueue(new AuditLogCreateDto
+        try
         {
-            Category = AuditLogCategory.System,
-            Action = AuditLogAction.BotConnected,
-            ActorType = AuditLogActorType.Bot,
-            Details = JsonSerializer.Serialize(new
+            _logger.LogInformation("Bot connected to Discord");
+
+            activity?.SetTag(TracingConstants.Attributes.GuildsCount, _client.Guilds.Count);
+
+            // Record connection state change for performance metrics
+            _connectionStateService?.RecordConnected();
+
+            // Check for active Rat Watches and set appropriate status (fire-and-forget)
+            // This prioritizes Rat Watch status over custom status
+            _ = ApplyStartupStatusAsync();
+
+            // Broadcast status update (fire-and-forget, failure tolerant)
+            _ = BroadcastBotStatusAsync();
+
+            // Log connection event to audit log (fire-and-forget)
+            _auditLogQueue.Enqueue(new AuditLogCreateDto
             {
-                Latency = _client.Latency,
-                GuildCount = _client.Guilds.Count
-            })
-        });
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.BotConnected,
+                ActorType = AuditLogActorType.Bot,
+                Details = JsonSerializer.Serialize(new
+                {
+                    Latency = _client.Latency,
+                    GuildCount = _client.Guilds.Count
+                })
+            });
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in OnConnectedAsync");
+            BotActivitySource.RecordException(activity, ex);
+        }
 
         return Task.CompletedTask;
     }
@@ -330,26 +365,45 @@ public class BotHostedService : IHostedService
     /// </summary>
     private Task OnDisconnectedAsync(Exception exception)
     {
-        _logger.LogWarning(exception, "Bot disconnected from Discord");
+        using var activity = BotActivitySource.StartGatewayActivity(
+            TracingConstants.Spans.DiscordGatewayDisconnected,
+            connectionState: _client.ConnectionState.ToString());
 
-        // Record disconnection for performance metrics
-        _connectionStateService?.RecordDisconnected(exception);
-
-        // Broadcast status update (fire-and-forget, failure tolerant)
-        _ = BroadcastBotStatusAsync();
-
-        // Log disconnection event to audit log (fire-and-forget)
-        _auditLogQueue.Enqueue(new AuditLogCreateDto
+        try
         {
-            Category = AuditLogCategory.System,
-            Action = AuditLogAction.BotDisconnected,
-            ActorType = AuditLogActorType.Bot,
-            Details = JsonSerializer.Serialize(new
+            _logger.LogWarning(exception, "Bot disconnected from Discord");
+
+            if (exception != null)
             {
-                Exception = exception?.Message,
-                ExceptionType = exception?.GetType().Name
-            })
-        });
+                activity?.SetTag(TracingConstants.Attributes.ErrorMessage, exception.Message);
+                activity?.SetTag("exception.type", exception.GetType().Name);
+                BotActivitySource.RecordException(activity, exception);
+            }
+
+            // Record disconnection for performance metrics
+            _connectionStateService?.RecordDisconnected(exception);
+
+            // Broadcast status update (fire-and-forget, failure tolerant)
+            _ = BroadcastBotStatusAsync();
+
+            // Log disconnection event to audit log (fire-and-forget)
+            _auditLogQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.BotDisconnected,
+                ActorType = AuditLogActorType.Bot,
+                Details = JsonSerializer.Serialize(new
+                {
+                    Exception = exception?.Message,
+                    ExceptionType = exception?.GetType().Name
+                })
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in OnDisconnectedAsync");
+            BotActivitySource.RecordException(activity, ex);
+        }
 
         return Task.CompletedTask;
     }

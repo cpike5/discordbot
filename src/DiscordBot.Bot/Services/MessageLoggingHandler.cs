@@ -1,5 +1,6 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -40,12 +41,25 @@ public class MessageLoggingHandler
     /// <param name="message">The message to process.</param>
     internal async Task HandleMessageAsync(IDiscordMessage message)
     {
+        using var activity = BotActivitySource.StartEventActivity(
+            TracingConstants.Spans.DiscordEventMessageReceived,
+            guildId: message.GuildId,
+            channelId: message.ChannelId,
+            userId: message.AuthorId);
+
         try
         {
+            // Set message metadata (DO NOT include content for privacy)
+            activity?.SetTag(TracingConstants.Attributes.MessageId, message.Id.ToString());
+            activity?.SetTag(TracingConstants.Attributes.MessageHasAttachments, message.HasAttachments);
+            activity?.SetTag(TracingConstants.Attributes.MessageHasEmbeds, message.HasEmbeds);
+            activity?.SetTag(TracingConstants.Attributes.MemberIsBot, message.IsAuthorBot);
+
             // Filter out bot messages
             if (message.IsAuthorBot)
             {
                 _logger.LogTrace("Skipping bot message {MessageId} from {AuthorId}", message.Id, message.AuthorId);
+                BotActivitySource.SetSuccess(activity);
                 return;
             }
 
@@ -53,6 +67,7 @@ public class MessageLoggingHandler
             if (!message.IsUserMessage)
             {
                 _logger.LogTrace("Skipping system message {MessageId}", message.Id);
+                BotActivitySource.SetSuccess(activity);
                 return;
             }
 
@@ -65,6 +80,8 @@ public class MessageLoggingHandler
             if (!isEnabled)
             {
                 _logger.LogTrace("Message logging is disabled globally, skipping message {MessageId}", message.Id);
+                activity?.SetTag("message_logging.enabled", false);
+                BotActivitySource.SetSuccess(activity);
                 return;
             }
 
@@ -79,10 +96,13 @@ public class MessageLoggingHandler
                 message.AuthorId,
                 ConsentType.MessageLogging);
 
+            activity?.SetTag("message_logging.user_consent", hasConsent);
+
             if (!hasConsent)
             {
                 _logger.LogDebug("User {AuthorId} has not granted message logging consent, skipping message {MessageId}",
                     message.AuthorId, message.Id);
+                BotActivitySource.SetSuccess(activity);
                 return;
             }
 
@@ -90,6 +110,8 @@ public class MessageLoggingHandler
             var source = message.IsDirectMessage
                 ? Core.Enums.MessageSource.DirectMessage
                 : Core.Enums.MessageSource.ServerChannel;
+
+            activity?.SetTag("message.source", source.ToString());
 
             // Create MessageLog entity
             var messageLog = new MessageLog
@@ -112,6 +134,8 @@ public class MessageLoggingHandler
 
             _logger.LogDebug("Successfully logged message {MessageId} from user {AuthorId} (source: {Source}, guild: {GuildId})",
                 message.Id, message.AuthorId, source, message.GuildId);
+
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
@@ -119,6 +143,7 @@ public class MessageLoggingHandler
             _logger.LogError(ex,
                 "Failed to log message {MessageId} from user {AuthorId} in channel {ChannelId}",
                 message.Id, message.AuthorId, message.ChannelId);
+            BotActivitySource.RecordException(activity, ex);
         }
     }
 }

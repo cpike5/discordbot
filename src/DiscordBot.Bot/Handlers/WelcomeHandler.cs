@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Handlers;
@@ -27,6 +28,11 @@ public class WelcomeHandler
     /// <param name="user">The user who joined the guild.</param>
     public async Task HandleUserJoinedAsync(SocketGuildUser user)
     {
+        using var activity = BotActivitySource.StartEventActivity(
+            TracingConstants.Spans.ServiceWelcomeSend,
+            guildId: user.Guild.Id,
+            userId: user.Id);
+
         try
         {
             var guildId = user.Guild.Id;
@@ -45,13 +51,19 @@ public class WelcomeHandler
             {
                 _logger.LogDebug("Welcome messages are disabled globally, skipping for user {UserId} in guild {GuildId}",
                     userId, guildId);
+                activity?.SetTag("welcome.enabled", false);
+                BotActivitySource.SetSuccess(activity);
                 return;
             }
+
+            activity?.SetTag("welcome.enabled", true);
 
             var welcomeService = scope.ServiceProvider.GetRequiredService<IWelcomeService>();
 
             // Delegate to the welcome service
             var result = await welcomeService.SendWelcomeMessageAsync(guildId, userId);
+
+            activity?.SetTag(TracingConstants.Attributes.WelcomeDeliverySuccess, result);
 
             if (result)
             {
@@ -63,6 +75,8 @@ public class WelcomeHandler
                 _logger.LogDebug("Welcome message was not sent for user {UserId} in guild {GuildId} (disabled or not configured)",
                     userId, guildId);
             }
+
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
@@ -70,6 +84,7 @@ public class WelcomeHandler
             _logger.LogError(ex,
                 "Failed to handle UserJoined event for user {UserId} in guild {GuildId}",
                 user.Id, user.Guild.Id);
+            BotActivitySource.RecordException(activity, ex);
         }
     }
 }

@@ -122,6 +122,103 @@ public static class BotActivitySource
     }
 
     /// <summary>
+    /// Starts an activity for bot lifecycle events (startup, shutdown).
+    /// </summary>
+    /// <param name="stage">The lifecycle stage (e.g., "startup", "shutdown").</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartLifecycleActivity(string stage)
+    {
+        var spanName = stage.ToLowerInvariant() switch
+        {
+            "startup" => TracingConstants.Spans.BotLifecycleStart,
+            "shutdown" => TracingConstants.Spans.BotLifecycleStop,
+            _ => $"bot.lifecycle.{stage}"
+        };
+
+        var activity = Source.StartActivity(
+            name: spanName,
+            kind: ActivityKind.Internal);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.BotLifecycleStage, stage);
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for Discord Gateway events (connected, disconnected, ready).
+    /// </summary>
+    /// <param name="eventName">The gateway event name.</param>
+    /// <param name="latency">Optional latency in milliseconds.</param>
+    /// <param name="connectionState">Optional connection state.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartGatewayActivity(
+        string eventName,
+        int? latency = null,
+        string? connectionState = null)
+    {
+        var activity = Source.StartActivity(
+            name: eventName,
+            kind: ActivityKind.Server);
+
+        if (activity is null)
+            return null;
+
+        if (latency.HasValue)
+        {
+            activity.SetTag(TracingConstants.Attributes.ConnectionLatencyMs, latency.Value);
+        }
+
+        if (!string.IsNullOrEmpty(connectionState))
+        {
+            activity.SetTag(TracingConstants.Attributes.ConnectionState, connectionState);
+        }
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for Discord events (message, member, etc.).
+    /// </summary>
+    /// <param name="eventName">The event span name (use TracingConstants.Spans).</param>
+    /// <param name="guildId">Optional guild ID where the event occurred.</param>
+    /// <param name="channelId">Optional channel ID.</param>
+    /// <param name="userId">Optional user ID.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartEventActivity(
+        string eventName,
+        ulong? guildId = null,
+        ulong? channelId = null,
+        ulong? userId = null)
+    {
+        var activity = Source.StartActivity(
+            name: eventName,
+            kind: ActivityKind.Server);
+
+        if (activity is null)
+            return null;
+
+        if (guildId.HasValue)
+        {
+            activity.SetTag(TracingConstants.Attributes.GuildId, guildId.Value.ToString());
+        }
+
+        if (channelId.HasValue)
+        {
+            activity.SetTag(TracingConstants.Attributes.ChannelId, channelId.Value.ToString());
+        }
+
+        if (userId.HasValue)
+        {
+            activity.SetTag(TracingConstants.Attributes.UserId, userId.Value.ToString());
+        }
+
+        return activity;
+    }
+
+    /// <summary>
     /// Sanitizes custom IDs to remove potentially sensitive data like user-specific correlation IDs.
     /// Extracts the handler:action portion for tracing.
     /// </summary>

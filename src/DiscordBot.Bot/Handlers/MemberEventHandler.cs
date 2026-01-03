@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,8 +31,18 @@ public class MemberEventHandler
     /// <param name="user">The user who joined the guild.</param>
     public async Task HandleUserJoinedAsync(SocketGuildUser user)
     {
+        using var activity = BotActivitySource.StartEventActivity(
+            TracingConstants.Spans.DiscordEventMemberJoined,
+            guildId: user.Guild.Id,
+            userId: user.Id);
+
         try
         {
+            var accountAgeDays = (DateTime.UtcNow - user.CreatedAt.UtcDateTime).Days;
+
+            activity?.SetTag(TracingConstants.Attributes.MemberIsBot, user.IsBot);
+            activity?.SetTag(TracingConstants.Attributes.MemberAccountAgeDays, accountAgeDays);
+
             _logger.LogDebug(
                 "Processing UserJoined event for user {UserId} ({Username}) in guild {GuildId}",
                 user.Id, user.Username, user.Guild.Id);
@@ -60,12 +71,15 @@ public class MemberEventHandler
             _logger.LogInformation(
                 "Created GuildMember record for user {UserId} ({Username}) in guild {GuildId} ({GuildName})",
                 user.Id, user.Username, user.Guild.Id, user.Guild.Name);
+
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Failed to handle UserJoined for user {UserId} in guild {GuildId}",
                 user.Id, user.Guild.Id);
+            BotActivitySource.RecordException(activity, ex);
         }
     }
 
@@ -76,8 +90,18 @@ public class MemberEventHandler
     /// <param name="user">The user who left.</param>
     public async Task HandleUserLeftAsync(SocketGuild guild, SocketUser user)
     {
+        using var activity = BotActivitySource.StartEventActivity(
+            TracingConstants.Spans.DiscordEventMemberLeft,
+            guildId: guild.Id,
+            userId: user.Id);
+
         try
         {
+            var accountAgeDays = (DateTime.UtcNow - user.CreatedAt.UtcDateTime).Days;
+
+            activity?.SetTag(TracingConstants.Attributes.MemberIsBot, user.IsBot);
+            activity?.SetTag(TracingConstants.Attributes.MemberAccountAgeDays, accountAgeDays);
+
             _logger.LogDebug(
                 "Processing UserLeft event for user {UserId} ({Username}) in guild {GuildId}",
                 user.Id, user.Username, guild.Id);
@@ -86,6 +110,8 @@ public class MemberEventHandler
             var memberRepo = scope.ServiceProvider.GetRequiredService<IGuildMemberRepository>();
 
             var result = await memberRepo.MarkInactiveAsync(guild.Id, user.Id, CancellationToken.None);
+
+            activity?.SetTag("member.found", result);
 
             if (result)
             {
@@ -99,12 +125,15 @@ public class MemberEventHandler
                     "No GuildMember record found for user {UserId} in guild {GuildId} to mark inactive",
                     user.Id, guild.Id);
             }
+
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Failed to handle UserLeft for user {UserId} in guild {GuildId}",
                 user.Id, guild.Id);
+            BotActivitySource.RecordException(activity, ex);
         }
     }
 
@@ -117,6 +146,11 @@ public class MemberEventHandler
         Cacheable<SocketGuildUser, ulong> before,
         SocketGuildUser after)
     {
+        using var activity = BotActivitySource.StartEventActivity(
+            TracingConstants.Spans.DiscordEventMemberUpdated,
+            guildId: after.Guild.Id,
+            userId: after.Id);
+
         try
         {
             // Only update if nickname or roles changed
@@ -130,8 +164,20 @@ public class MemberEventHandler
                 _logger.LogTrace(
                     "GuildMemberUpdated for user {UserId} - no relevant changes (nickname or roles)",
                     after.Id);
+                BotActivitySource.SetSuccess(activity);
                 return;
             }
+
+            // Determine update type
+            var updateType = (nicknameChanged, rolesChanged) switch
+            {
+                (true, true) => "nickname_and_roles_changed",
+                (true, false) => "nickname_changed",
+                (false, true) => "roles_changed",
+                _ => "unknown"
+            };
+
+            activity?.SetTag(TracingConstants.Attributes.MemberUpdateType, updateType);
 
             _logger.LogDebug(
                 "Processing GuildMemberUpdated for user {UserId} ({Username}) in guild {GuildId}. " +
@@ -147,6 +193,8 @@ public class MemberEventHandler
                 after.Nickname,
                 SerializeRoles(after.Roles),
                 CancellationToken.None);
+
+            activity?.SetTag("member.found", result);
 
             if (result)
             {
@@ -166,12 +214,15 @@ public class MemberEventHandler
             // Also update User entity if relevant info changed
             var userRepo = scope.ServiceProvider.GetRequiredService<IUserRepository>();
             await userRepo.UpsertAsync(MapToUser(after), CancellationToken.None);
+
+            BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "Failed to handle GuildMemberUpdated for user {UserId} in guild {GuildId}",
                 after.Id, after.Guild.Id);
+            BotActivitySource.RecordException(activity, ex);
         }
     }
 
