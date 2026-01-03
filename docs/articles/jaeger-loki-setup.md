@@ -17,6 +17,7 @@
 - [Grafana Dashboards](#grafana-dashboards)
 - [Querying Logs in Loki](#querying-logs-in-loki)
 - [Viewing Traces in Jaeger](#viewing-traces-in-jaeger)
+- [Nginx Reverse Proxy Setup](#nginx-reverse-proxy-setup)
 - [Production Hardening](#production-hardening)
 - [Troubleshooting](#troubleshooting)
 - [Maintenance](#maintenance)
@@ -948,6 +949,571 @@ discord.command.name=verify
 
 ---
 
+## Nginx Reverse Proxy Setup
+
+Configure Nginx as a reverse proxy to securely expose Grafana, Jaeger, and Loki behind HTTPS with authentication.
+
+### Prerequisites
+
+```bash
+# Install Nginx and certbot
+sudo apt install -y nginx certbot python3-certbot-nginx apache2-utils
+
+# Enable and start Nginx
+sudo systemctl enable nginx
+sudo systemctl start nginx
+```
+
+### Create Basic Auth File
+
+Create an htpasswd file for protecting Jaeger (Grafana has built-in auth):
+
+```bash
+# Create htpasswd file for observability endpoints
+sudo htpasswd -c /etc/nginx/.htpasswd-observability admin
+# Enter your password when prompted
+
+# Add additional users (optional)
+sudo htpasswd /etc/nginx/.htpasswd-observability another_user
+```
+
+### Step 1: Create Initial HTTP-Only Configuration
+
+First, create a minimal config without SSL to allow certbot to obtain certificates:
+
+```bash
+sudo nano /etc/nginx/sites-available/observability
+```
+
+```nginx
+# Initial HTTP-only configuration for certificate acquisition
+server {
+    listen 80;
+    server_name grafana.yourdomain.com jaeger.yourdomain.com loki.yourdomain.com;
+
+    # Allow Let's Encrypt verification
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # Temporary: proxy without SSL (remove after certs obtained)
+    location / {
+        return 200 'Waiting for SSL certificates...';
+        add_header Content-Type text/plain;
+    }
+}
+```
+
+```bash
+# Enable the config
+sudo ln -s /etc/nginx/sites-available/observability /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Step 2: Obtain SSL Certificates
+
+```bash
+# Create webroot directory
+sudo mkdir -p /var/www/html
+
+# Get certificates for all subdomains
+sudo certbot certonly --webroot -w /var/www/html \
+    -d grafana.yourdomain.com \
+    -d jaeger.yourdomain.com \
+    -d loki.yourdomain.com
+
+# Verify certificates were created
+sudo ls -la /etc/letsencrypt/live/
+```
+
+### Step 3: Apply Full HTTPS Configuration
+
+Now replace the initial config with the full configuration:
+
+```bash
+sudo nano /etc/nginx/sites-available/observability
+```
+
+```nginx
+# Observability Stack Reverse Proxy Configuration
+# Provides secure access to Grafana, Jaeger, and Loki
+
+# Upstream definitions for load balancing and health checks
+upstream grafana {
+    server 127.0.0.1:3000;
+    keepalive 32;
+}
+
+upstream jaeger_ui {
+    server 127.0.0.1:16686;
+    keepalive 16;
+}
+
+upstream loki {
+    server 127.0.0.1:3100;
+    keepalive 16;
+}
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    server_name grafana.yourdomain.com jaeger.yourdomain.com loki.yourdomain.com;
+
+    # Allow Let's Encrypt verification
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    # Redirect all other traffic to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ==============================================
+# GRAFANA - Main visualization dashboard
+# ==============================================
+server {
+    listen 443 ssl http2;
+    server_name grafana.yourdomain.com;
+
+    # SSL Configuration (certbot will populate these)
+    ssl_certificate /etc/letsencrypt/live/grafana.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/grafana.yourdomain.com/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+
+    # Modern SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Logging
+    access_log /var/log/nginx/grafana_access.log;
+    error_log /var/log/nginx/grafana_error.log;
+
+    # Main location - Grafana handles its own authentication
+    location / {
+        proxy_pass http://grafana;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+
+        # WebSocket support for live features
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+
+        # Buffering settings
+        proxy_buffering off;
+        proxy_buffer_size 4k;
+    }
+
+    # Grafana API - longer timeouts for queries
+    location /api/ {
+        proxy_pass http://grafana;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Longer timeout for complex queries
+        proxy_read_timeout 300;
+        proxy_connect_timeout 60;
+    }
+}
+
+# ==============================================
+# JAEGER - Distributed Tracing UI
+# ==============================================
+server {
+    listen 443 ssl http2;
+    server_name jaeger.yourdomain.com;
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/jaeger.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/jaeger.yourdomain.com/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Logging
+    access_log /var/log/nginx/jaeger_access.log;
+    error_log /var/log/nginx/jaeger_error.log;
+
+    # Basic authentication required - Jaeger has no built-in auth
+    auth_basic "Jaeger Tracing";
+    auth_basic_user_file /etc/nginx/.htpasswd-observability;
+
+    location / {
+        proxy_pass http://jaeger_ui;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Buffering for large trace responses
+        proxy_buffering on;
+        proxy_buffer_size 8k;
+        proxy_buffers 16 8k;
+
+        # Timeouts for trace queries
+        proxy_read_timeout 120;
+        proxy_connect_timeout 60;
+    }
+
+    # Jaeger API endpoints
+    location /api/ {
+        proxy_pass http://jaeger_ui;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 180;
+    }
+
+    # Static assets
+    location /static/ {
+        proxy_pass http://jaeger_ui;
+        proxy_cache_valid 200 1d;
+        expires 1d;
+        add_header Cache-Control "public, immutable";
+    }
+}
+
+# ==============================================
+# LOKI - Log Aggregation API (Optional exposure)
+# ==============================================
+# Only enable if you need direct Loki API access from external tools
+# Grafana already connects to Loki internally
+
+server {
+    listen 443 ssl http2;
+    server_name loki.yourdomain.com;
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/loki.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/loki.yourdomain.com/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # Security headers
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Logging
+    access_log /var/log/nginx/loki_access.log;
+    error_log /var/log/nginx/loki_error.log;
+
+    # Basic authentication required
+    auth_basic "Loki API";
+    auth_basic_user_file /etc/nginx/.htpasswd-observability;
+
+    # Health check endpoint (no auth)
+    location /ready {
+        auth_basic off;
+        proxy_pass http://loki;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    # Loki API endpoints
+    location /loki/api/v1/ {
+        proxy_pass http://loki;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Large query timeouts
+        proxy_read_timeout 300;
+        proxy_connect_timeout 60;
+
+        # Response buffering for query results
+        proxy_buffering on;
+        proxy_buffer_size 16k;
+        proxy_buffers 32 16k;
+    }
+
+    # Block push endpoint from external access (security)
+    location /loki/api/v1/push {
+        deny all;
+        return 403;
+    }
+
+    # Default deny
+    location / {
+        deny all;
+        return 404;
+    }
+}
+```
+
+### Step 4: Reload Nginx with Full Configuration
+
+```bash
+# Test configuration
+sudo nginx -t
+
+# If test passes, reload Nginx
+sudo systemctl reload nginx
+
+# Verify HTTPS is working
+curl -I https://grafana.yourdomain.com
+```
+
+### Step 5: Set Up Auto-Renewal
+
+Certbot typically sets up auto-renewal automatically, but verify:
+
+```bash
+# Test renewal process
+sudo certbot renew --dry-run
+
+# Check the systemd timer (Ubuntu/Debian)
+sudo systemctl status certbot.timer
+```
+
+### Alternative: Single Domain with Path-Based Routing
+
+If you prefer a single domain with path prefixes:
+
+```bash
+sudo nano /etc/nginx/sites-available/observability-single
+```
+
+```nginx
+# Single domain with path-based routing
+server {
+    listen 443 ssl http2;
+    server_name observability.yourdomain.com;
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/observability.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/observability.yourdomain.com/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Logging
+    access_log /var/log/nginx/observability_access.log;
+    error_log /var/log/nginx/observability_error.log;
+
+    # Root redirects to Grafana
+    location = / {
+        return 302 /grafana/;
+    }
+
+    # ==============================================
+    # GRAFANA at /grafana/
+    # ==============================================
+    location /grafana/ {
+        proxy_pass http://127.0.0.1:3000/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Required for Grafana sub-path
+        proxy_set_header X-Forwarded-Prefix /grafana;
+
+        proxy_read_timeout 86400;
+        proxy_buffering off;
+    }
+
+    # ==============================================
+    # JAEGER at /jaeger/
+    # ==============================================
+    location /jaeger/ {
+        auth_basic "Jaeger Tracing";
+        auth_basic_user_file /etc/nginx/.htpasswd-observability;
+
+        # Rewrite to remove /jaeger prefix
+        rewrite ^/jaeger/(.*)$ /$1 break;
+
+        proxy_pass http://127.0.0.1:16686;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Set base path for Jaeger UI
+        proxy_set_header X-Forwarded-Prefix /jaeger;
+
+        proxy_read_timeout 120;
+    }
+
+    # ==============================================
+    # LOKI API at /loki/ (read-only)
+    # ==============================================
+    location /loki/ {
+        auth_basic "Loki API";
+        auth_basic_user_file /etc/nginx/.htpasswd-observability;
+
+        proxy_pass http://127.0.0.1:3100/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 300;
+    }
+
+    # Block Loki push endpoint
+    location /loki/loki/api/v1/push {
+        deny all;
+        return 403;
+    }
+}
+
+# HTTP redirect
+server {
+    listen 80;
+    server_name observability.yourdomain.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+```
+
+**Important:** When using path-based routing, configure Grafana to use the sub-path:
+
+```yaml
+# In docker-compose.yml or /etc/grafana/grafana.ini
+environment:
+  - GF_SERVER_ROOT_URL=https://observability.yourdomain.com/grafana/
+  - GF_SERVER_SERVE_FROM_SUB_PATH=true
+```
+
+### Update Grafana Datasource URLs
+
+When using reverse proxy, update the Grafana datasource configuration to use internal Docker network URLs (no change needed) or the public URLs if accessing from outside:
+
+```yaml
+# /opt/observability/config/grafana-datasources.yml
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100  # Internal Docker URL (recommended)
+    isDefault: true
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"TraceId":"([a-f0-9]+)"'
+          # Update to your public Jaeger URL
+          url: 'https://jaeger.yourdomain.com/trace/$${__value.raw}'
+          datasourceUid: jaeger
+
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686  # Internal Docker URL (recommended)
+    uid: jaeger
+```
+
+### DNS Configuration
+
+Add A or CNAME records for your subdomains pointing to your VPS IP:
+
+```
+grafana.yourdomain.com  A  YOUR_VPS_IP
+jaeger.yourdomain.com   A  YOUR_VPS_IP
+loki.yourdomain.com     A  YOUR_VPS_IP
+```
+
+Or for single domain:
+
+```
+observability.yourdomain.com  A  YOUR_VPS_IP
+```
+
+### Firewall Rules
+
+```bash
+# Allow HTTP/HTTPS traffic
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Remove direct port access (services now behind proxy)
+sudo ufw delete allow 3000/tcp   # Grafana
+sudo ufw delete allow 16686/tcp  # Jaeger
+# Keep Loki 3100 internal only (no ufw rule needed)
+
+# Verify
+sudo ufw status
+```
+
+### Testing the Setup
+
+```bash
+# Test Grafana
+curl -I https://grafana.yourdomain.com
+
+# Test Jaeger (with basic auth)
+curl -I -u admin:yourpassword https://jaeger.yourdomain.com
+
+# Test Loki health (no auth for /ready)
+curl https://loki.yourdomain.com/ready
+
+# Test Loki API (with basic auth)
+curl -u admin:yourpassword 'https://loki.yourdomain.com/loki/api/v1/labels'
+```
+
+---
+
 ## Production Hardening
 
 ### Secure Grafana
@@ -972,42 +1538,7 @@ enabled = false
 
 ### Restrict Jaeger Access
 
-Jaeger UI should not be publicly accessible. Use a reverse proxy with authentication:
-
-```nginx
-# /etc/nginx/sites-available/observability
-server {
-    listen 443 ssl;
-    server_name observability.yourdomain.com;
-
-    ssl_certificate /etc/ssl/certs/your-cert.crt;
-    ssl_certificate_key /etc/ssl/private/your-key.key;
-
-    # Basic auth for Jaeger
-    location /jaeger/ {
-        auth_basic "Observability";
-        auth_basic_user_file /etc/nginx/.htpasswd;
-
-        proxy_pass http://localhost:16686/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-
-    # Grafana (has its own auth)
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-Create htpasswd file:
-
-```bash
-sudo apt install apache2-utils
-sudo htpasswd -c /etc/nginx/.htpasswd admin
-```
+Jaeger UI should not be publicly accessible. See [Nginx Reverse Proxy Setup](#nginx-reverse-proxy-setup) for complete configuration with HTTPS and basic authentication.
 
 ### Configure Data Retention
 
@@ -1304,8 +1835,9 @@ crontab -e
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2026-01-02 | Added comprehensive Nginx reverse proxy setup section |
 | 1.0 | 2025-12-31 | Initial documentation |
 
 ---
 
-*Last Updated: December 31, 2025*
+*Last Updated: January 2, 2026*
