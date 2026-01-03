@@ -189,7 +189,7 @@
                                 <code class="text-mono text-xs text-text-secondary">@(query.CommandText.Length > 100 ? query.CommandText.Substring(0, 100) + "..." : query.CommandText)</code>
                             </td>
                             <td class="font-medium @(query.DurationMs > 500 ? "text-error" : "text-warning")">@query.DurationMs.ToString("F0")ms</td>
-                            <td class="text-text-tertiary" data-utc-time="@query.Timestamp.ToString("o")">@query.Timestamp.ToString("MMM dd, HH:mm") UTC</td>
+                            <td class="text-text-tertiary" data-utc-time="@query.Timestamp.ToString("o")">@query.Timestamp.ToString("MMM dd, HH:mm")</td>
                             <td class="text-xs text-text-tertiary">@(string.IsNullOrEmpty(query.Parameters) ? "-" : query.Parameters.Length > 50 ? query.Parameters.Substring(0, 50) + "..." : query.Parameters)</td>
                         </tr>
                     }

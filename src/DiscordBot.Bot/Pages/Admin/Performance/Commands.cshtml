@@ -24,9 +24,11 @@
 
     <!-- Time Range Selector -->
     <div class="flex items-center gap-2">
-        <a href="/Admin/Performance/Commands?hours=24" class="time-range-btn @(Model.Hours == 24 ? "active" : "")">24h</a>
-        <a href="/Admin/Performance/Commands?hours=168" class="time-range-btn @(Model.Hours == 168 ? "active" : "")">7d</a>
-        <a href="/Admin/Performance/Commands?hours=720" class="time-range-btn @(Model.Hours == 720 ? "active" : "")">30d</a>
+        <div class="inline-flex rounded-lg border border-border-primary overflow-hidden">
+            <button class="time-range-btn" data-hours="24">24h</button>
+            <button class="time-range-btn" data-hours="168">7d</button>
+            <button class="time-range-btn" data-hours="720">30d</button>
+        </div>
     </div>
 </div>
 
@@ -186,7 +188,7 @@ else
             <div class="chart-card-header">
                 <div>
                     <h2 class="chart-card-title">Command Throughput</h2>
-                    <p class="chart-card-subtitle">Commands executed per @(Model.Hours >= 168 ? "day" : "hour")</p>
+                    <p class="chart-card-subtitle" id="throughputSubtitle">Commands executed per hour</p>
                 </div>
             </div>
             <div class="chart-card-body">
@@ -244,7 +246,7 @@ else
                                     @cmd.DurationMs.ToString("F0")ms
                                 </td>
                                 <td>
-                                    <span data-utc-time="@cmd.ExecutedAt.ToString("o")">@cmd.ExecutedAt.ToString("MMM dd, HH:mm") UTC</span>
+                                    <span data-utc-time="@cmd.ExecutedAt.ToString("o")">@cmd.ExecutedAt.ToString("MMM dd, HH:mm")</span>
                                 </td>
                                 <td class="text-text-secondary">@cmd.UserId</td>
                                 <td class="text-text-secondary">@(cmd.GuildId?.ToString() ?? "DM")</td>
@@ -290,7 +292,7 @@ else
                                 </td>
                                 <td class="font-medium text-warning">@timeout.TimeoutCount</td>
                                 <td>
-                                    <span data-utc-time="@timeout.LastTimeout.ToString("o")">@timeout.LastTimeout.ToString("MMM dd, HH:mm") UTC</span>
+                                    <span data-utc-time="@timeout.LastTimeout.ToString("o")">@timeout.LastTimeout.ToString("MMM dd, HH:mm")</span>
                                 </td>
                                 <td>@timeout.AvgResponseBeforeTimeout.ToString("F0")ms</td>
                                 <td>
@@ -327,9 +329,12 @@ else
         let responseTimeChart;
         let throughputChart;
         let errorRateChart;
+        let selectedHours = 24; // Default time range
 
-        const hours = @Model.Hours;
-        const granularity = hours >= 168 ? 'day' : 'hour';
+        // Get granularity based on selected hours
+        function getGranularity() {
+            return selectedHours >= 168 ? 'day' : 'hour';
+        }
 
         // Show error message in a chart container
         function showChartError(chartId, message) {
@@ -349,14 +354,15 @@ else
         // Initialize Response Time Chart
         async function initResponseTimeChart() {
             try {
-                const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                const granularity = getGranularity();
+                const response = await fetch(`/api/metrics/commands/throughput?hours=${selectedHours}&granularity=${granularity}`);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.detail || `HTTP ${response.status}`);
                 }
                 const throughputData = await response.json();
 
-                const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
+                const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${selectedHours}`);
                 if (!aggregatesResponse.ok) {
                     const errorData = await aggregatesResponse.json().catch(() => ({}));
                     throw new Error(errorData.detail || `HTTP ${aggregatesResponse.status}`);
@@ -478,7 +484,8 @@ else
         // Initialize Throughput Chart
         async function initThroughputChart() {
             try {
-                const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                const granularity = getGranularity();
+                const response = await fetch(`/api/metrics/commands/throughput?hours=${selectedHours}&granularity=${granularity}`);
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.detail || `HTTP ${response.status}`);
@@ -555,14 +562,15 @@ else
         // Initialize Error Rate Chart
         async function initErrorRateChart() {
             try {
-                const throughputResponse = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+                const granularity = getGranularity();
+                const throughputResponse = await fetch(`/api/metrics/commands/throughput?hours=${selectedHours}&granularity=${granularity}`);
                 if (!throughputResponse.ok) {
                     const errorData = await throughputResponse.json().catch(() => ({}));
                     throw new Error(errorData.detail || `HTTP ${throughputResponse.status}`);
                 }
                 const throughputData = await throughputResponse.json();
 
-                const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
+                const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${selectedHours}`);
                 if (!aggregatesResponse.ok) {
                     const errorData = await aggregatesResponse.json().catch(() => ({}));
                     throw new Error(errorData.detail || `HTTP ${aggregatesResponse.status}`);
@@ -678,26 +686,70 @@ else
             });
         }
 
+        // Refresh all charts
+        async function refreshCharts() {
+            // Update subtitle
+            const subtitle = document.getElementById('throughputSubtitle');
+            if (subtitle) {
+                subtitle.textContent = `Commands executed per ${selectedHours >= 168 ? 'day' : 'hour'}`;
+            }
+
+            await Promise.all([
+                initResponseTimeChart(),
+                initThroughputChart(),
+                initErrorRateChart()
+            ]);
+        }
+
         // Auto-refresh every 30 seconds
         let refreshInterval;
 
         function startAutoRefresh() {
             refreshInterval = setInterval(async () => {
-                await Promise.all([
-                    initResponseTimeChart(),
-                    initThroughputChart(),
-                    initErrorRateChart()
-                ]);
+                await refreshCharts();
             }, 30000);
         }
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
+            // Load saved time range from localStorage
+            const savedHours = localStorage.getItem('commandsTimeRange');
+            if (savedHours) {
+                selectedHours = parseInt(savedHours, 10);
+            }
+
+            // Update active button based on selectedHours
+            document.querySelectorAll('.time-range-btn').forEach(btn => {
+                if (parseInt(btn.dataset.hours, 10) === selectedHours) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
+            // Time range button click handlers
+            document.querySelectorAll('.time-range-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const hours = parseInt(this.dataset.hours, 10);
+
+                    // Update active state
+                    document.querySelectorAll('.time-range-btn').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+
+                    // Save to localStorage
+                    localStorage.setItem('commandsTimeRange', hours);
+                    selectedHours = hours;
+
+                    // Refresh charts
+                    refreshCharts();
+                });
+            });
+
             @if (Model.ViewModel.TotalCommands > 0)
             {
-                @:await initResponseTimeChart();
-                @:await initThroughputChart();
-                @:await initErrorRateChart();
+                @:await refreshCharts();
                 @:startAutoRefresh();
             }
             convertTimestampsToLocal();

@@ -282,7 +282,7 @@
                     <div class="timeline-entry">
                         <div class="timeline-dot @dotClass"></div>
                         <div class="timeline-content">
-                            <div class="timeline-time" data-utc-time="@evt.Timestamp.ToString("o")">@evt.Timestamp.ToString("MMM dd, yyyy 'at' HH:mm") UTC</div>
+                            <div class="timeline-time" data-utc-time="@evt.Timestamp.ToString("o")">@evt.Timestamp.ToString("MMM dd, yyyy 'at' HH:mm")</div>
                             <div class="timeline-title">@evt.EventType</div>
                             @if (!string.IsNullOrEmpty(evt.Reason) || !string.IsNullOrEmpty(evt.Details))
                             {
