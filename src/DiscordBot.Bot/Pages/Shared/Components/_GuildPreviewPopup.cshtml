@@ -1,0 +1,91 @@
+@model DiscordBot.Bot.ViewModels.Components.GuildPreviewViewModel
+
+<div class="preview-popup preview-popup-guild" data-guild-id="@Model.GuildId">
+    <!-- Header -->
+    <div class="preview-header">
+        <div class="preview-avatar">
+            @if (!string.IsNullOrEmpty(Model.IconUrl))
+            {
+                <img src="@Model.IconUrl" alt="@Model.Name" class="w-14 h-14 rounded-lg object-cover" />
+            }
+            else
+            {
+                <div class="w-14 h-14 rounded-lg bg-accent-blue-muted flex items-center justify-center">
+                    <span class="text-xl font-semibold text-accent-blue">
+                        @(Model.Name.FirstOrDefault().ToString().ToUpperInvariant())
+                    </span>
+                </div>
+            }
+        </div>
+        <div class="preview-identity flex-1 min-w-0">
+            <span class="preview-username block text-sm font-semibold text-text-primary truncate">
+                @Model.Name
+            </span>
+            <span class="preview-displayname block text-xs text-text-secondary">
+                @Model.MemberCount.ToString("N0") members
+                @if (Model.OnlineMemberCount.HasValue)
+                {
+                    <span class="text-text-tertiary">(@Model.OnlineMemberCount.Value.ToString("N0") online)</span>
+                }
+            </span>
+        </div>
+        @if (!Model.IsActive)
+        {
+            <span class="preview-badge px-1.5 py-0.5 bg-warning-bg text-warning text-xs font-medium rounded" title="Inactive">
+                Inactive
+            </span>
+        }
+    </div>
+
+    <!-- Body -->
+    <div class="preview-body">
+        <div class="preview-meta space-y-2 text-xs">
+            <div class="preview-meta-item flex justify-between">
+                <span class="text-text-tertiary">Owner</span>
+                <span class="text-accent-blue">@Model.OwnerUsername</span>
+            </div>
+            <div class="preview-meta-item flex justify-between">
+                <span class="text-text-tertiary">Bot joined</span>
+                <span class="text-text-secondary">@Model.BotJoinedAt.ToString("MMM d, yyyy")</span>
+            </div>
+            @if (Model.ActiveFeatures.Count > 0)
+            {
+                <div class="preview-meta-item flex justify-between items-start">
+                    <span class="text-text-tertiary">Features</span>
+                    <div class="flex flex-wrap gap-1 justify-end max-w-[180px]">
+                        @foreach (var feature in Model.ActiveFeatures.Take(4))
+                        {
+                            var badgeClass = feature.ToLowerInvariant() switch
+                            {
+                                "moderation" or "automod" => "bg-accent-orange-muted text-accent-orange",
+                                "ratwatch" or "rat watch" => "bg-success-bg text-success",
+                                "welcome" => "bg-accent-blue-muted text-accent-blue",
+                                "logging" => "bg-info-bg text-info",
+                                _ => "bg-bg-hover text-text-secondary"
+                            };
+                            <span class="preview-feature-tag px-1.5 py-0.5 text-[10px] font-medium rounded @badgeClass">
+                                @feature
+                            </span>
+                        }
+                        @if (Model.ActiveFeatures.Count > 4)
+                        {
+                            <span class="preview-feature-tag px-1.5 py-0.5 text-[10px] font-medium rounded bg-bg-hover text-text-tertiary">
+                                +@(Model.ActiveFeatures.Count - 4)
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="preview-footer">
+        <a href="@Model.DetailsUrl" class="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors text-center">
+            View Guild
+        </a>
+        <a href="@Model.SettingsUrl" class="flex-1 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors text-center">
+            Settings
+        </a>
+    </div>
+</div>
