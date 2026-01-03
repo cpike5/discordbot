@@ -2,33 +2,61 @@
 /* Shared CSS for Admin/Performance section pages */
 /* Uses design system tokens from main.css */
 
-/* ===== Navigation Tabs ===== */
+/* ===== Navigation Tabs Container ===== */
+.performance-tabs-container {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+/* Scroll fade indicators - show when content is scrollable */
+.performance-tabs-container::before,
+.performance-tabs-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 2px; /* Account for border */
+    width: 2rem;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.performance-tabs-container::before {
+    left: 0;
+    background: linear-gradient(to right, var(--color-bg-primary), transparent);
+}
+
+.performance-tabs-container::after {
+    right: 0;
+    background: linear-gradient(to left, var(--color-bg-primary), transparent);
+}
+
+/* Show indicators based on scroll position (controlled via JS) */
+.performance-tabs-container.can-scroll-left::before {
+    opacity: 1;
+}
+
+.performance-tabs-container.can-scroll-right::after {
+    opacity: 1;
+}
+
+/* Navigation Tabs */
 .performance-tabs {
     display: flex;
     gap: 0.5rem;
     border-bottom: 2px solid var(--color-border-primary);
-    margin-bottom: 1.5rem;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    scrollbar-width: none; /* Hide scrollbar on Firefox */
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    padding-bottom: 0; /* Remove extra padding */
 }
 
-/* Custom scrollbar for webkit browsers */
+/* Hide scrollbar on webkit browsers for cleaner look */
 .performance-tabs::-webkit-scrollbar {
-    height: 4px;
-}
-
-.performance-tabs::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.performance-tabs::-webkit-scrollbar-thumb {
-    background: var(--color-border-primary);
-    border-radius: 2px;
-}
-
-.performance-tabs::-webkit-scrollbar-thumb:hover {
-    background: var(--color-border-secondary);
+    display: none;
 }
 
 .performance-tab {
@@ -44,6 +72,8 @@
     transition: all 0.2s;
     white-space: nowrap;
     text-decoration: none;
+    scroll-snap-align: start;
+    flex-shrink: 0;
 }
 
 .performance-tab:hover {
@@ -59,6 +89,39 @@
 .tab-icon {
     width: 1.25rem;
     height: 1.25rem;
+}
+
+/* Mobile-specific: smaller padding and abbreviated labels */
+@media (max-width: 640px) {
+    .performance-tab {
+        padding: 0.625rem 0.75rem;
+        font-size: 0.8125rem;
+    }
+
+    .tab-icon {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* Hide "API & Rate Limits" long text, show short version */
+    .performance-tab .tab-label-long {
+        display: none;
+    }
+
+    .performance-tab .tab-label-short {
+        display: inline;
+    }
+}
+
+@media (min-width: 641px) {
+    /* Show full text on larger screens */
+    .performance-tab .tab-label-long {
+        display: inline;
+    }
+
+    .performance-tab .tab-label-short {
+        display: none;
+    }
 }
 
 /* ===== Chart Cards ===== */
