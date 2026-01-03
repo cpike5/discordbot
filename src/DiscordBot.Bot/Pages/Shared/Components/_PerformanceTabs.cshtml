@@ -1,0 +1,111 @@
+@model DiscordBot.Bot.ViewModels.Components.PerformanceTabsViewModel
+@{
+    string GetTabClass(string tab) => Model.ActiveTab == tab ? "performance-tab active" : "performance-tab";
+}
+
+<div class="performance-tabs-container" id="performanceTabsContainer">
+    <nav class="performance-tabs" id="performanceTabs" role="tablist" aria-label="Performance sections">
+        <a href="/Admin/Performance" class="@GetTabClass("overview")" role="tab" aria-selected="@(Model.ActiveTab == "overview" ? "true" : "false")">
+            <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <span>Overview</span>
+        </a>
+        <a href="/Admin/Performance/HealthMetrics" class="@GetTabClass("health")" role="tab" aria-selected="@(Model.ActiveTab == "health" ? "true" : "false")">
+            <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            <span class="tab-label-long">Health Metrics</span>
+            <span class="tab-label-short">Health</span>
+        </a>
+        <a href="/Admin/Performance/Commands" class="@GetTabClass("commands")" role="tab" aria-selected="@(Model.ActiveTab == "commands" ? "true" : "false")">
+            <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span>Commands</span>
+        </a>
+        <a href="/Admin/Performance/ApiMetrics" class="@GetTabClass("api")" role="tab" aria-selected="@(Model.ActiveTab == "api" ? "true" : "false")">
+            <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span class="tab-label-long">API & Rate Limits</span>
+            <span class="tab-label-short">API</span>
+        </a>
+        <a href="/Admin/Performance/SystemHealth" class="@GetTabClass("system")" role="tab" aria-selected="@(Model.ActiveTab == "system" ? "true" : "false")">
+            <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+            </svg>
+            <span>System</span>
+        </a>
+        <a href="/Admin/Performance/Alerts" class="@GetTabClass("alerts")" role="tab" aria-selected="@(Model.ActiveTab == "alerts" ? "true" : "false")">
+            <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <span>Alerts</span>
+            @if (Model.ActiveAlertCount > 0)
+            {
+                <span class="ml-1 px-1.5 py-0.5 text-xs font-bold bg-error/20 text-error rounded-full">@Model.ActiveAlertCount</span>
+            }
+        </a>
+    </nav>
+</div>
+
+<script>
+    (function() {
+        const container = document.getElementById('performanceTabsContainer');
+        const tabs = document.getElementById('performanceTabs');
+
+        if (!container || !tabs) return;
+
+        function updateScrollIndicators() {
+            const scrollLeft = tabs.scrollLeft;
+            const scrollWidth = tabs.scrollWidth;
+            const clientWidth = tabs.clientWidth;
+
+            // Check if content is scrollable
+            const isScrollable = scrollWidth > clientWidth;
+
+            if (isScrollable) {
+                // Can scroll left if not at the start
+                if (scrollLeft > 5) {
+                    container.classList.add('can-scroll-left');
+                } else {
+                    container.classList.remove('can-scroll-left');
+                }
+
+                // Can scroll right if not at the end
+                if (scrollLeft < scrollWidth - clientWidth - 5) {
+                    container.classList.add('can-scroll-right');
+                } else {
+                    container.classList.remove('can-scroll-right');
+                }
+            } else {
+                container.classList.remove('can-scroll-left', 'can-scroll-right');
+            }
+        }
+
+        // Scroll active tab into view on load
+        function scrollActiveTabIntoView() {
+            const activeTab = tabs.querySelector('.performance-tab.active');
+            if (activeTab) {
+                const tabRect = activeTab.getBoundingClientRect();
+                const containerRect = tabs.getBoundingClientRect();
+
+                // Check if active tab is partially or fully outside view
+                if (tabRect.left < containerRect.left || tabRect.right > containerRect.right) {
+                    activeTab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                }
+            }
+        }
+
+        // Initial setup
+        updateScrollIndicators();
+        scrollActiveTabIntoView();
+
+        // Update on scroll
+        tabs.addEventListener('scroll', updateScrollIndicators, { passive: true });
+
+        // Update on resize
+        window.addEventListener('resize', updateScrollIndicators, { passive: true });
+    })();
+</script>
