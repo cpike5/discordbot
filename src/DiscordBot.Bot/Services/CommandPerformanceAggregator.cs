@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,8 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
 
     public override string ServiceName => "Command Performance Aggregator";
 
+    protected virtual string TracingServiceName => "command_performance_aggregator";
+
     public CommandPerformanceAggregator(
         IServiceProvider serviceProvider,
         IServiceScopeFactory serviceScopeFactory,
@@ -45,18 +48,31 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
         // Wait a bit before first execution
         await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await RefreshCacheAsync(stoppingToken);
+                var commandCount = await RefreshCacheAsync(stoppingToken);
+                BotActivitySource.SetRecordsProcessed(activity, commandCount);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error refreshing command performance cache");
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
             }
 
@@ -218,7 +234,8 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
     /// <summary>
     /// Refreshes the aggregation cache from the database.
     /// </summary>
-    private async Task RefreshCacheAsync(CancellationToken cancellationToken)
+    /// <returns>The number of commands cached.</returns>
+    private async Task<int> RefreshCacheAsync(CancellationToken cancellationToken)
     {
         await _cacheLock.WaitAsync(cancellationToken);
         try
@@ -226,7 +243,7 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
             // Double-check expiry after acquiring lock
             if (DateTime.UtcNow < _cacheExpiry)
             {
-                return;
+                return _cachedAggregates.Count;
             }
 
             _logger.LogDebug("Refreshing command performance cache");
@@ -248,10 +265,13 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
             _logger.LogInformation(
                 "Command performance cache refreshed: {CommandCount} commands, cache valid until {Expiry}",
                 aggregates.Count, _cacheExpiry);
+
+            return aggregates.Count;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to refresh command performance cache");
+            return 0;
         }
         finally
         {

@@ -1,6 +1,7 @@
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Components;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -21,6 +22,12 @@ public class RatWatchExecutionService : MonitoredBackgroundService
     private readonly IDashboardUpdateService _dashboardUpdateService;
 
     public override string ServiceName => "RatWatchExecutionService";
+
+    /// <summary>
+    /// Gets the service name in snake_case format for tracing.
+    /// </summary>
+    protected virtual string TracingServiceName =>
+        ServiceName.ToLowerInvariant().Replace(" ", "_");
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RatWatchExecutionService"/> class.
@@ -55,8 +62,18 @@ public class RatWatchExecutionService : MonitoredBackgroundService
         // Initial delay to let the app start up and Discord client connect
         await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
             try
             {
@@ -65,6 +82,8 @@ public class RatWatchExecutionService : MonitoredBackgroundService
                 var expiredVotingTask = ProcessExpiredVotingAsync(stoppingToken);
 
                 await Task.WhenAll(dueWatchesTask, expiredVotingTask);
+
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -74,6 +93,7 @@ public class RatWatchExecutionService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
             }
 
@@ -102,65 +122,87 @@ public class RatWatchExecutionService : MonitoredBackgroundService
             return;
         }
 
-        // Create a semaphore to limit concurrent executions
-        using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
-        var executionTimeout = TimeSpan.FromSeconds(_options.Value.ExecutionTimeoutSeconds);
-        var expirationThreshold = TimeSpan.FromMinutes(5);
+        using var batchActivity = BotActivitySource.StartBackgroundBatchActivity(
+            TracingServiceName,
+            watchList.Count,
+            "due_watches");
 
-        // Execute watches concurrently with semaphore and timeout protection
-        var executionTasks = watchList.Select(async watch =>
+        try
         {
-            await semaphore.WaitAsync(stoppingToken);
-            try
+            // Create a semaphore to limit concurrent executions
+            using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
+            var executionTimeout = TimeSpan.FromSeconds(_options.Value.ExecutionTimeoutSeconds);
+            var expirationThreshold = TimeSpan.FromMinutes(5);
+            var processedCount = 0;
+
+            // Execute watches concurrently with semaphore and timeout protection
+            var executionTasks = watchList.Select(async watch =>
             {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                cts.CancelAfter(executionTimeout);
-
-                var now = DateTime.UtcNow;
-                var timeSinceScheduled = now - watch.ScheduledAt;
-
-                // Skip if expired (more than 5 minutes past scheduled time)
-                if (timeSinceScheduled > expirationThreshold)
+                await semaphore.WaitAsync(stoppingToken);
+                try
                 {
-                    return;
-                }
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    cts.CancelAfter(executionTimeout);
 
-                // Re-check status before posting (handles race condition with cancellation)
-                var currentWatch = await service.GetByIdAsync(watch.Id, cts.Token);
-                if (currentWatch == null || currentWatch.Status != RatWatchStatus.Pending)
+                    var now = DateTime.UtcNow;
+                    var timeSinceScheduled = now - watch.ScheduledAt;
+
+                    // Skip if expired (more than 5 minutes past scheduled time)
+                    if (timeSinceScheduled > expirationThreshold)
+                    {
+                        return false;
+                    }
+
+                    // Re-check status before posting (handles race condition with cancellation)
+                    var currentWatch = await service.GetByIdAsync(watch.Id, cts.Token);
+                    if (currentWatch == null || currentWatch.Status != RatWatchStatus.Pending)
+                    {
+                        return false;
+                    }
+
+                    // Post the voting message to Discord
+                    var success = await PostVotingMessageAsync(
+                        watch.Id,
+                        watch.GuildId,
+                        watch.ChannelId,
+                        watch.AccusedUserId,
+                        watch.OriginalMessageId,
+                        watch.CustomMessage,
+                        cts.Token);
+
+                    return success;
+                }
+                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
                 {
-                    return;
+                    // Timeout
+                    return false;
                 }
+                catch (Exception)
+                {
+                    // Logged by individual methods
+                    return false;
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
 
-                // Post the voting message to Discord
-                await PostVotingMessageAsync(
-                    watch.Id,
-                    watch.GuildId,
-                    watch.ChannelId,
-                    watch.AccusedUserId,
-                    watch.OriginalMessageId,
-                    watch.CustomMessage,
-                    cts.Token);
-            }
-            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
-            {
-                // Timeout
-            }
-            catch (Exception)
-            {
-                // Logged by individual methods
-            }
-            finally
-            {
-                semaphore.Release();
-            }
-        });
+            // Wait for all executions to complete and count successes
+            var results = await Task.WhenAll(executionTasks);
+            processedCount = results.Count(r => r);
 
-        // Wait for all executions to complete
-        await Task.WhenAll(executionTasks);
+            BotActivitySource.SetRecordsProcessed(batchActivity, processedCount);
+            BotActivitySource.SetSuccess(batchActivity);
 
-        // Notify that voting has started for one or more watches - update bot status
-        _ratWatchStatusService.RequestStatusUpdate();
+            // Notify that voting has started for one or more watches - update bot status
+            _ratWatchStatusService.RequestStatusUpdate();
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(batchActivity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -181,47 +223,70 @@ public class RatWatchExecutionService : MonitoredBackgroundService
             return;
         }
 
-        // Create a semaphore to limit concurrent executions
-        using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
-        var executionTimeout = TimeSpan.FromSeconds(_options.Value.ExecutionTimeoutSeconds);
+        using var batchActivity = BotActivitySource.StartBackgroundBatchActivity(
+            TracingServiceName,
+            votingList.Count,
+            "expired_voting");
 
-        // Execute voting finalization concurrently with semaphore and timeout protection
-        var executionTasks = votingList.Select(async watch =>
+        try
         {
-            await semaphore.WaitAsync(stoppingToken);
-            try
+            // Create a semaphore to limit concurrent executions
+            using var semaphore = new SemaphoreSlim(_options.Value.MaxConcurrentExecutions);
+            var executionTimeout = TimeSpan.FromSeconds(_options.Value.ExecutionTimeoutSeconds);
+            var processedCount = 0;
+
+            // Execute voting finalization concurrently with semaphore and timeout protection
+            var executionTasks = votingList.Select(async watch =>
             {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                cts.CancelAfter(executionTimeout);
-
-                // Finalize the voting in the database
-                var success = await service.FinalizeVotingAsync(watch.Id, cts.Token);
-
-                if (success)
+                await semaphore.WaitAsync(stoppingToken);
+                try
                 {
-                    // Update the Discord message with final results
-                    await UpdateVotingMessageAsync(watch.Id, cts.Token);
+                    using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    cts.CancelAfter(executionTimeout);
+
+                    // Finalize the voting in the database
+                    var success = await service.FinalizeVotingAsync(watch.Id, cts.Token);
+
+                    if (success)
+                    {
+                        // Update the Discord message with final results
+                        await UpdateVotingMessageAsync(watch.Id, cts.Token);
+                        return true;
+                    }
+
+                    return false;
                 }
-            }
-            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
-            {
-                // Timeout
-            }
-            catch (Exception)
-            {
-                // Logged by individual methods
-            }
-            finally
-            {
-                semaphore.Release();
-            }
-        });
+                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+                {
+                    // Timeout
+                    return false;
+                }
+                catch (Exception)
+                {
+                    // Logged by individual methods
+                    return false;
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
 
-        // Wait for all executions to complete
-        await Task.WhenAll(executionTasks);
+            // Wait for all executions to complete and count successes
+            var results = await Task.WhenAll(executionTasks);
+            processedCount = results.Count(r => r);
 
-        // Notify that voting has ended for one or more watches - update bot status
-        _ratWatchStatusService.RequestStatusUpdate();
+            BotActivitySource.SetRecordsProcessed(batchActivity, processedCount);
+            BotActivitySource.SetSuccess(batchActivity);
+
+            // Notify that voting has ended for one or more watches - update bot status
+            _ratWatchStatusService.RequestStatusUpdate();
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(batchActivity, ex);
+            throw;
+        }
     }
 
     /// <summary>

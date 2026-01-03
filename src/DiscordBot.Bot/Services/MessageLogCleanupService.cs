@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,11 @@ public class MessageLogCleanupService : MonitoredBackgroundService
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
 
     public override string ServiceName => "Message Log Cleanup Service";
+
+    /// <summary>
+    /// Gets the service name formatted for tracing (snake_case).
+    /// </summary>
+    private string TracingServiceName => "message_log_cleanup_service";
 
     public MessageLogCleanupService(
         IServiceProvider serviceProvider,
@@ -51,13 +57,26 @@ public class MessageLogCleanupService : MonitoredBackgroundService
         var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.MessageLogCleanupInitialDelayMinutes);
         await Task.Delay(initialDelay, stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await PerformCleanupAsync(stoppingToken);
+                var deletedCount = await PerformCleanupAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsDeleted(activity, deletedCount);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -67,6 +86,7 @@ public class MessageLogCleanupService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 _logger.LogError(ex, "Error during message log cleanup");
                 RecordError(ex);
             }
@@ -83,24 +103,42 @@ public class MessageLogCleanupService : MonitoredBackgroundService
     /// Performs a single cleanup operation by creating a scoped service and invoking the cleanup method.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during cleanup.</param>
-    private async Task PerformCleanupAsync(CancellationToken stoppingToken)
+    /// <returns>The number of message log records deleted.</returns>
+    private async Task<int> PerformCleanupAsync(CancellationToken stoppingToken)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var retentionDays = await GetRetentionDaysAsync(scope);
+        using var cleanupActivity = BotActivitySource.StartBackgroundCleanupActivity(
+            TracingServiceName,
+            "message_logs");
 
-        _logger.LogInformation(
-            "Starting message log cleanup. Retention: {RetentionDays} days, Batch size: {BatchSize}",
-            retentionDays,
-            _options.Value.CleanupBatchSize);
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var retentionDays = await GetRetentionDaysAsync(scope);
 
-        var messageLogService = scope.ServiceProvider.GetRequiredService<IMessageLogService>();
+            _logger.LogInformation(
+                "Starting message log cleanup. Retention: {RetentionDays} days, Batch size: {BatchSize}",
+                retentionDays,
+                _options.Value.CleanupBatchSize);
 
-        var deletedCount = await messageLogService.CleanupOldMessagesAsync(stoppingToken);
+            var messageLogService = scope.ServiceProvider.GetRequiredService<IMessageLogService>();
 
-        _logger.LogInformation(
-            "Message log cleanup completed. Deleted {DeletedCount} messages older than {RetentionDays} days",
-            deletedCount,
-            retentionDays);
+            var deletedCount = await messageLogService.CleanupOldMessagesAsync(stoppingToken);
+
+            _logger.LogInformation(
+                "Message log cleanup completed. Deleted {DeletedCount} messages older than {RetentionDays} days",
+                deletedCount,
+                retentionDays);
+
+            BotActivitySource.SetRecordsDeleted(cleanupActivity, deletedCount);
+            BotActivitySource.SetSuccess(cleanupActivity);
+
+            return deletedCount;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(cleanupActivity, ex);
+            throw;
+        }
     }
 
     /// <summary>

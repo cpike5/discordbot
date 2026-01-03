@@ -1,5 +1,6 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Metrics;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using Microsoft.Extensions.Options;
 
@@ -17,6 +18,11 @@ public class MetricsUpdateService : MonitoredBackgroundService
 
     public override string ServiceName => "MetricsUpdateService";
 
+    /// <summary>
+    /// Gets the tracing service name in snake_case format.
+    /// </summary>
+    private string TracingServiceName => "metrics_update";
+
     public MetricsUpdateService(
         DiscordSocketClient client,
         BotMetrics botMetrics,
@@ -33,17 +39,36 @@ public class MetricsUpdateService : MonitoredBackgroundService
     protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
         var updateInterval = TimeSpan.FromSeconds(_bgOptions.Value.MetricsUpdateIntervalSeconds);
+        var executionCycle = 0;
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
+
             try
             {
                 UpdateMetrics();
+
+                // Record that we updated 2 metrics (guild count + user count)
+                BotActivitySource.SetRecordsProcessed(activity, 2);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
             }
 

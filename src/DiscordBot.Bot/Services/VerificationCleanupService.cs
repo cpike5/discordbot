@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
@@ -14,6 +15,11 @@ public class VerificationCleanupService : MonitoredBackgroundService
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
 
     public override string ServiceName => "Verification Cleanup Service";
+
+    /// <summary>
+    /// Gets the service name formatted for tracing (snake_case).
+    /// </summary>
+    private string TracingServiceName => "verification_cleanup_service";
 
     public VerificationCleanupService(
         IServiceProvider serviceProvider,
@@ -35,33 +41,37 @@ public class VerificationCleanupService : MonitoredBackgroundService
             cleanupInterval);
 
         using var timer = new PeriodicTimer(cleanupInterval);
+        var executionCycle = 0;
 
         try
         {
             while (await timer.WaitForNextTickAsync(stoppingToken))
             {
+                executionCycle++;
+                var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+                using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                    TracingServiceName,
+                    executionCycle,
+                    correlationId);
+
                 UpdateHeartbeat();
 
                 try
                 {
-                    using var scope = _scopeFactory.CreateScope();
-                    var verificationService = scope.ServiceProvider
-                        .GetRequiredService<IVerificationService>();
+                    var cleanedCount = await PerformCleanupAsync(stoppingToken);
 
-                    var cleanedCount = await verificationService
-                        .CleanupExpiredCodesAsync(stoppingToken);
-
-                    if (cleanedCount > 0)
-                    {
-                        _logger.LogDebug(
-                            "Verification cleanup completed: {CleanedCount} codes processed",
-                            cleanedCount);
-                    }
-
+                    BotActivitySource.SetRecordsDeleted(activity, cleanedCount);
+                    BotActivitySource.SetSuccess(activity);
                     ClearError();
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
                 }
                 catch (Exception ex)
                 {
+                    BotActivitySource.RecordException(activity, ex);
                     _logger.LogError(ex, "Error occurred during verification code cleanup");
                     RecordError(ex);
                 }
@@ -70,6 +80,45 @@ public class VerificationCleanupService : MonitoredBackgroundService
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Verification cleanup service is stopping");
+        }
+    }
+
+    /// <summary>
+    /// Performs a single cleanup operation by creating a scoped service and invoking the cleanup method.
+    /// </summary>
+    /// <param name="stoppingToken">Cancellation token to respect during cleanup.</param>
+    /// <returns>The number of verification codes deleted.</returns>
+    private async Task<int> PerformCleanupAsync(CancellationToken stoppingToken)
+    {
+        using var cleanupActivity = BotActivitySource.StartBackgroundCleanupActivity(
+            TracingServiceName,
+            "expired_verifications");
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var verificationService = scope.ServiceProvider
+                .GetRequiredService<IVerificationService>();
+
+            var cleanedCount = await verificationService
+                .CleanupExpiredCodesAsync(stoppingToken);
+
+            if (cleanedCount > 0)
+            {
+                _logger.LogDebug(
+                    "Verification cleanup completed: {CleanedCount} codes processed",
+                    cleanedCount);
+            }
+
+            BotActivitySource.SetRecordsDeleted(cleanupActivity, cleanedCount);
+            BotActivitySource.SetSuccess(cleanupActivity);
+
+            return cleanedCount;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(cleanupActivity, ex);
+            throw;
         }
     }
 }

@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Metrics;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
@@ -17,6 +18,11 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
 
     public override string ServiceName => "Business Metrics Update Service";
+
+    /// <summary>
+    /// Gets the tracing service name in snake_case format.
+    /// </summary>
+    private string TracingServiceName => "business_metrics_update";
 
     public BusinessMetricsUpdateService(
         IServiceProvider serviceProvider,
@@ -37,6 +43,7 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
     {
         var updateInterval = TimeSpan.FromMinutes(_bgOptions.Value.BusinessMetricsUpdateIntervalMinutes);
         var initialDelay = TimeSpan.FromSeconds(_bgOptions.Value.BusinessMetricsInitialDelaySeconds);
+        var executionCycle = 0;
 
         _logger.LogInformation("Business metrics update service starting, will update every {Interval} minutes", updateInterval.TotalMinutes);
 
@@ -45,16 +52,32 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await UpdateMetricsAsync(stoppingToken);
+                var metricsUpdated = await UpdateMetricsAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsProcessed(activity, metricsUpdated);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating business and SLO metrics");
+                BotActivitySource.RecordException(activity, ex);
                 RecordError(ex);
             }
 
@@ -64,7 +87,7 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
         _logger.LogInformation("Business metrics update service stopping");
     }
 
-    private async Task UpdateMetricsAsync(CancellationToken cancellationToken)
+    private async Task<int> UpdateMetricsAsync(CancellationToken cancellationToken)
     {
         using var scope = _serviceScopeFactory.CreateScope();
         var commandLogRepository = scope.ServiceProvider.GetRequiredService<ICommandLogRepository>();
@@ -79,7 +102,7 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
 
         try
         {
-            // Update business metrics
+            // Update business metrics (5 metrics)
             await UpdateBusinessMetricsAsync(
                 commandLogRepository,
                 guildRepository,
@@ -87,7 +110,7 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
                 sevenDaysAgo,
                 cancellationToken);
 
-            // Update SLO metrics
+            // Update SLO metrics (5 metrics)
             await UpdateSloMetricsAsync(
                 commandLogRepository,
                 twentyFourHoursAgo,
@@ -96,6 +119,9 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
                 cancellationToken);
 
             _logger.LogTrace("Successfully updated business and SLO metrics");
+
+            // Return total count of metrics updated (5 business + 5 SLO = 10)
+            return 10;
         }
         catch (Exception ex)
         {

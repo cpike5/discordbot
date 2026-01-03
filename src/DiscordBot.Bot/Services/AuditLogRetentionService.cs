@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,11 @@ public class AuditLogRetentionService : MonitoredBackgroundService
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
 
     public override string ServiceName => "Audit Log Retention Service";
+
+    /// <summary>
+    /// Gets the service name formatted for tracing (snake_case).
+    /// </summary>
+    private string TracingServiceName => "audit_log_retention_service";
 
     public AuditLogRetentionService(
         IServiceProvider serviceProvider,
@@ -51,13 +57,26 @@ public class AuditLogRetentionService : MonitoredBackgroundService
         var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.AuditLogCleanupInitialDelayMinutes);
         await Task.Delay(initialDelay, stoppingToken);
 
+        var executionCycle = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            executionCycle++;
+            var correlationId = Guid.NewGuid().ToString("N")[..16];
+
+            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+                TracingServiceName,
+                executionCycle,
+                correlationId);
+
             UpdateHeartbeat();
 
             try
             {
-                await PerformCleanupAsync(stoppingToken);
+                var deletedCount = await PerformCleanupAsync(stoppingToken);
+
+                BotActivitySource.SetRecordsDeleted(activity, deletedCount);
+                BotActivitySource.SetSuccess(activity);
                 ClearError();
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -67,6 +86,7 @@ public class AuditLogRetentionService : MonitoredBackgroundService
             }
             catch (Exception ex)
             {
+                BotActivitySource.RecordException(activity, ex);
                 _logger.LogError(ex, "Error during audit log cleanup");
                 RecordError(ex);
             }
@@ -83,26 +103,44 @@ public class AuditLogRetentionService : MonitoredBackgroundService
     /// Performs a single cleanup operation by creating a scoped service and invoking the cleanup method.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during cleanup.</param>
-    private async Task PerformCleanupAsync(CancellationToken stoppingToken)
+    /// <returns>The number of audit log records deleted.</returns>
+    private async Task<int> PerformCleanupAsync(CancellationToken stoppingToken)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var retentionDays = await GetRetentionDaysAsync(scope);
+        using var cleanupActivity = BotActivitySource.StartBackgroundCleanupActivity(
+            TracingServiceName,
+            "audit_logs");
 
-        _logger.LogInformation(
-            "Starting audit log cleanup. Retention: {RetentionDays} days, Batch size: {BatchSize}",
-            retentionDays,
-            _options.Value.CleanupBatchSize);
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var retentionDays = await GetRetentionDaysAsync(scope);
 
-        var auditLogRepository = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
+            _logger.LogInformation(
+                "Starting audit log cleanup. Retention: {RetentionDays} days, Batch size: {BatchSize}",
+                retentionDays,
+                _options.Value.CleanupBatchSize);
 
-        var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
-        var deletedCount = await auditLogRepository.DeleteOlderThanAsync(cutoffDate, stoppingToken);
+            var auditLogRepository = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
 
-        _logger.LogInformation(
-            "Audit log cleanup completed. Deleted {DeletedCount} logs older than {RetentionDays} days (cutoff date: {CutoffDate:yyyy-MM-dd})",
-            deletedCount,
-            retentionDays,
-            cutoffDate);
+            var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
+            var deletedCount = await auditLogRepository.DeleteOlderThanAsync(cutoffDate, stoppingToken);
+
+            _logger.LogInformation(
+                "Audit log cleanup completed. Deleted {DeletedCount} logs older than {RetentionDays} days (cutoff date: {CutoffDate:yyyy-MM-dd})",
+                deletedCount,
+                retentionDays,
+                cutoffDate);
+
+            BotActivitySource.SetRecordsDeleted(cleanupActivity, deletedCount);
+            BotActivitySource.SetSuccess(cleanupActivity);
+
+            return deletedCount;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(cleanupActivity, ex);
+            throw;
+        }
     }
 
     /// <summary>
