@@ -6,6 +6,19 @@
     ViewData["Title"] = "Command Logs";
     var startItem = Model.ViewModel.TotalCount > 0 ? (Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1 : 0;
     var endItem = Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount);
+
+    // Autocomplete view model for Command Name filter
+    var commandAutocomplete = new AutocompleteInputViewModel
+    {
+        Id = "CommandName",
+        Name = "CommandName",
+        Label = "Command",
+        Placeholder = "Search by command name...",
+        Endpoint = "/api/autocomplete/commands",
+        InitialValue = Model.CommandName,
+        InitialDisplayText = Model.CommandName,
+        NoResultsMessage = "No commands found"
+    };
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -145,15 +158,7 @@
                         </div>
 
                         <!-- Command Name Filter -->
-                        <div>
-                            <label for="CommandName" class="block text-sm font-medium text-text-primary mb-1">Command</label>
-                            <input type="text"
-                                   id="CommandName"
-                                   name="CommandName"
-                                   value="@Model.CommandName"
-                                   placeholder="e.g., ping, help"
-                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
-                        </div>
+                        <partial name="Shared/Components/_AutocompleteInput" model="commandAutocomplete" />
 
                         <!-- Status Filter -->
                         <div>
@@ -445,6 +450,7 @@
 }
 
 @section Scripts {
+    <script src="~/js/autocomplete.js" asp-append-version="true"></script>
     <script>
         function toggleFilterPanel() {
             const content = document.getElementById('filterContent');

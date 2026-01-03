@@ -1,8 +1,22 @@
 @page
 @model DiscordBot.Bot.Pages.Admin.AuditLogs.IndexModel
 @using DiscordBot.Core.Enums
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Audit Logs";
+
+    // Autocomplete view model for Actor ID filter
+    var actorAutocomplete = new AutocompleteInputViewModel
+    {
+        Id = "ActorId",
+        Name = "ActorId",
+        Label = "Actor",
+        Placeholder = "Search by username...",
+        Endpoint = "/api/autocomplete/users",
+        InitialValue = Model.ActorId,
+        InitialDisplayText = Model.ActorDisplayName,
+        NoResultsMessage = "No users found"
+    };
 }
 
 <style>
@@ -170,17 +184,7 @@
             <!-- Row 3: Actor and Target Type -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Actor Filter -->
-                <div>
-                    <label for="actorId" class="block text-sm font-medium text-text-primary mb-1">Actor ID</label>
-                    <input
-                        type="text"
-                        id="actorId"
-                        name="ActorId"
-                        value="@Model.ActorId"
-                        placeholder="Search by actor ID or username..."
-                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
-                    />
-                </div>
+                <partial name="Shared/Components/_AutocompleteInput" model="actorAutocomplete" />
 
                 <!-- Target Type Dropdown -->
                 <div>
@@ -687,6 +691,7 @@
 </div>
 
 @section Scripts {
+    <script src="~/js/autocomplete.js" asp-append-version="true"></script>
     <script>
         // Toggle filters visibility
         document.getElementById('toggleFilters')?.addEventListener('click', function() {
