@@ -1,0 +1,70 @@
+@model DiscordBot.Bot.ViewModels.Components.AutocompleteInputViewModel
+@{
+    var searchInputId = $"{Model.Id}-search";
+    var helpTextId = $"{Model.Id}-help";
+}
+
+<div class="space-y-1.5">
+    @if (!string.IsNullOrEmpty(Model.Label))
+    {
+        <label for="@searchInputId" class="block text-sm font-medium text-text-primary">
+            @Model.Label
+            @if (Model.IsRequired)
+            {
+                <span class="text-error">*</span>
+            }
+        </label>
+    }
+
+    <div class="autocomplete-wrapper">
+        <input
+            type="text"
+            id="@searchInputId"
+            class="form-input w-full"
+            placeholder="@(Model.Placeholder ?? "Search...")"
+            value="@Model.InitialDisplayText"
+            autocomplete="off"
+            @if (Model.IsRequired)
+            {
+                @:aria-required="true"
+            }
+            @if (!string.IsNullOrEmpty(Model.HelpText))
+            {
+                @:aria-describedby="@helpTextId"
+            }
+        />
+        <input
+            type="hidden"
+            id="@Model.Id"
+            name="@Model.Name"
+            value="@Model.InitialValue"
+        />
+        @* Dropdown and clear button are created dynamically by JavaScript *@
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.HelpText))
+    {
+        <p id="@helpTextId" class="text-xs text-text-secondary">@Model.HelpText</p>
+    }
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof AutocompleteManager !== 'undefined') {
+            AutocompleteManager.init({
+                inputId: '@searchInputId',
+                hiddenInputId: '@Model.Id',
+                endpoint: '@Model.Endpoint',
+                @if (!string.IsNullOrEmpty(Model.GuildIdSourceElement))
+                {
+                    @:guildIdSource: '@Model.GuildIdSourceElement',
+                }
+                minChars: @Model.MinChars,
+                debounceMs: @Model.DebounceMs,
+                maxResults: @Model.MaxResults,
+                placeholder: '@(Model.Placeholder ?? "Search...")',
+                noResultsMessage: '@Model.NoResultsMessage'
+            });
+        }
+    });
+</script>
