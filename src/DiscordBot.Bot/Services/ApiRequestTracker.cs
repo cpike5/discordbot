@@ -10,7 +10,7 @@ namespace DiscordBot.Bot.Services;
 /// Service for tracking Discord API requests and rate limiting events from Discord.NET log messages.
 /// Thread-safe singleton service that parses log events for API usage patterns.
 /// </summary>
-public class ApiRequestTracker : IApiRequestTracker
+public class ApiRequestTracker : IApiRequestTracker, IMemoryReportable
 {
     private readonly ILogger<ApiRequestTracker> _logger;
     private readonly PerformanceMetricsOptions _options;
@@ -530,4 +530,43 @@ public class ApiRequestTracker : IApiRequestTracker
         public int MinLatencyMs { get; set; }
         public int MaxLatencyMs { get; set; }
     }
+
+    #region IMemoryReportable Implementation
+
+    /// <inheritdoc/>
+    public string ServiceName => "API Request Tracker";
+
+    /// <inheritdoc/>
+    public ServiceMemoryReportDto GetMemoryReport()
+    {
+        lock (_lock)
+        {
+            // Hourly buckets: 24 * 8 bytes = 192 bytes
+            const int hourlyBucketsBytes = 24 * 8;
+
+            // Latency samples: 288 samples * ~32 bytes (struct with DateTime + 2 longs + 2 ints)
+            const int latencySampleBytes = 32;
+            var latencyBufferBytes = _latencySamples.Length * latencySampleBytes;
+
+            // Rate limit events: estimate ~100 bytes per event (DateTime + string + int + bool)
+            const int rateLimitEventBytes = 100;
+            var rateLimitQueueBytes = _rateLimitEventCount * rateLimitEventBytes;
+
+            // Categories dictionary: estimate ~200 bytes per category (key + ApiCategory object)
+            const int categoryBytes = 200;
+            var categoriesBytes = _categories.Count * categoryBytes;
+
+            var totalBytes = hourlyBucketsBytes + latencyBufferBytes + rateLimitQueueBytes + categoriesBytes;
+
+            return new ServiceMemoryReportDto
+            {
+                ServiceName = ServiceName,
+                EstimatedBytes = totalBytes,
+                ItemCount = _categories.Count + _rateLimitEventCount + _latencySampleCount,
+                Details = $"Categories: {_categories.Count}, Rate limits: {_rateLimitEventCount}/{MaxRateLimitEvents}, Latency samples: {_latencySampleCount}/288"
+            };
+        }
+    }
+
+    #endregion
 }

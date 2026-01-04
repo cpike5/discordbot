@@ -42,6 +42,9 @@ public static class PerformanceMetricsServiceExtensions
         // Instrumented cache wrapper (singleton)
         services.AddSingleton<IInstrumentedCache, InstrumentedMemoryCache>();
 
+        // Memory diagnostics service (singleton - aggregates IMemoryReportable services)
+        services.AddSingleton<IMemoryDiagnosticsService, MemoryDiagnosticsService>();
+
         // Command performance aggregator as background service
         services.AddHostedService<CommandPerformanceAggregator>();
 

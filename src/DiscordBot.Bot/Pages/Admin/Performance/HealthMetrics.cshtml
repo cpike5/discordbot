@@ -1,5 +1,6 @@
 @page
 @model DiscordBot.Bot.Pages.Admin.Performance.HealthMetricsModel
+@using DiscordBot.Bot.ViewModels.Pages
 @{
     ViewData["Title"] = "Health Metrics";
     ViewData["Breadcrumbs"] = new List<(string Text, string? Url)>
@@ -202,6 +203,121 @@
         </div>
     </div>
 </div>
+
+<!-- Memory Breakdown Section -->
+@if (Model.ViewModel.MemoryDiagnostics != null)
+{
+    <div class="chart-card mb-6">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Memory Breakdown</h2>
+                <p class="chart-card-subtitle">GC heap details and per-service memory usage</p>
+            </div>
+        </div>
+        <div class="chart-card-body">
+            <!-- GC Generation Sizes -->
+            <div class="mb-6">
+                <h3 class="text-sm font-medium text-text-primary mb-3">GC Heap Generations</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                        <div class="text-lg font-bold text-text-primary">
+                            @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.GcGenerations.Gen0SizeBytes)
+                        </div>
+                        <div class="text-xs text-text-tertiary">Gen 0</div>
+                    </div>
+                    <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                        <div class="text-lg font-bold text-text-primary">
+                            @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.GcGenerations.Gen1SizeBytes)
+                        </div>
+                        <div class="text-xs text-text-tertiary">Gen 1</div>
+                    </div>
+                    <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                        <div class="text-lg font-bold text-text-primary">
+                            @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.GcGenerations.Gen2SizeBytes)
+                        </div>
+                        <div class="text-xs text-text-tertiary">Gen 2</div>
+                    </div>
+                    <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                        <div class="text-lg font-bold text-text-primary">
+                            @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.GcGenerations.LohSizeBytes)
+                        </div>
+                        <div class="text-xs text-text-tertiary">LOH</div>
+                    </div>
+                    <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                        <div class="text-lg font-bold text-text-primary">
+                            @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.GcGenerations.PohSizeBytes)
+                        </div>
+                        <div class="text-xs text-text-tertiary">POH</div>
+                    </div>
+                    <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                        <div class="text-lg font-bold @HealthMetricsViewModel.GetFragmentationClass(Model.ViewModel.MemoryDiagnostics.GcGenerations.FragmentationPercent)">
+                            @Model.ViewModel.MemoryDiagnostics.GcGenerations.FragmentationPercent.ToString("F1")%
+                        </div>
+                        <div class="text-xs text-text-tertiary">Fragmentation</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Memory Breakdown -->
+            @if (Model.ViewModel.MemoryDiagnostics.ServiceReports.Any())
+            {
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-text-primary mb-3">Service Memory Usage</h3>
+                    <div class="space-y-3">
+                        @foreach (var service in Model.ViewModel.MemoryDiagnostics.ServiceReports)
+                        {
+                            var percentOfTotal = Model.ViewModel.MemoryDiagnostics.TotalAccountedBytes > 0
+                                ? (double)service.EstimatedBytes / Model.ViewModel.MemoryDiagnostics.TotalAccountedBytes * 100
+                                : 0;
+
+                            <div class="bg-bg-tertiary rounded-lg p-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-text-primary">@service.ServiceName</span>
+                                    <span class="text-sm text-text-secondary">@HealthMetricsViewModel.FormatBytes(service.EstimatedBytes)</span>
+                                </div>
+                                <div class="progress-bar-container progress-bar-sm">
+                                    <div class="progress-bar-fill progress-bar-healthy" style="width: @percentOfTotal.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)%;"></div>
+                                </div>
+                                @if (!string.IsNullOrEmpty(service.Details))
+                                {
+                                    <div class="text-xs text-text-tertiary mt-1">@service.Details</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Memory Summary -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border-primary">
+                <div class="text-center">
+                    <div class="text-xl font-bold text-text-primary">
+                        @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.TotalAccountedBytes)
+                    </div>
+                    <div class="text-xs text-text-tertiary">Accounted</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xl font-bold text-warning">
+                        @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.UnaccountedBytes)
+                    </div>
+                    <div class="text-xs text-text-tertiary">Unaccounted</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xl font-bold text-text-primary">
+                        @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.ManagedHeapBytes)
+                    </div>
+                    <div class="text-xs text-text-tertiary">Managed Heap</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-xl font-bold text-text-primary">
+                        @HealthMetricsViewModel.FormatBytes(Model.ViewModel.MemoryDiagnostics.GcGenerations.TotalCommittedBytes)
+                    </div>
+                    <div class="text-xs text-text-tertiary">Committed</div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 <!-- Latency History Chart -->
 <div class="chart-card mb-6">

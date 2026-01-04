@@ -10,7 +10,7 @@ namespace DiscordBot.Bot.Services;
 /// Maintains 24 hours of samples at 30-second intervals (2,880 samples) by default.
 /// Thread-safe singleton service with percentile calculation support.
 /// </summary>
-public class LatencyHistoryService : ILatencyHistoryService
+public class LatencyHistoryService : ILatencyHistoryService, IMemoryReportable
 {
     private readonly ILogger<LatencyHistoryService> _logger;
     private readonly PerformanceMetricsOptions _options;
@@ -216,4 +216,30 @@ public class LatencyHistoryService : ILatencyHistoryService
         public DateTime Timestamp { get; init; }
         public int LatencyMs { get; init; }
     }
+
+    #region IMemoryReportable Implementation
+
+    /// <inheritdoc/>
+    public string ServiceName => "Latency History";
+
+    /// <inheritdoc/>
+    public ServiceMemoryReportDto GetMemoryReport()
+    {
+        lock (_lock)
+        {
+            // LatencySample struct: DateTime (8 bytes) + int (4 bytes) = 12 bytes, aligned to 16 bytes
+            const int sampleSizeBytes = 16;
+            var estimatedBytes = _maxSamples * sampleSizeBytes;
+
+            return new ServiceMemoryReportDto
+            {
+                ServiceName = ServiceName,
+                EstimatedBytes = estimatedBytes,
+                ItemCount = _sampleCount,
+                Details = $"Circular buffer: {_sampleCount}/{_maxSamples} samples ({_options.LatencyRetentionHours}h retention)"
+            };
+        }
+    }
+
+    #endregion
 }

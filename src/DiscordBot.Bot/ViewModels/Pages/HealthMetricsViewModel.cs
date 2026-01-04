@@ -8,6 +8,11 @@ namespace DiscordBot.Bot.ViewModels.Pages;
 public record HealthMetricsViewModel
 {
     /// <summary>
+    /// Gets the detailed memory diagnostics including GC and service breakdown.
+    /// </summary>
+    public MemoryDiagnosticsDto? MemoryDiagnostics { get; init; }
+
+    /// <summary>
     /// Gets the current health status of the bot.
     /// </summary>
     public PerformanceHealthDto Health { get; init; } = new();
@@ -148,6 +153,37 @@ public record HealthMetricsViewModel
             < 100 => "gauge-fill-healthy",
             < 200 => "gauge-fill-warning",
             _ => "gauge-fill-error"
+        };
+    }
+
+    /// <summary>
+    /// Formats bytes to a human-readable string with appropriate unit.
+    /// </summary>
+    /// <param name="bytes">The number of bytes to format.</param>
+    /// <returns>A formatted string like "1.5 GB", "256.3 MB", "64.0 KB", or "512 B".</returns>
+    public static string FormatBytes(long bytes)
+    {
+        if (bytes >= 1024L * 1024L * 1024L)
+            return $"{bytes / (1024.0 * 1024.0 * 1024.0):F1} GB";
+        if (bytes >= 1024L * 1024L)
+            return $"{bytes / (1024.0 * 1024.0):F1} MB";
+        if (bytes >= 1024L)
+            return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes} B";
+    }
+
+    /// <summary>
+    /// Gets the CSS class for fragmentation percentage styling.
+    /// </summary>
+    /// <param name="fragmentationPercent">The fragmentation percentage (0-100).</param>
+    /// <returns>A CSS class name for text coloring.</returns>
+    public static string GetFragmentationClass(double fragmentationPercent)
+    {
+        return fragmentationPercent switch
+        {
+            < 10 => "text-success",
+            < 25 => "text-warning",
+            _ => "text-error"
         };
     }
 }

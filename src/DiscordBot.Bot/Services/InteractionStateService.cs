@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,7 +11,7 @@ namespace DiscordBot.Bot.Services;
 /// Service for managing temporary state data for Discord component interactions.
 /// Uses an in-memory concurrent dictionary with automatic expiration.
 /// </summary>
-public class InteractionStateService : IInteractionStateService
+public class InteractionStateService : IInteractionStateService, IMemoryReportable
 {
     private readonly ConcurrentDictionary<string, object> _states = new();
     private readonly ILogger<InteractionStateService> _logger;
@@ -170,4 +171,34 @@ public class InteractionStateService : IInteractionStateService
     {
         return Guid.NewGuid().ToString("N")[..8];
     }
+
+    #region IMemoryReportable Implementation
+
+    /// <inheritdoc/>
+    public string ServiceName => "Interaction State";
+
+    /// <inheritdoc/>
+    public ServiceMemoryReportDto GetMemoryReport()
+    {
+        // ConcurrentDictionary overhead per entry: ~80 bytes
+        // InteractionState<T> object: ~40 bytes base (correlationId, userId, timestamps)
+        // Average state data estimated at ~200 bytes
+        const int entryOverheadBytes = 80;
+        const int stateBaseBytes = 40;
+        const int avgDataBytes = 200;
+        const int perEntryEstimate = entryOverheadBytes + stateBaseBytes + avgDataBytes;
+
+        var count = _states.Count;
+        var estimatedBytes = count * perEntryEstimate;
+
+        return new ServiceMemoryReportDto
+        {
+            ServiceName = ServiceName,
+            EstimatedBytes = estimatedBytes,
+            ItemCount = count,
+            Details = $"Active states: {count} (expiry: {_cachingOptions.InteractionStateExpiryMinutes} min)"
+        };
+    }
+
+    #endregion
 }
