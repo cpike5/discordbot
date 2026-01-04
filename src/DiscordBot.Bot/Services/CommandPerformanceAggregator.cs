@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -15,6 +16,7 @@ namespace DiscordBot.Bot.Services;
 public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommandPerformanceAggregator
 {
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly DiscordSocketClient _client;
     private readonly PerformanceMetricsOptions _options;
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
@@ -29,11 +31,13 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
     public CommandPerformanceAggregator(
         IServiceProvider serviceProvider,
         IServiceScopeFactory serviceScopeFactory,
+        DiscordSocketClient client,
         ILogger<CommandPerformanceAggregator> logger,
         IOptions<PerformanceMetricsOptions> options)
         : base(serviceProvider, logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
+        _client = client;
         _options = options.Value;
         _cacheTtl = TimeSpan.FromMinutes(_options.CommandAggregationCacheTtlMinutes);
     }
@@ -127,13 +131,30 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
         return logs
             .OrderByDescending(l => l.ResponseTimeMs)
             .Take(limit)
-            .Select(l => new SlowestCommandDto
+            .Select(l =>
             {
-                CommandName = l.CommandName,
-                ExecutedAt = l.ExecutedAt,
-                DurationMs = l.ResponseTimeMs,
-                UserId = l.UserId,
-                GuildId = l.GuildId
+                // Resolve username from Discord cache
+                var user = _client.GetUser(l.UserId);
+                var username = user?.Username;
+
+                // Resolve guild name from Discord cache
+                string? guildName = null;
+                if (l.GuildId.HasValue)
+                {
+                    var guild = _client.GetGuild(l.GuildId.Value);
+                    guildName = guild?.Name;
+                }
+
+                return new SlowestCommandDto
+                {
+                    CommandName = l.CommandName,
+                    ExecutedAt = l.ExecutedAt,
+                    DurationMs = l.ResponseTimeMs,
+                    UserId = l.UserId,
+                    Username = username,
+                    GuildId = l.GuildId,
+                    GuildName = guildName
+                };
             })
             .ToList();
     }

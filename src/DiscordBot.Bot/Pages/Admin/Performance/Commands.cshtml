@@ -197,8 +197,8 @@ else
                             <th>Command</th>
                             <th>Duration</th>
                             <th>Executed At</th>
-                            <th>User ID</th>
-                            <th>Guild ID</th>
+                            <th>User</th>
+                            <th>Guild</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -214,8 +214,33 @@ else
                                 <td>
                                     <span data-utc-time="@cmd.ExecutedAt.ToString("o")">@cmd.ExecutedAt.ToString("MMM dd, HH:mm")</span>
                                 </td>
-                                <td class="text-text-secondary">@cmd.UserId</td>
-                                <td class="text-text-secondary">@(cmd.GuildId?.ToString() ?? "DM")</td>
+                                <td class="text-text-secondary">
+                                    @if (!string.IsNullOrEmpty(cmd.Username))
+                                    {
+                                        <span title="User ID: @cmd.UserId">@cmd.Username</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-mono">@cmd.UserId</span>
+                                    }
+                                </td>
+                                <td class="text-text-secondary">
+                                    @if (cmd.GuildId.HasValue)
+                                    {
+                                        @if (!string.IsNullOrEmpty(cmd.GuildName))
+                                        {
+                                            <span title="Guild ID: @cmd.GuildId.Value">@cmd.GuildName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-mono">@cmd.GuildId.Value</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span>DM</span>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
