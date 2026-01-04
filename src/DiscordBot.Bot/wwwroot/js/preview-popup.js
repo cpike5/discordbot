@@ -18,14 +18,17 @@ const PreviewPopup = (() => {
         cacheTtl: 5 * 60 * 1000, // 5 minute cache
         userPopupWidth: 288,     // 18rem = 288px
         guildPopupWidth: 320,    // 20rem = 320px
-        viewportPadding: 16      // Minimum distance from viewport edges
+        viewportPadding: 16,     // Minimum distance from viewport edges
+        minTouchTarget: 44       // Minimum touch target size in pixels (WCAG 2.5.5)
     };
 
     // State
     let activePopup = null;
     let activeTrigger = null;
+    let lastFocusedTrigger = null; // Track last focused trigger for focus return
     let hoverTimer = null;
     let hideTimer = null;
+    let isTouchDeviceCache = null; // Cache touch device detection
 
     // Cache module
     const PreviewCache = (() => {
@@ -465,6 +468,42 @@ const PreviewPopup = (() => {
     }
 
     /**
+     * Detect if device supports touch input
+     */
+    function isTouchDevice() {
+        if (isTouchDeviceCache !== null) {
+            return isTouchDeviceCache;
+        }
+        isTouchDeviceCache = 'ontouchstart' in window ||
+            navigator.maxTouchPoints > 0 ||
+            navigator.msMaxTouchPoints > 0;
+        return isTouchDeviceCache;
+    }
+
+    /**
+     * Ensure trigger has required ARIA attributes for accessibility
+     */
+    function ensureTriggerAccessibility(trigger) {
+        // Only add tabindex if not already focusable (not a button, link, or already has tabindex)
+        const tagName = trigger.tagName.toLowerCase();
+        const isFocusable = tagName === 'button' || tagName === 'a' || trigger.hasAttribute('tabindex');
+        if (!isFocusable) {
+            trigger.setAttribute('tabindex', '0');
+        }
+
+        // Add ARIA attributes if not present
+        if (!trigger.hasAttribute('role')) {
+            trigger.setAttribute('role', 'button');
+        }
+        if (!trigger.hasAttribute('aria-haspopup')) {
+            trigger.setAttribute('aria-haspopup', 'dialog');
+        }
+        if (!trigger.hasAttribute('aria-expanded')) {
+            trigger.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    /**
      * Show popup for a trigger element
      */
     async function showPopup(trigger) {
@@ -478,7 +517,11 @@ const PreviewPopup = (() => {
 
         if (!type || (!userId && !guildId)) return;
 
+        // Ensure trigger has accessibility attributes
+        ensureTriggerAccessibility(trigger);
+
         activeTrigger = trigger;
+        lastFocusedTrigger = trigger; // Track for focus return
 
         // Create and position popup
         const popup = createPopupElement(type);
@@ -524,8 +567,9 @@ const PreviewPopup = (() => {
 
     /**
      * Hide the active popup
+     * @param {boolean} returnFocus - Whether to return focus to the last trigger
      */
-    function hidePopup() {
+    function hidePopup(returnFocus = false) {
         if (activePopup) {
             activePopup.classList.remove('opacity-100', 'translate-y-0', 'scale-100');
             activePopup.classList.add('opacity-0', '-translate-y-1', 'scale-[0.98]');
@@ -541,6 +585,11 @@ const PreviewPopup = (() => {
         if (activeTrigger) {
             activeTrigger.setAttribute('aria-expanded', 'false');
             activeTrigger = null;
+        }
+
+        // Return focus to the last trigger when explicitly requested (e.g., Escape key)
+        if (returnFocus && lastFocusedTrigger && document.body.contains(lastFocusedTrigger)) {
+            lastFocusedTrigger.focus();
         }
     }
 
@@ -637,13 +686,29 @@ const PreviewPopup = (() => {
 
     function handleKeyDown(e) {
         if (e.key === 'Escape' && activePopup) {
-            hidePopup();
-            activeTrigger?.focus();
+            e.preventDefault();
+            hidePopup(true); // Return focus to trigger
         }
 
         if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('[data-preview-type]')) {
             e.preventDefault();
             handleClick(e);
+        }
+    }
+
+    /**
+     * Handle touch events for tap-outside-to-close
+     */
+    function handleTouchStart(e) {
+        if (!activePopup) return;
+
+        const touchedElement = e.target;
+        const isInsidePopup = activePopup.contains(touchedElement);
+        const isOnTrigger = touchedElement.closest('[data-preview-type]');
+
+        // Close popup if touch is outside both popup and trigger
+        if (!isInsidePopup && !isOnTrigger) {
+            hidePopup();
         }
     }
 
@@ -723,6 +788,14 @@ const PreviewPopup = (() => {
     const debouncedPrefetch = debounce(prefetchVisiblePreviews, 500);
 
     /**
+     * Initialize accessibility attributes on all triggers
+     */
+    function initTriggerAccessibility() {
+        const triggers = document.querySelectorAll('[data-preview-type]');
+        triggers.forEach(ensureTriggerAccessibility);
+    }
+
+    /**
      * Initialize the preview popup system
      */
     function init() {
@@ -734,6 +807,34 @@ const PreviewPopup = (() => {
         document.addEventListener('focusin', handleFocusIn);
         document.addEventListener('focusout', handleFocusOut);
         document.addEventListener('keydown', handleKeyDown);
+
+        // Touch device support
+        document.addEventListener('touchstart', handleTouchStart, { passive: true });
+
+        // Initialize ARIA attributes on existing triggers
+        initTriggerAccessibility();
+
+        // Observe DOM for dynamically added triggers
+        if (typeof MutationObserver !== 'undefined') {
+            const observer = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    for (const node of mutation.addedNodes) {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            // Check if the node itself is a trigger
+                            if (node.matches && node.matches('[data-preview-type]')) {
+                                ensureTriggerAccessibility(node);
+                            }
+                            // Check for triggers within the added subtree
+                            if (node.querySelectorAll) {
+                                const triggers = node.querySelectorAll('[data-preview-type]');
+                                triggers.forEach(ensureTriggerAccessibility);
+                            }
+                        }
+                    }
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        }
 
         // Start periodic cache cleanup
         PreviewCache.startCleanup();
@@ -758,11 +859,14 @@ const PreviewPopup = (() => {
         document.removeEventListener('focusin', handleFocusIn);
         document.removeEventListener('focusout', handleFocusOut);
         document.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('touchstart', handleTouchStart);
         window.removeEventListener('load', prefetchVisiblePreviews);
         window.removeEventListener('scroll', debouncedPrefetch);
         hidePopup();
         PreviewCache.stopCleanup();
         PreviewCache.clear();
+        lastFocusedTrigger = null;
+        isTouchDeviceCache = null;
     }
 
     // Public API
@@ -791,7 +895,9 @@ const PreviewPopup = (() => {
         clearCache: () => PreviewCache.clear(),
         clearExpiredCache: () => PreviewCache.clearExpired(),
         getCacheStats: () => PreviewCache.getStats(),
-        prefetch: prefetchVisiblePreviews
+        prefetch: prefetchVisiblePreviews,
+        isTouchDevice,
+        refreshAccessibility: initTriggerAccessibility
     };
 })();
 
