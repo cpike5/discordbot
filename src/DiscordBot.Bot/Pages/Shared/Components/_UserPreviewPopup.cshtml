@@ -1,0 +1,88 @@
+@model DiscordBot.Bot.ViewModels.Components.UserPreviewViewModel
+
+<div class="preview-popup preview-popup-user" data-user-id="@Model.UserId">
+    <!-- Header -->
+    <div class="preview-header">
+        <div class="preview-avatar">
+            @if (!string.IsNullOrEmpty(Model.AvatarUrl))
+            {
+                <img src="@Model.AvatarUrl" alt="@Model.Username" class="w-12 h-12 rounded-full object-cover" />
+            }
+            else
+            {
+                <div class="w-12 h-12 rounded-full bg-accent-blue-muted flex items-center justify-center">
+                    <span class="text-lg font-semibold text-accent-blue">
+                        @(Model.Username.FirstOrDefault().ToString().ToUpperInvariant())
+                    </span>
+                </div>
+            }
+        </div>
+        <div class="preview-identity flex-1 min-w-0">
+            <span class="preview-username block text-sm font-semibold text-text-primary truncate">
+                @Model.Username
+            </span>
+            @if (!string.IsNullOrEmpty(Model.DisplayName) && Model.DisplayName != Model.Username)
+            {
+                <span class="preview-displayname block text-xs text-text-secondary truncate">
+                    @Model.DisplayName
+                </span>
+            }
+        </div>
+        @if (Model.IsVerified)
+        {
+            <span class="preview-badge px-1.5 py-0.5 bg-success-bg text-success text-xs font-medium rounded" title="Verified">
+                <svg class="w-3.5 h-3.5 inline" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+            </span>
+        }
+    </div>
+
+    <!-- Body -->
+    <div class="preview-body">
+        <div class="preview-meta space-y-2 text-xs">
+            @if (Model.MemberSince.HasValue)
+            {
+                <div class="preview-meta-item flex justify-between">
+                    <span class="text-text-tertiary">Member since</span>
+                    <span class="text-text-secondary">@Model.MemberSince.Value.ToString("MMM yyyy")</span>
+                </div>
+            }
+            @if (Model.Roles.Count > 0)
+            {
+                <div class="preview-meta-item flex justify-between items-start">
+                    <span class="text-text-tertiary">Roles</span>
+                    <span class="text-text-secondary text-right max-w-[140px] truncate">
+                        @string.Join(", ", Model.Roles.Take(3))@(Model.Roles.Count > 3 ? $" +{Model.Roles.Count - 3}" : "")
+                    </span>
+                </div>
+            }
+            @if (Model.LastActive.HasValue)
+            {
+                <div class="preview-meta-item flex justify-between">
+                    <span class="text-text-tertiary">Last active</span>
+                    <span class="text-text-secondary" data-utc="@Model.LastActive.Value.ToString("o")">
+                        @Model.LastActive.Value.ToString("g")
+                    </span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="preview-footer">
+        <a href="@Model.ProfileUrl" class="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors text-center">
+            View Profile
+        </a>
+        @if (!string.IsNullOrEmpty(Model.ModerationHistoryUrl))
+        {
+            <a href="@Model.ModerationHistoryUrl" class="flex-1 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors text-center inline-flex items-center justify-center gap-1">
+                Mod History
+                @if (Model.HasActiveModeration)
+                {
+                    <span class="w-1.5 h-1.5 bg-warning rounded-full" title="Active case"></span>
+                }
+            </a>
+        }
+    </div>
+</div>

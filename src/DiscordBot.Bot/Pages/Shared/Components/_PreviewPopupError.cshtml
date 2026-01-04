@@ -1,0 +1,21 @@
+@* Error state for preview popups *@
+@{
+    var type = ViewData["Type"]?.ToString() ?? "user";
+    var errorTitle = type == "guild" ? "Guild Unavailable" : "User Not Found";
+    var errorDescription = type == "guild"
+        ? "The bot may have been removed from this server or the server was deleted."
+        : "This user may have been deleted or is unavailable.";
+}
+<div class="preview-popup preview-popup-error">
+    <div class="p-4">
+        <div class="text-center py-4">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-error-bg flex items-center justify-center">
+                <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <p class="text-sm font-medium text-text-primary mb-1">@errorTitle</p>
+            <p class="text-xs text-text-tertiary">@errorDescription</p>
+        </div>
+    </div>
+</div>
