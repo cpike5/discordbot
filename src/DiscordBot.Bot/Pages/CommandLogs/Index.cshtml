@@ -251,11 +251,18 @@
                                 </td>
                                 <!-- Server (desktop only) -->
                                 <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
-                                    @log.GuildName
+                                    @if (log.GuildId.HasValue)
+                                    {
+                                        <span class="preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                                    }
+                                    else
+                                    {
+                                        @log.GuildName
+                                    }
                                 </td>
                                 <!-- User -->
                                 <td class="px-6 py-4 text-text-secondary text-sm">
-                                    @log.Username
+                                    <span class="preview-trigger" data-preview-type="user" data-user-id="@log.UserId" @(log.GuildId.HasValue ? $"data-context-guild-id=\"{log.GuildId}\"" : "")>@log.Username</span>
                                 </td>
                                 <!-- Duration (xl screens only) -->
                                 <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell">
@@ -351,11 +358,18 @@
                     <div class="grid grid-cols-2 gap-3 text-sm">
                         <div>
                             <span class="text-text-tertiary">Server:</span>
-                            <span class="text-text-primary ml-1">@log.GuildName</span>
+                            @if (log.GuildId.HasValue)
+                            {
+                                <span class="text-text-primary ml-1 preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                            }
+                            else
+                            {
+                                <span class="text-text-primary ml-1">@log.GuildName</span>
+                            }
                         </div>
                         <div>
                             <span class="text-text-tertiary">User:</span>
-                            <span class="text-text-primary ml-1">@log.Username</span>
+                            <span class="text-text-primary ml-1 preview-trigger" data-preview-type="user" data-user-id="@log.UserId" @(log.GuildId.HasValue ? $"data-context-guild-id=\"{log.GuildId}\"" : "")>@log.Username</span>
                         </div>
                         <div>
                             <span class="text-text-tertiary">Duration:</span>

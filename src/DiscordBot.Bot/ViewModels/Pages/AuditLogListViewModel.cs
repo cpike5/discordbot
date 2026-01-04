@@ -168,6 +168,11 @@ public record AuditLogListItem
     public string TargetId { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the Discord guild snowflake ID associated with this action.
+    /// </summary>
+    public ulong? GuildId { get; init; }
+
+    /// <summary>
     /// Gets the guild name for display.
     /// </summary>
     public string? GuildName { get; init; }
@@ -312,6 +317,7 @@ public record AuditLogListItem
             ActorAvatarClass = actorAvatarClass,
             TargetType = dto.TargetType ?? string.Empty,
             TargetId = dto.TargetId ?? string.Empty,
+            GuildId = dto.GuildId,
             GuildName = dto.GuildName,
             DetailsSummary = detailsSummary,
             Details = details,

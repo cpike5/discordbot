@@ -203,7 +203,7 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-sm text-text-secondary">@(moderationCase.Reason ?? "No reason provided")</td>
-                                    <td class="px-6 py-4 text-sm text-text-secondary">@moderationCase.ModeratorUsername</td>
+                                    <td class="px-6 py-4 text-sm text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@moderationCase.ModeratorUserId" data-context-guild-id="@Model.GuildId">@moderationCase.ModeratorUsername</td>
                                     <td class="px-6 py-4 text-sm text-text-tertiary" data-utc="@moderationCase.CreatedAt.ToString("o")" data-format="date"></td>
                                 </tr>
                             }
@@ -251,7 +251,7 @@
                     {
                         <div class="note-item" data-note-id="@note.Id">
                             <div class="note-meta">
-                                <span class="font-medium text-text-secondary">@note.AuthorUsername</span>
+                                <span class="font-medium text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@note.AuthorUserId" data-context-guild-id="@Model.GuildId">@note.AuthorUsername</span>
                                 <span>-</span>
                                 <span data-utc="@note.CreatedAt.ToString("o")" data-format="datetime"></span>
                                 @if (note.AuthorUserId == Model.ViewModel.CurrentUserId)

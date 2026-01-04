@@ -204,7 +204,7 @@
                                 <partial name="Shared/Components/_SeverityBadge" model="evt.Severity" />
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-text-primary">@evt.Username</div>
+                                <div class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@Model.GuildId">@evt.Username</div>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <div class="flex items-center gap-2">
@@ -260,7 +260,7 @@
                     <div class="space-y-2">
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-semibold text-text-secondary">User:</span>
-                            <span class="text-sm text-text-primary">@evt.Username</span>
+                            <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@Model.GuildId">@evt.Username</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <partial name="Shared/Components/_RuleTypeIcon" model="evt.RuleType" />
