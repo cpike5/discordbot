@@ -32,6 +32,7 @@ const ToastManager = {
    * @param {object} options - Optional configuration
    * @param {string} options.title - Optional title
    * @param {number} options.duration - Auto-dismiss duration in ms (default: 5000)
+   * @param {object} options.action - Optional action button { label: string, onClick: function }
    */
   show(type, message, options = {}) {
     if (!this.container) {
@@ -40,7 +41,8 @@ const ToastManager = {
 
     const {
       title = null,
-      duration = 5000
+      duration = 5000,
+      action = null
     } = options;
 
     // Enforce max toasts limit
@@ -51,7 +53,7 @@ const ToastManager = {
     }
 
     // Create and add new toast
-    const toastData = this.createToast(type, message, title, duration);
+    const toastData = this.createToast(type, message, title, duration, action);
     this.toasts.push(toastData);
 
     // Insert at beginning (newest on top)
@@ -90,7 +92,7 @@ const ToastManager = {
    * Create a toast element
    * @private
    */
-  createToast(type, message, title, duration) {
+  createToast(type, message, title, duration, action) {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.setAttribute('role', 'alert');
@@ -107,12 +109,25 @@ const ToastManager = {
       contentHTML = `<p class="text-sm text-text-primary">${this.escapeHtml(message)}</p>`;
     }
 
+    // Build action button HTML if provided
+    let actionHTML = '';
+    if (action && action.label) {
+      actionHTML = `
+        <button class="toast-action" type="button">
+          ${this.escapeHtml(action.label)}
+        </button>
+      `;
+    }
+
     toast.innerHTML = `
       <div class="toast-icon flex-shrink-0 mt-0.5">
         ${this.icons[type]}
       </div>
-      <div class="flex-1 min-w-0">
-        ${contentHTML}
+      <div class="flex-1 min-w-0 flex items-start gap-2">
+        <div class="flex-1">
+          ${contentHTML}
+        </div>
+        ${actionHTML}
       </div>
       <button class="toast-close" aria-label="Dismiss notification">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -166,6 +181,19 @@ const ToastManager = {
       clearTimeout(toastData.timeoutId);
       this.dismissToast(toastData);
     });
+
+    // Action button handler
+    if (action && action.onClick) {
+      const actionBtn = toast.querySelector('.toast-action');
+      if (actionBtn) {
+        actionBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          action.onClick();
+          clearTimeout(toastData.timeoutId);
+          this.dismissToast(toastData);
+        });
+      }
+    }
 
     return toastData;
   },
