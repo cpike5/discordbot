@@ -26,7 +26,86 @@ const PreviewPopup = (() => {
     let activeTrigger = null;
     let hoverTimer = null;
     let hideTimer = null;
-    const cache = new Map();
+
+    // Cache module
+    const PreviewCache = (() => {
+        const cache = new Map();
+        let cleanupInterval = null;
+
+        function buildKey(type, id, context) {
+            return context
+                ? `${type}:${id}:${context}`
+                : `${type}:${id}`;
+        }
+
+        function get(type, id, context = null) {
+            const key = buildKey(type, id, context);
+            const entry = cache.get(key);
+
+            if (!entry) return null;
+
+            if (Date.now() - entry.timestamp > CONFIG.cacheTtl) {
+                cache.delete(key);
+                return null;
+            }
+
+            return entry.data;
+        }
+
+        function set(type, id, data, context = null) {
+            const key = buildKey(type, id, context);
+            cache.set(key, {
+                data,
+                timestamp: Date.now()
+            });
+        }
+
+        function clear() {
+            cache.clear();
+        }
+
+        function clearExpired() {
+            const now = Date.now();
+            for (const [key, entry] of cache) {
+                if (now - entry.timestamp > CONFIG.cacheTtl) {
+                    cache.delete(key);
+                }
+            }
+        }
+
+        function getStats() {
+            const stats = {
+                entries: cache.size,
+                users: 0,
+                guilds: 0,
+                expired: 0
+            };
+
+            const now = Date.now();
+            for (const [key, entry] of cache) {
+                if (key.startsWith('user:')) stats.users++;
+                if (key.startsWith('guild:')) stats.guilds++;
+                if (now - entry.timestamp > CONFIG.cacheTtl) stats.expired++;
+            }
+
+            return stats;
+        }
+
+        function startCleanup() {
+            if (!cleanupInterval) {
+                cleanupInterval = setInterval(clearExpired, 60000); // Every minute
+            }
+        }
+
+        function stopCleanup() {
+            if (cleanupInterval) {
+                clearInterval(cleanupInterval);
+                cleanupInterval = null;
+            }
+        }
+
+        return { get, set, clear, clearExpired, getStats, startCleanup, stopCleanup };
+    })();
 
     // API endpoints
     const API = {
@@ -40,10 +119,10 @@ const PreviewPopup = (() => {
      * Fetch user preview data from API
      */
     async function fetchUserPreview(userId, guildId = null) {
-        const cacheKey = `user:${userId}:${guildId || 'global'}`;
-        const cached = cache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < CONFIG.cacheTtl) {
-            return cached.data;
+        // Check cache first
+        const cached = PreviewCache.get('user', userId, guildId || 'global');
+        if (cached) {
+            return cached;
         }
 
         const response = await fetch(API.userPreview(userId, guildId));
@@ -52,7 +131,9 @@ const PreviewPopup = (() => {
         }
 
         const data = await response.json();
-        cache.set(cacheKey, { data, timestamp: Date.now() });
+
+        // Store in cache
+        PreviewCache.set('user', userId, data, guildId || 'global');
         return data;
     }
 
@@ -60,10 +141,10 @@ const PreviewPopup = (() => {
      * Fetch guild preview data from API
      */
     async function fetchGuildPreview(guildId) {
-        const cacheKey = `guild:${guildId}`;
-        const cached = cache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < CONFIG.cacheTtl) {
-            return cached.data;
+        // Check cache first
+        const cached = PreviewCache.get('guild', guildId);
+        if (cached) {
+            return cached;
         }
 
         const response = await fetch(API.guildPreview(guildId));
@@ -72,7 +153,9 @@ const PreviewPopup = (() => {
         }
 
         const data = await response.json();
-        cache.set(cacheKey, { data, timestamp: Date.now() });
+
+        // Store in cache
+        PreviewCache.set('guild', guildId, data);
         return data;
     }
 
@@ -571,6 +654,75 @@ const PreviewPopup = (() => {
     }
 
     /**
+     * Debounce helper for scroll events
+     */
+    function debounce(fn, delay) {
+        let timeoutId;
+        return function (...args) {
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    /**
+     * Check if element is in viewport
+     */
+    function isInViewport(element) {
+        const rect = element.getBoundingClientRect();
+        return (
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        );
+    }
+
+    /**
+     * Prefetch preview data for visible triggers (optional enhancement)
+     */
+    function prefetchVisiblePreviews() {
+        const triggers = document.querySelectorAll('[data-preview-type]:not([data-prefetched])');
+        const visibleTriggers = Array.from(triggers).filter(isInViewport);
+
+        visibleTriggers.forEach(trigger => {
+            const type = trigger.dataset.previewType;
+            const userId = trigger.dataset.userId;
+            const guildId = trigger.dataset.guildId;
+            const contextGuildId = trigger.dataset.contextGuildId;
+
+            if (type === 'user' && userId && !PreviewCache.get('user', userId, contextGuildId || 'global')) {
+                // Low priority background fetch
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(() => {
+                        fetchUserPreview(userId, contextGuildId).catch(() => { });
+                    });
+                } else {
+                    setTimeout(() => {
+                        fetchUserPreview(userId, contextGuildId).catch(() => { });
+                    }, 100);
+                }
+            }
+
+            if (type === 'guild' && guildId && !PreviewCache.get('guild', guildId)) {
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(() => {
+                        fetchGuildPreview(guildId).catch(() => { });
+                    });
+                } else {
+                    setTimeout(() => {
+                        fetchGuildPreview(guildId).catch(() => { });
+                    }, 100);
+                }
+            }
+
+            trigger.dataset.prefetched = 'true';
+        });
+    }
+
+    // Debounced prefetch for scroll events
+    const debouncedPrefetch = debounce(prefetchVisiblePreviews, 500);
+
+    /**
      * Initialize the preview popup system
      */
     function init() {
@@ -582,6 +734,17 @@ const PreviewPopup = (() => {
         document.addEventListener('focusin', handleFocusIn);
         document.addEventListener('focusout', handleFocusOut);
         document.addEventListener('keydown', handleKeyDown);
+
+        // Start periodic cache cleanup
+        PreviewCache.startCleanup();
+
+        // Prefetch visible previews after page load
+        if (document.readyState === 'complete') {
+            prefetchVisiblePreviews();
+        } else {
+            window.addEventListener('load', prefetchVisiblePreviews);
+        }
+        window.addEventListener('scroll', debouncedPrefetch);
     }
 
     /**
@@ -595,8 +758,11 @@ const PreviewPopup = (() => {
         document.removeEventListener('focusin', handleFocusIn);
         document.removeEventListener('focusout', handleFocusOut);
         document.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('load', prefetchVisiblePreviews);
+        window.removeEventListener('scroll', debouncedPrefetch);
         hidePopup();
-        cache.clear();
+        PreviewCache.stopCleanup();
+        PreviewCache.clear();
     }
 
     // Public API
@@ -622,7 +788,10 @@ const PreviewPopup = (() => {
             });
         },
         hide: hidePopup,
-        clearCache: () => cache.clear()
+        clearCache: () => PreviewCache.clear(),
+        clearExpiredCache: () => PreviewCache.clearExpired(),
+        getCacheStats: () => PreviewCache.getStats(),
+        prefetch: prefetchVisiblePreviews
     };
 })();
 
