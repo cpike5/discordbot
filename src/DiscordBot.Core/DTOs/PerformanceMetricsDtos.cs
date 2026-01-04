@@ -245,9 +245,19 @@ public record SlowestCommandDto
     public ulong UserId { get; set; }
 
     /// <summary>
+    /// Gets or sets the Discord username who executed the command (resolved from cache).
+    /// </summary>
+    public string? Username { get; set; }
+
+    /// <summary>
     /// Gets or sets the Discord guild ID where the command was executed.
     /// </summary>
     public ulong? GuildId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Discord guild name where the command was executed (resolved from cache).
+    /// </summary>
+    public string? GuildName { get; set; }
 }
 
 /// <summary>
