@@ -350,7 +350,14 @@
                                         <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
                                             <span class="font-medium text-xs">@log.ActorInitials</span>
                                         </div>
-                                        <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                                        @if (!string.IsNullOrEmpty(log.ActorId) && ulong.TryParse(log.ActorId, out var actorUserId))
+                                        {
+                                            <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@actorUserId" @(log.GuildId.HasValue ? $"data-context-guild-id=\"{log.GuildId}\"" : "")>@log.ActorDisplayName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                                        }
                                     </div>
                                 }
                                 else if (log.IsUserActor && log.HasActorGuid)
@@ -385,7 +392,11 @@
                                 @log.TargetType
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap text-sm hidden lg:table-cell">
-                                @if (!string.IsNullOrEmpty(log.GuildName))
+                                @if (!string.IsNullOrEmpty(log.GuildName) && log.GuildId.HasValue)
+                                {
+                                    <span class="text-text-primary preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                                }
+                                else if (!string.IsNullOrEmpty(log.GuildName))
                                 {
                                     <span class="text-text-primary">@log.GuildName</span>
                                 }
@@ -568,7 +579,14 @@
                                     <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
                                         <span class="font-medium text-xs">@log.ActorInitials</span>
                                     </div>
-                                    <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                                    @if (!string.IsNullOrEmpty(log.ActorId) && ulong.TryParse(log.ActorId, out var actorUserIdMobile))
+                                    {
+                                        <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@actorUserIdMobile" @(log.GuildId.HasValue ? $"data-context-guild-id=\"{log.GuildId}\"" : "")>@log.ActorDisplayName</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                                    }
                                 </div>
                             }
                             else if (log.IsUserActor && log.HasActorGuid)
@@ -607,7 +625,11 @@
                         </div>
                         <div>
                             <span class="text-text-tertiary">Guild:</span>
-                            @if (!string.IsNullOrEmpty(log.GuildName))
+                            @if (!string.IsNullOrEmpty(log.GuildName) && log.GuildId.HasValue)
+                            {
+                                <span class="text-text-primary ml-1 preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                            }
+                            else if (!string.IsNullOrEmpty(log.GuildName))
                             {
                                 <span class="text-text-primary ml-1">@log.GuildName</span>
                             }

@@ -80,9 +80,19 @@ public record CommandLogListItem
     public Guid Id { get; init; }
 
     /// <summary>
+    /// Gets the Discord guild snowflake ID where the command was executed.
+    /// </summary>
+    public ulong? GuildId { get; init; }
+
+    /// <summary>
     /// Gets the guild name where the command was executed.
     /// </summary>
     public string GuildName { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the Discord user snowflake ID who executed the command.
+    /// </summary>
+    public ulong UserId { get; init; }
 
     /// <summary>
     /// Gets the username of the user who executed the command.
@@ -129,7 +139,9 @@ public record CommandLogListItem
         return new CommandLogListItem
         {
             Id = dto.Id,
+            GuildId = dto.GuildId,
             GuildName = dto.GuildName ?? "Direct Message",
+            UserId = dto.UserId,
             Username = dto.Username ?? "Unknown",
             CommandName = dto.CommandName,
             ExecutedAt = dto.ExecutedAt,
