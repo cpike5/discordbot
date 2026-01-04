@@ -15,6 +15,7 @@ public class HealthMetricsModel : PageModel
 {
     private readonly IConnectionStateService _connectionStateService;
     private readonly ILatencyHistoryService _latencyHistoryService;
+    private readonly IMemoryDiagnosticsService _memoryDiagnosticsService;
     private readonly ILogger<HealthMetricsModel> _logger;
 
     /// <summary>
@@ -27,14 +28,17 @@ public class HealthMetricsModel : PageModel
     /// </summary>
     /// <param name="connectionStateService">The connection state service.</param>
     /// <param name="latencyHistoryService">The latency history service.</param>
+    /// <param name="memoryDiagnosticsService">The memory diagnostics service.</param>
     /// <param name="logger">The logger.</param>
     public HealthMetricsModel(
         IConnectionStateService connectionStateService,
         ILatencyHistoryService latencyHistoryService,
+        IMemoryDiagnosticsService memoryDiagnosticsService,
         ILogger<HealthMetricsModel> logger)
     {
         _connectionStateService = connectionStateService;
         _latencyHistoryService = latencyHistoryService;
+        _memoryDiagnosticsService = memoryDiagnosticsService;
         _logger = logger;
     }
 
@@ -78,6 +82,9 @@ public class HealthMetricsModel : PageModel
             var gen2Collections = GC.CollectionCount(2);
             var threadCount = process.Threads.Count;
 
+            // Get detailed memory diagnostics
+            var memoryDiagnostics = _memoryDiagnosticsService.GetDiagnostics();
+
             // Format session start time (UTC for client-side conversion)
             var sessionStart = _connectionStateService.GetLastConnectedTime();
             var sessionStartFormatted = sessionStart?.ToString("MMM dd, yyyy 'at' HH:mm") + " UTC" ?? "Unknown";
@@ -113,7 +120,8 @@ public class HealthMetricsModel : PageModel
                 MemoryUtilizationPercent = memoryUtilizationPercent,
                 Gen2Collections = gen2Collections,
                 CpuUsagePercent = 0, // TODO: CPU calculation requires time delta, will be handled via JavaScript/SignalR
-                ThreadCount = threadCount
+                ThreadCount = threadCount,
+                MemoryDiagnostics = memoryDiagnostics
             };
 
             _logger.LogDebug(
