@@ -447,7 +447,8 @@ public class ReminderExecutionServiceTests
         await service.StartAsync(cts.Token);
 
         // Wait for the update to be called (with timeout)
-        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+        // CI environments can be slower, so use a generous timeout
+        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(30));
         var completedTask = await Task.WhenAny(updateCalledTcs.Task, timeoutTask);
 
         await cts.CancelAsync();

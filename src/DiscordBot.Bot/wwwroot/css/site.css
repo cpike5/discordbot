@@ -1406,6 +1406,53 @@
     background-color: rgba(255, 255, 255, 0.1);
   }
 
+  /* Toast Action Button */
+  .toast-action {
+    flex-shrink: 0;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: underline;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    transition: opacity 0.15s ease, text-decoration 0.15s ease;
+    opacity: 0.9;
+  }
+
+  .toast-action:hover {
+    opacity: 1;
+    text-decoration: none;
+  }
+
+  .toast-action:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  }
+
+  .toast-action:focus-visible {
+    outline: 2px solid var(--color-primary-500, #3b82f6);
+    outline-offset: 1px;
+  }
+
+  /* Toast Action Button Type-Specific Colors */
+  .toast-info .toast-action {
+    color: #06b6d4;
+  }
+
+  .toast-success .toast-action {
+    color: #10b981;
+  }
+
+  .toast-warning .toast-action {
+    color: #f59e0b;
+  }
+
+  .toast-error .toast-action {
+    color: #ef4444;
+  }
+
   /* Animate-spin utility if not already present */
   .animate-spin {
     animation: spin 1s linear infinite;
