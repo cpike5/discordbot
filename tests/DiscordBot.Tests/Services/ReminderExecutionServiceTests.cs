@@ -408,6 +408,9 @@ public class ReminderExecutionServiceTests
             CreatedAt = DateTime.UtcNow.AddHours(-1)
         };
 
+        // Use TaskCompletionSource to signal when UpdateAsync is called with failed status
+        var updateCalledTcs = new TaskCompletionSource<bool>();
+
         _mockRepository
             .Setup(r => r.GetDueRemindersAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Reminder> { reminder });
@@ -422,6 +425,13 @@ public class ReminderExecutionServiceTests
 
         _mockRepository
             .Setup(r => r.UpdateAsync(It.IsAny<Reminder>(), It.IsAny<CancellationToken>()))
+            .Callback<Reminder, CancellationToken>((r, _) =>
+            {
+                if (r.Status == ReminderStatus.Failed && r.LastError == "User not found")
+                {
+                    updateCalledTcs.TrySetResult(true);
+                }
+            })
             .Returns(Task.CompletedTask);
 
         var service = new ReminderExecutionService(
@@ -435,11 +445,17 @@ public class ReminderExecutionServiceTests
 
         // Act
         await service.StartAsync(cts.Token);
-        await Task.Delay(TimeSpan.FromSeconds(2)); // Wait for processing
+
+        // Wait for the update to be called (with timeout)
+        var timeoutTask = Task.Delay(TimeSpan.FromSeconds(10));
+        var completedTask = await Task.WhenAny(updateCalledTcs.Task, timeoutTask);
+
         await cts.CancelAsync();
         await service.StopAsync(CancellationToken.None);
 
         // Assert
+        completedTask.Should().Be(updateCalledTcs.Task, "UpdateAsync should be called with failed reminder before timeout");
+
         _mockClient.Verify(
             c => c.GetUser(reminder.UserId),
             Times.AtLeastOnce,
