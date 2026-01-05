@@ -17,6 +17,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
 using Elastic.Apm.NetCoreAll;
 using Elastic.Apm.SerilogEnricher;
+using Elastic.Serilog.Sinks;
+using Elastic.Ingest.Elasticsearch;
+using Elastic.Ingest.Elasticsearch.DataStreams;
+using Elastic.Transport;
 using Serilog;
 using System.Reflection;
 
@@ -35,12 +39,35 @@ try
     Log.Information("Environment: {Environment}", builder.Environment.EnvironmentName);
     Log.Information("ContentRootPath: {ContentRootPath}", builder.Environment.ContentRootPath);
 
-    // Configure Serilog from appsettings.json
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext()
-        .Enrich.WithElasticApmCorrelationInfo());
+    // Configure Serilog from appsettings.json with programmatic Elasticsearch sink
+    builder.Host.UseSerilog((context, services, configuration) =>
+    {
+        configuration
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext()
+            .Enrich.WithElasticApmCorrelationInfo();
+
+        // Add Elasticsearch sink programmatically if configured
+        var elasticUrl = context.Configuration["ElasticSearch:Url"];
+        if (!string.IsNullOrEmpty(elasticUrl))
+        {
+            var apiKey = context.Configuration["ElasticSearch:ApiKey"] ?? "";
+            var environment = context.HostingEnvironment.EnvironmentName?.ToLower() ?? "development";
+
+            configuration.WriteTo.Elasticsearch(new[] { new Uri(elasticUrl) }, opts =>
+            {
+                opts.DataStream = new DataStreamName("logs", "discordbot", environment);
+                opts.BootstrapMethod = BootstrapMethod.None;
+            }, transport =>
+            {
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    transport.Authentication(new ApiKey(apiKey));
+                }
+            });
+        }
+    });
 
     // Enable systemd integration (only activates when running under systemd)
     builder.Host.UseSystemd();
