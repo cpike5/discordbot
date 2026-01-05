@@ -1,0 +1,374 @@
+@using DiscordBot.Core.Enums
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Bot.ViewModels.Components
+@model AlertsPageViewModel
+@{
+    // This partial contains the Alerts tab content for the Performance Dashboard shell
+    // Note: The ClaimsPrincipal is passed via ViewData["User"] from the parent
+    var user = ViewData["User"] as System.Security.Claims.ClaimsPrincipal;
+    var isAdmin = user?.IsInRole("Admin") == true || user?.IsInRole("SuperAdmin") == true;
+}
+
+<!-- Display Success/Error Messages -->
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="mb-6 p-4 bg-success/10 border border-success/20 rounded-lg text-success">
+        @TempData["SuccessMessage"]
+    </div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="mb-6 p-4 bg-error/10 border border-error/20 rounded-lg text-error">
+        @TempData["ErrorMessage"]
+    </div>
+}
+
+<!-- Active Alerts Section -->
+<div class="chart-card mb-6">
+    <div class="chart-card-header">
+        <div>
+            <h2 class="chart-card-title">Active Alerts</h2>
+            <p class="chart-card-subtitle">Current issues requiring attention</p>
+        </div>
+        @if (Model.ActiveIncidents.Any() && isAdmin)
+        {
+            <form method="post" asp-page="/Admin/Performance/Alerts" asp-page-handler="AcknowledgeAll">
+                @Html.AntiForgeryToken()
+                @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+                {
+                    Text = "Acknowledge All",
+                    Type = "submit",
+                    Variant = ButtonVariant.Secondary,
+                    Size = ButtonSize.Small
+                })
+            </form>
+        }
+    </div>
+    <div class="chart-card-body p-0">
+        @if (Model.ActiveIncidents.Any())
+        {
+            <div class="divide-y divide-border-primary">
+                @foreach (var incident in Model.ActiveIncidents)
+                {
+                    var alertClass = incident.Severity switch
+                    {
+                        AlertSeverity.Critical => "alert-card-critical",
+                        AlertSeverity.Warning => "alert-card-warning",
+                        _ => "alert-card-info"
+                    };
+                    var iconClass = incident.Severity switch
+                    {
+                        AlertSeverity.Critical => "alert-icon-critical",
+                        AlertSeverity.Warning => "alert-icon-warning",
+                        _ => "alert-icon-info"
+                    };
+
+                    <div class="alert-card border-0 rounded-none @alertClass"
+                         role="@(incident.Severity == AlertSeverity.Critical ? "alert" : "status")"
+                         aria-live="@(incident.Severity == AlertSeverity.Critical ? "assertive" : "polite")">
+                        <svg class="alert-icon @iconClass flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            @if (incident.Severity == AlertSeverity.Critical)
+                            {
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            }
+                            else
+                            {
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            }
+                        </svg>
+                        <div class="alert-content flex-1">
+                            <div class="alert-title">@incident.Message</div>
+                            <div class="alert-description">Metric: @incident.MetricName | Threshold: @incident.ThresholdValue | Actual: @incident.ActualValue</div>
+                            <div class="alert-meta">
+                                <span class="severity-badge @AlertsPageViewModel.GetSeverityClass(incident.Severity)">@incident.Severity</span>
+                                @if (incident.IsAcknowledged)
+                                {
+                                    <span class="status-badge status-badge-secondary">Acknowledged</span>
+                                    @if (!string.IsNullOrEmpty(incident.AcknowledgedBy))
+                                    {
+                                        <span class="text-text-tertiary">by @incident.AcknowledgedBy</span>
+                                    }
+                                }
+                                <span data-utc-time="@incident.TriggeredAt.ToString("o")" data-format="relative">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
+                            </div>
+                        </div>
+                        @if (isAdmin && !incident.IsAcknowledged)
+                        {
+                            <div class="alert-actions flex items-center gap-2">
+                                <form method="post" asp-page="/Admin/Performance/Alerts" asp-page-handler="Acknowledge" asp-route-id="@incident.Id">
+                                    @Html.AntiForgeryToken()
+                                    @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+                                    {
+                                        Text = "Acknowledge",
+                                        Type = "submit",
+                                        Variant = ButtonVariant.Secondary,
+                                        Size = ButtonSize.Small
+                                    })
+                                </form>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="empty-state py-12">
+                <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="empty-state-title">No Active Alerts</div>
+                <div class="empty-state-description">All systems are operating within normal parameters.</div>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Alert Thresholds Configuration -->
+<div class="chart-card mb-6">
+    <div class="chart-card-header">
+        <div>
+            <h2 class="chart-card-title">Alert Threshold Configuration</h2>
+            <p class="chart-card-subtitle">Define warning and critical thresholds for key metrics</p>
+        </div>
+        @if (isAdmin)
+        {
+            @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+            {
+                Text = "Save Changes",
+                Type = "button",
+                Variant = ButtonVariant.Primary,
+                OnClick = "saveConfigChanges()",
+                IconLeft = "M5 13l4 4L19 7",
+                AdditionalAttributes = new Dictionary<string, string>
+                {
+                    { "id", "saveConfigBtn" },
+                    { "style", "display: none;" }
+                }
+            })
+        }
+    </div>
+    <div class="overflow-x-auto">
+        <table class="config-table">
+            <thead>
+                <tr>
+                    <th>Metric</th>
+                    <th>Warning Threshold</th>
+                    <th>Critical Threshold</th>
+                    <th>Current Value</th>
+                    <th>Enabled</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var config in Model.AlertConfigs)
+                {
+                    var currentValueClass = "text-success";
+                    if (config.CurrentValue.HasValue)
+                    {
+                        if (config.CriticalThreshold.HasValue && config.CurrentValue >= config.CriticalThreshold)
+                        {
+                            currentValueClass = "text-error";
+                        }
+                        else if (config.WarningThreshold.HasValue && config.CurrentValue >= config.WarningThreshold)
+                        {
+                            currentValueClass = "text-warning";
+                        }
+                    }
+
+                    <tr data-metric="@config.MetricName">
+                        <td>
+                            <div class="font-medium text-text-primary">@config.DisplayName</div>
+                            @if (!string.IsNullOrEmpty(config.Description))
+                            {
+                                <div class="text-xs text-text-tertiary">@config.Description</div>
+                            }
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <input type="number"
+                                       value="@config.WarningThreshold"
+                                       min="0"
+                                       data-field="warning"
+                                       class="threshold-input"
+                                       aria-label="Warning threshold for @config.DisplayName"
+                                       @(isAdmin ? "" : "disabled") />
+                                <span class="text-text-secondary">@config.ThresholdUnit</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <input type="number"
+                                       value="@config.CriticalThreshold"
+                                       min="0"
+                                       data-field="critical"
+                                       class="threshold-input"
+                                       aria-label="Critical threshold for @config.DisplayName"
+                                       @(isAdmin ? "" : "disabled") />
+                                <span class="text-text-secondary">@config.ThresholdUnit</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="@currentValueClass font-medium">
+                                @(config.CurrentValue?.ToString("F2") ?? "N/A")@config.ThresholdUnit
+                            </span>
+                        </td>
+                        <td>
+                            <label class="toggle-switch">
+                                <input type="checkbox"
+                                       @(config.IsEnabled ? "checked" : "")
+                                       data-field="enabled"
+                                       class="enabled-toggle"
+                                       aria-label="Enable alerts for @config.DisplayName"
+                                       @(isAdmin ? "" : "disabled")>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Incident History & Auto-Recovery -->
+<div class="performance-grid-2 mb-6">
+    <!-- Incident History Timeline -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Incident History</h2>
+                <p class="chart-card-subtitle">Recent incidents and resolutions</p>
+            </div>
+        </div>
+        <div class="chart-card-body">
+            @if (Model.RecentIncidents.Any())
+            {
+                <div class="timeline">
+                    @foreach (var incident in Model.RecentIncidents)
+                    {
+                        <div class="timeline-entry">
+                            <div class="timeline-dot @AlertsPageViewModel.GetTimelineDotClass(incident.Severity)"></div>
+                            <div class="timeline-content">
+                                <div class="timeline-time" data-utc-time="@incident.TriggeredAt.ToString("o")">
+                                    @incident.TriggeredAt.ToString("MMM dd, yyyy 'at' HH:mm")
+                                </div>
+                                <div class="timeline-title">@incident.Message</div>
+                                <div class="timeline-description">
+                                    <span class="severity-badge @AlertsPageViewModel.GetSeverityClass(incident.Severity) mr-2">@incident.Severity</span>
+                                    Duration: @AlertsPageViewModel.FormatDuration(incident.DurationSeconds)
+                                    @if (incident.Status == IncidentStatus.Resolved)
+                                    {
+                                        <span class="ml-2">- Auto-resolved</span>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-8">
+                    <svg class="w-12 h-12 mx-auto mb-3 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div class="text-text-secondary font-medium">No incidents</div>
+                    <div class="text-text-tertiary text-sm">No recent incidents to display</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Auto-Recovery Event Log -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Auto-Recovery Events</h2>
+                <p class="chart-card-subtitle">Automatic issue detection and remediation</p>
+            </div>
+        </div>
+        <div class="chart-card-body p-0">
+            @if (Model.AutoRecoveryEvents.Any())
+            {
+                <div class="divide-y divide-border-primary max-h-96 overflow-y-auto">
+                    @foreach (var evt in Model.AutoRecoveryEvents)
+                    {
+                        <div class="p-4">
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                                    <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-medium text-text-primary">@evt.MetricName</span>
+                                        <span class="text-xs text-text-tertiary" data-utc-time="@evt.Timestamp.ToString("o")" data-format="relative">
+                                            @AlertsPageViewModel.FormatRelativeTime(evt.Timestamp)
+                                        </span>
+                                    </div>
+                                    <div class="text-sm text-text-secondary mt-1">
+                                        <span class="text-warning">Issue:</span> @evt.Issue
+                                    </div>
+                                    <div class="text-sm text-text-secondary">
+                                        <span class="text-accent-blue">Action:</span> @evt.Action
+                                    </div>
+                                    <div class="text-sm text-text-secondary">
+                                        <span class="text-success">Result:</span> @evt.Result
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="p-4 bg-bg-tertiary border-t border-border-primary">
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="text-text-secondary">
+                            <span class="font-medium text-text-primary">@Model.AutoRecoveryEvents.Count</span> auto-recovery events
+                        </span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="empty-state py-12">
+                    <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div class="empty-state-title">No Auto-Recovery Events</div>
+                    <div class="empty-state-description">No automatic recoveries have occurred</div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Alert Frequency Chart -->
+<div class="chart-card">
+    <div class="chart-card-header">
+        <div>
+            <h2 class="chart-card-title">Alert Frequency</h2>
+            <p class="chart-card-subtitle">Alerts triggered over the last 30 days</p>
+        </div>
+    </div>
+    <div class="chart-card-body">
+        <div class="chart-container">
+            <canvas id="alertFrequencyChart"></canvas>
+        </div>
+        <div class="flex justify-center gap-6 mt-4">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded bg-error"></div>
+                <span class="text-sm text-text-secondary">Critical (@Model.AlertFrequencyData.Sum(d => d.CriticalCount))</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded bg-warning"></div>
+                <span class="text-sm text-text-secondary">Warning (@Model.AlertFrequencyData.Sum(d => d.WarningCount))</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded bg-info"></div>
+                <span class="text-sm text-text-secondary">Info (@Model.AlertFrequencyData.Sum(d => d.InfoCount))</span>
+            </div>
+        </div>
+    </div>
+</div>

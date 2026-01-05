@@ -1,0 +1,279 @@
+@using DiscordBot.Bot.ViewModels.Pages
+@model CommandPerformanceViewModel
+@{
+    // This partial contains the Commands tab content for the Performance Dashboard shell
+    // Note: The Hours parameter should be passed via ViewData from the parent
+    var hours = ViewData["Hours"] as int? ?? 24;
+}
+
+@if (Model.TotalCommands == 0)
+{
+    <!-- Empty State -->
+    <div class="chart-card">
+        <div class="empty-state">
+            <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <div class="empty-state-title">No command data available</div>
+            <div class="empty-state-description">Commands will appear here once the bot processes Discord interactions in the selected time period.</div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Response Time Metrics Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Average -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Average</span>
+            </div>
+            <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.AvgResponseTimeMs)">
+                @Model.AvgResponseTimeMs.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-trend @CommandPerformanceViewModel.GetTrendClass(Model.AvgResponseTimeTrend)">
+                @if (Model.AvgResponseTimeTrend < 0)
+                {
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                }
+                else if (Model.AvgResponseTimeTrend > 0)
+                {
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                }
+                @CommandPerformanceViewModel.FormatTrend(Model.AvgResponseTimeTrend)
+            </div>
+        </div>
+
+        <!-- P50 -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">P50 (Median)</span>
+            </div>
+            <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P50Ms)">
+                @Model.P50Ms.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-trend metric-trend-neutral">
+                No change
+            </div>
+        </div>
+
+        <!-- P95 -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">P95</span>
+            </div>
+            <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P95Ms)">
+                @Model.P95Ms.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-trend metric-trend-neutral">
+                No change
+            </div>
+        </div>
+
+        <!-- P99 -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">P99</span>
+            </div>
+            <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P99ResponseTimeMs)">
+                @Model.P99ResponseTimeMs.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            <div class="metric-trend @CommandPerformanceViewModel.GetTrendClass(Model.P99Trend)">
+                @if (Model.P99Trend < 0)
+                {
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                }
+                else if (Model.P99Trend > 0)
+                {
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                    </svg>
+                }
+                @CommandPerformanceViewModel.FormatTrend(Model.P99Trend)
+            </div>
+        </div>
+    </div>
+
+    <!-- Response Time Over Time Chart -->
+    <div class="chart-card mb-6">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Response Times Over Time</h2>
+                <p class="chart-card-subtitle">Avg, P95, and P99 latency trends</p>
+            </div>
+        </div>
+        <div class="chart-card-body">
+            <div class="chart-container chart-container-lg">
+                <canvas id="commandsResponseTimeChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Throughput & Error Rate Row -->
+    <div class="performance-grid-2 mb-6">
+        <!-- Command Throughput -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Command Throughput</h2>
+                    <p class="chart-card-subtitle" id="commandsThroughputSubtitle">Commands executed per hour</p>
+                </div>
+            </div>
+            <div class="chart-card-body">
+                <div class="chart-container">
+                    <canvas id="commandsThroughputChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Rate -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Error Rate Trend</h2>
+                    <p class="chart-card-subtitle">Command failure percentage</p>
+                </div>
+            </div>
+            <div class="chart-card-body">
+                <div class="chart-container">
+                    <canvas id="commandsErrorRateChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slowest Commands Table -->
+    @if (Model.SlowestCommands.Any())
+    {
+        <div class="chart-card mb-6">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Slowest Commands</h2>
+                    <p class="chart-card-subtitle">Top @Model.SlowestCommands.Count slowest command executions</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="performance-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Duration</th>
+                            <th>Executed At</th>
+                            <th>User</th>
+                            <th>Guild</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var cmd in Model.SlowestCommands)
+                        {
+                            <tr>
+                                <td>
+                                    <code class="text-mono text-accent-blue">@cmd.CommandName</code>
+                                </td>
+                                <td class="font-medium @CommandPerformanceViewModel.GetLatencyClass(cmd.DurationMs)">
+                                    @cmd.DurationMs.ToString("F0")ms
+                                </td>
+                                <td>
+                                    <span data-utc-time="@cmd.ExecutedAt.ToString("o")">@cmd.ExecutedAt.ToString("MMM dd, HH:mm")</span>
+                                </td>
+                                <td class="text-text-secondary">
+                                    @if (!string.IsNullOrEmpty(cmd.Username))
+                                    {
+                                        <span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" @(cmd.GuildId.HasValue ? $"data-context-guild-id=\"{cmd.GuildId}\"" : "") title="User ID: @cmd.UserId">@cmd.Username</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="preview-trigger text-mono" data-preview-type="user" data-user-id="@cmd.UserId" @(cmd.GuildId.HasValue ? $"data-context-guild-id=\"{cmd.GuildId}\"" : "")>@cmd.UserId</span>
+                                    }
+                                </td>
+                                <td class="text-text-secondary">
+                                    @if (cmd.GuildId.HasValue)
+                                    {
+                                        @if (!string.IsNullOrEmpty(cmd.GuildName))
+                                        {
+                                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@cmd.GuildId.Value" title="Guild ID: @cmd.GuildId.Value">@cmd.GuildName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="preview-trigger text-mono" data-preview-type="guild" data-guild-id="@cmd.GuildId.Value">@cmd.GuildId.Value</span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span>DM</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- Commands with Timeouts -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Commands with Timeouts</h2>
+                <p class="chart-card-subtitle">Commands that exceeded 3 second response limit</p>
+            </div>
+            @if (Model.TimeoutCount > 0)
+            {
+                <span class="severity-badge severity-warning">@Model.TimeoutCount timeout@(Model.TimeoutCount == 1 ? "" : "s") (@hours h)</span>
+            }
+        </div>
+        @if (Model.RecentTimeouts.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="performance-table">
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Timeout Count</th>
+                            <th>Last Timeout</th>
+                            <th>Avg Response Before Timeout</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var timeout in Model.RecentTimeouts)
+                        {
+                            <tr>
+                                <td>
+                                    <code class="text-mono text-accent-blue">@timeout.CommandName</code>
+                                </td>
+                                <td class="font-medium text-warning">@timeout.TimeoutCount</td>
+                                <td>
+                                    <span data-utc-time="@timeout.LastTimeout.ToString("o")">@timeout.LastTimeout.ToString("MMM dd, HH:mm")</span>
+                                </td>
+                                <td>@timeout.AvgResponseBeforeTimeout.ToString("F0")ms</td>
+                                <td>
+                                    <span class="status-badge @(timeout.Status == "Investigating" ? "status-badge-reconnecting" : "status-badge-connected")">
+                                        @timeout.Status
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="empty-state-title">No timeouts</div>
+                <div class="empty-state-description">All commands completed within the 3 second limit in the selected time period.</div>
+            </div>
+        }
+    </div>
+}
