@@ -703,11 +703,8 @@ else
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
-            // Load saved time range from localStorage
-            const savedHours = localStorage.getItem('commandsTimeRange');
-            if (savedHours) {
-                selectedHours = parseInt(savedHours, 10);
-            }
+            // Use server-side Hours value (passed via query string)
+            selectedHours = @Model.Hours;
 
             // Update active button based on selectedHours
             document.querySelectorAll('.time-range-btn').forEach(btn => {
@@ -723,18 +720,11 @@ else
                 button.addEventListener('click', function() {
                     const hours = parseInt(this.dataset.hours, 10);
 
-                    // Update active state
-                    document.querySelectorAll('.time-range-btn').forEach(btn => {
-                        btn.classList.remove('active');
-                    });
-                    this.classList.add('active');
-
                     // Save to localStorage
                     localStorage.setItem('commandsTimeRange', hours);
-                    selectedHours = hours;
 
-                    // Refresh charts
-                    refreshCharts();
+                    // Navigate to page with hours parameter to update server-side data
+                    window.location.href = `?hours=${hours}`;
                 });
             });
 

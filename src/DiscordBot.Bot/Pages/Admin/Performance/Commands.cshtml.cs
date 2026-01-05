@@ -64,9 +64,24 @@ public class CommandsModel : PageModel
     /// </summary>
     private async Task LoadViewModelAsync()
     {
+        _logger.LogDebug("LoadViewModelAsync: Fetching aggregates for {Hours} hours", Hours);
+
         // Fetch aggregated metrics
         var aggregates = await _performanceAggregator.GetAggregatesAsync(Hours);
-        var slowest = await _performanceAggregator.GetSlowestCommandsAsync(10, Hours);
+
+        _logger.LogDebug("LoadViewModelAsync: Retrieved {Count} aggregates", aggregates.Count);
+
+        // Fetch slowest commands separately - if this fails, we still want to show aggregate data
+        IReadOnlyList<Core.DTOs.SlowestCommandDto> slowest = Array.Empty<Core.DTOs.SlowestCommandDto>();
+        try
+        {
+            slowest = await _performanceAggregator.GetSlowestCommandsAsync(10, Hours);
+            _logger.LogDebug("LoadViewModelAsync: Retrieved {Count} slowest commands", slowest.Count);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch slowest commands for {Hours} hours, continuing with aggregate data only", Hours);
+        }
 
         // Calculate summary metrics from aggregates
         var totalCommands = aggregates.Sum(a => a.ExecutionCount);

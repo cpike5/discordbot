@@ -90,6 +90,8 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
     /// <inheritdoc/>
     public async Task<IReadOnlyList<CommandPerformanceAggregateDto>> GetAggregatesAsync(int hours = 24)
     {
+        _logger.LogDebug("GetAggregatesAsync called with hours={Hours}", hours);
+
         // For the default 24-hour window, use the cached data
         if (hours == 24)
         {
@@ -98,6 +100,7 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
             await _cacheLock.WaitAsync();
             try
             {
+                _logger.LogDebug("Returning {Count} cached aggregates", _cachedAggregates.Count);
                 return _cachedAggregates.Values.ToList();
             }
             finally
@@ -113,10 +116,16 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
         var since = DateTime.UtcNow.AddHours(-hours);
         var logs = await repository.GetByDateRangeAsync(since, DateTime.UtcNow);
 
-        return logs
+        _logger.LogDebug("GetAggregatesAsync: Found {LogCount} command logs for {Hours} hours", logs.Count, hours);
+
+        var result = logs
             .GroupBy(l => l.CommandName)
             .Select(g => CalculateAggregate(g.Key, g.ToList()))
             .ToList();
+
+        _logger.LogDebug("GetAggregatesAsync: Returning {Count} aggregates", result.Count);
+
+        return result;
     }
 
     /// <inheritdoc/>
@@ -128,35 +137,50 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
         var since = DateTime.UtcNow.AddHours(-hours);
         var logs = await repository.GetByDateRangeAsync(since, DateTime.UtcNow);
 
-        return logs
-            .OrderByDescending(l => l.ResponseTimeMs)
-            .Take(limit)
-            .Select(l =>
-            {
-                // Resolve username from Discord cache
-                var user = _client.GetUser(l.UserId);
-                var username = user?.Username;
+        var results = new List<SlowestCommandDto>();
 
-                // Resolve guild name from Discord cache
-                string? guildName = null;
-                if (l.GuildId.HasValue)
+        foreach (var l in logs.OrderByDescending(l => l.ResponseTimeMs).Take(limit))
+        {
+            // Resolve username - try cache first, then fetch from API
+            string? username = null;
+            try
+            {
+                var user = _client.GetUser(l.UserId) ?? await _client.GetUserAsync(l.UserId);
+                username = user?.Username;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to resolve username for user {UserId}", l.UserId);
+            }
+
+            // Resolve guild name from cache
+            string? guildName = null;
+            if (l.GuildId.HasValue)
+            {
+                try
                 {
                     var guild = _client.GetGuild(l.GuildId.Value);
                     guildName = guild?.Name;
                 }
-
-                return new SlowestCommandDto
+                catch (Exception ex)
                 {
-                    CommandName = l.CommandName,
-                    ExecutedAt = l.ExecutedAt,
-                    DurationMs = l.ResponseTimeMs,
-                    UserId = l.UserId,
-                    Username = username,
-                    GuildId = l.GuildId,
-                    GuildName = guildName
-                };
-            })
-            .ToList();
+                    _logger.LogDebug(ex, "Failed to resolve guild name for guild {GuildId}", l.GuildId.Value);
+                }
+            }
+
+            results.Add(new SlowestCommandDto
+            {
+                CommandName = l.CommandName,
+                ExecutedAt = l.ExecutedAt,
+                DurationMs = l.ResponseTimeMs,
+                UserId = l.UserId,
+                Username = username,
+                GuildId = l.GuildId,
+                GuildName = guildName
+            });
+        }
+
+        return results;
     }
 
     /// <inheritdoc/>
