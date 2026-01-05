@@ -2487,6 +2487,292 @@ spec:
             name: metricbeat-config
 ```
 
+### Native Installation (Non-Docker)
+
+For environments where Docker is not available or preferred, Metricbeat can be installed directly on the host operating system.
+
+#### Windows Installation
+
+1. **Download Metricbeat**:
+   - Download the latest Metricbeat ZIP from https://www.elastic.co/downloads/beats/metricbeat
+   - Extract to `C:\Program Files\Metricbeat`
+
+2. **Configure Metricbeat**:
+
+   Edit `C:\Program Files\Metricbeat\metricbeat.yml`:
+
+   ```yaml
+   metricbeat.modules:
+     - module: prometheus
+       period: 30s
+       hosts: ["localhost:5001"]  # Bot's metrics endpoint
+       metrics_path: /metrics
+       use_types: true
+       rate_counters: true
+
+   output.elasticsearch:
+     hosts: ["localhost:9200"]
+     # For API key authentication:
+     # api_key: "your-api-key"
+
+   setup.kibana:
+     host: "localhost:5601"
+
+   logging.level: info
+   logging.to_files: true
+   logging.files:
+     path: C:\ProgramData\metricbeat\logs
+     name: metricbeat
+     keepfiles: 7
+   ```
+
+3. **Install as Windows Service**:
+
+   Open PowerShell as Administrator:
+
+   ```powershell
+   cd "C:\Program Files\Metricbeat"
+
+   # Install the service
+   .\install-service-metricbeat.ps1
+
+   # Start the service
+   Start-Service metricbeat
+
+   # Verify service is running
+   Get-Service metricbeat
+   ```
+
+4. **Test Configuration**:
+
+   ```powershell
+   cd "C:\Program Files\Metricbeat"
+   .\metricbeat.exe test config
+   .\metricbeat.exe test output
+   ```
+
+5. **View Logs**:
+
+   ```powershell
+   Get-Content "C:\ProgramData\metricbeat\logs\metricbeat" -Tail 50
+   ```
+
+#### Linux Installation (Debian/Ubuntu)
+
+1. **Install Metricbeat via APT**:
+
+   ```bash
+   # Import Elastic GPG key
+   wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --dearmor -o /usr/share/keyrings/elastic-keyring.gpg
+
+   # Add Elastic repository
+   echo "deb [signed-by=/usr/share/keyrings/elastic-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list
+
+   # Install Metricbeat
+   sudo apt-get update && sudo apt-get install metricbeat
+   ```
+
+2. **Configure Metricbeat**:
+
+   Edit `/etc/metricbeat/metricbeat.yml`:
+
+   ```yaml
+   metricbeat.modules:
+     - module: prometheus
+       period: 30s
+       hosts: ["localhost:5001"]  # Bot's metrics endpoint
+       metrics_path: /metrics
+       use_types: true
+       rate_counters: true
+
+   output.elasticsearch:
+     hosts: ["localhost:9200"]
+     # For API key authentication:
+     # api_key: "your-api-key"
+
+   setup.kibana:
+     host: "localhost:5601"
+
+   logging.level: info
+   logging.to_files: true
+   logging.files:
+     path: /var/log/metricbeat
+     name: metricbeat
+     keepfiles: 7
+     permissions: 0644
+   ```
+
+3. **Enable and Start Service**:
+
+   ```bash
+   # Enable service to start on boot
+   sudo systemctl enable metricbeat
+
+   # Start service
+   sudo systemctl start metricbeat
+
+   # Check status
+   sudo systemctl status metricbeat
+   ```
+
+4. **Test Configuration**:
+
+   ```bash
+   sudo metricbeat test config
+   sudo metricbeat test output
+   ```
+
+5. **View Logs**:
+
+   ```bash
+   sudo journalctl -u metricbeat -f
+   # Or view file logs:
+   sudo tail -f /var/log/metricbeat/metricbeat
+   ```
+
+#### Linux Installation (RHEL/CentOS/Fedora)
+
+1. **Install Metricbeat via YUM/DNF**:
+
+   ```bash
+   # Import Elastic GPG key
+   sudo rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+   # Create repo file
+   sudo tee /etc/yum.repos.d/elastic.repo << EOF
+   [elastic-8.x]
+   name=Elastic repository for 8.x packages
+   baseurl=https://artifacts.elastic.co/packages/8.x/yum
+   gpgcheck=1
+   gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+   enabled=1
+   autorefresh=1
+   type=rpm-md
+   EOF
+
+   # Install Metricbeat
+   sudo dnf install metricbeat  # or: sudo yum install metricbeat
+   ```
+
+2. **Configure and Start**:
+
+   Follow the same configuration steps as Debian/Ubuntu above. The config file is at `/etc/metricbeat/metricbeat.yml`.
+
+   ```bash
+   sudo systemctl enable metricbeat
+   sudo systemctl start metricbeat
+   ```
+
+#### macOS Installation
+
+1. **Install via Homebrew** (recommended):
+
+   ```bash
+   # Install Metricbeat
+   brew tap elastic/tap
+   brew install elastic/tap/metricbeat-full
+   ```
+
+2. **Configure Metricbeat**:
+
+   Edit `/usr/local/etc/metricbeat/metricbeat.yml` (Intel) or `/opt/homebrew/etc/metricbeat/metricbeat.yml` (Apple Silicon):
+
+   ```yaml
+   metricbeat.modules:
+     - module: prometheus
+       period: 30s
+       hosts: ["localhost:5001"]  # Bot's metrics endpoint
+       metrics_path: /metrics
+       use_types: true
+       rate_counters: true
+
+   output.elasticsearch:
+     hosts: ["localhost:9200"]
+     # For API key authentication:
+     # api_key: "your-api-key"
+
+   setup.kibana:
+     host: "localhost:5601"
+
+   logging.level: info
+   ```
+
+3. **Start Metricbeat**:
+
+   ```bash
+   # Start as background service
+   brew services start elastic/tap/metricbeat-full
+
+   # Or run in foreground for testing
+   metricbeat -e
+   ```
+
+4. **Test Configuration**:
+
+   ```bash
+   metricbeat test config
+   metricbeat test output
+   ```
+
+#### Manual Installation (Any Platform)
+
+For platforms without package managers or for custom installations:
+
+1. **Download from Elastic**:
+   - Visit https://www.elastic.co/downloads/beats/metricbeat
+   - Download the appropriate archive (`.tar.gz` for Linux/macOS, `.zip` for Windows)
+
+2. **Extract and Configure**:
+
+   ```bash
+   # Linux/macOS
+   tar -xzf metricbeat-8.x.x-linux-x86_64.tar.gz
+   cd metricbeat-8.x.x-linux-x86_64
+
+   # Edit metricbeat.yml with your configuration
+   ```
+
+3. **Run Metricbeat**:
+
+   ```bash
+   # Run in foreground (for testing)
+   ./metricbeat -e
+
+   # Run in background
+   nohup ./metricbeat -e > /var/log/metricbeat.log 2>&1 &
+   ```
+
+4. **Create systemd Service** (Linux):
+
+   Create `/etc/systemd/system/metricbeat.service`:
+
+   ```ini
+   [Unit]
+   Description=Metricbeat
+   Documentation=https://www.elastic.co/beats/metricbeat
+   Wants=network-online.target
+   After=network-online.target
+
+   [Service]
+   Type=simple
+   User=root
+   Group=root
+   ExecStart=/opt/metricbeat/metricbeat -c /opt/metricbeat/metricbeat.yml
+   Restart=always
+   RestartSec=10
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Then enable and start:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable metricbeat
+   sudo systemctl start metricbeat
+   ```
+
 ### Setting Up Kibana Index Pattern
 
 After Metricbeat starts sending metrics to Elasticsearch:
