@@ -236,6 +236,24 @@ Located in `src/DiscordBot.Bot/Pages/`:
 3. Inject services via constructor in PageModel
 4. Use shared components via `@Html.Partial("Components/_ComponentName", viewModel)`
 
+**User/Guild Preview Popups:**
+When displaying user or guild names/IDs on new pages, add preview popup support for hover information:
+
+```razor
+<!-- User preview (with guild context for role info) -->
+<span class="preview-trigger"
+      data-preview-type="user"
+      data-user-id="@item.UserId"
+      data-context-guild-id="@Model.GuildId">@item.Username</span>
+
+<!-- Guild preview -->
+<span class="preview-trigger"
+      data-preview-type="guild"
+      data-guild-id="@item.GuildId">@item.GuildName</span>
+```
+
+The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See existing implementations in Command Logs, Audit Logs, Member Directory, RatWatch, and Reminders pages.
+
 ### UI Page Routes
 
 | Page | URL Pattern | Description |
