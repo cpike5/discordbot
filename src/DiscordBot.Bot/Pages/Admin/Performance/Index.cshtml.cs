@@ -9,6 +9,7 @@ namespace DiscordBot.Bot.Pages.Admin.Performance;
 /// <summary>
 /// Page model for the Performance Overview dashboard.
 /// Displays aggregated performance metrics, system health, and active alerts.
+/// Uses a shell layout with client-side tab switching.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
 public class IndexModel : PageModel
@@ -22,9 +23,14 @@ public class IndexModel : PageModel
     private readonly ILogger<IndexModel> _logger;
 
     /// <summary>
-    /// Gets the view model for the performance overview page.
+    /// Gets the view model for the performance overview page content.
     /// </summary>
     public PerformanceOverviewViewModel ViewModel { get; private set; } = new();
+
+    /// <summary>
+    /// Gets the shell view model for the performance dashboard layout.
+    /// </summary>
+    public PerformanceShellViewModel ShellViewModel { get; private set; } = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IndexModel"/> class.
@@ -114,6 +120,7 @@ public class IndexModel : PageModel
             // Determine overall status based on alerts and health
             var overallHealthStatus = DetermineOverallStatus(overallStatus, activeAlerts.Count);
 
+            // Create the overview content view model
             ViewModel = new PerformanceOverviewViewModel
             {
                 OverallStatus = overallHealthStatus,
@@ -133,6 +140,16 @@ public class IndexModel : PageModel
                 ApiRateLimitPercent = apiUsagePercent
             };
 
+            // Create the shell view model
+            ShellViewModel = new PerformanceShellViewModel
+            {
+                OverallStatus = overallHealthStatus,
+                ActiveAlertCount = activeAlerts.Count,
+                ActiveTab = "overview",
+                TimeRangeHours = 24,
+                IsLive = true
+            };
+
             _logger.LogDebug(
                 "Performance Overview ViewModel loaded: OverallStatus={OverallStatus}, Uptime={Uptime:F1}%, ActiveAlerts={ActiveAlerts}",
                 overallHealthStatus,
@@ -143,7 +160,7 @@ public class IndexModel : PageModel
         {
             _logger.LogError(ex, "Failed to load Performance Overview ViewModel");
 
-            // Create a default view model in case of error
+            // Create default view models in case of error
             ViewModel = new PerformanceOverviewViewModel
             {
                 OverallStatus = "Critical",
@@ -151,6 +168,15 @@ public class IndexModel : PageModel
                 MemoryUsageFormatted = "Unknown",
                 DatabaseConnectionsFormatted = "Unknown",
                 ApiRateLimitFormatted = "Unknown"
+            };
+
+            ShellViewModel = new PerformanceShellViewModel
+            {
+                OverallStatus = "Critical",
+                ActiveAlertCount = 0,
+                ActiveTab = "overview",
+                TimeRangeHours = 24,
+                IsLive = false
             };
         }
     }
