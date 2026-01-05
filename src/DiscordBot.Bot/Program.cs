@@ -73,8 +73,6 @@ try
     // Register configuration options classes
     builder.Services.Configure<ApplicationOptions>(
         builder.Configuration.GetSection(ApplicationOptions.SectionName));
-    builder.Services.Configure<ElasticOptions>(
-        builder.Configuration.GetSection(ElasticOptions.SectionName));
     builder.Services.Configure<DiscordOAuthOptions>(
         builder.Configuration.GetSection(DiscordOAuthOptions.SectionName));
     builder.Services.Configure<CachingOptions>(
