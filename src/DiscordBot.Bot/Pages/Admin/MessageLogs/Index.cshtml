@@ -203,7 +203,7 @@
                                         </div>
                                         <div class="ml-3">
                                             <div class="text-sm font-medium text-text-primary">
-                                                @(message.AuthorUsername ?? "(Unknown)")
+                                                <span class="preview-trigger" data-preview-type="user" data-user-id="@message.AuthorId" @(message.GuildId.HasValue ? $"data-context-guild-id=\"{message.GuildId}\"" : "")>@(message.AuthorUsername ?? "(Unknown)")</span>
                                             </div>
                                             <div class="text-xs text-text-tertiary font-mono">@message.AuthorId</div>
                                         </div>
@@ -212,7 +212,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
                                     @if (message.GuildId.HasValue)
                                     {
-                                        @(message.GuildName ?? message.GuildId.ToString())
+                                        <span class="preview-trigger" data-preview-type="guild" data-guild-id="@message.GuildId">@(message.GuildName ?? message.GuildId.ToString())</span>
                                     }
                                     else
                                     {
