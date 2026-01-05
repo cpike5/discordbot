@@ -324,7 +324,7 @@ When running locally (`dotnet run --project src/DiscordBot.Bot`):
 
 ## JavaScript and Discord Snowflake IDs
 
-**CRITICAL**: Discord snowflake IDs are 64-bit integers that exceed JavaScript's `Number.MAX_SAFE_INTEGER` (9007199254740991). When passing Discord IDs (guild IDs, user IDs, channel IDs, etc.) from Razor to JavaScript, **always pass them as strings** to preserve precision.
+**CRITICAL**: Discord IDs (`ulong` in C#) are 64-bit integers that exceed JavaScript's `Number.MAX_SAFE_INTEGER` (9007199254740991). This causes overflow and precision loss. **Always treat Discord IDs as strings in JavaScript** - never as numbers.
 
 ```razor
 <!-- WRONG - loses precision on large IDs -->
