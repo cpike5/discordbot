@@ -11,7 +11,7 @@ namespace DiscordBot.Bot.Services;
 /// Instrumented wrapper around IMemoryCache that tracks hit/miss statistics by key prefix.
 /// Thread-safe singleton service using concurrent dictionaries for statistics tracking.
 /// </summary>
-public class InstrumentedMemoryCache : IInstrumentedCache
+public class InstrumentedMemoryCache : IInstrumentedCache, IMemoryReportable
 {
     private readonly IMemoryCache _innerCache;
     private readonly ILogger<InstrumentedMemoryCache> _logger;
@@ -182,5 +182,36 @@ public class InstrumentedMemoryCache : IInstrumentedCache
         public long Hits;
         public long Misses;
         public long Size;
+    }
+
+    // Rough estimate of bytes per cached item (varies significantly by content)
+    private const int EstimatedBytesPerItem = 512;
+
+    /// <inheritdoc/>
+    public string ServiceName => "Memory Cache";
+
+    /// <inheritdoc/>
+    public ServiceMemoryReportDto GetMemoryReport()
+    {
+        var totalItems = _statsByPrefix.Values.Sum(s => Interlocked.Read(ref s.Size));
+        var prefixCount = _statsByPrefix.Count;
+
+        // Estimate memory based on item count
+        var estimatedBytes = totalItems * EstimatedBytesPerItem;
+
+        var prefixDetails = string.Join(", ", _statsByPrefix
+            .OrderByDescending(kvp => Interlocked.Read(ref kvp.Value.Size))
+            .Take(3)
+            .Select(kvp => $"{kvp.Key}: {Interlocked.Read(ref kvp.Value.Size)}"));
+
+        return new ServiceMemoryReportDto
+        {
+            ServiceName = ServiceName,
+            EstimatedBytes = estimatedBytes,
+            ItemCount = (int)totalItems,
+            Details = prefixCount > 0
+                ? $"{totalItems} items across {prefixCount} prefixes ({prefixDetails})"
+                : "No cached items"
+        };
     }
 }
