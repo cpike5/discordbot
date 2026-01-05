@@ -1,0 +1,250 @@
+@using DiscordBot.Bot.ViewModels.Pages
+@model ApiRateLimitsViewModel
+@{
+    // This partial contains the API Metrics tab content for the Performance Dashboard shell
+    // Note: Hours parameter should be passed via ViewData from the parent
+    var hours = ViewData["Hours"] as int? ?? Model.Hours;
+}
+
+<style>
+    /* Metric Cards - page-specific overrides */
+    .metric-card {
+        background: rgb(35, 38, 40);
+        border: 1px solid rgb(63, 68, 71);
+        border-radius: 0.5rem;
+        padding: 1.25rem;
+    }
+
+    .metric-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+
+    .metric-label {
+        font-size: 0.875rem;
+        color: rgb(168, 165, 163);
+        font-weight: 500;
+    }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: rgb(215, 211, 208);
+        line-height: 1;
+    }
+
+    .metric-unit {
+        font-size: 1rem;
+        font-weight: 500;
+        color: rgb(168, 165, 163);
+        margin-left: 0.25rem;
+    }
+</style>
+
+@if (Model.TotalRequests == 0)
+{
+    <!-- Empty State -->
+    <div class="chart-card">
+        <div class="empty-state">
+            <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <div class="empty-state-title">No API data available</div>
+            <div class="empty-state-description">API metrics will appear here once the bot starts making requests to Discord in the selected time period.</div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Summary Metrics Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Total Requests -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Total Requests</span>
+                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                </svg>
+            </div>
+            <div class="metric-value">
+                @Model.TotalRequests.ToString("N0")
+            </div>
+        </div>
+
+        <!-- API Latency -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Avg API Latency</span>
+            </div>
+            <div class="metric-value @ApiRateLimitsViewModel.GetLatencyClass(Model.AvgLatencyMs)">
+                @Model.AvgLatencyMs.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            @if (Model.LatencyStats != null)
+            {
+                <div class="text-xs text-text-tertiary mt-2">P95: @Model.LatencyStats.P95LatencyMs.ToString("F0")ms</div>
+            }
+        </div>
+
+        <!-- Rate Limit Hits -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Rate Limit Hits</span>
+                @if (Model.RateLimitHits > 0)
+                {
+                    <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                }
+            </div>
+            <div class="metric-value @(Model.RateLimitHits > 0 ? "text-warning" : "")">
+                @Model.RateLimitHits
+            </div>
+            @if (Model.RecentRateLimitEvents.Any())
+            {
+                var latest = Model.RecentRateLimitEvents.First();
+                var elapsed = DateTime.UtcNow - latest.Timestamp;
+                <div class="text-xs text-text-tertiary mt-2">
+                    Last: @(elapsed.TotalMinutes < 60 ? $"{elapsed.TotalMinutes:F0}m ago" : $"{elapsed.TotalHours:F0}h ago")
+                </div>
+            }
+        </div>
+
+        <!-- P95 Latency -->
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">P95 Latency</span>
+            </div>
+            <div class="metric-value @ApiRateLimitsViewModel.GetLatencyClass(Model.P95LatencyMs)">
+                @Model.P95LatencyMs.ToString("F0")<span class="metric-unit">ms</span>
+            </div>
+            @if (Model.LatencyStats != null)
+            {
+                <div class="text-xs text-text-tertiary mt-2">P99: @Model.LatencyStats.P99LatencyMs.ToString("F0")ms</div>
+            }
+        </div>
+    </div>
+
+    <!-- API Latency Chart & Rate Limit Hits Log -->
+    <div class="performance-grid-2 mb-6">
+        <!-- API Latency Over Time -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">API Latency Over Time</h2>
+                    <p class="chart-card-subtitle">Discord API response times (last @hours hours)</p>
+                </div>
+            </div>
+            <div class="chart-card-body">
+                <div class="chart-container">
+                    <canvas id="apiLatencyChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rate Limit Hits Log -->
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Rate Limit Hits Log</h2>
+                    <p class="chart-card-subtitle">Recent rate limit encounters (@Model.RecentRateLimitEvents.Count total)</p>
+                </div>
+            </div>
+            <div class="chart-card-body p-0">
+                @if (Model.RecentRateLimitEvents.Any())
+                {
+                    <div class="divide-y divide-border-primary max-h-80 overflow-y-auto">
+                        @foreach (var evt in Model.RecentRateLimitEvents)
+                        {
+                            var elapsed = DateTime.UtcNow - evt.Timestamp;
+                            var timeAgo = elapsed.TotalMinutes < 60
+                                ? $"{elapsed.TotalMinutes:F0}m ago"
+                                : elapsed.TotalHours < 24
+                                    ? $"{elapsed.TotalHours:F0}h ago"
+                                    : $"{elapsed.TotalDays:F0}d ago";
+
+                            <div class="p-3 flex items-start gap-3">
+                                <div class="w-2 h-2 rounded-full @(evt.IsGlobal ? "bg-error" : "bg-warning") mt-1.5 flex-shrink-0"></div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-sm font-medium text-text-primary font-mono">@evt.Endpoint</span>
+                                        <span class="text-xs text-text-tertiary">@timeAgo</span>
+                                    </div>
+                                    <div class="text-xs text-text-secondary mt-0.5">
+                                        @if (evt.IsGlobal)
+                                        {
+                                            <span class="text-error font-medium">Global rate limit</span>
+                                            <span> - waited @(evt.RetryAfterMs / 1000.0)s</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Retry after @(evt.RetryAfterMs / 1000.0)s</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="empty-state-title">No rate limits hit</div>
+                        <div class="empty-state-description">All API requests completed within rate limits in the selected time period.</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Usage by Category Table -->
+    @if (Model.UsageByCategory.Any())
+    {
+        <div class="chart-card">
+            <div class="chart-card-header">
+                <div>
+                    <h2 class="chart-card-title">Usage by Category</h2>
+                    <p class="chart-card-subtitle">API request breakdown by category</p>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="performance-table">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Request Count</th>
+                            <th>Avg Latency</th>
+                            <th>Error Count</th>
+                            <th>Error Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var usage in Model.UsageByCategory.OrderByDescending(u => u.RequestCount))
+                        {
+                            var errorRate = usage.RequestCount > 0 ? (usage.ErrorCount * 100.0 / usage.RequestCount) : 0;
+                            <tr>
+                                <td>
+                                    <span class="font-medium">@usage.Category</span>
+                                </td>
+                                <td class="font-mono">@usage.RequestCount.ToString("N0")</td>
+                                <td class="font-mono @ApiRateLimitsViewModel.GetLatencyClass(usage.AvgLatencyMs)">
+                                    @usage.AvgLatencyMs.ToString("F1")ms
+                                </td>
+                                <td class="font-mono @(usage.ErrorCount > 0 ? "text-error" : "")">
+                                    @usage.ErrorCount
+                                </td>
+                                <td class="font-mono @(errorRate > 1 ? "text-error" : errorRate > 0 ? "text-warning" : "")">
+                                    @errorRate.ToString("F1")%
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
