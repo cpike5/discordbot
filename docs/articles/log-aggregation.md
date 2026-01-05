@@ -184,6 +184,20 @@ Every log event sent to Elasticsearch and Seq includes the following structured 
 | `InteractionId` | ulong | 111222333444555666 | Discord Context | Discord interaction ID |
 | `Exception` | object | { Type, Message, StackTrace } | Serilog | Structured exception data |
 
+**Discord Command Properties:**
+
+Discord command executions automatically include the following structured properties for filtering and searching:
+
+| Property | Type | Example | Description |
+|----------|------|---------|-------------|
+| `CommandName` | string | "ping", "admin info" | Slash command name (includes group prefix for subcommands) |
+| `InteractionType` | string | "ApplicationCommand" | Discord interaction type |
+| `ComponentType` | string | "button", "select_menu", "modal" | Component interaction type |
+| `ComponentId` | string | "ratwatch:vote" | Component custom ID (sanitized) |
+| `ExecutionTimeMs` | int | 125 | Command execution duration in milliseconds |
+| `Success` | bool | true | Whether the command executed successfully |
+| `ApmTransactionId` | string | "abc123..." | Elastic APM transaction ID for this command |
+
 **Custom Properties:**
 
 Application code can add additional structured properties via log context:
@@ -199,7 +213,7 @@ using (_logger.BeginScope(new Dictionary<string, object>
 }
 ```
 
-These properties become queryable fields in Seq.
+These properties become queryable fields in Elasticsearch and Seq.
 
 ### Asynchronous Batch Posting
 
@@ -701,6 +715,53 @@ APM transactions and spans are automatically correlated with logs via the follow
 4. Search APM for label: `labels.CorrelationId: "{correlationId}"`
 5. View transaction timeline to identify slow spans (database queries, Discord API calls)
 6. Optimize identified bottlenecks
+
+#### Discord Command Transactions
+
+Each Discord command execution creates its own Elastic APM transaction, enabling independent tracking and analysis of command performance. This ensures commands are not grouped under the bot startup transaction.
+
+**Transaction Types:**
+
+| Interaction Type | Transaction Name | Transaction Type |
+|-----------------|------------------|------------------|
+| Slash Command | `discord.command {commandName}` | `discord.command` |
+| Button Click | `discord.component button` | `discord.component` |
+| Select Menu | `discord.component select_menu` | `discord.component` |
+| Modal Submit | `discord.component modal` | `discord.component` |
+| Other | `discord.interaction {type}` | `discord.interaction` |
+
+**APM Labels on Command Transactions:**
+
+| Label | Description |
+|-------|-------------|
+| `command_name` | The slash command name (e.g., "ping", "admin info") |
+| `correlation_id` | Application correlation ID for request tracing |
+| `interaction_id` | Discord interaction snowflake ID |
+| `user_id` | Discord user snowflake ID |
+| `guild_id` | Discord guild snowflake ID (or "dm" for direct messages) |
+
+**Querying Command Transactions in Kibana:**
+
+```
+# Find all executions of a specific command
+labels.command_name: "ping"
+
+# Find commands in a specific guild
+labels.guild_id: "123456789012345678"
+
+# Find failed command transactions
+transaction.result: "failure"
+
+# Find slow commands (>500ms)
+transaction.duration.us > 500000
+```
+
+**Benefits:**
+
+- Each command has a unique APM transaction ID for isolated analysis
+- Discord API calls, database queries, and other operations appear as spans within the command transaction
+- Command performance can be tracked independently (throughput, latency, error rates)
+- Service maps show dependencies for each command type
 
 ---
 

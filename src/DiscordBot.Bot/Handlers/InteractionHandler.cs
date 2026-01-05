@@ -8,6 +8,8 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
+using Elastic.Apm;
+using Elastic.Apm.Api;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Handlers;
@@ -133,11 +135,19 @@ public class InteractionHandler
 
         string? commandName = null;
         Activity? activity = null;
+        ITransaction? apmTransaction = null;
+
+        // Determine transaction name and type based on interaction type
+        string transactionName;
+        string transactionType;
 
         // Extract command name and start tracing activity
         if (interaction is SocketSlashCommand slashCommand)
         {
             commandName = slashCommand.CommandName;
+            transactionName = $"discord.command {commandName}";
+            transactionType = "discord.command";
+
             _botMetrics.IncrementActiveCommands(commandName);
 
             // Start tracing activity for the command
@@ -158,6 +168,9 @@ public class InteractionHandler
                 _ => "unknown"
             };
 
+            transactionName = $"discord.component {componentType}";
+            transactionType = "discord.component";
+
             activity = BotActivitySource.StartComponentActivity(
                 componentType: componentType,
                 customId: component.Data.CustomId,
@@ -168,6 +181,9 @@ public class InteractionHandler
         }
         else if (interaction is SocketModal modal)
         {
+            transactionName = "discord.component modal";
+            transactionType = "discord.component";
+
             // Start tracing activity for modal submission
             activity = BotActivitySource.StartComponentActivity(
                 componentType: "modal",
@@ -176,6 +192,23 @@ public class InteractionHandler
                 userId: interaction.User.Id,
                 interactionId: interaction.Id,
                 correlationId: correlationId);
+        }
+        else
+        {
+            transactionName = $"discord.interaction {interaction.Type}";
+            transactionType = "discord.interaction";
+        }
+
+        // Start Elastic APM transaction for this command execution
+        // This ensures each command gets its own transaction rather than sharing the bot startup transaction
+        apmTransaction = Agent.Tracer.StartTransaction(transactionName, transactionType);
+        apmTransaction.SetLabel("correlation_id", correlationId);
+        apmTransaction.SetLabel("interaction_id", interaction.Id.ToString());
+        apmTransaction.SetLabel("user_id", interaction.User.Id.ToString());
+        apmTransaction.SetLabel("guild_id", interaction.GuildId?.ToString() ?? "dm");
+        if (commandName != null)
+        {
+            apmTransaction.SetLabel("command_name", commandName);
         }
 
         // Store execution context for use in OnSlashCommandExecutedAsync
@@ -191,19 +224,32 @@ public class InteractionHandler
             // Create an execution context
             var context = new SocketInteractionContext(_client, interaction);
 
-            // Use logging scope for correlation ID
-            using (_logger.BeginScope(new Dictionary<string, object>
+            // Build logging scope with all relevant properties for filtering/searching
+            var loggingScope = new Dictionary<string, object>
             {
                 ["CorrelationId"] = correlationId,
                 ["InteractionId"] = interaction.Id,
-                ["TraceId"] = activity?.TraceId.ToString() ?? "none"
-            }))
+                ["InteractionType"] = interaction.Type.ToString(),
+                ["UserId"] = interaction.User.Id,
+                ["GuildId"] = interaction.GuildId?.ToString() ?? "DM",
+                ["TraceId"] = activity?.TraceId.ToString() ?? "none",
+                ["ApmTransactionId"] = apmTransaction?.Id ?? "none"
+            };
+
+            // Add command-specific properties
+            if (!string.IsNullOrEmpty(commandName))
+            {
+                loggingScope["CommandName"] = commandName;
+            }
+
+            // Use logging scope for structured logging - these properties will appear on all log messages
+            using (_logger.BeginScope(loggingScope))
             {
                 _logger.LogDebug(
-                    "Executing interaction {InteractionType} with correlation ID {CorrelationId}, TraceId {TraceId}",
+                    "Executing interaction {InteractionType} {CommandName} with correlation ID {CorrelationId}",
                     interaction.Type,
-                    correlationId,
-                    activity?.TraceId.ToString() ?? "none");
+                    commandName ?? transactionName,
+                    correlationId);
 
                 // Execute the command
                 await _interactionService.ExecuteCommandAsync(context, _serviceProvider);
@@ -211,6 +257,10 @@ public class InteractionHandler
 
             // Mark activity as successful if no exceptions
             BotActivitySource.SetSuccess(activity);
+            if (apmTransaction != null)
+            {
+                apmTransaction.Outcome = Outcome.Success;
+            }
         }
         catch (Exception ex)
         {
@@ -218,6 +268,13 @@ public class InteractionHandler
 
             // Record exception on the tracing activity
             BotActivitySource.RecordException(activity, ex);
+
+            // Capture exception in APM transaction
+            if (apmTransaction != null)
+            {
+                apmTransaction.CaptureException(ex);
+                apmTransaction.Outcome = Outcome.Failure;
+            }
 
             // Record failure metric
             if (commandName != null)
@@ -231,10 +288,11 @@ public class InteractionHandler
 
             _logger.LogError(
                 ex,
-                "Error executing interaction {InteractionId}, CorrelationId: {CorrelationId}, TraceId: {TraceId}",
+                "Error executing interaction {InteractionType} {CommandName}, InteractionId: {InteractionId}, CorrelationId: {CorrelationId}",
+                interaction.Type,
+                commandName ?? transactionName,
                 interaction.Id,
-                correlationId,
-                activity?.TraceId.ToString() ?? "none");
+                correlationId);
 
             // If the interaction hasn't been responded to, send an error message
             if (interaction.Type == InteractionType.ApplicationCommand)
@@ -261,6 +319,9 @@ public class InteractionHandler
         {
             // Dispose the activity (completes the span)
             activity?.Dispose();
+
+            // End the APM transaction
+            apmTransaction?.End();
 
             // Decrement active command count
             if (commandName != null)
@@ -300,10 +361,15 @@ public class InteractionHandler
             executionTimeMs,
             context.Guild?.Id);
 
-        // Log with correlation ID
+        // Log with structured properties for filtering/searching in Elasticsearch
         using (_logger.BeginScope(new Dictionary<string, object>
         {
-            ["CorrelationId"] = correlationId
+            ["CorrelationId"] = correlationId,
+            ["CommandName"] = fullCommandName,
+            ["UserId"] = context.User.Id,
+            ["GuildId"] = context.Guild?.Id.ToString() ?? "DM",
+            ["ExecutionTimeMs"] = executionTimeMs,
+            ["Success"] = success
         }))
         {
             if (result.IsSuccess)
@@ -421,10 +487,19 @@ public class InteractionHandler
             success: result.IsSuccess,
             durationMs: executionTimeMs);
 
-        // Log with correlation ID
+        // Get component type for logging
+        var componentType = GetComponentType(context.Interaction);
+
+        // Log with structured properties for filtering/searching in Elasticsearch
         using (_logger.BeginScope(new Dictionary<string, object>
         {
-            ["CorrelationId"] = correlationId
+            ["CorrelationId"] = correlationId,
+            ["ComponentType"] = componentType,
+            ["ComponentId"] = commandInfo.Name,
+            ["UserId"] = context.User.Id,
+            ["GuildId"] = context.Guild?.Id.ToString() ?? "DM",
+            ["ExecutionTimeMs"] = executionTimeMs,
+            ["Success"] = result.IsSuccess
         }))
         {
             if (result.IsSuccess)
