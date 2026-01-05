@@ -2223,6 +2223,683 @@ The `LogSanitizer` automatically removes sensitive data from logs before they re
 
 ---
 
+## Metrics Integration with Metricbeat
+
+The Discord Bot exposes Prometheus-compatible metrics at the `/metrics` endpoint. These metrics can be ingested into Elasticsearch using **Metricbeat**, enabling unified observability across logs, traces, and metrics in Kibana.
+
+### Metrics Architecture
+
+```
++-------------------+      +-------------------+      +-------------------+
+|   Discord Bot     |      |   Metricbeat      |      |   Elasticsearch   |
+|   /metrics        +----->|   (Prometheus     +----->|   metricbeat-*    |
+|   (Prometheus)    |      |   Module)         |      |   indices         |
++-------------------+      +-------------------+      +-------------------+
+                                                              |
+                                                              v
+                                                      +-------------------+
+                                                      |   Kibana          |
+                                                      |   (Dashboards)    |
+                                                      +-------------------+
+```
+
+### Why Metricbeat Instead of Native Elastic Metrics?
+
+The application retains Prometheus for metrics collection for these reasons:
+
+1. **No Code Changes Required**: Existing OpenTelemetry metrics continue to work unchanged
+2. **Proven Technology**: Prometheus is mature with well-understood performance characteristics
+3. **Existing Dashboards**: Grafana dashboards (if any) remain functional
+4. **Flexibility**: Easy to add other metrics consumers (e.g., AlertManager, Thanos)
+
+Metricbeat bridges Prometheus metrics into Elasticsearch, providing unified querying and visualization in Kibana alongside logs and APM traces.
+
+### Custom Metrics Exposed
+
+The following custom meters are exposed at `/metrics`:
+
+| Meter Name | Metrics | Description |
+|------------|---------|-------------|
+| `DiscordBot.Bot` | `discordbot.command.*`, `discordbot.component.*`, `discordbot.guilds.active`, `discordbot.users.unique`, `discordbot.ratelimit.violations` | Command execution, component interactions, bot status |
+| `DiscordBot.Api` | `discordbot.api.request.*` | API request metrics |
+| `DiscordBot.Business` | Guild and user activity metrics | Business-level metrics |
+| `DiscordBot.SLO` | SLO tracking metrics | Error budgets, availability |
+
+### Metricbeat Configuration
+
+#### Docker Deployment (Recommended)
+
+Create a `metricbeat.yml` configuration file:
+
+```yaml
+# metricbeat.yml
+metricbeat.modules:
+  - module: prometheus
+    period: 30s
+    hosts: ["discordbot:5001"]  # Use service name in Docker network
+    metrics_path: /metrics
+    use_types: true
+    rate_counters: true
+
+# Elasticsearch output
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  # For API key authentication (production):
+  # api_key: "your-api-key"
+  # For basic auth (development):
+  # username: "elastic"
+  # password: "your-password"
+
+# Index template settings
+setup.template.name: "metricbeat"
+setup.template.pattern: "metricbeat-*"
+setup.template.settings:
+  index.number_of_shards: 1
+  index.number_of_replicas: 0  # Set to 1 for production
+
+# Kibana (for dashboard setup)
+setup.kibana:
+  host: "kibana:5601"
+
+# Logging
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/metricbeat
+  name: metricbeat
+  keepfiles: 7
+  permissions: 0644
+```
+
+#### Docker Compose Integration
+
+Add Metricbeat to your `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:latest
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:latest
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:latest
+    container_name: apm-server
+    environment:
+      - output.elasticsearch.hosts=["http://elasticsearch:9200"]
+      - apm-server.host=0.0.0.0:8200
+      - apm-server.secret_token=
+    ports:
+      - "8200:8200"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  metricbeat:
+    image: docker.elastic.co/beats/metricbeat:latest
+    container_name: metricbeat
+    user: root  # Required for Docker socket access
+    volumes:
+      - ./metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Optional: for Docker metrics
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+      - discordbot
+    restart: unless-stopped
+    command: ["--strict.perms=false"]
+
+  discordbot:
+    image: discordbot:latest
+    depends_on:
+      - elasticsearch
+      - apm-server
+    environment:
+      - Elastic__Endpoints__0=http://elasticsearch:9200
+      - ElasticApm__ServerUrl=http://apm-server:8200
+    ports:
+      - "5001:5001"
+    # ... other bot configuration
+
+volumes:
+  elasticsearch-data:
+```
+
+#### Standalone Docker Deployment
+
+For deployments without Docker Compose:
+
+```bash
+# Create metricbeat.yml file first, then run:
+docker run -d \
+  --name metricbeat \
+  --user root \
+  --network host \
+  -v $(pwd)/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro \
+  docker.elastic.co/beats/metricbeat:latest \
+  --strict.perms=false
+
+# Or with explicit container linking:
+docker run -d \
+  --name metricbeat \
+  --user root \
+  --link elasticsearch \
+  --link discordbot \
+  -v $(pwd)/metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro \
+  docker.elastic.co/beats/metricbeat:latest \
+  --strict.perms=false
+```
+
+### Kubernetes Deployment
+
+For Kubernetes environments, deploy Metricbeat as a DaemonSet or Deployment:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metricbeat-config
+  namespace: discordbot
+data:
+  metricbeat.yml: |
+    metricbeat.modules:
+      - module: prometheus
+        period: 30s
+        hosts: ["discordbot-service:5001"]
+        metrics_path: /metrics
+        use_types: true
+        rate_counters: true
+
+    output.elasticsearch:
+      hosts: ["${ELASTICSEARCH_HOSTS}"]
+      api_key: "${ELASTICSEARCH_API_KEY}"
+
+    setup.kibana:
+      host: "${KIBANA_HOST}"
+
+    logging.level: info
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metricbeat
+  namespace: discordbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metricbeat
+  template:
+    metadata:
+      labels:
+        app: metricbeat
+    spec:
+      containers:
+        - name: metricbeat
+          image: docker.elastic.co/beats/metricbeat:latest
+          args: ["-c", "/etc/metricbeat/metricbeat.yml", "--strict.perms=false"]
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "https://elasticsearch.elastic-system.svc:9200"
+            - name: ELASTICSEARCH_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: elasticsearch-credentials
+                  key: api-key
+            - name: KIBANA_HOST
+              value: "https://kibana.elastic-system.svc:5601"
+          volumeMounts:
+            - name: config
+              mountPath: /etc/metricbeat
+              readOnly: true
+          resources:
+            limits:
+              memory: 200Mi
+              cpu: 100m
+            requests:
+              memory: 100Mi
+              cpu: 50m
+      volumes:
+        - name: config
+          configMap:
+            name: metricbeat-config
+```
+
+### Native Installation (Non-Docker)
+
+For environments where Docker is not available or preferred, Metricbeat can be installed directly on the host operating system.
+
+#### Windows Installation
+
+1. **Download Metricbeat**:
+   - Download the latest Metricbeat ZIP from https://www.elastic.co/downloads/beats/metricbeat
+   - Extract to `C:\Program Files\Metricbeat`
+
+2. **Configure Metricbeat**:
+
+   Edit `C:\Program Files\Metricbeat\metricbeat.yml`:
+
+   ```yaml
+   metricbeat.modules:
+     - module: prometheus
+       period: 30s
+       hosts: ["localhost:5001"]  # Bot's metrics endpoint
+       metrics_path: /metrics
+       use_types: true
+       rate_counters: true
+
+   output.elasticsearch:
+     hosts: ["localhost:9200"]
+     # For API key authentication:
+     # api_key: "your-api-key"
+
+   setup.kibana:
+     host: "localhost:5601"
+
+   logging.level: info
+   logging.to_files: true
+   logging.files:
+     path: C:\ProgramData\metricbeat\logs
+     name: metricbeat
+     keepfiles: 7
+   ```
+
+3. **Install as Windows Service**:
+
+   Open PowerShell as Administrator:
+
+   ```powershell
+   cd "C:\Program Files\Metricbeat"
+
+   # Install the service
+   .\install-service-metricbeat.ps1
+
+   # Start the service
+   Start-Service metricbeat
+
+   # Verify service is running
+   Get-Service metricbeat
+   ```
+
+4. **Test Configuration**:
+
+   ```powershell
+   cd "C:\Program Files\Metricbeat"
+   .\metricbeat.exe test config
+   .\metricbeat.exe test output
+   ```
+
+5. **View Logs**:
+
+   ```powershell
+   Get-Content "C:\ProgramData\metricbeat\logs\metricbeat" -Tail 50
+   ```
+
+#### Linux Installation (Debian/Ubuntu)
+
+1. **Install Metricbeat via APT**:
+
+   ```bash
+   # Import Elastic GPG key
+   wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo gpg --dearmor -o /usr/share/keyrings/elastic-keyring.gpg
+
+   # Add Elastic repository
+   echo "deb [signed-by=/usr/share/keyrings/elastic-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" | sudo tee /etc/apt/sources.list.d/elastic-8.x.list
+
+   # Install Metricbeat
+   sudo apt-get update && sudo apt-get install metricbeat
+   ```
+
+2. **Configure Metricbeat**:
+
+   Edit `/etc/metricbeat/metricbeat.yml`:
+
+   ```yaml
+   metricbeat.modules:
+     - module: prometheus
+       period: 30s
+       hosts: ["localhost:5001"]  # Bot's metrics endpoint
+       metrics_path: /metrics
+       use_types: true
+       rate_counters: true
+
+   output.elasticsearch:
+     hosts: ["localhost:9200"]
+     # For API key authentication:
+     # api_key: "your-api-key"
+
+   setup.kibana:
+     host: "localhost:5601"
+
+   logging.level: info
+   logging.to_files: true
+   logging.files:
+     path: /var/log/metricbeat
+     name: metricbeat
+     keepfiles: 7
+     permissions: 0644
+   ```
+
+3. **Enable and Start Service**:
+
+   ```bash
+   # Enable service to start on boot
+   sudo systemctl enable metricbeat
+
+   # Start service
+   sudo systemctl start metricbeat
+
+   # Check status
+   sudo systemctl status metricbeat
+   ```
+
+4. **Test Configuration**:
+
+   ```bash
+   sudo metricbeat test config
+   sudo metricbeat test output
+   ```
+
+5. **View Logs**:
+
+   ```bash
+   sudo journalctl -u metricbeat -f
+   # Or view file logs:
+   sudo tail -f /var/log/metricbeat/metricbeat
+   ```
+
+#### Linux Installation (RHEL/CentOS/Fedora)
+
+1. **Install Metricbeat via YUM/DNF**:
+
+   ```bash
+   # Import Elastic GPG key
+   sudo rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+   # Create repo file
+   sudo tee /etc/yum.repos.d/elastic.repo << EOF
+   [elastic-8.x]
+   name=Elastic repository for 8.x packages
+   baseurl=https://artifacts.elastic.co/packages/8.x/yum
+   gpgcheck=1
+   gpgkey=https://artifacts.elastic.co/GPG-KEY-elasticsearch
+   enabled=1
+   autorefresh=1
+   type=rpm-md
+   EOF
+
+   # Install Metricbeat
+   sudo dnf install metricbeat  # or: sudo yum install metricbeat
+   ```
+
+2. **Configure and Start**:
+
+   Follow the same configuration steps as Debian/Ubuntu above. The config file is at `/etc/metricbeat/metricbeat.yml`.
+
+   ```bash
+   sudo systemctl enable metricbeat
+   sudo systemctl start metricbeat
+   ```
+
+#### macOS Installation
+
+1. **Install via Homebrew** (recommended):
+
+   ```bash
+   # Install Metricbeat
+   brew tap elastic/tap
+   brew install elastic/tap/metricbeat-full
+   ```
+
+2. **Configure Metricbeat**:
+
+   Edit `/usr/local/etc/metricbeat/metricbeat.yml` (Intel) or `/opt/homebrew/etc/metricbeat/metricbeat.yml` (Apple Silicon):
+
+   ```yaml
+   metricbeat.modules:
+     - module: prometheus
+       period: 30s
+       hosts: ["localhost:5001"]  # Bot's metrics endpoint
+       metrics_path: /metrics
+       use_types: true
+       rate_counters: true
+
+   output.elasticsearch:
+     hosts: ["localhost:9200"]
+     # For API key authentication:
+     # api_key: "your-api-key"
+
+   setup.kibana:
+     host: "localhost:5601"
+
+   logging.level: info
+   ```
+
+3. **Start Metricbeat**:
+
+   ```bash
+   # Start as background service
+   brew services start elastic/tap/metricbeat-full
+
+   # Or run in foreground for testing
+   metricbeat -e
+   ```
+
+4. **Test Configuration**:
+
+   ```bash
+   metricbeat test config
+   metricbeat test output
+   ```
+
+#### Manual Installation (Any Platform)
+
+For platforms without package managers or for custom installations:
+
+1. **Download from Elastic**:
+   - Visit https://www.elastic.co/downloads/beats/metricbeat
+   - Download the appropriate archive (`.tar.gz` for Linux/macOS, `.zip` for Windows)
+
+2. **Extract and Configure**:
+
+   ```bash
+   # Linux/macOS
+   tar -xzf metricbeat-8.x.x-linux-x86_64.tar.gz
+   cd metricbeat-8.x.x-linux-x86_64
+
+   # Edit metricbeat.yml with your configuration
+   ```
+
+3. **Run Metricbeat**:
+
+   ```bash
+   # Run in foreground (for testing)
+   ./metricbeat -e
+
+   # Run in background
+   nohup ./metricbeat -e > /var/log/metricbeat.log 2>&1 &
+   ```
+
+4. **Create systemd Service** (Linux):
+
+   Create `/etc/systemd/system/metricbeat.service`:
+
+   ```ini
+   [Unit]
+   Description=Metricbeat
+   Documentation=https://www.elastic.co/beats/metricbeat
+   Wants=network-online.target
+   After=network-online.target
+
+   [Service]
+   Type=simple
+   User=root
+   Group=root
+   ExecStart=/opt/metricbeat/metricbeat -c /opt/metricbeat/metricbeat.yml
+   Restart=always
+   RestartSec=10
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Then enable and start:
+
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable metricbeat
+   sudo systemctl start metricbeat
+   ```
+
+### Setting Up Kibana Index Pattern
+
+After Metricbeat starts sending metrics to Elasticsearch:
+
+1. **Open Kibana**: Navigate to `http://localhost:5601`
+2. **Go to Stack Management**: Click the hamburger menu → Stack Management
+3. **Create Index Pattern**:
+   - Navigate to Data Views (or Index Patterns in older versions)
+   - Click "Create data view"
+   - Name: `metricbeat-*`
+   - Timestamp field: `@timestamp`
+   - Click "Save data view to Kibana"
+
+### Querying Metrics in Kibana
+
+#### Using Discover
+
+1. Go to Analytics → Discover
+2. Select the `metricbeat-*` data view
+3. Filter by metric name:
+   ```
+   prometheus.labels.name: "discordbot_command_count_total"
+   ```
+
+#### Using Visualize
+
+Create visualizations for bot metrics:
+
+1. **Command Execution Rate**:
+   - Type: Line chart
+   - Data view: `metricbeat-*`
+   - Y-axis: Average of `prometheus.metrics.discordbot_command_duration_ms`
+   - X-axis: Date histogram (`@timestamp`, 5m interval)
+   - Split series by: `prometheus.labels.command`
+
+2. **Active Guilds Gauge**:
+   - Type: Metric
+   - Data view: `metricbeat-*`
+   - Aggregation: Last value of `prometheus.metrics.discordbot_guilds_active`
+
+3. **Rate Limit Violations**:
+   - Type: Bar chart
+   - Data view: `metricbeat-*`
+   - Y-axis: Sum of `prometheus.metrics.discordbot_ratelimit_violations_total`
+   - X-axis: Date histogram
+
+### Metrics Validation Checklist
+
+After deploying Metricbeat, verify the integration:
+
+- [ ] Metricbeat container is running: `docker ps | grep metricbeat`
+- [ ] Metricbeat logs show successful scrapes: `docker logs metricbeat`
+- [ ] Indices exist in Elasticsearch: `curl http://localhost:9200/_cat/indices | grep metricbeat`
+- [ ] Metrics appear in Kibana Discover with `metricbeat-*` data view
+- [ ] Custom DiscordBot metrics are present (search for `discordbot`)
+- [ ] No scraping errors in Metricbeat logs
+
+### Troubleshooting Metricbeat
+
+**Problem:** Metricbeat cannot connect to the bot's `/metrics` endpoint.
+
+**Solutions:**
+
+1. **Verify metrics endpoint is accessible**:
+   ```bash
+   curl http://localhost:5001/metrics
+   # Should return Prometheus-formatted metrics
+   ```
+
+2. **Check network connectivity** (Docker):
+   ```bash
+   # From metricbeat container
+   docker exec metricbeat curl http://discordbot:5001/metrics
+   ```
+
+3. **Verify Metricbeat configuration**:
+   ```bash
+   docker exec metricbeat metricbeat test config
+   ```
+
+4. **Check Metricbeat logs**:
+   ```bash
+   docker logs metricbeat --tail 100
+   ```
+
+**Problem:** Metrics not appearing in Elasticsearch.
+
+**Solutions:**
+
+1. **Verify Elasticsearch connection**:
+   ```bash
+   docker exec metricbeat metricbeat test output
+   ```
+
+2. **Check index creation**:
+   ```bash
+   curl http://localhost:9200/_cat/indices?v | grep metricbeat
+   ```
+
+3. **Review Metricbeat logs for errors**:
+   ```bash
+   docker logs metricbeat 2>&1 | grep -i error
+   ```
+
+### Rollback Procedure
+
+If Metricbeat causes issues or needs to be disabled:
+
+1. **Stop Metricbeat**:
+   ```bash
+   docker stop metricbeat
+   # Or for Docker Compose:
+   docker-compose stop metricbeat
+   ```
+
+2. **Prometheus metrics remain available** at `/metrics` for direct scraping or Grafana
+
+3. **Remove Metricbeat** (optional):
+   ```bash
+   docker rm metricbeat
+   # Or for Docker Compose, remove the metricbeat service definition
+   ```
+
+Rollback time: < 5 minutes
+
+---
+
 ## Related Documentation
 
 - [Environment-Specific Configuration](environment-configuration.md) - Configuration per environment (Development, Staging, Production)
@@ -2245,13 +2922,19 @@ The `LogSanitizer` automatically removes sensitive data from logs before they re
 - [Compact Log Event Format (CLEF)](https://docs.datalust.co/docs/posting-raw-events) - JSON log format specification
 - [Seq Query Language](https://docs.datalust.co/docs/the-seq-query-language) - SQL-like query syntax
 
+**Metricbeat:**
+- [Metricbeat Reference](https://www.elastic.co/guide/en/beats/metricbeat/current/index.html) - Official Metricbeat documentation
+- [Prometheus Module](https://www.elastic.co/guide/en/beats/metricbeat/current/metricbeat-module-prometheus.html) - Prometheus scraping configuration
+- [Metricbeat Docker](https://www.elastic.co/guide/en/beats/metricbeat/current/running-on-docker.html) - Docker deployment guide
+
 ---
 
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 2.1 | 2026-01-05 | Elasticsearch Phase 2 - Added Elastic APM distributed tracing with priority-based sampling (Issue #791) |
+| 2.2 | 2026-01-05 | Phase 3 Metrics Strategy - Added Metricbeat configuration for Prometheus metrics ingestion (Issue #793) |
+| 2.1 | 2026-01-05 | Elasticsearch Phase 2 - Added Elastic APM distributed tracing with priority-based sampling (Issue #792) |
 | 2.0 | 2026-01-05 | Elasticsearch Phase 1 migration - Elasticsearch as primary backend, Seq as optional alternative (Issue #791) |
 | 1.0 | 2025-12-24 | Initial log aggregation documentation with Seq (Issue #106) |
 
