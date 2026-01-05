@@ -1,52 +1,78 @@
-# Centralized Log Aggregation with Seq
+# Centralized Log Aggregation
 
-**Version:** 1.0
-**Last Updated:** 2025-12-24
-**Target Framework:** .NET 8 with Serilog and Seq
+**Version:** 2.0
+**Last Updated:** 2026-01-05
+**Target Framework:** .NET 8 with Serilog, Elasticsearch, and Seq
+**Status:** Phase 1 Implementation (Elasticsearch primary, Seq optional)
 
 ---
 
 ## Overview
 
-The Discord Bot Management System implements centralized log aggregation using Seq, a structured logging server that provides powerful querying and analysis capabilities for application logs. Seq integrates seamlessly with Serilog to provide real-time log search, filtering, and visualization.
+The Discord Bot Management System implements centralized log aggregation using **Elasticsearch as the primary logging backend** for production and staging environments. Elasticsearch provides powerful querying, analysis, and long-term storage of structured logs. **Seq is optionally available for development environments** as an alternative to Elasticsearch due to its lighter resource requirements.
+
+### Architecture Overview
+
+- **Development**: Elasticsearch + optional Seq (dual-write support)
+- **Staging**: Elasticsearch + optional Seq (dual-write support)
+- **Production**: Elasticsearch only (optimized for scale)
+
+### What is Elasticsearch?
+
+Elasticsearch is a distributed search and analytics engine that indexes structured log data for fast querying and analysis. Unlike traditional logging systems, Elasticsearch can handle massive log volumes (millions of events per second) while maintaining sub-second query response times.
 
 ### What is Seq?
 
-Seq is a centralized log server designed specifically for structured logging. Unlike traditional log aggregation tools that treat logs as plain text, Seq understands the structured properties of log events, enabling powerful queries across fields like `CorrelationId`, `GuildId`, `UserId`, `TraceId`, and custom properties.
+Seq is a lightweight, developer-friendly log server designed specifically for structured logging. It provides a simpler UI and lower operational overhead than Elasticsearch, making it ideal for development environments.
 
 ### Key Features
 
+**Elasticsearch:**
+- **Scalable Ingestion**: Handle millions of log events per second across multiple nodes
+- **Fast Full-Text Search**: Sub-second queries across billions of log events
+- **Advanced Analytics**: Aggregations, time-series analysis, anomaly detection
+- **Long-Term Retention**: Cost-effective storage for years of historical logs
+- **Automatic Rollover**: Index management via Index Lifecycle Management (ILM)
+- **Distributed Architecture**: High availability and redundancy
+
+**Seq:**
 - **Structured Log Search**: Query logs by any structured property (correlation IDs, guild IDs, user IDs, etc.)
 - **Real-Time Streaming**: View logs as they arrive with live tail functionality
 - **Signal-Based Alerting**: Create alerts based on log patterns and thresholds
-- **Retention Policies**: Automatic log retention management and archival
+- **Lightweight**: Single-container deployment, minimal resource requirements
 - **Dashboard Visualizations**: Build custom dashboards for operational metrics
-- **Correlation with Tracing**: Link logs to distributed traces via correlation IDs and trace IDs
 
 ### Benefits for This Project
 
-- **Unified Log View**: Aggregate logs from multiple bot instances in a single interface
-- **Request Tracking**: Trace complete Discord interaction flows via correlation IDs
-- **User-Specific Debugging**: Filter logs by specific Discord users or guilds
-- **Performance Analysis**: Identify slow queries and performance bottlenecks
-- **Production Troubleshooting**: Debug production issues without SSH access to servers
-- **Compliance and Auditing**: Retain and search historical logs for compliance requirements
+**Elasticsearch (Production/Staging):**
+- **Scalability**: Handle growth from 1 to 1000+ Discord guilds without infrastructure changes
+- **Cost-Effective Retention**: Store years of historical logs for compliance and auditing
+- **Advanced Analytics**: Analyze patterns across millions of events (command usage trends, error rates, performance metrics)
+- **Integration**: Native support for APM (Application Performance Monitoring) and distributed tracing
+- **Operational Metrics**: Built-in tools for monitoring bot health, API usage, and performance
+
+**Seq (Development):**
+- **Quick Setup**: Single Docker container, no complex cluster management
+- **Real-Time Feedback**: Instant log streaming during development
+- **Easy Debugging**: Simple UI for filtering by correlation ID, guild ID, user ID
+- **Low Overhead**: Minimal CPU/memory usage on development machines
 
 ### Integration with Existing Logging
 
-Seq complements the existing file-based logging infrastructure:
+Elasticsearch and Seq complement the existing file-based logging infrastructure:
 
-- **File Logs**: Remain as a local backup and for scenarios where Seq is unavailable
+- **File Logs**: Remain as a local backup and for scenarios where centralized logging is unavailable
 - **Console Logs**: Continue to provide immediate feedback during development
-- **Seq Sink**: Asynchronously sends structured logs to Seq without impacting performance
+- **Elasticsearch Sink**: Asynchronously sends structured logs to Elasticsearch without impacting performance
+- **Seq Sink** (optional): Available for development environments as a lightweight alternative
 
-All three logging outputs (console, file, Seq) receive the same structured log events, ensuring consistency across observability channels.
+All logging outputs (console, file, Elasticsearch, and optionally Seq) receive the same structured log events, ensuring consistency across observability channels.
 
 ---
 
 ## Architecture
 
-### Serilog to Seq Data Flow
+### Serilog Data Flow
 
 ```
 Discord Interaction / HTTP Request
@@ -67,40 +93,60 @@ Discord Interaction / HTTP Request
 │  ┌──────────────┐   ┌──────────────┐   ┌───────────┐ │
 │  │ Enrichers    │ → │ Sanitizers   │ → │ Sinks     │ │
 │  │              │   │              │   │           │ │
-│  │ - Correlation│   │ - Token      │   │ - Console │ │
-│  │ - TraceId    │   │   Sanitizer  │   │ - File    │ │
-│  │ - SpanId     │   │ - PII        │   │ - Seq     │ │
+│  │ - Correlation│   │ - Token      │   │ Console   │ │
+│  │ - TraceId    │   │   Sanitizer  │   │ File      │ │
+│  │ - SpanId     │   │ - PII        │   │ Elastic   │ │
+│  │              │   │              │   │ Seq*      │ │
 │  └──────────────┘   └──────────────┘   └───────────┘ │
 └────────────────────────┬───────────────────────────────┘
                          │
-                         ▼
-┌────────────────────────────────────────────────────────┐
-│ Seq Sink (Async Batch Posting)                        │
-│                                                        │
-│  - Queue log events (queueSizeLimit: 100,000)         │
-│  - Batch events (batchPostingLimit)                   │
-│  - Post every N seconds (period)                      │
-│  - Retry failed batches with backoff                  │
-└────────────────────────┬───────────────────────────────┘
-                         │
-                         ▼ HTTP POST (JSON)
-┌────────────────────────────────────────────────────────┐
-│ Seq Server                                             │
-│                                                        │
-│  - Ingests structured log events                      │
-│  - Indexes properties for fast queries                │
-│  - Applies retention policies                         │
-│  - Provides query API and web UI                      │
-└────────────────────────────────────────────────────────┘
-                         │
-                         ▼
-                   Seq Web UI
-              (Query, Filter, Visualize)
+         ┌───────────────┴───────────────┐
+         │                               │
+         ▼                               ▼
+┌─────────────────────┐        ┌──────────────────────┐
+│ Elasticsearch Sink  │        │ Seq Sink (optional)  │
+│ (Async Batch)       │        │ (Async Batch)        │
+│                     │        │                      │
+│ - Queue events      │        │ - Queue events       │
+│ - Batch & send      │        │ - Batch & send       │
+│ - Auto-retry        │        │ - Auto-retry         │
+└─────────────┬───────┘        └──────────────┬───────┘
+              │                               │
+              ▼ HTTP POST (Bulk JSON)         ▼ HTTP POST (JSON)
+    ┌─────────────────────┐        ┌─────────────────────┐
+    │ Elasticsearch       │        │ Seq Server          │
+    │ Cluster             │        │ (Development only)  │
+    │                     │        │                     │
+    │ - Distributed       │        │ - Single Container  │
+    │ - Indexes by date   │        │ - Real-time UI      │
+    │ - Queries: Kibana   │        │ - Queries: Seq UI   │
+    └─────────────────────┘        └─────────────────────┘
+
+* Seq is optional and only enabled in Development/Staging environments.
 ```
+
+### Index Naming Convention
+
+Elasticsearch automatically creates indices with the following naming pattern:
+
+```
+discordbot-logs-{ENVIRONMENT}-{DATE}
+
+Examples:
+- discordbot-logs-dev-2026.01.05       (Development)
+- discordbot-logs-staging-2026.01.05   (Staging)
+- discordbot-logs-prod-2026.01.05      (Production)
+```
+
+This naming scheme enables:
+- **Automatic Rollover**: New index created daily via ILM policies
+- **Retention Policies**: Delete old indices after X days
+- **Environment Isolation**: Separate indices for each environment
+- **Query Filtering**: Easy filtering by environment via index name
 
 ### Structured Properties
 
-Every log event sent to Seq includes the following structured properties:
+Every log event sent to Elasticsearch and Seq includes the following structured properties:
 
 | Property | Type | Example | Source | Description |
 |----------|------|---------|--------|-------------|
@@ -155,75 +201,154 @@ To minimize performance impact, the Seq sink uses asynchronous batch posting:
 
 ## Configuration
 
+### ElasticOptions Configuration Class
+
+The `ElasticOptions` class (located in `src/DiscordBot.Core/Configuration/ElasticOptions.cs`) provides strongly-typed configuration for Elasticsearch:
+
+```csharp
+public class ElasticOptions
+{
+    // Elastic Cloud ID (for managed Elasticsearch Cloud)
+    public string? CloudId { get; set; }
+
+    // API key for authentication
+    public string? ApiKey { get; set; }
+
+    // Self-hosted Elasticsearch endpoints
+    public string[] Endpoints { get; set; } = [];
+
+    // Index naming format (supports date placeholders)
+    public string IndexFormat { get; set; } = "discordbot-logs-{0:yyyy.MM.dd}";
+
+    // Elastic APM server URL (for distributed tracing)
+    public string? ApmServerUrl { get; set; }
+
+    // APM secret token
+    public string? ApmSecretToken { get; set; }
+
+    // Environment name (development, staging, production)
+    public string Environment { get; set; } = "development";
+}
+```
+
 ### Base Configuration (appsettings.json)
 
-The base configuration file defines default Seq settings with Seq disabled (null serverUrl):
+The base configuration file defines Elasticsearch endpoints and index format:
 
 ```json
 {
+  "Elastic": {
+    "CloudId": null,
+    "ApiKey": null,
+    "Endpoints": [],
+    "IndexFormat": "discordbot-logs-{0:yyyy.MM.dd}",
+    "ApmServerUrl": null,
+    "ApmSecretToken": null,
+    "Environment": "development"
+  },
   "Serilog": {
     "WriteTo": [
       {
-        "Name": "Seq",
-        "Args": {
-          "serverUrl": null,
-          "apiKey": null,
-          "batchPostingLimit": 100,
-          "period": "00:00:02",
-          "compact": true,
-          "queueSizeLimit": 100000
-        }
+        "Name": "Console",
+        "Args": {}
+      },
+      {
+        "Name": "File",
+        "Args": {}
       }
     ]
   }
 }
 ```
 
-### Configuration Options
+### Elasticsearch Configuration Options
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `serverUrl` | string | null | Seq server URL (e.g., "http://localhost:5341"). When null, Seq sink is disabled. |
-| `apiKey` | string | null | Seq API key for authentication. Required for production, optional for local. |
-| `batchPostingLimit` | int | 100 | Maximum events per batch. Higher = more efficient, but larger HTTP payloads. |
-| `period` | TimeSpan | 00:00:02 | Batch posting interval. Lower = more real-time, but more HTTP requests. |
-| `compact` | bool | true | Use compact JSON format (CLEF). Reduces payload size by ~30%. |
-| `queueSizeLimit` | int | 100000 | Maximum queued events. When exceeded, oldest events are dropped. |
-
-**Compact Format (CLEF):**
-
-When `compact: true`, Seq uses the Compact Log Event Format (CLEF), which is more efficient than standard JSON:
-
-```json
-{"@t":"2025-12-24T10:30:45.123Z","@m":"Command ping executed","@l":"Information","CorrelationId":"a1b2c3d4"}
-```
-
-vs. standard JSON:
-
-```json
-{
-  "Timestamp": "2025-12-24T10:30:45.123Z",
-  "MessageTemplate": "Command {CommandName} executed",
-  "Level": "Information",
-  "Properties": {
-    "CommandName": "ping",
-    "CorrelationId": "a1b2c3d4"
-  }
-}
-```
+| `CloudId` | string | null | Elastic Cloud ID (e.g., "deployment:hash"). Takes precedence over Endpoints if set. |
+| `ApiKey` | string | null | Elasticsearch API key for authentication. Required for production. Use user secrets or environment variables. |
+| `Endpoints` | string[] | [] | Self-hosted Elasticsearch node URLs (e.g., "http://localhost:9200"). Required if CloudId not set. |
+| `IndexFormat` | string | discordbot-logs-{0:yyyy.MM.dd} | Index naming pattern. Date placeholder `{0:yyyy.MM.dd}` creates daily indices. |
+| `ApmServerUrl` | string | null | Elastic APM server URL for distributed tracing integration. |
+| `ApmSecretToken` | string | null | APM secret token for authentication. |
+| `Environment` | string | development | Environment name to distinguish logs by deployment stage. |
 
 ### Environment-Specific Configuration
 
 #### Development (appsettings.Development.json)
 
+**Option 1: Elasticsearch Only**
+
 ```json
 {
+  "Elastic": {
+    "Endpoints": [ "http://localhost:9200" ],
+    "IndexFormat": "discordbot-logs-dev-{0:yyyy.MM.dd}",
+    "Environment": "development"
+  },
   "Serilog": {
+    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File", "Elastic.Serilog.Sinks" ],
     "WriteTo": [
+      {
+        "Name": "Console",
+        "Args": {}
+      },
+      {
+        "Name": "File",
+        "Args": {}
+      },
+      {
+        "Name": "Elasticsearch",
+        "Args": {
+          "nodeUris": "http://localhost:9200",
+          "indexFormat": "discordbot-logs-dev-{0:yyyy.MM.dd}",
+          "autoRegisterTemplate": true,
+          "batchPostingLimit": 50,
+          "period": "00:00:02"
+        }
+      }
+    ]
+  }
+}
+```
+
+**Option 2: Elasticsearch + Seq (Dual-Write)**
+
+For developers who prefer Seq's lighter resource requirements or real-time UI, configure both sinks:
+
+```json
+{
+  "Elastic": {
+    "Endpoints": [ "http://localhost:9200" ],
+    "Environment": "development"
+  },
+  "Serilog": {
+    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File", "Serilog.Sinks.Seq", "Elastic.Serilog.Sinks" ],
+    "WriteTo": [
+      {
+        "Name": "Console",
+        "Args": {}
+      },
+      {
+        "Name": "File",
+        "Args": {}
+      },
       {
         "Name": "Seq",
         "Args": {
-          "serverUrl": "http://localhost:5341"
+          "serverUrl": "http://localhost:5341",
+          "batchPostingLimit": 100,
+          "period": "00:00:02"
+        }
+      },
+      {
+        "Name": "Elasticsearch",
+        "Args": {
+          "nodeUris": "http://localhost:9200",
+          "indexFormat": "discordbot-logs-dev-{0:yyyy.MM.dd}",
+          "autoRegisterTemplate": true,
+          "batchPostingLimit": 50,
+          "period": "00:00:02"
         }
       }
     ]
@@ -233,47 +358,44 @@ vs. standard JSON:
 
 **Configuration Details:**
 
-- **serverUrl**: Points to local Seq instance (see [Local Development Setup](#local-development-setup))
-- **apiKey**: Not required for local development
-- **batchPostingLimit**: Inherits default (100 events)
-- **period**: Inherits default (2 seconds)
+- **Elasticsearch Endpoints**: Points to local Elasticsearch instance (see [Local Development Setup](#local-development-setup))
+- **Elasticsearch batchPostingLimit**: 50 events (smaller batches for faster feedback during development)
+- **Elasticsearch period**: 2 seconds (more frequent posting for near real-time logs)
+- **Seq serverUrl**: Optional, only if using Seq (see [Local Development Setup](#local-development-setup) for setup instructions)
+- **ApiKey**: Not required for local development
 
 #### Staging (appsettings.Staging.json)
 
 ```json
 {
+  "Elastic": {
+    "Endpoints": [ "http://elasticsearch-staging:9200" ],
+    "Environment": "staging"
+  },
   "Serilog": {
+    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File", "Serilog.Sinks.Seq", "Elastic.Serilog.Sinks" ],
     "WriteTo": [
+      {
+        "Name": "Console",
+        "Args": {}
+      },
+      {
+        "Name": "File",
+        "Args": {}
+      },
       {
         "Name": "Seq",
         "Args": {
-          "serverUrl": "http://seq-staging:5341",
-          "batchPostingLimit": 500
+          "serverUrl": "http://seq-staging:5341"
         }
-      }
-    ]
-  }
-}
-```
-
-**Configuration Details:**
-
-- **serverUrl**: Internal DNS name for staging Seq server
-- **apiKey**: Configured via environment variable or user secrets (required)
-- **batchPostingLimit**: 500 events (higher throughput for staging testing)
-- **period**: Inherits default (2 seconds)
-
-#### Production (appsettings.Production.json)
-
-```json
-{
-  "Serilog": {
-    "WriteTo": [
+      },
       {
-        "Name": "Seq",
+        "Name": "Elasticsearch",
         "Args": {
-          "serverUrl": "https://seq.yourdomain.com",
-          "batchPostingLimit": 1000,
+          "nodeUris": "http://elasticsearch-staging:9200",
+          "indexFormat": "discordbot-logs-staging-{0:yyyy.MM.dd}",
+          "autoRegisterTemplate": true,
+          "batchPostingLimit": 100,
           "period": "00:00:05"
         }
       }
@@ -284,31 +406,109 @@ vs. standard JSON:
 
 **Configuration Details:**
 
-- **serverUrl**: Public HTTPS endpoint (replace with actual domain)
-- **apiKey**: Configured via environment variable or secrets management (required)
-- **batchPostingLimit**: 1000 events (maximum efficiency for high-volume production)
-- **period**: 5 seconds (reduces HTTP request frequency)
+- **Elasticsearch Endpoints**: Internal DNS name for staging Elasticsearch cluster
+- **Elasticsearch batchPostingLimit**: 100 events (balanced throughput)
+- **Elasticsearch ApiKey**: Configured via environment variable or secrets management (required)
+- **Seq serverUrl**: Optional, for staging testing alongside Elasticsearch
+- **Seq apiKey**: Configured via environment variable (optional, only if using Seq)
+
+#### Production (appsettings.Production.json)
+
+```json
+{
+  "Elastic": {
+    "Endpoints": [ "{ELASTICSEARCH_URL}" ],
+    "ApiKey": null,
+    "Environment": "production"
+  },
+  "Serilog": {
+    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File", "Elastic.Serilog.Sinks" ],
+    "WriteTo": [
+      {
+        "Name": "Console",
+        "Args": {}
+      },
+      {
+        "Name": "File",
+        "Args": {}
+      },
+      {
+        "Name": "Elasticsearch",
+        "Args": {
+          "nodeUris": "{ELASTICSEARCH_URL}",
+          "indexFormat": "discordbot-logs-prod-{0:yyyy.MM.dd}",
+          "autoRegisterTemplate": true,
+          "batchPostingLimit": 100,
+          "period": "00:00:05"
+        }
+      }
+    ]
+  }
+}
+```
+
+**Configuration Details:**
+
+- **Elasticsearch Endpoints**: Production cluster URL (via environment variable `ELASTICSEARCH_URL`)
+- **Elasticsearch batchPostingLimit**: 100 events (optimal efficiency for production workloads)
+- **Elasticsearch period**: 5 seconds (reduces HTTP request frequency)
+- **Elasticsearch ApiKey**: Configured via environment variable `ELASTICSEARCH_API_KEY` (required)
+- **Seq**: NOT used in production (Elasticsearch only)
+- **Index Format**: `discordbot-logs-prod-YYYY.MM.DD` for environment isolation
 
 ### Environment Variable Overrides
 
-For production deployments, override sensitive configuration via environment variables:
+For staging and production deployments, override sensitive configuration via environment variables:
+
+**Elasticsearch Configuration:**
 
 ```bash
 # Linux/macOS
-export Serilog__WriteTo__2__Args__serverUrl="https://seq.yourdomain.com"
-export Serilog__WriteTo__2__Args__apiKey="your-api-key-here"
+export Elastic__Endpoints__0="https://elasticsearch.yourdomain.com:9200"
+export Elastic__ApiKey="your-elasticsearch-api-key"
+export Elastic__ApmServerUrl="https://apm.yourdomain.com:8200"
+export Elastic__ApmSecretToken="your-apm-secret-token"
 
 # Windows PowerShell
-$env:Serilog__WriteTo__2__Args__serverUrl="https://seq.yourdomain.com"
-$env:Serilog__WriteTo__2__Args__apiKey="your-api-key-here"
+$env:Elastic__Endpoints__0="https://elasticsearch.yourdomain.com:9200"
+$env:Elastic__ApiKey="your-elasticsearch-api-key"
+$env:Elastic__ApmServerUrl="https://apm.yourdomain.com:8200"
+$env:Elastic__ApmSecretToken="your-apm-secret-token"
 
 # Docker
-docker run -e Serilog__WriteTo__2__Args__serverUrl="https://seq.yourdomain.com" \
-           -e Serilog__WriteTo__2__Args__apiKey="your-api-key-here" \
+docker run -e Elastic__Endpoints__0="https://elasticsearch.yourdomain.com:9200" \
+           -e Elastic__ApiKey="your-elasticsearch-api-key" \
            discordbot:latest
 ```
 
-**Note:** `WriteTo__2` corresponds to the third sink (0-indexed: Console, File, Seq).
+**Alternative: Elastic Cloud**
+
+For Elastic Cloud deployments, use CloudId instead of individual endpoints:
+
+```bash
+# Linux/macOS
+export Elastic__CloudId="deployment-id:hash"
+export Elastic__ApiKey="your-cloud-api-key"
+
+# Docker
+docker run -e Elastic__CloudId="deployment-id:hash" \
+           -e Elastic__ApiKey="your-cloud-api-key" \
+           discordbot:latest
+```
+
+**Seq Configuration (Staging Only):**
+
+```bash
+# Linux/macOS
+export Serilog__WriteTo__3__Args__serverUrl="http://seq-staging:5341"
+export Serilog__WriteTo__3__Args__apiKey="your-seq-api-key"
+
+# Windows PowerShell
+$env:Serilog__WriteTo__3__Args__serverUrl="http://seq-staging:5341"
+$env:Serilog__WriteTo__3__Args__apiKey="your-seq-api-key"
+```
+
+**Note:** `WriteTo__3` corresponds to the fourth sink (0-indexed: Console=0, File=1, Seq=2, Elasticsearch=3) in dual-write configurations.
 
 ### User Secrets (Development)
 
@@ -316,7 +516,12 @@ For local development with API key authentication:
 
 ```bash
 cd src/DiscordBot.Bot
-dotnet user-secrets set "Serilog:WriteTo:2:Args:apiKey" "your-dev-api-key"
+
+# Elasticsearch API Key (if needed for local testing)
+dotnet user-secrets set "Elastic:ApiKey" "your-dev-api-key"
+
+# Seq API Key (optional, if using Seq)
+dotnet user-secrets set "Serilog:WriteTo:2:Args:apiKey" "your-seq-api-key"
 ```
 
 **Security Best Practice:** NEVER commit API keys to configuration files. Always use user secrets (development) or environment variables/secrets management (staging/production).
@@ -325,9 +530,115 @@ dotnet user-secrets set "Serilog:WriteTo:2:Args:apiKey" "your-dev-api-key"
 
 ## Local Development Setup
 
-### Running Seq Locally with Docker
+### Running Elasticsearch Locally with Docker
 
-The easiest way to run Seq locally is using Docker:
+**Minimal Setup (Single Node):**
+
+```bash
+# Pull and run Elasticsearch container
+docker run -d \
+  --name elasticsearch \
+  -p 9200:9200 \
+  -p 9300:9300 \
+  -e discovery.type=single-node \
+  -e xpack.security.enabled=false \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  -v elasticsearch-data:/usr/share/elasticsearch/data \
+  docker.elastic.co/elasticsearch/elasticsearch:latest
+
+# Access Elasticsearch API at http://localhost:9200
+# Check cluster status: curl http://localhost:9200/_cluster/health
+```
+
+**With Kibana UI (Recommended for Querying):**
+
+```bash
+# Run Elasticsearch and Kibana together
+docker run -d \
+  --name elasticsearch \
+  -p 9200:9200 \
+  -p 9300:9300 \
+  -e discovery.type=single-node \
+  -e xpack.security.enabled=false \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  -v elasticsearch-data:/usr/share/elasticsearch/data \
+  docker.elastic.co/elasticsearch/elasticsearch:latest
+
+docker run -d \
+  --name kibana \
+  -p 5601:5601 \
+  -e ELASTICSEARCH_HOSTS=http://elasticsearch:9200 \
+  --link elasticsearch \
+  docker.elastic.co/kibana/kibana:latest
+
+# Access Kibana at http://localhost:5601
+# Kibana automatically discovers Elasticsearch indices
+```
+
+**Docker Compose Integration:**
+
+For projects using Docker Compose, add Elasticsearch and Kibana to your `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:latest
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:latest
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  discordbot:
+    image: discordbot:latest
+    depends_on:
+      - elasticsearch
+    environment:
+      - Elastic__Endpoints__0=http://elasticsearch:9200
+    # ... other bot configuration
+
+volumes:
+  elasticsearch-data:
+```
+
+**Port Mapping:**
+- `9200:9200` - Elasticsearch REST API
+- `9300:9300` - Elasticsearch node communication (needed for multi-node clusters)
+- `5601:5601` - Kibana UI (optional, but recommended for querying logs)
+
+**Volume Mounting:**
+- `-v elasticsearch-data:/usr/share/elasticsearch/data` - Persist indices across container restarts
+- Data stored in Docker volume named `elasticsearch-data`
+
+**Security Settings:**
+- `xpack.security.enabled=false` - Disables authentication for development (use API keys in production)
+- `discovery.type=single-node` - Single-node cluster for development
+
+**Memory Configuration:**
+- `-e "ES_JAVA_OPTS=-Xms512m -Xmx512m"` - Allocate 512MB JVM heap (adjust based on available memory)
+
+### Running Seq Locally with Docker (Optional)
+
+For developers who prefer Seq's lightweight UI over Kibana:
 
 ```bash
 # Pull and run Seq container
@@ -388,7 +699,61 @@ volumes:
 - Bot uses internal Docker network to connect to Seq
 - Data persists across restarts via named volume
 
-### First-Time Seq Setup
+### First-Time Elasticsearch Setup
+
+1. **Start Elasticsearch and Kibana Containers:**
+   ```bash
+   # Start Elasticsearch
+   docker run -d \
+     --name elasticsearch \
+     -p 9200:9200 \
+     -p 9300:9300 \
+     -e discovery.type=single-node \
+     -e xpack.security.enabled=false \
+     -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+     -v elasticsearch-data:/usr/share/elasticsearch/data \
+     docker.elastic.co/elasticsearch/elasticsearch:latest
+
+   # Wait a few seconds for Elasticsearch to start, then start Kibana
+   sleep 10
+
+   docker run -d \
+     --name kibana \
+     -p 5601:5601 \
+     -e ELASTICSEARCH_HOSTS=http://localhost:9200 \
+     docker.elastic.co/kibana/kibana:latest
+   ```
+
+2. **Verify Elasticsearch is Ready:**
+   ```bash
+   # Check cluster health
+   curl http://localhost:9200/_cluster/health
+
+   # Should return green or yellow status
+   ```
+
+3. **Access Kibana UI:**
+   - Navigate to `http://localhost:5601`
+   - Wait 1-2 minutes for Kibana to fully initialize
+
+4. **Configure Bot:**
+   - Ensure `appsettings.Development.json` has Elasticsearch configuration
+   - Run the bot: `dotnet run --project src/DiscordBot.Bot`
+
+5. **Verify Logs Arriving:**
+   - Execute a Discord command (e.g., `/ping`)
+   - In Kibana, go to Discovery → Create Index Pattern
+   - Index pattern: `discordbot-logs-dev-*`
+   - Timestamp field: `@timestamp`
+   - Logs should appear within 2 seconds
+
+6. **Create Kibana Dashboards (Optional):**
+   - Go to Analytics → Dashboards
+   - Create custom dashboards for command execution, errors, performance metrics
+
+### First-Time Seq Setup (Optional)
+
+For developers who prefer Seq's simpler interface:
 
 1. **Start Seq Container:**
    ```bash
@@ -400,21 +765,33 @@ volumes:
    - No authentication required for local development
 
 3. **Configure Bot:**
-   - Ensure `appsettings.Development.json` has `serverUrl: "http://localhost:5341"`
+   - Update `appsettings.Development.json` to include Seq sink (see [Development Configuration](#development-appsettingsdevelopmentjson))
    - Run the bot: `dotnet run --project src/DiscordBot.Bot`
 
 4. **Verify Logs Arriving:**
    - Execute a Discord command (e.g., `/ping`)
    - Refresh Seq UI - logs should appear within 2 seconds
 
-5. **(Optional) Create API Key:**
-   - In Seq UI, go to Settings → API Keys
-   - Click "Add API Key"
-   - Title: "Development Bot"
-   - Click "Save Changes"
-   - Copy API key and add to user secrets
+### Stopping and Managing Containers
 
-### Stopping and Restarting Seq
+**Elasticsearch:**
+
+```bash
+# Stop Elasticsearch and Kibana (data persists in volumes)
+docker stop elasticsearch kibana
+
+# Restart containers
+docker start elasticsearch kibana
+
+# Remove containers (data still persists in volumes)
+docker rm elasticsearch kibana
+
+# Remove containers AND data (WARNING: deletes all logs and indices)
+docker rm elasticsearch kibana
+docker volume rm elasticsearch-data
+```
+
+**Seq:**
 
 ```bash
 # Stop Seq container (data persists in volume)
@@ -433,9 +810,116 @@ docker volume rm seq-data
 
 ---
 
-## Querying Logs in Seq
+## Querying Logs
 
-### Basic Search
+### Querying in Elasticsearch (Kibana)
+
+#### Creating an Index Pattern
+
+1. Open Kibana: `http://localhost:5601`
+2. Go to Management → Index Patterns (or Stack Management → Index Patterns)
+3. Click "Create index pattern"
+4. Index pattern: `discordbot-logs-*` (matches all environments)
+5. Timestamp field: `@timestamp`
+6. Click "Create index pattern"
+
+#### Using Discovery Tab
+
+The Discovery tab provides a real-time log browser similar to Seq:
+
+1. Go to Analytics → Discover
+2. Select the `discordbot-logs-*` index pattern
+3. View logs in chronological order with expandable details
+
+**Filtering Logs:**
+
+Click the filter icon next to a field value to create a filter:
+
+```
+SourceContext: "DiscordBot.Bot.Handlers.InteractionHandler"
+Level: "Error"
+GuildId: "123456789012345678"
+```
+
+#### Using Kibana Query Language (KQL)
+
+KQL provides SQL-like filtering:
+
+```
+# All errors
+Level: "Error"
+
+# Errors from InteractionHandler
+Level: "Error" AND SourceContext: "DiscordBot.Bot.Handlers.InteractionHandler"
+
+# Logs for specific guild with slow execution
+GuildId: "123456789012345678" AND ExecutionTimeMs > 500
+
+# All logs within time range (use time picker UI instead for easier)
+@timestamp >= "2026-01-05T10:00:00" AND @timestamp < "2026-01-05T11:00:00"
+```
+
+#### Creating Visualizations
+
+1. Go to Analytics → Visualize
+2. Click "Create visualization"
+3. Select visualization type (metric, line chart, bar chart, etc.)
+4. Choose the `discordbot-logs-*` index
+5. Use aggregations to summarize data:
+   - **Count of errors by hour**: X-axis: Date histogram (@timestamp, 1h), Y-axis: Count
+   - **Top commands**: Terms aggregation on CommandName, sorted by count
+   - **Average response time**: Average of ExecutionTimeMs by CommandName
+
+#### Creating Dashboards
+
+Combine multiple visualizations into a dashboard:
+
+1. Go to Analytics → Dashboards
+2. Click "Create dashboard"
+3. Click "Add panel"
+4. Select existing visualizations or create new ones
+5. Arrange panels on the dashboard
+6. Save the dashboard
+
+**Example Dashboard for DiscordBot:**
+- Command execution count (line chart, 1h buckets)
+- Error rate (percentage gauge)
+- Top 10 commands (bar chart)
+- Average command latency (metric)
+- Recent errors (data table)
+
+#### Elasticsearch Query DSL (Advanced)
+
+For complex queries, use Elasticsearch's Query DSL directly:
+
+1. Go to Dev Tools → Console
+2. Write DSL queries:
+
+```json
+GET discordbot-logs-dev-*/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "term": { "Level": "Error" } },
+        { "range": { "@timestamp": {
+          "gte": "2026-01-05T10:00:00",
+          "lte": "2026-01-05T11:00:00"
+        }}}
+      ]
+    }
+  },
+  "aggs": {
+    "errors_by_source": {
+      "terms": { "field": "SourceContext" }
+    }
+  }
+}
+```
+
+### Querying in Seq
+
+#### Basic Search
 
 **Navigate to Events:**
 
@@ -649,69 +1133,169 @@ GuildId = 123456789012345678 and UserId is not null
 
 ## Production Deployment Options
 
-### Self-Hosted Seq
+### Elasticsearch Deployment Options
 
-#### Docker Deployment
+#### Option 1: Elastic Cloud (SaaS - Recommended)
 
-**Standalone Container:**
+Elastic Cloud is the official managed Elasticsearch service:
 
-```bash
-docker run -d \
-  --name seq \
-  --restart unless-stopped \
-  -p 5341:80 \
-  -e ACCEPT_EULA=Y \
-  -e SEQ_API_CANONICALURI=https://seq.yourdomain.com \
-  -v /var/seq/data:/data \
-  datalust/seq:latest
+**Pros:**
+- Zero infrastructure management
+- Automatic backups and updates
+- High availability (multi-region support)
+- Integrated Kibana included
+- Elastic APM support
+- Scales automatically with workload
+
+**Setup:**
+
+1. Sign up at https://cloud.elastic.co
+2. Create a deployment (select region)
+3. Note the CloudId and API key
+4. Configure bot with:
+   ```json
+   {
+     "Elastic": {
+       "CloudId": "deployment-id:hash",
+       "ApiKey": "elastic-cloud-api-key",
+       "ApmServerUrl": "https://apm-server-url:8200",
+       "Environment": "production"
+     }
+   }
+   ```
+
+**Pricing:**
+- Free tier: 14-day trial
+- Paid tiers: Based on data ingestion and storage
+- Estimate: ~$50-200/month for small to medium bots
+
+#### Option 2: Self-Hosted Kubernetes
+
+Deploy Elasticsearch to a Kubernetes cluster:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: elasticsearch-config
+data:
+  elasticsearch.yml: |
+    cluster.name: discordbot
+    node.name: ${HOSTNAME}
+    discovery.seed_hosts: ["elasticsearch-0.elasticsearch", "elasticsearch-1.elasticsearch"]
+    cluster.initial_master_nodes: ["elasticsearch-0", "elasticsearch-1", "elasticsearch-2"]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+spec:
+  serviceName: elasticsearch
+  replicas: 3
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:latest
+        ports:
+        - containerPort: 9200
+        - containerPort: 9300
+        env:
+        - name: node.roles
+          value: "[master,data,ingest]"
+        - name: ES_JAVA_OPTS
+          value: "-Xms512m -Xmx512m"
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 50Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+spec:
+  clusterIP: None
+  selector:
+    app: elasticsearch
+  ports:
+  - port: 9200
+    name: api
+  - port: 9300
+    name: node-communication
 ```
 
-**Behind Reverse Proxy (Nginx):**
+**Advantages:**
+- Full control over infrastructure
+- No vendor lock-in
+- Can optimize for specific workloads
+- Integrates with existing Kubernetes environment
 
-```nginx
-server {
-    listen 443 ssl;
-    server_name seq.yourdomain.com;
+**Disadvantages:**
+- Requires operational expertise
+- Need to manage backups and disaster recovery
+- Responsible for patching and updates
+- Higher upfront infrastructure costs
 
-    ssl_certificate /etc/ssl/certs/seq.crt;
-    ssl_certificate_key /etc/ssl/private/seq.key;
+#### Option 3: Docker Compose (Staging/Small Production)
 
-    location / {
-        proxy_pass http://localhost:5341;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
+For staging or small production deployments:
+
+```yaml
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:latest
+    environment:
+      - cluster.name=discordbot
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=your-secure-password
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:latest
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=your-secure-password
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+volumes:
+  elasticsearch-data:
 ```
 
-#### Windows Service
+### Seq Deployment (Optional - Staging Only)
 
-1. Download Seq installer from https://datalust.co/download
-2. Run installer (installs as Windows Service)
-3. Configure data storage path
-4. Set up HTTPS binding (IIS or reverse proxy)
-5. Configure authentication (API keys)
-
-**Service Management:**
-
-```powershell
-# Start Seq service
-Start-Service Seq
-
-# Stop Seq service
-Stop-Service Seq
-
-# Check status
-Get-Service Seq
-```
-
-### Cloud-Hosted Seq
-
-#### Seq Cloud (SaaS)
-
-Datalust offers managed Seq hosting at https://datalust.co/pricing:
+For staging environments that want to use Seq alongside Elasticsearch:
 
 **Pros:**
 - No infrastructure management
@@ -892,6 +1476,57 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
 
 ## Troubleshooting
 
+### Logs Not Appearing in Elasticsearch
+
+**Problem:** No logs appear in Kibana after running the application.
+
+**Solutions:**
+
+1. **Verify Elasticsearch Cluster is Running:**
+   ```bash
+   # Check cluster status
+   curl http://localhost:9200/_cluster/health
+
+   # Should return:
+   # {"cluster_name":"docker-cluster","status":"green"...}
+   ```
+
+2. **Check Configuration:**
+   - Verify `Elastic:Endpoints` in `appsettings.Development.json`
+   - Ensure URL is correct: `http://localhost:9200` (without trailing slash)
+   - Check for typos in configuration keys
+
+3. **Verify Network Connectivity:**
+   ```bash
+   # From application host, test connection to Elasticsearch
+   curl -X POST http://localhost:9200/_health
+   ```
+   If this fails, Elasticsearch is not reachable from the application.
+
+4. **Check Serilog Configuration:**
+   - Ensure Elasticsearch sink is registered in `appsettings.Development.json`
+   - Verify sink name: `WriteTo[3]` should be Elasticsearch (0=Console, 1=File, 2=Seq, 3=Elasticsearch)
+
+5. **Verify Index Creation:**
+   ```bash
+   # List all indices
+   curl http://localhost:9200/_cat/indices
+
+   # Search for discordbot indices
+   curl "http://localhost:9200/_cat/indices?v" | grep discordbot
+   ```
+
+6. **Check Application Logs:**
+   - Look at console or file logs for Elasticsearch sink errors
+   - Check for connection timeouts or authentication failures
+   - Verify that the application is actually logging messages
+
+7. **Create Index Pattern in Kibana:**
+   - If logs are present but not showing in Kibana:
+   - Go to Management → Index Patterns
+   - Create new index pattern: `discordbot-logs-*`
+   - Set timestamp field to `@timestamp`
+
 ### Logs Not Appearing in Seq
 
 **Problem:** No logs appear in Seq UI after running the application.
@@ -908,7 +1543,7 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
    ```
 
 2. **Check Configuration:**
-   - Verify `serverUrl` in `appsettings.Development.json` or environment-specific config
+   - Verify `serverUrl` in Serilog WriteTo configuration
    - Ensure URL is correct: `http://localhost:5341` (not `http://localhost:5341/`)
    - Check for typos in configuration keys
 
@@ -921,45 +1556,55 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
    ```
    If this fails, Seq is not reachable from the application.
 
-4. **Check Serilog Configuration:**
-   - Ensure Seq sink is registered in `appsettings.json`
-   - Verify sink index: `WriteTo[2]` should be Seq (0=Console, 1=File, 2=Seq)
-
-5. **Enable Diagnostic Logging:**
-   ```json
-   {
-     "Serilog": {
-       "WriteTo": [
-         {
-           "Name": "Seq",
-           "Args": {
-             "serverUrl": "http://localhost:5341",
-             "diagnosticLogging": true
-           }
-         }
-       ]
-     }
-   }
-   ```
-   Check console output for Seq sink errors.
-
-6. **Check Minimum Log Level:**
+4. **Check Minimum Log Level:**
    - Verify application logs are at or above configured minimum level
    - Development default: Debug (all logs)
    - Production default: Warning (only warnings and errors)
 
-### Authentication Failures (401 Unauthorized)
+### Authentication Failures (401/403 Unauthorized)
 
-**Problem:** Seq returns 401 errors, logs not ingested.
+**Problem:** Elasticsearch/Seq returns 401/403 errors, logs not ingested.
 
-**Solutions:**
+**Elasticsearch Solutions:**
 
 1. **Verify API Key Configuration:**
    ```bash
    # Check user secrets
    dotnet user-secrets list --project src/DiscordBot.Bot
 
-   # Should show: Serilog:WriteTo:2:Args:apiKey = your-key
+   # Should show: Elastic:ApiKey = your-key
+   ```
+
+2. **Validate API Key in Elasticsearch:**
+   ```bash
+   # Test API key authentication
+   curl -H "Authorization: ApiKey base64-encoded-key" http://localhost:9200/_cluster/health
+   ```
+
+3. **Check Environment Variable Override:**
+   ```bash
+   # Verify environment variable is set correctly
+   echo $Elastic__ApiKey  # Linux/macOS
+   echo $env:Elastic__ApiKey  # PowerShell
+   ```
+
+4. **Test Authentication Manually:**
+   ```bash
+   # Using API key (preferred for production)
+   curl -H "Authorization: ApiKey YOUR_API_KEY" http://localhost:9200
+
+   # Using basic auth (development only)
+   curl -u elastic:password http://localhost:9200/_cluster/health
+   ```
+
+**Seq Solutions:**
+
+1. **Verify API Key Configuration:**
+   ```bash
+   # Check user secrets (if using API key)
+   dotnet user-secrets list --project src/DiscordBot.Bot
+
+   # Should show: Serilog:WriteTo:X:Args:apiKey = your-key
    ```
 
 2. **Validate API Key in Seq:**
@@ -968,27 +1613,47 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
    - Verify API key exists and is active
    - Check permissions (should allow "Ingest")
 
-3. **Check Environment Variable Override:**
-   ```bash
-   # Verify environment variable is set correctly
-   echo $Serilog__WriteTo__2__Args__apiKey  # Linux/macOS
-   echo $env:Serilog__WriteTo__2__Args__apiKey  # PowerShell
-   ```
-
-4. **Test API Key Manually:**
+3. **Test API Key Manually:**
    ```bash
    curl -X POST http://localhost:5341/api/events/raw \
      -H "Content-Type: application/vnd.serilog.clef" \
      -H "X-Seq-ApiKey: your-api-key" \
-     -d '{"@t":"2025-12-24T10:00:00Z","@m":"Test","@l":"Information"}'
+     -d '{"@t":"2026-01-05T10:00:00Z","@m":"Test","@l":"Information"}'
    ```
    Should return 201 Created if API key is valid.
 
 ### High Memory Usage
 
-**Problem:** Application memory usage increases significantly with Seq enabled.
+**Problem:** Application memory usage increases significantly with centralized logging enabled.
 
-**Solutions:**
+**Elasticsearch Solutions:**
+
+1. **Check Batch Posting Configuration:**
+   - Reduce `batchPostingLimit` to post smaller batches more frequently
+   - Ensure `period` is not too long (should be 2-5 seconds)
+
+2. **Fix Elasticsearch Connectivity:**
+   - Ensure Elasticsearch cluster is reachable
+   - Check network connectivity and latency
+   - Verify cluster has sufficient resources
+
+3. **Monitor Index Growth:**
+   ```bash
+   # Check index sizes
+   curl "http://localhost:9200/_cat/indices?v" | grep discordbot
+   ```
+   - Consider implementing ILM policies to delete old indices
+
+4. **Disable Elasticsearch Temporarily:**
+   ```json
+   {
+     "Elastic": {
+       "Endpoints": []
+     }
+   }
+   ```
+
+**Seq Solutions:**
 
 1. **Check Queue Size:**
    - If Seq is unavailable, queue grows to `queueSizeLimit` (100,000 events)
@@ -1033,22 +1698,33 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
 
 ### Slow Application Performance
 
-**Problem:** Application slows down after enabling Seq.
+**Problem:** Application slows down after enabling centralized logging.
 
 **Solutions:**
 
 1. **Verify Asynchronous Posting:**
-   - Seq sink uses async posting by default
+   - Both Elasticsearch and Seq sinks use async posting by default
    - If seeing blocking behavior, check for configuration errors
+   - Verify that Serilog configuration has async enabled
 
-2. **Increase Batch Period:**
+2. **Check Network Latency:**
+   ```bash
+   # Test latency to logging backend
+   time curl -I http://localhost:9200  # Elasticsearch
+   time curl -I http://localhost:5341  # Seq
+   ```
+   - If latency is high (>100ms), consider deploying closer to application
+   - Use same data center/region for production deployments
+
+3. **Optimize Batch Configuration:**
    ```json
    {
      "Serilog": {
        "WriteTo": [
          {
-           "Name": "Seq",
+           "Name": "Elasticsearch",
            "Args": {
+             "batchPostingLimit": 200,
              "period": "00:00:05"
            }
          }
@@ -1056,15 +1732,22 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
      }
    }
    ```
-   Reduces HTTP request frequency.
-
-3. **Check Network Latency:**
-   - If Seq server has high latency, HTTP posts will be slow
-   - Consider deploying Seq closer to application (same data center/region)
+   - Larger batches = fewer HTTP requests = less overhead
+   - Longer periods = higher latency but lower throughput
 
 4. **Reduce Log Volume:**
    - Increase minimum log level to Warning in production
    - Filter out noisy namespaces via `Override` configuration
+   - Example: Suppress Debug logs from Microsoft.* namespaces
+
+5. **Monitor Elasticsearch Performance:**
+   ```bash
+   # Check for slow bulk requests
+   curl "http://localhost:9200/_stats"
+
+   # Check cluster health
+   curl "http://localhost:9200/_cluster/health?pretty"
+   ```
 
 ### Missing Structured Properties
 
@@ -1240,6 +1923,14 @@ The `LogSanitizer` automatically removes sensitive data from logs before they re
 
 ### External Resources
 
+**Elasticsearch:**
+- [Elasticsearch Documentation](https://www.elastic.co/guide/en/elasticsearch/reference/current/index.html) - Official Elasticsearch docs
+- [Kibana User Guide](https://www.elastic.co/guide/en/kibana/current/index.html) - Official Kibana documentation
+- [Serilog.Sinks.Elasticsearch](https://github.com/serilog-contrib/serilog-sinks-elasticsearch) - Elasticsearch sink for Serilog
+- [Elastic Cloud](https://cloud.elastic.co) - Managed Elasticsearch hosting
+- [Elasticsearch Query DSL](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl.html) - Query language reference
+
+**Seq:**
 - [Seq Documentation](https://docs.datalust.co/docs) - Official Seq documentation
 - [Serilog.Sinks.Seq](https://github.com/serilog/serilog-sinks-seq) - Seq sink for Serilog
 - [Compact Log Event Format (CLEF)](https://docs.datalust.co/docs/posting-raw-events) - JSON log format specification
@@ -1251,8 +1942,9 @@ The `LogSanitizer` automatically removes sensitive data from logs before they re
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 1.0 | 2025-12-24 | Initial log aggregation documentation (Issue #106) |
+| 2.0 | 2026-01-05 | Elasticsearch Phase 1 migration - Elasticsearch as primary backend, Seq as optional alternative (Issue #791) |
+| 1.0 | 2025-12-24 | Initial log aggregation documentation with Seq (Issue #106) |
 
 ---
 
-*Last Updated: December 24, 2025*
+*Last Updated: January 5, 2026*

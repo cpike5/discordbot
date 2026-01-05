@@ -107,6 +107,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `PerformanceMetricsOptions` | `PerformanceMetrics` | Performance metrics collection settings |
 | `PerformanceAlertOptions` | `PerformanceAlerts` | Alert thresholds and notification settings |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | OpenTelemetry trace sampling rates (priority-based sampling) |
+| `ElasticOptions` | `Elastic` | Elasticsearch logging and APM configuration |
 
 ### Default Values
 
@@ -143,7 +144,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup, troubleshooting |
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
-| [log-aggregation.md](docs/articles/log-aggregation.md) | Seq centralized logging setup |
+| [log-aggregation.md](docs/articles/log-aggregation.md) | Elasticsearch and Seq centralized logging setup |
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
 | [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | Issue hierarchy, labels, GitHub workflow |
 | [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
@@ -313,7 +314,9 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 When running locally (`dotnet run --project src/DiscordBot.Bot`):
 - Admin UI: `https://localhost:5001`
 - Swagger API docs: `https://localhost:5001/swagger`
-- Seq UI: `http://localhost:5341` (when running Seq locally)
+- Seq UI: `http://localhost:5341` (when running Seq locally - optional)
+- Elasticsearch: `http://localhost:9200` (when running Elasticsearch locally)
+- Kibana: `http://localhost:5601` (Elasticsearch UI, when running locally)
 - Logs: `logs/discordbot-YYYY-MM-DD.log`
 
 ## Common Issues
