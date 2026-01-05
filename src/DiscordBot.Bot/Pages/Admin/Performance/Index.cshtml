@@ -12,45 +12,6 @@
 @section Styles {
     <link rel="stylesheet" href="~/css/performance-pages.css" />
     <style>
-        /* Health Status Components */
-        .health-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .health-status-healthy {
-            background: rgba(16, 185, 129, 0.1);
-            color: rgb(16, 185, 129);
-        }
-
-        .health-status-warning {
-            background: rgba(245, 158, 11, 0.1);
-            color: rgb(245, 158, 11);
-        }
-
-        .health-status-error {
-            background: rgba(239, 68, 68, 0.1);
-            color: rgb(239, 68, 68);
-        }
-
-        .health-status-dot {
-            width: 0.5rem;
-            height: 0.5rem;
-            border-radius: 9999px;
-            background: currentColor;
-            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-        }
-
-        @@keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
         /* Chart Card */
         .chart-card {
             background: rgb(35, 38, 40);
@@ -367,14 +328,29 @@
 
 <!-- Page Header -->
 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-    <div>
-        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Bot Performance</h1>
-        <p class="text-text-secondary mt-1">Real-time monitoring and performance metrics</p>
+    <div class="flex items-center gap-3">
+        <div>
+            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Bot Performance</h1>
+            <p class="text-text-secondary mt-1">Real-time monitoring and performance metrics</p>
+        </div>
+        <div class="live-indicator" id="liveIndicator">
+            <span class="live-dot"></span>
+            <span class="live-text">Live</span>
+        </div>
     </div>
 
     <!-- Overall Health Status -->
-    <div class="@Model.ViewModel.OverallStatusClass">
-        <span class="health-status-dot"></span>
+    <div class="health-status @Model.ViewModel.OverallStatusClass">
+        @{
+            var statusIcon = Model.ViewModel.OverallStatus.ToLowerInvariant() switch
+            {
+                "healthy" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>",
+                "warning" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"" /></svg>",
+                "critical" => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>",
+                _ => @"<svg class=""w-4 h-4"" fill=""none"" viewBox=""0 0 24 24"" stroke=""currentColor""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"" /></svg>"
+            };
+        }
+        @Html.Raw(statusIcon)
         <span>@Model.ViewModel.OverallStatusText</span>
     </div>
 </div>
@@ -744,6 +720,7 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="~/js/realtime-ui.js"></script>
     <script>
         // Chart.js default dark theme settings
         Chart.defaults.color = '#a8a5a3';
@@ -904,6 +881,66 @@
                 console.error('Failed to refresh data:', error);
             }
         }
+
+        // Smart reconnect behavior foundation
+        // Will be wired up to SignalR when DashboardHub is extended (issue #624)
+        const RealtimeUI = {
+            liveIndicatorId: 'liveIndicator',
+
+            setLive(isLive) {
+                const indicator = document.getElementById(this.liveIndicatorId);
+                if (indicator) {
+                    if (isLive) {
+                        indicator.classList.remove('paused');
+                    } else {
+                        indicator.classList.add('paused');
+                    }
+                }
+            },
+
+            animateValueChange(elementId, newValue, formatter = null) {
+                const element = document.getElementById(elementId);
+                if (!element) return;
+
+                const oldValue = element.textContent;
+                const displayValue = formatter ? formatter(newValue) : String(newValue);
+                element.textContent = displayValue;
+
+                if (oldValue !== displayValue) {
+                    element.classList.add('value-changed');
+                    setTimeout(() => element.classList.remove('value-changed'), 500);
+                }
+            },
+
+            // Called when SignalR reconnects
+            async onReconnected() {
+                this.setLive(true);
+
+                // Refresh all data
+                await refreshData();
+                await initCharts();
+
+                // Show reconnected toast
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('success', 'Real-time updates restored', {
+                        title: 'Reconnected',
+                        duration: 3000
+                    });
+                }
+            },
+
+            // Called when SignalR disconnects
+            onDisconnected() {
+                this.setLive(false);
+
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('warning', 'Attempting to reconnect...', {
+                        title: 'Connection Lost',
+                        duration: 5000
+                    });
+                }
+            }
+        };
 
         // Convert UTC timestamps to local timezone
         function convertTimestampsToLocal() {

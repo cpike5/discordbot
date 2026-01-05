@@ -108,10 +108,10 @@ public record PerformanceOverviewViewModel
     /// </summary>
     public string OverallStatusText => OverallStatus.ToLowerInvariant() switch
     {
-        "healthy" => "All Systems Operational",
-        "warning" => "Some Systems Degraded",
-        "critical" => "Critical Issues Detected",
-        _ => "All Systems Operational"
+        "healthy" => "Operational",
+        "warning" => "Degraded",
+        "critical" => "Critical",
+        _ => "Operational"
     };
 
     /// <summary>

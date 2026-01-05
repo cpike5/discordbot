@@ -230,33 +230,30 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 9999px;
-    font-size: 0.875rem;
-    font-weight: 500;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
 }
 
 .health-status-healthy {
-    background: rgba(16, 185, 129, 0.1);
+    background: rgba(16, 185, 129, 0.15);
     color: var(--color-success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
 .health-status-warning {
-    background: rgba(245, 158, 11, 0.1);
+    background: rgba(245, 158, 11, 0.15);
     color: var(--color-warning);
+    border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .health-status-error {
-    background: rgba(239, 68, 68, 0.1);
+    background: rgba(239, 68, 68, 0.15);
     color: var(--color-error);
-}
-
-.health-status-dot {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 9999px;
-    background: currentColor;
-    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 @keyframes pulse {
@@ -894,4 +891,52 @@
 /* ===== Utility Classes ===== */
 .text-mono {
     font-family: 'Courier New', monospace;
+}
+
+/* ===== Live Data Indicator ===== */
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.5rem;
+    background: rgba(16, 185, 129, 0.1);
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-success);
+}
+
+.live-dot {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: var(--color-success);
+    animation: livePulse 2s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+.live-indicator.paused {
+    background: rgba(168, 165, 163, 0.1);
+    color: var(--color-text-secondary);
+}
+
+.live-indicator.paused .live-dot {
+    background: var(--color-text-secondary);
+    animation: none;
+}
+
+/* ===== Value Change Animation ===== */
+.value-changed {
+    animation: flashHighlight 0.5s ease-out;
+}
+
+@keyframes flashHighlight {
+    0% { background: rgba(9, 142, 207, 0.3); }
+    100% { background: transparent; }
 }
