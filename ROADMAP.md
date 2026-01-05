@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for the Discord Bot Management System. It provides a high-level view of completed work, current focus areas, and future enhancements.
 
-**Current Version:** v0.5.0-dev
+**Current Version:** v0.5.4-dev
 
 ---
 
@@ -202,85 +202,224 @@ Community-driven accountability system for tracking commitments.
 
 ---
 
-## In Progress (v0.4.0)
+## Completed (v0.4.0)
 
 ### Documentation Overhaul ([#303](https://github.com/cpike5/discordbot/issues/303))
 Comprehensive documentation update for clarity and discoverability.
 
-- [ ] Update ROADMAP.md to reflect current state ([#306](https://github.com/cpike5/discordbot/issues/306))
-- [ ] Consolidate and organize feature documentation ([#307](https://github.com/cpike5/discordbot/issues/307))
-- [ ] Create deployment and production setup guide ([#308](https://github.com/cpike5/discordbot/issues/308))
-- [ ] Update README.md with current feature highlights ([#309](https://github.com/cpike5/discordbot/issues/309))
-- [ ] Review and update all existing documentation ([#310](https://github.com/cpike5/discordbot/issues/310))
+- [x] Update ROADMAP.md to reflect current state
+- [x] Consolidate and organize feature documentation
+- [x] Create deployment and production setup guide
+- [x] Update README.md with current feature highlights
+- [x] Review and update all existing documentation
 
 ---
 
-## Planned Features (v0.5.0)
-
-The following features are prioritized for the v0.5.0 release:
+## Completed (v0.5.0 - v0.5.3)
 
 ### Moderation System ([#291](https://github.com/cpike5/discordbot/issues/291))
 Comprehensive moderation tools with auto-detection and manual actions.
 
-- Manual moderation commands: `/warn`, `/kick`, `/ban`, `/mute`, `/purge`
-- Mod notes system for tracking user history
-- Auto-moderation with configurable rules (spam, profanity, raid detection)
-- Flagged content review queue
-- Cross-guild analytics dashboard
-- Per-guild configuration UI
+- [x] Manual moderation commands: `/warn`, `/kick`, `/ban`, `/mute`, `/purge`
+- [x] Mod notes system for tracking user history
+- [x] Auto-moderation with configurable rules (spam, profanity, raid detection)
+- [x] Flagged content review queue
+- [x] Cross-guild analytics dashboard
+- [x] Per-guild configuration UI
+- [x] Investigation command `/investigate`
+- [x] Watchlist management `/watchlist`
+- [x] Mod tagging system `/mod-tag`
 
 ### Utility Commands ([#292](https://github.com/cpike5/discordbot/issues/292))
 General-purpose utility slash commands.
 
-- User info and server info commands
-- Role management utilities
-- Channel utilities
-- Timestamp and timezone tools
+- [x] `/userinfo` - User profile and activity information
+- [x] `/serverinfo` - Server statistics and configuration
+- [x] `/roleinfo` - Role details and member counts
 
-### Custom Commands ([#293](https://github.com/cpike5/discordbot/issues/293))
-Guild-specific custom slash commands configured via admin UI.
+### Reminder System
+Personal reminder system with natural language time parsing.
 
-- Custom command builder
-- Variable substitution support
-- Embed customization
-- Permission-based command access
+- [x] `/remind set` - Create personal reminders with natural language times
+- [x] `/remind list` - View pending reminders
+- [x] `/remind delete` - Remove reminders
+- [x] Admin UI for reminder management per guild
 
 ### Audit Dashboard & Analytics ([#294](https://github.com/cpike5/discordbot/issues/294))
 Enhanced analytics and reporting for audit logs.
 
-- Trend analysis and visualizations
-- Custom date range filtering
-- Export functionality (CSV/JSON)
-- Scheduled reports
+- [x] Trend analysis and visualizations
+- [x] Custom date range filtering
+- [x] Guild-specific analytics pages
 
 ### Bot Performance Dashboard ([#295](https://github.com/cpike5/discordbot/issues/295))
 Real-time monitoring of bot health and performance metrics.
 
-- Resource usage tracking (CPU, memory, network)
-- Command latency metrics
-- Discord API rate limit monitoring
-- Error rate tracking and alerting
+- [x] Overview dashboard with key metrics
+- [x] Health metrics page with resource usage tracking
+- [x] Command performance page with latency metrics
+- [x] System health page for database, cache, and service monitoring
+- [x] API metrics page for Discord API usage and rate limits
+- [x] Performance alerts page with threshold configuration
+- [x] Historical metrics system ([#613](https://github.com/cpike5/discordbot/issues/613))
 
 ### Member Directory ([#296](https://github.com/cpike5/discordbot/issues/296))
 Searchable directory of guild members with role filtering.
 
-- Member search and filtering
-- Role assignment tracking
-- Join date and activity metrics
-- Export member lists
+- [x] Member search and filtering
+- [x] Role assignment tracking
+- [x] Join date and activity metrics
+- [x] Member moderation history view
+
+### Admin/Performance Pages UI Polish ([#647](https://github.com/cpike5/discordbot/issues/647))
+Design system compliance and accessibility improvements.
+
+- [x] Mobile navigation improvements
+- [x] Touch target size fixes
+- [x] ARIA roles and accessibility labels
+- [x] Shared component standardization
+- [x] Color contrast fixes
+- [x] Time range selector standardization
+
+### Distributed Tracing with Jaeger ([#662](https://github.com/cpike5/discordbot/issues/662))
+Comprehensive OpenTelemetry tracing implementation.
+
+- [x] Bot lifecycle and Discord gateway event tracing ([#663](https://github.com/cpike5/discordbot/issues/663))
+- [x] Background service instrumentation ([#664](https://github.com/cpike5/discordbot/issues/664))
+- [x] Business service layer tracing ([#665](https://github.com/cpike5/discordbot/issues/665))
+- [x] Discord API call tracing enhancement ([#666](https://github.com/cpike5/discordbot/issues/666))
+- [x] Priority-based sampling strategy optimization ([#667](https://github.com/cpike5/discordbot/issues/667))
 
 ---
 
-## Future Considerations (v0.6.0+)
+## In Progress (v0.6.0)
+
+### SignalR Real-Time Performance Dashboard ([#622](https://github.com/cpike5/discordbot/issues/622))
+Real-time streaming updates for performance monitoring.
+
+- [x] Visual feedback components for real-time updates ([#631](https://github.com/cpike5/discordbot/issues/631))
+- [x] Performance Dashboard shell layout ([#721](https://github.com/cpike5/discordbot/issues/721))
+- [ ] DTOs for SignalR performance metrics streaming ([#623](https://github.com/cpike5/discordbot/issues/623))
+- [ ] Extend DashboardHub with performance monitoring methods ([#624](https://github.com/cpike5/discordbot/issues/624))
+- [ ] PerformanceMetricsBroadcastService for scheduled publishing ([#625](https://github.com/cpike5/discordbot/issues/625))
+- [ ] Alert triggers and resolutions via SignalR ([#626](https://github.com/cpike5/discordbot/issues/626))
+- [ ] Replace polling with SignalR on Health Metrics page ([#627](https://github.com/cpike5/discordbot/issues/627))
+- [ ] Real-time alert updates on Alerts page ([#628](https://github.com/cpike5/discordbot/issues/628))
+- [ ] Replace full page reload with SignalR on System Health page ([#629](https://github.com/cpike5/discordbot/issues/629))
+- [ ] Real-time streaming on Command Performance page ([#630](https://github.com/cpike5/discordbot/issues/630))
+- [ ] Refactor to component-based architecture ([#661](https://github.com/cpike5/discordbot/issues/661))
+
+### User/Guild Preview Popups ([#671](https://github.com/cpike5/discordbot/issues/671))
+Hover previews for user and guild information across the admin UI.
+
+- [x] Preview ViewModels and API endpoints ([#698](https://github.com/cpike5/discordbot/issues/698), [#699](https://github.com/cpike5/discordbot/issues/699))
+- [x] Preview popup partial views ([#700](https://github.com/cpike5/discordbot/issues/700))
+- [x] JavaScript module for popup handling ([#701](https://github.com/cpike5/discordbot/issues/701))
+- [x] CSS styling for popups ([#702](https://github.com/cpike5/discordbot/issues/702))
+- [x] Integration into Performance Dashboard ([#703](https://github.com/cpike5/discordbot/issues/703))
+- [x] Integration into Command Logs ([#704](https://github.com/cpike5/discordbot/issues/704))
+- [x] Integration into Audit Logs ([#705](https://github.com/cpike5/discordbot/issues/705))
+- [x] Integration into Member Directory ([#706](https://github.com/cpike5/discordbot/issues/706))
+- [x] Integration into Moderation pages ([#707](https://github.com/cpike5/discordbot/issues/707))
+- [x] Keyboard and touch accessibility ([#708](https://github.com/cpike5/discordbot/issues/708))
+- [x] Client-side caching ([#709](https://github.com/cpike5/discordbot/issues/709))
+
+### Notification System
+In-app notification center for admin UI.
+
+- [x] Notification service and data layer ([#739](https://github.com/cpike5/discordbot/issues/739), [#748](https://github.com/cpike5/discordbot/issues/748))
+- [ ] Integrate notifications with event sources ([#740](https://github.com/cpike5/discordbot/issues/740))
+- [ ] SignalR notification broadcasting ([#741](https://github.com/cpike5/discordbot/issues/741))
+- [ ] Notification bell dropdown UI ([#742](https://github.com/cpike5/discordbot/issues/742))
+- [ ] Notification History page ([#743](https://github.com/cpike5/discordbot/issues/743))
+- [ ] Notification retention cleanup service ([#744](https://github.com/cpike5/discordbot/issues/744))
+
+### Performance Dashboard Tab System
+AJAX-based tab loading for improved performance.
+
+- [ ] Convert pages to partial views ([#722](https://github.com/cpike5/discordbot/issues/722), [#759](https://github.com/cpike5/discordbot/issues/759)-[#764](https://github.com/cpike5/discordbot/issues/764))
+- [ ] Create PerformanceTabViewModels ([#758](https://github.com/cpike5/discordbot/issues/758))
+- [ ] AJAX tab loading system ([#723](https://github.com/cpike5/discordbot/issues/723))
+- [ ] Browser history and deep linking ([#724](https://github.com/cpike5/discordbot/issues/724))
+- [ ] CSS transitions and loading states ([#725](https://github.com/cpike5/discordbot/issues/725))
+- [ ] Time range selector consolidation ([#726](https://github.com/cpike5/discordbot/issues/726))
+- [ ] JavaScript module migration ([#727](https://github.com/cpike5/discordbot/issues/727))
+- [ ] Consolidate shared styles ([#765](https://github.com/cpike5/discordbot/issues/765))
+- [ ] Integration tests ([#731](https://github.com/cpike5/discordbot/issues/731))
+
+### Custom Commands ([#293](https://github.com/cpike5/discordbot/issues/293))
+Guild-specific custom slash commands configured via admin UI.
+
+- [ ] Core domain layer ([#564](https://github.com/cpike5/discordbot/issues/564))
+- [ ] Infrastructure layer ([#567](https://github.com/cpike5/discordbot/issues/567))
+- [ ] Service layer ([#569](https://github.com/cpike5/discordbot/issues/569))
+- [ ] Discord slash commands ([#574](https://github.com/cpike5/discordbot/issues/574))
+- [ ] Admin UI pages ([#575](https://github.com/cpike5/discordbot/issues/575))
+- [ ] Documentation ([#576](https://github.com/cpike5/discordbot/issues/576))
+
+### Other v0.6.0 Tasks
+- [ ] Accurate CPU metrics collection ([#642](https://github.com/cpike5/discordbot/issues/642))
+
+---
+
+## Planned (v0.7.0)
+
+### Audio Support & Soundboard ([#749](https://github.com/cpike5/discordbot/issues/749))
+Voice channel integration with soundboard functionality.
+
+- [ ] Voice channel infrastructure ([#750](https://github.com/cpike5/discordbot/issues/750))
+- [ ] Soundboard core data layer ([#751](https://github.com/cpike5/discordbot/issues/751))
+- [ ] Discord slash commands for audio ([#752](https://github.com/cpike5/discordbot/issues/752))
+- [ ] Admin UI - Soundboard page ([#753](https://github.com/cpike5/discordbot/issues/753))
+- [ ] Admin UI - Audio settings page ([#754](https://github.com/cpike5/discordbot/issues/754))
+- [ ] Guild settings integration ([#755](https://github.com/cpike5/discordbot/issues/755))
+- [ ] Documentation ([#756](https://github.com/cpike5/discordbot/issues/756))
+- [ ] Cross-platform audio dependencies ([#757](https://github.com/cpike5/discordbot/issues/757))
+
+---
+
+## Planned (v0.8.0)
+
+### Docker Containerization ([#766](https://github.com/cpike5/discordbot/issues/766))
+Production-ready containerized deployment.
+
+- [ ] Multi-stage Dockerfile ([#767](https://github.com/cpike5/discordbot/issues/767))
+- [ ] docker-compose.yml configuration ([#768](https://github.com/cpike5/discordbot/issues/768))
+- [ ] Environment configuration template ([#769](https://github.com/cpike5/discordbot/issues/769))
+- [ ] Health check endpoint ([#770](https://github.com/cpike5/discordbot/issues/770))
+- [ ] GitHub Actions Docker build workflow ([#771](https://github.com/cpike5/discordbot/issues/771))
+- [ ] Docker deployment guide ([#772](https://github.com/cpike5/discordbot/issues/772))
+
+---
+
+## Backlog
+
+### User Data Privacy & Compliance ([#777](https://github.com/cpike5/discordbot/issues/777))
+GDPR compliance enhancements for user data management.
+
+- [ ] User data purge functionality ([#778](https://github.com/cpike5/discordbot/issues/778))
+- [ ] Bulk data purge operations ([#779](https://github.com/cpike5/discordbot/issues/779))
+- [ ] Message logging consent clarification ([#780](https://github.com/cpike5/discordbot/issues/780))
+
+### Log Viewer Page ([#747](https://github.com/cpike5/discordbot/issues/747))
+Unified log viewer with multi-source support.
+
+### Other Backlog Items
+- [ ] Evaluate observability strategy: Migrate to Elastic Stack ([#787](https://github.com/cpike5/discordbot/issues/787))
+- [ ] Display channel names instead of IDs on MessageLogs page ([#786](https://github.com/cpike5/discordbot/issues/786))
+- [ ] Add user preview popups to Analytics pages ([#782](https://github.com/cpike5/discordbot/issues/782))
+- [ ] Fix Discord ID precision loss in JavaScript ([#781](https://github.com/cpike5/discordbot/issues/781))
+- [ ] Add LeftAt field to Guild entity ([#746](https://github.com/cpike5/discordbot/issues/746))
+- [ ] Fix flaky MetricsCollectionService test ([#636](https://github.com/cpike5/discordbot/issues/636))
+
+---
+
+## Future Considerations
 
 The following features are candidates for future development but not yet formally planned:
 
-### Production Readiness
-- **Docker Support** - Containerized deployment with docker-compose
-- **Health Checks** - Kubernetes/orchestration readiness and liveness probes
-- **Configuration Hot Reload** - Apply settings changes without restart
-
 ### Admin UI Enhancements
+- **Configuration Hot Reload** - Apply settings changes without restart
 - **Backup & Restore** - Export/import guild configurations
 - **Multi-language Support** - Localization for admin UI
 
@@ -296,6 +435,7 @@ The following features are candidates for future development but not yet formall
 
 ### Infrastructure
 - **Database Migrations UI** - Admin interface for schema updates
+- **Kubernetes Support** - Helm charts and orchestration configurations
 
 ---
 
@@ -303,7 +443,11 @@ The following features are candidates for future development but not yet formall
 
 | Version | Date | Highlights |
 |---------|------|------------|
-| v0.4.0 | 2025-12-30 | Documentation overhaul, deployment guides |
+| v0.5.3 | 2026-01-03 | Distributed tracing with Jaeger, priority-based sampling |
+| v0.5.2 | 2026-01-03 | Per-service memory diagnostics, toast action buttons |
+| v0.5.1 | 2026-01-03 | Preview popup accessibility and caching |
+| v0.5.0 | 2026-01-03 | Moderation system, performance dashboard, member directory, utility commands, reminder system |
+| v0.4.0 | 2025-12-31 | Documentation overhaul, deployment guides |
 | v0.3.11 | 2025-12-30 | Rat Watch navigation improvements |
 | v0.3.10 | 2025-12 | Rat Watch analytics and public leaderboards |
 | v0.3.0 | 2025-12 | Welcome system, scheduled messages, real-time dashboard, audit log viewer, Rat Watch accountability system |
