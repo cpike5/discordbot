@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
+using Elastic.Apm.NetCoreAll;
 using Elastic.Apm.SerilogEnricher;
 using Serilog;
 using System.Reflection;
@@ -333,6 +334,10 @@ try
     });
 
     var app = builder.Build();
+
+    // Enable Elastic APM (must be very early in pipeline to capture all requests)
+    // Configured via ElasticApm section in appsettings.json
+    app.UseAllElasticApm(builder.Configuration);
 
     // Configure middleware pipeline
     // Handle forwarded headers from reverse proxy (must be FIRST in pipeline)
