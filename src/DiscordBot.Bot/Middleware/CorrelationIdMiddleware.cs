@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Elastic.Apm;
 using Serilog.Context;
 
 namespace DiscordBot.Bot.Middleware;
@@ -75,6 +76,9 @@ public class CorrelationIdMiddleware
             activity.SetTag("correlation.id", correlationId);
             activity.AddBaggage("correlation-id", correlationId);
         }
+
+        // Set correlation ID on the current Elastic APM transaction
+        Agent.Tracer.CurrentTransaction?.SetLabel("correlation.id", correlationId);
 
         // Push correlation ID and trace info to Serilog LogContext for structured logging
         // The using statement ensures the property is disposed after the request completes

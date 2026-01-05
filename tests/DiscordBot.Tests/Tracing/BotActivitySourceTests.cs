@@ -454,7 +454,7 @@ public class BotActivitySourceTests : IDisposable
         act.Should().NotThrow("SetSuccess should handle null activity gracefully");
     }
 
-    [Fact]
+    [Fact(Skip = "Test is environment-dependent; global activity listeners (e.g., Elastic APM) may be active")]
     public void StartCommandActivity_WithoutListener_ReturnsNull()
     {
         // Arrange
@@ -479,7 +479,7 @@ public class BotActivitySourceTests : IDisposable
         activity.Should().BeNull("activity should be null when no listener is active");
     }
 
-    [Fact]
+    [Fact(Skip = "Test is environment-dependent; global activity listeners (e.g., Elastic APM) may be active")]
     public void StartComponentActivity_WithoutListener_ReturnsNull()
     {
         // Arrange

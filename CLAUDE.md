@@ -107,7 +107,10 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `PerformanceMetricsOptions` | `PerformanceMetrics` | Performance metrics collection settings |
 | `PerformanceAlertOptions` | `PerformanceAlerts` | Alert thresholds and notification settings |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | OpenTelemetry trace sampling rates (priority-based sampling) |
-| `ElasticOptions` | `Elastic` | Elasticsearch logging and APM configuration |
+| `ElasticOptions` | `Elastic` | Elasticsearch logging configuration |
+| `ElasticApm:*` | `ElasticApm` | Elastic APM distributed tracing configuration (see appsettings.json for full options) |
+
+**Note:** Elastic APM is available for distributed tracing and performance monitoring. See [log-aggregation.md](docs/articles/log-aggregation.md) for APM setup and correlation between logs and traces.
 
 ### Default Values
 
@@ -317,6 +320,7 @@ When running locally (`dotnet run --project src/DiscordBot.Bot`):
 - Seq UI: `http://localhost:5341` (when running Seq locally - optional)
 - Elasticsearch: `http://localhost:9200` (when running Elasticsearch locally)
 - Kibana: `http://localhost:5601` (Elasticsearch UI, when running locally)
+- Elastic APM Server: `http://localhost:8200` (when running APM Server locally - for distributed tracing)
 - Logs: `logs/discordbot-YYYY-MM-DD.log`
 
 ## Common Issues

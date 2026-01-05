@@ -56,6 +56,9 @@ try
     // Add OpenTelemetry tracing
     builder.Services.AddOpenTelemetryTracing(builder.Configuration);
 
+    // Add Elastic APM with priority-based sampling (dual-write during validation)
+    builder.Services.AddElasticApmWithPrioritySampling(builder.Configuration);
+
     // Configure forwarded headers for reverse proxy (nginx, Cloudflare, etc.)
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {

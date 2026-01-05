@@ -26,26 +26,43 @@ public class ElasticOptionsTests
         options.CloudId.Should().BeNull("CloudId should be null by default");
         options.ApiKey.Should().BeNull("ApiKey should be null by default");
         options.Endpoints.Should().BeEmpty("Endpoints array should be empty by default");
-        options.IndexFormat.Should().Be("discordbot-logs-{0:yyyy.MM.dd}", "default index format should include date placeholder");
+        options.DataStream.Should().Be("logs-discordbot-default", "default data stream should follow Elastic naming convention");
+        options.BootstrapMethod.Should().Be("Silent", "bootstrap method should default to Silent");
+        options.IlmPolicy.Should().Be("logs", "ILM policy should default to logs");
         options.ApmServerUrl.Should().BeNull("ApmServerUrl should be null by default");
         options.ApmSecretToken.Should().BeNull("ApmSecretToken should be null by default");
         options.Environment.Should().Be("development", "environment should default to development");
     }
 
     [Fact]
-    public void IndexFormat_HasValidDefaultValue()
+    public void DataStream_HasValidDefaultValue()
     {
         // Arrange
         var options = new ElasticOptions();
-        var now = DateTime.UtcNow;
-
-        // Act
-        var formattedIndex = string.Format(options.IndexFormat, now);
 
         // Assert
-        formattedIndex.Should().Match("discordbot-logs-????.??.??", "index format should support date formatting");
-        formattedIndex.Should().StartWith("discordbot-logs-");
-        formattedIndex.Should().HaveLength("discordbot-logs-".Length + 10, "date format should be yyyy.MM.dd");
+        options.DataStream.Should().Be("logs-discordbot-default", "data stream should follow logs-{namespace}-{dataset} format");
+        options.DataStream.Should().StartWith("logs-", "data stream should use logs type");
+    }
+
+    [Fact]
+    public void BootstrapMethod_HasValidDefaultValue()
+    {
+        // Arrange
+        var options = new ElasticOptions();
+
+        // Assert
+        options.BootstrapMethod.Should().Be("Silent", "bootstrap should default to Silent to avoid failures");
+    }
+
+    [Fact]
+    public void IlmPolicy_HasValidDefaultValue()
+    {
+        // Arrange
+        var options = new ElasticOptions();
+
+        // Assert
+        options.IlmPolicy.Should().Be("logs", "ILM policy should default to built-in logs policy");
     }
 
     [Fact]
@@ -123,17 +140,43 @@ public class ElasticOptionsTests
     }
 
     [Fact]
-    public void IndexFormat_CanBeSet()
+    public void DataStream_CanBeSet()
     {
         // Arrange
         var options = new ElasticOptions();
-        var customFormat = "logs-discord-bot-{0:yyyy.MM.dd.HH}";
+        var customDataStream = "logs-discordbot-production";
 
         // Act
-        options.IndexFormat = customFormat;
+        options.DataStream = customDataStream;
 
         // Assert
-        options.IndexFormat.Should().Be(customFormat);
+        options.DataStream.Should().Be(customDataStream);
+    }
+
+    [Fact]
+    public void BootstrapMethod_CanBeSet()
+    {
+        // Arrange
+        var options = new ElasticOptions();
+
+        // Act
+        options.BootstrapMethod = "Failure";
+
+        // Assert
+        options.BootstrapMethod.Should().Be("Failure");
+    }
+
+    [Fact]
+    public void IlmPolicy_CanBeSet()
+    {
+        // Arrange
+        var options = new ElasticOptions();
+
+        // Act
+        options.IlmPolicy = "custom-policy";
+
+        // Assert
+        options.IlmPolicy.Should().Be("custom-policy");
     }
 
     [Fact]
@@ -203,7 +246,9 @@ public class ElasticOptionsTests
             CloudId = "us-west1:dXMtY2VudHJhbDEkNDJlOTQxMDQxZjQ0NTJmNDUwZjhkNzY0YTU4ZGJkZjg=",
             ApiKey = "VnVhQ2ZHY0JDUDd1YTNjNllIOGluOlJGVDUzVlE4VGdXZVVkQUZfNjVHQQ==",
             Endpoints = new[] { "https://elasticsearch.example.com:9200" },
-            IndexFormat = "logs-discord-{0:yyyy.MM.dd}",
+            DataStream = "logs-discordbot-production",
+            BootstrapMethod = "Failure",
+            IlmPolicy = "custom-logs",
             ApmServerUrl = "https://apm.example.com:8200",
             ApmSecretToken = "apm-token",
             Environment = "production"
@@ -214,7 +259,9 @@ public class ElasticOptionsTests
         options.ApiKey.Should().Be("VnVhQ2ZHY0JDUDd1YTNjNllIOGluOlJGVDUzVlE4VGdXZVVkQUZfNjVHQQ==");
         options.Endpoints.Should().HaveCount(1);
         options.Endpoints[0].Should().Be("https://elasticsearch.example.com:9200");
-        options.IndexFormat.Should().Be("logs-discord-{0:yyyy.MM.dd}");
+        options.DataStream.Should().Be("logs-discordbot-production");
+        options.BootstrapMethod.Should().Be("Failure");
+        options.IlmPolicy.Should().Be("custom-logs");
         options.ApmServerUrl.Should().Be("https://apm.example.com:8200");
         options.ApmSecretToken.Should().Be("apm-token");
         options.Environment.Should().Be("production");
@@ -230,7 +277,9 @@ public class ElasticOptionsTests
         options.CloudId = "cloud-id-value";
         options.ApiKey = "api-key-value";
         options.Endpoints = new[] { "endpoint1", "endpoint2" };
-        options.IndexFormat = "custom-index-{0:yyyy.MM.dd}";
+        options.DataStream = "logs-custom-dataset";
+        options.BootstrapMethod = "Failure";
+        options.IlmPolicy = "custom-policy";
         options.ApmServerUrl = "apm-url";
         options.ApmSecretToken = "apm-token";
         options.Environment = "staging";
@@ -239,7 +288,9 @@ public class ElasticOptionsTests
         options.CloudId.Should().Be("cloud-id-value");
         options.ApiKey.Should().Be("api-key-value");
         options.Endpoints.Should().HaveCount(2);
-        options.IndexFormat.Should().Be("custom-index-{0:yyyy.MM.dd}");
+        options.DataStream.Should().Be("logs-custom-dataset");
+        options.BootstrapMethod.Should().Be("Failure");
+        options.IlmPolicy.Should().Be("custom-policy");
         options.ApmServerUrl.Should().Be("apm-url");
         options.ApmSecretToken.Should().Be("apm-token");
         options.Environment.Should().Be("staging");
@@ -319,22 +370,25 @@ public class ElasticOptionsTests
 
         // Assert
         options.Environment.Should().Be("development", "default should be suitable for development");
-        options.IndexFormat.Should().NotBeNullOrEmpty("index format must be specified");
+        options.DataStream.Should().NotBeNullOrEmpty("data stream must be specified");
+        options.BootstrapMethod.Should().Be("Silent", "bootstrap should be silent for safety");
         options.Endpoints.Should().BeEmpty("endpoints are optional for cloud deployments");
     }
 
-    [Fact]
-    public void IndexFormat_DefaultSupportsDateTimeFormatting()
+    [Theory]
+    [InlineData("None")]
+    [InlineData("Silent")]
+    [InlineData("Failure")]
+    public void BootstrapMethod_AcceptsValidValues(string method)
     {
         // Arrange
         var options = new ElasticOptions();
-        var testDate = new DateTime(2024, 1, 15, 10, 30, 45, DateTimeKind.Utc);
 
         // Act
-        var formattedIndex = string.Format(options.IndexFormat, testDate);
+        options.BootstrapMethod = method;
 
         // Assert
-        formattedIndex.Should().Be("discordbot-logs-2024.01.15", "index format should create daily indices");
+        options.BootstrapMethod.Should().Be(method);
     }
 
     [Fact]
