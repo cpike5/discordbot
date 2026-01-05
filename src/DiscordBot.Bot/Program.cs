@@ -265,6 +265,9 @@ try
     builder.Services.AddScoped<IReminderService, ReminderService>();
     builder.Services.AddHostedService<ReminderExecutionService>();
 
+    // Add Notification services
+    builder.Services.AddScoped<INotificationService, NotificationService>();
+
     // Add Analytics Aggregation services
     builder.Services.Configure<AnalyticsRetentionOptions>(
         builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName));

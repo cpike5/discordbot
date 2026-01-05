@@ -46,6 +46,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<PerformanceAlertConfig> PerformanceAlertConfigs => Set<PerformanceAlertConfig>();
     public DbSet<PerformanceIncident> PerformanceIncidents => Set<PerformanceIncident>();
     public DbSet<MetricSnapshot> MetricSnapshots => Set<MetricSnapshot>();
+    public DbSet<UserNotification> UserNotifications => Set<UserNotification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
