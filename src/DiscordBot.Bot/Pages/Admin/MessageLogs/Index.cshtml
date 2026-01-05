@@ -203,7 +203,7 @@
                                         </div>
                                         <div class="ml-3">
                                             <div class="text-sm font-medium text-text-primary">
-                                                <span class="preview-trigger" data-preview-type="user" data-user-id="@message.AuthorId" @(message.GuildId.HasValue ? $"data-context-guild-id=\"{message.GuildId}\"" : "")>@(message.AuthorUsername ?? "(Unknown)")</span>
+                                                <span class="preview-trigger" data-preview-type="user" data-user-id="@message.AuthorId">@(message.AuthorUsername ?? "(Unknown)")</span>
                                             </div>
                                             <div class="text-xs text-text-tertiary font-mono">@message.AuthorId</div>
                                         </div>
