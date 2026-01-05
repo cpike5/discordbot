@@ -1,0 +1,41 @@
+@using DiscordBot.Bot.ViewModels.Pages
+@model PerformanceShellViewModel
+@{
+    string GetTabClass(string tabId) => Model.ActiveTab == tabId ? "performance-shell-tab active" : "performance-shell-tab";
+    string GetAriaSelected(string tabId) => Model.ActiveTab == tabId ? "true" : "false";
+}
+
+<div class="performance-shell-tabs-container" id="performanceShellTabsContainer">
+    <nav class="performance-shell-tabs" id="performanceShellTabs" role="tablist" aria-label="Performance dashboard sections">
+        @foreach (var tab in PerformanceShellViewModel.Tabs)
+        {
+            var tabPanelId = $"tabPanel-{tab.Id}";
+            var isAlertsTab = tab.Id == "alerts";
+            <button type="button"
+                    class="@GetTabClass(tab.Id)"
+                    role="tab"
+                    id="tab-@tab.Id"
+                    aria-selected="@GetAriaSelected(tab.Id)"
+                    aria-controls="@tabPanelId"
+                    data-tab-id="@tab.Id"
+                    data-tab-hash="@tab.Hash">
+                <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPath" />
+                </svg>
+                @if (!string.IsNullOrEmpty(tab.ShortLabel))
+                {
+                    <span class="tab-label-long">@tab.Label</span>
+                    <span class="tab-label-short">@tab.ShortLabel</span>
+                }
+                else
+                {
+                    <span>@tab.Label</span>
+                }
+                @if (isAlertsTab && Model.ActiveAlertCount > 0)
+                {
+                    <span class="tab-alert-badge" aria-label="@Model.ActiveAlertCount active alerts">@Model.ActiveAlertCount</span>
+                }
+            </button>
+        }
+    </nav>
+</div>
