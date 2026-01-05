@@ -140,7 +140,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
     [RequireKickMembers]
     [RequireBotPermission(GuildPermission.KickMembers)]
     public async Task KickAsync(
-        [Summary("user", "The user to kick")] IGuildUser user,
+        [Summary("user", "The user to kick")] IUser user,
         [Summary("reason", "Reason for the kick")] string? reason = null)
     {
         _logger.LogInformation(
@@ -152,8 +152,28 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             Context.Guild.Name,
             Context.Guild.Id);
 
+        // Resolve the guild user with proper error handling
+        // First check cache, then try to download if not found
+        var guildUser = user as IGuildUser ?? Context.Guild.GetUser(user.Id);
+        if (guildUser == null)
+        {
+            // User not in cache, try to download
+            guildUser = await Context.Client.Rest.GetGuildUserAsync(Context.Guild.Id, user.Id);
+        }
+
+        if (guildUser == null)
+        {
+            _logger.LogWarning(
+                "Could not resolve guild user {UserId} ({Username}) in guild {GuildId}. User may not be a member of this server.",
+                user.Id,
+                user.Username,
+                Context.Guild.Id);
+            await RespondAsync("Could not find that user in this server. They may have left or were never a member.", ephemeral: true);
+            return;
+        }
+
         // Prevent self-kick
-        if (user.Id == Context.User.Id)
+        if (guildUser.Id == Context.User.Id)
         {
             await RespondAsync("You cannot kick yourself.", ephemeral: true);
             _logger.LogDebug("User {UserId} attempted to kick themselves", Context.User.Id);
@@ -161,7 +181,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         }
 
         // Prevent kicking the bot
-        if (user.IsBot && user.Id == Context.Client.CurrentUser.Id)
+        if (guildUser.IsBot && guildUser.Id == Context.Client.CurrentUser.Id)
         {
             await RespondAsync("I cannot kick myself.", ephemeral: true);
             _logger.LogDebug("User {UserId} attempted to kick the bot", Context.User.Id);
@@ -169,13 +189,13 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         }
 
         // Check role hierarchy
-        if (Context.User is SocketGuildUser moderator && user.Hierarchy >= moderator.Hierarchy)
+        if (Context.User is SocketGuildUser moderator && guildUser.Hierarchy >= moderator.Hierarchy)
         {
             await RespondAsync("You cannot kick a user with an equal or higher role than yours.", ephemeral: true);
             _logger.LogDebug(
                 "User {ModeratorId} attempted to kick user {TargetId} with equal/higher role hierarchy",
                 Context.User.Id,
-                user.Id);
+                guildUser.Id);
             return;
         }
 
@@ -185,7 +205,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             var createDto = new ModerationCaseCreateDto
             {
                 GuildId = Context.Guild.Id,
-                TargetUserId = user.Id,
+                TargetUserId = guildUser.Id,
                 ModeratorUserId = Context.User.Id,
                 Type = CaseType.Kick,
                 Reason = reason
@@ -196,7 +216,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             _logger.LogInformation(
                 "Kick case created: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}",
                 caseDto.CaseNumber,
-                user.Id,
+                guildUser.Id,
                 Context.User.Id);
 
             // Try to DM the user before kicking
@@ -213,22 +233,22 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
                     .WithCurrentTimestamp()
                     .Build();
 
-                await user.SendMessageAsync(embed: dmEmbed);
-                _logger.LogDebug("Kick DM sent successfully to user {UserId}", user.Id);
+                await guildUser.SendMessageAsync(embed: dmEmbed);
+                _logger.LogDebug("Kick DM sent successfully to user {UserId}", guildUser.Id);
             }
             catch (Exception dmEx)
             {
-                _logger.LogWarning(dmEx, "Failed to send kick DM to user {UserId}", user.Id);
+                _logger.LogWarning(dmEx, "Failed to send kick DM to user {UserId}", guildUser.Id);
             }
 
             // Kick the user using Discord API
-            await user.KickAsync(reason);
-            _logger.LogInformation("User {UserId} kicked from guild {GuildId}", user.Id, Context.Guild.Id);
+            await guildUser.KickAsync(reason);
+            _logger.LogInformation("User {UserId} kicked from guild {GuildId}", guildUser.Id, Context.Guild.Id);
 
             // Send confirmation embed
             var confirmEmbed = BuildActionEmbed(
                 "🥾 User Kicked",
-                user,
+                guildUser,
                 CaseType.Kick,
                 caseDto.CaseNumber,
                 reason);
@@ -239,7 +259,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to kick user {UserId}", user.Id);
+            _logger.LogError(ex, "Failed to kick user {UserId}", guildUser.Id);
 
             var errorEmbed = new EmbedBuilder()
                 .WithTitle("❌ Error")
@@ -438,7 +458,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
     [RequireUserPermission(GuildPermission.ModerateMembers)]
     [RequireBotPermission(GuildPermission.ModerateMembers)]
     public async Task MuteAsync(
-        [Summary("user", "The user to mute")] IGuildUser user,
+        [Summary("user", "The user to mute")] IUser user,
         [Summary("duration", "Mute duration (e.g., '10m', '1h', '1d')")] string duration,
         [Summary("reason", "Reason for the mute")] string? reason = null)
     {
@@ -452,8 +472,28 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             Context.Guild.Id,
             duration);
 
+        // Resolve the guild user with proper error handling
+        // First check cache, then try to download if not found
+        var guildUser = user as IGuildUser ?? Context.Guild.GetUser(user.Id);
+        if (guildUser == null)
+        {
+            // User not in cache, try to download
+            guildUser = await Context.Client.Rest.GetGuildUserAsync(Context.Guild.Id, user.Id);
+        }
+
+        if (guildUser == null)
+        {
+            _logger.LogWarning(
+                "Could not resolve guild user {UserId} ({Username}) in guild {GuildId}. User may not be a member of this server.",
+                user.Id,
+                user.Username,
+                Context.Guild.Id);
+            await RespondAsync("Could not find that user in this server. They may have left or were never a member.", ephemeral: true);
+            return;
+        }
+
         // Prevent self-mute
-        if (user.Id == Context.User.Id)
+        if (guildUser.Id == Context.User.Id)
         {
             await RespondAsync("You cannot mute yourself.", ephemeral: true);
             _logger.LogDebug("User {UserId} attempted to mute themselves", Context.User.Id);
@@ -461,7 +501,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         }
 
         // Prevent muting the bot
-        if (user.IsBot && user.Id == Context.Client.CurrentUser.Id)
+        if (guildUser.IsBot && guildUser.Id == Context.Client.CurrentUser.Id)
         {
             await RespondAsync("I cannot mute myself.", ephemeral: true);
             _logger.LogDebug("User {UserId} attempted to mute the bot", Context.User.Id);
@@ -469,13 +509,13 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         }
 
         // Check role hierarchy
-        if (Context.User is SocketGuildUser moderator && user.Hierarchy >= moderator.Hierarchy)
+        if (Context.User is SocketGuildUser moderator && guildUser.Hierarchy >= moderator.Hierarchy)
         {
             await RespondAsync("You cannot mute a user with an equal or higher role than yours.", ephemeral: true);
             _logger.LogDebug(
                 "User {ModeratorId} attempted to mute user {TargetId} with equal/higher role hierarchy",
                 Context.User.Id,
-                user.Id);
+                guildUser.Id);
             return;
         }
 
@@ -518,7 +558,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             var createDto = new ModerationCaseCreateDto
             {
                 GuildId = Context.Guild.Id,
-                TargetUserId = user.Id,
+                TargetUserId = guildUser.Id,
                 ModeratorUserId = Context.User.Id,
                 Type = CaseType.Mute,
                 Reason = reason,
@@ -530,13 +570,13 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             _logger.LogInformation(
                 "Mute case created: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}, expires: {ExpiresAt}",
                 caseDto.CaseNumber,
-                user.Id,
+                guildUser.Id,
                 Context.User.Id,
                 caseDto.ExpiresAt);
 
             // Apply timeout using Discord API
-            await user.SetTimeOutAsync(parsedDuration.Value, new RequestOptions { AuditLogReason = reason });
-            _logger.LogInformation("User {UserId} muted in guild {GuildId} for {Duration}", user.Id, Context.Guild.Id, parsedDuration.Value);
+            await guildUser.SetTimeOutAsync(parsedDuration.Value, new RequestOptions { AuditLogReason = reason });
+            _logger.LogInformation("User {UserId} muted in guild {GuildId} for {Duration}", guildUser.Id, Context.Guild.Id, parsedDuration.Value);
 
             // Send confirmation embed
             var expiresAt = DateTime.UtcNow.Add(parsedDuration.Value);
@@ -545,7 +585,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             var confirmEmbedBuilder = new EmbedBuilder()
                 .WithTitle("🔇 User Muted")
                 .WithColor(GetTypeColor(CaseType.Mute))
-                .AddField("User", $"{user.Mention} ({user.Id})", inline: true)
+                .AddField("User", $"{guildUser.Mention} ({guildUser.Id})", inline: true)
                 .AddField("Case", $"#{caseDto.CaseNumber}", inline: true)
                 .AddField("Moderator", Context.User.Mention, inline: true)
                 .WithCurrentTimestamp();
@@ -564,7 +604,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to mute user {UserId}", user.Id);
+            _logger.LogError(ex, "Failed to mute user {UserId}", guildUser.Id);
 
             var errorEmbed = new EmbedBuilder()
                 .WithTitle("❌ Error")

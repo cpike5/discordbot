@@ -320,41 +320,41 @@ public class InteractionHandler
             else
             {
                 _logger.LogWarning(
-                    "Slash command '{CommandName}' failed for {Username} in guild {GuildName} (ID: {GuildId}). Error: {Error}, ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
+                    "Slash command '{CommandName}' failed for {Username} in guild {GuildName} (ID: {GuildId}). Error: {Error}, ErrorType: {ErrorType}, ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
                     fullCommandName,
                     context.User.Username,
                     context.Guild?.Name ?? "DM",
                     context.Guild?.Id ?? 0,
                     result.ErrorReason,
+                    result.Error?.ToString() ?? "Unknown",
                     executionTimeMs,
                     correlationId);
 
-                // Send enhanced error message to user for permission errors
-                if (result.Error == InteractionCommandError.UnmetPrecondition)
+                // Handle different error types with appropriate user messages
+                try
                 {
+                    var (title, description) = GetUserFriendlyError(result, errorMessage);
+
                     var embed = new EmbedBuilder()
-                        .WithTitle("Permission Denied")
-                        .WithDescription(errorMessage ?? "You do not have permission to use this command.")
+                        .WithTitle(title)
+                        .WithDescription(description)
                         .WithColor(Color.Red)
                         .WithFooter($"Correlation ID: {correlationId}")
                         .WithCurrentTimestamp()
                         .Build();
 
-                    try
+                    if (context.Interaction.HasResponded)
                     {
-                        if (context.Interaction.HasResponded)
-                        {
-                            await context.Interaction.FollowupAsync(embed: embed, ephemeral: true);
-                        }
-                        else
-                        {
-                            await context.Interaction.RespondAsync(embed: embed, ephemeral: true);
-                        }
+                        await context.Interaction.FollowupAsync(embed: embed, ephemeral: true);
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        _logger.LogError(ex, "Failed to send permission error message to user, CorrelationId: {CorrelationId}", correlationId);
+                        await context.Interaction.RespondAsync(embed: embed, ephemeral: true);
                     }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send error message to user, CorrelationId: {CorrelationId}", correlationId);
                 }
             }
         }
@@ -524,5 +524,38 @@ public class InteractionHandler
         public string CorrelationId { get; set; } = string.Empty;
         public Stopwatch? Stopwatch { get; set; }
         public string? CommandName { get; set; }
+    }
+
+    /// <summary>
+    /// Gets a user-friendly error title and description based on the error type.
+    /// Provides clearer messages for common error scenarios.
+    /// </summary>
+    /// <param name="result">The command execution result.</param>
+    /// <param name="errorMessage">The original error message.</param>
+    /// <returns>A tuple containing the error title and description.</returns>
+    private static (string Title, string Description) GetUserFriendlyError(Discord.Interactions.IResult result, string? errorMessage)
+    {
+        // Handle type conversion errors with misleading messages
+        if (result.Error == InteractionCommandError.ConvertFailed)
+        {
+            // Check for common misleading error patterns from Discord.NET type converters
+            if (errorMessage != null && errorMessage.Contains("cannot be read as"))
+            {
+                // The "cannot be read as IChannel/IGuildUser" errors are typically user resolution failures
+                return ("User Not Found", "Could not find the specified user. They may not be a member of this server or the user lookup failed.");
+            }
+
+            return ("Invalid Input", errorMessage ?? "One of the command parameters could not be processed.");
+        }
+
+        return result.Error switch
+        {
+            InteractionCommandError.UnmetPrecondition => ("Permission Denied", errorMessage ?? "You do not have permission to use this command."),
+            InteractionCommandError.ParseFailed => ("Invalid Input", errorMessage ?? "Could not parse the provided input."),
+            InteractionCommandError.BadArgs => ("Invalid Arguments", errorMessage ?? "Invalid arguments provided for this command."),
+            InteractionCommandError.Exception => ("Command Error", "An unexpected error occurred while executing this command."),
+            InteractionCommandError.Unsuccessful => ("Command Failed", errorMessage ?? "The command could not be completed."),
+            _ => ("Error", errorMessage ?? "An error occurred while executing this command.")
+        };
     }
 }
