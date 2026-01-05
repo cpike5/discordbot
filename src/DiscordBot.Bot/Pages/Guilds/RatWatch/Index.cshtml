@@ -329,7 +329,7 @@
                                 <span class="w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold @(entry.Rank == 1 ? "bg-yellow-500/20 text-yellow-500" : entry.Rank == 2 ? "bg-gray-400/20 text-gray-400" : entry.Rank == 3 ? "bg-orange-600/20 text-orange-600" : "bg-bg-tertiary text-text-tertiary")">
                                     @entry.Rank
                                 </span>
-                                <span class="text-sm text-text-primary">@entry.Username</span>
+                                <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@Model.ViewModel.GuildId">@entry.Username</span>
                             </div>
                             <span class="text-sm font-semibold text-error">@entry.GuiltyCount guilty</span>
                         </div>
@@ -416,10 +416,10 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="text-sm text-text-primary">@watch.AccusedUsername</span>
+                                    <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@watch.AccusedUserId" data-context-guild-id="@Model.ViewModel.GuildId">@watch.AccusedUsername</span>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="text-sm text-text-secondary">@watch.InitiatorUsername</span>
+                                    <span class="preview-trigger text-sm text-text-secondary" data-preview-type="user" data-user-id="@watch.InitiatorUserId" data-context-guild-id="@Model.ViewModel.GuildId">@watch.InitiatorUsername</span>
                                 </td>
                                 <td class="px-6 py-4">
                                     <span class="text-sm text-text-secondary max-w-[200px] truncate block" title="@watch.CustomMessage">

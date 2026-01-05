@@ -316,11 +316,11 @@
                                         @incident.StatusText
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="text-sm text-text-primary">@incident.AccusedUsername</span>
+                                <td class="px-6 py-4 whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@incident.AccusedUserId" data-context-guild-id="@Model.ViewModel.GuildId">@incident.AccusedUsername</span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="text-sm text-text-secondary">@incident.InitiatorUsername</span>
+                                <td class="px-6 py-4 whitespace-nowrap" onclick="event.stopPropagation()">
+                                    <span class="preview-trigger text-sm text-text-secondary" data-preview-type="user" data-user-id="@incident.InitiatorUserId" data-context-guild-id="@Model.ViewModel.GuildId">@incident.InitiatorUsername</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="text-sm text-text-primary" data-utc="@incident.ScheduledAtUtcIso" data-format="datetime-short"></span>
