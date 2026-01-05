@@ -1,9 +1,9 @@
 # Centralized Log Aggregation
 
-**Version:** 2.0
+**Version:** 2.1
 **Last Updated:** 2026-01-05
-**Target Framework:** .NET 8 with Serilog, Elasticsearch, and Seq
-**Status:** Phase 1 Implementation (Elasticsearch primary, Seq optional)
+**Target Framework:** .NET 8 with Serilog, Elasticsearch, Seq, and Elastic APM
+**Status:** Phase 2 Implementation (Elasticsearch primary with APM tracing, Seq optional)
 
 ---
 
@@ -11,11 +11,13 @@
 
 The Discord Bot Management System implements centralized log aggregation using **Elasticsearch as the primary logging backend** for production and staging environments. Elasticsearch provides powerful querying, analysis, and long-term storage of structured logs. **Seq is optionally available for development environments** as an alternative to Elasticsearch due to its lighter resource requirements.
 
+**Elastic APM** provides distributed tracing capabilities that complement the centralized logging infrastructure. APM traces track requests across multiple services and operations, providing visibility into performance bottlenecks, dependency relationships, and transaction flows. Logs and traces are correlated via `trace.id` and `CorrelationId` fields for end-to-end observability.
+
 ### Architecture Overview
 
-- **Development**: Elasticsearch + optional Seq (dual-write support)
-- **Staging**: Elasticsearch + optional Seq (dual-write support)
-- **Production**: Elasticsearch only (optimized for scale)
+- **Development**: Elasticsearch + Elastic APM + optional Seq (dual-write support)
+- **Staging**: Elasticsearch + Elastic APM + optional Seq (dual-write support)
+- **Production**: Elasticsearch + Elastic APM only (optimized for scale)
 
 ### What is Elasticsearch?
 
@@ -24,6 +26,10 @@ Elasticsearch is a distributed search and analytics engine that indexes structur
 ### What is Seq?
 
 Seq is a lightweight, developer-friendly log server designed specifically for structured logging. It provides a simpler UI and lower operational overhead than Elasticsearch, making it ideal for development environments.
+
+### What is Elastic APM?
+
+Elastic APM (Application Performance Monitoring) is a distributed tracing solution that captures detailed performance data about your application. APM tracks transactions (e.g., HTTP requests, Discord command executions) and spans (individual operations within a transaction) to provide end-to-end visibility into application behavior. APM data is stored in Elasticsearch alongside logs and visualized in Kibana's APM UI.
 
 ### Key Features
 
@@ -42,6 +48,14 @@ Seq is a lightweight, developer-friendly log server designed specifically for st
 - **Lightweight**: Single-container deployment, minimal resource requirements
 - **Dashboard Visualizations**: Build custom dashboards for operational metrics
 
+**Elastic APM:**
+- **Distributed Tracing**: Track requests across multiple services and operations
+- **Performance Monitoring**: Identify slow transactions and bottlenecks
+- **Service Maps**: Visualize dependencies and service relationships
+- **Error Tracking**: Automatic error capture with stack traces
+- **Custom Spans**: Instrument critical code paths for detailed visibility
+- **Priority-Based Sampling**: Intelligent sampling to reduce storage costs while capturing critical transactions
+
 ### Benefits for This Project
 
 **Elasticsearch (Production/Staging):**
@@ -56,6 +70,13 @@ Seq is a lightweight, developer-friendly log server designed specifically for st
 - **Real-Time Feedback**: Instant log streaming during development
 - **Easy Debugging**: Simple UI for filtering by correlation ID, guild ID, user ID
 - **Low Overhead**: Minimal CPU/memory usage on development machines
+
+**Elastic APM:**
+- **End-to-End Visibility**: Correlate logs with trace spans for comprehensive debugging
+- **Performance Optimization**: Identify slow database queries, API calls, and business operations
+- **Error Root Cause Analysis**: Trace errors through the entire request flow
+- **Production Insights**: Understand real-world performance patterns and bottlenecks
+- **Cost-Effective**: Priority-based sampling ensures critical transactions are always captured while reducing storage costs
 
 ### Integration with Existing Logging
 
@@ -526,6 +547,161 @@ dotnet user-secrets set "Serilog:WriteTo:2:Args:apiKey" "your-seq-api-key"
 
 **Security Best Practice:** NEVER commit API keys to configuration files. Always use user secrets (development) or environment variables/secrets management (staging/production).
 
+### Elastic APM Configuration
+
+Elastic APM is configured via the `ElasticApm` section in `appsettings.json` and uses the official Elastic APM agent for .NET.
+
+#### Configuration Options
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `ServerUrl` | string | null | APM server URL (e.g., "http://localhost:8200"). Required if APM is enabled. |
+| `SecretToken` | string | null | APM secret token for authentication. Use user secrets or environment variables. |
+| `ServiceName` | string | "discordbot" | Service name displayed in Kibana APM UI. |
+| `ServiceVersion` | string | "0.5.4" | Service version for deployment tracking. |
+| `Environment` | string | "development" | Environment name (development, staging, production). |
+| `TransactionSampleRate` | double | 1.0 | Global sampling rate (0.0 to 1.0). Overridden by priority-based filter. |
+| `CaptureBody` | string | "off" | Capture HTTP request/response bodies ("off", "errors", "transactions", "all"). |
+| `CaptureHeaders` | bool | true | Capture HTTP request/response headers. |
+| `StackTraceLimit` | int | 50 | Maximum stack trace frames to capture. |
+| `SpanStackTraceMinDuration` | string | "5ms" | Minimum span duration to capture stack traces. |
+| `Recording` | bool | true | Enable/disable recording of transactions and spans. |
+| `Enabled` | bool | true | Master switch for APM agent. Set to false to completely disable APM. |
+| `TransactionIgnoreUrls` | string | "/health*,/metrics*,/swagger*" | Comma-separated URL patterns to ignore (wildcards supported). |
+| `UseElasticTraceparentHeader` | bool | true | Use Elastic-specific traceparent header for distributed tracing. |
+
+#### User Secrets (Development)
+
+Configure APM credentials via user secrets for local development:
+
+```bash
+cd src/DiscordBot.Bot
+
+# APM Server URL (local APM server)
+dotnet user-secrets set "ElasticApm:ServerUrl" "http://localhost:8200"
+
+# APM Secret Token (if authentication is enabled)
+dotnet user-secrets set "ElasticApm:SecretToken" "your-apm-secret-token"
+```
+
+For local development with APM disabled, set `ElasticApm:Enabled` to `false` in `appsettings.Development.json`.
+
+#### Environment-Specific Configuration
+
+**Development (appsettings.Development.json):**
+
+```json
+{
+  "ElasticApm": {
+    "ServerUrl": "http://localhost:8200",
+    "ServiceName": "discordbot",
+    "ServiceVersion": "0.5.4",
+    "Environment": "development",
+    "TransactionSampleRate": 1.0,
+    "Enabled": true,
+    "Recording": true
+  }
+}
+```
+
+**Staging/Production:**
+
+Use environment variables to override sensitive configuration:
+
+```bash
+# Linux/macOS
+export ElasticApm__ServerUrl="https://apm.yourdomain.com:8200"
+export ElasticApm__SecretToken="your-production-apm-token"
+export ElasticApm__Environment="production"
+export ElasticApm__TransactionSampleRate="0.1"
+
+# Windows PowerShell
+$env:ElasticApm__ServerUrl="https://apm.yourdomain.com:8200"
+$env:ElasticApm__SecretToken="your-production-apm-token"
+$env:ElasticApm__Environment="production"
+$env:ElasticApm__TransactionSampleRate="0.1"
+
+# Docker
+docker run -e ElasticApm__ServerUrl="https://apm.yourdomain.com:8200" \
+           -e ElasticApm__SecretToken="your-production-apm-token" \
+           -e ElasticApm__Environment="production" \
+           discordbot:latest
+```
+
+#### Priority-Based Sampling
+
+The application implements priority-based sampling via `ElasticApmTransactionFilter` to optimize APM storage costs while ensuring critical transactions are always captured. This filter uses the same sampling logic as the OpenTelemetry `PrioritySampler` for consistency across observability platforms.
+
+**Sampling Tiers:**
+
+| Priority | Sample Rate | Operations |
+|----------|-------------|------------|
+| **Always Sample** | 100% | Rate limit hits, API errors, auto-moderation detections |
+| **High Priority** | 50% (configurable) | Welcome flow, moderation actions, Rat Watch, scheduled messages |
+| **Default** | 10% (configurable) | Normal operations, Discord commands, API requests |
+| **Low Priority** | 1% (configurable) | Health checks, metrics scraping, cache operations |
+
+**Configuration:**
+
+Sampling rates are configured via `OpenTelemetry:Tracing:Sampling` section (shared with OpenTelemetry sampler):
+
+```json
+{
+  "OpenTelemetry": {
+    "Tracing": {
+      "Sampling": {
+        "DefaultRate": 0.1,
+        "ErrorRate": 1.0,
+        "HighPriorityRate": 0.5,
+        "LowPriorityRate": 0.01
+      }
+    }
+  }
+}
+```
+
+**Benefits:**
+
+- Critical transactions (errors, rate limits, security events) are always captured
+- Important business operations (moderation, welcome flow) are sampled at higher rates
+- High-frequency, low-value operations (health checks, cache) are sampled minimally
+- Reduces APM storage costs by 90% in production while maintaining observability
+
+#### Correlation Between Logs and Traces
+
+APM transactions and spans are automatically correlated with logs via the following fields:
+
+| Field | Description |
+|-------|-------------|
+| `trace.id` | Unique trace identifier (shared between logs and APM) |
+| `transaction.id` | APM transaction ID |
+| `CorrelationId` | Application-level correlation ID (added as APM label) |
+
+**Querying Correlated Data in Kibana:**
+
+1. **Find logs for a specific trace:**
+   ```
+   trace.id: "abc123def456..."
+   ```
+
+2. **Find APM transactions for a correlation ID:**
+   - Go to APM → Transactions
+   - Filter by label: `labels.CorrelationId: "a1b2c3d4e5f6g7h8"`
+
+3. **Navigate from log to trace:**
+   - In Kibana Discover, expand a log entry
+   - Click on `trace.id` field
+   - Select "Show in APM" to jump to the corresponding transaction
+
+**Example Correlation Workflow:**
+
+1. User reports slow command execution for `/rat-stats`
+2. Search logs for command: `CommandName: "rat-stats"`
+3. Find `CorrelationId` from log entry
+4. Search APM for label: `labels.CorrelationId: "{correlationId}"`
+5. View transaction timeline to identify slow spans (database queries, Discord API calls)
+6. Optimize identified bottlenecks
+
 ---
 
 ## Local Development Setup
@@ -663,6 +839,100 @@ docker run -d \
 **EULA Acceptance:**
 - `-e ACCEPT_EULA=Y` - Accept Seq license (required)
 
+### Running Elastic APM Server Locally with Docker
+
+For local development with distributed tracing support:
+
+```bash
+# Pull and run APM Server container
+docker run -d \
+  --name apm-server \
+  -p 8200:8200 \
+  --link elasticsearch \
+  -e output.elasticsearch.hosts=["http://elasticsearch:9200"] \
+  -e apm-server.host="0.0.0.0:8200" \
+  -e apm-server.secret_token="" \
+  docker.elastic.co/apm/apm-server:latest
+
+# Access APM Server at http://localhost:8200
+```
+
+**Port Mapping:**
+- `8200:8200` - APM Server API endpoint
+
+**Configuration:**
+- `output.elasticsearch.hosts` - Elasticsearch cluster URL (uses linked container)
+- `apm-server.host` - Bind to all interfaces for external access
+- `apm-server.secret_token` - Empty for development (use secret tokens in production)
+
+**Note:** APM Server requires Elasticsearch to be running. Start Elasticsearch before starting APM Server.
+
+**Docker Compose Integration (Recommended):**
+
+Add APM Server to your `docker-compose.yml` for integrated setup:
+
+```yaml
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:latest
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:latest
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:latest
+    container_name: apm-server
+    environment:
+      - output.elasticsearch.hosts=["http://elasticsearch:9200"]
+      - apm-server.host=0.0.0.0:8200
+      - apm-server.secret_token=
+    ports:
+      - "8200:8200"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+  discordbot:
+    image: discordbot:latest
+    depends_on:
+      - elasticsearch
+      - apm-server
+    environment:
+      - Elastic__Endpoints__0=http://elasticsearch:9200
+      - ElasticApm__ServerUrl=http://apm-server:8200
+    # ... other bot configuration
+
+volumes:
+  elasticsearch-data:
+```
+
+**Benefits:**
+- Elasticsearch, Kibana, and APM Server start together with `docker-compose up`
+- APM Server automatically connects to Elasticsearch
+- Bot can send traces to APM Server via internal Docker network
+- All data persists across restarts
+
 ### Docker Compose Integration
 
 For projects using Docker Compose, add Seq to your `docker-compose.yml`:
@@ -699,9 +969,9 @@ volumes:
 - Bot uses internal Docker network to connect to Seq
 - Data persists across restarts via named volume
 
-### First-Time Elasticsearch Setup
+### First-Time Elasticsearch and APM Setup
 
-1. **Start Elasticsearch and Kibana Containers:**
+1. **Start Elasticsearch, Kibana, and APM Server Containers:**
    ```bash
    # Start Elasticsearch
    docker run -d \
@@ -714,7 +984,7 @@ volumes:
      -v elasticsearch-data:/usr/share/elasticsearch/data \
      docker.elastic.co/elasticsearch/elasticsearch:latest
 
-   # Wait a few seconds for Elasticsearch to start, then start Kibana
+   # Wait for Elasticsearch to start, then start Kibana
    sleep 10
 
    docker run -d \
@@ -722,14 +992,29 @@ volumes:
      -p 5601:5601 \
      -e ELASTICSEARCH_HOSTS=http://localhost:9200 \
      docker.elastic.co/kibana/kibana:latest
+
+   # Wait a few more seconds, then start APM Server
+   sleep 5
+
+   docker run -d \
+     --name apm-server \
+     -p 8200:8200 \
+     --link elasticsearch \
+     -e output.elasticsearch.hosts=["http://elasticsearch:9200"] \
+     -e apm-server.host="0.0.0.0:8200" \
+     -e apm-server.secret_token="" \
+     docker.elastic.co/apm/apm-server:latest
    ```
 
-2. **Verify Elasticsearch is Ready:**
+2. **Verify Services are Ready:**
    ```bash
-   # Check cluster health
+   # Check Elasticsearch cluster health
    curl http://localhost:9200/_cluster/health
-
    # Should return green or yellow status
+
+   # Check APM Server health
+   curl http://localhost:8200/
+   # Should return APM Server version info
    ```
 
 3. **Access Kibana UI:**
@@ -737,17 +1022,41 @@ volumes:
    - Wait 1-2 minutes for Kibana to fully initialize
 
 4. **Configure Bot:**
-   - Ensure `appsettings.Development.json` has Elasticsearch configuration
+   - Ensure `appsettings.Development.json` has Elasticsearch and APM configuration
+   - Configure user secrets for APM Server URL:
+     ```bash
+     cd src/DiscordBot.Bot
+     dotnet user-secrets set "ElasticApm:ServerUrl" "http://localhost:8200"
+     ```
    - Run the bot: `dotnet run --project src/DiscordBot.Bot`
 
-5. **Verify Logs Arriving:**
+5. **Verify Logs and Traces Arriving:**
    - Execute a Discord command (e.g., `/ping`)
+
+   **Logs:**
    - In Kibana, go to Discovery → Create Index Pattern
    - Index pattern: `discordbot-logs-dev-*`
    - Timestamp field: `@timestamp`
    - Logs should appear within 2 seconds
 
-6. **Create Kibana Dashboards (Optional):**
+   **Traces:**
+   - In Kibana, go to Observability → APM → Services
+   - You should see the "discordbot" service
+   - Click on the service to view transactions and traces
+
+6. **Explore APM Features:**
+   - **Transactions**: View all HTTP requests and Discord command executions
+   - **Service Map**: See how components interact (database, Discord API, etc.)
+   - **Errors**: Automatically captured exceptions with stack traces
+   - **Metrics**: Service-level performance metrics (throughput, response times, error rates)
+
+7. **Correlate Logs and Traces:**
+   - In APM transaction view, click on a transaction
+   - Note the `trace.id` value
+   - Go to Discovery and search: `trace.id: "your-trace-id"`
+   - All logs for that transaction will appear
+
+8. **Create Kibana Dashboards (Optional):**
    - Go to Analytics → Dashboards
    - Create custom dashboards for command execution, errors, performance metrics
 
@@ -1942,6 +2251,7 @@ The `LogSanitizer` automatically removes sensitive data from logs before they re
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.1 | 2026-01-05 | Elasticsearch Phase 2 - Added Elastic APM distributed tracing with priority-based sampling (Issue #791) |
 | 2.0 | 2026-01-05 | Elasticsearch Phase 1 migration - Elasticsearch as primary backend, Seq as optional alternative (Issue #791) |
 | 1.0 | 2025-12-24 | Initial log aggregation documentation with Seq (Issue #106) |
 

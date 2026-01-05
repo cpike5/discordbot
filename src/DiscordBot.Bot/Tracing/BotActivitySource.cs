@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Elastic.Apm;
 using OpenTelemetry.Trace;
 
 namespace DiscordBot.Bot.Tracing;
@@ -398,5 +399,70 @@ public static class BotActivitySource
             return $"{parts[0]}:{parts[1]}";
         }
         return customId;
+    }
+
+    /// <summary>
+    /// Enriches the current Elastic APM transaction with activity tags.
+    /// Call this for important activities to ensure APM has all context.
+    /// </summary>
+    /// <remarks>
+    /// This method copies relevant Activity tags to APM labels, enabling correlation
+    /// between OpenTelemetry traces and Elastic APM transactions. Tags prefixed with
+    /// "otel." are skipped as they are OpenTelemetry-specific, and values longer than
+    /// 256 characters are skipped to avoid APM label size limits.
+    /// </remarks>
+    /// <param name="activity">The activity whose tags should be copied to APM.</param>
+    public static void EnrichCurrentApmTransaction(Activity? activity)
+    {
+        if (activity is null)
+            return;
+
+        var transaction = Agent.Tracer.CurrentTransaction;
+        if (transaction is null)
+            return;
+
+        // Copy relevant tags to APM labels
+        foreach (var tag in activity.Tags)
+        {
+            // Skip very long values to avoid APM label size limits
+            if (tag.Value?.Length > 256)
+                continue;
+
+            // Skip internal OpenTelemetry tags
+            if (tag.Key.StartsWith("otel.", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Set the label on the APM transaction
+            transaction.SetLabel(tag.Key, tag.Value ?? string.Empty);
+        }
+    }
+
+    /// <summary>
+    /// Enriches the current Elastic APM span with activity tags.
+    /// Call this when working within a span context.
+    /// </summary>
+    /// <param name="activity">The activity whose tags should be copied to the current APM span.</param>
+    public static void EnrichCurrentApmSpan(Activity? activity)
+    {
+        if (activity is null)
+            return;
+
+        var span = Agent.Tracer.CurrentSpan;
+        if (span is null)
+            return;
+
+        // Copy relevant tags to APM span labels
+        foreach (var tag in activity.Tags)
+        {
+            // Skip very long values
+            if (tag.Value?.Length > 256)
+                continue;
+
+            // Skip internal OpenTelemetry tags
+            if (tag.Key.StartsWith("otel.", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            span.SetLabel(tag.Key, tag.Value ?? string.Empty);
+        }
     }
 }

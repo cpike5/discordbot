@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using DiscordBot.Bot.Tracing;
+using Elastic.Apm;
+using Elastic.Apm.Api;
 
 namespace DiscordBot.Bot.Handlers;
 
@@ -37,26 +39,54 @@ public class DiscordApiTracingHandler : DelegatingHandler
         activity?.SetTag(TracingConstants.Attributes.DiscordApiEndpoint, endpoint);
         activity?.SetTag(TracingConstants.Attributes.DiscordApiMethod, method);
 
+        // Create Elastic APM span for Discord API calls
+        var apmSpan = Agent.Tracer.CurrentTransaction?.StartSpan(
+            $"Discord API {method} {endpoint}",
+            ApiConstants.TypeExternal,
+            ApiConstants.SubtypeHttp);
+
         try
         {
+            // Set initial span labels
+            apmSpan?.SetLabel(TracingConstants.Attributes.DiscordApiEndpoint, endpoint);
+            apmSpan?.SetLabel(TracingConstants.Attributes.DiscordApiMethod, method);
+
             var (response, attemptCount) = await SendWithRetryAsync(request, cancellationToken, activity);
 
-            // Set response status
+            // Set response status on activity
             activity?.SetTag(TracingConstants.Attributes.DiscordApiResponseStatus, (int)response.StatusCode);
 
-            // Parse and attach rate limit headers
+            // Set response status on APM span
+            apmSpan?.SetLabel("http.status_code", (int)response.StatusCode);
+
+            // Parse and attach rate limit headers to activity
             AttachRateLimitAttributes(activity, response);
+
+            // Attach rate limit headers to APM span
+            AttachRateLimitLabelsToSpan(apmSpan, response);
 
             // Record final attempt count if retries occurred
             if (attemptCount > 1)
             {
                 activity?.SetTag(TracingConstants.Attributes.DiscordApiRetryAttempt, attemptCount);
+                apmSpan?.SetLabel(TracingConstants.Attributes.DiscordApiRetryAttempt, attemptCount);
             }
 
             // Handle error responses
             if (!response.IsSuccessStatusCode)
             {
                 await AttachErrorAttributesAsync(activity, response);
+                if (apmSpan != null)
+                {
+                    apmSpan.Outcome = Outcome.Failure;
+                }
+            }
+            else
+            {
+                if (apmSpan != null)
+                {
+                    apmSpan.Outcome = Outcome.Success;
+                }
             }
 
             return response;
@@ -64,7 +94,16 @@ public class DiscordApiTracingHandler : DelegatingHandler
         catch (Exception ex)
         {
             BotActivitySource.RecordException(activity, ex);
+            apmSpan?.CaptureException(ex);
+            if (apmSpan != null)
+            {
+                apmSpan.Outcome = Outcome.Failure;
+            }
             throw;
+        }
+        finally
+        {
+            apmSpan?.End();
         }
     }
 
@@ -197,6 +236,69 @@ public class DiscordApiTracingHandler : DelegatingHandler
             {
                 activity.SetTag(TracingConstants.Attributes.DiscordApiRateLimitBucket, bucket);
             }
+        }
+    }
+
+    /// <summary>
+    /// Attaches Discord rate limit header values to an Elastic APM span.
+    /// </summary>
+    /// <param name="span">The APM span to attach labels to.</param>
+    /// <param name="response">The HTTP response containing rate limit headers.</param>
+    private void AttachRateLimitLabelsToSpan(ISpan? span, HttpResponseMessage response)
+    {
+        if (span is null)
+            return;
+
+        // X-RateLimit-Limit: Max requests per window
+        if (response.Headers.TryGetValues("X-RateLimit-Limit", out var limitValues))
+        {
+            if (int.TryParse(limitValues.FirstOrDefault(), out var limit))
+            {
+                span.SetLabel(TracingConstants.Attributes.DiscordApiRateLimitLimit, limit);
+            }
+        }
+
+        // X-RateLimit-Remaining: Requests remaining in window
+        if (response.Headers.TryGetValues("X-RateLimit-Remaining", out var remainingValues))
+        {
+            if (int.TryParse(remainingValues.FirstOrDefault(), out var remaining))
+            {
+                span.SetLabel(TracingConstants.Attributes.DiscordApiRateLimitRemaining, remaining);
+            }
+        }
+
+        // X-RateLimit-Reset: Unix timestamp for reset
+        if (response.Headers.TryGetValues("X-RateLimit-Reset", out var resetValues))
+        {
+            if (double.TryParse(resetValues.FirstOrDefault(), out var reset))
+            {
+                span.SetLabel(TracingConstants.Attributes.DiscordApiRateLimitReset, reset);
+            }
+        }
+
+        // X-RateLimit-Reset-After: Seconds until reset
+        if (response.Headers.TryGetValues("X-RateLimit-Reset-After", out var resetAfterValues))
+        {
+            if (double.TryParse(resetAfterValues.FirstOrDefault(), out var resetAfter))
+            {
+                span.SetLabel(TracingConstants.Attributes.DiscordApiRateLimitResetAfter, resetAfter);
+            }
+        }
+
+        // X-RateLimit-Bucket: Rate limit bucket ID
+        if (response.Headers.TryGetValues("X-RateLimit-Bucket", out var bucketValues))
+        {
+            var bucket = bucketValues.FirstOrDefault();
+            if (!string.IsNullOrEmpty(bucket))
+            {
+                span.SetLabel(TracingConstants.Attributes.DiscordApiRateLimitBucket, bucket);
+            }
+        }
+
+        // X-RateLimit-Global: Whether this is a global rate limit
+        if (response.Headers.Contains("X-RateLimit-Global"))
+        {
+            span.SetLabel(TracingConstants.Attributes.DiscordApiRateLimitGlobal, true);
         }
     }
 
