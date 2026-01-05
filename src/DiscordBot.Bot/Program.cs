@@ -110,6 +110,8 @@ try
         builder.Configuration.GetSection(BackgroundServicesOptions.SectionName));
     builder.Services.Configure<IdentityConfigOptions>(
         builder.Configuration.GetSection(IdentityConfigOptions.SectionName));
+    builder.Services.Configure<ObservabilityOptions>(
+        builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 
     // Load Identity configuration for startup
     var identityConfig = builder.Configuration

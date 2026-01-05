@@ -95,6 +95,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `VerificationOptions` | `Verification` | Verification code generation settings |
 | `BackgroundServicesOptions` | `BackgroundServices` | Background task intervals and delays |
 | `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (use user secrets for DefaultAdmin) |
+| `ObservabilityOptions` | `Observability` | External observability tool URLs (Kibana, Seq) |
 | `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
 | `HistoricalMetricsOptions` | `HistoricalMetrics` | Historical metrics collection (sample interval, retention) |
 | `ReminderOptions` | `Reminder` | Reminder system settings (polling, delivery, limits) |
