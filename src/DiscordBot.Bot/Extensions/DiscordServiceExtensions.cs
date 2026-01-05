@@ -38,6 +38,10 @@ public static class DiscordServiceExtensions
             return new DiscordSocketClient(config);
         });
 
+        // Register Discord client memory reporter for diagnostics
+        services.AddSingleton<DiscordClientMemoryReporter>();
+        services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<DiscordClientMemoryReporter>());
+
         // Register InteractionService as singleton
         services.AddSingleton(provider =>
         {
@@ -57,8 +61,10 @@ public static class DiscordServiceExtensions
         // Register CommandExecutionLogger as singleton
         services.AddSingleton<ICommandExecutionLogger, CommandExecutionLogger>();
 
-        // Register InteractionStateService as singleton
-        services.AddSingleton<IInteractionStateService, InteractionStateService>();
+        // Register InteractionStateService as singleton (also implements IMemoryReportable)
+        services.AddSingleton<InteractionStateService>();
+        services.AddSingleton<IInteractionStateService>(sp => sp.GetRequiredService<InteractionStateService>());
+        services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<InteractionStateService>());
 
         // Register MessageLoggingHandler as singleton
         services.AddSingleton<MessageLoggingHandler>();

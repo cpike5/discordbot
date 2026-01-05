@@ -33,14 +33,25 @@ public static class PerformanceMetricsServiceExtensions
             configuration.GetSection(HistoricalMetricsOptions.SectionName));
 
         // Core metrics services (singleton - maintain in-memory state)
-        services.AddSingleton<IConnectionStateService, ConnectionStateService>();
-        services.AddSingleton<ILatencyHistoryService, LatencyHistoryService>();
-        services.AddSingleton<IApiRequestTracker, ApiRequestTracker>();
+        // Register concrete types first, then add interface mappings
+        services.AddSingleton<ConnectionStateService>();
+        services.AddSingleton<IConnectionStateService>(sp => sp.GetRequiredService<ConnectionStateService>());
+
+        services.AddSingleton<LatencyHistoryService>();
+        services.AddSingleton<ILatencyHistoryService>(sp => sp.GetRequiredService<LatencyHistoryService>());
+        services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<LatencyHistoryService>());
+
+        services.AddSingleton<ApiRequestTracker>();
+        services.AddSingleton<IApiRequestTracker>(sp => sp.GetRequiredService<ApiRequestTracker>());
+        services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<ApiRequestTracker>());
+
         services.AddSingleton<IDatabaseMetricsCollector, DatabaseMetricsCollector>();
         services.AddSingleton<IBackgroundServiceHealthRegistry, BackgroundServiceHealthRegistry>();
 
-        // Instrumented cache wrapper (singleton)
-        services.AddSingleton<IInstrumentedCache, InstrumentedMemoryCache>();
+        // Instrumented cache wrapper (singleton) - also implements IMemoryReportable
+        services.AddSingleton<InstrumentedMemoryCache>();
+        services.AddSingleton<IInstrumentedCache>(sp => sp.GetRequiredService<InstrumentedMemoryCache>());
+        services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<InstrumentedMemoryCache>());
 
         // Memory diagnostics service (singleton - aggregates IMemoryReportable services)
         services.AddSingleton<IMemoryDiagnosticsService, MemoryDiagnosticsService>();
