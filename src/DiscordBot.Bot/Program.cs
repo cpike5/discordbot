@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
+using Elastic.Apm.SerilogEnricher;
 using Serilog;
 using System.Reflection;
 
@@ -37,7 +38,8 @@ try
     builder.Host.UseSerilog((context, services, configuration) => configuration
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
-        .Enrich.FromLogContext());
+        .Enrich.FromLogContext()
+        .Enrich.WithElasticApmCorrelationInfo());
 
     // Enable systemd integration (only activates when running under systemd)
     builder.Host.UseSystemd();
@@ -67,6 +69,8 @@ try
     // Register configuration options classes
     builder.Services.Configure<ApplicationOptions>(
         builder.Configuration.GetSection(ApplicationOptions.SectionName));
+    builder.Services.Configure<ElasticOptions>(
+        builder.Configuration.GetSection(ElasticOptions.SectionName));
     builder.Services.Configure<DiscordOAuthOptions>(
         builder.Configuration.GetSection(DiscordOAuthOptions.SectionName));
     builder.Services.Configure<CachingOptions>(
