@@ -217,11 +217,11 @@ else
                                 <td class="text-text-secondary">
                                     @if (!string.IsNullOrEmpty(cmd.Username))
                                     {
-                                        <span title="User ID: @cmd.UserId">@cmd.Username</span>
+                                        <span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" @(cmd.GuildId.HasValue ? $"data-context-guild-id=\"{cmd.GuildId}\"" : "") title="User ID: @cmd.UserId">@cmd.Username</span>
                                     }
                                     else
                                     {
-                                        <span class="text-mono">@cmd.UserId</span>
+                                        <span class="preview-trigger text-mono" data-preview-type="user" data-user-id="@cmd.UserId" @(cmd.GuildId.HasValue ? $"data-context-guild-id=\"{cmd.GuildId}\"" : "")>@cmd.UserId</span>
                                     }
                                 </td>
                                 <td class="text-text-secondary">
@@ -229,11 +229,11 @@ else
                                     {
                                         @if (!string.IsNullOrEmpty(cmd.GuildName))
                                         {
-                                            <span title="Guild ID: @cmd.GuildId.Value">@cmd.GuildName</span>
+                                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@cmd.GuildId.Value" title="Guild ID: @cmd.GuildId.Value">@cmd.GuildName</span>
                                         }
                                         else
                                         {
-                                            <span class="text-mono">@cmd.GuildId.Value</span>
+                                            <span class="preview-trigger text-mono" data-preview-type="guild" data-guild-id="@cmd.GuildId.Value">@cmd.GuildId.Value</span>
                                         }
                                     }
                                     else
