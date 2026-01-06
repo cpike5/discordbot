@@ -303,8 +303,10 @@
             this.destroy();
             hours = hours || TimeRange.get();
 
-            TimestampUtils.convertTimestamps();
+            // Use requestAnimationFrame to ensure DOM is fully rendered after AJAX injection
+            await new Promise(resolve => requestAnimationFrame(resolve));
 
+            TimestampUtils.convertTimestamps();
             initAlertFrequencyChart();
             initConfigChangeTracking();
 

@@ -3,7 +3,7 @@
 @using DiscordBot.Bot.ViewModels.Pages
 @using DiscordBot.Bot.ViewModels.Components
 
-<div data-tab="alerts" data-alert-frequency-data="@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AlertFrequencyData, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }))">
+<div data-tab="alerts" data-alert-frequency-data="@System.Text.Json.JsonSerializer.Serialize(Model.AlertFrequencyData, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })">
 
 <!-- Active Alerts Section -->
 <div class="chart-card mb-6">
