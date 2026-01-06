@@ -1,4 +1,5 @@
 using DiscordBot.Core.Configuration;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 
@@ -8,6 +9,7 @@ namespace DiscordBot.Bot.Pages;
 /// PageModel for the public landing page.
 /// This page is accessible without authentication.
 /// </summary>
+[AllowAnonymous]
 public class LandingModel : PageModel
 {
     private readonly ApplicationOptions _applicationOptions;
