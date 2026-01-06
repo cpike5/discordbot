@@ -33,4 +33,18 @@ public class AutoModerationOptions
     /// Default: false
     /// </summary>
     public bool EnableDebugLogging { get; set; } = false;
+
+    /// <summary>
+    /// Maximum messages to track per user for spam detection.
+    /// Higher values use more memory but can catch more sophisticated spam patterns.
+    /// Default: 200 (covers ~5 minutes at 40 messages/minute rate)
+    /// </summary>
+    public int MaxMessagesPerUser { get; set; } = 200;
+
+    /// <summary>
+    /// Maximum joins to track per guild for raid detection.
+    /// Higher values use more memory but can detect longer-duration raids.
+    /// Default: 500 (covers 15 minutes at ~33 joins/minute)
+    /// </summary>
+    public int MaxJoinsPerGuild { get; set; } = 500;
 }

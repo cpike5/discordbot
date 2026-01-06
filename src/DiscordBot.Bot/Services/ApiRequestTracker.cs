@@ -1,14 +1,17 @@
 using System.Collections.Concurrent;
+using DiscordBot.Bot.Collections;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using DiscordBot.Core.Configuration;
 
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
 /// Service for tracking Discord API requests and rate limiting events from Discord.NET log messages.
 /// Thread-safe singleton service that parses log events for API usage patterns.
+/// Uses bounded collections to prevent unbounded memory growth.
 /// </summary>
 public class ApiRequestTracker : IApiRequestTracker, IMemoryReportable
 {
@@ -16,8 +19,8 @@ public class ApiRequestTracker : IApiRequestTracker, IMemoryReportable
     private readonly PerformanceMetricsOptions _options;
     private readonly object _lock = new();
 
-    // Track request counts by category
-    private readonly ConcurrentDictionary<string, ApiCategory> _categories = new();
+    // Track request counts by category using LRU eviction
+    private readonly LruConcurrentDictionary<string, ApiCategory> _categories;
 
     // Track rate limit events
     private readonly ConcurrentQueue<RateLimitEvent> _rateLimitEvents = new();
@@ -46,6 +49,13 @@ public class ApiRequestTracker : IApiRequestTracker, IMemoryReportable
         _logger = logger;
         _options = options.Value;
         _currentHourIndex = DateTime.UtcNow.Hour;
+
+        // Initialize the LRU dictionary with the configured capacity
+        _categories = new LruConcurrentDictionary<string, ApiCategory>(_options.MaxApiCategories);
+
+        _logger.LogInformation(
+            "ApiRequestTracker initialized with MaxApiCategories={MaxCategories}",
+            _options.MaxApiCategories);
     }
 
     /// <inheritdoc/>
@@ -120,7 +130,7 @@ public class ApiRequestTracker : IApiRequestTracker, IMemoryReportable
     /// <inheritdoc/>
     public IReadOnlyList<ApiUsageDto> GetUsageStatistics(int hours = 24)
     {
-        return _categories.Select(kvp => new ApiUsageDto
+        return _categories.GetAll().Select(kvp => new ApiUsageDto
         {
             Category = kvp.Key,
             RequestCount = kvp.Value.RequestCount,
@@ -552,9 +562,11 @@ public class ApiRequestTracker : IApiRequestTracker, IMemoryReportable
             const int rateLimitEventBytes = 100;
             var rateLimitQueueBytes = _rateLimitEventCount * rateLimitEventBytes;
 
-            // Categories dictionary: estimate ~200 bytes per category (key + ApiCategory object)
+            // Categories dictionary (now bounded): estimate ~200 bytes per category (key + ApiCategory object)
+            // With LRU, the max is capped at MaxApiCategories
             const int categoryBytes = 200;
             var categoriesBytes = _categories.Count * categoryBytes;
+            var maxCategoriesBytes = _options.MaxApiCategories * categoryBytes;
 
             var totalBytes = hourlyBucketsBytes + latencyBufferBytes + rateLimitQueueBytes + categoriesBytes;
 
@@ -563,7 +575,7 @@ public class ApiRequestTracker : IApiRequestTracker, IMemoryReportable
                 ServiceName = ServiceName,
                 EstimatedBytes = totalBytes,
                 ItemCount = _categories.Count + _rateLimitEventCount + _latencySampleCount,
-                Details = $"Categories: {_categories.Count}, Rate limits: {_rateLimitEventCount}/{MaxRateLimitEvents}, Latency samples: {_latencySampleCount}/288"
+                Details = $"Categories: {_categories.Count}/{_options.MaxApiCategories} (LRU bounded, max ~{maxCategoriesBytes / 1024:N1} KB), Rate limits: {_rateLimitEventCount}/{MaxRateLimitEvents}, Latency samples: {_latencySampleCount}/288"
             };
         }
     }

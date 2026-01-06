@@ -1,25 +1,28 @@
-using System.Collections.Concurrent;
 using Discord.WebSocket;
+using DiscordBot.Bot.Collections;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
 /// Service for detecting raid patterns (coordinated attacks on a server).
-/// Thread-safe singleton service with sliding window join tracking.
+/// Thread-safe singleton service with sliding window join tracking and bounded memory usage.
 /// </summary>
-public class RaidDetectionService : IRaidDetectionService
+public class RaidDetectionService : IRaidDetectionService, IMemoryReportable
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly DiscordSocketClient _discordClient;
     private readonly IMemoryCache _cache;
     private readonly ILogger<RaidDetectionService> _logger;
+    private readonly AutoModerationOptions _options;
 
     // Cache key pattern: raids:{guildId}
     private const string CacheKeyPattern = "raids:{0}";
@@ -30,21 +33,30 @@ public class RaidDetectionService : IRaidDetectionService
     // Maximum retention for old entries (15 minutes)
     private static readonly TimeSpan MaxRetention = TimeSpan.FromMinutes(15);
 
+    // Estimated bytes per JoinRecord: DateTime (8) + ulong (8) + DateTime (8) + object overhead (8) = 32 bytes
+    private const int EstimatedBytesPerJoin = 32;
+
     /// <summary>
     /// Represents a join record for raid tracking.
     /// </summary>
-    private record JoinRecord(DateTime Timestamp, ulong UserId, DateTime AccountCreated);
+    private record JoinRecord(DateTime Timestamp, ulong UserId, DateTime AccountCreated) : ITimestamped;
 
     public RaidDetectionService(
         IServiceScopeFactory scopeFactory,
         DiscordSocketClient discordClient,
         IMemoryCache cache,
-        ILogger<RaidDetectionService> logger)
+        ILogger<RaidDetectionService> logger,
+        IOptions<AutoModerationOptions> options)
     {
         _scopeFactory = scopeFactory;
         _discordClient = discordClient;
         _cache = cache;
         _logger = logger;
+        _options = options.Value;
+
+        _logger.LogInformation(
+            "RaidDetectionService initialized with MaxJoinsPerGuild={MaxJoins}",
+            _options.MaxJoinsPerGuild);
     }
 
     /// <inheritdoc />
@@ -188,24 +200,29 @@ public class RaidDetectionService : IRaidDetectionService
         {
             var cacheKey = string.Format(CacheKeyPattern, guildId);
 
-            // Get or create the join list for this guild
+            // Get or create the bounded queue for this guild
             var joins = _cache.GetOrCreate(cacheKey, entry =>
             {
                 entry.SlidingExpiration = MaxRetention;
-                return new ConcurrentBag<JoinRecord>();
+                return new BoundedTimestampQueue<JoinRecord>(_options.MaxJoinsPerGuild);
             });
 
             if (joins == null)
             {
-                joins = new ConcurrentBag<JoinRecord>();
-                _cache.Set(cacheKey, joins, MaxRetention);
+                joins = new BoundedTimestampQueue<JoinRecord>(_options.MaxJoinsPerGuild);
+                _cache.Set(cacheKey, joins, new MemoryCacheEntryOptions { SlidingExpiration = MaxRetention });
+            }
+
+            // Check if queue is at capacity and log if so (for monitoring)
+            if (joins.IsAtCapacity)
+            {
+                _logger.LogDebug(
+                    "Raid detection queue at capacity for guild {GuildId}. Oldest joins will be overwritten.",
+                    guildId);
             }
 
             // Add the new join (we don't have account creation time here, will be set to min value)
-            joins.Add(new JoinRecord(joinTime, userId, DateTime.MinValue));
-
-            // Clean up old entries to prevent unbounded growth
-            CleanupOldEntries(joins, joinTime);
+            joins.Enqueue(new JoinRecord(joinTime, userId, DateTime.MinValue));
 
             BotActivitySource.SetSuccess(activity);
         }
@@ -228,14 +245,14 @@ public class RaidDetectionService : IRaidDetectionService
         {
             var cacheKey = string.Format(CacheKeyPattern, guildId);
 
-            if (!_cache.TryGetValue<ConcurrentBag<JoinRecord>>(cacheKey, out var joins) || joins == null)
+            if (!_cache.TryGetValue<BoundedTimestampQueue<JoinRecord>>(cacheKey, out var joins) || joins == null)
             {
                 BotActivitySource.SetSuccess(activity);
                 return 0;
             }
 
             var cutoff = DateTime.UtcNow - window;
-            var count = joins.Count(j => j.Timestamp >= cutoff);
+            var count = joins.CountAfter(cutoff);
 
             BotActivitySource.SetSuccess(activity);
             return count;
@@ -396,7 +413,7 @@ public class RaidDetectionService : IRaidDetectionService
 
         var cacheKey = string.Format(CacheKeyPattern, guildId);
 
-        if (!_cache.TryGetValue<ConcurrentBag<JoinRecord>>(cacheKey, out var joins) || joins == null)
+        if (!_cache.TryGetValue<BoundedTimestampQueue<JoinRecord>>(cacheKey, out var joins) || joins == null)
         {
             return 0;
         }
@@ -404,9 +421,9 @@ public class RaidDetectionService : IRaidDetectionService
         var cutoff = DateTime.UtcNow - window;
         var minAccountAge = TimeSpan.FromHours(minAccountAgeHours);
 
-        return joins.Count(j => j.Timestamp >= cutoff &&
-                               j.AccountCreated != DateTime.MinValue &&
-                               (DateTime.UtcNow - j.AccountCreated) < minAccountAge);
+        return joins.CountAfterWithPredicate(cutoff, j =>
+            j.AccountCreated != DateTime.MinValue &&
+            (DateTime.UtcNow - j.AccountCreated) < minAccountAge);
     }
 
     /// <summary>
@@ -422,23 +439,28 @@ public class RaidDetectionService : IRaidDetectionService
         return (double)newAccounts / totalJoins;
     }
 
-    /// <summary>
-    /// Removes entries older than the maximum retention period.
-    /// This prevents unbounded memory growth.
-    /// </summary>
-    private static void CleanupOldEntries(ConcurrentBag<JoinRecord> joins, DateTime currentTime)
-    {
-        var cutoff = currentTime - MaxRetention;
+    #region IMemoryReportable Implementation
 
-        // Only cleanup if we have a lot of entries
-        if (joins.Count > 100)
+    /// <inheritdoc />
+    public string ServiceName => "Raid Detection Service";
+
+    /// <inheritdoc />
+    public ServiceMemoryReportDto GetMemoryReport()
+    {
+        // Maximum memory per guild = MaxJoinsPerGuild * EstimatedBytesPerJoin + queue overhead
+        var maxBytesPerGuild = (_options.MaxJoinsPerGuild * EstimatedBytesPerJoin) + 64;
+
+        // Estimate based on MaxCachedGuilds as the upper bound
+        var estimatedMaxBytes = maxBytesPerGuild * _options.MaxCachedGuilds;
+
+        return new ServiceMemoryReportDto
         {
-            var validJoins = joins.Where(j => j.Timestamp >= cutoff).ToList();
-            joins.Clear();
-            foreach (var join in validJoins)
-            {
-                joins.Add(join);
-            }
-        }
+            ServiceName = ServiceName,
+            EstimatedBytes = estimatedMaxBytes,
+            ItemCount = _options.MaxJoinsPerGuild, // Report max capacity per queue
+            Details = $"Max {_options.MaxJoinsPerGuild} joins/guild, ~{maxBytesPerGuild / 1024:N1} KB/guild, bounded by IMemoryCache sliding expiration"
+        };
     }
+
+    #endregion
 }
