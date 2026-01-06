@@ -23,6 +23,7 @@
             tabPanelSelector: '.tab-panel',
             tabLinkSelector: '.performance-tab',
             loadingDelay: 150, // Delay before showing loading spinner (prevents flash)
+            transitionDuration: 200, // Duration for fade transitions in ms (must match CSS)
             timeRangeStorageKey: 'performance-dashboard-time-range' // localStorage key for time range
         },
 
@@ -276,16 +277,23 @@
         },
 
         /**
-         * Switch to a different tab
+         * Switch to a different tab with transition animations
          * @param {string} tabId - The tab to switch to
          * @param {Object} options - Optional configuration
          * @param {boolean} options.updateHistory - Whether to update URL and history (default: true)
          */
         switchTab: function(tabId, options = {}) {
             const { updateHistory = true } = options;
+            const self = this;
 
             if (!this.config.endpoints[tabId]) {
                 console.warn('Unknown tab:', tabId);
+                return;
+            }
+
+            const panel = this.getTabPanel();
+            if (!panel) {
+                console.error('Tab panel container not found');
                 return;
             }
 
@@ -298,9 +306,27 @@
             // Update tab navigation active state
             this.updateTabNavigation(tabId);
 
-            // Load the new tab
+            // Add loading state to the tab button
+            this.setTabButtonLoading(tabId, true);
+
+            // Announce loading state to screen readers
+            this.announceLoading(tabId);
+
+            // Fade out current content (uses transitionDuration from config to match CSS)
+            const currentContent = panel.querySelector('.tab-content');
+            if (currentContent) {
+                currentContent.classList.add('leaving');
+                setTimeout(() => {
+                    // After fade out, show skeleton or loading state
+                    self.loadTab(tabId, self.state.currentHours, false);
+                }, this.config.transitionDuration);
+            } else {
+                // If no current content, load immediately
+                this.loadTab(tabId, this.state.currentHours, false);
+            }
+
+            // Update state
             this.state.activeTab = tabId;
-            this.loadTab(tabId, this.state.currentHours, false);
 
             // Update URL and history if requested (user clicked tab) or not from popstate
             if (updateHistory && !this.state.isPopstateEvent) {
@@ -429,7 +455,7 @@
         },
 
         /**
-         * Load a tab's content via AJAX
+         * Load a tab's content via AJAX with transitions and skeleton loading
          * @param {string} tabId - The tab to load
          * @param {number} hours - Time range in hours
          * @param {boolean} forceRefresh - Force refresh even if cached
@@ -448,20 +474,22 @@
                 return;
             }
 
+            const self = this;
+
             // Check cache first
             const cached = this.state.loadedTabs.get(tabId);
             if (!forceRefresh && cached && this.isCacheValid(cached, hours)) {
-                panel.innerHTML = cached.content;
-                this.initTab(tabId);
+                // Load from cache with transition
+                this.loadCachedContent(panel, cached.content, tabId);
                 return;
             }
 
             // Cancel any pending request
             this.cancelPendingRequest();
 
-            // Show loading state (with delay to prevent flash)
-            let loadingTimeout = setTimeout(() => {
-                this.showLoading(panel);
+            // Show skeleton loader (with delay to prevent flash)
+            let skeletonTimeout = setTimeout(() => {
+                self.showSkeleton(panel);
             }, this.config.loadingDelay);
 
             // Create abort controller for this request
@@ -478,8 +506,8 @@
                     }
                 });
 
-                // Clear loading timeout
-                clearTimeout(loadingTimeout);
+                // Clear skeleton timeout
+                clearTimeout(skeletonTimeout);
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -499,18 +527,11 @@
                     content: html
                 });
 
-                // Inject content
-                this.hideLoading(panel);
-                panel.innerHTML = html;
-
-                // Execute any script tags in the loaded content
-                this.executeScripts(panel);
-
-                // Initialize tab-specific JavaScript
-                this.initTab(tabId);
+                // Load content with fade-in transition
+                this.loadContentWithTransition(panel, html, tabId);
 
             } catch (error) {
-                clearTimeout(loadingTimeout);
+                clearTimeout(skeletonTimeout);
 
                 if (error.name === 'AbortError') {
                     console.log('Tab load aborted:', tabId);
@@ -520,10 +541,191 @@
                 console.error('Failed to load tab:', tabId, error);
                 this.showError(panel, error.message);
             } finally {
+                // Remove loading state from tab button
+                self.setTabButtonLoading(tabId, false);
+
                 if (this.state.currentRequest === abortController) {
                     this.state.currentRequest = null;
                 }
             }
+        },
+
+        /**
+         * Load content from cache with smooth transition
+         * @param {HTMLElement} panel - The tab panel
+         * @param {string} html - The cached HTML content
+         * @param {string} tabId - The tab ID being loaded
+         */
+        loadCachedContent: function(panel, html, tabId) {
+            const self = this;
+
+            // Wrap content in tab-content div with visible state
+            const wrappedHtml = `<div class="tab-content visible">${html}</div>`;
+            panel.innerHTML = wrappedHtml;
+
+            // Execute any script tags
+            this.executeScripts(panel);
+
+            // Initialize tab-specific JavaScript
+            this.initTab(tabId);
+        },
+
+        /**
+         * Load content with fade-in transition
+         * @param {HTMLElement} panel - The tab panel
+         * @param {string} html - The HTML content to load
+         * @param {string} tabId - The tab ID being loaded
+         */
+        loadContentWithTransition: function(panel, html, tabId) {
+            const self = this;
+
+            // Hide skeleton loader first
+            this.hideSkeleton(panel);
+
+            // Wrap content in tab-content div with entering state (opacity: 0)
+            const wrappedHtml = `<div class="tab-content entering">${html}</div>`;
+            panel.innerHTML = wrappedHtml;
+
+            // Execute any script tags
+            this.executeScripts(panel);
+
+            // Trigger fade-in animation (after next frame to ensure CSS transition applies)
+            const contentDiv = panel.querySelector('.tab-content');
+            if (contentDiv) {
+                requestAnimationFrame(() => {
+                    contentDiv.classList.remove('entering');
+                    contentDiv.classList.add('visible');
+                });
+            }
+
+            // Initialize tab-specific JavaScript
+            this.initTab(tabId);
+
+            // Announce completion to screen readers
+            this.announceCompletion(tabId);
+        },
+
+        /**
+         * Show skeleton loader placeholder
+         * @param {HTMLElement} panel - The tab panel
+         */
+        showSkeleton: function(panel) {
+            panel.classList.add('tab-loading');
+
+            // Create skeleton structure
+            const skeleton = document.createElement('div');
+            skeleton.className = 'tab-skeleton';
+            skeleton.innerHTML = `
+                <div class="skeleton-header"></div>
+                <div class="skeleton-grid">
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                </div>
+                <div class="skeleton-chart"></div>
+            `;
+
+            // Clear panel and add skeleton
+            panel.innerHTML = '';
+            panel.appendChild(skeleton);
+        },
+
+        /**
+         * Hide skeleton loader
+         * @param {HTMLElement} panel - The tab panel
+         */
+        hideSkeleton: function(panel) {
+            panel.classList.remove('tab-loading');
+            const skeleton = panel.querySelector('.tab-skeleton');
+            if (skeleton) {
+                skeleton.remove();
+            }
+        },
+
+        /**
+         * Set loading state on tab button
+         * @param {string} tabId - The tab ID
+         * @param {boolean} isLoading - Whether to show loading state
+         */
+        setTabButtonLoading: function(tabId, isLoading) {
+            const self = this;
+            document.querySelectorAll(this.config.tabLinkSelector).forEach(link => {
+                const linkTabId = self.getTabIdFromLink(link);
+                if (linkTabId === tabId) {
+                    if (isLoading) {
+                        link.classList.add('loading');
+                    } else {
+                        link.classList.remove('loading');
+                    }
+                }
+            });
+        },
+
+        /**
+         * Announce loading state to screen readers
+         * @param {string} tabId - The tab ID being loaded
+         */
+        announceLoading: function(tabId) {
+            // Get tab label for announcement
+            const tabLabel = this.getTabLabel(tabId);
+
+            // Create or update live region for announcements
+            let liveRegion = document.querySelector('[aria-live="polite"][data-tab-loading]');
+            if (!liveRegion) {
+                liveRegion = document.createElement('div');
+                liveRegion.setAttribute('aria-live', 'polite');
+                liveRegion.setAttribute('data-tab-loading', 'true');
+                liveRegion.className = 'sr-only'; // Visually hidden but accessible to screen readers
+                document.body.appendChild(liveRegion);
+            }
+
+            liveRegion.textContent = `Loading ${tabLabel} tab...`;
+        },
+
+        /**
+         * Announce tab content loaded to screen readers
+         * @param {string} tabId - The tab ID that was loaded
+         */
+        announceCompletion: function(tabId) {
+            const tabLabel = this.getTabLabel(tabId);
+
+            // Reuse the same live region
+            const liveRegion = document.querySelector('[aria-live="polite"][data-tab-loading]');
+            if (liveRegion) {
+                liveRegion.textContent = `${tabLabel} tab loaded`;
+            }
+        },
+
+        /**
+         * Announce error state to screen readers
+         * @param {string} tabId - The tab ID that failed to load
+         * @param {string} message - The error message
+         */
+        announceError: function(tabId, message) {
+            const tabLabel = this.getTabLabel(tabId);
+
+            // Reuse the same live region
+            const liveRegion = document.querySelector('[aria-live="polite"][data-tab-loading]');
+            if (liveRegion) {
+                liveRegion.textContent = `Failed to load ${tabLabel} tab. ${message}`;
+            }
+        },
+
+        /**
+         * Get human-readable label for a tab
+         * @param {string} tabId - The tab ID
+         * @returns {string}
+         */
+        getTabLabel: function(tabId) {
+            const labels = {
+                'overview': 'Overview',
+                'health': 'Health',
+                'commands': 'Commands',
+                'api': 'API & Rate Limits',
+                'system': 'System Health',
+                'alerts': 'Alerts'
+            };
+            return labels[tabId] || tabId;
         },
 
         /**
@@ -611,18 +813,19 @@
         },
 
         /**
-         * Show error state in the tab panel
+         * Show error state in the tab panel with transition
          * @param {HTMLElement} panel - The tab panel element
          * @param {string} message - Error message to display
          */
         showError: function(panel, message) {
-            panel.classList.remove('tab-loading');
-            const overlay = panel.querySelector('.tab-loading-overlay');
-            if (overlay) {
-                overlay.remove();
-            }
+            const self = this;
 
-            panel.innerHTML = `
+            // Hide skeleton if present
+            this.hideSkeleton(panel);
+            panel.classList.remove('tab-loading');
+
+            // Wrap error content in tab-content div with visible state
+            const errorHtml = `
                 <div class="tab-error-state">
                     <div class="tab-error-content">
                         <svg class="tab-error-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -639,13 +842,27 @@
                     </div>
                 </div>
             `;
+
+            // Wrap in tab-content div
+            const wrappedHtml = `<div class="tab-content visible">${errorHtml}</div>`;
+            panel.innerHTML = wrappedHtml;
+
+            // Announce error to screen readers
+            this.announceError(this.state.activeTab, message);
         },
 
         /**
          * Retry loading the current tab
          */
         retryCurrentTab: function() {
+            // Remove loading state from button before retry
+            this.setTabButtonLoading(this.state.activeTab, false);
+
+            // Force refresh on retry
             this.loadTab(this.state.activeTab, this.state.currentHours, true);
+
+            // Re-add loading state
+            this.setTabButtonLoading(this.state.activeTab, true);
         },
 
         /**
