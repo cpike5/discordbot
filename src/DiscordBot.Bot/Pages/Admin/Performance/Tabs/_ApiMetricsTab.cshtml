@@ -1,10 +1,15 @@
 @using DiscordBot.Bot.ViewModels.Pages
 @model ApiRateLimitsViewModel
-@{
-    // This partial contains the API Metrics tab content for the Performance Dashboard shell
-    // Note: Hours parameter should be passed via ViewData from the parent
-    var hours = ViewData["Hours"] as int? ?? Model.Hours;
-}
+@*
+    This partial contains the API Metrics tab content.
+    Can be rendered:
+    1. Standalone via ApiMetrics.cshtml (main page with header and time range selector)
+    2. Via AJAX in the Performance Dashboard shell (Index.cshtml)
+
+    JavaScript functions:
+    - initApiMetricsTab(hours) - Initialize charts with given hours
+    - destroyApiMetricsTab() - Destroy charts for cleanup
+*@
 
 <style>
     /* Metric Cards - page-specific overrides */
@@ -133,7 +138,7 @@ else
             <div class="chart-card-header">
                 <div>
                     <h2 class="chart-card-title">API Latency Over Time</h2>
-                    <p class="chart-card-subtitle">Discord API response times (last @hours hours)</p>
+                    <p class="chart-card-subtitle" id="apiLatencySubtitle">Discord API response times</p>
                 </div>
             </div>
             <div class="chart-card-body">
@@ -248,3 +253,227 @@ else
         </div>
     }
 }
+
+<script>
+(function() {
+    'use strict';
+
+    // Chart instance reference
+    let apiLatencyChart = null;
+
+    // Get current hours from PerformanceShell or fallback
+    function getSelectedHours() {
+        // First try PerformanceShell (AJAX mode)
+        if (window.PerformanceShell) {
+            return window.PerformanceShell.getCurrentHours();
+        }
+        // Then try standalone page variable
+        if (typeof window.selectedHours !== 'undefined') {
+            return window.selectedHours;
+        }
+        // Default fallback
+        return 24;
+    }
+
+    /**
+     * Formats a timestamp for chart labels based on the time range.
+     */
+    function formatChartLabel(date, hours) {
+        if (hours >= 168) {
+            // For 7+ days, show "Mon 15" format
+            return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+        } else {
+            // For shorter ranges, show "14:30" format
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+    }
+
+    /**
+     * Show error message in a chart container.
+     */
+    function showChartError(chartId, message) {
+        const container = document.getElementById(chartId)?.parentElement;
+        if (container) {
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full text-center p-4">
+                    <svg class="w-8 h-8 text-red-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div class="text-red-400 font-medium">Failed to load chart</div>
+                    <div class="text-text-secondary text-sm mt-1">${message}</div>
+                </div>`;
+        }
+    }
+
+    /**
+     * Initializes the API latency chart with Chart.js.
+     */
+    function initChart(samples, hours) {
+        const canvas = document.getElementById('apiLatencyChart');
+        if (!canvas) {
+            console.warn('API latency chart canvas not found');
+            return;
+        }
+
+        const ctx = canvas.getContext('2d');
+
+        // Extract data from samples
+        const labels = samples.map(s => formatChartLabel(new Date(s.timestamp), hours));
+        const avgData = samples.map(s => s.avgLatencyMs);
+        const p95Data = samples.map(s => s.p95LatencyMs);
+
+        // Destroy existing chart if it exists
+        if (apiLatencyChart) {
+            apiLatencyChart.destroy();
+        }
+
+        apiLatencyChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Average Latency',
+                        data: avgData,
+                        borderColor: '#098ecf',
+                        backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 5
+                    },
+                    {
+                        label: 'P95 Latency',
+                        data: p95Data,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'transparent',
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointHoverRadius: 5,
+                        borderDash: [5, 5]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: '#2f3336',
+                        titleColor: '#d7d3d0',
+                        bodyColor: '#a8a5a3',
+                        borderColor: '#3f4447',
+                        borderWidth: 1,
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' ms';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#2f3336'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return value + ' ms';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 0
+                        }
+                    }
+                }
+            }
+        });
+
+        console.log('API latency chart initialized with', samples.length, 'samples');
+    }
+
+    /**
+     * Loads latency data from the API and initializes/updates the chart.
+     */
+    async function loadChartData(hours) {
+        try {
+            const url = `/api/metrics/api/latency?hours=${hours}`;
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // Check if we have data
+            if (!data.samples || data.samples.length === 0) {
+                console.warn('No latency samples available');
+                return;
+            }
+
+            initChart(data.samples, hours);
+
+            // Update subtitle with time range
+            const subtitle = document.getElementById('apiLatencySubtitle');
+            if (subtitle) {
+                const hoursLabel = hours >= 720 ? '30 days' : hours >= 168 ? '7 days' : '24 hours';
+                subtitle.textContent = `Discord API response times (last ${hoursLabel})`;
+            }
+
+        } catch (error) {
+            console.error('Failed to load API latency chart data:', error);
+            showChartError('apiLatencyChart', error.message);
+        }
+    }
+
+    /**
+     * Initialize charts.
+     * Note: hours parameter is passed by performance-tabs.js when loaded via AJAX
+     */
+    async function init(hours) {
+        hours = hours || getSelectedHours();
+
+        @if (Model.TotalRequests > 0)
+        {
+            @:await loadChartData(hours);
+        }
+    }
+
+    // Expose init and destroy functions for tab system
+    // Note: Named 'initApiTab' to match performance-tabs.js pattern: init{Capitalize(tabId)}Tab
+    // where tabId is 'api' -> 'initApiTab'
+    window.initApiTab = init;
+    window.destroyApiTab = function() {
+        if (apiLatencyChart) {
+            apiLatencyChart.destroy();
+            apiLatencyChart = null;
+        }
+    };
+
+    // Also expose as ApiMetricsTab for standalone page compatibility
+    window.initApiMetricsTab = init;
+    window.destroyApiMetricsTab = window.destroyApiTab;
+})();
+</script>

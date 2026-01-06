@@ -282,3 +282,11 @@ function showChartError(chartId, message) {
 - `docs/lessons-learned/issue-722-performance-tab-conversion.md` - This document (new)
 
 The `Tabs/_CommandsTab.cshtml` partial was already complete from a previous implementation.
+
+## Files Modified in Issue #762
+
+- `Pages/Admin/Performance/ApiMetrics.cshtml` - Updated to use partial, removed inline styles, added button-based time range selector
+- `Pages/Admin/Performance/Tabs/_ApiMetricsTab.cshtml` - Added `initApiTab(hours)` and `destroyApiTab()` functions with chart initialization
+- `docs/lessons-learned/issue-722-performance-tab-conversion.md` - Updated with #762 notes
+
+**Note:** The API Metrics tab uses `initApiTab` (not `initApiMetricsTab`) to match the performance-tabs.js pattern where the tab ID is `api` and it looks for `init{Capitalize(tabId)}Tab`. Both function names are exposed for compatibility.
