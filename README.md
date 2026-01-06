@@ -211,7 +211,7 @@ Moderation tools for server staff. Requires moderation to be enabled for the gui
 
 ## Logging
 
-The bot uses Serilog for structured logging with two outputs:
+The bot uses Serilog for structured logging with multiple outputs:
 
 1. **Console Sink**: Real-time output during development
    - Format: `[HH:mm:ss LEVEL] SourceContext: Message`
@@ -221,6 +221,24 @@ The bot uses Serilog for structured logging with two outputs:
    - Location: `logs/discordbot-YYYY-MM-DD.log`
    - Retention: 7 days (configurable)
    - Format: ISO 8601 timestamp with full context
+
+3. **Elasticsearch Sink**: Centralized log aggregation (recommended for production)
+   - Structured JSON logs with rich context
+   - Searchable and filterable via Kibana
+   - Correlation with Elastic APM traces
+   - See [log-aggregation.md](docs/articles/log-aggregation.md) for setup
+
+4. **Seq Sink** (optional): Alternative log aggregation for development
+   - Simple setup for local development
+   - Real-time log streaming and querying
+
+### Distributed Tracing
+
+**Elastic APM** provides distributed tracing and performance monitoring:
+- Automatic instrumentation for HTTP requests, database queries, Discord API calls
+- Trace correlation with structured logs
+- Performance metrics and error tracking
+- See [log-aggregation.md](docs/articles/log-aggregation.md) for APM setup
 
 ### Log Levels
 
@@ -355,6 +373,9 @@ Optional secrets:
 - `Discord:OAuth:ClientSecret`: Discord OAuth client secret
 - `Identity:DefaultAdmin:Email`: Default admin user email
 - `Identity:DefaultAdmin:Password`: Default admin user password
+- `Elastic:ApiKey`: Elasticsearch API key for production deployments
+- `ElasticApm:ServerUrl`: Elastic APM server URL (e.g., `http://localhost:8200`)
+- `ElasticApm:SecretToken`: Elastic APM authentication token
 
 ## Dependencies
 
@@ -364,6 +385,8 @@ Optional secrets:
 - **AspNet.Security.OAuth.Discord** (8.0.0): Discord OAuth authentication
 - **Microsoft.AspNetCore.Identity.EntityFrameworkCore** (8.0.0): ASP.NET Core Identity
 - **Serilog.AspNetCore** (8.0.0): Structured logging framework
+- **Elastic.Serilog.Sinks** (10.0.0): Elasticsearch log sink for Serilog
+- **Elastic.Apm.NetCoreAll** (1.31.0): Elastic APM distributed tracing
 - **Swashbuckle.AspNetCore** (6.5.0): Swagger/OpenAPI documentation
 
 ### Development
@@ -422,6 +445,12 @@ This project is for educational and development purposes.
 - [Identity Configuration](docs/articles/identity-configuration.md) - Authentication setup
 - [Authorization Policies](docs/articles/authorization-policies.md) - Role hierarchy and access control
 - [Versioning Strategy](docs/articles/versioning-strategy.md) - SemVer versioning, CI/CD, release process
+
+### Observability & Monitoring
+- [Log Aggregation](docs/articles/log-aggregation.md) - Centralized logging with Elasticsearch and Elastic APM
+- [Elastic Stack Setup](docs/articles/elastic-stack-setup.md) - Local development environment setup
+- [Kibana Dashboards](docs/articles/kibana-dashboards.md) - Log analysis and dashboard usage guide
+- [Elastic APM](docs/articles/elastic-apm.md) - Distributed tracing and performance monitoring
 
 ### API & Integration
 - [API Endpoints](docs/articles/api-endpoints.md) - REST API documentation

@@ -8,6 +8,8 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
+using Elastic.Apm;
+using Elastic.Apm.Api;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Handlers;
@@ -133,11 +135,19 @@ public class InteractionHandler
 
         string? commandName = null;
         Activity? activity = null;
+        ITransaction? apmTransaction = null;
+
+        // Determine transaction name and type based on interaction type
+        string transactionName;
+        string transactionType;
 
         // Extract command name and start tracing activity
         if (interaction is SocketSlashCommand slashCommand)
         {
             commandName = slashCommand.CommandName;
+            transactionName = $"discord.command {commandName}";
+            transactionType = "discord.command";
+
             _botMetrics.IncrementActiveCommands(commandName);
 
             // Start tracing activity for the command
@@ -158,6 +168,9 @@ public class InteractionHandler
                 _ => "unknown"
             };
 
+            transactionName = $"discord.component {componentType}";
+            transactionType = "discord.component";
+
             activity = BotActivitySource.StartComponentActivity(
                 componentType: componentType,
                 customId: component.Data.CustomId,
@@ -168,6 +181,9 @@ public class InteractionHandler
         }
         else if (interaction is SocketModal modal)
         {
+            transactionName = "discord.component modal";
+            transactionType = "discord.component";
+
             // Start tracing activity for modal submission
             activity = BotActivitySource.StartComponentActivity(
                 componentType: "modal",
@@ -176,6 +192,23 @@ public class InteractionHandler
                 userId: interaction.User.Id,
                 interactionId: interaction.Id,
                 correlationId: correlationId);
+        }
+        else
+        {
+            transactionName = $"discord.interaction {interaction.Type}";
+            transactionType = "discord.interaction";
+        }
+
+        // Start Elastic APM transaction for this command execution
+        // This ensures each command gets its own transaction rather than sharing the bot startup transaction
+        apmTransaction = Agent.Tracer.StartTransaction(transactionName, transactionType);
+        apmTransaction.SetLabel("correlation_id", correlationId);
+        apmTransaction.SetLabel("interaction_id", interaction.Id.ToString());
+        apmTransaction.SetLabel("user_id", interaction.User.Id.ToString());
+        apmTransaction.SetLabel("guild_id", interaction.GuildId?.ToString() ?? "dm");
+        if (commandName != null)
+        {
+            apmTransaction.SetLabel("command_name", commandName);
         }
 
         // Store execution context for use in OnSlashCommandExecutedAsync
@@ -191,19 +224,32 @@ public class InteractionHandler
             // Create an execution context
             var context = new SocketInteractionContext(_client, interaction);
 
-            // Use logging scope for correlation ID
-            using (_logger.BeginScope(new Dictionary<string, object>
+            // Build logging scope with all relevant properties for filtering/searching
+            var loggingScope = new Dictionary<string, object>
             {
                 ["CorrelationId"] = correlationId,
                 ["InteractionId"] = interaction.Id,
-                ["TraceId"] = activity?.TraceId.ToString() ?? "none"
-            }))
+                ["InteractionType"] = interaction.Type.ToString(),
+                ["UserId"] = interaction.User.Id,
+                ["GuildId"] = interaction.GuildId?.ToString() ?? "DM",
+                ["TraceId"] = activity?.TraceId.ToString() ?? "none",
+                ["ApmTransactionId"] = apmTransaction?.Id ?? "none"
+            };
+
+            // Add command-specific properties
+            if (!string.IsNullOrEmpty(commandName))
+            {
+                loggingScope["CommandName"] = commandName;
+            }
+
+            // Use logging scope for structured logging - these properties will appear on all log messages
+            using (_logger.BeginScope(loggingScope))
             {
                 _logger.LogDebug(
-                    "Executing interaction {InteractionType} with correlation ID {CorrelationId}, TraceId {TraceId}",
+                    "Executing interaction {InteractionType} {CommandName} with correlation ID {CorrelationId}",
                     interaction.Type,
-                    correlationId,
-                    activity?.TraceId.ToString() ?? "none");
+                    commandName ?? transactionName,
+                    correlationId);
 
                 // Execute the command
                 await _interactionService.ExecuteCommandAsync(context, _serviceProvider);
@@ -211,6 +257,10 @@ public class InteractionHandler
 
             // Mark activity as successful if no exceptions
             BotActivitySource.SetSuccess(activity);
+            if (apmTransaction != null)
+            {
+                apmTransaction.Outcome = Outcome.Success;
+            }
         }
         catch (Exception ex)
         {
@@ -218,6 +268,13 @@ public class InteractionHandler
 
             // Record exception on the tracing activity
             BotActivitySource.RecordException(activity, ex);
+
+            // Capture exception in APM transaction
+            if (apmTransaction != null)
+            {
+                apmTransaction.CaptureException(ex);
+                apmTransaction.Outcome = Outcome.Failure;
+            }
 
             // Record failure metric
             if (commandName != null)
@@ -231,10 +288,11 @@ public class InteractionHandler
 
             _logger.LogError(
                 ex,
-                "Error executing interaction {InteractionId}, CorrelationId: {CorrelationId}, TraceId: {TraceId}",
+                "Error executing interaction {InteractionType} {CommandName}, InteractionId: {InteractionId}, CorrelationId: {CorrelationId}",
+                interaction.Type,
+                commandName ?? transactionName,
                 interaction.Id,
-                correlationId,
-                activity?.TraceId.ToString() ?? "none");
+                correlationId);
 
             // If the interaction hasn't been responded to, send an error message
             if (interaction.Type == InteractionType.ApplicationCommand)
@@ -261,6 +319,9 @@ public class InteractionHandler
         {
             // Dispose the activity (completes the span)
             activity?.Dispose();
+
+            // End the APM transaction
+            apmTransaction?.End();
 
             // Decrement active command count
             if (commandName != null)
@@ -300,10 +361,15 @@ public class InteractionHandler
             executionTimeMs,
             context.Guild?.Id);
 
-        // Log with correlation ID
+        // Log with structured properties for filtering/searching in Elasticsearch
         using (_logger.BeginScope(new Dictionary<string, object>
         {
-            ["CorrelationId"] = correlationId
+            ["CorrelationId"] = correlationId,
+            ["CommandName"] = fullCommandName,
+            ["UserId"] = context.User.Id,
+            ["GuildId"] = context.Guild?.Id.ToString() ?? "DM",
+            ["ExecutionTimeMs"] = executionTimeMs,
+            ["Success"] = success
         }))
         {
             if (result.IsSuccess)
@@ -320,41 +386,41 @@ public class InteractionHandler
             else
             {
                 _logger.LogWarning(
-                    "Slash command '{CommandName}' failed for {Username} in guild {GuildName} (ID: {GuildId}). Error: {Error}, ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
+                    "Slash command '{CommandName}' failed for {Username} in guild {GuildName} (ID: {GuildId}). Error: {Error}, ErrorType: {ErrorType}, ExecutionTime: {ExecutionTimeMs}ms, CorrelationId: {CorrelationId}",
                     fullCommandName,
                     context.User.Username,
                     context.Guild?.Name ?? "DM",
                     context.Guild?.Id ?? 0,
                     result.ErrorReason,
+                    result.Error?.ToString() ?? "Unknown",
                     executionTimeMs,
                     correlationId);
 
-                // Send enhanced error message to user for permission errors
-                if (result.Error == InteractionCommandError.UnmetPrecondition)
+                // Handle different error types with appropriate user messages
+                try
                 {
+                    var (title, description) = GetUserFriendlyError(result, errorMessage);
+
                     var embed = new EmbedBuilder()
-                        .WithTitle("Permission Denied")
-                        .WithDescription(errorMessage ?? "You do not have permission to use this command.")
+                        .WithTitle(title)
+                        .WithDescription(description)
                         .WithColor(Color.Red)
                         .WithFooter($"Correlation ID: {correlationId}")
                         .WithCurrentTimestamp()
                         .Build();
 
-                    try
+                    if (context.Interaction.HasResponded)
                     {
-                        if (context.Interaction.HasResponded)
-                        {
-                            await context.Interaction.FollowupAsync(embed: embed, ephemeral: true);
-                        }
-                        else
-                        {
-                            await context.Interaction.RespondAsync(embed: embed, ephemeral: true);
-                        }
+                        await context.Interaction.FollowupAsync(embed: embed, ephemeral: true);
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        _logger.LogError(ex, "Failed to send permission error message to user, CorrelationId: {CorrelationId}", correlationId);
+                        await context.Interaction.RespondAsync(embed: embed, ephemeral: true);
                     }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to send error message to user, CorrelationId: {CorrelationId}", correlationId);
                 }
             }
         }
@@ -421,10 +487,19 @@ public class InteractionHandler
             success: result.IsSuccess,
             durationMs: executionTimeMs);
 
-        // Log with correlation ID
+        // Get component type for logging
+        var componentType = GetComponentType(context.Interaction);
+
+        // Log with structured properties for filtering/searching in Elasticsearch
         using (_logger.BeginScope(new Dictionary<string, object>
         {
-            ["CorrelationId"] = correlationId
+            ["CorrelationId"] = correlationId,
+            ["ComponentType"] = componentType,
+            ["ComponentId"] = commandInfo.Name,
+            ["UserId"] = context.User.Id,
+            ["GuildId"] = context.Guild?.Id.ToString() ?? "DM",
+            ["ExecutionTimeMs"] = executionTimeMs,
+            ["Success"] = result.IsSuccess
         }))
         {
             if (result.IsSuccess)
@@ -524,5 +599,38 @@ public class InteractionHandler
         public string CorrelationId { get; set; } = string.Empty;
         public Stopwatch? Stopwatch { get; set; }
         public string? CommandName { get; set; }
+    }
+
+    /// <summary>
+    /// Gets a user-friendly error title and description based on the error type.
+    /// Provides clearer messages for common error scenarios.
+    /// </summary>
+    /// <param name="result">The command execution result.</param>
+    /// <param name="errorMessage">The original error message.</param>
+    /// <returns>A tuple containing the error title and description.</returns>
+    private static (string Title, string Description) GetUserFriendlyError(Discord.Interactions.IResult result, string? errorMessage)
+    {
+        // Handle type conversion errors with misleading messages
+        if (result.Error == InteractionCommandError.ConvertFailed)
+        {
+            // Check for common misleading error patterns from Discord.NET type converters
+            if (errorMessage != null && errorMessage.Contains("cannot be read as"))
+            {
+                // The "cannot be read as IChannel/IGuildUser" errors are typically user resolution failures
+                return ("User Not Found", "Could not find the specified user. They may not be a member of this server or the user lookup failed.");
+            }
+
+            return ("Invalid Input", errorMessage ?? "One of the command parameters could not be processed.");
+        }
+
+        return result.Error switch
+        {
+            InteractionCommandError.UnmetPrecondition => ("Permission Denied", errorMessage ?? "You do not have permission to use this command."),
+            InteractionCommandError.ParseFailed => ("Invalid Input", errorMessage ?? "Could not parse the provided input."),
+            InteractionCommandError.BadArgs => ("Invalid Arguments", errorMessage ?? "Invalid arguments provided for this command."),
+            InteractionCommandError.Exception => ("Command Error", "An unexpected error occurred while executing this command."),
+            InteractionCommandError.Unsuccessful => ("Command Failed", errorMessage ?? "The command could not be completed."),
+            _ => ("Error", errorMessage ?? "An error occurred while executing this command.")
+        };
     }
 }

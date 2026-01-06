@@ -67,6 +67,7 @@ public class LogoutModel : PageModel
             return LocalRedirect(returnUrl);
         }
 
-        return RedirectToPage("/Index");
+        // Redirect to landing page after logout (instead of login page)
+        return RedirectToPage("/Landing");
     }
 }

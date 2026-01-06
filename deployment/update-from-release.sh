@@ -9,6 +9,7 @@
 # Usage:
 #   ./update-from-release.sh              # Deploy latest release
 #   ./update-from-release.sh v0.3.6       # Deploy specific version
+#   ./update-from-release.sh --dev        # Deploy current dev version from main branch
 #   ./update-from-release.sh --check      # Check latest release without deploying
 #
 # =============================================================================
@@ -258,6 +259,136 @@ check_versions() {
     fi
 }
 
+# Deploy from main branch (dev version)
+deploy_dev() {
+    local current_version
+    local temp_dir="/tmp/discordbot-deploy-$$"
+    local dev_version
+
+    check_privileges
+
+    # Get current version
+    current_version=$(get_current_version)
+    log_info "Current version: $current_version"
+
+    log_warn "Deploying DEV version from main branch"
+    log_warn "This is not a stable release - use for testing only!"
+
+    # Create temp directory
+    mkdir -p "$temp_dir"
+    cd "$temp_dir"
+
+    log_info "Cloning repository (main branch)..."
+    git clone --depth 1 --branch main "$REPO_URL" discordbot
+
+    if [ ! -d "discordbot" ]; then
+        log_error "Failed to clone repository"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    cd discordbot
+
+    # Get version from Directory.Build.props
+    dev_version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props 2>/dev/null || echo "dev")
+    dev_version="${dev_version}-$(date +%Y%m%d%H%M%S)"
+    log_info "Dev version: $dev_version"
+
+    log_info "Building release..."
+    dotnet publish src/DiscordBot.Bot/DiscordBot.Bot.csproj \
+        -c Release \
+        -o "$temp_dir/publish" \
+        --no-self-contained
+
+    if [ ! -f "$temp_dir/publish/DiscordBot.Bot.dll" ]; then
+        log_error "Build failed - DiscordBot.Bot.dll not found"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    log_info "Stopping $SERVICE_NAME service..."
+    systemctl stop "$SERVICE_NAME" || log_warn "Service was not running"
+
+    # Create backup
+    if [ -d "$APP_DIR" ]; then
+        log_info "Creating backup..."
+        mkdir -p "$BACKUP_DIR"
+        local backup_name="discordbot.backup.$(date +%Y%m%d_%H%M%S)"
+        cp -r "$APP_DIR" "$BACKUP_DIR/$backup_name"
+        log_success "Backup created: $BACKUP_DIR/$backup_name"
+
+        # Cleanup old backups
+        cleanup_old_backups
+    fi
+
+    log_info "Deploying dev version..."
+    mkdir -p "$APP_DIR"
+
+    # Preserve configuration files
+    local preserved_files=()
+    if [ -f "$APP_DIR/appsettings.Production.json" ]; then
+        cp "$APP_DIR/appsettings.Production.json" "$temp_dir/appsettings.Production.json.bak"
+        preserved_files+=("appsettings.Production.json")
+    fi
+
+    # Deploy new files
+    rm -rf "${APP_DIR:?}"/*
+    cp -r "$temp_dir/publish/"* "$APP_DIR/"
+
+    # Restore preserved configuration
+    for file in "${preserved_files[@]}"; do
+        if [ -f "$temp_dir/$file.bak" ]; then
+            cp "$temp_dir/$file.bak" "$APP_DIR/$file"
+            log_info "Restored: $file"
+        fi
+    done
+
+    # Write version file
+    echo "$dev_version" > "$APP_DIR/version.txt"
+
+    # Set ownership
+    chown -R discordbot:discordbot "$APP_DIR"
+
+    log_info "Starting $SERVICE_NAME service..."
+    systemctl start "$SERVICE_NAME"
+
+    # Wait a moment for service to start
+    sleep 3
+
+    # Verify service is running
+    if systemctl is-active --quiet "$SERVICE_NAME"; then
+        log_success "Service started successfully"
+    else
+        log_error "Service failed to start. Check logs with: journalctl -u $SERVICE_NAME -n 50"
+        log_info "Rolling back to previous version..."
+
+        # Rollback
+        if [ -d "$BACKUP_DIR/$backup_name" ]; then
+            rm -rf "${APP_DIR:?}"/*
+            cp -r "$BACKUP_DIR/$backup_name/"* "$APP_DIR/"
+            chown -R discordbot:discordbot "$APP_DIR"
+            systemctl start "$SERVICE_NAME"
+            log_warn "Rolled back to previous version"
+        fi
+
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
+    # Cleanup
+    log_info "Cleaning up temporary files..."
+    rm -rf "$temp_dir"
+
+    log_success "================================================"
+    log_success "DEV Deployment complete!"
+    log_success "Version: $dev_version"
+    log_warn   "Remember: This is a dev build, not a stable release"
+    log_success "================================================"
+
+    # Show service status
+    systemctl status "$SERVICE_NAME" --no-pager -l
+}
+
 # Show usage
 show_usage() {
     echo "Discord Bot Deployment Script"
@@ -265,6 +396,7 @@ show_usage() {
     echo "Usage:"
     echo "  $0                    Deploy latest release"
     echo "  $0 <version>          Deploy specific version (e.g., v0.3.6)"
+    echo "  $0 --dev              Deploy current dev version from main branch"
     echo "  $0 --check            Check versions without deploying"
     echo "  $0 --force            Force redeploy even if version matches"
     echo "  $0 --help             Show this help message"
@@ -272,11 +404,13 @@ show_usage() {
     echo "Examples:"
     echo "  sudo $0               # Deploy latest release"
     echo "  sudo $0 v0.3.6        # Deploy version v0.3.6"
+    echo "  sudo $0 --dev         # Deploy dev version from main"
     echo "  $0 --check            # Check what's available"
 }
 
 # Parse arguments
 FORCE_DEPLOY="false"
+DEPLOY_DEV="false"
 TARGET_VERSION=""
 
 while [[ $# -gt 0 ]]; do
@@ -284,6 +418,10 @@ while [[ $# -gt 0 ]]; do
         --check|-c)
             check_versions
             exit 0
+            ;;
+        --dev|-d)
+            DEPLOY_DEV="true"
+            shift
             ;;
         --force|-f)
             FORCE_DEPLOY="true"
@@ -306,4 +444,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Run deployment
-deploy_release "$TARGET_VERSION"
+if [ "$DEPLOY_DEV" = "true" ]; then
+    deploy_dev
+else
+    deploy_release "$TARGET_VERSION"
+fi

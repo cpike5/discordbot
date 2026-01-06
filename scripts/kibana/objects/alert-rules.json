@@ -1,0 +1,181 @@
+{
+  "rules": [
+    {
+      "name": "High Error Rate",
+      "rule_type_id": ".es-query",
+      "consumer": "alerts",
+      "schedule": {
+        "interval": "1m"
+      },
+      "params": {
+        "index": ["logs-discordbot-*"],
+        "timeField": "@timestamp",
+        "esQuery": "{\"query\":{\"bool\":{\"must\":[{\"term\":{\"level\":\"Error\"}}]}}}",
+        "threshold": [10],
+        "thresholdComparator": ">",
+        "timeWindowSize": 5,
+        "timeWindowUnit": "m",
+        "size": 100
+      },
+      "actions": [],
+      "tags": ["discordbot", "errors", "high-severity"],
+      "notify_when": "onThrottleInterval",
+      "throttle": "5m",
+      "enabled": true,
+      "description": "Triggers when error count exceeds 10 events per minute for 5 minutes. Severity: High"
+    },
+    {
+      "name": "Slow Transactions",
+      "rule_type_id": "apm.transaction_duration",
+      "consumer": "apm",
+      "schedule": {
+        "interval": "1m"
+      },
+      "params": {
+        "serviceName": "discordbot",
+        "transactionType": "request",
+        "windowSize": 10,
+        "windowUnit": "m",
+        "threshold": 5000,
+        "aggregationType": "99th",
+        "environment": "ENVIRONMENT_ALL"
+      },
+      "actions": [],
+      "tags": ["discordbot", "performance", "medium-severity"],
+      "notify_when": "onThrottleInterval",
+      "throttle": "10m",
+      "enabled": true,
+      "description": "Triggers when APM transaction p99 exceeds 5000ms for 10 minutes. Severity: Medium"
+    },
+    {
+      "name": "Database Errors",
+      "rule_type_id": ".es-query",
+      "consumer": "alerts",
+      "schedule": {
+        "interval": "1m"
+      },
+      "params": {
+        "index": ["logs-discordbot-*"],
+        "timeField": "@timestamp",
+        "esQuery": "{\"query\":{\"bool\":{\"must\":[{\"exists\":{\"field\":\"db.error\"}}]}}}",
+        "threshold": [1],
+        "thresholdComparator": ">=",
+        "timeWindowSize": 5,
+        "timeWindowUnit": "m",
+        "size": 100
+      },
+      "actions": [],
+      "tags": ["discordbot", "database", "high-severity"],
+      "notify_when": "onThrottleInterval",
+      "throttle": "5m",
+      "enabled": true,
+      "description": "Triggers when any database error is detected. Severity: High"
+    },
+    {
+      "name": "Discord Rate Limit Hit",
+      "rule_type_id": ".es-query",
+      "consumer": "alerts",
+      "schedule": {
+        "interval": "1m"
+      },
+      "params": {
+        "index": ["logs-discordbot-*"],
+        "timeField": "@timestamp",
+        "esQuery": "{\"query\":{\"bool\":{\"should\":[{\"term\":{\"discord.api.rate_limit.remaining\":0}},{\"match_phrase\":{\"message\":\"rate limit\"}}]}}}",
+        "threshold": [1],
+        "thresholdComparator": ">=",
+        "timeWindowSize": 5,
+        "timeWindowUnit": "m",
+        "size": 100
+      },
+      "actions": [],
+      "tags": ["discordbot", "rate-limit", "medium-severity"],
+      "notify_when": "onThrottleInterval",
+      "throttle": "15m",
+      "enabled": true,
+      "description": "Triggers when Discord API rate limit is hit. Severity: Medium"
+    },
+    {
+      "name": "Bot Disconnection",
+      "rule_type_id": ".es-query",
+      "consumer": "alerts",
+      "schedule": {
+        "interval": "1m"
+      },
+      "params": {
+        "index": ["logs-discordbot-*"],
+        "timeField": "@timestamp",
+        "esQuery": "{\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"SourceContext\":\"DiscordBot.Bot.Services.BotHostedService\"}}]}}}",
+        "threshold": [0],
+        "thresholdComparator": "<=",
+        "timeWindowSize": 5,
+        "timeWindowUnit": "m",
+        "size": 1
+      },
+      "actions": [],
+      "tags": ["discordbot", "connectivity", "critical-severity"],
+      "notify_when": "onThrottleInterval",
+      "throttle": "5m",
+      "enabled": true,
+      "description": "Triggers when no logs from BotHostedService for 5 minutes (bot may be disconnected). Severity: Critical"
+    },
+    {
+      "name": "Auto-Moderation Spike",
+      "rule_type_id": ".es-query",
+      "consumer": "alerts",
+      "schedule": {
+        "interval": "5m"
+      },
+      "params": {
+        "index": ["logs-discordbot-*"],
+        "timeField": "@timestamp",
+        "esQuery": "{\"query\":{\"bool\":{\"must\":[{\"term\":{\"automod.rule.triggered\":true}}]}}}",
+        "threshold": [50],
+        "thresholdComparator": ">",
+        "timeWindowSize": 1,
+        "timeWindowUnit": "h",
+        "size": 100
+      },
+      "actions": [],
+      "tags": ["discordbot", "automod", "low-severity"],
+      "notify_when": "onThrottleInterval",
+      "throttle": "1h",
+      "enabled": true,
+      "description": "Triggers when auto-moderation triggers exceed 50 events per hour (potential spam attack). Severity: Low"
+    }
+  ],
+  "connectors": {
+    "email": {
+      "name": "Email Notifications",
+      "connector_type_id": ".email",
+      "config": {
+        "from": "alerts@yourdomain.com",
+        "host": "smtp.yourdomain.com",
+        "port": 587,
+        "secure": true
+      },
+      "secrets": {
+        "user": "CONFIGURE_IN_KIBANA",
+        "password": "CONFIGURE_IN_KIBANA"
+      }
+    },
+    "slack": {
+      "name": "Slack Notifications",
+      "connector_type_id": ".slack",
+      "config": {},
+      "secrets": {
+        "webhookUrl": "CONFIGURE_IN_KIBANA"
+      }
+    },
+    "pagerduty": {
+      "name": "PagerDuty Notifications",
+      "connector_type_id": ".pagerduty",
+      "config": {
+        "apiUrl": "https://events.pagerduty.com/v2/enqueue"
+      },
+      "secrets": {
+        "routingKey": "CONFIGURE_IN_KIBANA"
+      }
+    }
+  }
+}

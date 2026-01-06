@@ -59,4 +59,11 @@ public class PerformanceMetricsOptions
     /// Default is 5 minutes.
     /// </summary>
     public int CommandAggregationCacheTtlMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the maximum number of API categories to track.
+    /// When exceeded, least-recently-used categories are evicted.
+    /// Default is 100.
+    /// </summary>
+    public int MaxApiCategories { get; set; } = 100;
 }

@@ -15,6 +15,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
+using Elastic.Apm.NetCoreAll;
+using Elastic.Apm.SerilogEnricher;
+using Elastic.Serilog.Sinks;
+using Elastic.Ingest.Elasticsearch;
+using Elastic.Ingest.Elasticsearch.DataStreams;
+using Elastic.Transport;
 using Serilog;
 using System.Reflection;
 
@@ -33,11 +39,39 @@ try
     Log.Information("Environment: {Environment}", builder.Environment.EnvironmentName);
     Log.Information("ContentRootPath: {ContentRootPath}", builder.Environment.ContentRootPath);
 
-    // Configure Serilog from appsettings.json
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext());
+    // Configure Serilog from appsettings.json with programmatic Elasticsearch sink
+    builder.Host.UseSerilog((context, services, configuration) =>
+    {
+        // Get service name from config (used by Elastic Observability to identify log source)
+        var serviceName = context.Configuration["ElasticApm:ServiceName"] ?? "discordbot";
+
+        configuration
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext()
+            .Enrich.WithElasticApmCorrelationInfo()
+            .Enrich.WithProperty("service.name", serviceName);
+
+        // Add Elasticsearch sink programmatically if configured
+        var elasticUrl = context.Configuration["ElasticSearch:Url"];
+        if (!string.IsNullOrEmpty(elasticUrl))
+        {
+            var apiKey = context.Configuration["ElasticSearch:ApiKey"] ?? "";
+            var environment = context.HostingEnvironment.EnvironmentName?.ToLower() ?? "development";
+
+            configuration.WriteTo.Elasticsearch(new[] { new Uri(elasticUrl) }, opts =>
+            {
+                opts.DataStream = new DataStreamName("logs", "discordbot", environment);
+                opts.BootstrapMethod = BootstrapMethod.None;
+            }, transport =>
+            {
+                if (!string.IsNullOrEmpty(apiKey))
+                {
+                    transport.Authentication(new ApiKey(apiKey));
+                }
+            });
+        }
+    });
 
     // Enable systemd integration (only activates when running under systemd)
     builder.Host.UseSystemd();
@@ -53,6 +87,9 @@ try
 
     // Add OpenTelemetry tracing
     builder.Services.AddOpenTelemetryTracing(builder.Configuration);
+
+    // Add Elastic APM with priority-based sampling (dual-write during validation)
+    builder.Services.AddElasticApmWithPrioritySampling(builder.Configuration);
 
     // Configure forwarded headers for reverse proxy (nginx, Cloudflare, etc.)
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -77,6 +114,8 @@ try
         builder.Configuration.GetSection(BackgroundServicesOptions.SectionName));
     builder.Services.Configure<IdentityConfigOptions>(
         builder.Configuration.GetSection(IdentityConfigOptions.SectionName));
+    builder.Services.Configure<ObservabilityOptions>(
+        builder.Configuration.GetSection(ObservabilityOptions.SectionName));
 
     // Load Identity configuration for startup
     var identityConfig = builder.Configuration
@@ -326,6 +365,10 @@ try
     });
 
     var app = builder.Build();
+
+    // Enable Elastic APM (must be very early in pipeline to capture all requests)
+    // Configured via ElasticApm section in appsettings.json
+    app.UseAllElasticApm(builder.Configuration);
 
     // Configure middleware pipeline
     // Handle forwarded headers from reverse proxy (must be FIRST in pipeline)

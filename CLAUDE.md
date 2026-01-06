@@ -95,6 +95,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `VerificationOptions` | `Verification` | Verification code generation settings |
 | `BackgroundServicesOptions` | `BackgroundServices` | Background task intervals and delays |
 | `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (use user secrets for DefaultAdmin) |
+| `ObservabilityOptions` | `Observability` | External observability tool URLs (Kibana, Seq) |
 | `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
 | `HistoricalMetricsOptions` | `HistoricalMetrics` | Historical metrics collection (sample interval, retention) |
 | `ReminderOptions` | `Reminder` | Reminder system settings (polling, delivery, limits) |
@@ -107,6 +108,10 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `PerformanceMetricsOptions` | `PerformanceMetrics` | Performance metrics collection settings |
 | `PerformanceAlertOptions` | `PerformanceAlerts` | Alert thresholds and notification settings |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | OpenTelemetry trace sampling rates (priority-based sampling) |
+| `ElasticOptions` | `Elastic` | Elasticsearch logging configuration |
+| `ElasticApm:*` | `ElasticApm` | Elastic APM distributed tracing configuration (see appsettings.json for full options) |
+
+**Note:** Elastic APM is available for distributed tracing and performance monitoring. See [log-aggregation.md](docs/articles/log-aggregation.md) for APM setup and correlation between logs and traces.
 
 ### Default Values
 
@@ -143,7 +148,10 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup, troubleshooting |
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
-| [log-aggregation.md](docs/articles/log-aggregation.md) | Seq centralized logging setup |
+| [log-aggregation.md](docs/articles/log-aggregation.md) | Elasticsearch and Seq centralized logging setup |
+| [elastic-stack-setup.md](docs/articles/elastic-stack-setup.md) | Local development setup for Elastic Stack (Elasticsearch, Kibana, APM) |
+| [kibana-dashboards.md](docs/articles/kibana-dashboards.md) | Kibana dashboards, saved searches, and alerting setup |
+| [elastic-apm.md](docs/articles/elastic-apm.md) | Elastic APM integration, distributed tracing, and performance monitoring |
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
 | [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | Issue hierarchy, labels, GitHub workflow |
 | [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
@@ -313,7 +321,10 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 When running locally (`dotnet run --project src/DiscordBot.Bot`):
 - Admin UI: `https://localhost:5001`
 - Swagger API docs: `https://localhost:5001/swagger`
-- Seq UI: `http://localhost:5341` (when running Seq locally)
+- Seq UI: `http://localhost:5341` (when running Seq locally - optional)
+- Elasticsearch: `http://localhost:9200` (when running Elasticsearch locally)
+- Kibana: `http://localhost:5601` (Elasticsearch UI, when running locally)
+- Elastic APM Server: `http://localhost:8200` (when running APM Server locally - for distributed tracing)
 - Logs: `logs/discordbot-YYYY-MM-DD.log`
 
 ## Common Issues
@@ -324,7 +335,7 @@ When running locally (`dotnet run --project src/DiscordBot.Bot`):
 
 ## JavaScript and Discord Snowflake IDs
 
-**CRITICAL**: Discord snowflake IDs are 64-bit integers that exceed JavaScript's `Number.MAX_SAFE_INTEGER` (9007199254740991). When passing Discord IDs (guild IDs, user IDs, channel IDs, etc.) from Razor to JavaScript, **always pass them as strings** to preserve precision.
+**CRITICAL**: Discord IDs (`ulong` in C#) are 64-bit integers that exceed JavaScript's `Number.MAX_SAFE_INTEGER` (9007199254740991). This causes overflow and precision loss. **Always treat Discord IDs as strings in JavaScript** - never as numbers.
 
 ```razor
 <!-- WRONG - loses precision on large IDs -->
