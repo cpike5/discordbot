@@ -634,9 +634,9 @@
         });
     }
 
-    // Initialize tab
-    async function init() {
-        const hours = getSelectedHours();
+    // Initialize tab - hours parameter passed by performance-tabs.js
+    async function init(hours) {
+        hours = hours || getSelectedHours();
         convertTimestampsToLocal();
 
         await Promise.all([
