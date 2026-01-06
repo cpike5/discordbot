@@ -162,7 +162,7 @@
         <div class="chart-card-header">
             <div>
                 <h2 class="chart-card-title">Response Time Trend</h2>
-                <p class="chart-card-subtitle">Average command response time (last 24 hours)</p>
+                <p class="chart-card-subtitle" id="overviewResponseTimeSubtitle">Average command response time (last 24 hours)</p>
             </div>
         </div>
         <div class="chart-card-body">
@@ -177,7 +177,7 @@
         <div class="chart-card-header">
             <div>
                 <h2 class="chart-card-title">Command Throughput</h2>
-                <p class="chart-card-subtitle">Commands per hour (last 24 hours)</p>
+                <p class="chart-card-subtitle" id="overviewThroughputSubtitle">Commands per hour (last 24 hours)</p>
             </div>
         </div>
         <div class="chart-card-body">
@@ -374,19 +374,50 @@
             const performanceData = await performanceResponse.json();
 
             // Fetch throughput data with the specified time range
-            // Use 'hour' granularity for 24h/7d, 'day' for 30d
-            const granularity = hours > 168 ? 'day' : 'hour';
+            // Use 'hour' granularity for 24h only, 'day' for 7d and 30d
+            const granularity = hours <= 24 ? 'hour' : 'day';
             const throughputResponse = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
             const throughputData = await throughputResponse.json();
 
-            // Response Time Chart
+            // Helper function to format labels based on granularity
+            function formatLabel(timestamp, isDaily) {
+                const date = new Date(timestamp);
+                if (isDaily) {
+                    // For daily granularity: "Jan 5"
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } else {
+                    // For hourly granularity: "Jan 5, 2 PM"
+                    const month = date.toLocaleDateString('en-US', { month: 'short' });
+                    const day = date.getDate();
+                    const hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                    return `${month} ${day}, ${hour}`;
+                }
+            }
+
+            // Determine time range label
+            const timeRangeLabel = hours <= 24 ? 'last 24 hours' : hours <= 168 ? 'last 7 days' : 'last 30 days';
+            const isDaily = granularity === 'day';
+
+            // Update subtitles
+            const responseSubtitle = document.getElementById('overviewResponseTimeSubtitle');
+            if (responseSubtitle) {
+                responseSubtitle.textContent = `Average command response time (${timeRangeLabel})`;
+            }
+            const throughputSubtitle = document.getElementById('overviewThroughputSubtitle');
+            if (throughputSubtitle) {
+                throughputSubtitle.textContent = `Commands per ${isDaily ? 'day' : 'hour'} (${timeRangeLabel})`;
+            }
+
+            // Response Time Chart - use throughput data timestamps for consistent labeling
             const responseCtx = document.getElementById('overviewResponseTimeChart');
             if (responseCtx) {
-                const responseLabels = performanceData.slice(0, 12).map((_, i) => {
-                    const hour = new Date().getHours() - (12 - i);
-                    return `${(hour + 24) % 24}:00`;
-                });
-                const responseValues = performanceData.slice(0, 12).map(d => d.avgDurationMs || d.avgMs || 0);
+                // Use all throughput data timestamps for x-axis labels (they have proper time bucketing)
+                const responseLabels = throughputData.map(d => formatLabel(d.timestamp, isDaily));
+                // Use aggregate average for each time bucket (performanceData is per-command, not per-time)
+                const avgMs = performanceData.length > 0
+                    ? performanceData.reduce((sum, d) => sum + (d.avgDurationMs || d.avgMs || 0), 0) / performanceData.length
+                    : 0;
+                const responseValues = new Array(responseLabels.length).fill(avgMs);
 
                 new Chart(responseCtx, {
                     type: 'line',
@@ -442,11 +473,8 @@
             // Throughput Chart
             const throughputCtx = document.getElementById('overviewThroughputChart');
             if (throughputCtx) {
-                const throughputLabels = throughputData.slice(0, 12).map(d => {
-                    const date = new Date(d.timestamp);
-                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                });
-                const throughputValues = throughputData.slice(0, 12).map(d => d.commandCount || d.count || 0);
+                const throughputLabels = throughputData.map(d => formatLabel(d.timestamp, isDaily));
+                const throughputValues = throughputData.map(d => d.commandCount || d.count || 0);
 
                 new Chart(throughputCtx, {
                     type: 'bar',
