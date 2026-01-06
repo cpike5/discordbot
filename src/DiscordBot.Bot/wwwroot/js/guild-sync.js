@@ -34,7 +34,7 @@ async function syncGuild(guildId, buttonElement) {
     const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
     // Make AJAX request
-    const response = await fetch(`?handler=Sync&id=${guildId}`, {
+    const response = await fetch(`?handler=SyncGuild&id=${guildId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
