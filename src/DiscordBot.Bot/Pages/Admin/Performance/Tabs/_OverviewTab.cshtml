@@ -360,19 +360,23 @@
 <script>
 (function() {
     // Initialize overview tab charts
-    async function initOverviewCharts() {
+    async function initOverviewCharts(hours) {
+        hours = hours || 24; // Default to 24 hours if not provided
+
         if (typeof Chart === 'undefined') {
             console.warn('Chart.js not loaded yet for overview tab');
             return;
         }
 
         try {
-            // Fetch command performance data
-            const performanceResponse = await fetch('/api/metrics/commands/performance?hours=24');
+            // Fetch command performance data with the specified time range
+            const performanceResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
             const performanceData = await performanceResponse.json();
 
-            // Fetch throughput data
-            const throughputResponse = await fetch('/api/metrics/commands/throughput?hours=24&granularity=hour');
+            // Fetch throughput data with the specified time range
+            // Use 'hour' granularity for 24h/7d, 'day' for 30d
+            const granularity = hours > 168 ? 'day' : 'hour';
+            const throughputResponse = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
             const throughputData = await throughputResponse.json();
 
             // Response Time Chart
@@ -512,13 +516,10 @@
         });
     }
 
-    // Run initialization
-    initOverviewCharts();
-    convertTimestamps();
-
     // Expose init function for tab system to call
-    window.initOverviewTab = function() {
-        initOverviewCharts();
+    // Note: Don't call init here - let performance-tabs.js call it via initTab()
+    window.initOverviewTab = function(hours) {
+        initOverviewCharts(hours);
         convertTimestamps();
     };
 

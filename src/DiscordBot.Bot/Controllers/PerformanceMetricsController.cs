@@ -111,7 +111,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <summary>
     /// Gets latency history with statistical analysis.
     /// </summary>
-    /// <param name="hours">Number of hours of history to retrieve (1-168, default: 24).</param>
+    /// <param name="hours">Number of hours of history to retrieve (1-720, default: 24).</param>
     /// <returns>Latency history with samples and statistics.</returns>
     [HttpGet("health/latency")]
     [ProducesResponseType(typeof(LatencyHistoryDto), StatusCodes.Status200OK)]
@@ -121,14 +121,14 @@ public class PerformanceMetricsController : ControllerBase
     {
         try
         {
-            if (hours < 1 || hours > 168)
+            if (hours < 1 || hours > 720)
             {
                 _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
 
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Invalid hours parameter",
-                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId()
                 });
@@ -506,7 +506,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <summary>
     /// Gets Discord API usage statistics.
     /// </summary>
-    /// <param name="hours">Number of hours of history to retrieve (1-168, default: 24).</param>
+    /// <param name="hours">Number of hours of history to retrieve (1-720, default: 24).</param>
     /// <returns>API usage summary with total requests and breakdown by category.</returns>
     [HttpGet("api/usage")]
     [ProducesResponseType(typeof(ApiUsageSummaryDto), StatusCodes.Status200OK)]
@@ -516,14 +516,14 @@ public class PerformanceMetricsController : ControllerBase
     {
         try
         {
-            if (hours < 1 || hours > 168)
+            if (hours < 1 || hours > 720)
             {
                 _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
 
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Invalid hours parameter",
-                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId()
                 });
@@ -564,7 +564,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <summary>
     /// Gets Discord API rate limit events.
     /// </summary>
-    /// <param name="hours">Number of hours of history to retrieve (1-168, default: 24).</param>
+    /// <param name="hours">Number of hours of history to retrieve (1-720, default: 24).</param>
     /// <returns>Rate limit summary with event count and details.</returns>
     [HttpGet("api/rate-limits")]
     [ProducesResponseType(typeof(RateLimitSummaryDto), StatusCodes.Status200OK)]
@@ -574,14 +574,14 @@ public class PerformanceMetricsController : ControllerBase
     {
         try
         {
-            if (hours < 1 || hours > 168)
+            if (hours < 1 || hours > 720)
             {
                 _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
 
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Invalid hours parameter",
-                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId()
                 });
@@ -618,7 +618,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <summary>
     /// Gets Discord API latency history with samples and statistics.
     /// </summary>
-    /// <param name="hours">Number of hours of history to retrieve (1-168, default: 24).</param>
+    /// <param name="hours">Number of hours of history to retrieve (1-720, default: 24).</param>
     /// <returns>API latency history with time series samples and aggregate statistics.</returns>
     [HttpGet("api/latency")]
     [ProducesResponseType(typeof(ApiLatencyHistoryDto), StatusCodes.Status200OK)]
@@ -628,14 +628,14 @@ public class PerformanceMetricsController : ControllerBase
     {
         try
         {
-            if (hours < 1 || hours > 168)
+            if (hours < 1 || hours > 720)
             {
                 _logger.LogWarning("Invalid hours parameter: {Hours}", hours);
 
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Invalid hours parameter",
-                    Detail = "Hours must be between 1 and 168 (7 days).",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId()
                 });

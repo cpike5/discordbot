@@ -557,7 +557,9 @@
     }
 
     // Initialize on tab load
-    function init() {
+    function init(hours) {
+        hours = hours || 24; // Default to 24 hours if not provided
+
         const initialLatency = @Model.Health.LatencyMs;
         const initialMemory = @Model.WorkingSetMB;
         const initialCpu = @Model.CpuUsagePercent;
@@ -567,21 +569,25 @@
         healthCpuGaugeChart = createGaugeChart('healthCpuGauge', initialCpu, 100, cpuThresholds, cpuColors);
 
         initSparklineChart();
-        initLatencyHistoryChart(24);
+        initLatencyHistoryChart(hours);
 
-        // Time range selector
+        // Time range selector - sync with passed hours value
         const timeRangeSelect = document.getElementById('healthLatencyTimeRange');
         if (timeRangeSelect) {
+            // Set dropdown to match selected time range
+            const hoursToOption = { 24: '24', 168: '168', 720: '168' }; // Map 30d to 7d option
+            if (hoursToOption[hours]) {
+                timeRangeSelect.value = hoursToOption[hours];
+            }
+
             timeRangeSelect.addEventListener('change', function(e) {
                 initLatencyHistoryChart(parseInt(e.target.value));
             });
         }
     }
 
-    // Run initialization
-    init();
-
     // Expose init and destroy functions for tab system
+    // Note: Don't call init here - let performance-tabs.js call it via initTab()
     window.initHealthTab = init;
     window.destroyHealthTab = function() {
         [healthLatencyGaugeChart, healthMemoryGaugeChart, healthCpuGaugeChart, healthSparklineChart, healthLatencyHistoryChart].forEach(chart => {
