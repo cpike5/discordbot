@@ -290,3 +290,32 @@ The `Tabs/_CommandsTab.cshtml` partial was already complete from a previous impl
 - `docs/lessons-learned/issue-722-performance-tab-conversion.md` - Updated with #762 notes
 
 **Note:** The API Metrics tab uses `initApiTab` (not `initApiMetricsTab`) to match the performance-tabs.js pattern where the tab ID is `api` and it looks for `init{Capitalize(tabId)}Tab`. Both function names are exposed for compatibility.
+
+### Bug Fix: API Latency Chart Property Names
+
+During testing, the API Latency chart was not displaying data. The issue was that `_ApiTab.cshtml` (used by the AJAX tab system) was using incorrect property names when mapping chart data:
+
+**Bug:**
+```javascript
+data: data.samples.map(s => s.latencyMs)  // Wrong! Property doesn't exist
+```
+
+**Fix:**
+```javascript
+datasets: [
+    {
+        label: 'Average Latency',
+        data: data.samples.map(s => s.avgLatencyMs),  // Correct property name
+        // ...
+    },
+    {
+        label: 'P95 Latency',
+        data: data.samples.map(s => s.p95LatencyMs),  // Correct property name
+        // ...
+    }
+]
+```
+
+The API endpoint `/api/metrics/api/latency` returns samples with `avgLatencyMs` and `p95LatencyMs` properties (matching the `ApiLatencySampleDto` class), not `latencyMs`.
+
+**Lesson:** Always verify that JavaScript property names match the C# DTO property names after camelCase serialization. C# `AvgLatencyMs` becomes `avgLatencyMs` in JSON.
