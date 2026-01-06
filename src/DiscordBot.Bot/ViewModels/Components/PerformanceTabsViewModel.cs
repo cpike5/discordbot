@@ -15,4 +15,10 @@ public class PerformanceTabsViewModel
     /// Optional: Number of active alerts to display as a badge on the Alerts tab.
     /// </summary>
     public int ActiveAlertCount { get; set; }
+
+    /// <summary>
+    /// When true, tabs use AJAX navigation to load content without page reload.
+    /// When false (default), tabs link to separate pages.
+    /// </summary>
+    public bool UseAjaxNavigation { get; set; }
 }
