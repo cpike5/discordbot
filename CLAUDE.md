@@ -8,11 +8,13 @@ Discord bot management system built with .NET 8 and Discord.NET. Combines a Disc
 
 **Current version:** v0.5.4-dev (pre-release). Version is centralized in `Directory.Build.props` at solution root. See [versioning-strategy.md](docs/articles/versioning-strategy.md) for release process.
 
-## Current Work: Issue #661 - Performance Dashboard Refactor
+## **IMPORTANT!** - Current Work: Issue #661 - Performance Dashboard Refactor
 
 **Branch:** `feature/issue-661-performance-dashboard-refactor`
 
 Refactoring the Performance Dashboard (`/Admin/Performance/*`) from 6 separate Razor pages to a component-based architecture with a static shell and dynamically-loaded tab content. This is a prerequisite for SignalR real-time updates (#622).
+
+When completing your work, do so against branch feature/issue-661-performance-dashboard-refactor for small fixes, or create a new branch off of it for larger changes and PR into it.
 
 **Current State → Target State:**
 - 6 separate pages with duplicated header/tabs → Single page shell with AJAX-loaded tab partials
