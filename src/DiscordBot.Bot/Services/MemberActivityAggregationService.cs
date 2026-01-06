@@ -74,31 +74,32 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
             executionCycle++;
             var correlationId = Guid.NewGuid().ToString("N")[..16];
 
-            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+            using (var activity = BotActivitySource.StartBackgroundServiceActivity(
                 TracingServiceName,
                 executionCycle,
-                correlationId);
-
-            UpdateHeartbeat();
-
-            try
+                correlationId))
             {
-                var snapshotsProcessed = await AggregateHourlyAsync(stoppingToken);
+                UpdateHeartbeat();
 
-                BotActivitySource.SetRecordsProcessed(activity, snapshotsProcessed);
-                BotActivitySource.SetSuccess(activity);
-                ClearError();
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                // Normal shutdown
-                break;
-            }
-            catch (Exception ex)
-            {
-                BotActivitySource.RecordException(activity, ex);
-                _logger.LogError(ex, "Error during member activity aggregation");
-                RecordError(ex);
+                try
+                {
+                    var snapshotsProcessed = await AggregateHourlyAsync(stoppingToken);
+
+                    BotActivitySource.SetRecordsProcessed(activity, snapshotsProcessed);
+                    BotActivitySource.SetSuccess(activity);
+                    ClearError();
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    // Normal shutdown
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    BotActivitySource.RecordException(activity, ex);
+                    _logger.LogError(ex, "Error during member activity aggregation");
+                    RecordError(ex);
+                }
             }
 
             // Wait for next aggregation interval
