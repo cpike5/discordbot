@@ -59,7 +59,9 @@
             activeTab: null,
             currentRequest: null,
             currentHours: 24,
-            isInitialized: false
+            isInitialized: false,
+            historyTimeout: null, // For debouncing history pushes
+            isPopstateEvent: false // Flag to prevent double history pushes
         },
 
         /**
@@ -85,11 +87,22 @@
             this.bindTimeRangeListeners();
             this.bindInternalLinkListeners();
 
-            // Load initial tab (overview by default)
-            const activeTabLink = document.querySelector(this.config.tabLinkSelector + '.active');
-            const initialTab = activeTabLink ? this.getTabIdFromLink(activeTabLink) : this.config.defaultTab;
+            // Set up popstate listener for browser back/forward
+            this.bindPopstateListener();
+
+            // Determine initial tab from URL hash or fallback to active tab or default
+            let initialTab = this.getTabFromUrl();
+            if (!initialTab) {
+                const activeTabLink = document.querySelector(this.config.tabLinkSelector + '.active');
+                initialTab = activeTabLink ? this.getTabIdFromLink(activeTabLink) : this.config.defaultTab;
+            }
 
             this.state.activeTab = initialTab;
+
+            // Set initial history state so back button works from first tab
+            history.replaceState({ tabId: initialTab, timeRange: this.state.currentHours, timestamp: Date.now() }, '', `#${initialTab}`);
+
+            // Load the initial tab
             this.loadTab(initialTab, this.state.currentHours, false);
 
             this.state.isInitialized = true;
@@ -159,6 +172,76 @@
         },
 
         /**
+         * Bind popstate event listener for browser back/forward navigation
+         */
+        bindPopstateListener: function() {
+            const self = this;
+            window.addEventListener('popstate', function(e) {
+                const tabId = self.handlePopState(e);
+                if (tabId && tabId !== self.state.activeTab) {
+                    // Set flag so switchTab knows this came from popstate
+                    self.state.isPopstateEvent = true;
+                    self.switchTab(tabId, { updateHistory: false });
+                    self.state.isPopstateEvent = false;
+                }
+            });
+        },
+
+        /**
+         * Handle popstate event from browser back/forward
+         * @param {PopStateEvent} event - The popstate event
+         * @returns {string|null} The tab ID to navigate to
+         */
+        handlePopState: function(event) {
+            // If we have state from our history.pushState, use it
+            if (event.state && event.state.tabId) {
+                return event.state.tabId;
+            }
+            // Otherwise, parse from the current URL hash
+            return this.getTabFromUrl();
+        },
+
+        /**
+         * Parse tab ID from URL hash
+         * @returns {string|null} The tab ID if valid, otherwise null
+         */
+        getTabFromUrl: function() {
+            const hash = window.location.hash.slice(1); // Remove the '#' character
+
+            // Check if the hash is a valid tab ID
+            if (hash && this.config.endpoints[hash]) {
+                return hash;
+            }
+
+            return null;
+        },
+
+        /**
+         * Push a new history state for the given tab
+         * Debounced to prevent flooding history with rapid tab switches
+         * @param {string} tabId - The tab ID to push to history
+         */
+        pushHistory: function(tabId) {
+            const self = this;
+
+            // Clear any pending history push
+            if (this.state.historyTimeout) {
+                clearTimeout(this.state.historyTimeout);
+            }
+
+            // Debounce: wait 100ms before actually pushing to history
+            this.state.historyTimeout = setTimeout(function() {
+                const state = {
+                    tabId: tabId,
+                    timeRange: self.state.currentHours,
+                    timestamp: Date.now()
+                };
+                history.pushState(state, '', `#${tabId}`);
+                self.state.historyTimeout = null;
+            }, 100);
+        },
+
+        /**
          * Extract tab ID from a tab navigation link
          * @param {HTMLElement} link - The tab link element
          * @returns {string|null} The tab ID
@@ -187,8 +270,12 @@
         /**
          * Switch to a different tab
          * @param {string} tabId - The tab to switch to
+         * @param {Object} options - Optional configuration
+         * @param {boolean} options.updateHistory - Whether to update URL and history (default: true)
          */
-        switchTab: function(tabId) {
+        switchTab: function(tabId, options = {}) {
+            const { updateHistory = true } = options;
+
             if (!this.config.endpoints[tabId]) {
                 console.warn('Unknown tab:', tabId);
                 return;
@@ -206,6 +293,11 @@
             // Load the new tab
             this.state.activeTab = tabId;
             this.loadTab(tabId, this.state.currentHours, false);
+
+            // Update URL and history if requested (user clicked tab) or not from popstate
+            if (updateHistory && !this.state.isPopstateEvent) {
+                this.pushHistory(tabId);
+            }
 
             // Dispatch custom event for external listeners
             document.dispatchEvent(new CustomEvent('performanceTabChanged', {
