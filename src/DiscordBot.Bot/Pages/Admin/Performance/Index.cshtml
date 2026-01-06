@@ -69,7 +69,23 @@
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="~/js/realtime-ui.js"></script>
-    <script src="~/js/performance-tabs.js"></script>
+
+    <!-- Performance Dashboard shared utilities -->
+    <script src="~/js/performance/time-range.js"></script>
+    <script src="~/js/performance/components/timestamp-utils.js"></script>
+    <script src="~/js/performance/components/chart-utils.js"></script>
+
+    <!-- Tab modules -->
+    <script src="~/js/performance/tabs/overview.js"></script>
+    <script src="~/js/performance/tabs/health.js"></script>
+    <script src="~/js/performance/tabs/commands.js"></script>
+    <script src="~/js/performance/tabs/api.js"></script>
+    <script src="~/js/performance/tabs/system.js"></script>
+    <script src="~/js/performance/tabs/alerts.js"></script>
+
+    <!-- Main orchestrator (loads last) -->
+    <script src="~/js/performance/dashboard.js"></script>
+
     <script>
         // Chart.js default dark theme settings
         Chart.defaults.color = '#a8a5a3';
