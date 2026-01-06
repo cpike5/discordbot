@@ -72,10 +72,10 @@ The following index patterns are created for querying log data:
 
 | Data View | Index Pattern | Description |
 |-----------|---------------|-------------|
-| DiscordBot Logs - All Environments | `discordbot-logs-*` | All logs across dev/staging/prod |
-| DiscordBot Logs - Production | `discordbot-logs-prod-*` | Production logs only |
-| DiscordBot Logs - Staging | `discordbot-logs-staging-*` | Staging logs only |
-| DiscordBot Logs - Development | `discordbot-logs-dev-*` | Development logs only |
+| DiscordBot Logs - All Environments | `logs-discordbot-*` | All logs across dev/staging/prod |
+| DiscordBot Logs - Production | `logs-discordbot-production` | Production logs only |
+| DiscordBot Logs - Staging | `logs-discordbot-staging` | Staging logs only |
+| DiscordBot Logs - Development | `logs-discordbot-development` | Development logs only |
 | APM Data | `apm-*` | APM transaction and span data |
 | Metricbeat Data | `metricbeat-*` | Prometheus metrics (if using Metricbeat) |
 

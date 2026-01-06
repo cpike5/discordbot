@@ -8,7 +8,7 @@
         "interval": "1m"
       },
       "params": {
-        "index": ["discordbot-logs-*"],
+        "index": ["logs-discordbot-*"],
         "timeField": "@timestamp",
         "esQuery": "{\"query\":{\"bool\":{\"must\":[{\"term\":{\"level\":\"Error\"}}]}}}",
         "threshold": [10],
@@ -55,7 +55,7 @@
         "interval": "1m"
       },
       "params": {
-        "index": ["discordbot-logs-*"],
+        "index": ["logs-discordbot-*"],
         "timeField": "@timestamp",
         "esQuery": "{\"query\":{\"bool\":{\"must\":[{\"exists\":{\"field\":\"db.error\"}}]}}}",
         "threshold": [1],
@@ -79,7 +79,7 @@
         "interval": "1m"
       },
       "params": {
-        "index": ["discordbot-logs-*"],
+        "index": ["logs-discordbot-*"],
         "timeField": "@timestamp",
         "esQuery": "{\"query\":{\"bool\":{\"should\":[{\"term\":{\"discord.api.rate_limit.remaining\":0}},{\"match_phrase\":{\"message\":\"rate limit\"}}]}}}",
         "threshold": [1],
@@ -103,7 +103,7 @@
         "interval": "1m"
       },
       "params": {
-        "index": ["discordbot-logs-*"],
+        "index": ["logs-discordbot-*"],
         "timeField": "@timestamp",
         "esQuery": "{\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"SourceContext\":\"DiscordBot.Bot.Services.BotHostedService\"}}]}}}",
         "threshold": [0],
@@ -127,7 +127,7 @@
         "interval": "5m"
       },
       "params": {
-        "index": ["discordbot-logs-*"],
+        "index": ["logs-discordbot-*"],
         "timeField": "@timestamp",
         "esQuery": "{\"query\":{\"bool\":{\"must\":[{\"term\":{\"automod.rule.triggered\":true}}]}}}",
         "threshold": [50],
