@@ -72,15 +72,20 @@ public class HealthMetricsModel : PageModel
             var uptime30d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(30));
 
             // Get system metrics
-            var process = Process.GetCurrentProcess();
-            var workingSetMB = process.WorkingSet64 / 1024 / 1024;
-            var privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+            long workingSetMB;
+            long privateMemoryMB;
+            int threadCount;
+            using (var process = Process.GetCurrentProcess())
+            {
+                workingSetMB = process.WorkingSet64 / 1024 / 1024;
+                privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+                threadCount = process.Threads.Count;
+            }
             var maxAllocatedMemoryMB = GC.GetTotalMemory(false) / 1024 / 1024;
             var memoryUtilizationPercent = maxAllocatedMemoryMB > 0
                 ? (double)workingSetMB / maxAllocatedMemoryMB * 100
                 : 0;
             var gen2Collections = GC.CollectionCount(2);
-            var threadCount = process.Threads.Count;
 
             // Get detailed memory diagnostics
             var memoryDiagnostics = _memoryDiagnosticsService.GetDiagnostics();

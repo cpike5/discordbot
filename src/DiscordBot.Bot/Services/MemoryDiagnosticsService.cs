@@ -66,11 +66,16 @@ public class MemoryDiagnosticsService : IMemoryDiagnosticsService
                 .ToList();
 
             var totalAccounted = serviceReports.Sum(r => r.EstimatedBytes);
-            var process = Process.GetCurrentProcess();
 
             // Unaccounted is the difference between total committed and what we've tracked
             // This includes framework overhead, native memory, and services not yet instrumented
             var unaccounted = Math.Max(0, gcInfo.TotalCommittedBytes - totalAccounted);
+
+            long workingSetBytes;
+            using (var process = Process.GetCurrentProcess())
+            {
+                workingSetBytes = process.WorkingSet64;
+            }
 
             _cachedReport = new MemoryDiagnosticsDto
             {
@@ -79,7 +84,7 @@ public class MemoryDiagnosticsService : IMemoryDiagnosticsService
                 ServiceReports = serviceReports,
                 TotalAccountedBytes = totalAccounted,
                 UnaccountedBytes = unaccounted,
-                WorkingSetBytes = process.WorkingSet64,
+                WorkingSetBytes = workingSetBytes,
                 ManagedHeapBytes = GC.GetTotalMemory(false)
             };
 

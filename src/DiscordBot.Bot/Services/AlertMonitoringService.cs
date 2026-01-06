@@ -497,7 +497,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     private double? GetMemoryUsage()
     {
-        var process = System.Diagnostics.Process.GetCurrentProcess();
+        using var process = System.Diagnostics.Process.GetCurrentProcess();
         var memoryMb = process.WorkingSet64 / (1024.0 * 1024.0);
         return memoryMb;
     }

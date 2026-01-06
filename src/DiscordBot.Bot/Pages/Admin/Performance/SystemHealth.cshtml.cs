@@ -81,9 +81,13 @@ public class SystemHealthModel : PageModel
             };
 
             // Get system memory metrics
-            var process = Process.GetCurrentProcess();
-            var workingSetMB = process.WorkingSet64 / 1024 / 1024;
-            var privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+            long workingSetMB;
+            long privateMemoryMB;
+            using (var process = Process.GetCurrentProcess())
+            {
+                workingSetMB = process.WorkingSet64 / 1024 / 1024;
+                privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+            }
             var heapSizeMB = GC.GetTotalMemory(false) / 1024 / 1024;
             var gen0Collections = GC.CollectionCount(0);
             var gen1Collections = GC.CollectionCount(1);

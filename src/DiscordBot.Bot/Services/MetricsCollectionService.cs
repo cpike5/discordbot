@@ -138,7 +138,7 @@ public class MetricsCollectionService : MonitoredBackgroundService
         snapshot.DatabaseSlowQueryCount = dbMetrics.SlowQueryCount;
 
         // Collect memory metrics
-        var process = Process.GetCurrentProcess();
+        using var process = Process.GetCurrentProcess();
         snapshot.WorkingSetMB = process.WorkingSet64 / (1024 * 1024);
         snapshot.PrivateMemoryMB = process.PrivateMemorySize64 / (1024 * 1024);
         snapshot.HeapSizeMB = GC.GetTotalMemory(false) / (1024 * 1024);

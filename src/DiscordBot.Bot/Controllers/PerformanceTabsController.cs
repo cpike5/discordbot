@@ -228,8 +228,11 @@ public class PerformanceTabsController : Controller
         var activeAlerts = await _alertService.GetActiveIncidentsAsync();
         var recentAlerts = activeAlerts.OrderByDescending(a => a.TriggeredAt).Take(5).ToList();
 
-        var process = Process.GetCurrentProcess();
-        var workingSetMB = process.WorkingSet64 / 1024 / 1024;
+        long workingSetMB;
+        using (var process = Process.GetCurrentProcess())
+        {
+            workingSetMB = process.WorkingSet64 / 1024 / 1024;
+        }
         var maxMemoryMB = 1024;
         var memoryUsagePercent = (workingSetMB * 100.0) / maxMemoryMB;
 
@@ -275,15 +278,20 @@ public class PerformanceTabsController : Controller
         var uptime7d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(7));
         var uptime30d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(30));
 
-        var process = Process.GetCurrentProcess();
-        var workingSetMB = process.WorkingSet64 / 1024 / 1024;
-        var privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+        long workingSetMB2;
+        long privateMemoryMB;
+        int threadCount;
+        using (var process = Process.GetCurrentProcess())
+        {
+            workingSetMB2 = process.WorkingSet64 / 1024 / 1024;
+            privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+            threadCount = process.Threads.Count;
+        }
         var maxAllocatedMemoryMB = GC.GetTotalMemory(false) / 1024 / 1024;
         var memoryUtilizationPercent = maxAllocatedMemoryMB > 0
-            ? (double)workingSetMB / maxAllocatedMemoryMB * 100
+            ? (double)workingSetMB2 / maxAllocatedMemoryMB * 100
             : 0;
         var gen2Collections = GC.CollectionCount(2);
-        var threadCount = process.Threads.Count;
 
         var memoryDiagnostics = _memoryDiagnosticsService.GetDiagnostics();
 
@@ -314,7 +322,7 @@ public class PerformanceTabsController : Controller
             LatencyHealthClass = HealthMetricsViewModel.GetLatencyHealthClass(currentLatency),
             SessionStartFormatted = sessionStartFormatted,
             SessionStartUtc = sessionStart,
-            WorkingSetMB = workingSetMB,
+            WorkingSetMB = workingSetMB2,
             PrivateMemoryMB = privateMemoryMB,
             MaxAllocatedMemoryMB = maxAllocatedMemoryMB,
             MemoryUtilizationPercent = memoryUtilizationPercent,
@@ -420,9 +428,13 @@ public class PerformanceTabsController : Controller
             Size = cacheByPrefix.Sum(c => c.Size)
         };
 
-        var process = Process.GetCurrentProcess();
-        var workingSetMB = process.WorkingSet64 / 1024 / 1024;
-        var privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+        long workingSetMB;
+        long privateMemoryMB2;
+        using (var process = Process.GetCurrentProcess())
+        {
+            workingSetMB = process.WorkingSet64 / 1024 / 1024;
+            privateMemoryMB2 = process.PrivateMemorySize64 / 1024 / 1024;
+        }
         var heapSizeMB = GC.GetTotalMemory(false) / 1024 / 1024;
         var gen0Collections = GC.CollectionCount(0);
         var gen1Collections = GC.CollectionCount(1);
@@ -447,7 +459,7 @@ public class PerformanceTabsController : Controller
             OverallCacheStats = overallCacheStats,
             CacheStatsByPrefix = cacheByPrefix,
             WorkingSetMB = workingSetMB,
-            PrivateMemoryMB = privateMemoryMB,
+            PrivateMemoryMB = privateMemoryMB2,
             HeapSizeMB = heapSizeMB,
             Gen0Collections = gen0Collections,
             Gen1Collections = gen1Collections,

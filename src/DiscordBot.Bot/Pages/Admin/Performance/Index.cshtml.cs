@@ -106,8 +106,11 @@ public class IndexModel : PageModel
             var recentAlerts = activeAlerts.OrderByDescending(a => a.TriggeredAt).Take(5).ToList();
 
             // Get system metrics
-            var process = Process.GetCurrentProcess();
-            var workingSetMB = process.WorkingSet64 / 1024 / 1024;
+            long workingSetMB;
+            using (var process = Process.GetCurrentProcess())
+            {
+                workingSetMB = process.WorkingSet64 / 1024 / 1024;
+            }
             var maxMemoryMB = 1024; // Placeholder - could be from config or system info
             var memoryUsagePercent = (workingSetMB * 100.0) / maxMemoryMB;
 
