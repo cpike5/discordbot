@@ -1,327 +1,10 @@
+@model DiscordBot.Bot.ViewModels.Pages.PerformanceOverviewViewModel
 @using DiscordBot.Bot.ViewModels.Pages
-@model PerformanceOverviewViewModel
-@{
-    // This partial contains the Overview tab content for the Performance Dashboard shell
-}
-
-<style>
-    /* Chart Card */
-    .chart-card {
-        background: rgb(35, 38, 40);
-        border: 1px solid rgb(63, 68, 71);
-        border-radius: 0.5rem;
-        overflow: hidden;
-    }
-
-    .chart-card-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1.25rem;
-        border-bottom: 1px solid rgb(63, 68, 71);
-    }
-
-    .chart-card-title {
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: rgb(215, 211, 208);
-        margin: 0;
-    }
-
-    .chart-card-subtitle {
-        font-size: 0.875rem;
-        color: rgb(168, 165, 163);
-        margin: 0.25rem 0 0;
-    }
-
-    .chart-card-body {
-        padding: 1.25rem;
-    }
-
-    .chart-container {
-        position: relative;
-        height: 300px;
-    }
-
-    /* Status Cards */
-    .status-cards-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .status-card {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: rgb(35, 38, 40);
-        border: 1px solid rgb(63, 68, 71);
-        border-radius: 0.5rem;
-        transition: all 0.2s;
-        text-decoration: none;
-    }
-
-    .status-card:hover {
-        border-color: rgb(9, 142, 207);
-        background: rgb(40, 43, 46);
-    }
-
-    .status-card-icon {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .status-card-icon svg {
-        width: 1.5rem;
-        height: 1.5rem;
-    }
-
-    .status-card-content {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .status-card-label {
-        display: block;
-        font-size: 0.75rem;
-        color: rgb(168, 165, 163);
-        margin-bottom: 0.25rem;
-    }
-
-    .status-card-value {
-        display: block;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: rgb(215, 211, 208);
-    }
-
-    /* Metric Cards */
-    .metric-card {
-        background: rgb(35, 38, 40);
-        border: 1px solid rgb(63, 68, 71);
-        border-radius: 0.5rem;
-        padding: 1.25rem;
-    }
-
-    .metric-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.75rem;
-    }
-
-    .metric-label {
-        font-size: 0.875rem;
-        color: rgb(168, 165, 163);
-    }
-
-    .metric-icon {
-        width: 1.25rem;
-        height: 1.25rem;
-        color: rgb(168, 165, 163);
-    }
-
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: rgb(215, 211, 208);
-        line-height: 1;
-    }
-
-    .metric-unit {
-        font-size: 1rem;
-        font-weight: 500;
-        color: rgb(168, 165, 163);
-    }
-
-    .metric-trend {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        margin-top: 0.5rem;
-        font-size: 0.75rem;
-    }
-
-    .metric-trend-up {
-        color: rgb(16, 185, 129);
-    }
-
-    /* Progress Bar */
-    .progress-labeled {
-        margin-top: 1rem;
-    }
-
-    .progress-header {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 0.5rem;
-    }
-
-    .progress-label {
-        font-size: 0.875rem;
-        color: rgb(168, 165, 163);
-    }
-
-    .progress-value {
-        font-size: 0.875rem;
-        color: rgb(215, 211, 208);
-        font-weight: 500;
-    }
-
-    .progress-bar-container {
-        width: 100%;
-        height: 0.5rem;
-        background: rgb(47, 51, 54);
-        border-radius: 9999px;
-        overflow: hidden;
-    }
-
-    .progress-bar-fill {
-        height: 100%;
-        border-radius: 9999px;
-        transition: width 0.3s ease;
-    }
-
-    .progress-bar-healthy {
-        background: rgb(16, 185, 129);
-    }
-
-    .progress-bar-warning {
-        background: rgb(245, 158, 11);
-    }
-
-    .progress-bar-error {
-        background: rgb(239, 68, 68);
-    }
-
-    /* Alert Card */
-    .alert-card {
-        display: flex;
-        gap: 1rem;
-        padding: 1rem;
-        border: 1px solid rgb(63, 68, 71);
-        border-radius: 0.5rem;
-    }
-
-    .alert-card-warning {
-        background: rgba(245, 158, 11, 0.05);
-        border-color: rgba(245, 158, 11, 0.3);
-    }
-
-    .alert-card-info {
-        background: rgba(9, 142, 207, 0.05);
-        border-color: rgba(9, 142, 207, 0.3);
-    }
-
-    .alert-icon {
-        width: 1.25rem;
-        height: 1.25rem;
-        flex-shrink: 0;
-    }
-
-    .alert-icon-warning {
-        color: rgb(245, 158, 11);
-    }
-
-    .alert-icon-info {
-        color: rgb(9, 142, 207);
-    }
-
-    .alert-content {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .alert-title {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: rgb(215, 211, 208);
-        margin-bottom: 0.25rem;
-    }
-
-    .alert-description {
-        font-size: 0.875rem;
-        color: rgb(168, 165, 163);
-        margin-bottom: 0.5rem;
-    }
-
-    .alert-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        font-size: 0.75rem;
-        color: rgb(120, 116, 113);
-    }
-
-    .severity-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.125rem 0.5rem;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 500;
-    }
-
-    .severity-warning {
-        background: rgba(245, 158, 11, 0.2);
-        color: rgb(245, 158, 11);
-    }
-
-    .severity-info {
-        background: rgba(9, 142, 207, 0.2);
-        color: rgb(9, 142, 207);
-    }
-
-    /* Grid Layouts */
-    .performance-grid-2 {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    /* Button Styles */
-    .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        border-radius: 0.375rem;
-        transition: all 0.2s;
-        text-decoration: none;
-        border: none;
-        cursor: pointer;
-    }
-
-    .btn-secondary {
-        background: rgb(47, 51, 54);
-        color: rgb(215, 211, 208);
-        border: 1px solid rgb(63, 68, 71);
-    }
-
-    .btn-secondary:hover {
-        background: rgb(55, 60, 63);
-        border-color: rgb(99, 102, 104);
-    }
-
-    .btn-svg-icon {
-        width: 1rem;
-        height: 1rem;
-    }
-</style>
 
 <!-- Quick Status Cards -->
 <div class="status-cards-grid mb-8">
     <!-- Bot Health -->
-    <button type="button" class="status-card group" onclick="PerformanceShell.switchTab('health')">
+    <a href="/Admin/Performance/HealthMetrics" class="status-card group" data-tab-link="health">
         <div class="status-card-icon bg-success/10">
             <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -334,10 +17,10 @@
         <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
-    </button>
+    </a>
 
     <!-- Command Performance -->
-    <button type="button" class="status-card group" onclick="PerformanceShell.switchTab('commands')">
+    <a href="/Admin/Performance/Commands" class="status-card group" data-tab-link="commands">
         <div class="status-card-icon bg-accent-blue/10">
             <svg class="text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -350,10 +33,10 @@
         <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
-    </button>
+    </a>
 
     <!-- API Health -->
-    <button type="button" class="status-card group" onclick="PerformanceShell.switchTab('api')">
+    <a href="/Admin/Performance/ApiMetrics" class="status-card group" data-tab-link="api">
         <div class="status-card-icon bg-success/10">
             <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -366,10 +49,10 @@
         <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
-    </button>
+    </a>
 
     <!-- System Health -->
-    <button type="button" class="status-card group" onclick="PerformanceShell.switchTab('system')">
+    <a href="/Admin/Performance/SystemHealth" class="status-card group" data-tab-link="system">
         <div class="status-card-icon bg-success/10">
             <svg class="text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
@@ -382,10 +65,10 @@
         <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
-    </button>
+    </a>
 
     <!-- Active Alerts -->
-    <button type="button" class="status-card group" onclick="PerformanceShell.switchTab('alerts')">
+    <a href="/Admin/Performance/Alerts" class="status-card group" data-tab-link="alerts">
         <div class="status-card-icon @(Model.ActiveAlertCount > 0 ? "bg-warning/10" : "bg-success/10")">
             <svg class="@(Model.ActiveAlertCount > 0 ? "text-warning" : "text-success")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -398,7 +81,7 @@
         <svg class="w-4 h-4 text-text-tertiary group-hover:text-accent-blue transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
-    </button>
+    </a>
 </div>
 
 <!-- Key Metrics Row -->
@@ -484,7 +167,7 @@
         </div>
         <div class="chart-card-body">
             <div class="chart-container">
-                <canvas id="responseTimeChart"></canvas>
+                <canvas id="overviewResponseTimeChart"></canvas>
             </div>
         </div>
     </div>
@@ -499,7 +182,7 @@
         </div>
         <div class="chart-card-body">
             <div class="chart-container">
-                <canvas id="throughputChart"></canvas>
+                <canvas id="overviewThroughputChart"></canvas>
             </div>
         </div>
     </div>
@@ -514,9 +197,9 @@
                 <h2 class="chart-card-title">Resource Usage</h2>
                 <p class="chart-card-subtitle">Current system resource utilization</p>
             </div>
-            <button type="button" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" onclick="PerformanceShell.switchTab('system')">
+            <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" data-tab-link="system">
                 View Details
-            </button>
+            </a>
         </div>
         <div class="chart-card-body space-y-6">
             <!-- Memory -->
@@ -534,10 +217,10 @@
             <div class="progress-labeled">
                 <div class="progress-header">
                     <span class="progress-label">CPU</span>
-                    <span class="progress-value" id="cpuUsageText">0%</span>
+                    <span class="progress-value" id="overviewCpuUsageText">0%</span>
                 </div>
                 <div class="progress-bar-container">
-                    <div class="progress-bar-fill progress-bar-healthy" id="cpuProgressBar" style="width: 0%;"></div>
+                    <div class="progress-bar-fill progress-bar-healthy" id="overviewCpuProgressBar" style="width: 0%;"></div>
                 </div>
             </div>
 
@@ -572,9 +255,9 @@
                 <h2 class="chart-card-title">Recent Alerts</h2>
                 <p class="chart-card-subtitle">Active and recent system alerts</p>
             </div>
-            <button type="button" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" onclick="PerformanceShell.switchTab('alerts')">
+            <a href="#" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors" data-tab-link="alerts">
                 View All
-            </button>
+            </a>
         </div>
         <div class="chart-card-body p-0">
             @if (Model.RecentAlerts.Any())
@@ -663,13 +346,191 @@
                 </svg>
                 Export Metrics
             </button>
-            <button type="button" class="btn btn-secondary" onclick="PerformanceShell.switchTab('alerts')">
+            <a href="#" class="btn btn-secondary" data-tab-link="alerts">
                 <svg class="btn-svg-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 Configure Alerts
-            </button>
+            </a>
         </div>
     </div>
 </div>
+
+<script>
+(function() {
+    // Initialize overview tab charts
+    async function initOverviewCharts() {
+        if (typeof Chart === 'undefined') {
+            console.warn('Chart.js not loaded yet for overview tab');
+            return;
+        }
+
+        try {
+            // Fetch command performance data
+            const performanceResponse = await fetch('/api/metrics/commands/performance?hours=24');
+            const performanceData = await performanceResponse.json();
+
+            // Fetch throughput data
+            const throughputResponse = await fetch('/api/metrics/commands/throughput?hours=24&granularity=hour');
+            const throughputData = await throughputResponse.json();
+
+            // Response Time Chart
+            const responseCtx = document.getElementById('overviewResponseTimeChart');
+            if (responseCtx) {
+                const responseLabels = performanceData.slice(0, 12).map((_, i) => {
+                    const hour = new Date().getHours() - (12 - i);
+                    return `${(hour + 24) % 24}:00`;
+                });
+                const responseValues = performanceData.slice(0, 12).map(d => d.avgDurationMs || d.avgMs || 0);
+
+                new Chart(responseCtx, {
+                    type: 'line',
+                    data: {
+                        labels: responseLabels,
+                        datasets: [{
+                            label: 'Avg Response (ms)',
+                            data: responseValues,
+                            borderColor: '#098ecf',
+                            backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#098ecf',
+                            pointBorderColor: '#098ecf',
+                            pointRadius: 3,
+                            pointHoverRadius: 5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.parsed.y.toFixed(0) + ' ms';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#2f3336' },
+                                ticks: {
+                                    callback: function(value) { return value + ' ms'; }
+                                }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            // Throughput Chart
+            const throughputCtx = document.getElementById('overviewThroughputChart');
+            if (throughputCtx) {
+                const throughputLabels = throughputData.slice(0, 12).map(d => {
+                    const date = new Date(d.timestamp);
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                });
+                const throughputValues = throughputData.slice(0, 12).map(d => d.commandCount || d.count || 0);
+
+                new Chart(throughputCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: throughputLabels,
+                        datasets: [{
+                            label: 'Commands',
+                            data: throughputValues,
+                            backgroundColor: '#cb4e1b',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#2f3336',
+                                titleColor: '#d7d3d0',
+                                bodyColor: '#a8a5a3',
+                                borderColor: '#3f4447',
+                                borderWidth: 1,
+                                padding: 12,
+                                displayColors: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.parsed.y + ' commands';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: '#2f3336' }
+                            },
+                            x: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Failed to initialize overview charts:', error);
+        }
+    }
+
+    // Convert UTC timestamps
+    function convertTimestamps() {
+        document.querySelectorAll('[data-utc-time]').forEach(el => {
+            const utc = el.getAttribute('data-utc-time');
+            const format = el.getAttribute('data-format');
+            if (utc) {
+                try {
+                    const date = new Date(utc);
+                    if (format === 'relative') {
+                        const now = new Date();
+                        const mins = Math.floor((now - date) / 60000);
+                        const hrs = Math.floor(mins / 60);
+                        const days = Math.floor(hrs / 24);
+                        el.textContent = days >= 1 ? `${days} day${days > 1 ? 's' : ''} ago`
+                            : hrs >= 1 ? `${hrs} hour${hrs > 1 ? 's' : ''} ago`
+                            : mins >= 1 ? `${mins} minute${mins > 1 ? 's' : ''} ago` : 'Just now';
+                    }
+                } catch (e) { }
+            }
+        });
+    }
+
+    // Run initialization
+    initOverviewCharts();
+    convertTimestamps();
+
+    // Expose init function for tab system to call
+    window.initOverviewTab = function() {
+        initOverviewCharts();
+        convertTimestamps();
+    };
+
+    window.destroyOverviewTab = function() {
+        // Cleanup any chart instances if needed
+        const charts = ['overviewResponseTimeChart', 'overviewThroughputChart'];
+        charts.forEach(id => {
+            const canvas = document.getElementById(id);
+            if (canvas && canvas._chartjs) {
+                Chart.getChart(canvas)?.destroy();
+            }
+        });
+    };
+})();
+</script>

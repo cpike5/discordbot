@@ -1,10 +1,5 @@
+@model DiscordBot.Bot.ViewModels.Pages.CommandPerformanceViewModel
 @using DiscordBot.Bot.ViewModels.Pages
-@model CommandPerformanceViewModel
-@{
-    // This partial contains the Commands tab content for the Performance Dashboard shell
-    // Note: The Hours parameter should be passed via ViewData from the parent
-    var hours = ViewData["Hours"] as int? ?? 24;
-}
 
 @if (Model.TotalCommands == 0)
 {
@@ -226,7 +221,7 @@ else
             </div>
             @if (Model.TimeoutCount > 0)
             {
-                <span class="severity-badge severity-warning">@Model.TimeoutCount timeout@(Model.TimeoutCount == 1 ? "" : "s") (@hours h)</span>
+                <span class="severity-badge severity-warning">@Model.TimeoutCount timeout@(Model.TimeoutCount == 1 ? "" : "s")</span>
             }
         </div>
         @if (Model.RecentTimeouts.Any())
@@ -277,3 +272,404 @@ else
         }
     </div>
 }
+
+<script>
+(function() {
+    'use strict';
+
+    let commandsResponseTimeChart;
+    let commandsThroughputChart;
+    let commandsErrorRateChart;
+
+    // Get current hours from PerformanceShell
+    function getSelectedHours() {
+        return window.PerformanceShell ? window.PerformanceShell.getCurrentHours() : 24;
+    }
+
+    // Get granularity based on selected hours
+    function getGranularity(hours) {
+        return hours >= 168 ? 'day' : 'hour';
+    }
+
+    // Show error message in a chart container
+    function showChartError(chartId, message) {
+        const container = document.getElementById(chartId)?.parentElement;
+        if (container) {
+            container.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full text-center p-4">
+                    <svg class="w-8 h-8 text-red-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <div class="text-red-400 font-medium">Failed to load chart</div>
+                    <div class="text-text-secondary text-sm mt-1">${message}</div>
+                </div>`;
+        }
+    }
+
+    // Initialize Response Time Chart
+    async function initResponseTimeChart(hours) {
+        try {
+            const granularity = getGranularity(hours);
+            const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP ${response.status}`);
+            }
+            const throughputData = await response.json();
+
+            const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
+            if (!aggregatesResponse.ok) {
+                const errorData = await aggregatesResponse.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP ${aggregatesResponse.status}`);
+            }
+            const aggregates = await aggregatesResponse.json();
+
+            // Create labels from throughput data
+            const labels = throughputData.map(t => {
+                const date = new Date(t.timestamp);
+                if (granularity === 'day') {
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } else {
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+            });
+
+            // For simplification, we'll use the aggregate values distributed across time buckets
+            const avgData = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].avgMs : 0);
+            const p95Data = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].p95Ms : 0);
+            const p99Data = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].p99Ms : 0);
+
+            const ctx = document.getElementById('commandsResponseTimeChart');
+            if (!ctx) return;
+
+            if (commandsResponseTimeChart) commandsResponseTimeChart.destroy();
+
+            commandsResponseTimeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Average',
+                            data: avgData,
+                            borderColor: '#098ecf',
+                            backgroundColor: 'transparent',
+                            tension: 0.4,
+                            pointRadius: 2,
+                            pointHoverRadius: 5
+                        },
+                        {
+                            label: 'P95',
+                            data: p95Data,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'transparent',
+                            tension: 0.4,
+                            pointRadius: 2,
+                            pointHoverRadius: 5,
+                            borderDash: [5, 5]
+                        },
+                        {
+                            label: 'P99',
+                            data: p99Data,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'transparent',
+                            tension: 0.4,
+                            pointRadius: 2,
+                            pointHoverRadius: 5,
+                            borderDash: [2, 2]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#2f3336',
+                            titleColor: '#d7d3d0',
+                            bodyColor: '#a8a5a3',
+                            borderColor: '#3f4447',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(0) + ' ms';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#2f3336'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + ' ms';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Failed to load response time chart:', error);
+            showChartError('commandsResponseTimeChart', error.message);
+        }
+    }
+
+    // Initialize Throughput Chart
+    async function initThroughputChart(hours) {
+        try {
+            const granularity = getGranularity(hours);
+            const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP ${response.status}`);
+            }
+            const data = await response.json();
+
+            const labels = data.map(t => {
+                const date = new Date(t.timestamp);
+                if (granularity === 'day') {
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } else {
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+            });
+
+            const ctx = document.getElementById('commandsThroughputChart');
+            if (!ctx) return;
+
+            if (commandsThroughputChart) commandsThroughputChart.destroy();
+
+            commandsThroughputChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Commands',
+                        data: data.map(t => t.count),
+                        backgroundColor: '#cb4e1b',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#2f3336',
+                            titleColor: '#d7d3d0',
+                            bodyColor: '#a8a5a3',
+                            borderColor: '#3f4447',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y + ' commands';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#2f3336'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update subtitle
+            const subtitle = document.getElementById('commandsThroughputSubtitle');
+            if (subtitle) {
+                subtitle.textContent = `Commands executed per ${hours >= 168 ? 'day' : 'hour'}`;
+            }
+        } catch (error) {
+            console.error('Failed to load throughput chart:', error);
+            showChartError('commandsThroughputChart', error.message);
+        }
+    }
+
+    // Initialize Error Rate Chart
+    async function initErrorRateChart(hours) {
+        try {
+            const granularity = getGranularity(hours);
+            const throughputResponse = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+            if (!throughputResponse.ok) {
+                const errorData = await throughputResponse.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP ${throughputResponse.status}`);
+            }
+            const throughputData = await throughputResponse.json();
+
+            const aggregatesResponse = await fetch(`/api/metrics/commands/performance?hours=${hours}`);
+            if (!aggregatesResponse.ok) {
+                const errorData = await aggregatesResponse.json().catch(() => ({}));
+                throw new Error(errorData.detail || `HTTP ${aggregatesResponse.status}`);
+            }
+            const aggregates = await aggregatesResponse.json();
+
+            const labels = throughputData.map(t => {
+                const date = new Date(t.timestamp);
+                if (granularity === 'day') {
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                } else {
+                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                }
+            });
+
+            // Use overall error rate distributed across time buckets
+            const totalCommands = aggregates.reduce((sum, a) => sum + a.executionCount, 0);
+            const errorRate = totalCommands > 0
+                ? aggregates.reduce((sum, a) => sum + (a.executionCount * a.errorRate / 100.0), 0) / totalCommands * 100
+                : 0;
+
+            const errorRateData = new Array(labels.length).fill(errorRate);
+
+            const ctx = document.getElementById('commandsErrorRateChart');
+            if (!ctx) return;
+
+            if (commandsErrorRateChart) commandsErrorRateChart.destroy();
+
+            commandsErrorRateChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Error Rate',
+                        data: errorRateData,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: '#2f3336',
+                            titleColor: '#d7d3d0',
+                            bodyColor: '#a8a5a3',
+                            borderColor: '#3f4447',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.parsed.y.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: Math.ceil(Math.max(5, errorRate + 1)),
+                            grid: {
+                                color: '#2f3336'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Failed to load error rate chart:', error);
+            showChartError('commandsErrorRateChart', error.message);
+        }
+    }
+
+    // Convert UTC timestamps to local timezone
+    function convertTimestampsToLocal() {
+        const timestampElements = document.querySelectorAll('[data-utc-time]');
+        timestampElements.forEach(element => {
+            const utcTime = element.getAttribute('data-utc-time');
+            if (utcTime) {
+                try {
+                    const date = new Date(utcTime);
+                    const formatted = date.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: '2-digit'
+                    }) + ', ' + date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                    element.textContent = formatted;
+                } catch (e) {
+                    console.error('Failed to parse timestamp:', utcTime, e);
+                }
+            }
+        });
+    }
+
+    // Initialize charts
+    async function init() {
+        const hours = getSelectedHours();
+        convertTimestampsToLocal();
+
+        @if (Model.TotalCommands > 0)
+        {
+            @:await Promise.all([
+            @:    initResponseTimeChart(hours),
+            @:    initThroughputChart(hours),
+            @:    initErrorRateChart(hours)
+            @:]);
+        }
+    }
+
+    // Initialize on load
+    init();
+
+    // Expose init and destroy functions for tab system
+    window.initCommandsTab = init;
+    window.destroyCommandsTab = function() {
+        [commandsResponseTimeChart, commandsThroughputChart, commandsErrorRateChart].forEach(chart => {
+            if (chart) chart.destroy();
+        });
+    };
+})();
+</script>
