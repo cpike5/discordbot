@@ -1,10 +1,9 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
-using DiscordBot.Core.Configuration;
-using DiscordBot.Core.Entities;
 
 namespace DiscordBot.Bot.Services;
 
@@ -16,7 +15,6 @@ namespace DiscordBot.Bot.Services;
 public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommandPerformanceAggregator
 {
     private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly DiscordSocketClient _client;
     private readonly PerformanceMetricsOptions _options;
     private readonly SemaphoreSlim _cacheLock = new(1, 1);
 
@@ -31,13 +29,11 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
     public CommandPerformanceAggregator(
         IServiceProvider serviceProvider,
         IServiceScopeFactory serviceScopeFactory,
-        DiscordSocketClient client,
         ILogger<CommandPerformanceAggregator> logger,
         IOptions<PerformanceMetricsOptions> options)
         : base(serviceProvider, logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
-        _client = client;
         _options = options.Value;
         _cacheTtl = TimeSpan.FromMinutes(_options.CommandAggregationCacheTtlMinutes);
     }
@@ -135,52 +131,22 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
         var repository = scope.ServiceProvider.GetRequiredService<ICommandLogRepository>();
 
         var since = DateTime.UtcNow.AddHours(-hours);
-        var logs = await repository.GetByDateRangeAsync(since, DateTime.UtcNow);
+        var logs = await repository.GetByDateRangeAsync(since, DateTime.UtcNow, includeDetails: true);
 
-        var results = new List<SlowestCommandDto>();
-
-        foreach (var l in logs.OrderByDescending(l => l.ResponseTimeMs).Take(limit))
-        {
-            // Resolve username - try cache first, then fetch from API
-            string? username = null;
-            try
-            {
-                var user = _client.GetUser(l.UserId) ?? await _client.GetUserAsync(l.UserId);
-                username = user?.Username;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to resolve username for user {UserId}", l.UserId);
-            }
-
-            // Resolve guild name from cache
-            string? guildName = null;
-            if (l.GuildId.HasValue)
-            {
-                try
-                {
-                    var guild = _client.GetGuild(l.GuildId.Value);
-                    guildName = guild?.Name;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "Failed to resolve guild name for guild {GuildId}", l.GuildId.Value);
-                }
-            }
-
-            results.Add(new SlowestCommandDto
+        return logs
+            .OrderByDescending(l => l.ResponseTimeMs)
+            .Take(limit)
+            .Select(l => new SlowestCommandDto
             {
                 CommandName = l.CommandName,
                 ExecutedAt = l.ExecutedAt,
                 DurationMs = l.ResponseTimeMs,
                 UserId = l.UserId,
-                Username = username,
+                Username = l.User?.Username,
                 GuildId = l.GuildId,
-                GuildName = guildName
-            });
-        }
-
-        return results;
+                GuildName = l.Guild?.Name
+            })
+            .ToList();
     }
 
     /// <inheritdoc/>
@@ -297,7 +263,7 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
             var repository = scope.ServiceProvider.GetRequiredService<ICommandLogRepository>();
 
             var since = DateTime.UtcNow.AddHours(-24);
-            var logs = await repository.GetByDateRangeAsync(since, DateTime.UtcNow, cancellationToken);
+            var logs = await repository.GetByDateRangeAsync(since, DateTime.UtcNow, includeDetails: false, cancellationToken);
 
             var aggregates = logs
                 .GroupBy(l => l.CommandName)

@@ -86,11 +86,22 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
     public async Task<IReadOnlyList<CommandLog>> GetByDateRangeAsync(
         DateTime start,
         DateTime end,
+        bool includeDetails = false,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving command logs between {StartDate} and {EndDate}", start, end);
+        _logger.LogDebug("Retrieving command logs between {StartDate} and {EndDate}, includeDetails={IncludeDetails}",
+            start, end, includeDetails);
 
-        return await DbSet
+        var query = DbSet.AsQueryable();
+
+        if (includeDetails)
+        {
+            query = query
+                .Include(c => c.User)
+                .Include(c => c.Guild);
+        }
+
+        return await query
             .Where(c => c.ExecutedAt >= start && c.ExecutedAt <= end)
             .OrderByDescending(c => c.ExecutedAt)
             .ToListAsync(cancellationToken);

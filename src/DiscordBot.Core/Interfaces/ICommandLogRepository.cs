@@ -35,9 +35,14 @@ public interface ICommandLogRepository : IRepository<CommandLog>
     /// <summary>
     /// Gets command logs within a date range.
     /// </summary>
+    /// <param name="start">Start date of the range.</param>
+    /// <param name="end">End date of the range.</param>
+    /// <param name="includeDetails">If true, includes User and Guild navigation properties.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     Task<IReadOnlyList<CommandLog>> GetByDateRangeAsync(
         DateTime start,
         DateTime end,
+        bool includeDetails = false,
         CancellationToken cancellationToken = default);
 
     /// <summary>
