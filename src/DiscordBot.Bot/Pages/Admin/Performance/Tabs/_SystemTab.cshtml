@@ -345,18 +345,13 @@
     function formatTimestamp(isoString, hours) {
         const date = new Date(isoString);
         if (hours <= 24) {
-            return date.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-            });
-        } else if (hours <= 168) {
-            return date.toLocaleDateString('en-US', {
-                weekday: 'short',
-                hour: '2-digit',
-                hour12: false
-            });
+            // Hourly data: include time (e.g., "Jan 5, 2 PM")
+            const month = date.toLocaleDateString('en-US', { month: 'short' });
+            const day = date.getDate();
+            const hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+            return `${month} ${day}, ${hour}`;
         } else {
+            // Daily data: just date (e.g., "Jan 5")
             return date.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric'

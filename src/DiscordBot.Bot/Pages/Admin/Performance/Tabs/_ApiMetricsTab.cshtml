@@ -279,12 +279,15 @@ else
      * Formats a timestamp for chart labels based on the time range.
      */
     function formatChartLabel(date, hours) {
-        if (hours >= 168) {
-            // For 7+ days, show "Mon 15" format
-            return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+        if (hours <= 24) {
+            // Hourly data: include time (e.g., "Jan 5, 2 PM")
+            const month = date.toLocaleDateString('en-US', { month: 'short' });
+            const day = date.getDate();
+            const hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+            return `${month} ${day}, ${hour}`;
         } else {
-            // For shorter ranges, show "14:30" format
-            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+            // Daily data: just date (e.g., "Jan 5")
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
     }
 
