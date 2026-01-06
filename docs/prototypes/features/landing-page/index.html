@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cpike's Discord Bot - A Discord bot that does a bunch of stuff</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Smooth scrolling */
+    html {
+      scroll-behavior: smooth;
+    }
+
+    /* Hidden login button - CSS only hover reveal */
+    .login-btn {
+      opacity: 0;
+      transition: opacity 0.2s ease-in-out;
+    }
+    .login-btn:hover,
+    .login-btn:focus {
+      opacity: 1;
+    }
+
+    /* Feature card hover effect */
+    .feature-card {
+      transition: all 0.2s ease-in-out;
+    }
+    .feature-card:hover {
+      border-color: #098ecf;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(9, 142, 207, 0.15);
+    }
+
+    /* Tech badge hover */
+    .tech-badge {
+      transition: all 0.15s ease-in-out;
+    }
+    .tech-badge:hover {
+      background-color: #363a3e;
+    }
+
+    /* Coming soon card styling */
+    .coming-soon-card {
+      position: relative;
+    }
+    .coming-soon-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 0%, rgba(203, 78, 27, 0.05) 100%);
+      border-radius: 0.5rem;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Sticky Navigation -->
+  <nav class="bg-bg-secondary/95 backdrop-blur-sm border-b border-border-primary sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-center h-14">
+        <div class="flex items-center gap-6 sm:gap-8">
+          <a href="#features" class="text-sm text-text-secondary hover:text-text-primary transition-colors">Features</a>
+          <a href="#tech-stack" class="text-sm text-text-secondary hover:text-text-primary transition-colors">Tech Stack</a>
+          <a href="#open-source" class="text-sm text-text-secondary hover:text-text-primary transition-colors">Open Source</a>
+          <a href="#about" class="text-sm text-text-secondary hover:text-text-primary transition-colors">About</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hidden Login Button (bottom-right corner) -->
+  <a href="#" class="login-btn hidden lg:flex fixed bottom-6 right-6 z-50 items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-lg hover:text-text-primary hover:border-border-focus transition-all">
+    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+    </svg>
+    Login
+  </a>
+
+  <!-- Hero Section -->
+  <section class="relative overflow-hidden">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 lg:py-36">
+      <div class="text-center">
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-text-primary mb-4">
+          cpike's Discord Bot
+        </h1>
+        <p class="text-xl sm:text-2xl text-text-secondary mb-3">
+          A Discord bot that does a bunch of stuff.
+        </p>
+        <p class="text-base text-text-tertiary mb-10">
+          Free. Open source. Yours to use.
+        </p>
+        <a href="https://github.com/cpike5/discordbot" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-6 py-3 text-base font-semibold text-white bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active rounded-lg transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+    </div>
+    <!-- Decorative background gradient -->
+    <div class="absolute inset-0 -z-10 overflow-hidden">
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial from-accent-orange/5 to-transparent rounded-full blur-3xl"></div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="py-16 sm:py-20 lg:py-24">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+      <!-- Current Features -->
+      <div class="mb-16">
+        <h2 class="text-2xl sm:text-3xl font-bold text-text-primary mb-8 text-center">What it does</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          <!-- Moderation -->
+          <div class="feature-card bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="p-2 bg-accent-orange-muted rounded-lg">
+                <!-- Heroicon: shield-check -->
+                <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-text-primary">Moderation</h3>
+            </div>
+            <p class="text-text-secondary text-sm mb-4">
+              Warn, kick, ban, mute, auto-mod, watchlists
+            </p>
+            <!-- Placeholder screenshot -->
+            <div class="w-full h-32 border-2 border-dashed border-border-primary rounded-lg flex items-center justify-center">
+              <span class="text-xs text-text-tertiary">Screenshot placeholder</span>
+            </div>
+          </div>
+
+          <!-- Analytics -->
+          <div class="feature-card bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="p-2 bg-accent-blue-muted rounded-lg">
+                <!-- Heroicon: chart-bar -->
+                <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-text-primary">Analytics</h3>
+            </div>
+            <p class="text-text-secondary text-sm mb-4">
+              Engagement and moderation metrics
+            </p>
+            <!-- Placeholder screenshot -->
+            <div class="w-full h-32 border-2 border-dashed border-border-primary rounded-lg flex items-center justify-center">
+              <span class="text-xs text-text-tertiary">Screenshot placeholder</span>
+            </div>
+          </div>
+
+          <!-- Admin Dashboard -->
+          <div class="feature-card bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="p-2 bg-success-bg rounded-lg">
+                <!-- Heroicon: computer-desktop -->
+                <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-text-primary">Admin Dashboard</h3>
+            </div>
+            <p class="text-text-secondary text-sm mb-4">
+              Web-based guild management and configuration
+            </p>
+            <!-- Placeholder screenshot -->
+            <div class="w-full h-32 border-2 border-dashed border-border-primary rounded-lg flex items-center justify-center">
+              <span class="text-xs text-text-tertiary">Screenshot placeholder</span>
+            </div>
+          </div>
+
+          <!-- Channel Management -->
+          <div class="feature-card bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="p-2 bg-info-bg rounded-lg">
+                <!-- Heroicon: chat-bubble-left-right -->
+                <svg class="w-6 h-6 text-info" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-text-primary">Channel Management</h3>
+            </div>
+            <p class="text-text-secondary text-sm mb-4">
+              Scheduled messages, reminders, welcome messages
+            </p>
+            <!-- Placeholder screenshot -->
+            <div class="w-full h-32 border-2 border-dashed border-border-primary rounded-lg flex items-center justify-center">
+              <span class="text-xs text-text-tertiary">Screenshot placeholder</span>
+            </div>
+          </div>
+
+          <!-- Observability -->
+          <div class="feature-card bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="p-2 bg-warning-bg rounded-lg">
+                <!-- Heroicon: eye -->
+                <svg class="w-6 h-6 text-warning" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <h3 class="text-lg font-semibold text-text-primary">Observability</h3>
+            </div>
+            <p class="text-text-secondary text-sm mb-4">
+              Elastic APM, tracing, metrics, centralized logs
+            </p>
+            <!-- Placeholder screenshot -->
+            <div class="w-full h-32 border-2 border-dashed border-border-primary rounded-lg flex items-center justify-center">
+              <span class="text-xs text-text-tertiary">Screenshot placeholder</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Coming Soon -->
+      <div>
+        <h2 class="text-xl sm:text-2xl font-bold text-text-primary mb-6 text-center">Coming Soon</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          <!-- Audio/Soundboard -->
+          <div class="coming-soon-card feature-card bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-bg-tertiary rounded-lg">
+                  <!-- Heroicon: speaker-wave -->
+                  <svg class="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
+                  </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-text-secondary">Audio/Soundboard</h3>
+              </div>
+              <span class="px-2 py-0.5 text-xs font-medium bg-accent-orange-muted text-accent-orange rounded-full">Soon</span>
+            </div>
+            <p class="text-text-tertiary text-sm mb-4">
+              Play sounds in voice channels
+            </p>
+            <!-- Placeholder screenshot -->
+            <div class="w-full h-32 border-2 border-dashed border-border-secondary rounded-lg flex items-center justify-center">
+              <span class="text-xs text-text-tertiary">Screenshot placeholder</span>
+            </div>
+          </div>
+
+          <!-- TTS Support -->
+          <div class="coming-soon-card feature-card bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-bg-tertiary rounded-lg">
+                  <!-- Heroicon: microphone -->
+                  <svg class="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+                  </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-text-secondary">TTS Support</h3>
+              </div>
+              <span class="px-2 py-0.5 text-xs font-medium bg-accent-orange-muted text-accent-orange rounded-full">Soon</span>
+            </div>
+            <p class="text-text-tertiary text-sm mb-4">
+              Text-to-speech in voice channels
+            </p>
+            <!-- Placeholder screenshot -->
+            <div class="w-full h-32 border-2 border-dashed border-border-secondary rounded-lg flex items-center justify-center">
+              <span class="text-xs text-text-tertiary">Screenshot placeholder</span>
+            </div>
+          </div>
+
+          <!-- Docker -->
+          <div class="coming-soon-card feature-card bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-bg-tertiary rounded-lg">
+                  <!-- Heroicon: cube -->
+                  <svg class="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                  </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-text-secondary">Docker</h3>
+              </div>
+              <span class="px-2 py-0.5 text-xs font-medium bg-accent-orange-muted text-accent-orange rounded-full">Soon</span>
+            </div>
+            <p class="text-text-tertiary text-sm mb-4">
+              Containerized deployment
+            </p>
+            <!-- Placeholder screenshot -->
+            <div class="w-full h-32 border-2 border-dashed border-border-secondary rounded-lg flex items-center justify-center">
+              <span class="text-xs text-text-tertiary">Screenshot placeholder</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Tech Stack Section -->
+  <section id="tech-stack" class="py-16 sm:py-20 lg:py-24 bg-bg-secondary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <h2 class="text-2xl sm:text-3xl font-bold text-text-primary mb-8 text-center">Built with</h2>
+
+      <div class="flex flex-wrap justify-center gap-3">
+        <span class="tech-badge px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-full">.NET 8</span>
+        <span class="tech-badge px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-full">Discord.NET</span>
+        <span class="tech-badge px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-full">Entity Framework Core</span>
+        <span class="tech-badge px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-full">Tailwind CSS</span>
+        <span class="tech-badge px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-full">Serilog</span>
+        <span class="tech-badge px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-full">OpenTelemetry</span>
+        <span class="tech-badge px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-full">Elastic APM</span>
+        <span class="tech-badge px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-full">SQLite / PostgreSQL</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Open Source Section -->
+  <section id="open-source" class="py-16 sm:py-20 lg:py-24">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div class="mb-6">
+        <span class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-success bg-success-bg border border-success-border rounded-full">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          MIT License
+        </span>
+      </div>
+
+      <h2 class="text-2xl sm:text-3xl font-bold text-text-primary mb-4">Fork it, customize it, make it yours</h2>
+      <p class="text-text-secondary mb-8 max-w-2xl mx-auto">
+        This is a personal project that I'm sharing with anyone who wants to use it. Take the code, modify it however you want, and run your own instance. No strings attached.
+      </p>
+
+      <!-- Prerequisites callout -->
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 text-left max-w-lg mx-auto">
+        <h3 class="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
+          <svg class="w-4 h-4 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Quick Start
+        </h3>
+        <ul class="text-sm text-text-secondary space-y-2">
+          <li class="flex items-start gap-2">
+            <svg class="w-4 h-4 text-text-tertiary mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            .NET 8 SDK
+          </li>
+          <li class="flex items-start gap-2">
+            <svg class="w-4 h-4 text-text-tertiary mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Discord Developer Portal app setup
+          </li>
+          <li class="flex items-start gap-2">
+            <svg class="w-4 h-4 text-text-tertiary mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Bot token configured via user secrets
+          </li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- About Section -->
+  <section id="about" class="py-16 sm:py-20 lg:py-24 bg-bg-secondary">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <h2 class="text-2xl sm:text-3xl font-bold text-text-primary mb-6">About</h2>
+      <p class="text-text-secondary text-lg leading-relaxed">
+        Started as a side project to learn .NET and have a bot for my friends' server. Still adding stuff. Feel free to use it or fork it.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-8 border-t border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-text-tertiary">
+        <a href="https://github.com/cpike5/discordbot" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 hover:text-text-secondary transition-colors">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+          GitHub
+        </a>
+        <span>v0.5.4</span>
+        <span>© 2025 cpike</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
