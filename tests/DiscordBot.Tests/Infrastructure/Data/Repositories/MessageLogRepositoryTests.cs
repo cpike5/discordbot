@@ -1576,5 +1576,85 @@ public class MessageLogRepositoryTests : IDisposable
         totalCount.Should().Be(2);
     }
 
+    [Fact]
+    public async Task MessageLog_WithLargeDiscordSnowflakeIds_PreservesIdsPrecisely()
+    {
+        // Arrange - Use realistic 18+ digit Discord snowflake IDs
+        // These IDs are from actual Discord and represent the precision issue from #776
+        const ulong largeUserId = 140899190757654528;      // 18 digits - actual Discord user ID from bug report
+        const ulong largeGuildId = 987654321098765432;     // 18 digits
+        const ulong largeChannelId = 876543210987654321;   // 18 digits
+        const ulong largeMessageId = 765432109876543210;   // 18 digits
+        const ulong largeReplyMessageId = 654321098765432109; // 18 digits
+
+        // Create entities with large IDs
+        var user = new User
+        {
+            Id = largeUserId,
+            Username = "TestUserWithLargeId",
+            Discriminator = "1234",
+            FirstSeenAt = DateTime.UtcNow,
+            LastSeenAt = DateTime.UtcNow
+        };
+
+        var guild = new Guild
+        {
+            Id = largeGuildId,
+            Name = "Test Guild With Large ID",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+
+        await _context.Users.AddAsync(user);
+        await _context.Guilds.AddAsync(guild);
+        await _context.SaveChangesAsync();
+
+        var now = DateTime.UtcNow;
+        var messageLog = new MessageLog
+        {
+            DiscordMessageId = largeMessageId,
+            AuthorId = largeUserId,
+            ChannelId = largeChannelId,
+            GuildId = largeGuildId,
+            ReplyToMessageId = largeReplyMessageId,
+            Source = MessageSource.ServerChannel,
+            Content = "Test message with large snowflake IDs",
+            Timestamp = now,
+            LoggedAt = now,
+            HasAttachments = false,
+            HasEmbeds = false
+        };
+
+        await _context.MessageLogs.AddAsync(messageLog);
+        await _context.SaveChangesAsync();
+
+        // Clear tracking to force a fresh read from database
+        _context.ChangeTracker.Clear();
+
+        // Act - Retrieve the message from database
+        var retrievedMessages = await _repository.GetUserMessagesAsync(largeUserId);
+        var retrievedMessage = retrievedMessages.FirstOrDefault();
+
+        // Assert - Verify ALL ulong fields are preserved exactly
+        retrievedMessage.Should().NotBeNull();
+        retrievedMessage!.DiscordMessageId.Should().Be(largeMessageId,
+            "DiscordMessageId should be preserved without precision loss");
+        retrievedMessage.AuthorId.Should().Be(largeUserId,
+            "AuthorId should be preserved without precision loss");
+        retrievedMessage.ChannelId.Should().Be(largeChannelId,
+            "ChannelId should be preserved without precision loss");
+        retrievedMessage.GuildId.Should().Be(largeGuildId,
+            "GuildId should be preserved without precision loss");
+        retrievedMessage.ReplyToMessageId.Should().Be(largeReplyMessageId,
+            "ReplyToMessageId should be preserved without precision loss");
+
+        // Additional verification: Ensure the exact string representation matches
+        retrievedMessage.DiscordMessageId.ToString().Should().Be(largeMessageId.ToString());
+        retrievedMessage.AuthorId.ToString().Should().Be(largeUserId.ToString());
+        retrievedMessage.ChannelId.ToString().Should().Be(largeChannelId.ToString());
+        retrievedMessage.GuildId.ToString().Should().Be(largeGuildId.ToString());
+        retrievedMessage.ReplyToMessageId.ToString().Should().Be(largeReplyMessageId.ToString());
+    }
+
     #endregion
 }
