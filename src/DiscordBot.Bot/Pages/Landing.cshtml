@@ -2,7 +2,7 @@
 @model DiscordBot.Bot.Pages.LandingModel
 @{
     Layout = "_LayoutLanding";
-    ViewData["Title"] = "A Discord bot that does a bunch of stuff";
+    ViewData["Title"] = "Discord Bot";
 }
 
 @section Styles {
@@ -428,35 +428,35 @@
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 class="text-2xl sm:text-3xl font-bold text-text-primary mb-10 text-center">Built with</h2>
 
-        <div class="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-9 gap-4 max-w-5xl mx-auto">
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-accent-blue rounded-lg flex items-center justify-center text-white font-bold text-sm">.N</div>
-                <span class="text-xs text-text-secondary">.NET 8</span>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3 sm:gap-4 lg:gap-6 max-w-5xl mx-auto">
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-accent-blue rounded-lg flex items-center justify-center text-white font-bold text-base sm:text-sm">.N</div>
+                <span class="text-sm sm:text-xs text-text-secondary">.NET 8</span>
             </div>
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-[#5865F2] rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-[#5865F2] rounded-lg flex items-center justify-center">
+                    <svg class="w-7 h-7 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
                 </div>
-                <span class="text-xs text-text-secondary">Discord.NET</span>
+                <span class="text-sm sm:text-xs text-text-secondary">Discord.NET</span>
             </div>
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-accent-orange rounded-lg flex items-center justify-center text-white font-bold text-xs">EF</div>
-                <span class="text-xs text-text-secondary">EF Core</span>
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-accent-orange rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-xs">EF</div>
+                <span class="text-sm sm:text-xs text-text-secondary">EF Core</span>
             </div>
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-[#0ea5e9] rounded-lg flex items-center justify-center">
-                    <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 6.036a9.31 9.31 0 0 0-9.06 11.646c.092.346.395.59.752.59h16.616a.802.802 0 0 0 .752-.59A9.31 9.31 0 0 0 12 6.036zM1.233 17.055a11.05 11.05 0 1 1 21.533 0 .802.802 0 0 1-.753.59H1.987a.802.802 0 0 1-.754-.59z" clip-rule="evenodd"/></svg>
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-[#0ea5e9] rounded-lg flex items-center justify-center">
+                    <svg class="w-7 h-7 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 6.036a9.31 9.31 0 0 0-9.06 11.646c.092.346.395.59.752.59h16.616a.802.802 0 0 0 .752-.59A9.31 9.31 0 0 0 12 6.036zM1.233 17.055a11.05 11.05 0 1 1 21.533 0 .802.802 0 0 1-.753.59H1.987a.802.802 0 0 1-.754-.59z" clip-rule="evenodd"/></svg>
                 </div>
-                <span class="text-xs text-text-secondary">Tailwind</span>
+                <span class="text-sm sm:text-xs text-text-secondary">Tailwind</span>
             </div>
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-success rounded-lg flex items-center justify-center text-white font-bold text-xs">LOG</div>
-                <span class="text-xs text-text-secondary">Serilog</span>
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-success rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-xs">LOG</div>
+                <span class="text-sm sm:text-xs text-text-secondary">Serilog</span>
             </div>
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-[#425cc7] rounded-lg flex items-center justify-center">
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-[#425cc7] rounded-lg flex items-center justify-center">
                     <!-- OpenTelemetry logo -->
-                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg class="w-7 h-7 sm:w-6 sm:h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12.75 2.25L21 7.5V16.5L12.75 21.75L4.5 16.5V7.5L12.75 2.25Z" stroke="#F5A800" stroke-width="1.5" stroke-linejoin="round"/>
                         <circle cx="12.75" cy="12" r="3" fill="#F5A800"/>
                         <path d="M12.75 5.25V9M12.75 15V18.75" stroke="#F5A800" stroke-width="1.5" stroke-linecap="round"/>
@@ -464,24 +464,24 @@
                         <path d="M16.35 6.75L14.25 10.5M11.25 13.5L9.15 17.25" stroke="#F5A800" stroke-width="1.5" stroke-linecap="round"/>
                     </svg>
                 </div>
-                <span class="text-xs text-text-secondary">OTel</span>
+                <span class="text-sm sm:text-xs text-text-secondary">OTel</span>
             </div>
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-[#00bfb3] rounded-lg flex items-center justify-center text-white font-bold text-xs">APM</div>
-                <span class="text-xs text-text-secondary">Elastic</span>
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-[#00bfb3] rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-xs">APM</div>
+                <span class="text-sm sm:text-xs text-text-secondary">Elastic</span>
             </div>
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-[#336791] rounded-lg flex items-center justify-center text-white font-bold text-xs">DB</div>
-                <span class="text-xs text-text-secondary">SQL</span>
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-[#336791] rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-xs">DB</div>
+                <span class="text-sm sm:text-xs text-text-secondary">SQL</span>
             </div>
-            <div class="tech-icon p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue">
-                <div class="w-10 h-10 mx-auto mb-2 bg-[#D97756] rounded-lg flex items-center justify-center">
+            <div class="tech-icon p-5 sm:p-4 bg-bg-tertiary border border-border-primary rounded-xl text-center hover:border-accent-blue active:scale-95 transition-all">
+                <div class="w-12 h-12 sm:w-10 sm:h-10 mx-auto mb-2 bg-[#D97756] rounded-lg flex items-center justify-center">
                     <!-- Claude sparkle icon -->
-                    <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <svg class="w-7 h-7 sm:w-6 sm:h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2L9.19 9.19L2 12l7.19 2.81L12 22l2.81-7.19L22 12l-7.19-2.81L12 2z"/>
                     </svg>
                 </div>
-                <span class="text-xs text-text-secondary">Claude</span>
+                <span class="text-sm sm:text-xs text-text-secondary">Claude</span>
             </div>
         </div>
     </div>
