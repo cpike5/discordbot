@@ -1,25 +1,28 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using DiscordBot.Bot.Collections;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
 /// Service for detecting spam patterns in messages using in-memory sliding window tracking.
-/// Thread-safe singleton service.
+/// Thread-safe singleton service with bounded memory usage.
 /// </summary>
-public class SpamDetectionService : ISpamDetectionService
+public class SpamDetectionService : ISpamDetectionService, IMemoryReportable
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<SpamDetectionService> _logger;
+    private readonly AutoModerationOptions _options;
 
     // Cache key pattern: spam:{guildId}:{userId}
     private const string CacheKeyPattern = "spam:{0}:{1}";
@@ -27,19 +30,28 @@ public class SpamDetectionService : ISpamDetectionService
     // Maximum retention for old entries (5 minutes)
     private static readonly TimeSpan MaxRetention = TimeSpan.FromMinutes(5);
 
+    // Estimated bytes per MessageRecord: DateTime (8) + string reference (8) + string content (~44 avg) + object overhead (8) = ~68 bytes
+    private const int EstimatedBytesPerMessage = 68;
+
     /// <summary>
     /// Represents a message record for spam tracking.
     /// </summary>
-    private record MessageRecord(DateTime Timestamp, string ContentHash);
+    private record MessageRecord(DateTime Timestamp, string ContentHash) : ITimestamped;
 
     public SpamDetectionService(
         IServiceScopeFactory scopeFactory,
         IMemoryCache cache,
-        ILogger<SpamDetectionService> logger)
+        ILogger<SpamDetectionService> logger,
+        IOptions<AutoModerationOptions> options)
     {
         _scopeFactory = scopeFactory;
         _cache = cache;
         _logger = logger;
+        _options = options.Value;
+
+        _logger.LogInformation(
+            "SpamDetectionService initialized with MaxMessagesPerUser={MaxMessages}",
+            _options.MaxMessagesPerUser);
     }
 
     /// <inheritdoc />
@@ -248,24 +260,29 @@ public class SpamDetectionService : ISpamDetectionService
         {
             var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
 
-            // Get or create the message list for this user
+            // Get or create the bounded queue for this user
             var messages = _cache.GetOrCreate(cacheKey, entry =>
             {
                 entry.SlidingExpiration = MaxRetention;
-                return new ConcurrentBag<MessageRecord>();
+                return new BoundedTimestampQueue<MessageRecord>(_options.MaxMessagesPerUser);
             });
 
             if (messages == null)
             {
-                messages = new ConcurrentBag<MessageRecord>();
-                _cache.Set(cacheKey, messages, MaxRetention);
+                messages = new BoundedTimestampQueue<MessageRecord>(_options.MaxMessagesPerUser);
+                _cache.Set(cacheKey, messages, new MemoryCacheEntryOptions { SlidingExpiration = MaxRetention });
             }
 
-            // Add the new message
-            messages.Add(new MessageRecord(timestamp, contentHash));
+            // Check if queue is at capacity and log if so (for monitoring)
+            if (messages.IsAtCapacity)
+            {
+                _logger.LogDebug(
+                    "Spam detection queue at capacity for user {UserId} in guild {GuildId}. Oldest messages will be overwritten.",
+                    userId, guildId);
+            }
 
-            // Clean up old entries to prevent unbounded growth
-            CleanupOldEntries(messages, timestamp);
+            // Add the new message - oldest will be automatically evicted if at capacity
+            messages.Enqueue(new MessageRecord(timestamp, contentHash));
 
             BotActivitySource.SetSuccess(activity);
         }
@@ -289,14 +306,14 @@ public class SpamDetectionService : ISpamDetectionService
         {
             var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
 
-            if (!_cache.TryGetValue<ConcurrentBag<MessageRecord>>(cacheKey, out var messages) || messages == null)
+            if (!_cache.TryGetValue<BoundedTimestampQueue<MessageRecord>>(cacheKey, out var messages) || messages == null)
             {
                 BotActivitySource.SetSuccess(activity);
                 return 0;
             }
 
             var cutoff = DateTime.UtcNow - window;
-            var count = messages.Count(m => m.Timestamp >= cutoff);
+            var count = messages.CountAfter(cutoff);
 
             BotActivitySource.SetSuccess(activity);
             return count;
@@ -321,14 +338,14 @@ public class SpamDetectionService : ISpamDetectionService
         {
             var cacheKey = string.Format(CacheKeyPattern, guildId, userId);
 
-            if (!_cache.TryGetValue<ConcurrentBag<MessageRecord>>(cacheKey, out var messages) || messages == null)
+            if (!_cache.TryGetValue<BoundedTimestampQueue<MessageRecord>>(cacheKey, out var messages) || messages == null)
             {
                 BotActivitySource.SetSuccess(activity);
                 return 0;
             }
 
             var cutoff = DateTime.UtcNow - window;
-            var count = messages.Count(m => m.Timestamp >= cutoff && m.ContentHash == contentHash);
+            var count = messages.CountAfterWithPredicate(cutoff, m => m.ContentHash == contentHash);
 
             BotActivitySource.SetSuccess(activity);
             return count;
@@ -360,23 +377,30 @@ public class SpamDetectionService : ISpamDetectionService
         return Convert.ToBase64String(hash);
     }
 
-    /// <summary>
-    /// Removes entries older than the maximum retention period.
-    /// This prevents unbounded memory growth.
-    /// </summary>
-    private static void CleanupOldEntries(ConcurrentBag<MessageRecord> messages, DateTime currentTime)
-    {
-        var cutoff = currentTime - MaxRetention;
+    #region IMemoryReportable Implementation
 
-        // Only cleanup if we have a lot of entries
-        if (messages.Count > 100)
+    /// <inheritdoc />
+    public string ServiceName => "Spam Detection Service";
+
+    /// <inheritdoc />
+    public ServiceMemoryReportDto GetMemoryReport()
+    {
+        // We cannot directly enumerate the cache, but we can estimate based on configuration
+        // Maximum memory per user = MaxMessagesPerUser * EstimatedBytesPerMessage + queue overhead
+        var maxBytesPerUser = (_options.MaxMessagesPerUser * EstimatedBytesPerMessage) + 64;
+
+        // We don't know exactly how many users are cached, but we can report the max possible
+        // based on MaxCachedGuilds as a rough estimate
+        var estimatedMaxBytes = maxBytesPerUser * _options.MaxCachedGuilds;
+
+        return new ServiceMemoryReportDto
         {
-            var validMessages = messages.Where(m => m.Timestamp >= cutoff).ToList();
-            messages.Clear();
-            foreach (var msg in validMessages)
-            {
-                messages.Add(msg);
-            }
-        }
+            ServiceName = ServiceName,
+            EstimatedBytes = estimatedMaxBytes,
+            ItemCount = _options.MaxMessagesPerUser, // Report max capacity per queue
+            Details = $"Max {_options.MaxMessagesPerUser} messages/user, ~{maxBytesPerUser / 1024:N1} KB/user, bounded by IMemoryCache sliding expiration"
+        };
     }
+
+    #endregion
 }

@@ -34,9 +34,16 @@ public static class ModerationServiceExtensions
         services.AddScoped<IInvestigationService, InvestigationService>();
 
         // Detection services (singleton for in-memory caching)
-        services.AddSingleton<ISpamDetectionService, SpamDetectionService>();
+        // Register concrete types first, then add interface mappings (including IMemoryReportable)
+        services.AddSingleton<SpamDetectionService>();
+        services.AddSingleton<ISpamDetectionService>(sp => sp.GetRequiredService<SpamDetectionService>());
+        services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<SpamDetectionService>());
+
         services.AddSingleton<IContentFilterService, ContentFilterService>();
-        services.AddSingleton<IRaidDetectionService, RaidDetectionService>();
+
+        services.AddSingleton<RaidDetectionService>();
+        services.AddSingleton<IRaidDetectionService>(sp => sp.GetRequiredService<RaidDetectionService>());
+        services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<RaidDetectionService>());
 
         // Handlers (singleton)
         services.AddSingleton<AutoModerationHandler>();
