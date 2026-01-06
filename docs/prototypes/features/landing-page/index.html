@@ -166,18 +166,6 @@
       animation: float-medium 7s ease-in-out infinite;
     }
 
-    /* Glow spots (solid color with blur - not gradient) */
-    .glow-spot {
-      position: absolute;
-      background-color: rgba(203, 78, 27, 0.06);
-      border-radius: 50%;
-      filter: blur(80px);
-      pointer-events: none;
-    }
-    .glow-spot-blue {
-      background-color: rgba(9, 142, 207, 0.04);
-    }
-
     /* Section divider */
     .section-divider {
       height: 1px;
@@ -250,10 +238,6 @@
     <div class="hero-bg absolute inset-0 -z-10 overflow-hidden">
       <!-- Dot pattern -->
       <div class="absolute inset-0 dot-pattern"></div>
-
-      <!-- Glow spots (solid colors with blur, not gradients) -->
-      <div class="glow-spot w-[500px] h-[500px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
-      <div class="glow-spot glow-spot-blue w-[300px] h-[300px] top-1/4 right-1/4"></div>
 
       <!-- Floating geometric shapes -->
       <div class="floating-shape w-16 h-16 rounded-lg top-1/4 left-[15%] animate-float-slow"></div>
