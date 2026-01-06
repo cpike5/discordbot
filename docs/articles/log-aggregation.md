@@ -2990,6 +2990,8 @@ Rollback time: < 5 minutes
 
 ## Related Documentation
 
+- [Kibana Dashboards Guide](kibana-dashboards.md) - Practical guide to using Kibana for log analysis and APM monitoring
+- [Elastic APM](elastic-apm.md) - Distributed tracing with Elastic APM integration
 - [Environment-Specific Configuration](environment-configuration.md) - Configuration per environment (Development, Staging, Production)
 - [Distributed Tracing](tracing.md) - OpenTelemetry tracing integration (complementary to log aggregation)
 - [OpenTelemetry Metrics](metrics.md) - Metrics collection with Prometheus export
