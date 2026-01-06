@@ -19,24 +19,35 @@ public class MessageLogConfiguration : IEntityTypeConfiguration<MessageLog>
         builder.Property(m => m.Id)
             .ValueGeneratedOnAdd();
 
-        // ulong properties converted to long for SQLite compatibility
+        // ulong properties require explicit lambda-based value converters to prevent ID corruption.
+        // Using unchecked to handle potential overflow for very large Discord snowflake IDs.
         builder.Property(m => m.DiscordMessageId)
-            .HasConversion<long>()
+            .HasConversion(
+                v => unchecked((long)v),
+                v => unchecked((ulong)v))
             .IsRequired();
 
         builder.Property(m => m.AuthorId)
-            .HasConversion<long>()
+            .HasConversion(
+                v => unchecked((long)v),
+                v => unchecked((ulong)v))
             .IsRequired();
 
         builder.Property(m => m.ChannelId)
-            .HasConversion<long>()
+            .HasConversion(
+                v => unchecked((long)v),
+                v => unchecked((ulong)v))
             .IsRequired();
 
         builder.Property(m => m.GuildId)
-            .HasConversion<long?>();
+            .HasConversion(
+                v => v.HasValue ? unchecked((long)v.Value) : (long?)null,
+                v => v.HasValue ? unchecked((ulong)v.Value) : (ulong?)null);
 
         builder.Property(m => m.ReplyToMessageId)
-            .HasConversion<long?>();
+            .HasConversion(
+                v => v.HasValue ? unchecked((long)v.Value) : (long?)null,
+                v => v.HasValue ? unchecked((ulong)v.Value) : (ulong?)null);
 
         // MessageSource enum stored as int
         builder.Property(m => m.Source)
