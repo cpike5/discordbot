@@ -92,9 +92,10 @@
             <span class="severity-badge severity-info">@Model.SlowQueries.Count slow queries</span>
         </div>
         <div class="overflow-x-auto">
-            <table class="performance-table">
+            <table class="performance-table" id="slowQueriesTable">
                 <thead>
                     <tr>
+                        <th class="w-8"></th>
                         <th>Query</th>
                         <th>Duration</th>
                         <th>Timestamp</th>
@@ -102,16 +103,47 @@
                     </tr>
                 </thead>
                 <tbody>
+                    @{ var queryIndex = 0; }
                     @foreach (var query in Model.SlowQueries.Take(10))
                     {
-                        <tr>
+                        var hasFullContent = query.CommandText.Length > 100 || (!string.IsNullOrEmpty(query.Parameters) && query.Parameters.Length > 50);
+                        <tr class="@(hasFullContent ? "cursor-pointer hover:bg-bg-tertiary" : "")" data-query-row="@queryIndex" @(hasFullContent ? "onclick=toggleQueryDetails(" + queryIndex + ")" : "")>
+                            <td class="text-center">
+                                @if (hasFullContent)
+                                {
+                                    <svg class="w-4 h-4 text-text-tertiary transition-transform duration-200" id="queryChevron-@queryIndex" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                }
+                            </td>
                             <td>
                                 <code class="text-mono text-xs text-text-secondary">@(query.CommandText.Length > 100 ? query.CommandText.Substring(0, 100) + "..." : query.CommandText)</code>
                             </td>
                             <td class="font-medium @(query.DurationMs > 500 ? "text-error" : "text-warning")">@query.DurationMs.ToString("F0")ms</td>
                             <td class="text-text-tertiary" data-utc-time="@query.Timestamp.ToString("o")">@query.Timestamp.ToString("MMM dd, HH:mm")</td>
-                            <td class="text-xs text-text-tertiary">@(string.IsNullOrEmpty(query.Parameters) ? "-" : query.Parameters.Length > 50 ? query.Parameters.Substring(0, 50) + "..." : query.Parameters)</td>
+                            <td class="text-xs text-text-tertiary">@(string.IsNullOrEmpty(query.Parameters) ? "(none)" : query.Parameters.Length > 50 ? query.Parameters.Substring(0, 50) + "..." : query.Parameters)</td>
                         </tr>
+                        @if (hasFullContent)
+                        {
+                            <tr class="hidden bg-bg-tertiary" id="queryDetails-@queryIndex">
+                                <td colspan="5" class="p-4">
+                                    <div class="space-y-3">
+                                        <div>
+                                            <div class="text-xs font-medium text-text-secondary mb-1">Full Query</div>
+                                            <pre class="text-xs text-text-primary bg-bg-secondary p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all font-mono">@query.CommandText</pre>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(query.Parameters))
+                                        {
+                                            <div>
+                                                <div class="text-xs font-medium text-text-secondary mb-1">Parameters</div>
+                                                <pre class="text-xs text-text-primary bg-bg-secondary p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all font-mono">@query.Parameters</pre>
+                                            </div>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        queryIndex++;
                     }
                 </tbody>
             </table>
@@ -330,6 +362,18 @@
 </div>
 
 <script>
+// Toggle slow query details - needs to be global for onclick handler
+function toggleQueryDetails(index) {
+    const detailsRow = document.getElementById(`queryDetails-${index}`);
+    const chevron = document.getElementById(`queryChevron-${index}`);
+
+    if (detailsRow && chevron) {
+        const isHidden = detailsRow.classList.contains('hidden');
+        detailsRow.classList.toggle('hidden');
+        chevron.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
+    }
+}
+
 (function() {
     'use strict';
 
