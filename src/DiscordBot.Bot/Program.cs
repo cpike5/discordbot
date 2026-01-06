@@ -42,11 +42,15 @@ try
     // Configure Serilog from appsettings.json with programmatic Elasticsearch sink
     builder.Host.UseSerilog((context, services, configuration) =>
     {
+        // Get service name from config (used by Elastic Observability to identify log source)
+        var serviceName = context.Configuration["ElasticApm:ServiceName"] ?? "discordbot";
+
         configuration
             .ReadFrom.Configuration(context.Configuration)
             .ReadFrom.Services(services)
             .Enrich.FromLogContext()
-            .Enrich.WithElasticApmCorrelationInfo();
+            .Enrich.WithElasticApmCorrelationInfo()
+            .Enrich.WithProperty("service.name", serviceName);
 
         // Add Elasticsearch sink programmatically if configured
         var elasticUrl = context.Configuration["ElasticSearch:Url"];

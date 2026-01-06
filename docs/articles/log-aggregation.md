@@ -1,7 +1,7 @@
 # Centralized Log Aggregation
 
 **Version:** 2.1
-**Last Updated:** 2026-01-05
+**Last Updated:** 2026-01-06
 **Target Framework:** .NET 8 with Serilog, Elasticsearch, Seq, and Elastic APM
 **Status:** Phase 2 Implementation (Elasticsearch primary with APM tracing, Seq optional)
 
@@ -307,6 +307,33 @@ The base configuration file defines Elasticsearch endpoints and index format:
 | `ApmServerUrl` | string | null | Elastic APM server URL for distributed tracing integration. |
 | `ApmSecretToken` | string | null | APM secret token for authentication. |
 | `Environment` | string | development | Environment name to distinguish logs by deployment stage. |
+
+### Elastic Observability Integration
+
+Elastic Observability's log events widget requires the `service.name` field to identify and group logs by service. Without this field, logs appear as "unknown" in the overview.
+
+The Discord bot automatically enriches all log events with `service.name` using the value from `ElasticApm:ServiceName` configuration:
+
+```csharp
+// In Program.cs - service.name is added to all log events
+.Enrich.WithProperty("service.name", serviceName)
+```
+
+This ensures logs correlate properly with APM traces and appear under the correct service name in Kibana.
+
+**Configuration:**
+
+The service name is configured via `ElasticApm:ServiceName` in `appsettings.json`:
+
+```json
+{
+  "ElasticApm": {
+    "ServiceName": "discordbot"
+  }
+}
+```
+
+This single configuration value is used for both APM traces and log enrichment, ensuring consistent service identification across all observability data.
 
 ### Environment-Specific Configuration
 
