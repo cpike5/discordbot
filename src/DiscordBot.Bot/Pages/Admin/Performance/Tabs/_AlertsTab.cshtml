@@ -1,27 +1,7 @@
+@model DiscordBot.Bot.ViewModels.Pages.AlertsPageViewModel
 @using DiscordBot.Core.Enums
 @using DiscordBot.Bot.ViewModels.Pages
 @using DiscordBot.Bot.ViewModels.Components
-@model AlertsPageViewModel
-@{
-    // This partial contains the Alerts tab content for the Performance Dashboard shell
-    // Note: The ClaimsPrincipal is passed via ViewData["User"] from the parent
-    var user = ViewData["User"] as System.Security.Claims.ClaimsPrincipal;
-    var isAdmin = user?.IsInRole("Admin") == true || user?.IsInRole("SuperAdmin") == true;
-}
-
-<!-- Display Success/Error Messages -->
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="mb-6 p-4 bg-success/10 border border-success/20 rounded-lg text-success">
-        @TempData["SuccessMessage"]
-    </div>
-}
-@if (TempData["ErrorMessage"] != null)
-{
-    <div class="mb-6 p-4 bg-error/10 border border-error/20 rounded-lg text-error">
-        @TempData["ErrorMessage"]
-    </div>
-}
 
 <!-- Active Alerts Section -->
 <div class="chart-card mb-6">
@@ -30,7 +10,7 @@
             <h2 class="chart-card-title">Active Alerts</h2>
             <p class="chart-card-subtitle">Current issues requiring attention</p>
         </div>
-        @if (Model.ActiveIncidents.Any() && isAdmin)
+        @if (Model.ActiveIncidents.Any())
         {
             <form method="post" asp-page="/Admin/Performance/Alerts" asp-page-handler="AcknowledgeAll">
                 @Html.AntiForgeryToken()
@@ -92,7 +72,7 @@
                                 <span data-utc-time="@incident.TriggeredAt.ToString("o")" data-format="relative">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
                             </div>
                         </div>
-                        @if (isAdmin && !incident.IsAcknowledged)
+                        @if (!incident.IsAcknowledged)
                         {
                             <div class="alert-actions flex items-center gap-2">
                                 <form method="post" asp-page="/Admin/Performance/Alerts" asp-page-handler="Acknowledge" asp-route-id="@incident.Id">
@@ -131,22 +111,19 @@
             <h2 class="chart-card-title">Alert Threshold Configuration</h2>
             <p class="chart-card-subtitle">Define warning and critical thresholds for key metrics</p>
         </div>
-        @if (isAdmin)
+        @await Html.PartialAsync("Components/_Button", new ButtonViewModel
         {
-            @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+            Text = "Save Changes",
+            Type = "button",
+            Variant = ButtonVariant.Primary,
+            OnClick = "alertsTabSaveConfig()",
+            IconLeft = "M5 13l4 4L19 7",
+            AdditionalAttributes = new Dictionary<string, string>
             {
-                Text = "Save Changes",
-                Type = "button",
-                Variant = ButtonVariant.Primary,
-                OnClick = "saveConfigChanges()",
-                IconLeft = "M5 13l4 4L19 7",
-                AdditionalAttributes = new Dictionary<string, string>
-                {
-                    { "id", "saveConfigBtn" },
-                    { "style", "display: none;" }
-                }
-            })
-        }
+                { "id", "alertsTabSaveConfigBtn" },
+                { "style", "display: none;" }
+            }
+        })
     </div>
     <div class="overflow-x-auto">
         <table class="config-table">
@@ -189,9 +166,8 @@
                                        value="@config.WarningThreshold"
                                        min="0"
                                        data-field="warning"
-                                       class="threshold-input"
-                                       aria-label="Warning threshold for @config.DisplayName"
-                                       @(isAdmin ? "" : "disabled") />
+                                       class="alerts-threshold-input"
+                                       aria-label="Warning threshold for @config.DisplayName" />
                                 <span class="text-text-secondary">@config.ThresholdUnit</span>
                             </div>
                         </td>
@@ -201,9 +177,8 @@
                                        value="@config.CriticalThreshold"
                                        min="0"
                                        data-field="critical"
-                                       class="threshold-input"
-                                       aria-label="Critical threshold for @config.DisplayName"
-                                       @(isAdmin ? "" : "disabled") />
+                                       class="alerts-threshold-input"
+                                       aria-label="Critical threshold for @config.DisplayName" />
                                 <span class="text-text-secondary">@config.ThresholdUnit</span>
                             </div>
                         </td>
@@ -217,9 +192,8 @@
                                 <input type="checkbox"
                                        @(config.IsEnabled ? "checked" : "")
                                        data-field="enabled"
-                                       class="enabled-toggle"
-                                       aria-label="Enable alerts for @config.DisplayName"
-                                       @(isAdmin ? "" : "disabled")>
+                                       class="alerts-enabled-toggle"
+                                       aria-label="Enable alerts for @config.DisplayName">
                                 <span class="toggle-slider"></span>
                             </label>
                         </td>
@@ -354,7 +328,7 @@
     </div>
     <div class="chart-card-body">
         <div class="chart-container">
-            <canvas id="alertFrequencyChart"></canvas>
+            <canvas id="alertsFrequencyChart"></canvas>
         </div>
         <div class="flex justify-center gap-6 mt-4">
             <div class="flex items-center gap-2">
@@ -372,3 +346,361 @@
         </div>
     </div>
 </div>
+
+<script>
+(function() {
+    'use strict';
+
+    let alertsFrequencyChart;
+    let alertsConfigChanges = {};
+
+    // Convert UTC timestamps to local timezone
+    function convertTimestampsToLocal() {
+        const timestampElements = document.querySelectorAll('[data-utc-time]');
+        timestampElements.forEach(element => {
+            const utcTime = element.getAttribute('data-utc-time');
+            const format = element.getAttribute('data-format');
+            if (utcTime) {
+                try {
+                    const date = new Date(utcTime);
+
+                    if (format === 'relative') {
+                        // For relative times, calculate the difference and format as "X ago"
+                        const now = new Date();
+                        const elapsed = now - date;
+                        const seconds = Math.floor(elapsed / 1000);
+                        const minutes = Math.floor(seconds / 60);
+                        const hours = Math.floor(minutes / 60);
+                        const days = Math.floor(hours / 24);
+                        const months = Math.floor(days / 30);
+
+                        let relativeText;
+                        if (months >= 1) {
+                            relativeText = months === 1 ? '1 month ago' : `${months} months ago`;
+                        } else if (days >= 1) {
+                            relativeText = days === 1 ? '1 day ago' : `${days} days ago`;
+                        } else if (hours >= 1) {
+                            relativeText = hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+                        } else if (minutes >= 1) {
+                            relativeText = minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
+                        } else {
+                            relativeText = 'Just now';
+                        }
+
+                        // Preserve any prefix text like "Triggered "
+                        const currentText = element.textContent.trim();
+                        const triggeredPrefix = currentText.startsWith('Triggered') ? 'Triggered ' : '';
+                        element.textContent = triggeredPrefix + relativeText;
+                    } else {
+                        // For absolute times, format as local date/time
+                        const formatted = date.toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: '2-digit',
+                            year: 'numeric'
+                        }) + ' at ' + date.toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false
+                        });
+                        element.textContent = formatted;
+                    }
+                } catch (e) {
+                    console.error('Failed to parse timestamp:', utcTime, e);
+                }
+            }
+        });
+    }
+
+    // Initialize Alert Frequency Chart
+    function initAlertFrequencyChart() {
+        const ctx = document.getElementById('alertsFrequencyChart');
+        if (!ctx) return;
+
+        const data = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AlertFrequencyData, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+
+        const labels = data.map(d => {
+            const date = new Date(d.date);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+
+        const criticalData = data.map(d => d.criticalCount);
+        const warningData = data.map(d => d.warningCount);
+        const infoData = data.map(d => d.infoCount);
+
+        alertsFrequencyChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Critical',
+                        data: criticalData,
+                        backgroundColor: '#ef4444',
+                        borderRadius: 2
+                    },
+                    {
+                        label: 'Warning',
+                        data: warningData,
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 2
+                    },
+                    {
+                        label: 'Info',
+                        data: infoData,
+                        backgroundColor: '#098ecf',
+                        borderRadius: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#2f3336',
+                        titleColor: '#d7d3d0',
+                        bodyColor: '#a8a5a3',
+                        borderColor: '#3f4447',
+                        borderWidth: 1,
+                        padding: 12
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 15
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        grid: {
+                            color: '#2f3336'
+                        },
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Configuration change tracking
+    function trackConfigChange(metricName, field, value) {
+        if (!alertsConfigChanges[metricName]) {
+            alertsConfigChanges[metricName] = {};
+        }
+        alertsConfigChanges[metricName][field] = value;
+        updateSaveButtonVisibility();
+        updateCurrentValueColor(metricName);
+    }
+
+    function updateCurrentValueColor(metricName) {
+        const row = document.querySelector(`tr[data-metric="${metricName}"]`);
+        if (!row) return;
+
+        const warningInput = row.querySelector('input[data-field="warning"]');
+        const criticalInput = row.querySelector('input[data-field="critical"]');
+        const currentValueSpan = row.querySelector('td:nth-child(4) span');
+
+        if (!currentValueSpan) return;
+
+        // Extract current value from the span text (e.g., "85.50%" -> 85.50)
+        const currentText = currentValueSpan.textContent.trim();
+        const currentValue = parseFloat(currentText);
+
+        if (isNaN(currentValue)) return; // N/A case
+
+        const warningThreshold = warningInput ? parseFloat(warningInput.value) : null;
+        const criticalThreshold = criticalInput ? parseFloat(criticalInput.value) : null;
+
+        // Remove existing color classes
+        currentValueSpan.classList.remove('text-success', 'text-warning', 'text-error');
+
+        // Apply new color based on thresholds
+        if (criticalThreshold !== null && !isNaN(criticalThreshold) && currentValue >= criticalThreshold) {
+            currentValueSpan.classList.add('text-error');
+        } else if (warningThreshold !== null && !isNaN(warningThreshold) && currentValue >= warningThreshold) {
+            currentValueSpan.classList.add('text-warning');
+        } else {
+            currentValueSpan.classList.add('text-success');
+        }
+    }
+
+    function hasUnsavedChanges() {
+        return Object.keys(alertsConfigChanges).length > 0;
+    }
+
+    function updateSaveButtonVisibility() {
+        const saveBtn = document.getElementById('alertsTabSaveConfigBtn');
+        if (saveBtn) {
+            if (hasUnsavedChanges()) {
+                saveBtn.style.display = 'inline-flex';
+                saveBtn.classList.remove('hidden');
+            } else {
+                saveBtn.style.display = 'none';
+                saveBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    // Make save function global for onclick handler
+    window.alertsTabSaveConfig = async function() {
+        if (!hasUnsavedChanges()) return;
+
+        const saveBtn = document.getElementById('alertsTabSaveConfigBtn');
+
+        // Disable button and show saving state
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `
+                <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Saving...
+            `;
+        }
+
+        const tokenElement = document.querySelector('input[name="__RequestVerificationToken"]');
+        const token = tokenElement ? tokenElement.value : '';
+
+        // Map HTML data-field values to API property names
+        const fieldNameMap = {
+            'warning': 'warningThreshold',
+            'critical': 'criticalThreshold',
+            'enabled': 'isEnabled'
+        };
+
+        let hasError = false;
+        for (const [metricName, changes] of Object.entries(alertsConfigChanges)) {
+            // Convert field names
+            const apiChanges = {};
+            for (const [key, value] of Object.entries(changes)) {
+                const apiKey = fieldNameMap[key] || key;
+                apiChanges[apiKey] = value;
+            }
+
+            try {
+                const response = await fetch(`/api/alerts/config/${encodeURIComponent(metricName)}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify(apiChanges)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || `Failed to update ${metricName}`);
+                }
+            } catch (error) {
+                console.error('Failed to save config changes:', error);
+                hasError = true;
+                showNotification(`Failed to save configuration for ${metricName}. Please try again.`, 'error');
+                break;
+            }
+        }
+
+        if (!hasError) {
+            alertsConfigChanges = {};
+            showNotification('Alert thresholds saved successfully.', 'success');
+            updateSaveButtonVisibility();
+        }
+
+        // Reset button state
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = `
+                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Save Changes
+            `;
+        }
+    };
+
+    function showNotification(message, type) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md transform transition-all duration-300 translate-x-full ${
+            type === 'success' ? 'bg-success/10 border border-success/20 text-success' : 'bg-error/10 border border-error/20 text-error'
+        }`;
+        notification.innerHTML = `
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    ${type === 'success'
+                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
+                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'}
+                </svg>
+                <span>${message}</span>
+            </div>
+        `;
+        document.body.appendChild(notification);
+
+        // Animate in
+        requestAnimationFrame(() => {
+            notification.classList.remove('translate-x-full');
+        });
+
+        // Remove after 4 seconds
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+            setTimeout(() => notification.remove(), 300);
+        }, 4000);
+    }
+
+    // Initialize tab
+    function init() {
+        convertTimestampsToLocal();
+        initAlertFrequencyChart();
+
+        // Track config changes
+        const thresholdInputs = document.querySelectorAll('.alerts-threshold-input');
+        const enabledToggles = document.querySelectorAll('.alerts-enabled-toggle');
+
+        thresholdInputs.forEach(input => {
+            // Use 'input' event for immediate feedback while typing
+            input.addEventListener('input', function() {
+                const row = this.closest('tr');
+                const metricName = row.dataset.metric;
+                const field = this.dataset.field;
+                const value = parseFloat(this.value);
+                trackConfigChange(metricName, field, value);
+            });
+        });
+
+        enabledToggles.forEach(input => {
+            input.addEventListener('change', function() {
+                const row = this.closest('tr');
+                const metricName = row.dataset.metric;
+                const field = this.dataset.field;
+                const value = this.checked;
+                trackConfigChange(metricName, field, value);
+            });
+        });
+    }
+
+    // Initialize on load
+    init();
+
+    // Expose init and destroy functions for tab system
+    window.initAlertsTab = init;
+    window.destroyAlertsTab = function() {
+        if (alertsFrequencyChart) alertsFrequencyChart.destroy();
+        alertsConfigChanges = {};
+    };
+})();
+</script>

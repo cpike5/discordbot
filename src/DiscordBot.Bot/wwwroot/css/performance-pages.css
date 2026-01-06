@@ -940,3 +940,240 @@
     0% { background: rgba(9, 142, 207, 0.3); }
     100% { background: transparent; }
 }
+
+/* ===== Tab Panel Loading States ===== */
+.tab-panel {
+    position: relative;
+    min-height: 200px;
+}
+
+.tab-panel-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-primary);
+    z-index: 20;
+    gap: 1rem;
+}
+
+.tab-panel-loading-spinner {
+    width: 3rem;
+    height: 3rem;
+    border: 3px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-blue);
+    border-radius: 50%;
+    animation: tabSpinner 0.8s linear infinite;
+}
+
+@keyframes tabSpinner {
+    to { transform: rotate(360deg); }
+}
+
+.tab-panel-loading-text {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+}
+
+.tab-panel-error {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-primary);
+    z-index: 20;
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+.tab-panel-error-icon {
+    width: 3rem;
+    height: 3rem;
+    color: var(--color-error);
+}
+
+.tab-panel-error-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+.tab-panel-error-message {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    max-width: 400px;
+}
+
+.tab-panel-error-retry {
+    margin-top: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: var(--color-accent-blue);
+    color: white;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.tab-panel-error-retry:hover {
+    background: #0780b8;
+}
+
+.tab-panel-error-retry:focus-visible {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+}
+
+/* Hide loading/error states when not active */
+.tab-panel-loading.hidden,
+.tab-panel-error.hidden {
+    display: none;
+}
+
+/* ===== Threshold Input (Alerts Tab) ===== */
+.threshold-input,
+.alerts-threshold-input {
+    width: 5rem;
+    padding: 0.625rem 0.5rem;
+    min-height: 2.75rem;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.25rem;
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    transition: border-color 0.2s;
+}
+
+.threshold-input:focus,
+.alerts-threshold-input:focus {
+    outline: none;
+    border-color: var(--color-accent-blue);
+}
+
+.threshold-input::-webkit-inner-spin-button,
+.threshold-input::-webkit-outer-spin-button,
+.alerts-threshold-input::-webkit-inner-spin-button,
+.alerts-threshold-input::-webkit-outer-spin-button {
+    opacity: 1;
+}
+
+/* ===== Tab Content Fade In Animation ===== */
+.tab-panel[data-loaded="true"] > *:not(.tab-panel-loading):not(.tab-panel-error) {
+    animation: tabContentFadeIn 0.3s ease-out;
+}
+
+@keyframes tabContentFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===== Time Range Buttons ===== */
+.time-range-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.time-range-btn:hover {
+    background: var(--color-bg-primary);
+    border-color: var(--color-border-focus);
+    color: var(--color-text-primary);
+}
+
+.time-range-btn.active {
+    background: var(--color-accent-blue);
+    color: white;
+    border-color: var(--color-accent-blue);
+}
+
+.time-range-btn:focus-visible {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+}
+
+/* ===== Tab Loading Overlay ===== */
+.tab-loading-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(28, 30, 32, 0.9);
+    z-index: 30;
+    border-radius: 0.5rem;
+}
+
+.tab-loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: var(--color-accent-blue);
+}
+
+.tab-loading-text {
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+}
+
+/* ===== Tab Error State ===== */
+.tab-error-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    padding: 2rem;
+}
+
+.tab-error-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 400px;
+}
+
+.tab-error-icon {
+    width: 3rem;
+    height: 3rem;
+    color: var(--color-error);
+    margin-bottom: 1rem;
+}
+
+.tab-error-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.tab-error-message {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 1.5rem;
+}
+
+.tab-retry-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}

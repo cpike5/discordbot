@@ -1,0 +1,668 @@
+@model DiscordBot.Bot.ViewModels.Pages.SystemHealthViewModel
+@using DiscordBot.Bot.ViewModels.Pages
+
+<!-- Database Performance Card -->
+<div class="chart-card mb-6">
+    <div class="chart-card-header">
+        <div>
+            <h2 class="chart-card-title">Database Performance</h2>
+            <p class="chart-card-subtitle">Query execution and connection pool metrics</p>
+        </div>
+        <span class="status-badge status-badge-connected">Healthy</span>
+    </div>
+    <div class="chart-card-body">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+            <!-- Avg Query Time -->
+            <div class="text-center p-4 bg-bg-tertiary rounded-lg">
+                <div class="text-3xl font-bold text-text-primary @SystemHealthViewModel.GetQueryTimeStatusClass(Model.DatabaseMetrics.AvgQueryTimeMs)">
+                    @Model.DatabaseMetrics.AvgQueryTimeMs.ToString("F0")<span class="text-lg font-normal text-text-secondary">ms</span>
+                </div>
+                <div class="text-sm text-text-secondary mt-1">Avg Query Time</div>
+            </div>
+
+            <!-- Total Queries -->
+            <div class="text-center p-4 bg-bg-tertiary rounded-lg">
+                <div class="text-3xl font-bold text-text-primary">@Model.DatabaseMetrics.TotalQueries.ToString("N0")</div>
+                <div class="text-sm text-text-secondary mt-1">Total Queries</div>
+            </div>
+
+            <!-- Queries/sec -->
+            <div class="text-center p-4 bg-bg-tertiary rounded-lg">
+                <div class="text-3xl font-bold text-text-primary">@Model.QueriesPerSecond.ToString("F1")</div>
+                <div class="text-sm text-text-secondary mt-1">Queries/sec</div>
+            </div>
+
+            <!-- Slow Query Count -->
+            <div class="text-center p-4 bg-bg-tertiary rounded-lg">
+                <div class="text-3xl font-bold @(Model.DatabaseMetrics.SlowQueryCount > 10 ? "text-error" : Model.DatabaseMetrics.SlowQueryCount > 0 ? "text-warning" : "text-success")">
+                    @Model.DatabaseMetrics.SlowQueryCount
+                </div>
+                <div class="text-sm text-text-secondary mt-1">Slow Queries</div>
+            </div>
+        </div>
+
+        <!-- Query Time Chart -->
+        <div class="chart-container chart-container-sm">
+            <canvas id="systemQueryTimeChart"></canvas>
+
+            <!-- Loading State -->
+            <div class="chart-loading hidden" id="systemQueryTimeLoading" role="status" aria-live="polite" aria-label="Loading chart data">
+                <div class="flex items-center justify-center h-full">
+                    <svg class="animate-spin h-8 w-8 text-brand" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="chart-empty hidden" id="systemQueryTimeEmpty">
+                <div class="flex flex-col items-center justify-center h-full text-text-tertiary">
+                    <svg class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p>No data available for this time range</p>
+                    <p class="text-sm mt-1">Data collection may still be initializing</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div class="chart-error hidden" id="systemQueryTimeError">
+                <div class="flex flex-col items-center justify-center h-full text-text-tertiary">
+                    <svg class="h-12 w-12 mb-2 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>Failed to load metrics</p>
+                    <button class="mt-2 text-sm text-brand hover:underline chart-retry-btn" id="systemQueryTimeRetry">Retry</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slow Queries Table -->
+@if (Model.SlowQueries.Any())
+{
+    <div class="chart-card mb-6">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Slow Queries</h2>
+                <p class="chart-card-subtitle">Queries exceeding 100ms threshold (last 24 hours)</p>
+            </div>
+            <span class="severity-badge severity-info">@Model.SlowQueries.Count slow queries</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="performance-table">
+                <thead>
+                    <tr>
+                        <th>Query</th>
+                        <th>Duration</th>
+                        <th>Timestamp</th>
+                        <th>Parameters</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var query in Model.SlowQueries.Take(10))
+                    {
+                        <tr>
+                            <td>
+                                <code class="text-mono text-xs text-text-secondary">@(query.CommandText.Length > 100 ? query.CommandText.Substring(0, 100) + "..." : query.CommandText)</code>
+                            </td>
+                            <td class="font-medium @(query.DurationMs > 500 ? "text-error" : "text-warning")">@query.DurationMs.ToString("F0")ms</td>
+                            <td class="text-text-tertiary" data-utc-time="@query.Timestamp.ToString("o")">@query.Timestamp.ToString("MMM dd, HH:mm")</td>
+                            <td class="text-xs text-text-tertiary">@(string.IsNullOrEmpty(query.Parameters) ? "-" : query.Parameters.Length > 50 ? query.Parameters.Substring(0, 50) + "..." : query.Parameters)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<!-- Background Services & Cache Status -->
+<div class="performance-grid-2 mb-6">
+    <!-- Background Services -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Background Services</h2>
+                <p class="chart-card-subtitle">Hosted service status and health</p>
+            </div>
+        </div>
+        <div class="chart-card-body p-0">
+            <div class="divide-y divide-border-primary max-h-80 overflow-y-auto">
+                @if (Model.BackgroundServices.Any())
+                {
+                    @foreach (var service in Model.BackgroundServices)
+                    {
+                        var statusClass = SystemHealthViewModel.GetServiceStatusClass(service.Status);
+                        var isRunning = service.Status.Equals("Running", StringComparison.OrdinalIgnoreCase);
+                        var statusText = service.Status;
+                        var statusColor = service.Status.ToUpperInvariant() switch
+                        {
+                            "RUNNING" => "text-success",
+                            "STARTING" => "text-warning",
+                            "STOPPED" => "text-text-tertiary",
+                            _ => "text-error"
+                        };
+
+                        <div class="p-4 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-3 h-3 rounded-full @statusClass @(isRunning ? "animate-pulse" : "")"></div>
+                                <div>
+                                    <div class="font-medium text-text-primary">@service.ServiceName</div>
+                                    @if (!string.IsNullOrEmpty(service.LastError))
+                                    {
+                                        <div class="text-xs text-error">@service.LastError</div>
+                                    }
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm font-medium @statusColor">@statusText</div>
+                                @if (service.LastHeartbeat.HasValue)
+                                {
+                                    var timeSinceHeartbeat = DateTime.UtcNow - service.LastHeartbeat.Value;
+                                    <div class="text-xs text-text-tertiary">
+                                        @if (timeSinceHeartbeat.TotalMinutes < 1)
+                                        {
+                                            <span>@((int)timeSinceHeartbeat.TotalSeconds)s ago</span>
+                                        }
+                                        else if (timeSinceHeartbeat.TotalHours < 1)
+                                        {
+                                            <span>@((int)timeSinceHeartbeat.TotalMinutes)m ago</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@((int)timeSinceHeartbeat.TotalHours)h ago</span>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="p-8 text-center text-text-tertiary">
+                        No background services registered
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Cache Status -->
+    <div class="chart-card">
+        <div class="chart-card-header">
+            <div>
+                <h2 class="chart-card-title">Cache Performance</h2>
+                <p class="chart-card-subtitle">In-memory cache hit rates</p>
+            </div>
+        </div>
+        <div class="chart-card-body space-y-6">
+            @if (Model.CacheStatsByPrefix.Any())
+            {
+                @foreach (var cache in Model.CacheStatsByPrefix)
+                {
+                    var hitRateClass = SystemHealthViewModel.GetCacheHitRateClass(cache.HitRate);
+                    var colorClass = cache.HitRate switch
+                    {
+                        >= 90 => "text-success",
+                        >= 70 => "text-warning",
+                        _ => "text-error"
+                    };
+
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-text-primary">@cache.KeyPrefix</span>
+                            <span class="text-sm @colorClass font-medium">@cache.HitRate.ToString("F1")%</span>
+                        </div>
+                        <div class="progress-bar-container progress-bar-lg">
+                            <div class="progress-bar-fill @hitRateClass" style="width: @cache.HitRate.ToString("F1")%;"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-text-tertiary mt-1">
+                            <span>@cache.Hits.ToString("N0") hits / @cache.Misses.ToString("N0") misses</span>
+                            <span>Size: @cache.Size items</span>
+                        </div>
+                    </div>
+                }
+
+                <!-- Total Cache Stats -->
+                <div class="pt-4 border-t border-border-primary">
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-xl font-bold text-text-primary">@Model.OverallCacheStats.Hits.ToString("N0")</div>
+                            <div class="text-xs text-text-tertiary">Total Hits</div>
+                        </div>
+                        <div>
+                            <div class="text-xl font-bold text-text-primary">@Model.OverallCacheStats.Misses.ToString("N0")</div>
+                            <div class="text-xs text-text-tertiary">Total Misses</div>
+                        </div>
+                        <div>
+                            <div class="text-xl font-bold text-text-primary">@Model.OverallCacheStats.Size</div>
+                            <div class="text-xs text-text-tertiary">Total Items</div>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-8 text-text-tertiary">
+                    No cache statistics available
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Memory & GC Stats -->
+<div class="chart-card">
+    <div class="chart-card-header">
+        <div>
+            <h2 class="chart-card-title">Memory & Garbage Collection</h2>
+            <p class="chart-card-subtitle">.NET runtime memory statistics</p>
+        </div>
+    </div>
+    <div class="chart-card-body">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+            <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                <div class="text-xl font-bold text-text-primary">@Model.WorkingSetMB MB</div>
+                <div class="text-xs text-text-tertiary">Working Set</div>
+            </div>
+            <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                <div class="text-xl font-bold text-text-primary">@Model.PrivateMemoryMB MB</div>
+                <div class="text-xs text-text-tertiary">Private Bytes</div>
+            </div>
+            <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                <div class="text-xl font-bold text-text-primary">@Model.HeapSizeMB MB</div>
+                <div class="text-xs text-text-tertiary">Heap Size</div>
+            </div>
+            <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                <div class="text-xl font-bold text-text-primary">@Model.Gen0Collections.ToString("N0")</div>
+                <div class="text-xs text-text-tertiary">Gen 0 Collections</div>
+            </div>
+            <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                <div class="text-xl font-bold text-text-primary">@Model.Gen1Collections.ToString("N0")</div>
+                <div class="text-xs text-text-tertiary">Gen 1 Collections</div>
+            </div>
+            <div class="text-center p-3 bg-bg-tertiary rounded-lg">
+                <div class="text-xl font-bold text-text-primary">@Model.Gen2Collections</div>
+                <div class="text-xs text-text-tertiary">Gen 2 Collections</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="systemMemoryChart"></canvas>
+
+            <!-- Loading State -->
+            <div class="chart-loading hidden" id="systemMemoryLoading" role="status" aria-live="polite" aria-label="Loading chart data">
+                <div class="flex items-center justify-center h-full">
+                    <svg class="animate-spin h-8 w-8 text-brand" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="chart-empty hidden" id="systemMemoryEmpty">
+                <div class="flex flex-col items-center justify-center h-full text-text-tertiary">
+                    <svg class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p>No data available for this time range</p>
+                    <p class="text-sm mt-1">Data collection may still be initializing</p>
+                </div>
+            </div>
+
+            <!-- Error State -->
+            <div class="chart-error hidden" id="systemMemoryError">
+                <div class="flex flex-col items-center justify-center h-full text-text-tertiary">
+                    <svg class="h-12 w-12 mb-2 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>Failed to load metrics</p>
+                    <button class="mt-2 text-sm text-brand hover:underline chart-retry-btn" id="systemMemoryRetry">Retry</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+
+    let systemQueryTimeChart;
+    let systemMemoryChart;
+
+    // Get current hours from PerformanceShell
+    function getSelectedHours() {
+        return window.PerformanceShell ? window.PerformanceShell.getCurrentHours() : 24;
+    }
+
+    // Format timestamp based on selected time range
+    function formatTimestamp(isoString, hours) {
+        const date = new Date(isoString);
+        if (hours <= 24) {
+            return date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+        } else if (hours <= 168) {
+            return date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                hour: '2-digit',
+                hour12: false
+            });
+        } else {
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+    }
+
+    // Format full timestamp for tooltips
+    function formatFullTimestamp(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: '2-digit'
+        }) + ', ' + date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
+    }
+
+    // Show/hide chart states
+    function showChartState(chartName, state) {
+        const states = ['loading', 'empty', 'error'];
+        states.forEach(s => {
+            const element = document.getElementById(`system${chartName}${s.charAt(0).toUpperCase() + s.slice(1)}`);
+            if (element) {
+                if (s === state) {
+                    element.classList.remove('hidden');
+                } else {
+                    element.classList.add('hidden');
+                }
+            }
+        });
+    }
+
+    // Initialize query time chart
+    async function initQueryTimeChart(hours) {
+        const ctx = document.getElementById('systemQueryTimeChart');
+        if (!ctx) return;
+
+        showChartState('QueryTime', 'loading');
+
+        // Destroy existing chart
+        if (systemQueryTimeChart) {
+            systemQueryTimeChart.destroy();
+            systemQueryTimeChart = null;
+        }
+
+        try {
+            const response = await fetch(`/api/metrics/system/history/database?hours=${hours}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Hide all states
+            showChartState('QueryTime', null);
+
+            // Check if we have data
+            if (!data.samples || data.samples.length === 0) {
+                showChartState('QueryTime', 'empty');
+                return;
+            }
+
+            // Map data to chart format
+            const labels = data.samples.map(s => formatTimestamp(s.timestamp, hours));
+            const queryTimes = data.samples.map(s => s.avgQueryTimeMs);
+
+            // Determine point display based on time range
+            const showPoints = hours <= 6;
+
+            systemQueryTimeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Avg Query Time',
+                        data: queryTimes,
+                        borderColor: '#098ecf',
+                        backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: showPoints ? 3 : 0,
+                        pointHoverRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#2f3336',
+                            titleColor: '#d7d3d0',
+                            bodyColor: '#a8a5a3',
+                            borderColor: '#3f4447',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                title: function(context) {
+                                    const index = context[0].dataIndex;
+                                    return formatFullTimestamp(data.samples[index].timestamp);
+                                },
+                                label: function(context) {
+                                    return 'Avg Query Time: ' + context.parsed.y.toFixed(1) + ' ms';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#2f3336' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value + ' ms';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Failed to load database metrics:', error);
+            showChartState('QueryTime', 'error');
+        }
+    }
+
+    // Initialize memory chart
+    async function initMemoryChart(hours) {
+        const ctx = document.getElementById('systemMemoryChart');
+        if (!ctx) return;
+
+        showChartState('Memory', 'loading');
+
+        // Destroy existing chart
+        if (systemMemoryChart) {
+            systemMemoryChart.destroy();
+            systemMemoryChart = null;
+        }
+
+        try {
+            const response = await fetch(`/api/metrics/system/history/memory?hours=${hours}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+
+            // Hide all states
+            showChartState('Memory', null);
+
+            // Check if we have data
+            if (!data.samples || data.samples.length === 0) {
+                showChartState('Memory', 'empty');
+                return;
+            }
+
+            // Map data to chart format
+            const labels = data.samples.map(s => formatTimestamp(s.timestamp, hours));
+            const workingSetData = data.samples.map(s => s.workingSetMB);
+            const heapData = data.samples.map(s => s.heapSizeMB);
+
+            // Determine point display based on time range
+            const showPoints = hours <= 6;
+
+            systemMemoryChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Working Set',
+                            data: workingSetData,
+                            borderColor: '#098ecf',
+                            backgroundColor: 'transparent',
+                            tension: 0.4,
+                            pointRadius: showPoints ? 2 : 0,
+                            pointHoverRadius: 5
+                        },
+                        {
+                            label: 'Heap Size',
+                            data: heapData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'transparent',
+                            tension: 0.4,
+                            pointRadius: showPoints ? 2 : 0,
+                            pointHoverRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#2f3336',
+                            titleColor: '#d7d3d0',
+                            bodyColor: '#a8a5a3',
+                            borderColor: '#3f4447',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                title: function(context) {
+                                    const index = context[0].dataIndex;
+                                    return formatFullTimestamp(data.samples[index].timestamp);
+                                },
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + ' MB';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: { color: '#2f3336' },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(0) + ' MB';
+                                }
+                            }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Failed to load memory metrics:', error);
+            showChartState('Memory', 'error');
+        }
+    }
+
+    // Convert UTC timestamps to local timezone
+    function convertTimestampsToLocal() {
+        const timestampElements = document.querySelectorAll('[data-utc-time]');
+        timestampElements.forEach(element => {
+            const utcTime = element.getAttribute('data-utc-time');
+            if (utcTime) {
+                try {
+                    const date = new Date(utcTime);
+                    const formatted = date.toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: '2-digit'
+                    }) + ', ' + date.toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
+                    element.textContent = formatted;
+                } catch (e) {
+                    console.error('Failed to parse timestamp:', utcTime, e);
+                }
+            }
+        });
+    }
+
+    // Initialize tab
+    async function init() {
+        const hours = getSelectedHours();
+        convertTimestampsToLocal();
+
+        await Promise.all([
+            initQueryTimeChart(hours),
+            initMemoryChart(hours)
+        ]);
+
+        // Retry button handlers
+        document.getElementById('systemQueryTimeRetry')?.addEventListener('click', function() {
+            initQueryTimeChart(hours);
+        });
+
+        document.getElementById('systemMemoryRetry')?.addEventListener('click', function() {
+            initMemoryChart(hours);
+        });
+    }
+
+    // Initialize on load
+    init();
+
+    // Expose init and destroy functions for tab system
+    window.initSystemTab = init;
+    window.destroySystemTab = function() {
+        [systemQueryTimeChart, systemMemoryChart].forEach(chart => {
+            if (chart) chart.destroy();
+        });
+    };
+})();
+</script>
