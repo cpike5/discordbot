@@ -149,6 +149,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
 | [log-aggregation.md](docs/articles/log-aggregation.md) | Elasticsearch and Seq centralized logging setup |
+| [kibana-dashboards.md](docs/articles/kibana-dashboards.md) | Kibana dashboards, saved searches, and alerting setup |
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning, CI/CD, release process |
 | [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | Issue hierarchy, labels, GitHub workflow |
 | [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
