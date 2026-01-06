@@ -549,7 +549,16 @@
             // Format labels and data
             const labels = data.samples.map(s => {
                 const date = new Date(s.timestamp);
-                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                if (hours <= 24) {
+                    // Hourly data: include time (e.g., "Jan 5, 2 PM")
+                    const month = date.toLocaleDateString('en-US', { month: 'short' });
+                    const day = date.getDate();
+                    const hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                    return `${month} ${day}, ${hour}`;
+                } else {
+                    // Daily data: just date (e.g., "Jan 5")
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
             });
             const latencies = data.samples.map(s => s.latencyMs);
 

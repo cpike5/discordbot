@@ -297,7 +297,7 @@ else
 
     // Get granularity based on selected hours
     function getGranularity(hours) {
-        return hours >= 168 ? 'day' : 'hour';
+        return hours <= 24 ? 'hour' : 'day';
     }
 
     // Show error message in a chart container
@@ -339,7 +339,11 @@ else
                 if (granularity === 'day') {
                     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 } else {
-                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    // Include date context for hourly data to avoid ambiguous labels
+                    const month = date.toLocaleDateString('en-US', { month: 'short' });
+                    const day = date.getDate();
+                    const hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                    return `${month} ${day}, ${hour}`;
                 }
             });
 
@@ -460,7 +464,11 @@ else
                 if (granularity === 'day') {
                     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 } else {
-                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    // Include date context for hourly data to avoid ambiguous labels
+                    const month = date.toLocaleDateString('en-US', { month: 'short' });
+                    const day = date.getDate();
+                    const hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                    return `${month} ${day}, ${hour}`;
                 }
             });
 
@@ -520,7 +528,7 @@ else
             // Update subtitle
             const subtitle = document.getElementById('commandsThroughputSubtitle');
             if (subtitle) {
-                subtitle.textContent = `Commands executed per ${hours >= 168 ? 'day' : 'hour'}`;
+                subtitle.textContent = `Commands executed per ${hours <= 24 ? 'hour' : 'day'}`;
             }
         } catch (error) {
             console.error('Failed to load throughput chart:', error);
@@ -551,7 +559,11 @@ else
                 if (granularity === 'day') {
                     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 } else {
-                    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                    // Include date context for hourly data to avoid ambiguous labels
+                    const month = date.toLocaleDateString('en-US', { month: 'short' });
+                    const day = date.getDate();
+                    const hour = date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+                    return `${month} ${day}, ${hour}`;
                 }
             });
 
