@@ -107,7 +107,7 @@
                     @foreach (var query in Model.SlowQueries.Take(10))
                     {
                         var hasFullContent = query.CommandText.Length > 100 || (!string.IsNullOrEmpty(query.Parameters) && query.Parameters.Length > 50);
-                        <tr class="@(hasFullContent ? "cursor-pointer hover:bg-bg-tertiary" : "")" data-query-row="@queryIndex" @(hasFullContent ? "onclick=toggleQueryDetails(" + queryIndex + ")" : "")>
+                        <tr class="@(hasFullContent ? "cursor-pointer hover:bg-bg-tertiary" : "")" data-query-row="@queryIndex" @(hasFullContent ? $"onclick=\"toggleQueryDetails({queryIndex})\"" : "")>
                             <td class="text-center">
                                 @if (hasFullContent)
                                 {
