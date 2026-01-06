@@ -50,3 +50,11 @@
       href: metrics.md
     - name: Distributed Tracing
       href: tracing.md
+    - name: Log Aggregation
+      href: log-aggregation.md
+    - name: Elastic Stack Setup
+      href: elastic-stack-setup.md
+    - name: Kibana Dashboards
+      href: kibana-dashboards.md
+    - name: Elastic APM
+      href: elastic-apm.md
