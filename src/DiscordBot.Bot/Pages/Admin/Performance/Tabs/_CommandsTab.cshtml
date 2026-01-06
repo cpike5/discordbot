@@ -281,9 +281,18 @@ else
     let commandsThroughputChart;
     let commandsErrorRateChart;
 
-    // Get current hours from PerformanceShell
+    // Get current hours from PerformanceShell or fallback
     function getSelectedHours() {
-        return window.PerformanceShell ? window.PerformanceShell.getCurrentHours() : 24;
+        // First try PerformanceShell (AJAX mode)
+        if (window.PerformanceShell) {
+            return window.PerformanceShell.getCurrentHours();
+        }
+        // Then try standalone page variable
+        if (typeof window.selectedHours !== 'undefined') {
+            return window.selectedHours;
+        }
+        // Default fallback
+        return 24;
     }
 
     // Get granularity based on selected hours
@@ -647,8 +656,9 @@ else
     }
 
     // Initialize charts
-    async function init() {
-        const hours = getSelectedHours();
+    // Note: hours parameter is passed by performance-tabs.js when loaded via AJAX
+    async function init(hours) {
+        hours = hours || getSelectedHours();
         convertTimestampsToLocal();
 
         @if (Model.TotalCommands > 0)
