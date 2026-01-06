@@ -22,7 +22,8 @@
             defaultTab: 'overview',
             tabPanelSelector: '.tab-panel',
             tabLinkSelector: '.performance-tab',
-            loadingDelay: 150 // Delay before showing loading spinner (prevents flash)
+            loadingDelay: 150, // Delay before showing loading spinner (prevents flash)
+            timeRangeStorageKey: 'performance-dashboard-time-range' // localStorage key for time range
         },
 
         // Tab icon paths (outline and solid versions) for dynamic icon switching
@@ -77,7 +78,8 @@
             // Merge options
             Object.assign(this.config, options);
 
-            // Sync time range from PerformanceShell if available
+            // Restore time range from localStorage, then sync from PerformanceShell if available
+            this.restoreTimeRange();
             if (window.PerformanceShell && typeof window.PerformanceShell.getTimeRange === 'function') {
                 this.state.currentHours = window.PerformanceShell.getTimeRange();
             }
@@ -99,6 +101,12 @@
 
             this.state.activeTab = initialTab;
 
+            // Update tab navigation UI to match the initial tab (important for deep links)
+            this.updateTabNavigation(initialTab);
+
+            // Update time range button UI to match restored value
+            this.updateTimeRangeButtons(this.state.currentHours);
+
             // Set initial history state so back button works from first tab
             history.replaceState({ tabId: initialTab, timeRange: this.state.currentHours, timestamp: Date.now() }, '', `#${initialTab}`);
 
@@ -106,7 +114,7 @@
             this.loadTab(initialTab, this.state.currentHours, false);
 
             this.state.isInitialized = true;
-            console.log('PerformanceTabs initialized, loading tab:', initialTab);
+            console.log('PerformanceTabs initialized, loading tab:', initialTab, 'time range:', this.state.currentHours);
         },
 
         /**
@@ -364,6 +372,9 @@
         changeTimeRange: function(hours) {
             this.state.currentHours = hours;
 
+            // Persist to localStorage
+            this.saveTimeRange(hours);
+
             // Clear cache for all tabs (data is now stale)
             this.clearAllCache();
 
@@ -374,6 +385,47 @@
             document.dispatchEvent(new CustomEvent('timeRangeChanged', {
                 detail: { hours: hours, tabId: this.state.activeTab }
             }));
+        },
+
+        /**
+         * Save time range to localStorage
+         * @param {number} hours - Time range in hours
+         */
+        saveTimeRange: function(hours) {
+            try {
+                localStorage.setItem(this.config.timeRangeStorageKey, String(hours));
+            } catch (e) {
+                console.warn('Failed to save time range to localStorage:', e);
+            }
+        },
+
+        /**
+         * Restore time range from localStorage
+         */
+        restoreTimeRange: function() {
+            try {
+                const stored = localStorage.getItem(this.config.timeRangeStorageKey);
+                if (stored) {
+                    const hours = parseInt(stored, 10);
+                    // Validate it's one of the allowed values
+                    if ([24, 168, 720].includes(hours)) {
+                        this.state.currentHours = hours;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to restore time range from localStorage:', e);
+            }
+        },
+
+        /**
+         * Update time range button UI to reflect active state
+         * @param {number} hours - The active time range in hours
+         */
+        updateTimeRangeButtons: function(hours) {
+            document.querySelectorAll('.time-range-btn').forEach(btn => {
+                const btnHours = parseInt(btn.dataset.hours, 10);
+                btn.classList.toggle('active', btnHours === hours);
+            });
         },
 
         /**
