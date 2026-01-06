@@ -20,6 +20,16 @@ public class DashboardHub : Hub
     public const string AlertsGroupName = "alerts";
 
     /// <summary>
+    /// The name of the SignalR group for performance metrics updates.
+    /// </summary>
+    public const string PerformanceGroupName = "performance";
+
+    /// <summary>
+    /// The name of the SignalR group for system health updates.
+    /// </summary>
+    public const string SystemHealthGroupName = "system-health";
+
+    /// <summary>
     /// Tracing attribute for SignalR connection ID.
     /// </summary>
     private const string SignalRConnectionIdAttribute = "signalr.connection.id";
@@ -28,6 +38,10 @@ public class DashboardHub : Hub
     private readonly IConnectionStateService _connectionStateService;
     private readonly ILatencyHistoryService _latencyHistoryService;
     private readonly IPerformanceAlertService _alertService;
+    private readonly ICommandPerformanceAggregator _commandPerformanceAggregator;
+    private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
+    private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
+    private readonly IInstrumentedCache _instrumentedCache;
     private readonly ILogger<DashboardHub> _logger;
 
     /// <summary>
@@ -37,18 +51,30 @@ public class DashboardHub : Hub
     /// <param name="connectionStateService">The connection state service.</param>
     /// <param name="latencyHistoryService">The latency history service.</param>
     /// <param name="alertService">The performance alert service.</param>
+    /// <param name="commandPerformanceAggregator">The command performance aggregator service.</param>
+    /// <param name="databaseMetricsCollector">The database metrics collector service.</param>
+    /// <param name="backgroundServiceHealthRegistry">The background service health registry.</param>
+    /// <param name="instrumentedCache">The instrumented cache service.</param>
     /// <param name="logger">The logger.</param>
     public DashboardHub(
         IBotService botService,
         IConnectionStateService connectionStateService,
         ILatencyHistoryService latencyHistoryService,
         IPerformanceAlertService alertService,
+        ICommandPerformanceAggregator commandPerformanceAggregator,
+        IDatabaseMetricsCollector databaseMetricsCollector,
+        IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
+        IInstrumentedCache instrumentedCache,
         ILogger<DashboardHub> logger)
     {
         _botService = botService;
         _connectionStateService = connectionStateService;
         _latencyHistoryService = latencyHistoryService;
         _alertService = alertService;
+        _commandPerformanceAggregator = commandPerformanceAggregator;
+        _databaseMetricsCollector = databaseMetricsCollector;
+        _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
+        _instrumentedCache = instrumentedCache;
         _logger = logger;
     }
 
@@ -398,6 +424,371 @@ public class DashboardHub : Hub
 
             BotActivitySource.SetSuccess(activity);
             return summary;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Joins the performance metrics group to receive real-time performance updates.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task JoinPerformanceGroup()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "join_performance_group");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, PerformanceGroupName);
+
+            _logger.LogDebug(
+                "Client joined performance group: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Leaves the performance metrics group to stop receiving performance updates.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task LeavePerformanceGroup()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "leave_performance_group");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, PerformanceGroupName);
+
+            _logger.LogDebug(
+                "Client left performance group: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Joins the system health group to receive real-time system health updates.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task JoinSystemHealthGroup()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "join_system_health_group");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, SystemHealthGroupName);
+
+            _logger.LogDebug(
+                "Client joined system health group: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Leaves the system health group to stop receiving system health updates.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task LeaveSystemHealthGroup()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "leave_system_health_group");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, SystemHealthGroupName);
+
+            _logger.LogDebug(
+                "Client left system health group: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets the current performance metrics including latency, memory, CPU, and connection state.
+    /// </summary>
+    /// <returns>The current performance health metrics.</returns>
+    public HealthMetricsUpdateDto GetCurrentPerformanceMetrics()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_current_performance_metrics");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            _logger.LogDebug(
+                "Performance metrics requested by client: ConnectionId={ConnectionId}",
+                Context.ConnectionId);
+
+            int currentLatency;
+            using (BotActivitySource.StartServiceActivity("latency_history_service", "get_current_latency"))
+            {
+                currentLatency = _latencyHistoryService.GetCurrentLatency();
+            }
+
+            GatewayConnectionState connectionState;
+            using (BotActivitySource.StartServiceActivity("connection_state_service", "get_current_state"))
+            {
+                connectionState = _connectionStateService.GetCurrentState();
+            }
+
+            // Get current process metrics - dispose immediately to prevent memory leak
+            long workingSetMB;
+            long privateMemoryMB;
+            int threadCount;
+            using (var process = System.Diagnostics.Process.GetCurrentProcess())
+            {
+                workingSetMB = process.WorkingSet64 / 1024 / 1024;
+                privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+                threadCount = process.Threads.Count;
+            }
+
+            var gen2Collections = GC.CollectionCount(2);
+
+            // CPU usage calculation would require tracking over time, so we'll use 0 for now
+            // This can be enhanced later with a proper CPU monitoring service
+            var cpuUsagePercent = 0.0;
+
+            var metrics = new HealthMetricsUpdateDto
+            {
+                LatencyMs = currentLatency,
+                WorkingSetMB = workingSetMB,
+                PrivateMemoryMB = privateMemoryMB,
+                CpuUsagePercent = cpuUsagePercent,
+                ThreadCount = threadCount,
+                Gen2Collections = gen2Collections,
+                ConnectionState = connectionState.ToString(),
+                Timestamp = DateTime.UtcNow
+            };
+
+            _logger.LogTrace(
+                "Performance metrics retrieved: Latency={LatencyMs}ms, WorkingSet={WorkingSetMB}MB, PrivateMemory={PrivateMemoryMB}MB, Threads={ThreadCount}",
+                metrics.LatencyMs,
+                metrics.WorkingSetMB,
+                metrics.PrivateMemoryMB,
+                metrics.ThreadCount);
+
+            BotActivitySource.SetSuccess(activity);
+            return metrics;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets the current system health including database, cache, and background service metrics.
+    /// </summary>
+    /// <returns>The current system health metrics.</returns>
+    public SystemMetricsUpdateDto GetCurrentSystemHealth()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_current_system_health");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            _logger.LogDebug(
+                "System health requested by client: ConnectionId={ConnectionId}",
+                Context.ConnectionId);
+
+            DatabaseMetricsDto dbMetrics;
+            using (BotActivitySource.StartServiceActivity("database_metrics_collector", "get_metrics"))
+            {
+                dbMetrics = _databaseMetricsCollector.GetMetrics();
+            }
+
+            IReadOnlyList<CacheStatisticsDto> cacheStats;
+            using (BotActivitySource.StartServiceActivity("instrumented_cache", "get_statistics"))
+            {
+                cacheStats = _instrumentedCache.GetStatistics();
+            }
+
+            IReadOnlyList<BackgroundServiceHealthDto> serviceHealth;
+            using (BotActivitySource.StartServiceActivity("background_service_health_registry", "get_all_health"))
+            {
+                serviceHealth = _backgroundServiceHealthRegistry.GetAllHealth();
+            }
+
+            // Calculate queries per second (simple approximation based on total queries)
+            var queriesPerSecond = dbMetrics.TotalQueries > 0 ? dbMetrics.AvgQueryTimeMs > 0 ? 1000.0 / dbMetrics.AvgQueryTimeMs : 0 : 0;
+
+            // Map cache statistics to dictionary by key prefix
+            var cacheStatsDict = cacheStats.ToDictionary(
+                c => c.KeyPrefix,
+                c => new CacheStatsDto
+                {
+                    KeyPrefix = c.KeyPrefix,
+                    Hits = c.Hits,
+                    Misses = c.Misses,
+                    HitRate = c.HitRate,
+                    Size = c.Size
+                });
+
+            // Map background service health to simplified DTOs
+            var serviceStatusList = serviceHealth.Select(s => new BackgroundServiceStatusDto
+            {
+                ServiceName = s.ServiceName,
+                Status = s.Status,
+                LastHeartbeat = s.LastHeartbeat,
+                LastError = s.LastError
+            }).ToList();
+
+            var systemMetrics = new SystemMetricsUpdateDto
+            {
+                AvgQueryTimeMs = dbMetrics.AvgQueryTimeMs,
+                TotalQueries = (int)dbMetrics.TotalQueries,
+                QueriesPerSecond = queriesPerSecond,
+                SlowQueryCount = dbMetrics.SlowQueryCount,
+                CacheStats = cacheStatsDict,
+                BackgroundServices = serviceStatusList,
+                Timestamp = DateTime.UtcNow
+            };
+
+            _logger.LogTrace(
+                "System health retrieved: AvgQueryTime={AvgQueryTimeMs}ms, TotalQueries={TotalQueries}, SlowQueries={SlowQueryCount}, CacheCount={CacheCount}, ServicesCount={ServicesCount}",
+                systemMetrics.AvgQueryTimeMs,
+                systemMetrics.TotalQueries,
+                systemMetrics.SlowQueryCount,
+                systemMetrics.CacheStats.Count,
+                systemMetrics.BackgroundServices.Count);
+
+            BotActivitySource.SetSuccess(activity);
+            return systemMetrics;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets the current command performance metrics over a specified number of hours.
+    /// </summary>
+    /// <param name="hours">The number of hours of command history to aggregate (default: 24).</param>
+    /// <returns>The current command performance metrics.</returns>
+    public async Task<CommandPerformanceUpdateDto> GetCurrentCommandPerformance(int hours = 24)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_current_command_performance");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag("hours", hours);
+
+        try
+        {
+            _logger.LogDebug(
+                "Command performance requested by client: ConnectionId={ConnectionId}, Hours={Hours}",
+                Context.ConnectionId,
+                hours);
+
+            IReadOnlyList<CommandPerformanceAggregateDto> aggregates;
+            using (BotActivitySource.StartServiceActivity("command_performance_aggregator", "get_aggregates"))
+            {
+                aggregates = await _commandPerformanceAggregator.GetAggregatesAsync(hours);
+            }
+
+            // Calculate overall metrics from aggregates
+            var totalCommands = aggregates.Sum(a => a.ExecutionCount);
+            var avgResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.AvgMs) : 0;
+            var p95ResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.P95Ms) : 0;
+            var p99ResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.P99Ms) : 0;
+            var errorRate = aggregates.Any() ? aggregates.Average(a => a.ErrorRate) : 0;
+
+            // Calculate commands in the last hour (approximation: total / hours)
+            var commandsLastHour = hours > 0 ? totalCommands / hours : totalCommands;
+
+            var commandMetrics = new CommandPerformanceUpdateDto
+            {
+                TotalCommands24h = totalCommands,
+                AvgResponseTimeMs = avgResponseTimeMs,
+                P95ResponseTimeMs = p95ResponseTimeMs,
+                P99ResponseTimeMs = p99ResponseTimeMs,
+                ErrorRate = errorRate,
+                CommandsLastHour = commandsLastHour,
+                Timestamp = DateTime.UtcNow
+            };
+
+            _logger.LogTrace(
+                "Command performance retrieved: TotalCommands={TotalCommands}, AvgResponseTime={AvgResponseTimeMs}ms, P95={P95ResponseTimeMs}ms, ErrorRate={ErrorRate}%",
+                commandMetrics.TotalCommands24h,
+                commandMetrics.AvgResponseTimeMs,
+                commandMetrics.P95ResponseTimeMs,
+                commandMetrics.ErrorRate);
+
+            BotActivitySource.SetSuccess(activity);
+            return commandMetrics;
         }
         catch (Exception ex)
         {
