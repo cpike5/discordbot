@@ -315,10 +315,8 @@ else
         }
     }
 
-    // Initialize on load
-    init();
-
     // Expose init and destroy functions for tab system
+    // Note: Don't call init here - let performance-tabs.js call it via initTab()
     window.initApiTab = init;
     window.destroyApiTab = function() {
         if (apiLatencyChart) apiLatencyChart.destroy();
