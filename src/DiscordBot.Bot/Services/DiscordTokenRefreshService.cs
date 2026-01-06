@@ -69,30 +69,31 @@ public class DiscordTokenRefreshService : MonitoredBackgroundService
             executionCycle++;
             var correlationId = Guid.NewGuid().ToString("N")[..16];
 
-            using var activity = BotActivitySource.StartBackgroundServiceActivity(
+            using (var activity = BotActivitySource.StartBackgroundServiceActivity(
                 TracingServiceName,
                 executionCycle,
-                correlationId);
+                correlationId))
+            {
+                UpdateHeartbeat();
 
-            UpdateHeartbeat();
-
-            try
-            {
-                var tokensRefreshed = await RefreshExpiringTokensAsync(stoppingToken);
-                BotActivitySource.SetRecordsProcessed(activity, tokensRefreshed);
-                BotActivitySource.SetSuccess(activity);
-                ClearError();
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                _logger.LogInformation("Token refresh service is shutting down");
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during token refresh cycle, will retry on next interval");
-                BotActivitySource.RecordException(activity, ex);
-                RecordError(ex);
+                try
+                {
+                    var tokensRefreshed = await RefreshExpiringTokensAsync(stoppingToken);
+                    BotActivitySource.SetRecordsProcessed(activity, tokensRefreshed);
+                    BotActivitySource.SetSuccess(activity);
+                    ClearError();
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    _logger.LogInformation("Token refresh service is shutting down");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error during token refresh cycle, will retry on next interval");
+                    BotActivitySource.RecordException(activity, ex);
+                    RecordError(ex);
+                }
             }
 
             try
