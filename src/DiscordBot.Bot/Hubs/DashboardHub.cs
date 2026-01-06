@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -17,6 +18,11 @@ public class DashboardHub : Hub
     /// The name of the SignalR group for alert notifications.
     /// </summary>
     public const string AlertsGroupName = "alerts";
+
+    /// <summary>
+    /// Tracing attribute for SignalR connection ID.
+    /// </summary>
+    private const string SignalRConnectionIdAttribute = "signalr.connection.id";
 
     private readonly IBotService _botService;
     private readonly IConnectionStateService _connectionStateService;
@@ -51,14 +57,31 @@ public class DashboardHub : Hub
     /// </summary>
     public override async Task OnConnectedAsync()
     {
-        var userName = Context.User?.Identity?.Name ?? "unknown";
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "on_connected");
 
-        _logger.LogInformation(
-            "Dashboard client connected: ConnectionId={ConnectionId}, User={UserName}",
-            Context.ConnectionId,
-            userName);
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        await base.OnConnectedAsync();
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            _logger.LogInformation(
+                "Dashboard client connected: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            await base.OnConnectedAsync();
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -67,25 +90,42 @@ public class DashboardHub : Hub
     /// <param name="exception">The exception that caused the disconnect, if any.</param>
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var userName = Context.User?.Identity?.Name ?? "unknown";
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "on_disconnected");
 
-        if (exception != null)
-        {
-            _logger.LogWarning(
-                exception,
-                "Dashboard client disconnected with error: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-        }
-        else
-        {
-            _logger.LogInformation(
-                "Dashboard client disconnected: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-        }
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        await base.OnDisconnectedAsync(exception);
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            if (exception != null)
+            {
+                _logger.LogWarning(
+                    exception,
+                    "Dashboard client disconnected with error: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Dashboard client disconnected: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            }
+
+            await base.OnDisconnectedAsync(exception);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -95,16 +135,34 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task JoinGuildGroup(ulong guildId)
     {
-        var groupName = GetGuildGroupName(guildId);
-        var userName = Context.User?.Identity?.Name ?? "unknown";
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "join_guild_group");
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
-        _logger.LogDebug(
-            "Client joined guild group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
-            Context.ConnectionId,
-            userName,
-            guildId);
+        try
+        {
+            var groupName = GetGuildGroupName(guildId);
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogDebug(
+                "Client joined guild group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
+                Context.ConnectionId,
+                userName,
+                guildId);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -114,16 +172,34 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task LeaveGuildGroup(ulong guildId)
     {
-        var groupName = GetGuildGroupName(guildId);
-        var userName = Context.User?.Identity?.Name ?? "unknown";
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "leave_guild_group");
 
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
-        _logger.LogDebug(
-            "Client left guild group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
-            Context.ConnectionId,
-            userName,
-            guildId);
+        try
+        {
+            var groupName = GetGuildGroupName(guildId);
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogDebug(
+                "Client left guild group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
+                Context.ConnectionId,
+                userName,
+                guildId);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -132,11 +208,33 @@ public class DashboardHub : Hub
     /// <returns>The current bot status.</returns>
     public BotStatusDto GetCurrentStatus()
     {
-        _logger.LogDebug(
-            "Status requested by client: ConnectionId={ConnectionId}",
-            Context.ConnectionId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_current_status");
 
-        return _botService.GetStatus();
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            _logger.LogDebug(
+                "Status requested by client: ConnectionId={ConnectionId}",
+                Context.ConnectionId);
+
+            BotStatusDto result;
+            using (BotActivitySource.StartServiceActivity("bot_service", "get_status"))
+            {
+                result = _botService.GetStatus();
+            }
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -145,30 +243,60 @@ public class DashboardHub : Hub
     /// <returns>The current performance health status.</returns>
     public PerformanceHealthDto GetHealthStatus()
     {
-        _logger.LogDebug(
-            "Health status requested by client: ConnectionId={ConnectionId}",
-            Context.ConnectionId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_health_status");
 
-        var connectionState = _connectionStateService.GetCurrentState();
-        var sessionDuration = _connectionStateService.GetCurrentSessionDuration();
-        var currentLatency = _latencyHistoryService.GetCurrentLatency();
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        var health = new PerformanceHealthDto
+        try
         {
-            Status = connectionState == GatewayConnectionState.Connected ? "Healthy" : "Unhealthy",
-            Uptime = sessionDuration,
-            LatencyMs = currentLatency,
-            ConnectionState = connectionState.ToString(),
-            Timestamp = DateTime.UtcNow
-        };
+            _logger.LogDebug(
+                "Health status requested by client: ConnectionId={ConnectionId}",
+                Context.ConnectionId);
 
-        _logger.LogTrace(
-            "Health status retrieved: Status={Status}, Uptime={Uptime}, Latency={LatencyMs}ms",
-            health.Status,
-            health.Uptime,
-            health.LatencyMs);
+            GatewayConnectionState connectionState;
+            using (BotActivitySource.StartServiceActivity("connection_state_service", "get_current_state"))
+            {
+                connectionState = _connectionStateService.GetCurrentState();
+            }
 
-        return health;
+            TimeSpan sessionDuration;
+            using (BotActivitySource.StartServiceActivity("connection_state_service", "get_current_session_duration"))
+            {
+                sessionDuration = _connectionStateService.GetCurrentSessionDuration();
+            }
+
+            int currentLatency;
+            using (BotActivitySource.StartServiceActivity("latency_history_service", "get_current_latency"))
+            {
+                currentLatency = _latencyHistoryService.GetCurrentLatency();
+            }
+
+            var health = new PerformanceHealthDto
+            {
+                Status = connectionState == GatewayConnectionState.Connected ? "Healthy" : "Unhealthy",
+                Uptime = sessionDuration,
+                LatencyMs = currentLatency,
+                ConnectionState = connectionState.ToString(),
+                Timestamp = DateTime.UtcNow
+            };
+
+            _logger.LogTrace(
+                "Health status retrieved: Status={Status}, Uptime={Uptime}, Latency={LatencyMs}ms",
+                health.Status,
+                health.Uptime,
+                health.LatencyMs);
+
+            BotActivitySource.SetSuccess(activity);
+            return health;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -177,14 +305,31 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task JoinAlertsGroup()
     {
-        var userName = Context.User?.Identity?.Name ?? "unknown";
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "join_alerts_group");
 
-        await Groups.AddToGroupAsync(Context.ConnectionId, AlertsGroupName);
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        _logger.LogDebug(
-            "Client joined alerts group: ConnectionId={ConnectionId}, User={UserName}",
-            Context.ConnectionId,
-            userName);
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, AlertsGroupName);
+
+            _logger.LogDebug(
+                "Client joined alerts group: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -193,14 +338,31 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task LeaveAlertsGroup()
     {
-        var userName = Context.User?.Identity?.Name ?? "unknown";
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "leave_alerts_group");
 
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, AlertsGroupName);
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        _logger.LogDebug(
-            "Client left alerts group: ConnectionId={ConnectionId}, User={UserName}",
-            Context.ConnectionId,
-            userName);
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, AlertsGroupName);
+
+            _logger.LogDebug(
+                "Client left alerts group: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
@@ -209,19 +371,39 @@ public class DashboardHub : Hub
     /// <returns>The active alert summary with counts by severity.</returns>
     public async Task<ActiveAlertSummaryDto> GetActiveAlertCount()
     {
-        _logger.LogDebug(
-            "Active alert count requested by client: ConnectionId={ConnectionId}",
-            Context.ConnectionId);
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_active_alert_count");
 
-        var summary = await _alertService.GetActiveAlertSummaryAsync();
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        _logger.LogTrace(
-            "Active alert count retrieved: ActiveCount={ActiveCount}, Critical={CriticalCount}, Warning={WarningCount}",
-            summary.ActiveCount,
-            summary.CriticalCount,
-            summary.WarningCount);
+        try
+        {
+            _logger.LogDebug(
+                "Active alert count requested by client: ConnectionId={ConnectionId}",
+                Context.ConnectionId);
 
-        return summary;
+            ActiveAlertSummaryDto summary;
+            using (BotActivitySource.StartServiceActivity("alert_service", "get_active_alert_summary"))
+            {
+                summary = await _alertService.GetActiveAlertSummaryAsync();
+            }
+
+            _logger.LogTrace(
+                "Active alert count retrieved: ActiveCount={ActiveCount}, Critical={CriticalCount}, Warning={WarningCount}",
+                summary.ActiveCount,
+                summary.CriticalCount,
+                summary.WarningCount);
+
+            BotActivitySource.SetSuccess(activity);
+            return summary;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 
     /// <summary>
