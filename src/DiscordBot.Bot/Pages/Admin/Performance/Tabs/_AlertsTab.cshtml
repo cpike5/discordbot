@@ -700,5 +700,7 @@
         if (alertsFrequencyChart) alertsFrequencyChart.destroy();
         alertsConfigChanges = {};
     };
+    // Expose hasUnsavedChanges for standalone page beforeunload check
+    window.alertsTabHasUnsavedChanges = hasUnsavedChanges;
 })();
 </script>
