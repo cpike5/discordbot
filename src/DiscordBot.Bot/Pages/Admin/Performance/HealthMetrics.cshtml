@@ -27,6 +27,12 @@
         <span class="health-status-dot"></span>
         <span>@Model.ViewModel.Health.ConnectionState</span>
     </div>
+
+    <!-- Live Indicator -->
+    <div id="liveIndicator" class="live-indicator hidden">
+        <span class="live-dot"></span>
+        <span>Live</span>
+    </div>
 </div>
 
 <!-- Navigation Tabs -->
@@ -412,7 +418,11 @@
 </div>
 
 @section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@@latest/dist/browser/signalr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="~/js/dashboard-hub.js"></script>
+    <script src="~/js/realtime-ui.js"></script>
+    <script src="~/js/performance/health-metrics-realtime.js"></script>
     <script>
         // Chart.js default dark theme settings
         Chart.defaults.color = '#a8a5a3';
@@ -629,25 +639,6 @@
             initLatencyChart(hours);
         });
 
-        // SignalR real-time updates
-        if (typeof dashboardHub !== 'undefined') {
-            dashboardHub.on('HealthMetricsUpdate', function(data) {
-                // Update current latency
-                document.getElementById('currentLatency').textContent = data.latencyMs;
-
-                // Update memory usage
-                document.getElementById('memoryUsage').textContent = data.workingSetMB;
-
-                // Update CPU usage (if available)
-                if (data.cpuUsagePercent !== undefined) {
-                    document.getElementById('cpuUsage').textContent = Math.round(data.cpuUsagePercent);
-                }
-
-                // Update connection state if changed
-                // (This would require more complex DOM manipulation)
-            });
-        }
-
         // Convert UTC timestamps to local timezone
         function convertTimestampsToLocal() {
             const timestampElements = document.querySelectorAll('[data-utc-time]');
@@ -675,7 +666,7 @@
         }
 
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             // Initialize gauge charts
             const initialLatency = @Model.ViewModel.Health.LatencyMs;
             const initialMemory = @Model.ViewModel.WorkingSetMB;
@@ -692,25 +683,19 @@
             initLatencyChart(24);
             convertTimestampsToLocal();
 
-            // Auto-refresh every 30 seconds
-            setInterval(async function() {
-                const response = await fetch('/api/metrics/health');
-                const health = await response.json();
+            // Initialize real-time updates via SignalR
+            const initialSparklineData = [@Html.Raw(string.Join(",", Model.ViewModel.RecentLatencySamples.Select(s => s.LatencyMs)))];
+            await HealthMetricsRealtime.initialize({
+                latency: latencyGaugeChart,
+                memory: memoryGaugeChart,
+                cpu: cpuGaugeChart,
+                sparkline: sparklineChart
+            }, initialSparklineData);
+        });
 
-                // Update text values
-                document.getElementById('currentLatency').textContent = health.latencyMs;
-                document.getElementById('memoryUsage').textContent = health.workingSetMB || health.memoryMB || initialMemory;
-
-                // Update gauge charts
-                updateGaugeChart(latencyGaugeChart, health.latencyMs, 500, latencyThresholds, latencyColors);
-                if (health.workingSetMB || health.memoryMB) {
-                    updateGaugeChart(memoryGaugeChart, health.workingSetMB || health.memoryMB, 1024, memoryThresholds, memoryColors);
-                }
-                if (health.cpuUsagePercent !== undefined) {
-                    document.getElementById('cpuUsage').textContent = Math.round(health.cpuUsagePercent);
-                    updateGaugeChart(cpuGaugeChart, health.cpuUsagePercent, 100, cpuThresholds, cpuColors);
-                }
-            }, 30000);
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            HealthMetricsRealtime.cleanup();
         });
     </script>
 }

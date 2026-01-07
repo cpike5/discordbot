@@ -996,6 +996,15 @@
     animation: none;
 }
 
+.live-indicator.flash {
+    animation: liveFlash 0.3s ease-out;
+}
+
+@keyframes liveFlash {
+    0% { background: rgba(16, 185, 129, 0.4); }
+    100% { background: rgba(16, 185, 129, 0.1); }
+}
+
 /* ===== Value Change Animation ===== */
 .value-changed {
     animation: flashHighlight 0.5s ease-out;
