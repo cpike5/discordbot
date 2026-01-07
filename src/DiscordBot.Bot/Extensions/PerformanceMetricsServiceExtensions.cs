@@ -31,6 +31,8 @@ public static class PerformanceMetricsServiceExtensions
             configuration.GetSection(PerformanceAlertOptions.SectionName));
         services.Configure<HistoricalMetricsOptions>(
             configuration.GetSection(HistoricalMetricsOptions.SectionName));
+        services.Configure<PerformanceBroadcastOptions>(
+            configuration.GetSection(PerformanceBroadcastOptions.SectionName));
 
         // Core metrics services (singleton - maintain in-memory state)
         // Register concrete types first, then add interface mappings
@@ -82,6 +84,12 @@ public static class PerformanceMetricsServiceExtensions
         // Historical metrics collection service
         services.AddScoped<IMetricSnapshotRepository, MetricSnapshotRepository>();
         services.AddHostedService<MetricsCollectionService>();
+
+        // Performance subscription tracker (singleton - tracks SignalR group memberships)
+        services.AddSingleton<IPerformanceSubscriptionTracker, PerformanceSubscriptionTracker>();
+
+        // Performance metrics broadcast service
+        services.AddHostedService<PerformanceMetricsBroadcastService>();
 
         return services;
     }
