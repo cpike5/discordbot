@@ -1,12 +1,10 @@
 using System.Collections.Concurrent;
-using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
@@ -19,7 +17,7 @@ namespace DiscordBot.Bot.Services;
 public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealth, IMetricsProvider
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly IPerformanceNotifier _performanceNotifier;
     private readonly ILogger<AlertMonitoringService> _logger;
     private readonly PerformanceAlertOptions _options;
 
@@ -46,12 +44,12 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     /// </summary>
     public AlertMonitoringService(
         IServiceProvider serviceProvider,
-        IHubContext<DashboardHub> hubContext,
+        IPerformanceNotifier performanceNotifier,
         ILogger<AlertMonitoringService> logger,
         IOptions<PerformanceAlertOptions> options)
     {
         _serviceProvider = serviceProvider;
-        _hubContext = hubContext;
+        _performanceNotifier = performanceNotifier;
         _logger = logger;
         _options = options.Value;
     }
@@ -284,8 +282,9 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
                     config.MetricName,
                     incident.Message);
 
-                // Broadcast via SignalR
-                await BroadcastAlertTriggeredAsync(createdIncident);
+                // Broadcast via SignalR using the notifier
+                var dto = MapToIncidentDto(createdIncident);
+                await _performanceNotifier.BroadcastAlertTriggeredAsync(dto, cancellationToken);
 
                 // Reset breach count after creating incident
                 _breachCounts.TryRemove(config.MetricName, out _);
@@ -332,8 +331,9 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
                     config.MetricName,
                     normalCount);
 
-                // Broadcast via SignalR
-                await BroadcastAlertResolvedAsync(resolvedIncident);
+                // Broadcast via SignalR using the notifier
+                var dto = MapToIncidentDto(resolvedIncident);
+                await _performanceNotifier.BroadcastAlertResolvedAsync(dto, cancellationToken);
 
                 // Reset normal count after resolving
                 _normalCounts.TryRemove(config.MetricName, out _);
@@ -341,71 +341,6 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
         }
     }
 
-    /// <summary>
-    /// Broadcasts an alert triggered event via SignalR.
-    /// </summary>
-    private async Task BroadcastAlertTriggeredAsync(PerformanceIncident incident)
-    {
-        try
-        {
-            var dto = MapToIncidentDto(incident);
-            await _hubContext.Clients.Group("alerts").SendAsync("OnAlertTriggered", dto);
-
-            // Also update the active alert count
-            await BroadcastActiveAlertCountAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error broadcasting alert triggered event");
-        }
-    }
-
-    /// <summary>
-    /// Broadcasts an alert resolved event via SignalR.
-    /// </summary>
-    private async Task BroadcastAlertResolvedAsync(PerformanceIncident incident)
-    {
-        try
-        {
-            var dto = MapToIncidentDto(incident);
-            await _hubContext.Clients.Group("alerts").SendAsync("OnAlertResolved", dto);
-
-            // Also update the active alert count
-            await BroadcastActiveAlertCountAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error broadcasting alert resolved event");
-        }
-    }
-
-    /// <summary>
-    /// Broadcasts the current active alert count via SignalR.
-    /// </summary>
-    private async Task BroadcastActiveAlertCountAsync()
-    {
-        try
-        {
-            using var scope = _serviceProvider.CreateScope();
-            var repository = scope.ServiceProvider.GetRequiredService<IPerformanceAlertRepository>();
-
-            var activeIncidents = await repository.GetActiveIncidentsAsync();
-
-            var summary = new ActiveAlertSummaryDto
-            {
-                ActiveCount = activeIncidents.Count,
-                CriticalCount = activeIncidents.Count(i => i.Severity == AlertSeverity.Critical),
-                WarningCount = activeIncidents.Count(i => i.Severity == AlertSeverity.Warning),
-                InfoCount = activeIncidents.Count(i => i.Severity == AlertSeverity.Info)
-            };
-
-            await _hubContext.Clients.Group("alerts").SendAsync("OnActiveAlertCountChanged", summary);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error broadcasting active alert count");
-        }
-    }
 
     /// <summary>
     /// Gets the current value for a specific metric.

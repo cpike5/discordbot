@@ -17,18 +17,22 @@ namespace DiscordBot.Bot.Controllers;
 public class AlertsController : ControllerBase
 {
     private readonly IPerformanceAlertService _alertService;
+    private readonly IPerformanceNotifier _performanceNotifier;
     private readonly ILogger<AlertsController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AlertsController"/> class.
     /// </summary>
     /// <param name="alertService">The performance alert service.</param>
+    /// <param name="performanceNotifier">The performance notifier for SignalR broadcasts.</param>
     /// <param name="logger">The logger.</param>
     public AlertsController(
         IPerformanceAlertService alertService,
+        IPerformanceNotifier performanceNotifier,
         ILogger<AlertsController> logger)
     {
         _alertService = alertService;
+        _performanceNotifier = performanceNotifier;
         _logger = logger;
     }
 
@@ -376,6 +380,9 @@ public class AlertsController : ControllerBase
 
             _logger.LogInformation("Incident {IncidentId} acknowledged by user {UserId}", id, userId);
 
+            // Broadcast the acknowledgment via SignalR
+            await _performanceNotifier.BroadcastAlertAcknowledgedAsync(id, userId, cancellationToken);
+
             return Ok(incident);
         }
         catch (KeyNotFoundException ex)
@@ -437,6 +444,9 @@ public class AlertsController : ControllerBase
             var acknowledgedCount = await _alertService.AcknowledgeAllActiveAsync(userId, cancellationToken);
 
             _logger.LogInformation("Acknowledged {AcknowledgedCount} active incidents by user {UserId}", acknowledgedCount, userId);
+
+            // Broadcast the updated active alert count via SignalR
+            await _performanceNotifier.BroadcastActiveAlertCountAsync(cancellationToken);
 
             return Ok(new { acknowledgedCount });
         }

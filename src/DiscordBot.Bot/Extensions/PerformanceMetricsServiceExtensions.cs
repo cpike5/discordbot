@@ -71,6 +71,9 @@ public static class PerformanceMetricsServiceExtensions
         services.AddScoped<IPerformanceAlertRepository, PerformanceAlertRepository>();
         services.AddScoped<IPerformanceAlertService, PerformanceAlertService>();
 
+        // Performance notifier for SignalR broadcasting (singleton)
+        services.AddSingleton<IPerformanceNotifier, PerformanceNotifier>();
+
         // Alert monitoring background service
         services.AddHostedService<AlertMonitoringService>();
 
