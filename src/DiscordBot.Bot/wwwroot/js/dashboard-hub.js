@@ -149,6 +149,57 @@ const DashboardHub = (function() {
     }
 
     /**
+     * Joins the performance group to receive real-time performance metrics updates.
+     * @returns {Promise<void>}
+     */
+    async function joinPerformanceGroup() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot join performance group');
+            return;
+        }
+        try {
+            await connection.invoke('JoinPerformanceGroup');
+            console.log('[DashboardHub] Joined performance group');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to join performance group:', error);
+        }
+    }
+
+    /**
+     * Leaves the performance group to stop receiving real-time performance metrics updates.
+     * @returns {Promise<void>}
+     */
+    async function leavePerformanceGroup() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot leave performance group');
+            return;
+        }
+        try {
+            await connection.invoke('LeavePerformanceGroup');
+            console.log('[DashboardHub] Left performance group');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to leave performance group:', error);
+        }
+    }
+
+    /**
+     * Gets the current performance metrics from the server.
+     * @returns {Promise<object|null>} The performance metrics object or null on error.
+     */
+    async function getCurrentPerformanceMetrics() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot get performance metrics');
+            return null;
+        }
+        try {
+            return await connection.invoke('GetCurrentPerformanceMetrics');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to get performance metrics:', error);
+            return null;
+        }
+    }
+
+    /**
      * Registers a handler for a specific server event.
      * @param {string} eventName - The event name from the server.
      * @param {function} handler - The callback function.
@@ -223,6 +274,9 @@ const DashboardHub = (function() {
         joinGuildGroup,
         leaveGuildGroup,
         getCurrentStatus,
+        joinPerformanceGroup,
+        leavePerformanceGroup,
+        getCurrentPerformanceMetrics,
         on,
         off,
         isConnected: getIsConnected,
