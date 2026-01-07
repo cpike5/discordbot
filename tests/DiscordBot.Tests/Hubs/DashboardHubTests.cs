@@ -23,6 +23,7 @@ public class DashboardHubTests
     private readonly Mock<IDatabaseMetricsCollector> _mockDatabaseMetricsCollector;
     private readonly Mock<IBackgroundServiceHealthRegistry> _mockBackgroundServiceHealthRegistry;
     private readonly Mock<IInstrumentedCache> _mockInstrumentedCache;
+    private readonly Mock<IPerformanceSubscriptionTracker> _mockSubscriptionTracker;
     private readonly Mock<ILogger<DashboardHub>> _mockLogger;
     private readonly Mock<IGroupManager> _mockGroupManager;
     private readonly Mock<HubCallerContext> _mockContext;
@@ -38,6 +39,7 @@ public class DashboardHubTests
         _mockDatabaseMetricsCollector = new Mock<IDatabaseMetricsCollector>();
         _mockBackgroundServiceHealthRegistry = new Mock<IBackgroundServiceHealthRegistry>();
         _mockInstrumentedCache = new Mock<IInstrumentedCache>();
+        _mockSubscriptionTracker = new Mock<IPerformanceSubscriptionTracker>();
         _mockLogger = new Mock<ILogger<DashboardHub>>();
         _mockGroupManager = new Mock<IGroupManager>();
         _mockContext = new Mock<HubCallerContext>();
@@ -51,6 +53,7 @@ public class DashboardHubTests
             _mockDatabaseMetricsCollector.Object,
             _mockBackgroundServiceHealthRegistry.Object,
             _mockInstrumentedCache.Object,
+            _mockSubscriptionTracker.Object,
             _mockLogger.Object);
 
         // Setup hub context with mocked group manager

@@ -107,6 +107,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `AnalyticsRetentionOptions` | `AnalyticsRetention` | Analytics data retention settings |
 | `PerformanceMetricsOptions` | `PerformanceMetrics` | Performance metrics collection settings |
 | `PerformanceAlertOptions` | `PerformanceAlerts` | Alert thresholds and notification settings |
+| `PerformanceBroadcastOptions` | `PerformanceBroadcast` | SignalR broadcast intervals for real-time metrics |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | OpenTelemetry trace sampling rates (priority-based sampling) |
 | `ElasticOptions` | `Elastic` | Elasticsearch logging configuration |
 | `ElasticApm:*` | `ElasticApm` | Elastic APM distributed tracing configuration (see appsettings.json for full options) |

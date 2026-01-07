@@ -42,6 +42,7 @@ public class DashboardHub : Hub
     private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
     private readonly IInstrumentedCache _instrumentedCache;
+    private readonly IPerformanceSubscriptionTracker _subscriptionTracker;
     private readonly ILogger<DashboardHub> _logger;
 
     /// <summary>
@@ -55,6 +56,7 @@ public class DashboardHub : Hub
     /// <param name="databaseMetricsCollector">The database metrics collector service.</param>
     /// <param name="backgroundServiceHealthRegistry">The background service health registry.</param>
     /// <param name="instrumentedCache">The instrumented cache service.</param>
+    /// <param name="subscriptionTracker">The performance subscription tracker.</param>
     /// <param name="logger">The logger.</param>
     public DashboardHub(
         IBotService botService,
@@ -65,6 +67,7 @@ public class DashboardHub : Hub
         IDatabaseMetricsCollector databaseMetricsCollector,
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
         IInstrumentedCache instrumentedCache,
+        IPerformanceSubscriptionTracker subscriptionTracker,
         ILogger<DashboardHub> logger)
     {
         _botService = botService;
@@ -75,6 +78,7 @@ public class DashboardHub : Hub
         _databaseMetricsCollector = databaseMetricsCollector;
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
         _instrumentedCache = instrumentedCache;
+        _subscriptionTracker = subscriptionTracker;
         _logger = logger;
     }
 
@@ -126,6 +130,9 @@ public class DashboardHub : Hub
         try
         {
             var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            // Clean up subscription tracking for this connection
+            _subscriptionTracker.OnClientDisconnected(Context.ConnectionId);
 
             if (exception != null)
             {
@@ -451,6 +458,10 @@ public class DashboardHub : Hub
 
             await Groups.AddToGroupAsync(Context.ConnectionId, PerformanceGroupName);
 
+            // Track subscription for broadcast optimization
+            _subscriptionTracker.OnJoinPerformanceGroup();
+            _subscriptionTracker.TrackSubscription(Context.ConnectionId, PerformanceGroupName);
+
             _logger.LogDebug(
                 "Client joined performance group: ConnectionId={ConnectionId}, User={UserName}",
                 Context.ConnectionId,
@@ -483,6 +494,10 @@ public class DashboardHub : Hub
             var userName = Context.User?.Identity?.Name ?? "unknown";
 
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, PerformanceGroupName);
+
+            // Update subscription tracking
+            _subscriptionTracker.OnLeavePerformanceGroup();
+            _subscriptionTracker.UntrackSubscription(Context.ConnectionId, PerformanceGroupName);
 
             _logger.LogDebug(
                 "Client left performance group: ConnectionId={ConnectionId}, User={UserName}",
@@ -517,6 +532,10 @@ public class DashboardHub : Hub
 
             await Groups.AddToGroupAsync(Context.ConnectionId, SystemHealthGroupName);
 
+            // Track subscription for broadcast optimization
+            _subscriptionTracker.OnJoinSystemHealthGroup();
+            _subscriptionTracker.TrackSubscription(Context.ConnectionId, SystemHealthGroupName);
+
             _logger.LogDebug(
                 "Client joined system health group: ConnectionId={ConnectionId}, User={UserName}",
                 Context.ConnectionId,
@@ -549,6 +568,10 @@ public class DashboardHub : Hub
             var userName = Context.User?.Identity?.Name ?? "unknown";
 
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, SystemHealthGroupName);
+
+            // Update subscription tracking
+            _subscriptionTracker.OnLeaveSystemHealthGroup();
+            _subscriptionTracker.UntrackSubscription(Context.ConnectionId, SystemHealthGroupName);
 
             _logger.LogDebug(
                 "Client left system health group: ConnectionId={ConnectionId}, User={UserName}",
