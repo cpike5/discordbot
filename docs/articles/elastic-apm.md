@@ -84,7 +84,6 @@ The `ElasticApm` section in `appsettings.json` configures the APM agent:
   "ElasticApm": {
     "ServerUrl": null,
     "ServiceName": "discordbot",
-    "ServiceVersion": "0.5.4",
     "Environment": "development",
     "SecretToken": null,
     "TransactionSampleRate": 1.0,
@@ -100,6 +99,8 @@ The `ElasticApm` section in `appsettings.json` configures the APM agent:
 }
 ```
 
+> **Note:** `ServiceVersion` is automatically derived from the assembly version defined in `Directory.Build.props`. Do not hardcode it in configuration files.
+
 **Configuration Options:**
 
 | Setting | Type | Default | Description |
@@ -107,7 +108,7 @@ The `ElasticApm` section in `appsettings.json` configures the APM agent:
 | `ServerUrl` | string | null | APM server URL (e.g., `http://localhost:8200`). **Required** if APM is enabled. |
 | `SecretToken` | string | null | APM secret token for authentication. Use user secrets or environment variables in production. |
 | `ServiceName` | string | `discordbot` | Service name displayed in Kibana APM UI. |
-| `ServiceVersion` | string | `0.5.4` | Service version for deployment tracking and comparison. |
+| `ServiceVersion` | string | (assembly) | Service version for deployment tracking. **Automatically set from assembly version.** |
 | `Environment` | string | `development` | Environment name (`development`, `staging`, `production`). |
 | `TransactionSampleRate` | double | 1.0 | Global sampling rate (0.0 to 1.0). **Note:** Overridden by priority-based filter. |
 | `CaptureBody` | string | `off` | Capture HTTP request/response bodies: `off`, `errors`, `transactions`, `all`. |
@@ -154,7 +155,6 @@ If you don't want to run APM server during local development, disable it in `app
   "ElasticApm": {
     "ServerUrl": "http://localhost:8200",
     "ServiceName": "discordbot",
-    "ServiceVersion": "0.5.4",
     "Environment": "development",
     "TransactionSampleRate": 1.0,
     "Enabled": true,

@@ -1,3 +1,4 @@
+using System.Reflection;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
@@ -24,9 +25,7 @@ public static class OpenTelemetryExtensions
         IConfiguration configuration)
     {
         var serviceName = configuration["OpenTelemetry:ServiceName"] ?? "discordbot";
-        var serviceVersion = configuration["OpenTelemetry:ServiceVersion"]
-            ?? typeof(OpenTelemetryExtensions).Assembly
-                .GetName().Version?.ToString() ?? "1.0.0";
+        var serviceVersion = GetAssemblyVersion();
 
         // Register custom metrics classes as singletons
         services.AddSingleton<BotMetrics>();
@@ -109,9 +108,7 @@ public static class OpenTelemetryExtensions
         IConfiguration configuration)
     {
         var serviceName = configuration["OpenTelemetry:ServiceName"] ?? "discordbot";
-        var serviceVersion = configuration["OpenTelemetry:ServiceVersion"]
-            ?? typeof(OpenTelemetryExtensions).Assembly
-                .GetName().Version?.ToString() ?? "1.0.0";
+        var serviceVersion = GetAssemblyVersion();
 
         // Configure sampling options
         services.Configure<SamplingOptions>(
@@ -234,5 +231,17 @@ public static class OpenTelemetryExtensions
         app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
         return app;
+    }
+
+    /// <summary>
+    /// Gets the assembly version from the informational version attribute or falls back to assembly version.
+    /// </summary>
+    /// <returns>The service version string.</returns>
+    private static string GetAssemblyVersion()
+    {
+        var assembly = typeof(OpenTelemetryExtensions).Assembly;
+        return assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? assembly.GetName().Version?.ToString()
+            ?? "0.0.0";
     }
 }

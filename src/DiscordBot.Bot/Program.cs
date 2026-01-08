@@ -22,7 +22,18 @@ using Elastic.Ingest.Elasticsearch;
 using Elastic.Ingest.Elasticsearch.DataStreams;
 using Elastic.Transport;
 using Serilog;
+using Serilog.Exceptions;
 using System.Reflection;
+
+// Get service version from assembly for consistent use across logging and APM
+var serviceVersion = Assembly.GetExecutingAssembly()
+    .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+    ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+    ?? "0.0.0";
+
+// Set environment variable for Elastic APM before it initializes
+// This ensures APM uses the same version as logs without hardcoding in appsettings.json
+Environment.SetEnvironmentVariable("ELASTIC_APM_SERVICE_VERSION", serviceVersion);
 
 // Configure Serilog bootstrap logger for startup errors
 Log.Logger = new LoggerConfiguration()
@@ -50,7 +61,16 @@ try
             .ReadFrom.Services(services)
             .Enrich.FromLogContext()
             .Enrich.WithElasticApmCorrelationInfo()
-            .Enrich.WithProperty("service.name", serviceName);
+            .Enrich.WithProperty("service.name", serviceName)
+            .Enrich.WithProperty("service.version", serviceVersion)
+            .Enrich.WithMachineName()
+            .Enrich.WithProcessId()
+            .Enrich.WithProcessName()
+            .Enrich.WithThreadId()
+            .Enrich.WithThreadName()
+            .Enrich.WithClientIp()
+            .Enrich.WithCorrelationId()
+            .Enrich.WithExceptionDetails();
 
         // Add Elasticsearch sink programmatically if configured
         var elasticUrl = context.Configuration["ElasticSearch:Url"];

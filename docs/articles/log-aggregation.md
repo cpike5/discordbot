@@ -599,7 +599,7 @@ Elastic APM is configured via the `ElasticApm` section in `appsettings.json` and
 | `ServerUrl` | string | null | APM server URL (e.g., "http://localhost:8200"). Required if APM is enabled. |
 | `SecretToken` | string | null | APM secret token for authentication. Use user secrets or environment variables. |
 | `ServiceName` | string | "discordbot" | Service name displayed in Kibana APM UI. |
-| `ServiceVersion` | string | "0.5.4" | Service version for deployment tracking. |
+| `ServiceVersion` | string | (assembly) | Service version for deployment tracking. **Automatically set from assembly version.** |
 | `Environment` | string | "development" | Environment name (development, staging, production). |
 | `TransactionSampleRate` | double | 1.0 | Global sampling rate (0.0 to 1.0). Overridden by priority-based filter. |
 | `CaptureBody` | string | "off" | Capture HTTP request/response bodies ("off", "errors", "transactions", "all"). |
@@ -636,7 +636,6 @@ For local development with APM disabled, set `ElasticApm:Enabled` to `false` in 
   "ElasticApm": {
     "ServerUrl": "http://localhost:8200",
     "ServiceName": "discordbot",
-    "ServiceVersion": "0.5.4",
     "Environment": "development",
     "TransactionSampleRate": 1.0,
     "Enabled": true,
@@ -644,6 +643,8 @@ For local development with APM disabled, set `ElasticApm:Enabled` to `false` in 
   }
 }
 ```
+
+> **Note:** `ServiceVersion` is automatically derived from the assembly version defined in `Directory.Build.props`. Do not hardcode it in configuration files.
 
 **Staging/Production:**
 
