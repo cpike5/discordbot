@@ -67,6 +67,7 @@
     /* Z-index layers */
     --z-fixed: 300;
     --z-popover: 350;
+    --z-notification: 400;
   }
 
   /* Button base class */
@@ -1288,6 +1289,10 @@
   /* Z-index utilities */
   .z-fixed {
     z-index: 300;
+  }
+
+  .z-notification {
+    z-index: var(--z-notification);
   }
 
   /* Toast Notifications */
