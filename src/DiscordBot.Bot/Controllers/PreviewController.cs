@@ -43,27 +43,39 @@ public class PreviewController : ControllerBase
     /// <summary>
     /// Gets preview data for a user (without guild context).
     /// </summary>
-    /// <param name="userId">The Discord user ID.</param>
+    /// <param name="userId">The Discord user ID as a string.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>User preview data.</returns>
     [HttpGet("users/{userId}")]
     [ProducesResponseType(typeof(UserPreviewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UserPreviewDto>> GetUserPreview(
-        ulong userId,
+        string userId,
         CancellationToken cancellationToken)
     {
-        _logger.LogDebug("User preview requested for user {UserId}", userId);
+        if (!ulong.TryParse(userId, out var userIdParsed))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid user ID format",
+                Detail = "User ID must be a valid Discord snowflake ID.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        _logger.LogDebug("User preview requested for user {UserId}", userIdParsed);
 
         // Try to get user from Discord cache
-        var discordUser = _client.GetUser(userId);
+        var discordUser = _client.GetUser(userIdParsed);
         if (discordUser == null)
         {
-            _logger.LogDebug("User {UserId} not found in Discord cache", userId);
+            _logger.LogDebug("User {UserId} not found in Discord cache", userIdParsed);
             return NotFound(new ApiErrorDto
             {
                 Message = "User not found",
-                Detail = $"No user with ID {userId} found in Discord cache.",
+                Detail = $"No user with ID {userIdParsed} found in Discord cache.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -78,57 +90,80 @@ public class PreviewController : ControllerBase
     /// <summary>
     /// Gets preview data for a user with guild context.
     /// </summary>
-    /// <param name="userId">The Discord user ID.</param>
-    /// <param name="guildId">The guild ID for context.</param>
+    /// <param name="userId">The Discord user ID as a string.</param>
+    /// <param name="guildId">The guild ID for context as a string.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>User preview data with guild-specific information.</returns>
     [HttpGet("users/{userId}/guild/{guildId}")]
     [ProducesResponseType(typeof(UserPreviewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UserPreviewDto>> GetUserPreviewWithGuild(
-        ulong userId,
-        ulong guildId,
+        string userId,
+        string guildId,
         CancellationToken cancellationToken)
     {
-        _logger.LogDebug("User preview requested for user {UserId} in guild {GuildId}", userId, guildId);
+        if (!ulong.TryParse(userId, out var userIdParsed))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid user ID format",
+                Detail = "User ID must be a valid Discord snowflake ID.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        if (!ulong.TryParse(guildId, out var guildIdParsed))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid guild ID format",
+                Detail = "Guild ID must be a valid Discord snowflake ID.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        _logger.LogDebug("User preview requested for user {UserId} in guild {GuildId}", userIdParsed, guildIdParsed);
 
         // Try to get guild from Discord cache
-        var discordGuild = _client.GetGuild(guildId);
+        var discordGuild = _client.GetGuild(guildIdParsed);
         if (discordGuild == null)
         {
-            _logger.LogDebug("Guild {GuildId} not found in Discord cache", guildId);
+            _logger.LogDebug("Guild {GuildId} not found in Discord cache", guildIdParsed);
             return NotFound(new ApiErrorDto
             {
                 Message = "Guild not found",
-                Detail = $"No guild with ID {guildId} found in Discord cache.",
+                Detail = $"No guild with ID {guildIdParsed} found in Discord cache.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
             });
         }
 
         // Try to get user as guild member
-        var guildUser = discordGuild.GetUser(userId);
+        var guildUser = discordGuild.GetUser(userIdParsed);
         if (guildUser == null)
         {
             // Fall back to regular user without guild context
-            var regularUser = _client.GetUser(userId);
+            var regularUser = _client.GetUser(userIdParsed);
             if (regularUser == null)
             {
-                _logger.LogDebug("User {UserId} not found in Discord cache", userId);
+                _logger.LogDebug("User {UserId} not found in Discord cache", userIdParsed);
                 return NotFound(new ApiErrorDto
                 {
                     Message = "User not found",
-                    Detail = $"No user with ID {userId} found in Discord cache.",
+                    Detail = $"No user with ID {userIdParsed} found in Discord cache.",
                     StatusCode = StatusCodes.Status404NotFound,
                     TraceId = HttpContext.GetCorrelationId()
                 });
             }
 
-            var preview = await BuildUserPreviewAsync(regularUser, guildId, cancellationToken);
+            var preview = await BuildUserPreviewAsync(regularUser, guildIdParsed, cancellationToken);
             return Ok(preview);
         }
 
-        var previewWithGuild = await BuildGuildUserPreviewAsync(guildUser, guildId, cancellationToken);
+        var previewWithGuild = await BuildGuildUserPreviewAsync(guildUser, guildIdParsed, cancellationToken);
 
         _logger.LogDebug("User preview with guild context retrieved for {Username} in {GuildName}",
             guildUser.Username, discordGuild.Name);
@@ -138,27 +173,39 @@ public class PreviewController : ControllerBase
     /// <summary>
     /// Gets preview data for a guild.
     /// </summary>
-    /// <param name="guildId">The Discord guild ID.</param>
+    /// <param name="guildId">The Discord guild ID as a string.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Guild preview data.</returns>
     [HttpGet("guilds/{guildId}")]
     [ProducesResponseType(typeof(GuildPreviewDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     public async Task<ActionResult<GuildPreviewDto>> GetGuildPreview(
-        ulong guildId,
+        string guildId,
         CancellationToken cancellationToken)
     {
-        _logger.LogDebug("Guild preview requested for guild {GuildId}", guildId);
+        if (!ulong.TryParse(guildId, out var guildIdParsed))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid guild ID format",
+                Detail = "Guild ID must be a valid Discord snowflake ID.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        _logger.LogDebug("Guild preview requested for guild {GuildId}", guildIdParsed);
 
         // Try to get guild from Discord cache first
-        var discordGuild = _client.GetGuild(guildId);
+        var discordGuild = _client.GetGuild(guildIdParsed);
         if (discordGuild == null)
         {
-            _logger.LogDebug("Guild {GuildId} not found in Discord cache", guildId);
+            _logger.LogDebug("Guild {GuildId} not found in Discord cache", guildIdParsed);
             return NotFound(new ApiErrorDto
             {
                 Message = "Guild not found",
-                Detail = $"No guild with ID {guildId} found in Discord cache.",
+                Detail = $"No guild with ID {guildIdParsed} found in Discord cache.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId()
             });
