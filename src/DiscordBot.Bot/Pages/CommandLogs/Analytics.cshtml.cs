@@ -65,11 +65,14 @@ public class AnalyticsModel : PageModel
 
         try
         {
-            // Load analytics data
-            var analytics = await _analyticsService.GetAnalyticsAsync(start, end, GuildId, cancellationToken);
+            // Load analytics data and guild list in parallel
+            var analyticsTask = _analyticsService.GetAnalyticsAsync(start, end, GuildId, cancellationToken);
+            var guildsTask = _guildService.GetAllGuildsAsync(cancellationToken);
 
-            // Load available guilds for filter dropdown
-            var guilds = await _guildService.GetAllGuildsAsync(cancellationToken);
+            await Task.WhenAll(analyticsTask, guildsTask);
+
+            var analytics = await analyticsTask;
+            var guilds = await guildsTask;
             var guildOptions = guilds.Select(g => new GuildSelectOption(g.Id, g.Name)).ToList();
 
             ViewModel = new CommandAnalyticsViewModel
