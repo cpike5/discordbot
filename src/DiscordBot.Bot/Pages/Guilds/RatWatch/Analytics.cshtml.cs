@@ -83,22 +83,33 @@ public class AnalyticsModel : PageModel
                 return NotFound();
             }
 
-            // Load analytics data from repository
-            var summary = await _ratWatchRepository.GetAnalyticsSummaryAsync(guildId, start, end, cancellationToken);
-            var timeSeries = await _ratWatchRepository.GetTimeSeriesAsync(guildId, start, end, cancellationToken);
-            var heatmap = await _ratWatchRepository.GetActivityHeatmapAsync(guildId, start, end, cancellationToken);
+            // Load analytics data and leaderboards in parallel
+            var summaryTask = _ratWatchRepository.GetAnalyticsSummaryAsync(guildId, start, end, cancellationToken);
+            var timeSeriesTask = _ratWatchRepository.GetTimeSeriesAsync(guildId, start, end, cancellationToken);
+            var heatmapTask = _ratWatchRepository.GetActivityHeatmapAsync(guildId, start, end, cancellationToken);
+            var mostWatchedTask = _ratRecordRepository.GetUserMetricsAsync(guildId, "watched", 10, cancellationToken);
+            var biggestRatsTask = _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 10, cancellationToken);
+            var topAccusersTask = GetTopAccusersAsync(guildId, 10, cancellationToken);
 
-            // Load leaderboards
-            var mostWatched = await _ratRecordRepository.GetUserMetricsAsync(guildId, "watched", 10, cancellationToken);
-            var biggestRats = await _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 10, cancellationToken);
+            await Task.WhenAll(summaryTask, timeSeriesTask, heatmapTask, mostWatchedTask, biggestRatsTask, topAccusersTask);
 
-            // Load top accusers (users who created the most watches)
-            var topAccusers = await GetTopAccusersAsync(guildId, 10, cancellationToken);
+            var summary = await summaryTask;
+            var timeSeries = await timeSeriesTask;
+            var heatmap = await heatmapTask;
+            var mostWatched = await mostWatchedTask;
+            var biggestRats = await biggestRatsTask;
+            var topAccusers = await topAccusersTask;
 
-            // Resolve usernames for all leaderboard entries
-            var mostWatchedWithNames = await ResolveUsernamesAsync(guildId, mostWatched);
-            var biggestRatsWithNames = await ResolveUsernamesAsync(guildId, biggestRats);
-            var topAccusersWithNames = await ResolveAccuserUsernamesAsync(guildId, topAccusers);
+            // Resolve usernames for all leaderboard entries in parallel
+            var mostWatchedNamesTask = ResolveUsernamesAsync(guildId, mostWatched);
+            var biggestRatsNamesTask = ResolveUsernamesAsync(guildId, biggestRats);
+            var topAccusersNamesTask = ResolveAccuserUsernamesAsync(guildId, topAccusers);
+
+            await Task.WhenAll(mostWatchedNamesTask, biggestRatsNamesTask, topAccusersNamesTask);
+
+            var mostWatchedWithNames = await mostWatchedNamesTask;
+            var biggestRatsWithNames = await biggestRatsNamesTask;
+            var topAccusersWithNames = await topAccusersNamesTask;
 
             // Build view model
             ViewModel = new RatWatchAnalyticsViewModel
@@ -168,35 +179,39 @@ public class AnalyticsModel : PageModel
     }
 
     /// <summary>
-    /// Resolves usernames for user metrics entries.
+    /// Resolves usernames for user metrics entries in parallel.
     /// </summary>
     private async Task<List<RatWatchUserMetricsDto>> ResolveUsernamesAsync(
         ulong guildId,
         IEnumerable<RatWatchUserMetricsDto> metrics)
     {
-        var result = new List<RatWatchUserMetricsDto>();
-        foreach (var metric in metrics)
+        var metricsList = metrics.ToList();
+        var tasks = metricsList.Select(async metric =>
         {
             var username = await GetUsernameAsync(metric.UserId, guildId);
-            result.Add(metric with { Username = username });
-        }
-        return result;
+            return metric with { Username = username };
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return results.ToList();
     }
 
     /// <summary>
-    /// Resolves usernames for accuser metrics entries.
+    /// Resolves usernames for accuser metrics entries in parallel.
     /// </summary>
     private async Task<List<AccuserMetricsDto>> ResolveAccuserUsernamesAsync(
         ulong guildId,
         IEnumerable<AccuserMetricsDto> metrics)
     {
-        var result = new List<AccuserMetricsDto>();
-        foreach (var metric in metrics)
+        var metricsList = metrics.ToList();
+        var tasks = metricsList.Select(async metric =>
         {
             var username = await GetUsernameAsync(metric.UserId, guildId);
-            result.Add(metric with { Username = username });
-        }
-        return result;
+            return metric with { Username = username };
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return results.ToList();
     }
 
     /// <summary>
