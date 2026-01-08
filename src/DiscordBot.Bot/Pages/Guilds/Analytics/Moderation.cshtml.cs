@@ -80,18 +80,29 @@ public class ModerationModel : PageModel
                 return NotFound();
             }
 
-            // Load analytics data from service
-            var summary = await _analyticsService.GetSummaryAsync(guildId, start, end, cancellationToken);
-            var trends = await _analyticsService.GetTrendsAsync(guildId, start, end, cancellationToken);
-            var distribution = await _analyticsService.GetCaseDistributionAsync(guildId, start, end, cancellationToken);
-            var repeatOffenders = await _analyticsService.GetRepeatOffendersAsync(guildId, start, end, 10, cancellationToken);
-            var moderatorWorkload = await _analyticsService.GetModeratorWorkloadAsync(guildId, start, end, 5, cancellationToken);
+            // Load analytics data from service in parallel
+            var summaryTask = _analyticsService.GetSummaryAsync(guildId, start, end, cancellationToken);
+            var trendsTask = _analyticsService.GetTrendsAsync(guildId, start, end, cancellationToken);
+            var distributionTask = _analyticsService.GetCaseDistributionAsync(guildId, start, end, cancellationToken);
+            var repeatOffendersTask = _analyticsService.GetRepeatOffendersAsync(guildId, start, end, 10, cancellationToken);
+            var moderatorWorkloadTask = _analyticsService.GetModeratorWorkloadAsync(guildId, start, end, 5, cancellationToken);
 
-            // Resolve usernames for repeat offenders
-            var repeatOffendersWithNames = await ResolveRepeatOffenderUsernamesAsync(guildId, repeatOffenders);
+            await Task.WhenAll(summaryTask, trendsTask, distributionTask, repeatOffendersTask, moderatorWorkloadTask);
 
-            // Resolve usernames for moderators
-            var moderatorWorkloadWithNames = await ResolveModeratorUsernamesAsync(guildId, moderatorWorkload);
+            var summary = await summaryTask;
+            var trends = await trendsTask;
+            var distribution = await distributionTask;
+            var repeatOffenders = await repeatOffendersTask;
+            var moderatorWorkload = await moderatorWorkloadTask;
+
+            // Resolve usernames in parallel
+            var repeatOffendersWithNamesTask = ResolveRepeatOffenderUsernamesAsync(guildId, repeatOffenders);
+            var moderatorWorkloadWithNamesTask = ResolveModeratorUsernamesAsync(guildId, moderatorWorkload);
+
+            await Task.WhenAll(repeatOffendersWithNamesTask, moderatorWorkloadWithNamesTask);
+
+            var repeatOffendersWithNames = await repeatOffendersWithNamesTask;
+            var moderatorWorkloadWithNames = await moderatorWorkloadWithNamesTask;
 
             // Build view model
             ViewModel = new ModerationAnalyticsViewModel
@@ -123,43 +134,82 @@ public class ModerationModel : PageModel
     }
 
     /// <summary>
-    /// Resolves usernames for repeat offender entries.
+    /// Resolves usernames for repeat offender entries in parallel.
     /// </summary>
     private async Task<List<RepeatOffenderDto>> ResolveRepeatOffenderUsernamesAsync(
         ulong guildId,
         IEnumerable<RepeatOffenderDto> offenders)
     {
-        var result = new List<RepeatOffenderDto>();
-        foreach (var offender in offenders)
+        var offenderList = offenders.ToList();
+        if (offenderList.Count == 0)
         {
-            var username = await GetUsernameAsync(offender.UserId, guildId);
-            var avatarUrl = await GetAvatarUrlAsync(offender.UserId, guildId);
-            result.Add(offender with { Username = username, AvatarUrl = avatarUrl });
+            return [];
         }
-        return result;
+
+        // Pre-download guild members once to avoid multiple concurrent downloads
+        await EnsureGuildMembersDownloadedAsync(guildId);
+
+        var tasks = offenderList.Select(async offender =>
+        {
+            var username = GetUsernameFromCache(offender.UserId, guildId);
+            var avatarUrl = GetAvatarUrlFromCache(offender.UserId, guildId);
+            return offender with { Username = username, AvatarUrl = avatarUrl };
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return results.ToList();
     }
 
     /// <summary>
-    /// Resolves usernames for moderator workload entries.
+    /// Resolves usernames for moderator workload entries in parallel.
     /// </summary>
     private async Task<List<ModeratorWorkloadDto>> ResolveModeratorUsernamesAsync(
         ulong guildId,
         IEnumerable<ModeratorWorkloadDto> moderators)
     {
-        var result = new List<ModeratorWorkloadDto>();
-        foreach (var moderator in moderators)
+        var moderatorList = moderators.ToList();
+        if (moderatorList.Count == 0)
         {
-            var username = await GetUsernameAsync(moderator.ModeratorId, guildId);
-            var avatarUrl = await GetAvatarUrlAsync(moderator.ModeratorId, guildId);
-            result.Add(moderator with { ModeratorUsername = username, AvatarUrl = avatarUrl });
+            return [];
         }
-        return result;
+
+        // Pre-download guild members once to avoid multiple concurrent downloads
+        await EnsureGuildMembersDownloadedAsync(guildId);
+
+        var tasks = moderatorList.Select(async moderator =>
+        {
+            var username = GetUsernameFromCache(moderator.ModeratorId, guildId);
+            var avatarUrl = GetAvatarUrlFromCache(moderator.ModeratorId, guildId);
+            return moderator with { ModeratorUsername = username, AvatarUrl = avatarUrl };
+        });
+
+        var results = await Task.WhenAll(tasks);
+        return results.ToList();
     }
 
     /// <summary>
-    /// Gets the display name for a Discord user in a guild.
+    /// Ensures guild members are downloaded before parallel lookups.
     /// </summary>
-    private async Task<string> GetUsernameAsync(ulong userId, ulong guildId)
+    private async Task EnsureGuildMembersDownloadedAsync(ulong guildId)
+    {
+        try
+        {
+            var guild = _discordClient.GetGuild(guildId);
+            if (guild != null && !guild.HasAllMembers)
+            {
+                await guild.DownloadUsersAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to download guild members for guild {GuildId}", guildId);
+        }
+    }
+
+    /// <summary>
+    /// Gets the display name for a Discord user from cache (synchronous).
+    /// </summary>
+    private string GetUsernameFromCache(ulong userId, ulong guildId)
     {
         try
         {
@@ -176,17 +226,6 @@ public class ModerationModel : PageModel
                 return user.DisplayName;
             }
 
-            // Try downloading users if not in cache
-            if (!guild.HasAllMembers)
-            {
-                await guild.DownloadUsersAsync();
-                user = guild.GetUser(userId);
-                if (user != null)
-                {
-                    return user.DisplayName;
-                }
-            }
-
             _logger.LogDebug("User {UserId} not found in guild {GuildId}", userId, guildId);
             return "Unknown User";
         }
@@ -198,9 +237,9 @@ public class ModerationModel : PageModel
     }
 
     /// <summary>
-    /// Gets the avatar URL for a Discord user.
+    /// Gets the avatar URL for a Discord user from cache (synchronous).
     /// </summary>
-    private async Task<string?> GetAvatarUrlAsync(ulong userId, ulong guildId)
+    private string? GetAvatarUrlFromCache(ulong userId, ulong guildId)
     {
         try
         {
@@ -214,17 +253,6 @@ public class ModerationModel : PageModel
             if (user != null)
             {
                 return user.GetAvatarUrl() ?? user.GetDefaultAvatarUrl();
-            }
-
-            // Try downloading users if not in cache
-            if (!guild.HasAllMembers)
-            {
-                await guild.DownloadUsersAsync();
-                user = guild.GetUser(userId);
-                if (user != null)
-                {
-                    return user.GetAvatarUrl() ?? user.GetDefaultAvatarUrl();
-                }
             }
 
             return null;
