@@ -140,14 +140,18 @@
             } catch (error) {
                 console.error('Failed to save config changes:', error);
                 hasError = true;
-                showNotification(`Failed to save configuration for ${metricName}. Please try again.`, 'error');
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('error', `Failed to save configuration for ${metricName}. Please try again.`, { title: 'Error' });
+                }
                 break;
             }
         }
 
         if (!hasError) {
             state.configChanges = {};
-            showNotification('Alert thresholds saved successfully.', 'success');
+            if (typeof ToastManager !== 'undefined') {
+                ToastManager.show('success', 'Alert thresholds saved successfully.', { title: 'Saved' });
+            }
             updateSaveButtonVisibility();
         }
 
@@ -162,36 +166,6 @@
             `;
         }
     };
-
-    function showNotification(message, type) {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md transform transition-all duration-300 translate-x-full ${
-            type === 'success' ? 'bg-success/10 border border-success/20 text-success' : 'bg-error/10 border border-error/20 text-error'
-        }`;
-        notification.innerHTML = `
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    ${type === 'success'
-                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />'
-                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'}
-                </svg>
-                <span>${message}</span>
-            </div>
-        `;
-        document.body.appendChild(notification);
-
-        // Animate in
-        requestAnimationFrame(() => {
-            notification.classList.remove('translate-x-full');
-        });
-
-        // Remove after 4 seconds
-        setTimeout(() => {
-            notification.classList.add('translate-x-full');
-            setTimeout(() => notification.remove(), 300);
-        }, 4000);
-    }
 
     function initAlertFrequencyChart() {
         const ctx = document.getElementById('alertsFrequencyChart');

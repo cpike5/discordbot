@@ -393,14 +393,14 @@ const AlertsRealtime = (function() {
      * @param {Object} alert - PerformanceIncidentDto
      */
     function showAlertToast(alert) {
+        if (typeof ToastManager === 'undefined') return;
+
         const severityValue = typeof alert.severity === 'string' ? alert.severity : getSeverityString(alert.severity);
         const type = severityValue === 'Critical' ? 'error' : 'warning';
         const title = `Alert: ${alert.metricName}`;
 
-        showToast({
-            type: type,
+        ToastManager.show(type, alert.message, {
             title: title,
-            message: alert.message,
             duration: TOAST_DURATION_MS,
             action: {
                 label: 'View',
@@ -421,96 +421,12 @@ const AlertsRealtime = (function() {
      * @param {Object} alert - PerformanceIncidentDto
      */
     function showResolvedToast(alert) {
-        showToast({
-            type: 'success',
+        if (typeof ToastManager === 'undefined') return;
+
+        ToastManager.show('success', 'The alert has been automatically resolved.', {
             title: `Resolved: ${alert.metricName}`,
-            message: 'The alert has been automatically resolved.',
             duration: 5000
         });
-    }
-
-    /**
-     * Show a toast notification.
-     * @param {Object} options - Toast options { type, title, message, duration, action }
-     */
-    function showToast(options) {
-        const { type = 'info', title, message, duration = 5000, action } = options;
-
-        const colorClasses = {
-            error: 'bg-error/10 border-error/20 text-error',
-            warning: 'bg-warning/10 border-warning/20 text-warning',
-            success: 'bg-success/10 border-success/20 text-success',
-            info: 'bg-info/10 border-info/20 text-info'
-        };
-
-        const iconPaths = {
-            error: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />',
-            warning: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />',
-            success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />',
-            info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'
-        };
-
-        const toast = document.createElement('div');
-        toast.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md border transform transition-all duration-300 translate-x-full ${colorClasses[type] || colorClasses.info}`;
-
-        let actionHtml = '';
-        if (action) {
-            actionHtml = `<button type="button" class="toast-action ml-3 font-medium underline hover:no-underline">${escapeHtml(action.label)}</button>`;
-        }
-
-        toast.innerHTML = `
-            <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    ${iconPaths[type] || iconPaths.info}
-                </svg>
-                <div class="flex-1">
-                    <div class="font-medium">${escapeHtml(title)}</div>
-                    <div class="text-sm opacity-90 mt-1">${escapeHtml(message)}</div>
-                </div>
-                ${actionHtml}
-                <button type="button" class="toast-close ml-2 opacity-70 hover:opacity-100">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-        `;
-
-        // Add click handlers
-        const closeBtn = toast.querySelector('.toast-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => dismissToast(toast));
-        }
-
-        if (action && action.onClick) {
-            const actionBtn = toast.querySelector('.toast-action');
-            if (actionBtn) {
-                actionBtn.addEventListener('click', () => {
-                    action.onClick();
-                    dismissToast(toast);
-                });
-            }
-        }
-
-        document.body.appendChild(toast);
-
-        // Animate in
-        requestAnimationFrame(() => {
-            toast.classList.remove('translate-x-full');
-        });
-
-        // Auto-dismiss
-        setTimeout(() => dismissToast(toast), duration);
-    }
-
-    /**
-     * Dismiss a toast notification.
-     * @param {HTMLElement} toast - The toast element
-     */
-    function dismissToast(toast) {
-        if (!toast || !toast.parentNode) return;
-        toast.classList.add('translate-x-full');
-        setTimeout(() => toast.remove(), 300);
     }
 
     /**
