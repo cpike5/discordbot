@@ -85,31 +85,31 @@ See [Identity Configuration](docs/articles/identity-configuration.md) for detail
 
 ## Configuration Options
 
-The application uses the `IOptions<T>` pattern for strongly-typed configuration. Options classes are located in `src/DiscordBot.Core/Configuration/`:
+The application uses the `IOptions<T>` pattern for strongly-typed configuration. Options classes are located in `src/DiscordBot.Core/Configuration/` (with `DatabaseSettings` in `src/DiscordBot.Infrastructure/Configuration/`):
 
 | Options Class | appsettings Section | Purpose |
 |--------------|---------------------|---------|
 | `ApplicationOptions` | `Application` | App metadata (title, base URL, version) |
-| `DiscordOAuthOptions` | `Discord:OAuth` | OAuth client credentials (use user secrets) |
-| `CachingOptions` | `Caching` | Cache duration settings for various services |
-| `VerificationOptions` | `Verification` | Verification code generation settings |
-| `BackgroundServicesOptions` | `BackgroundServices` | Background task intervals and delays |
-| `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (use user secrets for DefaultAdmin) |
-| `ObservabilityOptions` | `Observability` | External observability tool URLs (Kibana, Seq) |
-| `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
-| `HistoricalMetricsOptions` | `HistoricalMetrics` | Historical metrics collection (sample interval, retention) |
-| `ReminderOptions` | `Reminder` | Reminder system settings (polling, delivery, limits) |
-| `ScheduledMessagesOptions` | `ScheduledMessages` | Scheduled message delivery settings |
-| `AuditLogRetentionOptions` | `AuditLogRetention` | Audit log cleanup settings |
-| `RatWatchOptions` | `RatWatch` | Rat Watch feature settings (voting, timeouts) |
-| `ModerationOptions` | `Moderation` | Moderation system settings |
-| `AutoModerationOptions` | `AutoModeration` | Auto-moderation rules and thresholds |
 | `AnalyticsRetentionOptions` | `AnalyticsRetention` | Analytics data retention settings |
-| `PerformanceMetricsOptions` | `PerformanceMetrics` | Performance metrics collection settings |
+| `AuditLogRetentionOptions` | `AuditLogRetention` | Audit log cleanup settings |
+| `AutoModerationOptions` | `AutoModeration` | Auto-moderation rules and thresholds |
+| `BackgroundServicesOptions` | `BackgroundServices` | Background task intervals and delays |
+| `CachingOptions` | `Caching` | Cache duration settings for various services |
+| `DatabaseSettings` | `Database` | Query performance logging (slow query threshold, parameter logging) |
+| `DiscordOAuthOptions` | `Discord:OAuth` | OAuth client credentials (use user secrets) |
+| `HistoricalMetricsOptions` | `HistoricalMetrics` | Historical metrics collection (sample interval, retention) |
+| `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (use user secrets for DefaultAdmin) |
+| `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
+| `ModerationOptions` | `Moderation` | Moderation system settings |
+| `ObservabilityOptions` | `Observability` | External observability tool URLs (Kibana, Seq) |
 | `PerformanceAlertOptions` | `PerformanceAlerts` | Alert thresholds and notification settings |
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | SignalR broadcast intervals for real-time metrics |
+| `PerformanceMetricsOptions` | `PerformanceMetrics` | Performance metrics collection settings |
+| `RatWatchOptions` | `RatWatch` | Rat Watch feature settings (voting, timeouts) |
+| `ReminderOptions` | `Reminder` | Reminder system settings (polling, delivery, limits) |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | OpenTelemetry trace sampling rates (priority-based sampling) |
-| `ElasticOptions` | `Elastic` | Elasticsearch logging configuration |
+| `ScheduledMessagesOptions` | `ScheduledMessages` | Scheduled message delivery settings |
+| `VerificationOptions` | `Verification` | Verification code generation settings |
 | `ElasticApm:*` | `ElasticApm` | Elastic APM distributed tracing configuration (see appsettings.json for full options) |
 
 **Note:** Elastic APM is available for distributed tracing and performance monitoring. See [log-aggregation.md](docs/articles/log-aggregation.md) for APM setup and correlation between logs and traces.
@@ -163,6 +163,13 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [bot-performance-dashboard.md](docs/articles/bot-performance-dashboard.md) | Performance monitoring and metrics dashboard |
 | [scheduled-messages.md](docs/articles/scheduled-messages.md) | Scheduled/recurring message system |
 | [audit-log-system.md](docs/articles/audit-log-system.md) | Audit logging with fluent builder API |
+| [signalr-realtime.md](docs/articles/signalr-realtime.md) | SignalR real-time updates and DashboardHub |
+| [welcome-system.md](docs/articles/welcome-system.md) | Welcome message configuration and delivery |
+| [consent-privacy.md](docs/articles/consent-privacy.md) | User consent and privacy management |
+| [database-schema.md](docs/articles/database-schema.md) | Entity relationships and database structure |
+| [testing-guide.md](docs/articles/testing-guide.md) | Testing patterns, fixtures, and best practices |
+| [troubleshooting-guide.md](docs/articles/troubleshooting-guide.md) | Common issues and solutions |
+| [discord-bot-setup.md](docs/articles/discord-bot-setup.md) | Discord Developer Portal setup guide |
 
 
 ## HTML Prototypes
@@ -267,6 +274,7 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 
 | Page | URL Pattern | Description |
 |------|-------------|-------------|
+| Landing | `/landing` | Public landing page (no auth) |
 | Dashboard | `/` | Main dashboard with bot status, stats |
 | Commands | `/Commands` | Registered slash commands list |
 | Command Logs | `/CommandLogs` | Command execution history |
@@ -287,7 +295,7 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 | Rat Watch Analytics | `/Guilds/RatWatch/{guildId:long}/Analytics` | Rat Watch analytics and metrics |
 | Rat Watch Incidents | `/Guilds/RatWatch/{guildId:long}/Incidents` | Incident browser with filtering |
 | Member Directory | `/Guilds/{guildId:long}/Members` | Guild member list with search/filter |
-| Member Moderation | `/Guilds/{guildId:long}/Members/{memberId:long}/Moderation` | Member moderation history |
+| Member Moderation | `/Guilds/{guildId:long}/Members/{userId:long}/Moderation` | Member moderation history |
 | Flagged Events | `/Guilds/{guildId:long}/FlaggedEvents` | Auto-moderation flagged events |
 | Flagged Event Details | `/Guilds/{guildId:long}/FlaggedEvents/{id:guid}` | Single flagged event |
 | Reminders | `/Guilds/{guildId:long}/Reminders` | Guild reminders management |
@@ -314,6 +322,12 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 | Link Discord | `/Account/LinkDiscord` | OAuth account linking |
 | Search | `/Search` | Global search |
 | Components | `/Components` | Component showcase (dev) |
+| Error 403 | `/Error/403` | Access denied error page |
+| Error 404 | `/Error/404` | Not found error page |
+| Error 500 | `/Error/500` | Server error page |
+| Privacy | `/Account/Privacy` | Privacy information |
+| Account Lockout | `/Account/Lockout` | Account lockout page |
+| Access Denied | `/Account/AccessDenied` | Access denied page |
 
 **Note:** Use `Guilds/` not `Servers/` for guild-related pages. Discord API terminology uses "guild" for servers.
 
