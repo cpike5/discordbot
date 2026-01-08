@@ -83,14 +83,20 @@ public class IndexModel : PageModel
                 return NotFound();
             }
 
-            // Load analytics data from service
-            var summary = await _analyticsService.GetSummaryAsync(guildId, start, end, cancellationToken);
-            var activityTimeSeries = await _analyticsService.GetActivityTimeSeriesAsync(guildId, start, end, cancellationToken);
-            var activityHeatmap = await _analyticsService.GetActivityHeatmapAsync(guildId, start, end, cancellationToken);
-            var topContributors = await _analyticsService.GetTopContributorsAsync(guildId, start, end, 10, cancellationToken);
+            // Load analytics data in parallel
+            var summaryTask = _analyticsService.GetSummaryAsync(guildId, start, end, cancellationToken);
+            var activityTimeSeriesTask = _analyticsService.GetActivityTimeSeriesAsync(guildId, start, end, cancellationToken);
+            var activityHeatmapTask = _analyticsService.GetActivityHeatmapAsync(guildId, start, end, cancellationToken);
+            var topContributorsTask = _analyticsService.GetTopContributorsAsync(guildId, start, end, 10, cancellationToken);
+            var topChannelsTask = GetTopChannelsAsync(guildId, start, end, 10, cancellationToken);
 
-            // Load top channels from message logs
-            var topChannels = await GetTopChannelsAsync(guildId, start, end, 10, cancellationToken);
+            await Task.WhenAll(summaryTask, activityTimeSeriesTask, activityHeatmapTask, topContributorsTask, topChannelsTask);
+
+            var summary = await summaryTask;
+            var activityTimeSeries = await activityTimeSeriesTask;
+            var activityHeatmap = await activityHeatmapTask;
+            var topContributors = await topContributorsTask;
+            var topChannels = await topChannelsTask;
 
             // Build view model
             ViewModel = new ServerAnalyticsViewModel
