@@ -58,14 +58,11 @@ public static class PerformanceMetricsServiceExtensions
         // Memory diagnostics service (singleton - aggregates IMemoryReportable services)
         services.AddSingleton<IMemoryDiagnosticsService, MemoryDiagnosticsService>();
 
-        // Command performance aggregator as background service
-        services.AddHostedService<CommandPerformanceAggregator>();
-
-        // Register the aggregator interface separately so it can be injected
-        services.AddSingleton<ICommandPerformanceAggregator>(sp =>
-            sp.GetServices<IHostedService>()
-              .OfType<CommandPerformanceAggregator>()
-              .First());
+        // Command performance aggregator - register as singleton first, then as hosted service
+        // This avoids the circular dependency deadlock caused by GetServices<IHostedService>()
+        services.AddSingleton<CommandPerformanceAggregator>();
+        services.AddSingleton<ICommandPerformanceAggregator>(sp => sp.GetRequiredService<CommandPerformanceAggregator>());
+        services.AddHostedService<CommandPerformanceAggregator>(sp => sp.GetRequiredService<CommandPerformanceAggregator>());
 
         // Performance alert services
         services.AddScoped<IPerformanceAlertRepository, PerformanceAlertRepository>();
@@ -74,15 +71,11 @@ public static class PerformanceMetricsServiceExtensions
         // Performance notifier for SignalR broadcasting (singleton)
         services.AddSingleton<IPerformanceNotifier, PerformanceNotifier>();
 
-        // Alert monitoring background service
-        services.AddHostedService<AlertMonitoringService>();
-
-        // Register the metrics provider interface separately so it can be injected
-        // Points to the same AlertMonitoringService instance
-        services.AddSingleton<IMetricsProvider>(sp =>
-            sp.GetServices<IHostedService>()
-              .OfType<AlertMonitoringService>()
-              .First());
+        // Alert monitoring background service - register as singleton first, then as hosted service
+        // This avoids the circular dependency deadlock caused by GetServices<IHostedService>()
+        services.AddSingleton<AlertMonitoringService>();
+        services.AddSingleton<IMetricsProvider>(sp => sp.GetRequiredService<AlertMonitoringService>());
+        services.AddHostedService<AlertMonitoringService>(sp => sp.GetRequiredService<AlertMonitoringService>());
 
         // Historical metrics collection service
         services.AddScoped<IMetricSnapshotRepository, MetricSnapshotRepository>();
