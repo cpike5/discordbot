@@ -32,6 +32,12 @@ public interface IDiscordMessage
     ulong ChannelId { get; }
 
     /// <summary>
+    /// Gets the name of the channel where the message was sent.
+    /// Null for direct messages.
+    /// </summary>
+    string? ChannelName { get; }
+
+    /// <summary>
     /// Gets a value indicating whether the message was sent in a direct message channel.
     /// </summary>
     bool IsDirectMessage { get; }

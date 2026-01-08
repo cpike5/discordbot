@@ -119,6 +119,7 @@ public class MessageLoggingHandler
                 DiscordMessageId = message.Id,
                 AuthorId = message.AuthorId,
                 ChannelId = message.ChannelId,
+                ChannelName = message.ChannelName,
                 GuildId = message.GuildId,
                 Source = source,
                 Content = message.Content,
