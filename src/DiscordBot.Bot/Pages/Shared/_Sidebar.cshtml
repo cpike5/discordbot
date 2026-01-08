@@ -46,16 +46,18 @@
         <span class="sidebar-link-text">Commands</span>
       </a>
 
-      <!-- Logs - visible to Viewers+ -->
-      @{
-        var logsActive = ViewContext.RouteData.Values["page"]?.ToString() == "/CommandLogs/Index";
-      }
-      <a href="/CommandLogs" class="sidebar-link-redesign @(logsActive ? "active" : "")" @(logsActive ? "aria-current=page" : "")>
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-        </svg>
-        <span class="sidebar-link-text">Logs</span>
-      </a>
+      <!-- Logs - visible to Moderator+ -->
+      <authorize policy="RequireModerator">
+        @{
+          var logsActive = ViewContext.RouteData.Values["page"]?.ToString() == "/CommandLogs/Index";
+        }
+        <a href="/CommandLogs" class="sidebar-link-redesign @(logsActive ? "active" : "")" @(logsActive ? "aria-current=page" : "")>
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+          </svg>
+          <span class="sidebar-link-text">Logs</span>
+        </a>
+      </authorize>
 
       <!-- Command Analytics - visible to Moderator+ -->
       <authorize policy="RequireModerator">
@@ -84,16 +86,18 @@
         </a>
       </authorize>
 
-      <!-- Bot Performance - visible to Viewers+ -->
-      @{
-        var performanceActive = ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/Performance") == true;
-      }
-      <a href="/Admin/Performance" class="sidebar-link-redesign @(performanceActive ? "active" : "")" @(performanceActive ? "aria-current=page" : "")>
-        <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-        </svg>
-        <span class="sidebar-link-text">Bot Performance</span>
-      </a>
+      <!-- Bot Performance - visible to Viewer+ -->
+      <authorize policy="RequireViewer">
+        @{
+          var performanceActive = ViewContext.RouteData.Values["page"]?.ToString()?.StartsWith("/Admin/Performance") == true;
+        }
+        <a href="/Admin/Performance" class="sidebar-link-redesign @(performanceActive ? "active" : "")" @(performanceActive ? "aria-current=page" : "")>
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          <span class="sidebar-link-text">Bot Performance</span>
+        </a>
+      </authorize>
 
       <!-- Settings - visible to Admin+ -->
       <authorize policy="RequireAdmin">
