@@ -14,16 +14,15 @@
         </div>
         @if (Model.ActiveIncidents.Any())
         {
-            <form method="post" asp-page="/Admin/Performance/Alerts" asp-page-handler="AcknowledgeAll">
-                @Html.AntiForgeryToken()
-                @await Html.PartialAsync("Components/_Button", new ButtonViewModel
-                {
-                    Text = "Acknowledge All",
-                    Type = "submit",
-                    Variant = ButtonVariant.Secondary,
-                    Size = ButtonSize.Small
-                })
-            </form>
+            @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+            {
+                Text = "Acknowledge All",
+                Type = "button",
+                Variant = ButtonVariant.Secondary,
+                Size = ButtonSize.Small,
+                OnClick = "acknowledgeAllIncidents()",
+                AdditionalAttributes = new Dictionary<string, string> { { "id", "acknowledgeAllBtn" } }
+            })
         }
     </div>
     <div class="chart-card-body p-0">
@@ -82,17 +81,15 @@
                         @if (!incident.IsAcknowledged)
                         {
                             <div class="alert-actions flex items-center gap-2">
-                                <form method="post" asp-page="/Admin/Performance/Alerts" asp-page-handler="Acknowledge" asp-route-id="@incident.Id">
-                                    @Html.AntiForgeryToken()
-                                    @await Html.PartialAsync("Components/_Button", new ButtonViewModel
-                                    {
-                                        Text = "Acknowledge",
-                                        Type = "submit",
-                                        Variant = ButtonVariant.Secondary,
-                                        Size = ButtonSize.Small,
-                                        AdditionalAttributes = new Dictionary<string, string> { { "class", "acknowledge-btn" } }
-                                    })
-                                </form>
+                                @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+                                {
+                                    Text = "Acknowledge",
+                                    Type = "button",
+                                    Variant = ButtonVariant.Secondary,
+                                    Size = ButtonSize.Small,
+                                    OnClick = $"acknowledgeIncident('{incident.Id}')",
+                                    AdditionalAttributes = new Dictionary<string, string> { { "class", "acknowledge-btn" } }
+                                })
                             </div>
                         }
                     </div>
