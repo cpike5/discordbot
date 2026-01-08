@@ -1,6 +1,6 @@
 # Bot Performance Dashboard
 
-**Last Updated:** 2026-01-02
+**Last Updated:** 2026-01-08
 **Feature Reference:** Issue #295 (Epic)
 **Status:** Completed (9 of 9 sub-issues completed)
 
@@ -19,6 +19,8 @@
   - [Discord API & Rate Limit Monitoring (#566)](#discord-api--rate-limit-monitoring-issue-566)
   - [Performance Alerts & Incidents (#570)](#performance-alerts--incidents-issue-570)
   - [Performance Dashboard UI Implementation (#573)](#performance-dashboard-ui-implementation-issue-573)
+  - [Historical Metrics System (Feature #613)](#historical-metrics-system-feature-613)
+- [Real-Time Updates](#real-time-updates)
 - [Configuration](#configuration)
 - [Service Registration](#service-registration)
 - [Integration with Bot Events](#integration-with-bot-events)
@@ -1956,6 +1958,250 @@ See `HistoricalMetricsOptions` in the [Configuration](#configuration) section.
 
 ---
 
+## Real-Time Updates
+
+The Performance Dashboard supports real-time updates via SignalR, enabling live monitoring without page refresh. This section documents the real-time update integration across performance pages.
+
+### Overview
+
+Real-time updates are provided by the `PerformanceMetricsBroadcastService` background service, which broadcasts metrics at configurable intervals to subscribed SignalR clients. Pages connect to the `DashboardHub` and join specific groups to receive updates.
+
+### Architecture
+
+```
+┌─────────────────────────────────┐
+│   Performance Dashboard Page    │
+│   (Health, Commands, System)    │
+└──────────────┬──────────────────┘
+               │ SignalR Events
+               ▼
+┌─────────────────────────────────┐
+│         DashboardHub            │
+│    /hubs/dashboard endpoint     │
+└──────────────┬──────────────────┘
+               │ IHubContext<T>
+               ▼
+┌─────────────────────────────────┐
+│ PerformanceMetricsBroadcast     │
+│         Service                 │
+│   (Background Service)          │
+└─────────────┬───────────────────┘
+              │ Collects metrics from
+              ▼
+┌─────────────────────────────────────────────────────────┐
+│ ILatencyHistoryService  │ ICommandPerformanceAggregator │
+│ IConnectionStateService │ IDatabaseMetricsCollector     │
+│ IInstrumentedCache      │ IBackgroundServiceHealthRegistry│
+└─────────────────────────────────────────────────────────┘
+```
+
+### SignalR Groups
+
+| Group | Pages | Events Received |
+|-------|-------|-----------------|
+| `performance` | Health Metrics, Commands, Overview | `HealthMetricsUpdate`, `CommandPerformanceUpdate` |
+| `system-health` | System Health | `SystemMetricsUpdate` |
+| `alerts` | Alerts, Overview | `OnAlertTriggered`, `OnAlertResolved`, `OnAlertAcknowledged`, `OnActiveAlertCountChanged` |
+
+### Broadcast Intervals
+
+| Event | Default Interval | Configurable |
+|-------|------------------|--------------|
+| `HealthMetricsUpdate` | 5 seconds | `PerformanceBroadcast:HealthMetricsIntervalSeconds` |
+| `CommandPerformanceUpdate` | 30 seconds | `PerformanceBroadcast:CommandMetricsIntervalSeconds` |
+| `SystemMetricsUpdate` | 10 seconds | `PerformanceBroadcast:SystemMetricsIntervalSeconds` |
+| Alert events | On event | N/A (event-driven) |
+
+### Page Integration
+
+#### Health Metrics Page (`/Admin/Performance/HealthMetrics`)
+
+**JavaScript Module:** `wwwroot/js/performance/health-metrics-realtime.js`
+
+**SignalR Usage:**
+```javascript
+// Connect and subscribe
+await DashboardHub.connect();
+await DashboardHub.invoke('JoinPerformanceGroup');
+
+// Handle real-time updates
+DashboardHub.on('HealthMetricsUpdate', (data) => {
+    updateLatencyGauge(data.latencyMs);
+    updateMemoryStats(data.workingSetMB, data.privateMemoryMB);
+    updateConnectionState(data.connectionState);
+    addLatencySample(data.latencyMs, data.timestamp);
+});
+
+// Get initial snapshot
+const metrics = await DashboardHub.invoke('GetCurrentPerformanceMetrics');
+```
+
+**Data Updated:**
+- Latency gauge and trend line
+- Memory usage bars
+- Connection state indicator
+- Thread count and GC statistics
+
+---
+
+#### System Health Page (`/Admin/Performance/SystemHealth`)
+
+**JavaScript Module:** `wwwroot/js/performance/system-health-realtime.js`
+
+**SignalR Usage:**
+```javascript
+// Connect and subscribe
+await DashboardHub.connect();
+await DashboardHub.invoke('JoinSystemHealthGroup');
+
+// Handle real-time updates
+DashboardHub.on('SystemMetricsUpdate', (data) => {
+    updateDatabaseMetrics(data.avgQueryTimeMs, data.slowQueryCount);
+    updateCacheStatistics(data.cacheStats);
+    updateServiceHealth(data.backgroundServices);
+    addQueryTimeSample(data.avgQueryTimeMs, data.timestamp);
+});
+
+// Get initial snapshot
+const health = await DashboardHub.invoke('GetCurrentSystemHealth');
+```
+
+**Data Updated:**
+- Database query time chart
+- Cache hit rate progress bars
+- Background service status indicators
+- Slow query count badge
+
+---
+
+#### Alerts Page (`/Admin/Performance/Alerts`)
+
+**JavaScript Module:** `wwwroot/js/performance/alerts-realtime.js`
+
+**SignalR Usage:**
+```javascript
+// Connect and subscribe
+await DashboardHub.connect();
+await DashboardHub.invoke('JoinAlertsGroup');
+
+// Handle real-time updates
+DashboardHub.on('OnAlertTriggered', (incident) => {
+    addActiveAlert(incident);
+    showNotificationToast(incident);
+});
+
+DashboardHub.on('OnAlertResolved', (incident) => {
+    moveToResolvedList(incident);
+    removeFromActiveAlerts(incident.id);
+});
+
+DashboardHub.on('OnAlertAcknowledged', (data) => {
+    updateAlertAcknowledgedStatus(data.incidentId, data.acknowledgedBy);
+});
+
+DashboardHub.on('OnActiveAlertCountChanged', (summary) => {
+    updateAlertBadge(summary.activeCount, summary.criticalCount);
+});
+
+// Get initial alert count
+const summary = await DashboardHub.invoke('GetActiveAlertCount');
+```
+
+**Data Updated:**
+- Active alerts list (real-time additions/removals)
+- Alert severity badges
+- Incident history timeline
+- Navigation badge counts
+
+---
+
+### Connection Status Indicator
+
+Each performance page displays a connection status indicator showing the SignalR connection state:
+
+| State | Indicator | Description |
+|-------|-----------|-------------|
+| Connected | 🟢 Green dot | Real-time updates active |
+| Reconnecting | 🟡 Yellow dot with pulse | Connection lost, attempting reconnect |
+| Disconnected | 🔴 Red dot | Connection failed, data may be stale |
+
+The indicator is updated via the `dashboard-hub.js` connection events:
+
+```javascript
+DashboardHub.on('connected', () => setConnectionStatus('connected'));
+DashboardHub.on('reconnecting', () => setConnectionStatus('reconnecting'));
+DashboardHub.on('disconnected', () => setConnectionStatus('disconnected'));
+```
+
+### Fallback Behavior
+
+When SignalR connection fails or is unavailable:
+
+1. **Initial Load:** Pages load with server-rendered data from PageModel
+2. **Auto-Refresh Fallback:** Polling via `fetch()` API every 30 seconds
+3. **Reconnection:** SignalR automatically attempts reconnection with exponential backoff
+4. **Data Recovery:** On reconnection, pages call `GetCurrent*` hub methods to fetch fresh data
+
+```javascript
+DashboardHub.on('reconnected', async () => {
+    // Fetch fresh data after reconnection
+    const metrics = await DashboardHub.invoke('GetCurrentPerformanceMetrics');
+    refreshAllCharts(metrics);
+});
+```
+
+### Subscription Optimization
+
+The `PerformanceMetricsBroadcastService` uses an `IPerformanceSubscriptionTracker` to optimize broadcasts:
+
+- **Skip Empty Groups:** No broadcasts sent when no clients are subscribed
+- **Reference Counting:** Tracks client count per group for efficient resource usage
+- **Cleanup on Disconnect:** Automatically removes subscriptions when clients disconnect
+
+This prevents unnecessary CPU and memory usage when no dashboard pages are open.
+
+### Configuration
+
+Real-time updates are configured via `PerformanceBroadcastOptions`:
+
+```json
+{
+  "PerformanceBroadcast": {
+    "Enabled": true,
+    "HealthMetricsIntervalSeconds": 5,
+    "CommandMetricsIntervalSeconds": 30,
+    "SystemMetricsIntervalSeconds": 10
+  }
+}
+```
+
+Set `Enabled: false` to disable all real-time broadcasts (pages will fall back to polling).
+
+### Troubleshooting
+
+#### Charts not updating in real-time
+
+1. Check browser console for SignalR errors
+2. Verify `PerformanceBroadcast:Enabled` is `true`
+3. Ensure user has at least Viewer role (required for hub access)
+4. Check server logs for `PerformanceMetricsBroadcastService` errors
+
+#### High memory usage on client
+
+1. Implement sliding window for chart data (max 100 data points)
+2. Clear old chart data on page navigation
+3. Consider reducing broadcast frequency for less critical metrics
+
+#### Stale data after reconnection
+
+1. Ensure reconnection handler calls `GetCurrent*` hub methods
+2. Check for race conditions between reconnect and event handlers
+3. Verify timestamp comparison logic in update handlers
+
+See [SignalR Real-Time Documentation](signalr-realtime.md#performance-troubleshooting) for additional troubleshooting guidance.
+
+---
+
 ## Configuration
 
 Performance metrics configuration is managed through the `PerformanceMetricsOptions` class.
@@ -2094,6 +2340,7 @@ The `CommandPerformanceAggregator` background service periodically queries the c
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.8 | 2026-01-08 | Added Real-Time Updates section documenting SignalR integration for performance pages (#622, #632) |
 | 1.7 | 2026-01-02 | Added Historical Metrics System (#613) documentation; MetricsCollectionService, data retention, API endpoints |
 | 1.6 | 2026-01-02 | Marked Performance Dashboard UI (#573) as completed; added Overview page implementation documentation; all 9 sub-issues completed |
 | 1.5 | 2026-01-02 | Marked Performance Alerts (#570) as completed; added circular DI dependency fix documentation |

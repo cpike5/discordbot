@@ -679,6 +679,605 @@ location /hubs/dashboard {
 
 ---
 
+## Performance Metrics Real-Time Updates
+
+The dashboard supports real-time performance metrics updates via specialized SignalR groups and events. This enables live monitoring of bot health, command performance, and system metrics without page refresh.
+
+### Performance Groups
+
+| Group Name | Purpose | Broadcast Frequency |
+|------------|---------|---------------------|
+| `performance` | Health metrics (latency, memory, CPU) and command performance | Health: 5 seconds, Commands: 30 seconds |
+| `system-health` | Database, cache, and background service status | 10 seconds |
+| `alerts` | Performance alert state changes (triggered, resolved, acknowledged) | On event |
+
+Group names are defined as constants in `DashboardHub`:
+- `DashboardHub.PerformanceGroupName` = `"performance"`
+- `DashboardHub.SystemHealthGroupName` = `"system-health"`
+- `DashboardHub.AlertsGroupName` = `"alerts"`
+
+### Performance Hub Methods
+
+#### JoinPerformanceGroup()
+
+Subscribes the client to receive real-time health and command performance metrics.
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+// Join performance group to receive health and command metrics
+await DashboardHub.invoke('JoinPerformanceGroup');
+```
+
+**Broadcast Events Received:**
+- `HealthMetricsUpdate` - Every 5 seconds
+- `CommandPerformanceUpdate` - Every 30 seconds
+
+---
+
+#### LeavePerformanceGroup()
+
+Unsubscribes from performance metrics updates.
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+// Leave performance group when navigating away
+await DashboardHub.invoke('LeavePerformanceGroup');
+```
+
+---
+
+#### JoinSystemHealthGroup()
+
+Subscribes the client to receive real-time system health updates (database, cache, services).
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+// Join system health group for database and service monitoring
+await DashboardHub.invoke('JoinSystemHealthGroup');
+```
+
+**Broadcast Events Received:**
+- `SystemMetricsUpdate` - Every 10 seconds
+
+---
+
+#### LeaveSystemHealthGroup()
+
+Unsubscribes from system health updates.
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+// Leave system health group
+await DashboardHub.invoke('LeaveSystemHealthGroup');
+```
+
+---
+
+#### JoinAlertsGroup()
+
+Subscribes the client to receive real-time performance alert notifications.
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+// Join alerts group for real-time alert notifications
+await DashboardHub.invoke('JoinAlertsGroup');
+```
+
+**Broadcast Events Received:**
+- `OnAlertTriggered` - When a new alert is triggered
+- `OnAlertResolved` - When an alert auto-resolves
+- `OnAlertAcknowledged` - When an admin acknowledges an alert
+- `OnActiveAlertCountChanged` - When the active alert count changes
+
+---
+
+#### LeaveAlertsGroup()
+
+Unsubscribes from alert notifications.
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+// Leave alerts group
+await DashboardHub.invoke('LeaveAlertsGroup');
+```
+
+---
+
+#### GetCurrentPerformanceMetrics()
+
+Gets a snapshot of current health metrics (latency, memory, CPU, connection state).
+
+**Parameters:** None
+
+**Returns:** `HealthMetricsUpdateDto`
+
+**JavaScript Example:**
+
+```javascript
+// Get current performance metrics on page load
+const metrics = await DashboardHub.invoke('GetCurrentPerformanceMetrics');
+console.log('Latency:', metrics.latencyMs, 'ms');
+console.log('Memory:', metrics.workingSetMB, 'MB');
+console.log('Connection:', metrics.connectionState);
+```
+
+**Response Properties:**
+- `latencyMs` (int): Gateway latency in milliseconds
+- `workingSetMB` (long): Working set memory in MB
+- `privateMemoryMB` (long): Private memory in MB
+- `cpuUsagePercent` (double): CPU usage percentage (0-100)
+- `threadCount` (int): Active thread count
+- `gen2Collections` (int): GC Gen 2 collection count
+- `connectionState` (string): Discord connection state
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### GetCurrentSystemHealth()
+
+Gets a snapshot of current system health (database, cache, background services).
+
+**Parameters:** None
+
+**Returns:** `SystemMetricsUpdateDto`
+
+**JavaScript Example:**
+
+```javascript
+// Get current system health on page load
+const health = await DashboardHub.invoke('GetCurrentSystemHealth');
+console.log('Avg Query Time:', health.avgQueryTimeMs, 'ms');
+console.log('Slow Queries:', health.slowQueryCount);
+console.log('Services:', health.backgroundServices.length);
+```
+
+**Response Properties:**
+- `avgQueryTimeMs` (double): Average database query time in milliseconds
+- `totalQueries` (int): Total queries executed
+- `queriesPerSecond` (double): Query throughput
+- `slowQueryCount` (int): Queries exceeding threshold
+- `cacheStats` (Dictionary<string, CacheStatsDto>): Cache statistics by key prefix
+- `backgroundServices` (List<BackgroundServiceStatusDto>): Service health statuses
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### GetCurrentCommandPerformance(int hours = 24)
+
+Gets aggregated command performance metrics for a specified time window.
+
+**Parameters:**
+- `hours` (int, optional): Number of hours to aggregate (default: 24)
+
+**Returns:** `CommandPerformanceUpdateDto`
+
+**JavaScript Example:**
+
+```javascript
+// Get command performance for the last 24 hours
+const perf = await DashboardHub.invoke('GetCurrentCommandPerformance', 24);
+console.log('Total Commands:', perf.totalCommands24h);
+console.log('Avg Response:', perf.avgResponseTimeMs, 'ms');
+console.log('Error Rate:', perf.errorRate, '%');
+```
+
+**Response Properties:**
+- `totalCommands24h` (int): Total commands in time window
+- `avgResponseTimeMs` (double): Average response time in milliseconds
+- `p95ResponseTimeMs` (double): 95th percentile response time
+- `p99ResponseTimeMs` (double): 99th percentile response time
+- `errorRate` (double): Error percentage (0-100)
+- `commandsLastHour` (int): Commands in the last hour (estimated)
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### GetActiveAlertCount()
+
+Gets the current count of active performance alerts by severity.
+
+**Parameters:** None
+
+**Returns:** `ActiveAlertSummaryDto`
+
+**JavaScript Example:**
+
+```javascript
+// Get active alert counts
+const summary = await DashboardHub.invoke('GetActiveAlertCount');
+console.log('Active Alerts:', summary.activeCount);
+console.log('Critical:', summary.criticalCount);
+console.log('Warning:', summary.warningCount);
+```
+
+**Response Properties:**
+- `activeCount` (int): Total active alerts
+- `criticalCount` (int): Critical severity alerts
+- `warningCount` (int): Warning severity alerts
+- `infoCount` (int): Info severity alerts
+
+---
+
+### Performance Server-to-Client Events
+
+#### HealthMetricsUpdate
+
+Broadcast to the `performance` group every 5 seconds (configurable) with current health metrics.
+
+**Event Data:** `HealthMetricsUpdateDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('HealthMetricsUpdate', (data) => {
+    console.log('Latency:', data.latencyMs, 'ms');
+    console.log('Memory:', data.workingSetMB, 'MB');
+    console.log('CPU:', data.cpuUsagePercent, '%');
+    updateHealthDashboard(data);
+});
+```
+
+**Data Properties:**
+- `latencyMs` (int): Gateway latency in milliseconds
+- `workingSetMB` (long): Working set memory in MB
+- `privateMemoryMB` (long): Private memory in MB
+- `cpuUsagePercent` (double): CPU usage percentage
+- `threadCount` (int): Active thread count
+- `gen2Collections` (int): GC Gen 2 collections
+- `connectionState` (string): Discord connection state
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### CommandPerformanceUpdate
+
+Broadcast to the `performance` group every 30 seconds (configurable) with command statistics.
+
+**Event Data:** `CommandPerformanceUpdateDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('CommandPerformanceUpdate', (data) => {
+    console.log('Total Commands:', data.totalCommands24h);
+    console.log('Avg Response:', data.avgResponseTimeMs, 'ms');
+    updateCommandCharts(data);
+});
+```
+
+**Data Properties:**
+- `totalCommands24h` (int): Commands in last 24 hours
+- `avgResponseTimeMs` (double): Average response time
+- `p95ResponseTimeMs` (double): 95th percentile response time
+- `p99ResponseTimeMs` (double): 99th percentile response time
+- `errorRate` (double): Error percentage
+- `commandsLastHour` (int): Commands in last hour
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### SystemMetricsUpdate
+
+Broadcast to the `system-health` group every 10 seconds (configurable) with database, cache, and service metrics.
+
+**Event Data:** `SystemMetricsUpdateDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('SystemMetricsUpdate', (data) => {
+    console.log('Avg Query Time:', data.avgQueryTimeMs, 'ms');
+    console.log('Total Queries:', data.totalQueries);
+    updateSystemHealthDashboard(data);
+});
+```
+
+**Data Properties:**
+- `avgQueryTimeMs` (double): Average query time in milliseconds
+- `totalQueries` (int): Total queries executed
+- `queriesPerSecond` (double): Query throughput
+- `slowQueryCount` (int): Slow query count
+- `cacheStats` (Dictionary<string, CacheStatsDto>): Cache statistics by prefix
+- `backgroundServices` (List<BackgroundServiceStatusDto>): Service statuses
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### OnAlertTriggered
+
+Broadcast to the `alerts` group when a new performance incident is created.
+
+**Event Data:** `PerformanceIncidentDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('OnAlertTriggered', (incident) => {
+    console.log('Alert:', incident.metricName, incident.severity);
+    console.log('Message:', incident.message);
+    showAlertNotification(incident);
+});
+```
+
+**Data Properties:**
+- `id` (Guid): Incident ID
+- `metricName` (string): Metric that triggered alert
+- `severity` (AlertSeverity): Critical, Warning, or Info
+- `message` (string): Human-readable alert message
+- `thresholdValue` (double): Configured threshold
+- `actualValue` (double): Actual metric value
+- `triggeredAt` (DateTime): When the alert was triggered
+
+---
+
+#### OnAlertResolved
+
+Broadcast to the `alerts` group when an incident auto-resolves (metric returns to normal).
+
+**Event Data:** `PerformanceIncidentDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('OnAlertResolved', (incident) => {
+    console.log('Resolved:', incident.metricName);
+    console.log('Duration:', incident.resolvedAt - incident.triggeredAt);
+    hideAlertNotification(incident.id);
+});
+```
+
+---
+
+#### OnAlertAcknowledged
+
+Broadcast to the `alerts` group when an administrator acknowledges an incident.
+
+**Event Data:** Object with `incidentId`, `acknowledgedBy`, `acknowledgedAt`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('OnAlertAcknowledged', (data) => {
+    console.log('Acknowledged:', data.incidentId);
+    console.log('By:', data.acknowledgedBy);
+    updateAlertStatus(data.incidentId, 'acknowledged');
+});
+```
+
+---
+
+#### OnActiveAlertCountChanged
+
+Broadcast to the `alerts` group whenever the active alert count changes.
+
+**Event Data:** `ActiveAlertSummaryDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('OnActiveAlertCountChanged', (summary) => {
+    updateAlertBadge(summary.activeCount);
+    updateAlertBreakdown(summary);
+});
+```
+
+---
+
+### Performance Client Usage Examples
+
+#### Health Metrics Page
+
+```javascript
+// Connect and subscribe to performance metrics
+document.addEventListener('DOMContentLoaded', async () => {
+    const connected = await DashboardHub.connect();
+    if (!connected) {
+        showConnectionError();
+        return;
+    }
+
+    // Subscribe to performance group
+    await DashboardHub.invoke('JoinPerformanceGroup');
+
+    // Register event handlers
+    DashboardHub.on('HealthMetricsUpdate', updateHealthMetrics);
+    DashboardHub.on('CommandPerformanceUpdate', updateCommandMetrics);
+
+    // Get initial data
+    const metrics = await DashboardHub.invoke('GetCurrentPerformanceMetrics');
+    updateHealthMetrics(metrics);
+});
+
+// Cleanup on page leave
+window.addEventListener('beforeunload', async () => {
+    await DashboardHub.invoke('LeavePerformanceGroup');
+    DashboardHub.disconnect();
+});
+```
+
+#### System Health Page
+
+```javascript
+// Subscribe to system health updates
+await DashboardHub.invoke('JoinSystemHealthGroup');
+
+DashboardHub.on('SystemMetricsUpdate', (data) => {
+    // Update database metrics
+    updateDatabaseChart(data.avgQueryTimeMs, data.slowQueryCount);
+
+    // Update cache statistics
+    Object.entries(data.cacheStats).forEach(([prefix, stats]) => {
+        updateCacheRow(prefix, stats.hitRate, stats.size);
+    });
+
+    // Update service health indicators
+    data.backgroundServices.forEach(service => {
+        updateServiceStatus(service.serviceName, service.status);
+    });
+});
+
+// Get initial snapshot
+const health = await DashboardHub.invoke('GetCurrentSystemHealth');
+renderSystemHealthDashboard(health);
+```
+
+#### Alerts Page
+
+```javascript
+// Subscribe to alert notifications
+await DashboardHub.invoke('JoinAlertsGroup');
+
+DashboardHub.on('OnAlertTriggered', (incident) => {
+    addActiveAlert(incident);
+    showToast(`Alert: ${incident.message}`, incident.severity);
+});
+
+DashboardHub.on('OnAlertResolved', (incident) => {
+    removeActiveAlert(incident.id);
+    showToast(`Resolved: ${incident.metricName}`, 'success');
+});
+
+DashboardHub.on('OnAlertAcknowledged', (data) => {
+    markAlertAcknowledged(data.incidentId, data.acknowledgedBy);
+});
+
+DashboardHub.on('OnActiveAlertCountChanged', (summary) => {
+    updateAlertBadge(summary);
+});
+
+// Get initial alert count
+const alertSummary = await DashboardHub.invoke('GetActiveAlertCount');
+updateAlertBadge(alertSummary);
+```
+
+### Performance Configuration
+
+The `PerformanceBroadcastOptions` class controls broadcast behavior:
+
+```json
+{
+  "PerformanceBroadcast": {
+    "Enabled": true,
+    "HealthMetricsIntervalSeconds": 5,
+    "CommandMetricsIntervalSeconds": 30,
+    "SystemMetricsIntervalSeconds": 10
+  }
+}
+```
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Enabled` | bool | true | Enable/disable all performance broadcasting |
+| `HealthMetricsIntervalSeconds` | int | 5 | Interval for health metrics (latency, memory, CPU) |
+| `CommandMetricsIntervalSeconds` | int | 30 | Interval for command performance aggregates |
+| `SystemMetricsIntervalSeconds` | int | 10 | Interval for system health (database, cache, services) |
+
+### Subscription Optimization
+
+The `PerformanceMetricsBroadcastService` uses an `IPerformanceSubscriptionTracker` to skip broadcasts when no clients are subscribed:
+
+```csharp
+// Skip broadcast if no clients are listening
+if (_subscriptionTracker.PerformanceGroupClientCount == 0)
+{
+    _logger.LogTrace("Skipping health metrics broadcast - no subscribers");
+    return;
+}
+```
+
+This prevents unnecessary work when no dashboard pages are open.
+
+---
+
+### Performance Troubleshooting
+
+#### Real-time metrics not updating
+
+**Symptoms:**
+- Health metrics page shows stale data
+- Charts don't update automatically
+- No SignalR events received
+
+**Solutions:**
+1. Verify you joined the correct group before expecting events:
+   ```javascript
+   await DashboardHub.invoke('JoinPerformanceGroup');
+   ```
+2. Check event handler registration:
+   ```javascript
+   DashboardHub.on('HealthMetricsUpdate', handler); // Before connect
+   ```
+3. Verify `PerformanceBroadcast:Enabled` is `true` in configuration
+4. Check server logs for broadcast errors
+5. Ensure client is connected: `DashboardHub.isConnected()`
+
+---
+
+#### High memory usage from metrics
+
+**Symptoms:**
+- Chart data accumulating in memory
+- Browser tab memory growing over time
+- UI becoming sluggish
+
+**Solutions:**
+1. Implement sliding window for chart data:
+   ```javascript
+   const MAX_DATA_POINTS = 100;
+   if (chartData.length > MAX_DATA_POINTS) {
+       chartData.shift(); // Remove oldest point
+   }
+   chartData.push(newDataPoint);
+   ```
+2. Verify cleanup on page navigation
+3. Consider reducing broadcast frequency for less critical metrics
+
+---
+
+#### Alert notifications delayed
+
+**Symptoms:**
+- Alerts appear late on the page
+- Missing alert triggered/resolved events
+
+**Solutions:**
+1. Ensure alerts group subscription: `await DashboardHub.invoke('JoinAlertsGroup')`
+2. Check `AlertMonitoringService` is running in server logs
+3. Verify alert thresholds are configured in database
+4. Check for exceptions in `PerformanceNotifier` logs
+
+---
+
 ## Future Enhancements
 
 This infrastructure provides the foundation for additional real-time features:
@@ -690,10 +1289,10 @@ This infrastructure provides the foundation for additional real-time features:
 5. **Guild Access Validation (Issue #248):** Validate user permissions before allowing guild group join
 6. **Presence Updates:** Show which admins are currently viewing the dashboard
 7. **Collaborative Editing Indicators:** Show when multiple admins are editing same settings
-8. **Real-time Metrics Streaming:** Push bot performance metrics to monitoring dashboards
+8. **Rate Limit Event Broadcasting:** Push Discord rate limit events to API metrics page
 
 ---
 
-**Version:** 0.3.0
-**Last Updated:** 2025-12-26
-**Issue Reference:** #243
+**Version:** 0.4.0
+**Last Updated:** 2026-01-08
+**Issue Reference:** #243, #622, #632
