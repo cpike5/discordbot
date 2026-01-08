@@ -92,31 +92,32 @@ public class RatWatchAnalyticsModel : PageModel
             var allSettings = await _ratWatchSettingsRepository.GetAllAsync(cancellationToken);
             var enabledSettings = allSettings.Where(s => s.IsEnabled).ToList();
 
-            EnabledGuilds = new List<GuildSummaryDto>();
-            foreach (var setting in enabledSettings)
-            {
-                var guild = await _guildService.GetGuildByIdAsync(setting.GuildId, cancellationToken);
-                if (guild != null)
+            // Parallelize guild lookups
+            var guildTasks = enabledSettings.Select(s => _guildService.GetGuildByIdAsync(s.GuildId, cancellationToken));
+            var guilds = await Task.WhenAll(guildTasks);
+            EnabledGuilds = guilds
+                .Where(g => g != null)
+                .Select(g => new GuildSummaryDto
                 {
-                    EnabledGuilds.Add(new GuildSummaryDto
-                    {
-                        GuildId = guild.Id,
-                        Name = guild.Name,
-                        IconUrl = guild.IconUrl
-                    });
-                }
-            }
+                    GuildId = g!.Id,
+                    Name = g.Name,
+                    IconUrl = g.IconUrl
+                })
+                .ToList();
 
             _logger.LogDebug("Found {Count} guilds with Rat Watch enabled", EnabledGuilds.Count);
 
-            // Load analytics data from repository (passing null for global, or specific guild ID)
-            var summary = await _ratWatchRepository.GetAnalyticsSummaryAsync(GuildId, start, end, cancellationToken);
-            var timeSeries = await _ratWatchRepository.GetTimeSeriesAsync(GuildId, start, end, cancellationToken);
+            // Load analytics data from repository in parallel
+            var summaryTask = _ratWatchRepository.GetAnalyticsSummaryAsync(GuildId, start, end, cancellationToken);
+            var timeSeriesTask = _ratWatchRepository.GetTimeSeriesAsync(GuildId, start, end, cancellationToken);
+            var heatmapTask = GuildId.HasValue
+                ? _ratWatchRepository.GetActivityHeatmapAsync(GuildId.Value, start, end, cancellationToken)
+                : Task.FromResult(Enumerable.Empty<ActivityHeatmapDto>());
 
-            // For global view, we don't show heatmap (it's guild-specific)
-            var heatmap = GuildId.HasValue
-                ? await _ratWatchRepository.GetActivityHeatmapAsync(GuildId.Value, start, end, cancellationToken)
-                : Enumerable.Empty<ActivityHeatmapDto>();
+            await Task.WhenAll(summaryTask, timeSeriesTask, heatmapTask);
+            var summary = summaryTask.Result;
+            var timeSeries = timeSeriesTask.Result;
+            var heatmap = heatmapTask.Result;
 
             // Load leaderboards (note: GetUserMetricsAsync doesn't support global, so we'll aggregate manually if needed)
             List<RatWatchUserMetricsDto> mostWatched = new();
@@ -125,19 +126,23 @@ public class RatWatchAnalyticsModel : PageModel
 
             if (GuildId.HasValue)
             {
-                // Single guild - use existing repository methods
-                mostWatched = (await _ratRecordRepository.GetUserMetricsAsync(GuildId.Value, "watched", 10, cancellationToken)).ToList();
-                biggestRats = (await _ratRecordRepository.GetUserMetricsAsync(GuildId.Value, "guilty", 10, cancellationToken)).ToList();
-                topAccusers = await GetTopAccusersAsync(GuildId.Value, 10, cancellationToken);
+                // Single guild - parallelize repository calls
+                var mostWatchedTask = _ratRecordRepository.GetUserMetricsAsync(GuildId.Value, "watched", 10, cancellationToken);
+                var biggestRatsTask = _ratRecordRepository.GetUserMetricsAsync(GuildId.Value, "guilty", 10, cancellationToken);
+                var topAccusersTask = GetTopAccusersAsync(GuildId.Value, 10, cancellationToken);
 
-                // Resolve usernames
-                var mostWatchedWithNames = await ResolveUsernamesAsync(GuildId.Value, mostWatched);
-                var biggestRatsWithNames = await ResolveUsernamesAsync(GuildId.Value, biggestRats);
-                var topAccusersWithNames = await ResolveAccuserUsernamesAsync(GuildId.Value, topAccusers);
+                await Task.WhenAll(mostWatchedTask, biggestRatsTask, topAccusersTask);
 
-                mostWatched = mostWatchedWithNames;
-                biggestRats = biggestRatsWithNames;
-                topAccusers = topAccusersWithNames;
+                // Parallelize username resolution
+                var mostWatchedNamesTask = ResolveUsernamesAsync(GuildId.Value, mostWatchedTask.Result);
+                var biggestRatsNamesTask = ResolveUsernamesAsync(GuildId.Value, biggestRatsTask.Result);
+                var topAccusersNamesTask = ResolveAccuserUsernamesAsync(GuildId.Value, topAccusersTask.Result);
+
+                await Task.WhenAll(mostWatchedNamesTask, biggestRatsNamesTask, topAccusersNamesTask);
+
+                mostWatched = mostWatchedNamesTask.Result;
+                biggestRats = biggestRatsNamesTask.Result;
+                topAccusers = topAccusersNamesTask.Result;
             }
             else
             {
@@ -229,13 +234,11 @@ public class RatWatchAnalyticsModel : PageModel
         ulong guildId,
         IEnumerable<RatWatchUserMetricsDto> metrics)
     {
-        var result = new List<RatWatchUserMetricsDto>();
-        foreach (var metric in metrics)
-        {
-            var username = await GetUsernameAsync(metric.UserId, guildId);
-            result.Add(metric with { Username = username });
-        }
-        return result;
+        var metricsList = metrics.ToList();
+        var usernameTasks = metricsList.Select(m => GetUsernameAsync(m.UserId, guildId));
+        var usernames = await Task.WhenAll(usernameTasks);
+
+        return metricsList.Zip(usernames, (m, username) => m with { Username = username }).ToList();
     }
 
     /// <summary>
@@ -245,13 +248,11 @@ public class RatWatchAnalyticsModel : PageModel
         ulong guildId,
         IEnumerable<AccuserMetricsDto> metrics)
     {
-        var result = new List<AccuserMetricsDto>();
-        foreach (var metric in metrics)
-        {
-            var username = await GetUsernameAsync(metric.UserId, guildId);
-            result.Add(metric with { Username = username });
-        }
-        return result;
+        var metricsList = metrics.ToList();
+        var usernameTasks = metricsList.Select(m => GetUsernameAsync(m.UserId, guildId));
+        var usernames = await Task.WhenAll(usernameTasks);
+
+        return metricsList.Zip(usernames, (m, username) => m with { Username = username }).ToList();
     }
 
     /// <summary>
