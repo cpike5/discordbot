@@ -577,8 +577,9 @@ public class MetricsCollectionServiceTests
 
         var service = CreateService();
 
-        // Act - Give enough time for error + retry delay (50ms) + retry (with headroom for CI load)
-        await RunServiceBrieflyAsync(service, 750);
+        // Act - Give enough time for error + retry delay (50ms) + retry
+        // Using 1500ms to provide sufficient headroom for slow CI runners
+        await RunServiceBrieflyAsync(service, 1500);
 
         // Assert
         callCount.Should().BeGreaterThan(1, "service should retry after error");

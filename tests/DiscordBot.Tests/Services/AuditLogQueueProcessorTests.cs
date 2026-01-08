@@ -831,7 +831,9 @@ public class AuditLogQueueProcessorTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(1500); // Give it time to process and handle error
+        // Give sufficient time for service to process and handle error
+        // Using 3000ms to provide headroom for slow CI runners
+        await Task.Delay(3000);
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
