@@ -15,6 +15,87 @@
 
 @section Styles {
     <link rel="stylesheet" href="~/css/performance-pages.css" />
+    <style>
+        /* Alert animation styles */
+        .alert-entering {
+            animation: alertSlideIn 0.5s ease-out;
+        }
+        .alert-exiting {
+            animation: alertSlideOut 0.3s ease-in forwards;
+        }
+        .alert-highlight {
+            animation: alertPulse 0.5s ease-in-out 3;
+        }
+        @@keyframes alertSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @@keyframes alertSlideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+        @@keyframes alertPulse {
+            0%, 100% {
+                background-color: inherit;
+            }
+            50% {
+                background-color: rgba(var(--color-accent-blue-rgb), 0.2);
+            }
+        }
+        /* Live indicator styles */
+        #alertsLiveIndicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        #alertsLiveIndicator .live-dot {
+            width: 8px;
+            height: 8px;
+            background-color: rgb(16, 185, 129);
+            border-radius: 50%;
+            animation: livePulse 2s infinite;
+        }
+        #alertsLiveIndicator.paused .live-dot {
+            background-color: rgb(107, 114, 128);
+            animation: none;
+        }
+        #alertsLiveIndicator.flash .live-dot {
+            animation: liveFlash 0.3s ease-out;
+        }
+        @@keyframes livePulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+        @@keyframes liveFlash {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+                transform: scale(1.2);
+                box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+    </style>
 }
 
 <!-- Page Header -->
@@ -25,6 +106,10 @@
     </div>
 
     <div class="flex items-center gap-3">
+        <span id="alertsLiveIndicator" class="hidden text-sm text-text-secondary">
+            <span class="live-dot"></span>
+            <span>Live</span>
+        </span>
         @if (Model.ViewModel.AlertSummary.ActiveCount > 0)
         {
             var severityClass = Model.ViewModel.AlertSummary.CriticalCount > 0 ? "severity-critical"
@@ -61,12 +146,13 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/dashboard-hub.js"></script>
+    <script src="~/js/performance/alerts-realtime.js"></script>
     <script>
         // Chart.js default dark theme settings
         Chart.defaults.color = '#a8a5a3';
         Chart.defaults.borderColor = '#3f4447';
-
-        let alertsRefreshInterval;
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
@@ -75,31 +161,16 @@
                 await window.initAlertsTab();
             }
 
-            // Start auto-refresh for active alerts
-            startAutoRefresh();
+            // Initialize SignalR real-time updates
+            if (typeof AlertsRealtime !== 'undefined') {
+                await AlertsRealtime.initialize();
+            }
         });
 
-        function startAutoRefresh() {
-            alertsRefreshInterval = setInterval(async () => {
-                try {
-                    // Check active alerts count
-                    const response = await fetch('/api/alerts/active');
-                    if (response.ok) {
-                        const activeCount = await response.json();
-                        // Could update the header badge dynamically here
-                    }
-                } catch (error) {
-                    console.error('Failed to refresh active alerts:', error);
-                }
-            }, 30000);
-        }
-
-        // Stop refresh when page hidden
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                if (alertsRefreshInterval) clearInterval(alertsRefreshInterval);
-            } else {
-                startAutoRefresh();
+        // Cleanup on page unload
+        window.addEventListener('pagehide', async function() {
+            if (typeof AlertsRealtime !== 'undefined') {
+                await AlertsRealtime.cleanup();
             }
         });
 
