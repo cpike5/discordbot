@@ -1,0 +1,424 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.Privacy.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = "User Data Purge";
+}
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center gap-2 text-sm text-text-secondary mb-2">
+            <a asp-page="/Index" class="hover:text-text-primary">Dashboard</a>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-text-secondary">Admin</span>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-text-primary">Privacy</span>
+        </div>
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">User Data Purge</h1>
+            <p class="mt-1 text-sm text-text-secondary">
+                Permanently delete user data for privacy compliance and "right to be forgotten" requests
+            </p>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Warning Alert -->
+    <div class="mb-6">
+        @{
+            var warningAlert = new AlertViewModel
+            {
+                Variant = AlertVariant.Warning,
+                Title = "Warning: Irreversible Operation",
+                Message = "Data purge operations permanently delete ALL user data from the system. This action cannot be undone. Only proceed with verified privacy compliance requests.",
+                ShowIcon = true
+            };
+        }
+        <partial name="Shared/Components/_Alert" model="warningAlert" />
+    </div>
+
+    <!-- Search/Preview Form -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">Step 1: Preview User Data</h2>
+        <p class="text-sm text-text-secondary mb-4">
+            Enter a Discord User ID to see what data would be affected by a purge operation.
+        </p>
+
+        <form method="post" asp-page-handler="Preview">
+            @Html.AntiForgeryToken()
+
+            <div class="flex gap-4 items-end">
+                <div class="flex-1">
+                    <label for="DiscordUserId" class="block text-sm font-medium text-text-secondary mb-2">
+                        Discord User ID
+                    </label>
+                    <input type="text"
+                           id="DiscordUserId"
+                           name="DiscordUserId"
+                           value="@Model.DiscordUserId"
+                           class="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                           placeholder="Enter Discord User ID (e.g., 123456789012345678)"
+                           required
+                           pattern="[0-9]{17,20}"
+                           title="Discord User IDs are 17-20 digit numbers" />
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Preview Data
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Data Summary (shown after preview) -->
+    @if (Model.Summary != null && Model.Summary.UserExists)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                <h2 class="text-lg font-semibold text-text-primary">Data Summary for User @Model.Summary.DiscordUserId</h2>
+                <p class="text-sm text-text-secondary mt-1">
+                    The following records will be permanently deleted
+                </p>
+            </div>
+
+            <div class="p-6">
+                @if (Model.Summary.TotalRecords > 0)
+                {
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-border-primary">
+                            <thead class="bg-bg-tertiary">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                        Entity Type
+                                    </th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                        Record Count
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border-primary">
+                                @if (Model.Summary.Counts.Users > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">User Account</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.Users</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.CommandLogs > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Command Logs</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.CommandLogs</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.MessageLogs > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Message Logs</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.MessageLogs</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.GuildMembers > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Guild Memberships</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.GuildMembers</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.UserConsents > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">User Consents</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.UserConsents</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.RatWatches > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Rat Watch Incidents</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.RatWatches</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.RatVotes > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Rat Watch Votes</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.RatVotes</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.RatRecords > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Rat Records</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.RatRecords</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.Reminders > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Reminders</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.Reminders</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.FlaggedEvents > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Flagged Events</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.FlaggedEvents</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.ModerationCases > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Moderation Cases</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.ModerationCases</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.ModNotes > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Moderator Notes</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.ModNotes</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.UserModTags > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Moderator Tags</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.UserModTags</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.Watchlists > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Watchlist Entries</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.Watchlists</td>
+                                    </tr>
+                                }
+                                @if (Model.Summary.Counts.MemberActivitySnapshots > 0)
+                                {
+                                    <tr>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">Activity Snapshots</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary text-right font-medium">@Model.Summary.Counts.MemberActivitySnapshots</td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot class="bg-bg-tertiary font-semibold">
+                                <tr>
+                                    <td class="px-6 py-4 text-sm text-text-primary">Total Records</td>
+                                    <td class="px-6 py-4 text-sm text-text-primary text-right">@Model.Summary.TotalRecords</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="py-8">
+                        @{
+                            var emptyState = new EmptyStateViewModel
+                            {
+                                Type = EmptyStateType.NoData,
+                                Title = "No Data Found",
+                                Description = "This user has no associated data in the system."
+                            };
+                        }
+                        <partial name="Shared/Components/_EmptyState" model="emptyState" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Purge Confirmation Form -->
+        @if (Model.Summary.TotalRecords > 0)
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Step 2: Confirm Data Purge</h2>
+                <p class="text-sm text-text-secondary mb-4">
+                    This operation will permanently delete <span class="font-semibold text-warning">@Model.Summary.TotalRecords record(s)</span> associated with user @Model.Summary.DiscordUserId.
+                </p>
+
+                <form id="purgeForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="DiscordUserId" value="@Model.DiscordUserId" />
+
+                    <div class="mb-4">
+                        <label for="Reason" class="block text-sm font-medium text-text-secondary mb-2">
+                            Reason for Purge (Optional)
+                        </label>
+                        <textarea id="Reason"
+                                  name="Reason"
+                                  rows="3"
+                                  class="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                                  placeholder="e.g., GDPR right to be forgotten request - Ticket #12345">@Model.Reason</textarea>
+                        <p class="mt-1 text-xs text-text-tertiary">This reason will be recorded in the audit log.</p>
+                    </div>
+
+                    <button type="button"
+                            onclick="showPurgeModal()"
+                            class="btn btn-danger">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Purge User Data
+                    </button>
+                </form>
+            </div>
+        }
+    }
+</div>
+
+<!-- Confirmation Modal -->
+<div id="purge-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="purge-modal-title">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hidePurgeModal()"></div>
+
+    <!-- Dialog -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-lg w-full">
+            <div class="p-6">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0">
+                        <svg class="w-10 h-10 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 id="purge-modal-title" class="text-lg font-semibold text-text-primary mb-2">
+                            Confirm Data Purge
+                        </h3>
+                        <p class="text-sm text-text-secondary mb-4">
+                            You are about to permanently delete ALL data for user <span class="font-semibold text-text-primary">@Model.Summary?.DiscordUserId</span>.
+                        </p>
+                        <p class="text-sm text-error font-medium mb-4">
+                            This action cannot be undone.
+                        </p>
+
+                        <!-- Explicit Confirmation Checkbox -->
+                        <div class="flex items-start gap-3 p-4 bg-bg-secondary border border-border-primary rounded-lg mb-4">
+                            <input type="checkbox"
+                                   id="confirmPurgeCheckbox"
+                                   class="mt-1 w-4 h-4 text-accent-orange bg-bg-tertiary border-border-primary rounded focus:ring-accent-orange focus:ring-2" />
+                            <label for="confirmPurgeCheckbox" class="text-sm text-text-primary select-none">
+                                I understand this operation is <span class="font-semibold">irreversible</span> and will permanently delete
+                                <span class="font-semibold text-warning">@Model.Summary?.TotalRecords record(s)</span> from the database.
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary">
+                <button type="button" onclick="hidePurgeModal()" class="btn btn-secondary">
+                    Cancel
+                </button>
+                <button type="button"
+                        id="confirmPurgeButton"
+                        onclick="confirmPurge()"
+                        disabled
+                        class="btn btn-danger disabled:opacity-50 disabled:cursor-not-allowed">
+                    <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Confirm Purge
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Modal control functions
+        function showPurgeModal() {
+            document.getElementById('purge-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hidePurgeModal() {
+            document.getElementById('purge-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+            // Reset checkbox
+            document.getElementById('confirmPurgeCheckbox').checked = false;
+            document.getElementById('confirmPurgeButton').disabled = true;
+        }
+
+        // Enable/disable confirm button based on checkbox
+        document.getElementById('confirmPurgeCheckbox')?.addEventListener('change', function() {
+            document.getElementById('confirmPurgeButton').disabled = !this.checked;
+        });
+
+        // Handle purge confirmation
+        function confirmPurge() {
+            // Create a real form submit to the Purge handler
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '?handler=Purge';
+
+            // Add anti-forgery token
+            const token = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (token) {
+                const tokenInput = document.createElement('input');
+                tokenInput.type = 'hidden';
+                tokenInput.name = '__RequestVerificationToken';
+                tokenInput.value = token.value;
+                form.appendChild(tokenInput);
+            }
+
+            // Add Discord User ID
+            const userIdInput = document.createElement('input');
+            userIdInput.type = 'hidden';
+            userIdInput.name = 'DiscordUserId';
+            userIdInput.value = '@Model.DiscordUserId';
+            form.appendChild(userIdInput);
+
+            // Add Reason
+            const reasonValue = document.getElementById('Reason')?.value || '';
+            const reasonInput = document.createElement('input');
+            reasonInput.type = 'hidden';
+            reasonInput.name = 'Reason';
+            reasonInput.value = reasonValue;
+            form.appendChild(reasonInput);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && !document.getElementById('purge-modal').classList.contains('hidden')) {
+                hidePurgeModal();
+            }
+        });
+    </script>
+}

@@ -260,6 +260,7 @@ try
     builder.Services.AddSingleton<IPageMetadataService, PageMetadataService>();
     builder.Services.AddScoped<ICommandRegistrationService, CommandRegistrationService>();
     builder.Services.AddScoped<IUserManagementService, UserManagementService>();
+    builder.Services.AddScoped<IUserDataPurgeService, UserDataPurgeService>();
     builder.Services.AddScoped<IWelcomeService, WelcomeService>();
     builder.Services.AddScoped<ISearchService, SearchService>();
 
