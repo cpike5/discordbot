@@ -352,6 +352,25 @@ const DashboardHub = (function() {
             });
         }
     }
+    /**
+     * Invokes a hub method with the specified arguments.
+     * @param {string} methodName - The hub method name to invoke.
+     * @param {...*} args - Arguments to pass to the hub method.
+     * @returns {Promise<*>} The result from the hub method.
+     */
+    async function invoke(methodName, ...args) {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot invoke method:', methodName);
+            return null;
+        }
+
+        try {
+            return await connection.invoke(methodName, ...args);
+        } catch (error) {
+            console.error('[DashboardHub] Failed to invoke method:', methodName, error);
+            return null;
+        }
+    }
 
     /**
      * Checks if currently connected.
@@ -371,6 +390,7 @@ const DashboardHub = (function() {
 
     // Public API
     return {
+        invoke,
         connect,
         disconnect,
         joinGuildGroup,

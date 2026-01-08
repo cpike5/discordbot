@@ -26,7 +26,7 @@ else
                 <span class="metric-label">Average</span>
             </div>
             <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.AvgResponseTimeMs)">
-                @Model.AvgResponseTimeMs.ToString("F0")<span class="metric-unit">ms</span>
+                <span id="avgResponseTimeMs">@Model.AvgResponseTimeMs.ToString("F0")</span><span class="metric-unit">ms</span>
             </div>
             <div class="metric-trend @CommandPerformanceViewModel.GetTrendClass(Model.AvgResponseTimeTrend)">
                 @if (Model.AvgResponseTimeTrend < 0)
@@ -51,7 +51,7 @@ else
                 <span class="metric-label">P50 (Median)</span>
             </div>
             <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P50Ms)">
-                @Model.P50Ms.ToString("F0")<span class="metric-unit">ms</span>
+                <span id="p50ResponseTimeMs">@Model.P50Ms.ToString("F0")</span><span class="metric-unit">ms</span>
             </div>
             <div class="metric-trend metric-trend-neutral">
                 No change
@@ -64,7 +64,7 @@ else
                 <span class="metric-label">P95</span>
             </div>
             <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P95Ms)">
-                @Model.P95Ms.ToString("F0")<span class="metric-unit">ms</span>
+                <span id="p95ResponseTimeMs">@Model.P95Ms.ToString("F0")</span><span class="metric-unit">ms</span>
             </div>
             <div class="metric-trend metric-trend-neutral">
                 No change
@@ -77,7 +77,7 @@ else
                 <span class="metric-label">P99</span>
             </div>
             <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P99ResponseTimeMs)">
-                @Model.P99ResponseTimeMs.ToString("F0")<span class="metric-unit">ms</span>
+                <span id="p99ResponseTimeMs">@Model.P99ResponseTimeMs.ToString("F0")</span><span class="metric-unit">ms</span>
             </div>
             <div class="metric-trend @CommandPerformanceViewModel.GetTrendClass(Model.P99Trend)">
                 @if (Model.P99Trend < 0)
