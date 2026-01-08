@@ -970,6 +970,31 @@
     transition: width 0.2s ease-out, transform 0.2s ease-out;
   }
 
+  /* Custom Scrollbar for Sidebar - Issue #801 */
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  #sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  #sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  #sidebar::-webkit-scrollbar-thumb {
+    background: var(--color-bg-hover);
+    border-radius: 3px;
+  }
+
+  #sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-tertiary);
+  }
+
+  /* Firefox scrollbar support */
+  #sidebar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-bg-hover) transparent;
+  }
+
   .sidebar-redesign.collapsed {
     width: var(--sidebar-collapsed-width);
   }
