@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
 using Discord;
 using Discord.Interactions;
+using DiscordBot.Bot.Collections;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Core.Enums;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +13,13 @@ namespace DiscordBot.Bot.Preconditions;
 /// </summary>
 public class RateLimitAttribute : PreconditionAttribute
 {
-    private static readonly ConcurrentDictionary<string, List<DateTime>> _invocations = new();
+    /// <summary>
+    /// Maximum number of unique rate limit keys to track before evicting least recently used entries.
+    /// This prevents unbounded memory growth when many unique users invoke rate-limited commands.
+    /// </summary>
+    internal const int MaxTrackedKeys = 10000;
+
+    private static readonly LruConcurrentDictionary<string, List<DateTime>> _invocations = new(MaxTrackedKeys);
 
     private readonly int _times;
     private readonly double _periodSeconds;
