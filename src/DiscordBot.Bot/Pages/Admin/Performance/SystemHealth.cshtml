@@ -24,6 +24,11 @@
 
     <!-- System Status & Time Range -->
     <div class="flex items-center gap-4">
+        <!-- Live Indicator -->
+        <div id="systemHealthLiveIndicator" class="live-indicator hidden">
+            <span class="live-dot"></span>
+            <span>LIVE</span>
+        </div>
         <div class="@Model.ViewModel.SystemStatusClass">
             <span class="health-status-dot"></span>
             <span>@Model.ViewModel.SystemStatus</span>
@@ -49,6 +54,10 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/dashboard-hub.js"></script>
+    <script src="~/js/realtime-ui.js"></script>
+    <script src="~/js/performance/system-health-realtime.js"></script>
     <script>
         // Chart.js default dark theme settings
         Chart.defaults.color = '#a8a5a3';
@@ -56,7 +65,6 @@
 
         // Expose selectedHours globally for partial to access
         window.selectedHours = 24;
-        let refreshInterval;
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
@@ -90,36 +98,43 @@
                     localStorage.setItem('systemHealthTimeRange', hours);
                     window.selectedHours = hours;
 
-                    // Reinitialize tab with new time range
+                    // Reinitialize tab with new time range (for chart data only)
                     if (typeof window.initSystemTab === 'function') {
                         await window.initSystemTab(hours);
                     }
                 });
             });
 
-            // Initialize the System tab (function defined in partial)
+            // Initialize the System tab charts (function defined in partial)
             if (typeof window.initSystemTab === 'function') {
                 await window.initSystemTab(window.selectedHours);
             }
 
-            // Start auto-refresh
-            startAutoRefresh();
+            // Initialize SignalR for real-time updates (replaces polling)
+            if (typeof SystemHealthRealtime !== 'undefined') {
+                await SystemHealthRealtime.initialize();
+            }
         });
 
-        function startAutoRefresh() {
-            refreshInterval = setInterval(async () => {
-                if (typeof window.initSystemTab === 'function') {
-                    await window.initSystemTab(window.selectedHours);
-                }
-            }, 30000);
-        }
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', async () => {
+            if (typeof SystemHealthRealtime !== 'undefined') {
+                await SystemHealthRealtime.cleanup();
+            }
+        });
 
-        // Stop refresh when page hidden
-        document.addEventListener('visibilitychange', () => {
+        // Handle visibility change - pause/resume SignalR when tab hidden
+        document.addEventListener('visibilitychange', async () => {
+            if (typeof SystemHealthRealtime === 'undefined') return;
+
             if (document.hidden) {
-                if (refreshInterval) clearInterval(refreshInterval);
+                // Tab hidden - we keep SignalR connected but could optionally cleanup
+                // For now, we stay subscribed to avoid reconnection overhead
             } else {
-                startAutoRefresh();
+                // Tab visible again - ensure we're still subscribed
+                if (!SystemHealthRealtime.isSubscribed()) {
+                    await SystemHealthRealtime.initialize();
+                }
             }
         });
     </script>
