@@ -92,8 +92,15 @@ public class PublicLeaderboardModel : PageModel
 
         try
         {
-            // Get guild info
-            var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+            // Phase 1: Parallelize validation calls
+            var guildTask = _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+            var settingsTask = _ratWatchSettingsRepository.GetByGuildIdAsync(guildId, cancellationToken);
+
+            await Task.WhenAll(guildTask, settingsTask);
+
+            var guild = await guildTask;
+            var settings = await settingsTask;
+
             if (guild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found", guildId);
@@ -103,8 +110,6 @@ public class PublicLeaderboardModel : PageModel
             GuildName = guild.Name;
             GuildIconUrl = guild.IconUrl;
 
-            // Check if Rat Watch is enabled and public leaderboard is enabled
-            var settings = await _ratWatchSettingsRepository.GetByGuildIdAsync(guildId, cancellationToken);
             if (settings == null || !settings.IsEnabled)
             {
                 _logger.LogWarning("Rat Watch not enabled for guild {GuildId}", guildId);
@@ -119,50 +124,54 @@ public class PublicLeaderboardModel : PageModel
                 return Page();
             }
 
-            // Load fun stats
-            FunStats = await _ratRecordRepository.GetFunStatsAsync(guildId, cancellationToken);
+            // Phase 2: Parallelize data loading calls
+            var funStatsTask = _ratRecordRepository.GetFunStatsAsync(guildId, cancellationToken);
+            var userMetricsTask = _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 25, cancellationToken);
+            var watchesTask = _ratWatchRepository.GetAllAsync(cancellationToken);
 
-            // Load leaderboard (top 25 users by guilty count)
-            var userMetrics = await _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 25, cancellationToken);
+            await Task.WhenAll(funStatsTask, userMetricsTask, watchesTask);
 
-            Leaderboard = new List<PublicLeaderboardEntryDto>();
-            int rank = 1;
-            foreach (var metric in userMetrics)
+            FunStats = await funStatsTask;
+            var userMetrics = await userMetricsTask;
+            var allWatches = await watchesTask;
+
+            // Phase 3: Parallelize username resolution for leaderboard
+            var leaderboardTasks = userMetrics.Select(async (metric, index) =>
             {
                 var username = await GetUsernameAsync(metric.UserId, guildId);
-                Leaderboard.Add(new PublicLeaderboardEntryDto
+                return new PublicLeaderboardEntryDto
                 {
-                    Rank = rank++,
+                    Rank = index + 1,
                     Username = username,
                     RatCount = metric.GuiltyCount,
                     LastIncidentDate = metric.LastIncidentDate
-                });
-            }
+                };
+            });
+            Leaderboard = (await Task.WhenAll(leaderboardTasks)).ToList();
 
-            // Load recent guilty verdicts (last 10)
-            var allWatches = await _ratWatchRepository.GetAllAsync(cancellationToken);
+            // Filter and get recent guilty verdicts (last 10)
             var recentGuiltyWatches = allWatches
                 .Where(w => w.GuildId == guildId && w.Status == Core.Enums.RatWatchStatus.Guilty)
                 .OrderByDescending(w => w.VotingEndedAt ?? w.CreatedAt)
-                .Take(10);
+                .Take(10)
+                .ToList();
 
-            RecentIncidents = new List<RecentIncidentDto>();
-            foreach (var watch in recentGuiltyWatches)
+            // Phase 3: Parallelize username resolution for recent incidents
+            var incidentTasks = recentGuiltyWatches.Select(async watch =>
             {
                 var username = await GetUsernameAsync(watch.AccusedUserId, guildId);
-
-                // Get vote tally from Votes collection
                 var guiltyVotes = watch.Votes?.Count(v => v.IsGuiltyVote) ?? 0;
                 var notGuiltyVotes = watch.Votes?.Count(v => !v.IsGuiltyVote) ?? 0;
 
-                RecentIncidents.Add(new RecentIncidentDto
+                return new RecentIncidentDto
                 {
                     Date = watch.VotingEndedAt ?? watch.CreatedAt,
                     Username = username,
                     Outcome = "Guilty",
                     VoteTally = $"{guiltyVotes}-{notGuiltyVotes}"
-                });
-            }
+                };
+            });
+            RecentIncidents = (await Task.WhenAll(incidentTasks)).ToList();
 
             // Get application title from configuration
             AppTitle = _configuration.GetValue<string>("Application:Title") ?? "Discord Bot";
