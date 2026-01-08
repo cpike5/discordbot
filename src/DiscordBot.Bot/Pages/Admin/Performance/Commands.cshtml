@@ -22,8 +22,13 @@
         <p class="text-text-secondary mt-1">Response times, throughput, and error analysis</p>
     </div>
 
-    <!-- Time Range Selector -->
-    <div class="flex items-center gap-2">
+    <!-- Time Range Selector & Live Indicator -->
+    <div class="flex items-center gap-4">
+        <!-- Live Indicator -->
+        <div id="commandsLiveIndicator" class="live-indicator hidden">
+            <span class="live-dot"></span>
+            <span>LIVE</span>
+        </div>
         <div class="inline-flex rounded-lg border border-border-primary overflow-hidden">
             <button class="time-range-btn" data-hours="24">24h</button>
             <button class="time-range-btn" data-hours="168">7d</button>
@@ -43,6 +48,10 @@
 
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/dashboard-hub.js"></script>
+    <script src="~/js/realtime-ui.js"></script>
+    <script src="~/js/performance/commands-realtime.js"></script>
     <script>
         // Chart.js default dark theme settings
         Chart.defaults.color = '#a8a5a3';
@@ -50,7 +59,6 @@
 
         // Expose selectedHours globally for partial to access
         window.selectedHours = @Model.Hours;
-        let refreshInterval;
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async function() {
@@ -81,24 +89,31 @@
                 await window.initCommandsTab();
             }
 
-            // Start auto-refresh
-            startAutoRefresh();
+            // Initialize SignalR for real-time updates (replaces polling)
+            if (typeof CommandsRealtime !== 'undefined') {
+                await CommandsRealtime.initialize();
+            }
         });
 
-        function startAutoRefresh() {
-            refreshInterval = setInterval(async () => {
-                if (typeof window.initCommandsTab === 'function') {
-                    await window.initCommandsTab();
-                }
-            }, 30000);
-        }
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', async () => {
+            if (typeof CommandsRealtime !== 'undefined') {
+                await CommandsRealtime.cleanup();
+            }
+        });
 
-        // Stop refresh when page hidden
-        document.addEventListener('visibilitychange', () => {
+        // Handle visibility change - pause/resume SignalR when tab hidden
+        document.addEventListener('visibilitychange', async () => {
+            if (typeof CommandsRealtime === 'undefined') return;
+
             if (document.hidden) {
-                if (refreshInterval) clearInterval(refreshInterval);
+                // Tab hidden - we keep SignalR connected but could optionally cleanup
+                // For now, we stay subscribed to avoid reconnection overhead
             } else {
-                startAutoRefresh();
+                // Tab visible again - ensure we're still subscribed
+                if (!CommandsRealtime.isSubscribed()) {
+                    await CommandsRealtime.initialize();
+                }
             }
         });
     </script>
