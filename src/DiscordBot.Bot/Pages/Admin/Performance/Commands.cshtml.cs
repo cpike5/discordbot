@@ -64,18 +64,21 @@ public class CommandsModel : PageModel
     /// </summary>
     private async Task LoadViewModelAsync()
     {
-        _logger.LogDebug("LoadViewModelAsync: Fetching aggregates for {Hours} hours", Hours);
+        _logger.LogDebug("LoadViewModelAsync: Fetching data for {Hours} hours", Hours);
 
-        // Fetch aggregated metrics
-        var aggregates = await _performanceAggregator.GetAggregatesAsync(Hours);
+        // Start both data retrieval tasks in parallel
+        var aggregatesTask = _performanceAggregator.GetAggregatesAsync(Hours);
+        var slowestTask = _performanceAggregator.GetSlowestCommandsAsync(10, Hours);
 
+        // Await aggregates (required for the page to function)
+        var aggregates = await aggregatesTask;
         _logger.LogDebug("LoadViewModelAsync: Retrieved {Count} aggregates", aggregates.Count);
 
-        // Fetch slowest commands separately - if this fails, we still want to show aggregate data
+        // Await slowest commands separately - if this fails, we still want to show aggregate data
         IReadOnlyList<Core.DTOs.SlowestCommandDto> slowest = Array.Empty<Core.DTOs.SlowestCommandDto>();
         try
         {
-            slowest = await _performanceAggregator.GetSlowestCommandsAsync(10, Hours);
+            slowest = await slowestTask;
             _logger.LogDebug("LoadViewModelAsync: Retrieved {Count} slowest commands", slowest.Count);
         }
         catch (Exception ex)
