@@ -61,4 +61,9 @@ public class User
     /// Navigation property for guild memberships.
     /// </summary>
     public ICollection<GuildMember> GuildMemberships { get; set; } = new List<GuildMember>();
+
+    /// <summary>
+    /// Navigation property for anonymous activity events by this user.
+    /// </summary>
+    public ICollection<UserActivityEvent> UserActivityEvents { get; set; } = new List<UserActivityEvent>();
 }

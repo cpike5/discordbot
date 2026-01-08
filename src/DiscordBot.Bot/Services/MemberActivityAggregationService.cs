@@ -9,7 +9,8 @@ using Microsoft.Extensions.Options;
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
-/// Background service that aggregates member activity from MessageLog into hourly MemberActivitySnapshot records.
+/// Background service that aggregates member activity from UserActivityEvent into hourly MemberActivitySnapshot records.
+/// Uses consent-free anonymous activity events to track ALL user activity, not just consenting users.
 /// Runs at configured intervals to process the previous complete hour's data.
 /// </summary>
 public class MemberActivityAggregationService : MonitoredBackgroundService
@@ -120,7 +121,7 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
         _logger.LogDebug("Starting hourly member activity aggregation");
 
         using var scope = _scopeFactory.CreateScope();
-        var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
+        var activityEventRepository = scope.ServiceProvider.GetRequiredService<IUserActivityEventRepository>();
         var memberActivityRepository = scope.ServiceProvider.GetRequiredService<IMemberActivityRepository>();
         var guildRepository = scope.ServiceProvider.GetRequiredService<IGuildRepository>();
 
@@ -146,7 +147,7 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
             {
                 var snapshotCount = await AggregateGuildMemberActivityAsync(
                     guild.Id,
-                    messageLogRepository,
+                    activityEventRepository,
                     memberActivityRepository,
                     stoppingToken);
 
@@ -168,13 +169,13 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
     /// Aggregates member activity for a single guild for the previous complete hour.
     /// </summary>
     /// <param name="guildId">The guild ID to aggregate.</param>
-    /// <param name="messageLogRepo">The message log repository.</param>
+    /// <param name="activityEventRepo">The user activity event repository.</param>
     /// <param name="memberActivityRepo">The member activity repository.</param>
     /// <param name="stoppingToken">Cancellation token.</param>
     /// <returns>Number of snapshots created/updated.</returns>
     private async Task<int> AggregateGuildMemberActivityAsync(
         ulong guildId,
-        IMessageLogRepository messageLogRepo,
+        IUserActivityEventRepository activityEventRepo,
         IMemberActivityRepository memberActivityRepo,
         CancellationToken stoppingToken)
     {
@@ -196,49 +197,39 @@ public class MemberActivityAggregationService : MonitoredBackgroundService
 
         _logger.LogDebug("Aggregating member activity for guild {GuildId}, hour {Hour}", guildId, previousHour);
 
-        // Query MessageLog for the previous hour
-        var messages = await messageLogRepo.GetGuildMessagesAsync(
+        // Query UserActivityEvent for the previous hour - gets aggregated data for ALL users
+        var userActivitySummary = await activityEventRepo.GetUserActivitySummaryAsync(
             guildId,
-            since: previousHour,
-            limit: int.MaxValue,
-            cancellationToken: stoppingToken);
+            previousHour,
+            periodEnd,
+            stoppingToken);
 
-        var messageList = messages
-            .Where(m => m.Timestamp >= previousHour && m.Timestamp < periodEnd)
-            .ToList();
+        var summaryList = userActivitySummary.ToList();
 
-        if (messageList.Count == 0)
+        if (summaryList.Count == 0)
         {
-            _logger.LogTrace("No messages found for guild {GuildId} in hour {Hour}", guildId, previousHour);
+            _logger.LogTrace("No activity events found for guild {GuildId} in hour {Hour}", guildId, previousHour);
             return 0;
         }
 
-        // Group by AuthorId and compute aggregates
-        var memberGroups = messageList
-            .GroupBy(m => m.AuthorId)
-            .ToList();
-
         _logger.LogDebug("Processing {MemberCount} active members for guild {GuildId}, hour {Hour}",
-            memberGroups.Count, guildId, previousHour);
+            summaryList.Count, guildId, previousHour);
 
         var snapshotCount = 0;
 
-        foreach (var memberGroup in memberGroups)
+        foreach (var (userId, messageCount, reactionCount, uniqueChannels) in summaryList)
         {
             if (stoppingToken.IsCancellationRequested) break;
-
-            var memberMessages = memberGroup.ToList();
-            var uniqueChannels = memberMessages.Select(m => m.ChannelId).Distinct().Count();
 
             var snapshot = new MemberActivitySnapshot
             {
                 GuildId = guildId,
-                UserId = memberGroup.Key,
+                UserId = userId,
                 PeriodStart = previousHour,
                 Granularity = SnapshotGranularity.Hourly,
-                MessageCount = memberMessages.Count,
-                ReactionCount = 0, // Event tracking not yet implemented
-                VoiceMinutes = 0, // Event tracking not yet implemented
+                MessageCount = messageCount,
+                ReactionCount = reactionCount,
+                VoiceMinutes = 0, // Voice duration tracking requires session management
                 UniqueChannelsActive = uniqueChannels,
                 CreatedAt = DateTime.UtcNow
             };

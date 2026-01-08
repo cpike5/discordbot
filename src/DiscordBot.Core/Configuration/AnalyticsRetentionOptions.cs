@@ -39,4 +39,11 @@ public class AnalyticsRetentionOptions
     /// Default is 24 hours (daily cleanup).
     /// </summary>
     public int CleanupIntervalHours { get; set; } = 24;
+
+    /// <summary>
+    /// Gets or sets the number of days to retain raw UserActivityEvent records before cleanup.
+    /// Once aggregated into hourly snapshots, raw events can be deleted.
+    /// Default is 3 days to ensure events are aggregated before deletion.
+    /// </summary>
+    public int ActivityEventRetentionDays { get; set; } = 3;
 }

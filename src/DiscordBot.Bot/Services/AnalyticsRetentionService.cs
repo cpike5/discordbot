@@ -56,9 +56,10 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
         _logger.LogInformation("Analytics retention service starting");
 
         _logger.LogInformation(
-            "Analytics retention enabled. Hourly retention: {HourlyDays} days, Daily retention: {DailyDays} days, Interval: {IntervalHours}h, Batch size: {BatchSize}",
+            "Analytics retention enabled. Hourly: {HourlyDays}d, Daily: {DailyDays}d, Events: {EventDays}d, Interval: {IntervalHours}h, Batch: {BatchSize}",
             _options.Value.HourlyRetentionDays,
             _options.Value.DailyRetentionDays,
+            _options.Value.ActivityEventRetentionDays,
             _options.Value.CleanupIntervalHours,
             _options.Value.CleanupBatchSize);
 
@@ -121,6 +122,7 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
         var memberActivityRepo = scope.ServiceProvider.GetRequiredService<IMemberActivityRepository>();
         var channelActivityRepo = scope.ServiceProvider.GetRequiredService<IChannelActivityRepository>();
         var guildMetricsRepo = scope.ServiceProvider.GetRequiredService<IGuildMetricsRepository>();
+        var activityEventRepo = scope.ServiceProvider.GetRequiredService<IUserActivityEventRepository>();
 
         var totalDeleted = 0;
 
@@ -156,7 +158,11 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
         var guildMetricsDeleted = await CleanupGuildMetricsSnapshotsAsync(guildMetricsRepo, stoppingToken);
         totalDeleted += guildMetricsDeleted;
 
-        _logger.LogInformation("Analytics retention cleanup completed. Deleted {TotalCount} total snapshots", totalDeleted);
+        // Clean up raw UserActivityEvent records (after aggregation window)
+        var activityEventsDeleted = await CleanupActivityEventsAsync(activityEventRepo, stoppingToken);
+        totalDeleted += activityEventsDeleted;
+
+        _logger.LogInformation("Analytics retention cleanup completed. Deleted {TotalCount} total records", totalDeleted);
 
         return totalDeleted;
     }
@@ -339,6 +345,69 @@ public class AnalyticsRetentionService : MonitoredBackgroundService
             {
                 _logger.LogInformation("Deleted {Count} guild metrics snapshots older than {RetentionDays} days",
                     totalDeleted, _options.Value.DailyRetentionDays);
+            }
+
+            BotActivitySource.SetRecordsDeleted(cleanupActivity, totalDeleted);
+            BotActivitySource.SetSuccess(cleanupActivity);
+
+            return totalDeleted;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(cleanupActivity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Cleans up raw UserActivityEvent records older than the configured retention period.
+    /// These events should be aggregated into snapshots before deletion.
+    /// </summary>
+    /// <param name="activityEventRepo">The activity event repository.</param>
+    /// <param name="stoppingToken">Cancellation token.</param>
+    /// <returns>Total number of activity events deleted.</returns>
+    private async Task<int> CleanupActivityEventsAsync(
+        IUserActivityEventRepository activityEventRepo,
+        CancellationToken stoppingToken)
+    {
+        using var cleanupActivity = BotActivitySource.StartBackgroundCleanupActivity(
+            TracingServiceName,
+            "activity_events");
+
+        try
+        {
+            var cutoff = DateTime.UtcNow.AddDays(-_options.Value.ActivityEventRetentionDays);
+            var batchSize = _options.Value.CleanupBatchSize;
+            var totalDeleted = 0;
+
+            _logger.LogDebug("Cleaning up activity events older than {Cutoff}", cutoff);
+
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                var deleted = await activityEventRepo.DeleteBatchOlderThanAsync(cutoff, batchSize, stoppingToken);
+
+                if (deleted == 0)
+                {
+                    break; // No more records to delete
+                }
+
+                totalDeleted += deleted;
+                _logger.LogDebug("Deleted {Count} activity events (batch)", deleted);
+
+                // If we deleted fewer than batch size, we're done
+                if (deleted < batchSize)
+                {
+                    break;
+                }
+
+                // Brief delay between batches to avoid long-running transactions
+                await Task.Delay(TimeSpan.FromMilliseconds(100), stoppingToken);
+            }
+
+            if (totalDeleted > 0)
+            {
+                _logger.LogInformation("Deleted {Count} activity events older than {RetentionDays} days",
+                    totalDeleted, _options.Value.ActivityEventRetentionDays);
             }
 
             BotActivitySource.SetRecordsDeleted(cleanupActivity, totalDeleted);

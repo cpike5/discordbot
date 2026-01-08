@@ -50,4 +50,9 @@ public class Guild
     /// Navigation property for guild members.
     /// </summary>
     public ICollection<GuildMember> Members { get; set; } = new List<GuildMember>();
+
+    /// <summary>
+    /// Navigation property for anonymous user activity events in this guild.
+    /// </summary>
+    public ICollection<UserActivityEvent> UserActivityEvents { get; set; } = new List<UserActivityEvent>();
 }

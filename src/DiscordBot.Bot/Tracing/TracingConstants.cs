@@ -162,6 +162,7 @@ public static class TracingConstants
 
         // Message events
         public const string DiscordEventMessageReceived = "discord.event.message.received";
+        public const string ActivityEventTracking = "discord.event.activity.tracking";
         public const string DiscordEventMessageUpdated = "discord.event.message.updated";
         public const string DiscordEventMessageDeleted = "discord.event.message.deleted";
 
