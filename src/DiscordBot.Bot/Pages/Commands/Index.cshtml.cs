@@ -10,7 +10,7 @@ namespace DiscordBot.Bot.Pages.Commands;
 /// <summary>
 /// Page model for displaying all registered command modules and their commands.
 /// </summary>
-[Authorize]
+[Authorize(Policy = "RequireViewer")]
 public class IndexModel : PageModel
 {
     private readonly ICommandMetadataService _commandMetadataService;
