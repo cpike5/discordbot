@@ -251,6 +251,57 @@ const DashboardHub = (function() {
     }
 
     /**
+     * Joins the system health group to receive real-time system health updates.
+     * @returns {Promise<void>}
+     */
+    async function joinSystemHealthGroup() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot join system health group');
+            return;
+        }
+        try {
+            await connection.invoke('JoinSystemHealthGroup');
+            console.log('[DashboardHub] Joined system health group');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to join system health group:', error);
+        }
+    }
+
+    /**
+     * Leaves the system health group to stop receiving system health updates.
+     * @returns {Promise<void>}
+     */
+    async function leaveSystemHealthGroup() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot leave system health group');
+            return;
+        }
+        try {
+            await connection.invoke('LeaveSystemHealthGroup');
+            console.log('[DashboardHub] Left system health group');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to leave system health group:', error);
+        }
+    }
+
+    /**
+     * Gets the current system health metrics from the server.
+     * @returns {Promise<object|null>} The system health metrics object or null on error.
+     */
+    async function getCurrentSystemHealth() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot get system health');
+            return null;
+        }
+        try {
+            return await connection.invoke('GetCurrentSystemHealth');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to get system health:', error);
+            return null;
+        }
+    }
+
+    /**
      * Registers a handler for a specific server event.
      * @param {string} eventName - The event name from the server.
      * @param {function} handler - The callback function.
@@ -331,6 +382,9 @@ const DashboardHub = (function() {
         joinAlertsGroup,
         leaveAlertsGroup,
         getActiveAlertCount,
+        joinSystemHealthGroup,
+        leaveSystemHealthGroup,
+        getCurrentSystemHealth,
         on,
         off,
         isConnected: getIsConnected,
