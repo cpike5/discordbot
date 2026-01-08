@@ -30,6 +30,12 @@ public class MessageLog
     public ulong ChannelId { get; set; }
 
     /// <summary>
+    /// Name of the channel where the message was sent.
+    /// Null for direct messages and existing records without channel name.
+    /// </summary>
+    public string? ChannelName { get; set; }
+
+    /// <summary>
     /// ID of the guild (server) where the message was sent.
     /// Null for direct messages.
     /// </summary>

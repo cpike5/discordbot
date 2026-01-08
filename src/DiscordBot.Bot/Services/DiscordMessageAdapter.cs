@@ -33,6 +33,9 @@ public class DiscordMessageAdapter : IDiscordMessage
     public ulong ChannelId => _message.Channel.Id;
 
     /// <inheritdoc/>
+    public string? ChannelName => (_message.Channel as SocketGuildChannel)?.Name;
+
+    /// <inheritdoc/>
     public bool IsDirectMessage => _message.Channel is IDMChannel;
 
     /// <inheritdoc/>

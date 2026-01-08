@@ -371,7 +371,7 @@ public class MessageLogService : IMessageLogService
             AuthorId = entity.AuthorId,
             AuthorUsername = entity.User?.Username, // From navigation property if loaded
             ChannelId = entity.ChannelId,
-            ChannelName = null, // Not stored in database
+            ChannelName = entity.ChannelName,
             GuildId = entity.GuildId,
             GuildName = entity.Guild?.Name, // From navigation property if loaded
             Source = entity.Source,
