@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Custom Scrollbar Prototype - Issue #801</title>
+  <link rel="stylesheet" href="../../css/tokens.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ===========================================
+       CUSTOM SCROLLBAR STYLES
+       =========================================== */
+
+    /* Webkit browsers (Chrome, Safari, Edge) */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: var(--color-bg-hover);
+      border-radius: 3px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: var(--color-text-tertiary);
+    }
+
+    /* Firefox */
+    .custom-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-bg-hover) transparent;
+    }
+
+    /* ===========================================
+       SIDEBAR LAYOUT (mimics _Sidebar.cshtml)
+       =========================================== */
+
+    .sidebar {
+      width: 256px;
+      height: calc(100vh - 64px);
+      margin-top: 64px;
+      position: fixed;
+      left: 0;
+      top: 0;
+      background-color: var(--color-bg-secondary);
+      border-right: 1px solid var(--color-border-secondary);
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 12px;
+    }
+
+    .sidebar-section {
+      margin-bottom: 16px;
+    }
+
+    .sidebar-section-header {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-tertiary);
+      padding: 8px 12px;
+    }
+
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      transition: all var(--transition-fast);
+    }
+
+    .sidebar-link:hover {
+      background-color: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+
+    .sidebar-link.active {
+      background-color: var(--color-accent-orange-muted);
+      color: var(--color-accent-orange);
+    }
+
+    .sidebar-link svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-divider {
+      height: 1px;
+      background-color: var(--color-border-secondary);
+      margin: 16px 0;
+    }
+
+    /* ===========================================
+       NAVBAR (placeholder)
+       =========================================== */
+
+    .navbar {
+      height: 64px;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background-color: var(--color-bg-secondary);
+      border-bottom: 1px solid var(--color-border-secondary);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      z-index: 100;
+    }
+
+    .navbar-brand {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    /* ===========================================
+       MAIN CONTENT
+       =========================================== */
+
+    .main-content {
+      margin-left: 256px;
+      margin-top: 64px;
+      padding: 24px;
+      flex: 1;
+    }
+
+    .demo-card {
+      background-color: var(--color-bg-secondary);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .demo-card h2 {
+      font-size: var(--text-xl);
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--color-text-primary);
+    }
+
+    .demo-card p {
+      color: var(--color-text-secondary);
+      line-height: var(--leading-relaxed);
+      margin-bottom: 12px;
+    }
+
+    .demo-card code {
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      background-color: var(--color-bg-tertiary);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      color: var(--color-accent-orange);
+    }
+
+    .code-block {
+      background-color: var(--color-bg-primary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      color: var(--color-text-secondary);
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .color-swatch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: 16px;
+      margin-bottom: 8px;
+    }
+
+    .color-swatch-box {
+      width: 24px;
+      height: 24px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--color-border-primary);
+    }
+
+    /* ===========================================
+       COMPARISON SECTION
+       =========================================== */
+
+    .comparison-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 16px;
+    }
+
+    .comparison-box {
+      background-color: var(--color-bg-primary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--radius-md);
+      height: 200px;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .comparison-box h4 {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--color-text-primary);
+    }
+
+    .comparison-box p {
+      font-size: var(--text-sm);
+      color: var(--color-text-secondary);
+      margin-bottom: 8px;
+    }
+
+    /* Browser compatibility note */
+    .browser-note {
+      background-color: var(--color-info-bg);
+      border: 1px solid var(--color-info-border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .browser-note h4 {
+      color: var(--color-info);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .browser-note ul {
+      color: var(--color-text-secondary);
+      font-size: var(--text-sm);
+      margin-left: 20px;
+    }
+
+    .browser-note li {
+      margin-bottom: 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <span class="navbar-brand">Discord Bot Admin</span>
+  </nav>
+
+  <!-- Sidebar with custom scrollbar -->
+  <aside id="sidebar" class="sidebar custom-scrollbar">
+    <nav class="sidebar-nav">
+      <div class="sidebar-section">
+        <a href="#" class="sidebar-link active">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          </svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+          </svg>
+          <span>Servers</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span>Commands</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <span>Logs</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          <span>Analytics</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+          </svg>
+          <span>Bot Performance</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span>Settings</span>
+        </a>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-header">Administration</h3>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          <span>Users</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+          <span>Message Logs</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>Audit Logs</span>
+        </a>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-header">Developer</h3>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          </svg>
+          <span>Components</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+          <span>Kibana</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>Seq</span>
+        </a>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-header">Support</h3>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          <span>Documentation</span>
+        </a>
+      </div>
+
+      <!-- Extra items to force scrolling -->
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-header">Additional Items</h3>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>Item A</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>Item B</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>Item C</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>Item D</span>
+        </a>
+        <a href="#" class="sidebar-link">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+          <span>Item E</span>
+        </a>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="demo-card">
+      <h2>Custom Scrollbar Prototype - Issue #801</h2>
+      <p>
+        This prototype demonstrates custom scrollbar styling for the sidebar navigation.
+        The sidebar on the left uses the <code>.custom-scrollbar</code> class to apply
+        themed scrollbar styles that match the dark Discord-inspired design system.
+      </p>
+      <p>
+        <strong>To test:</strong> Resize your browser window to make the sidebar content overflow,
+        or scroll through the additional items at the bottom of the sidebar.
+      </p>
+    </div>
+
+    <div class="demo-card">
+      <h2>Colors Used</h2>
+      <p>The scrollbar uses these design system tokens:</p>
+      <div style="margin-top: 12px;">
+        <div class="color-swatch">
+          <div class="color-swatch-box" style="background-color: var(--color-bg-hover);"></div>
+          <span><code>--color-bg-hover</code> (#363a3e) - Thumb</span>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-box" style="background-color: var(--color-text-tertiary);"></div>
+          <span><code>--color-text-tertiary</code> (#7a7876) - Thumb hover</span>
+        </div>
+        <div class="color-swatch">
+          <div class="color-swatch-box" style="background-color: transparent; border-style: dashed;"></div>
+          <span><code>transparent</code> - Track</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-card">
+      <h2>CSS Implementation</h2>
+      <p>Copy this CSS to apply custom scrollbar styling:</p>
+      <div class="code-block">/* Webkit browsers (Chrome, Safari, Edge) */
+#sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+  background: var(--color-bg-hover);
+  border-radius: 3px;
+}
+
+#sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+/* Firefox */
+#sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-bg-hover) transparent;
+}</div>
+
+      <div class="browser-note">
+        <h4>Browser Compatibility Notes</h4>
+        <ul>
+          <li><strong>Chrome/Edge/Safari:</strong> Full support via <code>::-webkit-scrollbar</code> pseudo-elements</li>
+          <li><strong>Firefox:</strong> Uses <code>scrollbar-width</code> and <code>scrollbar-color</code> properties. No hover state support.</li>
+          <li><strong>Known limitation:</strong> Firefox does not support hover state changes on scrollbar thumbs</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="demo-card">
+      <h2>Comparison: Default vs Custom</h2>
+      <p>Compare the default browser scrollbar with the custom styled version:</p>
+      <div class="comparison-container">
+        <div>
+          <h4 style="margin-bottom: 8px; color: var(--color-text-secondary);">Default Browser Scrollbar</h4>
+          <div class="comparison-box">
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+            <p>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <p>Ut enim ad minim veniam, quis nostrud exercitation.</p>
+            <p>Duis aute irure dolor in reprehenderit in voluptate.</p>
+            <p>Excepteur sint occaecat cupidatat non proident.</p>
+            <p>Sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+            <p>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+          </div>
+        </div>
+        <div>
+          <h4 style="margin-bottom: 8px; color: var(--color-text-secondary);">Custom Scrollbar</h4>
+          <div class="comparison-box custom-scrollbar">
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+            <p>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+            <p>Ut enim ad minim veniam, quis nostrud exercitation.</p>
+            <p>Duis aute irure dolor in reprehenderit in voluptate.</p>
+            <p>Excepteur sint occaecat cupidatat non proident.</p>
+            <p>Sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+            <p>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
