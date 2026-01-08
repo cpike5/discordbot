@@ -11,8 +11,8 @@
 
 <!-- Toast Container - positioned below navbar (64px + 16px gap = 80px from top) with high z-index -->
 <div id="toastContainer"
-     class="fixed right-4 flex flex-col gap-2 pointer-events-none overflow-hidden z-notification"
-     style="top: calc(var(--navbar-height) + 1rem); max-height: calc(100vh - var(--navbar-height) - 2rem);"
+     class="fixed right-4 flex flex-col gap-2 pointer-events-none overflow-hidden"
+     style="top: 80px; max-height: calc(100vh - 96px); z-index: 9999;"
      role="region"
      aria-label="Notifications">
     <!-- Accessible live region for screen readers -->
