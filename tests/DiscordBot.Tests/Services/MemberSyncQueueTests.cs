@@ -182,17 +182,19 @@ public class MemberSyncQueueTests
     [Fact]
     public async Task DequeueAsync_WaitsForItem_WhenQueueEmpty()
     {
-        // Arrange
-        using var cts = new CancellationTokenSource(100); // Timeout after 100ms
+        // Arrange - Use longer timeout for CI environments which can be slow
+        using var cts = new CancellationTokenSource(2000); // 2 second timeout
         var queueTask = _queue.DequeueAsync(cts.Token);
 
         // Wait a bit to ensure DequeueAsync is waiting
-        await Task.Delay(50);
+        // Use longer delay for CI environments where scheduling can be unpredictable
+        await Task.Delay(200);
 
-        // Assert - Task should not complete within timeout
+        // Assert - Task should not complete within timeout (no items in queue)
         queueTask.IsCompleted.Should().BeFalse("dequeue should wait for item");
 
         // Cleanup - Cancel the waiting task to prevent test hanging
+        cts.Cancel();
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await queueTask);
     }
 
