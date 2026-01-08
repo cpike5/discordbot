@@ -91,9 +91,18 @@ public class IndexModel : PageModel
             // Get uptime percentage
             var uptime30d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(30));
 
-            // Get command metrics
-            var commandAggregates = await _commandPerformanceAggregator.GetAggregatesAsync(24);
-            var throughputData = await _commandPerformanceAggregator.GetThroughputAsync(1, "hour"); // Last hour for "today"
+            // Start async data retrieval in parallel
+            var aggregatesTask = _commandPerformanceAggregator.GetAggregatesAsync(24);
+            var throughputTask = _commandPerformanceAggregator.GetThroughputAsync(1, "hour"); // Last hour for "today"
+            var alertsTask = _alertService.GetActiveIncidentsAsync();
+
+            await Task.WhenAll(aggregatesTask, throughputTask, alertsTask);
+
+            var commandAggregates = await aggregatesTask;
+            var throughputData = await throughputTask;
+            var activeAlerts = await alertsTask;
+
+            // Process command metrics
             var commandsToday = throughputData.Sum(t => t.Count);
 
             var totalCommands = commandAggregates.Sum(a => a.ExecutionCount);
@@ -101,8 +110,7 @@ public class IndexModel : PageModel
             var overallErrorRate = totalCommands > 0 ? (totalErrors * 100.0 / totalCommands) : 0;
             var avgResponseTime = commandAggregates.Any() ? commandAggregates.Average(a => a.AvgMs) : 0;
 
-            // Get active alerts
-            var activeAlerts = await _alertService.GetActiveIncidentsAsync();
+            // Get recent alerts
             var recentAlerts = activeAlerts.OrderByDescending(a => a.TriggeredAt).Take(5).ToList();
 
             // Get system metrics
