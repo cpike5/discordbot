@@ -77,43 +77,61 @@ public class IndexModel : PageModel
         _logger.LogTrace("Bot status retrieved: {ConnectionState}, Latency: {LatencyMs}ms, Guilds: {GuildCount}",
             BotStatus.ConnectionState, BotStatus.LatencyMs, BotStatus.GuildCount);
 
-        var guilds = await _guildService.GetAllGuildsAsync();
-        GuildStats = GuildStatsViewModel.FromGuilds(guilds);
+        // Determine admin status for conditional audit log fetch
+        var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
 
-        _logger.LogDebug("Guild stats retrieved: Total: {TotalGuilds}, Active: {ActiveGuilds}, Inactive: {InactiveGuilds}",
-            GuildStats.TotalGuilds, GuildStats.ActiveGuilds, GuildStats.InactiveGuilds);
-
-        // Get command statistics for last 24 hours by default
+        // Start all independent data retrieval tasks in parallel
         var since = DateTime.UtcNow.AddHours(-24);
-        var commandStats = await _commandLogService.GetCommandStatsAsync(since);
-        CommandStats = CommandStatsViewModel.FromStats(commandStats, timeRangeHours: 24);
+        var todayStart = DateTime.UtcNow.Date;
 
-        _logger.LogDebug("Command stats retrieved: Total: {TotalCommands}, Top command: {TopCommand}",
-            CommandStats.TotalCommands,
-            CommandStats.TopCommands.FirstOrDefault()?.CommandName ?? "None");
-
-        // Get recent activity (last 10 command logs)
-        var recentLogsResponse = await _commandLogService.GetLogsAsync(new CommandLogQueryDto
+        var guildsTask = _guildService.GetAllGuildsAsync();
+        var commandStatsTask = _commandLogService.GetCommandStatsAsync(since);
+        var recentLogsTask = _commandLogService.GetLogsAsync(new CommandLogQueryDto
         {
             Page = 1,
             PageSize = 10
         });
-        RecentActivity = RecentActivityViewModel.FromLogs(recentLogsResponse.Items);
-
-        _logger.LogDebug("Recent activity retrieved: {ActivityCount} items",
-            RecentActivity.Activities.Count);
-
-        // Get recent audit logs (only for Admin or SuperAdmin users)
-        var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
-        if (isAdmin)
-        {
-            var auditLogsResponse = await _auditLogService.GetLogsAsync(new AuditLogQueryDto
+        var commandCountsTask = _commandLogService.GetCommandCountsByGuildAsync(todayStart);
+        var auditLogsTask = isAdmin
+            ? _auditLogService.GetLogsAsync(new AuditLogQueryDto
             {
                 Page = 1,
                 PageSize = 5
-            });
-            AuditLog = AuditLogCardViewModel.FromLogs(auditLogsResponse.Items);
+            })
+            : null;
 
+        // Await all tasks together
+        var tasksToAwait = new List<Task> { guildsTask, commandStatsTask, recentLogsTask, commandCountsTask };
+        if (auditLogsTask != null)
+        {
+            tasksToAwait.Add(auditLogsTask);
+        }
+        await Task.WhenAll(tasksToAwait);
+
+        // Extract results (safe to use .Result after Task.WhenAll)
+        var guilds = guildsTask.Result;
+        var commandStats = commandStatsTask.Result;
+        var recentLogsResponse = recentLogsTask.Result;
+        var commandCountsByGuild = commandCountsTask.Result;
+
+        GuildStats = GuildStatsViewModel.FromGuilds(guilds);
+        _logger.LogDebug("Guild stats retrieved: Total: {TotalGuilds}, Active: {ActiveGuilds}, Inactive: {InactiveGuilds}",
+            GuildStats.TotalGuilds, GuildStats.ActiveGuilds, GuildStats.InactiveGuilds);
+
+        CommandStats = CommandStatsViewModel.FromStats(commandStats, timeRangeHours: 24);
+        _logger.LogDebug("Command stats retrieved: Total: {TotalCommands}, Top command: {TopCommand}",
+            CommandStats.TotalCommands,
+            CommandStats.TopCommands.FirstOrDefault()?.CommandName ?? "None");
+
+        RecentActivity = RecentActivityViewModel.FromLogs(recentLogsResponse.Items);
+        _logger.LogDebug("Recent activity retrieved: {ActivityCount} items",
+            RecentActivity.Activities.Count);
+
+        // Process audit logs if fetched
+        if (auditLogsTask != null)
+        {
+            var auditLogsResponse = auditLogsTask.Result;
+            AuditLog = AuditLogCardViewModel.FromLogs(auditLogsResponse.Items);
             _logger.LogDebug("Recent audit logs retrieved: {LogCount} items",
                 AuditLog.Logs.Count);
         }
@@ -159,10 +177,6 @@ public class IndexModel : PageModel
                 }
             }
         };
-
-        // Get command counts by guild for today
-        var todayStart = DateTime.UtcNow.Date;
-        var commandCountsByGuild = await _commandLogService.GetCommandCountsByGuildAsync(todayStart);
 
         // Build Dashboard Redesign ViewModels
         BuildBotStatusBanner(statusDto, guilds);
