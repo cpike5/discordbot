@@ -15,6 +15,7 @@ const DashboardRealtime = (function() {
     let isInitialized = false;
     let pendingActivities = [];
     let elements = {};
+    let lastConnectionState = null;
 
     // Public API
     return {
@@ -164,20 +165,44 @@ const DashboardRealtime = (function() {
     }
 
     function updateConnectionStatus(state) {
-        const statusEl = elements.connectionStatus;
-        if (!statusEl) return;
+        // Only show toast if state actually changed
+        if (state === lastConnectionState) return;
 
-        statusEl.setAttribute('data-state', state);
+        const previousState = lastConnectionState;
+        lastConnectionState = state;
 
-        const textEl = statusEl.querySelector('.connection-text');
-        if (textEl) {
-            const labels = {
-                'connected': 'Connected',
-                'connecting': 'Connecting...',
-                'reconnecting': 'Reconnecting...',
-                'disconnected': 'Disconnected'
+        // Show toast notification for connection status changes
+        if (typeof ToastManager !== 'undefined') {
+            const toastConfig = {
+                'connected': {
+                    type: 'success',
+                    message: 'Real-time connection established',
+                    title: 'Connected'
+                },
+                'reconnecting': {
+                    type: 'warning',
+                    message: 'Attempting to reconnect...',
+                    title: 'Reconnecting'
+                },
+                'disconnected': {
+                    type: 'error',
+                    message: 'Real-time updates unavailable',
+                    title: 'Disconnected'
+                }
             };
-            textEl.textContent = labels[state] || 'Unknown';
+
+            const config = toastConfig[state];
+            if (config) {
+                // Don't show "connected" toast on initial load, only on reconnection
+                if (state === 'connected' && previousState === null) {
+                    // Skip initial connection toast
+                } else {
+                    ToastManager.show(config.type, config.message, {
+                        title: config.title,
+                        duration: state === 'connected' ? 3000 : 5000
+                    });
+                }
+            }
         }
 
         console.log('[DashboardRealtime] Connection status:', state);
