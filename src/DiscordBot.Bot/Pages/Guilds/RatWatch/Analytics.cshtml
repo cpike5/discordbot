@@ -681,7 +681,7 @@
                 count = h.Count
             }),
             topUsers = Model.ViewModel.MostWatched.Take(5).Select(u => new {
-                userId = u.UserId,
+                userId = u.UserId.ToString(), // Pass as string to preserve Discord ID precision
                 username = u.Username,
                 watchesAgainst = u.WatchesAgainst,
                 guiltyCount = u.GuiltyCount
