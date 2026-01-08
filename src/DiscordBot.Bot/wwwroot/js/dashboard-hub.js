@@ -200,6 +200,57 @@ const DashboardHub = (function() {
     }
 
     /**
+     * Joins the alerts group to receive real-time alert notifications.
+     * @returns {Promise<void>}
+     */
+    async function joinAlertsGroup() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot join alerts group');
+            return;
+        }
+        try {
+            await connection.invoke('JoinAlertsGroup');
+            console.log('[DashboardHub] Joined alerts group');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to join alerts group:', error);
+        }
+    }
+
+    /**
+     * Leaves the alerts group to stop receiving alert notifications.
+     * @returns {Promise<void>}
+     */
+    async function leaveAlertsGroup() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot leave alerts group');
+            return;
+        }
+        try {
+            await connection.invoke('LeaveAlertsGroup');
+            console.log('[DashboardHub] Left alerts group');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to leave alerts group:', error);
+        }
+    }
+
+    /**
+     * Gets the current active alert count from the server.
+     * @returns {Promise<object|null>} The active alert summary or null on error.
+     */
+    async function getActiveAlertCount() {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot get active alert count');
+            return null;
+        }
+        try {
+            return await connection.invoke('GetActiveAlertCount');
+        } catch (error) {
+            console.error('[DashboardHub] Failed to get active alert count:', error);
+            return null;
+        }
+    }
+
+    /**
      * Joins the system health group to receive real-time system health updates.
      * @returns {Promise<void>}
      */
@@ -328,6 +379,9 @@ const DashboardHub = (function() {
         joinPerformanceGroup,
         leavePerformanceGroup,
         getCurrentPerformanceMetrics,
+        joinAlertsGroup,
+        leaveAlertsGroup,
+        getActiveAlertCount,
         joinSystemHealthGroup,
         leaveSystemHealthGroup,
         getCurrentSystemHealth,
