@@ -8,7 +8,7 @@ This guide provides comprehensive documentation for the Consent and Privacy feat
 - Slash commands: All Discord users
 - Web UI Privacy page: Authenticated users with linked Discord accounts
 
-**Last Updated:** 2025-12-30
+**Last Updated:** 2026-01-08
 
 **Related Documentation:**
 - [Authorization Policies](authorization-policies.md)
@@ -20,6 +20,10 @@ This guide provides comprehensive documentation for the Consent and Privacy feat
 ## Table of Contents
 
 - [Overview](#overview)
+- [Consent Scope](#consent-scope)
+  - [Data Collected WITHOUT Consent](#data-collected-without-consent-operational-data)
+  - [Data Collected WITH Consent](#data-collected-with-consent-messagelogging)
+  - [Analytics and Consent](#analytics-and-consent)
 - [Consent Types](#consent-types)
 - [Slash Commands](#slash-commands)
   - [/consent grant](#consent-grant)
@@ -50,11 +54,13 @@ The Consent and Privacy Management system provides GDPR-compliant mechanisms for
 
 **Key Principles:**
 
-- **Opt-in by Default:** Users must explicitly grant consent; no data is collected without consent
+- **Opt-in by Default:** Users must explicitly grant consent before message content is collected
 - **Granular Control:** Different consent types for different data processing activities
 - **Transparent Processing:** Users can view their current consent status and history
 - **Easy Revocation:** Users can revoke consent at any time through simple commands
 - **Audit Trail:** All consent grants and revocations are logged with timestamps and source
+
+> **Important Distinction:** Consent applies specifically to **message content logging**. Basic user metadata (username, avatar, guild membership) is collected for all guild members as essential operational data for bot functionality. See [Consent Scope](#consent-scope) for details.
 
 **Architecture:**
 
@@ -65,6 +71,82 @@ The Consent and Privacy Management system provides GDPR-compliant mechanisms for
 - **Commands:** `ConsentModule` (Bot/Commands)
 - **Web UI:** `Privacy.cshtml` (Bot/Pages/Account)
 - **DTOs:** `ConsentStatusDto`, `ConsentHistoryEntryDto`, `ConsentUpdateResult` (Core/DTOs)
+
+---
+
+## Consent Scope
+
+This section clarifies exactly what data requires consent and what data is collected without consent for operational purposes.
+
+### Data Collected WITHOUT Consent (Operational Data)
+
+The following data is collected for all guild members regardless of consent status. This is essential operational data required for core bot functionality:
+
+**User Metadata (`User` entity):**
+- Discord user ID (snowflake)
+- Username and discriminator
+- Avatar hash (for display purposes)
+- Global display name
+- Account creation date (derived from snowflake)
+- First/last seen timestamps
+
+**Guild Membership (`GuildMember` entity):**
+- Guild-to-user relationship
+- Join date
+- Nickname (if set)
+- Role assignments (cached for display)
+- Active/inactive status
+
+**Purpose:** This data is synchronized via the `MemberSyncService` to support:
+- Member directory and search
+- Moderation features (viewing user info, role assignments)
+- Welcome messages (greeting new members by name)
+- Authorization checks (verifying guild membership)
+
+**Legal Basis (GDPR):** Legitimate interest - essential for bot operation
+
+### Data Collected WITH Consent (MessageLogging)
+
+The following data is ONLY collected when the user has granted `MessageLogging` consent:
+
+**Message Content (`MessageLog` entity):**
+- Full message text/content
+- Discord message ID
+- Channel ID and name
+- Attachment/embed presence flags
+- Reply-to message ID
+- Message timestamp
+
+**Purpose:** Message logging supports:
+- Moderation review (investigating incidents)
+- Message search and history
+- Analytics derived from message activity
+
+**Legal Basis (GDPR):** Explicit consent (opt-in)
+
+### Analytics and Consent
+
+**Current Implementation:** Analytics aggregation services (`MemberActivityAggregationService`, `ChannelActivityAggregationService`, `GuildMetricsAggregationService`) derive their data from `MessageLog` records. This means:
+
+- ⚠️ **Users who have not granted `MessageLogging` consent do NOT appear in member activity analytics**
+- ⚠️ **Channel and guild message counts only reflect messages from consenting users**
+- ⚠️ **Analytics are incomplete if many users have not consented**
+
+**Planned Improvement:** Future releases may separate analytics from message content logging:
+- Anonymous event counting (message sent, reaction added) without storing content
+- Separate `Analytics` consent type for aggregated statistics
+- Allow analytics collection without storing message bodies
+
+### Summary Table
+
+| Data Type | Requires Consent? | Storage Location | Retention |
+|-----------|-------------------|------------------|-----------|
+| User ID, username, avatar | No | `User` table | Indefinite |
+| Guild membership, roles | No | `GuildMember` table | Until member leaves |
+| Message content | **Yes** (`MessageLogging`) | `MessageLog` table | 90 days (configurable) |
+| Command execution logs | No | `CommandLog` table | 30 days (configurable) |
+| Moderation cases | No | `ModerationCase` table | Indefinite |
+| Consent records | No (meta) | `UserConsent` table | Indefinite (audit trail) |
 
 ---
 
@@ -838,7 +920,27 @@ The composite index on `(DiscordUserId, ConsentType, RevokedAt)` ensures the bat
 
 ## How Consent Affects Bot Behavior
 
-Consent is checked before performing data processing operations. The bot respects user consent preferences and skips operations for users without consent.
+Consent is checked before performing certain data processing operations. The bot respects user consent preferences for message content storage.
+
+> **Note:** Consent only affects message content logging. Users are cached in the database regardless of consent status (see [Consent Scope](#consent-scope)).
+
+### Features That Work WITHOUT Consent
+
+The following bot features work for all users regardless of consent status:
+
+- **Member Directory:** Users appear in the member directory with their username, avatar, and roles
+- **Welcome Messages:** New members receive welcome messages (greeting by username)
+- **Moderation:** Moderators can view user info, issue warnings, kicks, bans, etc.
+- **Command Execution:** Users can run slash commands (command logs are stored for audit purposes)
+- **Role Management:** Role assignments and permissions work normally
+
+### Features That REQUIRE Consent
+
+The following features require `MessageLogging` consent:
+
+- **Message Logging:** Message content is stored for moderation review
+- **Message Search:** Only consenting users' messages appear in search results
+- **Analytics (current limitation):** Member activity analytics only reflect consenting users
 
 ### Message Logging
 
