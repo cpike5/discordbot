@@ -46,6 +46,7 @@
                     };
 
                     <div class="alert-card border-0 rounded-none @alertClass"
+                         data-incident-id="@incident.Id"
                          role="@(incident.Severity == AlertSeverity.Critical ? "alert" : "status")"
                          aria-live="@(incident.Severity == AlertSeverity.Critical ? "assertive" : "polite")">
                         <svg class="alert-icon @iconClass flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -68,8 +69,12 @@
                                     <span class="status-badge status-badge-secondary">Acknowledged</span>
                                     @if (!string.IsNullOrEmpty(incident.AcknowledgedBy))
                                     {
-                                        <span class="text-text-tertiary">by @incident.AcknowledgedBy</span>
+                                        <span class="ack-info text-text-tertiary">by @incident.AcknowledgedBy</span>
                                     }
+                                }
+                                else
+                                {
+                                    <span class="ack-info"></span>
                                 }
                                 <span data-utc-time="@incident.TriggeredAt.ToString("o")" data-format="relative">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
                             </div>
@@ -84,7 +89,8 @@
                                         Text = "Acknowledge",
                                         Type = "submit",
                                         Variant = ButtonVariant.Secondary,
-                                        Size = ButtonSize.Small
+                                        Size = ButtonSize.Small,
+                                        AdditionalAttributes = new Dictionary<string, string> { { "class", "acknowledge-btn" } }
                                     })
                                 </form>
                             </div>
@@ -222,7 +228,7 @@
                 <div class="timeline">
                     @foreach (var incident in Model.RecentIncidents)
                     {
-                        <div class="timeline-entry">
+                        <div class="timeline-entry" data-timeline-incident-id="@incident.Id">
                             <div class="timeline-dot @AlertsPageViewModel.GetTimelineDotClass(incident.Severity)"></div>
                             <div class="timeline-content">
                                 <div class="timeline-time" data-utc-time="@incident.TriggeredAt.ToString("o")">
@@ -231,11 +237,7 @@
                                 <div class="timeline-title">@incident.Message</div>
                                 <div class="timeline-description">
                                     <span class="severity-badge @AlertsPageViewModel.GetSeverityClass(incident.Severity) mr-2">@incident.Severity</span>
-                                    Duration: @AlertsPageViewModel.FormatDuration(incident.DurationSeconds)
-                                    @if (incident.Status == IncidentStatus.Resolved)
-                                    {
-                                        <span class="ml-2">- Auto-resolved</span>
-                                    }
+                                    <span class="timeline-duration">Duration: @AlertsPageViewModel.FormatDuration(incident.DurationSeconds)@(incident.Status == IncidentStatus.Resolved ? " - Auto-resolved" : "")</span>
                                 </div>
                             </div>
                         </div>
