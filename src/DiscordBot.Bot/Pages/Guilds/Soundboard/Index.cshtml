@@ -243,14 +243,14 @@
                                                 </button>
                                                 <div class="relative">
                                                     <button type="button"
-                                                            onclick="toggleMenu('@sound.Id')"
-                                                            class="inline-flex items-center justify-center w-8 h-8 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+                                                            onclick="toggleMenu(event, '@sound.Id')"
+                                                            class="menu-toggle inline-flex items-center justify-center w-8 h-8 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
                                                             title="More options">
                                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                                             <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
                                                         </svg>
                                                     </button>
-                                                    <div id="menu-@sound.Id" class="hidden absolute right-0 mt-1 w-36 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-10">
+                                                    <div id="menu-@sound.Id" class="hidden absolute right-0 w-36 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-20">
                                                         <button type="button"
                                                                 onclick="downloadSound('@sound.Id', '@sound.FileName')"
                                                                 class="w-full px-4 py-2 text-sm text-text-primary hover:bg-bg-hover text-left rounded-lg flex items-center gap-2">
@@ -468,22 +468,50 @@
             document.body.style.overflow = '';
         }
 
-        // 3-dot menu handling
-        function toggleMenu(soundId) {
+        // 3-dot menu handling with auto-positioning
+        function toggleMenu(event, soundId) {
             const menu = document.getElementById('menu-' + soundId);
+            const button = event.currentTarget;
+            const scrollContainer = document.querySelector('.overflow-y-auto.max-h-\\[60vh\\]');
+
             // Close all other menus first
             document.querySelectorAll('[id^="menu-"]').forEach(m => {
                 if (m.id !== 'menu-' + soundId) {
                     m.classList.add('hidden');
+                    m.classList.remove('bottom-full', 'mb-1', 'top-full', 'mt-1');
                 }
             });
-            menu.classList.toggle('hidden');
+
+            // Toggle current menu
+            const isHidden = menu.classList.toggle('hidden');
+
+            if (!isHidden) {
+                // Calculate position - check if dropdown would be clipped
+                const buttonRect = button.getBoundingClientRect();
+                const containerRect = scrollContainer.getBoundingClientRect();
+                const menuHeight = 44; // Approximate height of the dropdown menu
+                const spaceBelow = containerRect.bottom - buttonRect.bottom;
+                const spaceAbove = buttonRect.top - containerRect.top;
+
+                // Reset positioning classes
+                menu.classList.remove('bottom-full', 'mb-1', 'top-full', 'mt-1');
+
+                // Position above if not enough space below (and enough space above)
+                if (spaceBelow < menuHeight && spaceAbove > menuHeight) {
+                    menu.classList.add('bottom-full', 'mb-1');
+                } else {
+                    menu.classList.add('top-full', 'mt-1');
+                }
+            }
         }
 
         // Close menus when clicking outside
         document.addEventListener('click', function(event) {
-            if (!event.target.closest('[id^="menu-"]') && !event.target.closest('button[onclick^="toggleMenu"]')) {
-                document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
+            if (!event.target.closest('[id^="menu-"]') && !event.target.closest('.menu-toggle')) {
+                document.querySelectorAll('[id^="menu-"]').forEach(m => {
+                    m.classList.add('hidden');
+                    m.classList.remove('bottom-full', 'mb-1', 'top-full', 'mt-1');
+                });
             }
         });
 
