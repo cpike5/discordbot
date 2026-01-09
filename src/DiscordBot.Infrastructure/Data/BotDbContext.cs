@@ -49,6 +49,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Sound> Sounds => Set<Sound>();
     public DbSet<GuildAudioSettings> GuildAudioSettings => Set<GuildAudioSettings>();
     public DbSet<CommandRoleRestriction> CommandRoleRestrictions => Set<CommandRoleRestriction>();
+    public DbSet<UserDiscordGuild> UserDiscordGuilds => Set<UserDiscordGuild>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -151,6 +152,40 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
             entity.HasIndex(e => e.TargetUserId);
             entity.HasIndex(e => e.Timestamp);
             entity.HasIndex(e => e.Action);
+        });
+
+        // Configure UserDiscordGuild entity
+        modelBuilder.Entity<UserDiscordGuild>(entity =>
+        {
+            // Configure primary key
+            entity.HasKey(e => e.Id);
+
+            // Configure GuildId to handle SQLite compatibility (ulong -> long conversion)
+            entity.Property(e => e.GuildId)
+                .HasConversion(
+                    v => (long)v,
+                    v => (ulong)v);
+
+            // Configure string properties with appropriate max lengths
+            entity.Property(e => e.ApplicationUserId).IsRequired().HasMaxLength(450);
+            entity.Property(e => e.GuildName).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.GuildIconHash).HasMaxLength(100);
+
+            // Configure default values
+            entity.Property(e => e.CapturedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.LastUpdatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            // Configure foreign key relationship
+            entity.HasOne(e => e.ApplicationUser)
+                .WithMany()
+                .HasForeignKey(e => e.ApplicationUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Composite unique index for user-guild membership (one record per user per guild)
+            entity.HasIndex(e => new { e.ApplicationUserId, e.GuildId }).IsUnique();
+
+            // Index for efficient lookups by guild
+            entity.HasIndex(e => e.GuildId);
         });
     }
 }

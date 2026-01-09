@@ -274,6 +274,7 @@ try
     builder.Services.AddScoped<IDiscordTokenService, DiscordTokenService>();
     builder.Services.AddScoped<IDiscordUserInfoService, DiscordUserInfoService>();
     builder.Services.AddScoped<IGuildMembershipService, GuildMembershipService>();
+    builder.Services.AddScoped<IUserDiscordGuildService, UserDiscordGuildService>();
 
     // Add Guild Member services
     builder.Services.AddScoped<IGuildMemberService, GuildMemberService>();
