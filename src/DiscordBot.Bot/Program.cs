@@ -336,6 +336,7 @@ try
     builder.Services.Configure<VoiceChannelOptions>(
         builder.Configuration.GetSection(VoiceChannelOptions.SectionName));
     builder.Services.AddSingleton<IAudioService, AudioService>();
+    builder.Services.AddSingleton<IPlaybackService, PlaybackService>();
     builder.Services.AddHostedService<VoiceAutoLeaveService>();
 
     // Add Analytics Aggregation services
