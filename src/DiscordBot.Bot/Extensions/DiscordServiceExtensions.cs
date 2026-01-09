@@ -29,7 +29,7 @@ public static class DiscordServiceExtensions
         {
             var config = new DiscordSocketConfig
             {
-                GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent | GatewayIntents.DirectMessages | GatewayIntents.GuildMembers,
+                GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent | GatewayIntents.DirectMessages | GatewayIntents.GuildMembers | GatewayIntents.GuildVoiceStates,
                 LogLevel = LogSeverity.Info,
                 AlwaysDownloadUsers = false,
                 MessageCacheSize = 100
