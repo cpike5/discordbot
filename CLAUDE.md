@@ -109,6 +109,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `ReminderOptions` | `Reminder` | Reminder system settings (polling, delivery, limits) |
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | OpenTelemetry trace sampling rates (priority-based sampling) |
 | `ScheduledMessagesOptions` | `ScheduledMessages` | Scheduled message delivery settings |
+| `SoundboardOptions` | `Soundboard` | Audio/soundboard settings (FFmpeg path, file limits, supported formats) |
 | `VerificationOptions` | `Verification` | Verification code generation settings |
 | `ElasticApm:*` | `ElasticApm` | Elastic APM distributed tracing configuration (see appsettings.json for full options) |
 
@@ -149,6 +150,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup, troubleshooting |
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
+| [audio-dependencies.md](docs/articles/audio-dependencies.md) | Audio dependencies (FFmpeg, libsodium, libopus) setup |
 | [log-aggregation.md](docs/articles/log-aggregation.md) | Elasticsearch and Seq centralized logging setup |
 | [elastic-stack-setup.md](docs/articles/elastic-stack-setup.md) | Local development setup for Elastic Stack (Elasticsearch, Kibana, APM) |
 | [kibana-dashboards.md](docs/articles/kibana-dashboards.md) | Kibana dashboards, saved searches, and alerting setup |
