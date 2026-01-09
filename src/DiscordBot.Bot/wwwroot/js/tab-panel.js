@@ -19,11 +19,17 @@
         // Track initialized panels
         initializedPanels: new Set(),
 
+        // Screen reader live region element
+        liveRegion: null,
+
         /**
          * Initialize all tab panels on the page.
          * Safe to call multiple times - will skip already initialized panels.
          */
         init: function() {
+            // Create live region for screen reader announcements
+            this.createLiveRegion();
+
             const containers = document.querySelectorAll(this.config.containerSelector);
             containers.forEach(container => {
                 const panelId = container.dataset.panelId;
@@ -32,6 +38,39 @@
                     this.initializedPanels.add(panelId);
                 }
             });
+        },
+
+        /**
+         * Create an aria-live region for screen reader announcements.
+         * This region is visually hidden but announced to screen readers.
+         */
+        createLiveRegion: function() {
+            if (this.liveRegion) return;
+
+            const region = document.createElement('div');
+            region.id = 'tab-panel-announcer';
+            region.setAttribute('role', 'status');
+            region.setAttribute('aria-live', 'polite');
+            region.setAttribute('aria-atomic', 'true');
+            // Visually hidden but accessible to screen readers
+            region.style.cssText = 'position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;';
+            document.body.appendChild(region);
+            this.liveRegion = region;
+        },
+
+        /**
+         * Announce a message to screen readers via the live region.
+         * @param {string} message - The message to announce
+         */
+        announce: function(message) {
+            if (!this.liveRegion) return;
+
+            // Clear and re-set to ensure announcement
+            this.liveRegion.textContent = '';
+            // Use setTimeout to ensure the DOM change is detected
+            setTimeout(() => {
+                this.liveRegion.textContent = message;
+            }, 50);
         },
 
         /**
@@ -121,11 +160,18 @@
                     case 'Enter':
                     case ' ':
                         e.preventDefault();
-                        // For page navigation mode, follow the link
                         if (navigationMode === 'pagenavigation' && currentTab.tagName === 'A') {
+                            // For page navigation mode, follow the link
                             currentTab.click();
+                        } else if (navigationMode === 'inpage') {
+                            // For in-page mode, activate the tab
+                            const container = tablist.closest(self.config.containerSelector);
+                            const panelId = container?.dataset.panelId;
+                            const persistenceMode = container?.dataset.persistenceMode || 'urlhash';
+                            if (container && panelId) {
+                                self.activateTab(container, currentTab.dataset.tabId, persistenceMode);
+                            }
                         }
-                        // For in-page mode, the focus handler or click handler will activate
                         break;
                 }
 
@@ -205,6 +251,10 @@
             const activeTab = tablist.querySelector(`[data-tab-id="${tabId}"]`);
             if (activeTab) {
                 this.scrollTabIntoView(tablist, activeTab);
+
+                // Announce tab change to screen readers
+                const tabLabel = activeTab.textContent?.trim() || tabId;
+                this.announce(`${tabLabel} tab selected`);
             }
 
             // Dispatch custom event
@@ -384,6 +434,25 @@
                 return activeTab?.dataset.tabId || null;
             }
             return null;
+        },
+
+        /**
+         * Set loading state on a tab panel and announce to screen readers.
+         * @param {string} panelId - The panel identifier
+         * @param {boolean} isLoading - Whether the panel is loading
+         * @param {string} [message] - Optional loading message for screen readers
+         */
+        setLoading: function(panelId, isLoading, message) {
+            const panel = document.querySelector(`[data-tab-panel-for="${panelId}"][aria-selected="true"], [data-tab-panel-for="${panelId}"]:not([hidden])`);
+            if (panel) {
+                panel.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+            }
+
+            if (isLoading) {
+                this.announce(message || 'Loading content...');
+            } else if (message) {
+                this.announce(message);
+            }
         }
     };
 
