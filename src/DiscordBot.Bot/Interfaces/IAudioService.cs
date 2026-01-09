@@ -60,4 +60,12 @@ public interface IAudioService
     /// </summary>
     /// <param name="guildId">The Discord guild snowflake ID.</param>
     void UpdateLastActivity(ulong guildId);
+
+    /// <summary>
+    /// Gets or creates a persistent PCM stream for the specified guild.
+    /// The stream is created once per connection and reused for all playback.
+    /// </summary>
+    /// <param name="guildId">The Discord guild snowflake ID.</param>
+    /// <returns>The PCM audio stream if connected, null otherwise.</returns>
+    AudioOutStream? GetOrCreatePcmStream(ulong guildId);
 }

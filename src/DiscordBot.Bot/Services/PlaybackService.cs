@@ -122,7 +122,7 @@ public class PlaybackService : IPlaybackService
                 if (!state.IsPlaying)
                 {
                     _logger.LogDebug("Starting playback loop for guild {GuildId}", guildId);
-                    _ = PlaybackLoopAsync(guildId, audioClient);
+                    _ = PlaybackLoopAsync(guildId);
                 }
             }
             finally
@@ -216,7 +216,7 @@ public class PlaybackService : IPlaybackService
     /// Background playback loop that processes the queue for a guild.
     /// Runs until the queue is empty, then stops.
     /// </summary>
-    private async Task PlaybackLoopAsync(ulong guildId, IAudioClient audioClient)
+    private async Task PlaybackLoopAsync(ulong guildId)
     {
         if (!_playbackStates.TryGetValue(guildId, out var state))
         {
@@ -264,7 +264,7 @@ public class PlaybackService : IPlaybackService
                 // Play the sound
                 try
                 {
-                    await PlaySoundAsync(guildId, sound, audioClient, state.CancellationTokenSource.Token);
+                    await PlaySoundAsync(guildId, sound, state.CancellationTokenSource.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -300,7 +300,7 @@ public class PlaybackService : IPlaybackService
     /// <summary>
     /// Plays a single sound file using FFmpeg to transcode to Opus PCM.
     /// </summary>
-    private async Task PlaySoundAsync(ulong guildId, Sound sound, IAudioClient audioClient, CancellationToken cancellationToken)
+    private async Task PlaySoundAsync(ulong guildId, Sound sound, CancellationToken cancellationToken)
     {
         using var activity = BotActivitySource.StartServiceActivity(
             "playback",
@@ -329,71 +329,49 @@ public class PlaybackService : IPlaybackService
             // Update last activity on voice connection
             _audioService.UpdateLastActivity(guildId);
 
-            // Create PCM stream
-            using var pcmStream = audioClient.CreatePCMStream(AudioApplication.Music, bufferMillis: 1000);
+            // Determine FFmpeg executable path - handle null or empty string
+            // If not configured, look for ffmpeg in the application's base directory first, then fall back to PATH
+            string ffmpegPath;
+            if (!string.IsNullOrWhiteSpace(_options.FfmpegPath))
+            {
+                ffmpegPath = _options.FfmpegPath;
+            }
+            else
+            {
+                var localFfmpeg = Path.Combine(AppContext.BaseDirectory, "ffmpeg.exe");
+                ffmpegPath = File.Exists(localFfmpeg) ? localFfmpeg : "ffmpeg";
+            }
 
-            // Determine FFmpeg executable path
-            var ffmpegPath = _options.FfmpegPath ?? "ffmpeg";
+            _logger.LogDebug("Starting FFmpeg from path '{FfmpegPath}' for file '{FilePath}'", ffmpegPath, filePath);
 
             // Start FFmpeg process
             var startInfo = new ProcessStartInfo
             {
                 FileName = ffmpegPath,
-                Arguments = $"-hide_banner -loglevel warning -i \"{filePath}\" -ac 2 -f s16le -ar 48000 pipe:1",
+                Arguments = $"-hide_banner -loglevel panic -i \"{filePath}\" -ac 2 -f s16le -ar 48000 pipe:1",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
-                RedirectStandardError = true,
                 CreateNoWindow = true
             };
 
-            using var ffmpeg = Process.Start(startInfo);
-            if (ffmpeg == null)
-            {
-                throw new InvalidOperationException("Failed to start FFmpeg process");
-            }
+            using var ffmpeg = Process.Start(startInfo)
+                ?? throw new InvalidOperationException($"Failed to start FFmpeg process from '{ffmpegPath}'");
 
             _logger.LogDebug("FFmpeg process started (PID: {ProcessId}) for sound {SoundName} in guild {GuildId}",
                 ffmpeg.Id, sound.Name, guildId);
 
-            // Stream audio data from FFmpeg to Discord
-            // Buffer size: 3840 bytes = 20ms of audio at 48kHz stereo 16-bit
-            // (48000 samples/sec * 2 channels * 2 bytes/sample * 0.02 sec = 3840 bytes)
-            const int bufferSize = 3840;
-            var buffer = new byte[bufferSize];
-            int bytesRead;
-
-            try
+            // Get persistent PCM stream (created once per connection, reused for all playback)
+            var discord = _audioService.GetOrCreatePcmStream(guildId);
+            if (discord == null)
             {
-                while ((bytesRead = await ffmpeg.StandardOutput.BaseStream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        _logger.LogDebug("Playback cancelled for sound {SoundName} in guild {GuildId}",
-                            sound.Name, guildId);
-                        break;
-                    }
-
-                    await pcmStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
-                }
-
-                // Flush the stream to ensure all audio is sent
-                await pcmStream.FlushAsync(cancellationToken);
+                throw new InvalidOperationException($"Failed to get PCM stream for guild {guildId}");
             }
-            finally
-            {
-                // Clean up FFmpeg process
-                if (!ffmpeg.HasExited)
-                {
-                    ffmpeg.Kill();
-                }
 
-                // Log any FFmpeg errors
-                var errorOutput = await ffmpeg.StandardError.ReadToEndAsync();
-                if (!string.IsNullOrWhiteSpace(errorOutput))
-                {
-                    _logger.LogWarning("FFmpeg errors for sound {SoundName} in guild {GuildId}: {ErrorOutput}",
-                        sound.Name, guildId, errorOutput);
-                }
+            // Stream audio data to Discord
+            using (var output = ffmpeg.StandardOutput.BaseStream)
+            {
+                await output.CopyToAsync(discord, 81920, cancellationToken);
+                await discord.FlushAsync(cancellationToken);
             }
 
             _logger.LogInformation("Completed playback of sound {SoundName} ({SoundId}) in guild {GuildId}",

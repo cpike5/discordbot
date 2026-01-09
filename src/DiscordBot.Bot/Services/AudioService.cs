@@ -16,6 +16,7 @@ public class AudioService : IAudioService
     private readonly ILogger<AudioService> _logger;
     private readonly ConcurrentDictionary<ulong, VoiceConnectionInfo> _connections = new();
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildLocks = new();
+    private readonly ConcurrentDictionary<ulong, AudioOutStream> _pcmStreams = new();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AudioService"/> class.
@@ -196,6 +197,30 @@ public class AudioService : IAudioService
         }
     }
 
+    /// <inheritdoc/>
+    public AudioOutStream? GetOrCreatePcmStream(ulong guildId)
+    {
+        // Return existing stream if we have one
+        if (_pcmStreams.TryGetValue(guildId, out var existingStream))
+        {
+            return existingStream;
+        }
+
+        // Get audio client
+        if (!_connections.TryGetValue(guildId, out var connection))
+        {
+            _logger.LogWarning("Cannot create PCM stream - not connected to voice in guild {GuildId}", guildId);
+            return null;
+        }
+
+        // Create new PCM stream and cache it
+        var pcmStream = connection.AudioClient.CreatePCMStream(AudioApplication.Voice);
+        _pcmStreams[guildId] = pcmStream;
+        _logger.LogDebug("Created new PCM stream for guild {GuildId}", guildId);
+
+        return pcmStream;
+    }
+
     /// <summary>
     /// Internal disconnect method that assumes the guild lock is already held.
     /// Stops and disposes the audio client and removes the connection from tracking.
@@ -203,6 +228,21 @@ public class AudioService : IAudioService
     /// <param name="guildId">The guild ID to disconnect from.</param>
     private async Task DisconnectInternalAsync(ulong guildId)
     {
+        // Clean up PCM stream first
+        if (_pcmStreams.TryRemove(guildId, out var pcmStream))
+        {
+            try
+            {
+                await pcmStream.FlushAsync();
+                pcmStream.Dispose();
+                _logger.LogDebug("Disposed PCM stream for guild {GuildId}", guildId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error disposing PCM stream for guild {GuildId}", guildId);
+            }
+        }
+
         if (_connections.TryRemove(guildId, out var connection))
         {
             try
