@@ -487,11 +487,10 @@
             }
         });
 
-        // Download sound (placeholder - would need API endpoint)
+        // Download sound
         function downloadSound(soundId, fileName) {
-            // For now, just close the menu - actual download would need an API endpoint
             document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
-            alert('Download feature coming soon. File: ' + fileName);
+            window.location.href = `/api/guilds/${window.guildId}/sounds/${soundId}/download`;
         }
 
         // File upload handling
