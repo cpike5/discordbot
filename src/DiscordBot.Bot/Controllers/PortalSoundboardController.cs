@@ -513,8 +513,13 @@ public class PortalSoundboardController : ControllerBase
             });
         }
 
-        await _playbackService.StopAsync(guildId, cancellationToken);
+        if (!_playbackService.IsPlaying(guildId))
+        {
+            _logger.LogDebug("Nothing playing in guild {GuildId}", guildId);
+            return Ok(new { Message = "Nothing playing" });
+        }
 
+        await _playbackService.StopAsync(guildId, cancellationToken);
         _logger.LogInformation("Successfully stopped playback in guild {GuildId}", guildId);
         return Ok(new { Message = "Playback stopped" });
     }

@@ -935,6 +935,62 @@
         display: none !important;
     }
 
+    /* Toast notifications */
+    .toast-notification {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(100%);
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        z-index: 9999;
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+
+    .toast-notification.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+
+    .toast-info {
+        background-color: #3b82f6;
+        color: white;
+    }
+
+    .toast-success {
+        background-color: #57ab5a;
+        color: white;
+    }
+
+    .toast-warning {
+        background-color: #f59e0b;
+        color: #1a1d23;
+    }
+
+    .toast-error {
+        background-color: #ef4444;
+        color: white;
+    }
+
+    /* Highlight required field animation */
+    .highlight-required {
+        animation: highlight-pulse 0.5s ease-in-out 2;
+    }
+
+    @@keyframes highlight-pulse {
+        0%, 100% {
+            border-color: #40444b;
+            box-shadow: none;
+        }
+        50% {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+        }
+    }
+
     /* Responsive */
     @@media (max-width: 1023px) {
         .portal-content {
@@ -1252,9 +1308,11 @@ else
         // State
         let favorites = JSON.parse(localStorage.getItem('soundboard_favorites_' + window.guildId) || '[]');
         let currentlyPlaying = null;
+        let currentlyPlayingName = null;
         let isConnected = @Model.IsConnected.ToString().ToLower();
         let selectedChannel = '@(Model.CurrentChannelId?.ToString() ?? "")';
         let searchDebounceTimer = null;
+        let statusPollInterval = null;
 
         // ========================================
         // Toast Notification System
@@ -1325,7 +1383,119 @@ else
             PortalToast.init();
             initializeFavorites();
             setupEventHandlers();
+            startStatusPolling();
         });
+
+        // Helper: Show toast notification
+        function showToast(message, type = 'info') {
+            // Remove existing toast if any
+            const existingToast = document.querySelector('.toast-notification');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Helper: Update connection status UI
+        function updateConnectionUI(connected) {
+            const statusBadge = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionStatusText');
+            const joinBtn = document.getElementById('joinBtn');
+            const leaveBtn = document.getElementById('leaveBtn');
+
+            if (connected) {
+                statusBadge.classList.remove('disconnected');
+                statusBadge.classList.add('connected');
+                statusText.textContent = 'Connected';
+                joinBtn.disabled = true;
+                leaveBtn.disabled = false;
+            } else {
+                statusBadge.classList.remove('connected');
+                statusBadge.classList.add('disconnected');
+                statusText.textContent = 'Disconnected';
+                joinBtn.disabled = false;
+                leaveBtn.disabled = true;
+            }
+        }
+
+        // Helper: Update now playing UI
+        function updateNowPlayingUI(soundName) {
+            const nowPlayingContent = document.getElementById('nowPlayingContent');
+            const nowPlayingEmpty = document.getElementById('nowPlayingEmpty');
+            const nowPlayingNameEl = document.getElementById('nowPlayingName');
+
+            if (soundName) {
+                nowPlayingNameEl.textContent = soundName;
+                nowPlayingContent.classList.remove('hidden');
+                nowPlayingEmpty.classList.add('hidden');
+            } else {
+                nowPlayingContent.classList.add('hidden');
+                nowPlayingEmpty.classList.remove('hidden');
+            }
+        }
+
+        // Status polling for real-time updates
+        function startStatusPolling() {
+            // Poll every 3 seconds
+            statusPollInterval = setInterval(pollStatus, 3000);
+        }
+
+        function stopStatusPolling() {
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+        }
+
+        function pollStatus() {
+            fetch(`/api/portal/soundboard/${window.guildId}/status`)
+                .then(response => response.json())
+                .then(data => {
+                    // Update connection state if changed
+                    if (data.isConnected !== isConnected) {
+                        isConnected = data.isConnected;
+                        updateConnectionUI(isConnected);
+
+                        if (!isConnected) {
+                            // Bot disconnected externally
+                            currentlyPlaying = null;
+                            currentlyPlayingName = null;
+                            updateNowPlayingUI(null);
+                            document.querySelectorAll('.sound-card').forEach(card => {
+                                card.classList.remove('playing');
+                            });
+                        }
+                    }
+
+                    // Update playing state if bot stopped playing
+                    if (!data.isPlaying && currentlyPlaying) {
+                        currentlyPlaying = null;
+                        currentlyPlayingName = null;
+                        updateNowPlayingUI(null);
+                        document.querySelectorAll('.sound-card').forEach(card => {
+                            card.classList.remove('playing');
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Status poll failed:', error);
+                });
+        }
 
         // Initialize favorites from localStorage
         function initializeFavorites() {
@@ -1493,7 +1663,6 @@ else
         function playSound(soundId, soundName) {
             if (!isConnected) {
                 PortalToast.warning('Please join a voice channel first!');
-                // Highlight the voice channel panel
                 highlightChannelSelector();
                 return;
             }
@@ -1521,11 +1690,10 @@ else
                 if (!data) return; // Rejected promise
 
                 currentlyPlaying = soundId;
+                currentlyPlayingName = soundName;
 
                 // Update Now Playing panel
-                document.getElementById('nowPlayingName').textContent = soundName;
-                document.getElementById('nowPlayingContent').classList.remove('hidden');
-                document.getElementById('nowPlayingEmpty').classList.add('hidden');
+                updateNowPlayingUI(soundName);
 
                 // Update card state
                 document.querySelectorAll('.sound-card').forEach(card => {
@@ -1539,7 +1707,7 @@ else
             .catch(error => {
                 if (error === 'not_connected') return;
                 console.error('Error playing sound:', error);
-                PortalToast.error('Failed to play sound. Please try again.');
+                PortalToast.error(error.message || 'Failed to play sound. Please try again.');
             });
         }
 
@@ -1556,17 +1724,36 @@ else
         function stopPlaying() {
             if (!currentlyPlaying) return;
 
-            // The portal API doesn't have a stop endpoint - playback stops naturally
-            // Just clear the UI state
-            currentlyPlaying = null;
+            // Call API to stop sound
+            fetch(`/api/portal/soundboard/${window.guildId}/stop`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.message || 'Failed to stop sound');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                currentlyPlaying = null;
+                currentlyPlayingName = null;
 
-            // Update Now Playing panel
-            document.getElementById('nowPlayingContent').classList.add('hidden');
-            document.getElementById('nowPlayingEmpty').classList.remove('hidden');
+                // Update Now Playing panel
+                updateNowPlayingUI(null);
 
-            // Remove playing state from cards
-            document.querySelectorAll('.sound-card').forEach(card => {
-                card.classList.remove('playing');
+                // Remove playing state from cards
+                document.querySelectorAll('.sound-card').forEach(card => {
+                    card.classList.remove('playing');
+                });
+            })
+            .catch(error => {
+                console.error('Error stopping sound:', error);
+                PortalToast.error(error.message || 'Failed to stop playback');
             });
         }
 
@@ -1576,6 +1763,7 @@ else
         function joinChannel() {
             if (!selectedChannel) {
                 PortalToast.warning('Please select a voice channel first!');
+                highlightChannelSelector();
                 return;
             }
 
@@ -1583,7 +1771,7 @@ else
             joinBtn.disabled = true;
             joinBtn.innerHTML = '<svg class="animate-spin" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Joining...';
 
-            // Call API to join channel (POST /channel with body)
+            // Call API to join channel (POST /channel)
             fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
                 method: 'POST',
                 headers: {
@@ -1600,22 +1788,13 @@ else
             })
             .then(data => {
                 isConnected = true;
-
-                // Update UI
-                const statusBadge = document.getElementById('connectionStatus');
-                const statusText = document.getElementById('connectionStatusText');
-                statusBadge.classList.remove('disconnected');
-                statusBadge.classList.add('connected');
-                statusText.textContent = 'Connected';
-
-                // Update buttons
-                document.getElementById('leaveBtn').disabled = false;
-
+                updateConnectionUI(true);
                 PortalToast.success('Connected to voice channel');
             })
             .catch(error => {
                 console.error('Error joining channel:', error);
                 PortalToast.error(error.message || 'Failed to join voice channel');
+                joinBtn.disabled = false;
             })
             .finally(() => {
                 // Reset button state
@@ -1646,24 +1825,18 @@ else
             .then(data => {
                 isConnected = false;
                 selectedChannel = '';
+                currentlyPlaying = null;
+                currentlyPlayingName = null;
 
-                // Stop any playing sound
-                if (currentlyPlaying) {
-                    stopPlaying();
-                }
-
-                // Update UI
-                const statusBadge = document.getElementById('connectionStatus');
-                const statusText = document.getElementById('connectionStatusText');
-                statusBadge.classList.remove('connected');
-                statusBadge.classList.add('disconnected');
-                statusText.textContent = 'Disconnected';
-
-                // Update buttons
-                document.getElementById('joinBtn').disabled = false;
-
-                // Reset channel selector
+                // Update UI using helper functions
+                updateConnectionUI(false);
+                updateNowPlayingUI(null);
                 document.getElementById('channelSelect').value = '';
+
+                // Remove playing state from cards
+                document.querySelectorAll('.sound-card').forEach(card => {
+                    card.classList.remove('playing');
+                });
 
                 PortalToast.info('Disconnected from voice channel');
             })
