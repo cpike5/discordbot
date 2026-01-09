@@ -225,6 +225,87 @@ public class PlaybackService : IPlaybackService
         return Math.Max(0, queueLength);
     }
 
+    /// <inheritdoc/>
+    public async Task<bool> RemoveFromQueueAsync(ulong guildId, int position, CancellationToken cancellationToken = default)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "playback",
+            "remove_from_queue",
+            guildId: guildId);
+
+        try
+        {
+            if (position < 0)
+            {
+                _logger.LogWarning("Invalid queue position {Position} for guild {GuildId}", position, guildId);
+                return false;
+            }
+
+            var guildLock = _guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
+            await guildLock.WaitAsync(cancellationToken);
+
+            try
+            {
+                if (!_playbackStates.TryGetValue(guildId, out var state))
+                {
+                    _logger.LogDebug("No playback state for guild {GuildId}, nothing to remove", guildId);
+                    return false;
+                }
+
+                // Position 0 with active playback means skip current sound
+                if (position == 0 && state.IsPlaying)
+                {
+                    _logger.LogInformation("Skipping current sound in guild {GuildId}", guildId);
+                    state.CancellationTokenSource?.Cancel();
+                    activity?.SetTag("playback.skipped_current", true);
+                    BotActivitySource.SetSuccess(activity);
+                    return true;
+                }
+
+                // Convert to queue array for position-based removal
+                var queueList = state.Queue.ToList();
+                if (position >= queueList.Count)
+                {
+                    _logger.LogWarning("Queue position {Position} out of range (queue size: {QueueSize}) for guild {GuildId}",
+                        position, queueList.Count, guildId);
+                    return false;
+                }
+
+                var removedSound = queueList[position];
+                queueList.RemoveAt(position);
+
+                // Rebuild the queue
+                state.Queue.Clear();
+                foreach (var sound in queueList)
+                {
+                    state.Queue.Enqueue(sound);
+                }
+
+                _logger.LogInformation("Removed sound {SoundName} from queue position {Position} in guild {GuildId}",
+                    removedSound.Name, position, guildId);
+
+                activity?.SetTag("playback.removed_position", position);
+                activity?.SetTag("sound.name", removedSound.Name);
+
+                // Broadcast queue update
+                BroadcastQueueUpdate(guildId, state);
+            }
+            finally
+            {
+                guildLock.Release();
+            }
+
+            BotActivitySource.SetSuccess(activity);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error removing from queue at position {Position} in guild {GuildId}", position, guildId);
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
     /// <summary>
     /// Background playback loop that processes the queue for a guild.
     /// Runs until the queue is empty, then stops.
