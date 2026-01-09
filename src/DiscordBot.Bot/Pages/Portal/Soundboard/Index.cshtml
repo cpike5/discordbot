@@ -420,6 +420,34 @@
         color: #949ba4;
     }
 
+    .search-input-wrapper {
+        position: relative;
+        flex: 1;
+    }
+
+    .search-clear-btn {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0.25rem;
+        color: #949ba4;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .search-clear-btn:hover {
+        color: #dbdee1;
+    }
+
+    .search-clear-btn.visible {
+        display: flex;
+    }
+
     /* Sound Grid */
     .sound-grid {
         display: grid;
@@ -740,7 +768,12 @@
                     <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <input type="text" id="searchInput" class="search-input" placeholder="Search sounds...">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search sounds..." style="padding-right: 2.5rem;">
+                    <button type="button" id="searchClearBtn" class="search-clear-btn" title="Clear search">
+                        <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Sound Grid -->
@@ -792,6 +825,7 @@
         let currentlyPlaying = null;
         let isConnected = @Model.IsConnected.ToString().ToLower();
         let selectedChannel = '@(Model.CurrentChannelId?.ToString() ?? "")';
+        let searchDebounceTimer = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
@@ -833,8 +867,31 @@
 
         // Setup event handlers
         function setupEventHandlers() {
-            // Search functionality
-            document.getElementById('searchInput').addEventListener('input', filterSounds);
+            // Search functionality with debounce
+            const searchInput = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('searchClearBtn');
+
+            searchInput.addEventListener('input', function() {
+                // Update clear button visibility
+                clearBtn.classList.toggle('visible', this.value.length > 0);
+
+                // Debounce search (150ms)
+                clearTimeout(searchDebounceTimer);
+                if (this.value === '') {
+                    // Immediate clear when emptied
+                    filterSounds();
+                } else {
+                    searchDebounceTimer = setTimeout(filterSounds, 150);
+                }
+            });
+
+            // Clear search button
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                clearBtn.classList.remove('visible');
+                filterSounds();
+                searchInput.focus();
+            });
 
             // Channel select
             document.getElementById('channelSelect').addEventListener('change', function() {
@@ -1006,8 +1063,8 @@
                 return;
             }
 
-            // Call API to join channel
-            fetch(`/api/portal/soundboard/${window.guildId}/join`, {
+            // Call API to join channel (POST /channel)
+            fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1039,9 +1096,9 @@
         }
 
         function leaveChannel() {
-            // Call API to leave channel
-            fetch(`/api/portal/soundboard/${window.guildId}/leave`, {
-                method: 'POST',
+            // Call API to leave channel (DELETE /channel)
+            fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
+                method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
                 }
@@ -1109,8 +1166,6 @@
         }
 
         function handleFiles(files) {
-            const formData = new FormData();
-
             for (const file of files) {
                 // Validate file type
                 const validTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3'];
@@ -1126,28 +1181,33 @@
                     continue;
                 }
 
-                formData.append('file', file);
-            }
+                // Derive sound name from file name (without extension)
+                const soundName = file.name.replace(/\.[^/.]+$/, '');
 
-            // Upload file
-            fetch(`/api/portal/soundboard/${window.guildId}/upload`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Upload failed');
-                }
-                return response.json();
-            })
-            .then(data => {
-                alert('Upload successful! Reloading page...');
-                location.reload();
-            })
-            .catch(error => {
-                console.error('Error uploading file:', error);
-                alert('Failed to upload file. Please try again.');
-            });
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('name', soundName);
+
+                // Upload file (POST /sounds)
+                fetch(`/api/portal/soundboard/${window.guildId}/sounds`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Upload failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    alert('Upload successful! Reloading page...');
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Error uploading file:', error);
+                    alert('Failed to upload file. Please try again.');
+                });
+            }
 
             // Reset file input
             document.getElementById('fileInput').value = '';
