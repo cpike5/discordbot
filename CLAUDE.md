@@ -110,6 +110,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | OpenTelemetry trace sampling rates (priority-based sampling) |
 | `ScheduledMessagesOptions` | `ScheduledMessages` | Scheduled message delivery settings |
 | `VerificationOptions` | `Verification` | Verification code generation settings |
+| `VoiceChannelOptions` | `VoiceChannel` | Voice channel auto-leave settings (timeout, check interval) |
 | `ElasticApm:*` | `ElasticApm` | Elastic APM distributed tracing configuration (see appsettings.json for full options) |
 
 **Note:** Elastic APM is available for distributed tracing and performance monitoring. See [log-aggregation.md](docs/articles/log-aggregation.md) for APM setup and correlation between logs and traces.

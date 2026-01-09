@@ -2,6 +2,7 @@ using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
@@ -323,6 +324,12 @@ try
         builder.Configuration.GetSection(ReminderOptions.SectionName));
     builder.Services.AddScoped<IReminderService, ReminderService>();
     builder.Services.AddHostedService<ReminderExecutionService>();
+
+    // Add Voice Channel services
+    builder.Services.Configure<VoiceChannelOptions>(
+        builder.Configuration.GetSection(VoiceChannelOptions.SectionName));
+    builder.Services.AddSingleton<IAudioService, AudioService>();
+    builder.Services.AddHostedService<VoiceAutoLeaveService>();
 
     // Add Analytics Aggregation services
     builder.Services.Configure<AnalyticsRetentionOptions>(
