@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Settings - Gaming Hub - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Toggle Switch Styles */
+    .toggle-switch {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .toggle-switch input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-switch-track {
+      position: relative;
+      display: inline-block;
+      width: 2.75rem;
+      height: 1.5rem;
+      background-color: var(--color-bg-tertiary);
+      border-radius: 9999px;
+      transition: background-color 0.2s ease-in-out;
+    }
+
+    .toggle-switch-thumb {
+      position: absolute;
+      top: 0.125rem;
+      left: 0.125rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      background-color: var(--color-text-secondary);
+      border-radius: 50%;
+      transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+    }
+
+    .toggle-switch input:checked + .toggle-switch-track {
+      background-color: var(--color-accent-orange);
+    }
+
+    .toggle-switch input:checked + .toggle-switch-track .toggle-switch-thumb {
+      transform: translateX(1.25rem);
+      background-color: white;
+    }
+
+    .toggle-switch:hover .toggle-switch-track {
+      background-color: var(--color-bg-hover);
+    }
+
+    .toggle-switch:hover input:checked + .toggle-switch-track {
+      background-color: var(--color-accent-orange-hover);
+    }
+
+    /* Settings Section Styles */
+    .settings-section {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      margin-bottom: 1.5rem;
+    }
+
+    .settings-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--color-border-primary);
+    }
+
+    .settings-section-title {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .settings-section-icon {
+      width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--color-accent-blue-muted);
+      color: var(--color-accent-blue);
+      border-radius: var(--radius-lg);
+    }
+
+    .settings-section-body {
+      padding: 1.5rem;
+    }
+
+    /* Settings Row */
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--color-border-secondary);
+    }
+
+    .settings-row:first-child {
+      padding-top: 0;
+    }
+
+    .settings-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .settings-row-content {
+      flex: 1;
+      padding-right: 1rem;
+    }
+
+    .settings-row-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+      margin-bottom: 0.25rem;
+    }
+
+    .settings-row-description {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    /* Number Input Styling */
+    input[type="number"] {
+      width: 6rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      color: var(--color-text-primary);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+      box-shadow: 0 0 0 2px var(--color-accent-blue-muted);
+    }
+
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      opacity: 1;
+    }
+
+    /* Command Permission Card */
+    .command-permission-card {
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--radius-lg);
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .command-permission-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .command-name {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      background: var(--color-bg-hover);
+      border-radius: var(--radius-md);
+      font-family: ui-monospace, monospace;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--color-accent-blue);
+      margin-bottom: 0.75rem;
+    }
+
+    /* Multi-Select Dropdown Styles */
+    .role-select {
+      position: relative;
+      width: 100%;
+    }
+
+    .role-select-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      min-height: 2.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--color-bg-primary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    .role-select-trigger:hover {
+      border-color: var(--color-border-focus);
+    }
+
+    .role-select-trigger:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+      box-shadow: 0 0 0 2px var(--color-accent-blue-muted);
+    }
+
+    .role-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+    }
+
+    .role-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.125rem 0.5rem;
+      background: var(--color-accent-blue-muted);
+      color: var(--color-accent-blue);
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .role-tag-remove {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--color-accent-blue);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .role-tag-remove:hover {
+      background: var(--color-accent-blue);
+      color: white;
+    }
+
+    .role-select-placeholder {
+      color: var(--color-text-tertiary);
+      font-size: 0.875rem;
+    }
+
+    .role-select-dropdown {
+      position: absolute;
+      top: calc(100% + 0.25rem);
+      left: 0;
+      right: 0;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      z-index: 50;
+      max-height: 12rem;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .role-select-dropdown.open {
+      display: block;
+    }
+
+    .role-select-option {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .role-select-option:hover {
+      background: var(--color-bg-hover);
+    }
+
+    .role-select-option.selected {
+      background: var(--color-accent-blue-muted);
+    }
+
+    .role-color {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Read-only field */
+    .readonly-field {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: var(--radius-lg);
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+    }
+
+    .readonly-field code {
+      font-family: ui-monospace, monospace;
+      color: var(--color-text-primary);
+    }
+
+    /* Input suffix/unit */
+    .input-with-unit {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .input-unit {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    /* Action buttons */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      background: var(--color-accent-orange);
+      color: white;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border: none;
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary:hover {
+      background: var(--color-accent-orange-hover);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      background: var(--color-bg-secondary);
+      color: var(--color-text-primary);
+      font-size: 0.875rem;
+      font-weight: 500;
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-focus);
+    }
+
+    /* Validation error styles */
+    .input-error {
+      border-color: var(--color-error) !important;
+    }
+
+    .error-message {
+      font-size: 0.75rem;
+      color: var(--color-error);
+      margin-top: 0.25rem;
+    }
+
+    /* Success toast */
+    .toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.25rem;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      z-index: 100;
+      transform: translateY(100%);
+      opacity: 0;
+      transition: transform 0.3s, opacity 0.3s;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast-success {
+      border-left: 3px solid var(--color-success);
+    }
+
+    .toast-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      background: var(--color-success-bg);
+      color: var(--color-success);
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary min-h-screen">
+  <!-- Navigation Header -->
+  <nav class="bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-8">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-accent-orange rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+              </svg>
+            </div>
+            <span class="text-lg font-bold text-text-primary">Bot Admin</span>
+          </div>
+          <div class="hidden md:flex items-center gap-1">
+            <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Dashboard</a>
+            <a href="#" class="px-3 py-2 text-sm font-medium text-accent-orange bg-accent-orange/10 rounded-md">Servers</a>
+            <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Commands</a>
+            <a href="#" class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors">Settings</a>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center">
+            <span class="text-white font-medium text-sm">A</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
+      <ol class="flex items-center gap-2">
+        <li><a href="#" class="hover:text-text-primary transition-colors">Servers</a></li>
+        <li aria-hidden="true">
+          <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </li>
+        <li><a href="#" class="hover:text-text-primary transition-colors">Gaming Hub</a></li>
+        <li aria-hidden="true">
+          <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </li>
+        <li class="text-text-primary font-medium" aria-current="page">Audio Settings</li>
+      </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-text-primary">Audio Settings</h1>
+        <p class="text-sm text-text-secondary mt-1">Configure audio and soundboard features for this server</p>
+      </div>
+      <a href="index.html" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+        Manage Sounds
+      </a>
+    </div>
+
+    <!-- General Settings Section -->
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <div class="settings-section-title">
+          <div class="settings-section-icon">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-text-primary">General Settings</h2>
+            <p class="text-xs text-text-tertiary">Core audio feature configuration</p>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section-body">
+        <!-- Audio Enabled -->
+        <div class="settings-row">
+          <div class="settings-row-content">
+            <div class="settings-row-title">Audio Features Enabled</div>
+            <div class="settings-row-description">Enable or disable all audio and soundboard features for this server</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" checked onchange="toggleAudioEnabled(this)" />
+            <span class="toggle-switch-track">
+              <span class="toggle-switch-thumb"></span>
+            </span>
+          </label>
+        </div>
+
+        <!-- Auto-leave Timeout -->
+        <div class="settings-row">
+          <div class="settings-row-content">
+            <div class="settings-row-title">Auto-leave Timeout</div>
+            <div class="settings-row-description">Minutes of inactivity before the bot automatically leaves the voice channel. Set to 0 to stay indefinitely.</div>
+          </div>
+          <div class="input-with-unit">
+            <input type="number" id="autoLeaveTimeout" value="5" min="0" max="60" />
+            <span class="input-unit">minutes</span>
+          </div>
+        </div>
+
+        <!-- Queue Enabled -->
+        <div class="settings-row">
+          <div class="settings-row-content">
+            <div class="settings-row-title">Queue Mode</div>
+            <div class="settings-row-description">When enabled, sounds queue up and play in order. When disabled, new sounds replace the currently playing sound.</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" checked />
+            <span class="toggle-switch-track">
+              <span class="toggle-switch-thumb"></span>
+            </span>
+          </label>
+        </div>
+
+        <!-- Sound Storage Path (Read-only) -->
+        <div class="settings-row">
+          <div class="settings-row-content">
+            <div class="settings-row-title">Sound Storage Path</div>
+            <div class="settings-row-description">The folder where audio files for this server are stored</div>
+          </div>
+          <div class="readonly-field">
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            <code>/data/sounds/123456789012345678</code>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Limits Section -->
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <div class="settings-section-title">
+          <div class="settings-section-icon" style="background: var(--color-warning-bg); color: var(--color-warning);">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-text-primary">Limits</h2>
+            <p class="text-xs text-text-tertiary">Resource limits for audio files and storage</p>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section-body">
+        <!-- Max Duration -->
+        <div class="settings-row">
+          <div class="settings-row-content">
+            <div class="settings-row-title">Maximum Sound Duration</div>
+            <div class="settings-row-description">The maximum length allowed for uploaded sound files (1-300 seconds)</div>
+          </div>
+          <div class="input-with-unit">
+            <input type="number" id="maxDuration" value="30" min="1" max="300" />
+            <span class="input-unit">seconds</span>
+          </div>
+        </div>
+
+        <!-- Max File Size -->
+        <div class="settings-row">
+          <div class="settings-row-content">
+            <div class="settings-row-title">Maximum File Size</div>
+            <div class="settings-row-description">The maximum file size allowed for uploaded audio files (1-50 MB)</div>
+          </div>
+          <div class="input-with-unit">
+            <input type="number" id="maxFileSize" value="10" min="1" max="50" />
+            <span class="input-unit">MB</span>
+          </div>
+        </div>
+
+        <!-- Max Sounds Per Guild -->
+        <div class="settings-row">
+          <div class="settings-row-content">
+            <div class="settings-row-title">Maximum Sounds</div>
+            <div class="settings-row-description">The maximum number of sounds this server can store (1-500)</div>
+          </div>
+          <div class="input-with-unit">
+            <input type="number" id="maxSounds" value="100" min="1" max="500" />
+            <span class="input-unit">sounds</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Command Permissions Section -->
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <div class="settings-section-title">
+          <div class="settings-section-icon" style="background: var(--color-success-bg); color: var(--color-success);">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-lg font-semibold text-text-primary">Command Permissions</h2>
+            <p class="text-xs text-text-tertiary">Restrict audio commands to specific roles. Leave empty to allow everyone.</p>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section-body">
+        <!-- /join command -->
+        <div class="command-permission-card">
+          <div class="command-name">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+            /join
+          </div>
+          <p class="text-xs text-text-tertiary mb-3">Join a voice channel</p>
+          <div class="role-select" data-command="join">
+            <div class="role-select-trigger" tabindex="0" onclick="toggleRoleDropdown(this)">
+              <div class="role-tags" id="join-tags">
+                <span class="role-select-placeholder">Everyone can use this command</span>
+              </div>
+              <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            <div class="role-select-dropdown" id="join-dropdown">
+              <div class="role-select-option" onclick="toggleRole('join', 'admin', 'Admin', '#e74c3c')">
+                <span class="role-color" style="background: #e74c3c;"></span>
+                <span class="text-sm text-text-primary">Admin</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('join', 'moderator', 'Moderator', '#3498db')">
+                <span class="role-color" style="background: #3498db;"></span>
+                <span class="text-sm text-text-primary">Moderator</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('join', 'dj', 'DJ', '#9b59b6')">
+                <span class="role-color" style="background: #9b59b6;"></span>
+                <span class="text-sm text-text-primary">DJ</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('join', 'member', 'Member', '#2ecc71')">
+                <span class="role-color" style="background: #2ecc71;"></span>
+                <span class="text-sm text-text-primary">Member</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- /leave command -->
+        <div class="command-permission-card">
+          <div class="command-name">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+            /leave
+          </div>
+          <p class="text-xs text-text-tertiary mb-3">Leave the current voice channel</p>
+          <div class="role-select" data-command="leave">
+            <div class="role-select-trigger" tabindex="0" onclick="toggleRoleDropdown(this)">
+              <div class="role-tags" id="leave-tags">
+                <span class="role-select-placeholder">Everyone can use this command</span>
+              </div>
+              <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            <div class="role-select-dropdown" id="leave-dropdown">
+              <div class="role-select-option" onclick="toggleRole('leave', 'admin', 'Admin', '#e74c3c')">
+                <span class="role-color" style="background: #e74c3c;"></span>
+                <span class="text-sm text-text-primary">Admin</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('leave', 'moderator', 'Moderator', '#3498db')">
+                <span class="role-color" style="background: #3498db;"></span>
+                <span class="text-sm text-text-primary">Moderator</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('leave', 'dj', 'DJ', '#9b59b6')">
+                <span class="role-color" style="background: #9b59b6;"></span>
+                <span class="text-sm text-text-primary">DJ</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('leave', 'member', 'Member', '#2ecc71')">
+                <span class="role-color" style="background: #2ecc71;"></span>
+                <span class="text-sm text-text-primary">Member</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- /play command -->
+        <div class="command-permission-card">
+          <div class="command-name">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            /play
+          </div>
+          <p class="text-xs text-text-tertiary mb-3">Play a sound from the soundboard</p>
+          <div class="role-select" data-command="play">
+            <div class="role-select-trigger" tabindex="0" onclick="toggleRoleDropdown(this)">
+              <div class="role-tags" id="play-tags">
+                <div class="role-tag" style="background: rgba(155, 89, 182, 0.2); color: #9b59b6;">
+                  DJ
+                  <span class="role-tag-remove" onclick="removeRole(event, 'play', 'dj')" style="color: #9b59b6;">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </span>
+                </div>
+                <div class="role-tag" style="background: rgba(46, 204, 113, 0.2); color: #2ecc71;">
+                  Member
+                  <span class="role-tag-remove" onclick="removeRole(event, 'play', 'member')" style="color: #2ecc71;">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+              <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            <div class="role-select-dropdown" id="play-dropdown">
+              <div class="role-select-option" onclick="toggleRole('play', 'admin', 'Admin', '#e74c3c')">
+                <span class="role-color" style="background: #e74c3c;"></span>
+                <span class="text-sm text-text-primary">Admin</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('play', 'moderator', 'Moderator', '#3498db')">
+                <span class="role-color" style="background: #3498db;"></span>
+                <span class="text-sm text-text-primary">Moderator</span>
+              </div>
+              <div class="role-select-option selected" onclick="toggleRole('play', 'dj', 'DJ', '#9b59b6')">
+                <span class="role-color" style="background: #9b59b6;"></span>
+                <span class="text-sm text-text-primary">DJ</span>
+              </div>
+              <div class="role-select-option selected" onclick="toggleRole('play', 'member', 'Member', '#2ecc71')">
+                <span class="role-color" style="background: #2ecc71;"></span>
+                <span class="text-sm text-text-primary">Member</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- /sounds command -->
+        <div class="command-permission-card">
+          <div class="command-name">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            /sounds
+          </div>
+          <p class="text-xs text-text-tertiary mb-3">List available sounds in the soundboard</p>
+          <div class="role-select" data-command="sounds">
+            <div class="role-select-trigger" tabindex="0" onclick="toggleRoleDropdown(this)">
+              <div class="role-tags" id="sounds-tags">
+                <span class="role-select-placeholder">Everyone can use this command</span>
+              </div>
+              <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            <div class="role-select-dropdown" id="sounds-dropdown">
+              <div class="role-select-option" onclick="toggleRole('sounds', 'admin', 'Admin', '#e74c3c')">
+                <span class="role-color" style="background: #e74c3c;"></span>
+                <span class="text-sm text-text-primary">Admin</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('sounds', 'moderator', 'Moderator', '#3498db')">
+                <span class="role-color" style="background: #3498db;"></span>
+                <span class="text-sm text-text-primary">Moderator</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('sounds', 'dj', 'DJ', '#9b59b6')">
+                <span class="role-color" style="background: #9b59b6;"></span>
+                <span class="text-sm text-text-primary">DJ</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('sounds', 'member', 'Member', '#2ecc71')">
+                <span class="role-color" style="background: #2ecc71;"></span>
+                <span class="text-sm text-text-primary">Member</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- /stop command -->
+        <div class="command-permission-card">
+          <div class="command-name">
+            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+            </svg>
+            /stop
+          </div>
+          <p class="text-xs text-text-tertiary mb-3">Stop the currently playing sound and clear the queue</p>
+          <div class="role-select" data-command="stop">
+            <div class="role-select-trigger" tabindex="0" onclick="toggleRoleDropdown(this)">
+              <div class="role-tags" id="stop-tags">
+                <div class="role-tag" style="background: rgba(52, 152, 219, 0.2); color: #3498db;">
+                  Moderator
+                  <span class="role-tag-remove" onclick="removeRole(event, 'stop', 'moderator')" style="color: #3498db;">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </span>
+                </div>
+                <div class="role-tag" style="background: rgba(155, 89, 182, 0.2); color: #9b59b6;">
+                  DJ
+                  <span class="role-tag-remove" onclick="removeRole(event, 'stop', 'dj')" style="color: #9b59b6;">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </span>
+                </div>
+              </div>
+              <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            <div class="role-select-dropdown" id="stop-dropdown">
+              <div class="role-select-option" onclick="toggleRole('stop', 'admin', 'Admin', '#e74c3c')">
+                <span class="role-color" style="background: #e74c3c;"></span>
+                <span class="text-sm text-text-primary">Admin</span>
+              </div>
+              <div class="role-select-option selected" onclick="toggleRole('stop', 'moderator', 'Moderator', '#3498db')">
+                <span class="role-color" style="background: #3498db;"></span>
+                <span class="text-sm text-text-primary">Moderator</span>
+              </div>
+              <div class="role-select-option selected" onclick="toggleRole('stop', 'dj', 'DJ', '#9b59b6')">
+                <span class="role-color" style="background: #9b59b6;"></span>
+                <span class="text-sm text-text-primary">DJ</span>
+              </div>
+              <div class="role-select-option" onclick="toggleRole('stop', 'member', 'Member', '#2ecc71')">
+                <span class="role-color" style="background: #2ecc71;"></span>
+                <span class="text-sm text-text-primary">Member</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action Buttons -->
+    <div class="flex items-center justify-between pt-4">
+      <button type="button" class="btn-secondary" onclick="resetToDefaults()">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Reset to Defaults
+      </button>
+      <button type="button" class="btn-primary" onclick="saveSettings()">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        Save Settings
+      </button>
+    </div>
+  </main>
+
+  <!-- Success Toast -->
+  <div class="toast toast-success" id="successToast">
+    <div class="toast-icon">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+      </svg>
+    </div>
+    <div>
+      <p class="text-sm font-medium text-text-primary">Settings saved</p>
+      <p class="text-xs text-text-tertiary">Audio settings have been updated successfully.</p>
+    </div>
+  </div>
+
+  <script>
+    // Toggle role dropdown
+    function toggleRoleDropdown(trigger) {
+      const dropdown = trigger.nextElementSibling;
+      const isOpen = dropdown.classList.contains('open');
+
+      // Close all dropdowns first
+      document.querySelectorAll('.role-select-dropdown').forEach(d => d.classList.remove('open'));
+
+      if (!isOpen) {
+        dropdown.classList.add('open');
+      }
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.role-select')) {
+        document.querySelectorAll('.role-select-dropdown').forEach(d => d.classList.remove('open'));
+      }
+    });
+
+    // Toggle role selection (placeholder for demo)
+    function toggleRole(command, roleId, roleName, roleColor) {
+      console.log(`Toggle role ${roleName} for command ${command}`);
+      // In production, this would update the state and re-render the tags
+    }
+
+    // Remove role (placeholder for demo)
+    function removeRole(event, command, roleId) {
+      event.stopPropagation();
+      console.log(`Remove role ${roleId} from command ${command}`);
+      // In production, this would update the state and re-render the tags
+    }
+
+    // Toggle audio enabled
+    function toggleAudioEnabled(checkbox) {
+      const sections = document.querySelectorAll('.settings-section');
+      // Visual feedback would disable other sections when audio is disabled
+      console.log('Audio enabled:', checkbox.checked);
+    }
+
+    // Reset to defaults
+    function resetToDefaults() {
+      if (confirm('Are you sure you want to reset all audio settings to their default values?')) {
+        document.getElementById('autoLeaveTimeout').value = 5;
+        document.getElementById('maxDuration').value = 30;
+        document.getElementById('maxFileSize').value = 10;
+        document.getElementById('maxSounds').value = 100;
+        console.log('Settings reset to defaults');
+      }
+    }
+
+    // Save settings
+    function saveSettings() {
+      // Validate inputs
+      const autoLeave = parseInt(document.getElementById('autoLeaveTimeout').value);
+      const maxDuration = parseInt(document.getElementById('maxDuration').value);
+      const maxFileSize = parseInt(document.getElementById('maxFileSize').value);
+      const maxSounds = parseInt(document.getElementById('maxSounds').value);
+
+      let hasErrors = false;
+
+      // Validation checks
+      if (autoLeave < 0 || autoLeave > 60) {
+        document.getElementById('autoLeaveTimeout').classList.add('input-error');
+        hasErrors = true;
+      } else {
+        document.getElementById('autoLeaveTimeout').classList.remove('input-error');
+      }
+
+      if (maxDuration < 1 || maxDuration > 300) {
+        document.getElementById('maxDuration').classList.add('input-error');
+        hasErrors = true;
+      } else {
+        document.getElementById('maxDuration').classList.remove('input-error');
+      }
+
+      if (maxFileSize < 1 || maxFileSize > 50) {
+        document.getElementById('maxFileSize').classList.add('input-error');
+        hasErrors = true;
+      } else {
+        document.getElementById('maxFileSize').classList.remove('input-error');
+      }
+
+      if (maxSounds < 1 || maxSounds > 500) {
+        document.getElementById('maxSounds').classList.add('input-error');
+        hasErrors = true;
+      } else {
+        document.getElementById('maxSounds').classList.remove('input-error');
+      }
+
+      if (hasErrors) {
+        alert('Please fix the validation errors before saving.');
+        return;
+      }
+
+      // Show success toast
+      const toast = document.getElementById('successToast');
+      toast.classList.add('show');
+
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+
+      console.log('Settings saved:', {
+        autoLeaveTimeout: autoLeave,
+        maxDuration: maxDuration,
+        maxFileSize: maxFileSize,
+        maxSounds: maxSounds
+      });
+    }
+  </script>
+</body>
+</html>
