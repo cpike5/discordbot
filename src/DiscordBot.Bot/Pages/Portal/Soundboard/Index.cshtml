@@ -420,26 +420,28 @@
         color: #949ba4;
     }
 
-    .search-clear {
+    .search-clear-btn {
         position: absolute;
         right: 0.75rem;
         top: 50%;
         transform: translateY(-50%);
-        background: none;
+        background: transparent;
         border: none;
         cursor: pointer;
         padding: 0.25rem;
         color: #949ba4;
         transition: color 0.2s;
         display: none;
+        align-items: center;
+        justify-content: center;
     }
 
-    .search-clear:hover {
+    .search-clear-btn:hover {
         color: #dbdee1;
     }
 
-    .search-clear.visible {
-        display: block;
+    .search-clear-btn.visible {
+        display: flex;
     }
 
     /* Toast container for portal */
@@ -876,9 +878,9 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                     <input type="text" id="searchInput" class="search-input" placeholder="Search sounds..." style="padding-right: 2.5rem;">
-                    <button type="button" id="searchClear" class="search-clear" title="Clear search">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 18px; height: 18px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    <button type="button" id="searchClearBtn" class="search-clear-btn" title="Clear search">
+                        <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
@@ -1049,15 +1051,11 @@
         function setupEventHandlers() {
             // Search functionality with debounce
             const searchInput = document.getElementById('searchInput');
-            const searchClear = document.getElementById('searchClear');
+            const clearBtn = document.getElementById('searchClearBtn');
 
             searchInput.addEventListener('input', function() {
-                // Show/hide clear button
-                if (this.value.length > 0) {
-                    searchClear.classList.add('visible');
-                } else {
-                    searchClear.classList.remove('visible');
-                }
+                // Update clear button visibility
+                clearBtn.classList.toggle('visible', this.value.length > 0);
 
                 // Debounce search (150ms)
                 clearTimeout(searchDebounceTimer);
@@ -1069,10 +1067,10 @@
                 }
             });
 
-            // Search clear button
-            searchClear.addEventListener('click', function() {
+            // Clear search button
+            clearBtn.addEventListener('click', function() {
                 searchInput.value = '';
-                searchClear.classList.remove('visible');
+                clearBtn.classList.remove('visible');
                 filterSounds();
                 searchInput.focus();
             });
@@ -1268,7 +1266,7 @@
             joinBtn.disabled = true;
             joinBtn.innerHTML = '<svg class="animate-spin" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Joining...';
 
-            // Call API to join channel (correct endpoint: POST /channel with body)
+            // Call API to join channel (POST /channel with body)
             fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
                 method: 'POST',
                 headers: {
@@ -1314,7 +1312,7 @@
             leaveBtn.disabled = true;
             leaveBtn.innerHTML = '<svg class="animate-spin" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Leaving...';
 
-            // Call API to leave channel (correct endpoint: DELETE /channel)
+            // Call API to leave channel (DELETE /channel)
             fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
                 method: 'DELETE',
                 headers: {
@@ -1414,14 +1412,13 @@
                 // Get sound name from file (without extension)
                 const soundName = file.name.replace(/\.[^/.]+$/, '');
 
-                // Upload file
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('name', soundName);
 
                 PortalToast.info(`Uploading ${file.name}...`, 10000);
 
-                // Upload to correct endpoint: POST /sounds
+                // Upload file (POST /sounds)
                 fetch(`/api/portal/soundboard/${window.guildId}/sounds`, {
                     method: 'POST',
                     body: formData

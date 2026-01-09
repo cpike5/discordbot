@@ -489,6 +489,37 @@ public class PortalSoundboardController : ControllerBase
     }
 
     /// <summary>
+    /// Stops the currently playing sound in the guild.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Success status.</returns>
+    [HttpPost("stop")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> StopPlayback(ulong guildId, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Stop playback request for guild {GuildId}", guildId);
+
+        if (!_audioService.IsConnected(guildId))
+        {
+            _logger.LogDebug("Not connected to voice in guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Not connected to voice",
+                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        await _playbackService.StopAsync(guildId, cancellationToken);
+
+        _logger.LogInformation("Successfully stopped playback in guild {GuildId}", guildId);
+        return Ok(new { Message = "Playback stopped" });
+    }
+
+    /// <summary>
     /// Gets the bot's current connection status and now playing information.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>

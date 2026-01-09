@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -37,6 +38,16 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
         AuthorizationHandlerContext context,
         PortalGuildMemberRequirement requirement)
     {
+        // SuperAdmins and Admins bypass portal guild membership checks
+        // They need access to manage any guild's portal
+        if (context.User.IsInRole(IdentitySeeder.Roles.SuperAdmin) ||
+            context.User.IsInRole(IdentitySeeder.Roles.Admin))
+        {
+            _logger.LogDebug("PortalGuildMember: Admin user granted portal access");
+            context.Succeed(requirement);
+            return;
+        }
+
         var httpContext = _httpContextAccessor.HttpContext;
         if (httpContext == null)
         {

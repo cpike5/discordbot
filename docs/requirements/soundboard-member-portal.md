@@ -61,11 +61,22 @@ Provide guild members with a simple, standalone web portal to play sounds, uploa
 - Displayed on sound cards
 
 ### 8. Discord OAuth Authentication
-- Unauthenticated users redirected to Discord OAuth
+- Unauthenticated users see a landing page before OAuth redirect
 - Access granted only to verified guild members
 - Dependency on issues #861 / #905 for guild membership verification
 
-### 9. Admin Toggle
+### 9. Unauthenticated Landing Page
+- Displayed when user visits portal without being logged in
+- Shows guild icon and guild name (from cached guild data)
+- Brief explanation: "To access this soundboard, we need to verify you're a member of this server"
+- Login button that triggers Discord OAuth flow
+- Permission notice: "We'll request access to see your server memberships"
+- Returns 404 if guild not found or portal not enabled (don't reveal which)
+- After successful OAuth, redirects back to the portal page
+- Dark theme matching the rest of the portal
+- Soundboard-specific for now (not a shared pattern)
+
+### 10. Admin Toggle
 - Guild admins can enable/disable the member portal in guild settings
 - When disabled, portal returns 404 or access denied for that guild
 
@@ -189,6 +200,9 @@ Based on mockup, three-column layout on desktop:
 | Admin control | Toggle in guild settings | Gives guilds control over feature availability |
 | Queue | No queue, just "Now Playing" | Keeps MVP simple, queue can be added later |
 | Play counts | Display on cards | Shows engagement, already in mockup |
+| Unauthenticated flow | Landing page before OAuth | Better UX than immediate redirect, explains permissions needed |
+| Landing page scope | Soundboard-specific | Keep it simple for MVP, can extract shared pattern later |
+| Guild not found | Return 404 | Don't reveal whether guild exists or portal is disabled |
 
 ## Mockup Reference
 

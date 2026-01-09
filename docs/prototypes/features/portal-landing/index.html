@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify Your Membership</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #1d2022;
+      color: #d7d3d0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .card {
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .guild-icon {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 1.5rem;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #cb4e1b 0%, #e5591f 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      border: 2px solid #3f4447;
+      box-shadow: 0 4px 12px rgba(203, 78, 27, 0.3);
+    }
+
+    .guild-name {
+      font-size: 1.75rem;
+      font-weight: 600;
+      color: #dbdee1;
+      margin-bottom: 0.5rem;
+      word-wrap: break-word;
+      word-break: break-word;
+    }
+
+    .portal-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: #cb4e1b;
+      background-color: rgba(203, 78, 27, 0.1);
+      border: 1px solid rgba(203, 78, 27, 0.3);
+      padding: 0.375rem 0.75rem;
+      border-radius: 999px;
+      margin-bottom: 1.5rem;
+    }
+
+    .description {
+      font-size: 1rem;
+      color: #d7d3d0;
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+
+    .description-highlight {
+      color: #cb4e1b;
+      font-weight: 500;
+    }
+
+    .discord-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      width: 100%;
+      padding: 0.875rem 1.5rem;
+      background-color: #5865F2;
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-decoration: none;
+      margin-bottom: 1.5rem;
+    }
+
+    .discord-button:hover {
+      background-color: #4752C4;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+    }
+
+    .discord-button:active {
+      transform: translateY(0);
+    }
+
+    .discord-logo {
+      width: 20px;
+      height: 20px;
+    }
+
+    .permissions-notice {
+      background-color: #1a1d23;
+      border: 1px solid #3f4447;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      text-align: left;
+    }
+
+    .permissions-notice-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .permissions-notice-text {
+      font-size: 0.813rem;
+      color: #a8a5a3;
+      line-height: 1.5;
+    }
+
+    .permissions-notice-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .permissions-notice-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .permission-icon {
+      color: #cb4e1b;
+      font-weight: bold;
+      flex-shrink: 0;
+      margin-top: 0.125rem;
+    }
+
+    .footer-text {
+      font-size: 0.813rem;
+      color: #a8a5a3;
+      line-height: 1.5;
+    }
+
+    .footer-text a {
+      color: #cb4e1b;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-text a:hover {
+      color: #e5591f;
+      text-decoration: underline;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 480px) {
+      body {
+        padding: 1rem;
+      }
+
+      .card {
+        padding: 2rem 1.5rem;
+      }
+
+      .guild-icon {
+        width: 100px;
+        height: 100px;
+        font-size: 2.5rem;
+      }
+
+      .guild-name {
+        font-size: 1.5rem;
+        margin-bottom: 0.375rem;
+      }
+
+      .description {
+        font-size: 0.9375rem;
+        margin-bottom: 1.25rem;
+      }
+
+      .discord-button {
+        padding: 0.75rem 1.25rem;
+        font-size: 0.9375rem;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .card {
+        padding: 1.5rem 1.25rem;
+      }
+
+      .guild-icon {
+        width: 80px;
+        height: 80px;
+        font-size: 2rem;
+        margin-bottom: 1rem;
+      }
+
+      .guild-name {
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .portal-badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.625rem;
+      }
+
+      .description {
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+      }
+
+      .permissions-notice {
+        padding: 0.75rem;
+      }
+
+      .permissions-notice-title {
+        font-size: 0.75rem;
+      }
+
+      .permissions-notice-text {
+        font-size: 0.75rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <!-- Guild Icon -->
+      <div class="guild-icon">🎮</div>
+
+      <!-- Guild Name -->
+      <h1 class="guild-name">Gaming Community</h1>
+
+      <!-- Portal Badge -->
+      <span class="portal-badge">Soundboard Portal</span>
+
+      <!-- Description -->
+      <p class="description">
+        To access this soundboard, we need to verify you're a member of <span class="description-highlight">this server</span>
+      </p>
+
+      <!-- Discord Login Button -->
+      <button class="discord-button" onclick="handleDiscordLogin()">
+        <svg class="discord-logo" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M20.222 3.127c-1.763-.997-3.636-1.738-5.667-2.122-.24.414-.461.879-.645 1.378a16.733 16.733 0 0 0-5.06 0c-.184-.499-.405-.964-.645-1.378-2.031.384-3.905 1.125-5.667 2.122C2.282 5.897 1.646 8.605 1.977 11.259c1.327 1.605 3.283 2.83 5.523 3.379-.368.651-.744 1.288-1.148 1.891-2.041-.656-3.787-1.95-4.885-3.656-.483-.786-.179-1.808.604-2.292.783-.484 1.81-.179 2.293.604 1.045 1.694 2.91 2.97 5.027 2.97.429 0 .856-.034 1.279-.1-.122 2.409 1.771 4.462 4.181 4.462.859 0 1.671-.201 2.391-.556 1.395-.787 2.207-2.186 2.207-3.686 0-1.081-.451-2.082-1.2-2.793.548-.179 1.079-.43 1.579-.743 1.018-.636 1.854-1.553 2.407-2.628.553-1.075.83-2.304.83-3.574 0-2.654-1.636-4.928-3.778-5.872zm-7.222 12.748c-1.197 0-2.178-.982-2.178-2.178 0-1.197.982-2.178 2.178-2.178 1.197 0 2.178.982 2.178 2.178 0 1.196-.982 2.178-2.178 2.178zm8.889 0c-1.197 0-2.178-.982-2.178-2.178 0-1.197.982-2.178 2.178-2.178 1.197 0 2.178.982 2.178 2.178 0 1.196-.982 2.178-2.178 2.178z"/>
+        </svg>
+        Login with Discord
+      </button>
+
+      <!-- Permissions Notice -->
+      <div class="permissions-notice">
+        <div class="permissions-notice-title">What we'll request</div>
+        <div class="permissions-notice-text">
+          <div class="permissions-notice-item">
+            <span class="permission-icon">✓</span>
+            <span>Access to see your server memberships</span>
+          </div>
+          <div class="permissions-notice-item">
+            <span class="permission-icon">✓</span>
+            <span>Your Discord username and avatar</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <p class="footer-text">
+        By logging in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    function handleDiscordLogin() {
+      // In production, this would redirect to:
+      // /api/oauth/login?returnUrl=/portal/soundboard/{guildId}
+      console.log('Redirecting to Discord OAuth...');
+      alert('In production, this would redirect to Discord OAuth login');
+    }
+  </script>
+</body>
+</html>
