@@ -6,6 +6,7 @@ using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
@@ -18,7 +19,7 @@ namespace DiscordBot.Bot.Services;
 public class PlaybackService : IPlaybackService
 {
     private readonly IAudioService _audioService;
-    private readonly ISoundService _soundService;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<PlaybackService> _logger;
     private readonly SoundboardOptions _options;
 
@@ -32,17 +33,17 @@ public class PlaybackService : IPlaybackService
     /// Initializes a new instance of the <see cref="PlaybackService"/> class.
     /// </summary>
     /// <param name="audioService">The audio service for voice connections.</param>
-    /// <param name="soundService">The sound service for play count tracking.</param>
+    /// <param name="serviceScopeFactory">The service scope factory for resolving scoped services.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="options">Soundboard configuration options.</param>
     public PlaybackService(
         IAudioService audioService,
-        ISoundService soundService,
+        IServiceScopeFactory serviceScopeFactory,
         ILogger<PlaybackService> logger,
         IOptions<SoundboardOptions> options)
     {
         _audioService = audioService;
-        _soundService = soundService;
+        _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
         _options = options.Value;
     }
@@ -318,8 +319,12 @@ public class PlaybackService : IPlaybackService
             activity?.SetTag("sound.name", sound.Name);
             activity?.SetTag("sound.file_path", filePath);
 
-            // Update play count
-            await _soundService.IncrementPlayCountAsync(sound.Id, cancellationToken);
+            // Update play count (use scoped service)
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var soundService = scope.ServiceProvider.GetRequiredService<ISoundService>();
+                await soundService.IncrementPlayCountAsync(sound.Id, cancellationToken);
+            }
 
             // Update last activity on voice connection
             _audioService.UpdateLastActivity(guildId);
