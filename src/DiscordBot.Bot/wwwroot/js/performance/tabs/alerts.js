@@ -167,6 +167,142 @@
         }
     };
 
+    // Expose acknowledge incident function globally for onclick handler
+    window.acknowledgeIncident = async function(incidentId) {
+        const btn = document.querySelector(`[data-incident-id="${incidentId}"] .acknowledge-btn`);
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Acknowledging...';
+        }
+
+        try {
+            const response = await fetch(`/api/alerts/incidents/${incidentId}/acknowledge`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ notes: '' })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Failed to acknowledge: ${response.status}`);
+            }
+
+            // UI will be updated via SignalR broadcast, but update immediately for responsiveness
+            const row = document.querySelector(`[data-incident-id="${incidentId}"]`);
+            if (row) {
+                // Remove the action button
+                const actionsDiv = row.querySelector('.alert-actions');
+                if (actionsDiv) {
+                    actionsDiv.remove();
+                }
+
+                // Add acknowledged badge
+                const metaDiv = row.querySelector('.alert-meta');
+                if (metaDiv) {
+                    const severityBadge = metaDiv.querySelector('.severity-badge');
+                    if (severityBadge) {
+                        const ackBadge = document.createElement('span');
+                        ackBadge.className = 'status-badge status-badge-secondary';
+                        ackBadge.textContent = 'Acknowledged';
+                        severityBadge.insertAdjacentElement('afterend', ackBadge);
+                    }
+                }
+            }
+
+            // Show success toast
+            if (typeof Toast !== 'undefined' && Toast.success) {
+                Toast.success('Incident acknowledged successfully');
+            }
+        } catch (error) {
+            console.error('[Alerts] Failed to acknowledge incident:', error);
+
+            // Re-enable button on error
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Acknowledge';
+            }
+
+            // Show error toast
+            if (typeof Toast !== 'undefined' && Toast.error) {
+                Toast.error(error.message || 'Failed to acknowledge incident');
+            } else {
+                alert(error.message || 'Failed to acknowledge incident');
+            }
+        }
+    };
+
+    // Expose acknowledge all incidents function globally for onclick handler
+    window.acknowledgeAllIncidents = async function() {
+        const btn = document.getElementById('acknowledgeAllBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Acknowledging...';
+        }
+
+        try {
+            const response = await fetch('/api/alerts/incidents/acknowledge-all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `Failed to acknowledge all: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            // UI will be updated via SignalR broadcast, but update immediately for responsiveness
+            document.querySelectorAll('[data-incident-id]').forEach(row => {
+                const actionsDiv = row.querySelector('.alert-actions');
+                if (actionsDiv) {
+                    actionsDiv.remove();
+                }
+
+                const metaDiv = row.querySelector('.alert-meta');
+                if (metaDiv && !metaDiv.querySelector('.status-badge-secondary')) {
+                    const severityBadge = metaDiv.querySelector('.severity-badge');
+                    if (severityBadge) {
+                        const ackBadge = document.createElement('span');
+                        ackBadge.className = 'status-badge status-badge-secondary';
+                        ackBadge.textContent = 'Acknowledged';
+                        severityBadge.insertAdjacentElement('afterend', ackBadge);
+                    }
+                }
+            });
+
+            // Hide the "Acknowledge All" button
+            if (btn) {
+                btn.style.display = 'none';
+            }
+
+            // Show success toast
+            const count = result.acknowledgedCount || 0;
+            if (typeof Toast !== 'undefined' && Toast.success) {
+                Toast.success(`Acknowledged ${count} incident${count !== 1 ? 's' : ''} successfully`);
+            }
+        } catch (error) {
+            console.error('[Alerts] Failed to acknowledge all incidents:', error);
+
+            // Re-enable button on error
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Acknowledge All';
+            }
+
+            // Show error toast
+            if (typeof Toast !== 'undefined' && Toast.error) {
+                Toast.error(error.message || 'Failed to acknowledge incidents');
+            } else {
+                alert(error.message || 'Failed to acknowledge incidents');
+            }
+        }
+    };
+
     function initAlertFrequencyChart() {
         const ctx = document.getElementById('alertsFrequencyChart');
         if (!ctx) return;
