@@ -1,3 +1,6 @@
+using Discord.WebSocket;
+using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -18,6 +21,8 @@ public class IndexModel : PageModel
     private readonly ISoundFileService _soundFileService;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
     private readonly IGuildService _guildService;
+    private readonly DiscordSocketClient _discordClient;
+    private readonly IAudioService _audioService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -25,12 +30,16 @@ public class IndexModel : PageModel
         ISoundFileService soundFileService,
         IGuildAudioSettingsRepository audioSettingsRepository,
         IGuildService guildService,
+        DiscordSocketClient discordClient,
+        IAudioService audioService,
         ILogger<IndexModel> logger)
     {
         _soundService = soundService;
         _soundFileService = soundFileService;
         _audioSettingsRepository = audioSettingsRepository;
         _guildService = guildService;
+        _discordClient = discordClient;
+        _audioService = audioService;
         _logger = logger;
     }
 
@@ -38,6 +47,11 @@ public class IndexModel : PageModel
     /// View model for display properties.
     /// </summary>
     public SoundboardIndexViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// View model for the voice channel control panel.
+    /// </summary>
+    public VoiceChannelPanelViewModel VoiceChannelPanel { get; set; } = null!;
 
     /// <summary>
     /// Success message from TempData.
@@ -89,12 +103,19 @@ public class IndexModel : PageModel
                 sounds,
                 settings);
 
+            // Build voice channel panel view model
+            VoiceChannelPanel = BuildVoiceChannelPanelViewModel(guildId);
+
             return Page();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load Soundboard page for guild {GuildId}", guildId);
             ErrorMessage = "Failed to load soundboard. Please try again.";
+
+            // Set fallback voice channel panel
+            VoiceChannelPanel = new VoiceChannelPanelViewModel { GuildId = guildId };
+
             return Page();
         }
     }
@@ -439,5 +460,56 @@ public class IndexModel : PageModel
             ErrorMessage = "An error occurred while renaming the sound. Please try again.";
             return RedirectToPage("Index", new { guildId });
         }
+    }
+
+    /// <summary>
+    /// Builds the voice channel panel view model with current connection status and available channels.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <returns>The voice channel panel view model.</returns>
+    private VoiceChannelPanelViewModel BuildVoiceChannelPanelViewModel(ulong guildId)
+    {
+        var socketGuild = _discordClient.GetGuild(guildId);
+        var isConnected = _audioService.IsConnected(guildId);
+        var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
+
+        // Build available channels list
+        var availableChannels = new List<VoiceChannelInfo>();
+        if (socketGuild != null)
+        {
+            foreach (var channel in socketGuild.VoiceChannels.Where(c => c != null).OrderBy(c => c.Position))
+            {
+                availableChannels.Add(new VoiceChannelInfo
+                {
+                    Id = channel.Id,
+                    Name = channel.Name,
+                    MemberCount = channel.ConnectedUsers.Count
+                });
+            }
+        }
+
+        // Get connected channel info if connected
+        string? connectedChannelName = null;
+        int? channelMemberCount = null;
+        if (isConnected && connectedChannelId.HasValue && socketGuild != null)
+        {
+            var connectedChannel = socketGuild.GetVoiceChannel(connectedChannelId.Value);
+            if (connectedChannel != null)
+            {
+                connectedChannelName = connectedChannel.Name;
+                channelMemberCount = connectedChannel.ConnectedUsers.Count;
+            }
+        }
+
+        return new VoiceChannelPanelViewModel
+        {
+            GuildId = guildId,
+            IsConnected = isConnected,
+            ConnectedChannelId = connectedChannelId,
+            ConnectedChannelName = connectedChannelName,
+            ChannelMemberCount = channelMemberCount,
+            AvailableChannels = availableChannels
+            // NowPlaying and Queue will be populated via SignalR in real-time
+        };
     }
 }

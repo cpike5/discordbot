@@ -1,0 +1,194 @@
+@model DiscordBot.Bot.ViewModels.Components.VoiceChannelPanelViewModel
+@{
+    var statusClass = Model.IsConnected ? "text-success" : "text-text-tertiary";
+    var statusText = Model.IsConnected ? "Connected" : "Disconnected";
+    var statusBgClass = Model.IsConnected ? "bg-success/20" : "bg-bg-tertiary";
+}
+
+<div id="voice-channel-panel"
+     class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden"
+     data-guild-id="@Model.GuildId"
+     data-connected="@Model.IsConnected.ToString().ToLower()"
+     data-channel-id="@Model.ConnectedChannelId">
+
+    <!-- Voice Channel Status Section -->
+    <div class="px-4 py-3 border-b border-border-primary">
+        <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-semibold text-text-primary">Voice Channel</h3>
+            <span id="connection-status-badge"
+                  class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full @statusBgClass @statusClass">
+                <span id="connection-status-dot" class="w-1.5 h-1.5 rounded-full @(Model.IsConnected ? "bg-success" : "bg-text-tertiary")"></span>
+                <span id="connection-status-text">@statusText</span>
+            </span>
+        </div>
+        @if (Model.IsConnected && !string.IsNullOrEmpty(Model.ConnectedChannelName))
+        {
+            <p id="connected-channel-info" class="text-sm text-text-secondary flex items-center gap-2">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <span id="connected-channel-name">@Model.ConnectedChannelName</span>
+                @if (Model.ChannelMemberCount.HasValue)
+                {
+                    <span class="text-text-tertiary">(<span id="channel-member-count">@Model.ChannelMemberCount</span> members)</span>
+                }
+            </p>
+        }
+        else
+        {
+            <p id="connected-channel-info" class="hidden text-sm text-text-secondary flex items-center gap-2">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                <span id="connected-channel-name"></span>
+                <span class="text-text-tertiary">(<span id="channel-member-count">0</span> members)</span>
+            </p>
+        }
+    </div>
+
+    <!-- Channel Control Section -->
+    <div class="px-4 py-3 border-b border-border-primary">
+        <label for="channel-selector" class="block text-xs font-medium text-text-secondary mb-1.5">
+            Select Channel
+        </label>
+        <div class="flex items-center gap-2">
+            <select id="channel-selector"
+                    class="flex-1 bg-bg-tertiary border border-border-primary rounded-md px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent">
+                <option value="">-- Select a channel --</option>
+                @foreach (var channel in Model.AvailableChannels)
+                {
+                    if (channel.Id == Model.ConnectedChannelId)
+                    {
+                        <option value="@channel.Id" selected>
+                            @channel.Name (@channel.MemberCount)
+                        </option>
+                    }
+                    else
+                    {
+                        <option value="@channel.Id">
+                            @channel.Name (@channel.MemberCount)
+                        </option>
+                    }
+                }
+            </select>
+            @if (Model.IsConnected)
+            {
+                <button id="leave-channel-btn"
+                        type="button"
+                        class="px-3 py-1.5 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-1.5"
+                        title="Leave voice channel">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Leave
+                </button>
+            }
+            else
+            {
+                <button id="leave-channel-btn"
+                        type="button"
+                        class="hidden px-3 py-1.5 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-1.5"
+                        title="Leave voice channel">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Leave
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Now Playing Section -->
+    <div id="now-playing-section" class="px-4 py-3 border-b border-border-primary @(Model.NowPlaying == null ? "hidden" : "")">
+        <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-medium text-text-secondary uppercase tracking-wider">Now Playing</h4>
+            <button id="stop-playback-btn"
+                    type="button"
+                    class="p-1 text-error hover:bg-error/10 rounded transition-colors"
+                    title="Stop playback">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 6h12v12H6z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue flex-shrink-0">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p id="now-playing-name" class="text-sm font-medium text-text-primary truncate">
+                    @(Model.NowPlaying?.Name ?? "Nothing playing")
+                </p>
+                <div class="mt-1.5">
+                    <div class="w-full bg-bg-tertiary rounded-full h-1.5">
+                        <div id="now-playing-progress"
+                             class="bg-accent-blue h-1.5 rounded-full transition-all duration-300"
+                             style="width: @(Model.NowPlaying?.ProgressPercent ?? 0)%"></div>
+                    </div>
+                    <div class="flex justify-between mt-1 text-xs text-text-tertiary">
+                        <span id="now-playing-position">@FormatDuration(Model.NowPlaying?.PositionSeconds ?? 0)</span>
+                        <span id="now-playing-duration">@FormatDuration(Model.NowPlaying?.DurationSeconds ?? 0)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Queue Section -->
+    <div class="px-4 py-3">
+        <div class="flex items-center justify-between mb-3">
+            <h4 class="text-xs font-medium text-text-secondary uppercase tracking-wider">Queue</h4>
+            <span id="queue-count-badge" class="text-xs text-text-tertiary">
+                @(Model.QueueCount > 0 ? $"{Model.QueueCount} sound{(Model.QueueCount == 1 ? "" : "s")}" : "Empty")
+            </span>
+        </div>
+
+        @if (Model.Queue.Any())
+        {
+            <ul id="queue-list" class="space-y-2">
+                @foreach (var item in Model.Queue)
+                {
+                    <li class="flex items-center gap-3 p-2 bg-bg-tertiary rounded-lg group" data-queue-position="@item.Position">
+                        <span class="w-5 h-5 flex items-center justify-center text-xs text-text-tertiary font-medium">
+                            @item.Position
+                        </span>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-text-primary truncate">@item.Name</p>
+                            <p class="text-xs text-text-tertiary">@item.DurationFormatted</p>
+                        </div>
+                        <button type="button"
+                                class="skip-queue-btn p-1 text-text-tertiary hover:text-accent-blue opacity-0 group-hover:opacity-100 transition-all"
+                                data-position="@item.Position"
+                                title="Skip to next">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                            </svg>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <div id="queue-empty-state" class="text-center py-4">
+                <svg class="w-8 h-8 text-text-tertiary mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <p class="text-sm text-text-tertiary">No sounds in queue</p>
+            </div>
+            <ul id="queue-list" class="hidden space-y-2"></ul>
+        }
+    </div>
+</div>
+
+@functions {
+    private static string FormatDuration(double seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.TotalHours >= 1
+            ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}"
+            : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+}

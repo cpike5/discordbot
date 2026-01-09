@@ -282,6 +282,9 @@
         <!-- Right Sidebar (30%) -->
         <div class="lg:col-span-3 space-y-6">
 
+            <!-- Voice Channel Control Panel -->
+            <partial name="Shared/Components/_VoiceChannelPanel" model="Model.VoiceChannelPanel" />
+
             <!-- Upload Sounds Section -->
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
                 <h3 class="text-sm font-semibold text-text-primary mb-1">Upload Sounds</h3>
@@ -419,6 +422,11 @@
 </div>
 
 @section Scripts {
+    <!-- SignalR and Voice Channel Panel scripts -->
+    <script src="~/lib/signalr/dist/browser/signalr.min.js"></script>
+    <script src="~/js/dashboard-hub.js"></script>
+    <script src="~/js/voice-channel-panel.js"></script>
+
     <style>
         .sound-row .row-actions {
             opacity: 0;
@@ -532,5 +540,15 @@
                 document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
             }
         });
+
+        // Initialize SignalR connection for real-time updates
+        (async function initializeRealtime() {
+            try {
+                await DashboardHub.connect();
+                console.log('[Soundboard] SignalR connected');
+            } catch (error) {
+                console.error('[Soundboard] Failed to connect SignalR:', error);
+            }
+        })();
     </script>
 }
