@@ -46,6 +46,9 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<PerformanceAlertConfig> PerformanceAlertConfigs => Set<PerformanceAlertConfig>();
     public DbSet<PerformanceIncident> PerformanceIncidents => Set<PerformanceIncident>();
     public DbSet<MetricSnapshot> MetricSnapshots => Set<MetricSnapshot>();
+    public DbSet<Sound> Sounds => Set<Sound>();
+    public DbSet<GuildAudioSettings> GuildAudioSettings => Set<GuildAudioSettings>();
+    public DbSet<CommandRoleRestriction> CommandRoleRestrictions => Set<CommandRoleRestriction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

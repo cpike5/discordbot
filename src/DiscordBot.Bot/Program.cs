@@ -2,6 +2,7 @@ using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
@@ -324,6 +325,19 @@ try
     builder.Services.AddScoped<IReminderService, ReminderService>();
     builder.Services.AddHostedService<ReminderExecutionService>();
 
+    // Add Soundboard services
+    builder.Services.Configure<SoundboardOptions>(
+        builder.Configuration.GetSection(SoundboardOptions.SectionName));
+    builder.Services.AddScoped<ISoundService, SoundService>();
+    builder.Services.AddScoped<ISoundFileService, SoundFileService>();
+    builder.Services.AddScoped<IGuildAudioSettingsService, GuildAudioSettingsService>();
+
+    // Add Voice Channel services
+    builder.Services.Configure<VoiceChannelOptions>(
+        builder.Configuration.GetSection(VoiceChannelOptions.SectionName));
+    builder.Services.AddSingleton<IAudioService, AudioService>();
+    builder.Services.AddHostedService<VoiceAutoLeaveService>();
+
     // Add Analytics Aggregation services
     builder.Services.Configure<AnalyticsRetentionOptions>(
         builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName));
@@ -335,10 +349,6 @@ try
     // Add Historical Metrics configuration
     builder.Services.Configure<HistoricalMetricsOptions>(
         builder.Configuration.GetSection(HistoricalMetricsOptions.SectionName));
-
-    // Add Soundboard configuration (audio services added when implemented)
-    builder.Services.Configure<SoundboardOptions>(
-        builder.Configuration.GetSection(SoundboardOptions.SectionName));
 
     // Add Moderation services (includes detection services and handlers)
     builder.Services.AddModerationServices(builder.Configuration);

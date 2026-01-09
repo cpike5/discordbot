@@ -68,6 +68,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGuildMetricsRepository, GuildMetricsRepository>();
         services.AddScoped<IPerformanceAlertRepository, PerformanceAlertRepository>();
         services.AddScoped<IMetricSnapshotRepository, MetricSnapshotRepository>();
+        services.AddScoped<ISoundRepository, SoundRepository>();
+        services.AddScoped<IGuildAudioSettingsRepository, GuildAudioSettingsRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests
