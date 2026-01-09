@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soundboard - Guild Member Portal</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* ========================================
+       PAGE-SPECIFIC STYLES
+       ======================================== */
+
+    /* Header Styles */
+    .portal-header {
+      background-color: var(--color-bg-secondary);
+      border-bottom: 1px solid var(--color-border-primary);
+      padding: var(--space-6) var(--space-8);
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+    }
+
+    .speaker-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--color-accent-orange);
+      border-radius: var(--radius-lg);
+      color: white;
+      font-size: 1.25rem;
+    }
+
+    .header-titles h1 {
+      font-size: var(--text-2xl);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin: 0;
+      line-height: var(--leading-tight);
+    }
+
+    .header-titles p {
+      font-size: var(--text-sm);
+      color: var(--color-text-secondary);
+      margin: var(--space-2) 0 0 0;
+      line-height: var(--leading-tight);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      background-color: var(--color-bg-tertiary);
+      border-radius: var(--radius-lg);
+      font-size: var(--text-sm);
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-border-primary);
+    }
+
+    .status-indicator {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-online {
+      background-color: var(--color-success);
+    }
+
+    .status-offline {
+      background-color: var(--color-error);
+    }
+
+    /* Main Layout */
+    .portal-main {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: var(--space-8);
+      padding: var(--space-8);
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .sounds-panel {
+      min-height: 400px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin-bottom: var(--space-6);
+    }
+
+    .panel-header h2 {
+      font-size: var(--text-xl);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+
+    .count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 2rem;
+      height: 2rem;
+      padding: 0 var(--space-3);
+      background-color: var(--color-accent-orange);
+      color: white;
+      border-radius: var(--radius-lg);
+      font-size: var(--text-sm);
+      font-weight: 600;
+    }
+
+    /* Search Bar */
+    .search-container {
+      margin-bottom: var(--space-6);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: var(--space-3) var(--space-4);
+      background-color: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      color: var(--color-text-primary);
+      font-size: var(--text-sm);
+      transition: border-color var(--transition-fast), background-color var(--transition-fast);
+    }
+
+    .search-input::placeholder {
+      color: var(--color-text-tertiary);
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+      background-color: var(--color-bg-secondary);
+    }
+
+    /* Sound Grid */
+    .sounds-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-4);
+    }
+
+    .sound-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      transition: all var(--transition-fast);
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .sound-card:hover {
+      background-color: var(--color-bg-hover);
+      border-color: var(--color-accent-orange);
+      transform: translateY(-2px);
+    }
+
+    .sound-card.favorite {
+      border-color: var(--color-accent-orange);
+      background-color: rgba(203, 78, 27, 0.08);
+    }
+
+    .sound-card:active {
+      transform: translateY(0);
+    }
+
+    .play-button {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 50%;
+      background-color: var(--color-accent-orange);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .play-button:hover {
+      background-color: var(--color-accent-orange-hover);
+      transform: scale(1.08);
+    }
+
+    .play-button:active {
+      background-color: var(--color-accent-orange-active);
+      transform: scale(0.96);
+    }
+
+    .play-icon {
+      width: 0;
+      height: 0;
+      border-left: 0.75rem solid white;
+      border-top: 0.5rem solid transparent;
+      border-bottom: 0.5rem solid transparent;
+      margin-left: 0.15rem;
+    }
+
+    .sound-name {
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--color-text-primary);
+      margin: 0;
+      word-break: break-word;
+    }
+
+    .sound-meta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      width: 100%;
+      font-size: var(--text-xs);
+      color: var(--color-text-secondary);
+    }
+
+    .play-count {
+      padding: 0 var(--space-2);
+    }
+
+    .favorite-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      font-size: 1.25rem;
+      transition: all var(--transition-fast);
+      flex-shrink: 0;
+    }
+
+    .favorite-button:hover {
+      transform: scale(1.2);
+    }
+
+    .favorite-button.active {
+      color: var(--color-accent-orange);
+    }
+
+    /* Right Sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+
+    .sidebar-panel {
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+    }
+
+    /* Voice Channel Panel */
+    .voice-panel {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .voice-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--space-3);
+    }
+
+    .voice-header h3 {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+
+    .connection-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      background-color: var(--color-bg-tertiary);
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      border: 1px solid var(--color-border-primary);
+    }
+
+    .connection-badge.connected {
+      color: var(--color-success);
+      background-color: rgba(16, 185, 129, 0.1);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+
+    .connection-dot {
+      width: 0.375rem;
+      height: 0.375rem;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .dot-connected {
+      background-color: var(--color-success);
+    }
+
+    .dot-disconnected {
+      background-color: var(--color-text-tertiary);
+    }
+
+    .channel-select {
+      width: 100%;
+      padding: var(--space-3) var(--space-4);
+      background-color: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      color: var(--color-text-primary);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23a8a5a3' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right var(--space-3) center;
+      padding-right: var(--space-10);
+    }
+
+    .channel-select:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+      background-color: var(--color-bg-secondary);
+    }
+
+    .channel-select option {
+      background-color: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
+    }
+
+    /* Now Playing Section */
+    .now-playing {
+      margin-top: var(--space-4);
+      padding-top: var(--space-4);
+      border-top: 1px solid var(--color-border-primary);
+    }
+
+    .now-playing h4 {
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      margin: 0 0 var(--space-3) 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .now-playing-content {
+      min-height: 2.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--color-bg-tertiary);
+      border-radius: var(--radius-lg);
+      padding: var(--space-3) var(--space-4);
+      color: var(--color-text-secondary);
+      font-size: var(--text-sm);
+      font-style: italic;
+    }
+
+    .now-playing-content.active {
+      background-color: rgba(203, 78, 27, 0.1);
+      border: 1px solid rgba(203, 78, 27, 0.3);
+      color: var(--color-text-primary);
+      font-style: normal;
+    }
+
+    /* Upload Panel */
+    .upload-panel {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    .upload-panel h3 {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      padding: var(--space-8) var(--space-4);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      background-color: var(--color-bg-tertiary);
+    }
+
+    .dropzone:hover {
+      border-color: var(--color-accent-orange);
+      background-color: rgba(203, 78, 27, 0.05);
+    }
+
+    .dropzone.drag-over {
+      border-color: var(--color-accent-orange);
+      background-color: rgba(203, 78, 27, 0.1);
+    }
+
+    .dropzone-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .upload-icon {
+      font-size: 2rem;
+      color: var(--color-accent-orange);
+    }
+
+    .dropzone-text {
+      font-size: var(--text-sm);
+      color: var(--color-text-secondary);
+      margin: 0;
+    }
+
+    .dropzone-link {
+      color: var(--color-accent-orange);
+      text-decoration: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color var(--transition-fast);
+    }
+
+    .dropzone-link:hover {
+      color: var(--color-accent-orange-hover);
+      text-decoration: underline;
+    }
+
+    .upload-info {
+      font-size: var(--text-xs);
+      color: var(--color-text-secondary);
+      background-color: var(--color-bg-tertiary);
+      padding: var(--space-3) var(--space-4);
+      border-radius: var(--radius-lg);
+      line-height: var(--leading-relaxed);
+    }
+
+    .upload-info-item {
+      margin: var(--space-2) 0;
+    }
+
+    .upload-info-label {
+      color: var(--color-text-tertiary);
+      font-size: var(--text-xs);
+    }
+
+    .upload-info-value {
+      color: var(--color-text-primary);
+      font-weight: 500;
+    }
+
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+      padding: var(--space-8);
+      text-align: center;
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: var(--space-4);
+      opacity: 0.5;
+    }
+
+    .empty-state-text {
+      color: var(--color-text-secondary);
+      font-size: var(--text-sm);
+      margin: 0;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 1200px) {
+      .portal-main {
+        grid-template-columns: 1fr;
+      }
+
+      .sounds-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .sidebar {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .portal-header {
+        padding: var(--space-4) var(--space-6);
+      }
+
+      .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-4);
+      }
+
+      .header-titles h1 {
+        font-size: var(--text-xl);
+      }
+
+      .portal-main {
+        padding: var(--space-4) var(--space-6);
+        gap: var(--space-6);
+      }
+
+      .sounds-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-3);
+      }
+
+      .sidebar {
+        grid-template-columns: 1fr;
+      }
+
+      .play-button {
+        width: 2.5rem;
+        height: 2.5rem;
+      }
+
+      .play-icon {
+        border-left-width: 0.6rem;
+        border-top-width: 0.375rem;
+        border-bottom-width: 0.375rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-left {
+        gap: var(--space-3);
+      }
+
+      .speaker-icon {
+        width: 2rem;
+        height: 2rem;
+        font-size: 1rem;
+      }
+
+      .header-titles h1 {
+        font-size: var(--text-lg);
+      }
+
+      .sounds-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--space-2);
+      }
+
+      .sound-card {
+        padding: var(--space-3);
+        gap: var(--space-2);
+      }
+
+      .play-button {
+        width: 2.25rem;
+        height: 2.25rem;
+      }
+
+      .portal-main {
+        padding: var(--space-3) var(--space-4);
+      }
+    }
+  </style>
+</head>
+<body style="background-color: var(--color-bg-primary);">
+  <!-- Header -->
+  <header class="portal-header">
+    <div class="header-content">
+      <div class="header-left">
+        <div class="speaker-icon">🔊</div>
+        <div class="header-titles">
+          <h1>Soundboard</h1>
+          <p>My Gaming Guild</p>
+        </div>
+      </div>
+      <div class="status-badge">
+        <span class="status-indicator status-online"></span>
+        <span>Online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="portal-main">
+    <!-- Left Panel: Sounds -->
+    <div class="sounds-panel">
+      <div class="panel-header">
+        <h2>Sounds</h2>
+        <span class="count-badge">12</span>
+      </div>
+
+      <!-- Search -->
+      <div class="search-container">
+        <input
+          type="text"
+          class="search-input"
+          id="soundSearch"
+          placeholder="Search sounds..."
+        />
+      </div>
+
+      <!-- Sound Grid -->
+      <div class="sounds-grid" id="soundsGrid">
+        <!-- Favorites Section -->
+        <div class="sound-card favorite" data-favorite="true">
+          <button class="play-button" aria-label="Play Airhorn">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Airhorn</p>
+          <div class="sound-meta">
+            <span class="play-count">8x</span>
+            <button class="favorite-button active" aria-label="Remove from favorites" title="Remove from favorites">★</button>
+          </div>
+        </div>
+
+        <div class="sound-card favorite" data-favorite="true">
+          <button class="play-button" aria-label="Play Bruh">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Bruh</p>
+          <div class="sound-meta">
+            <span class="play-count">6x</span>
+            <button class="favorite-button active" aria-label="Remove from favorites" title="Remove from favorites">★</button>
+          </div>
+        </div>
+
+        <!-- Non-Favorites Section -->
+        <div class="sound-card">
+          <button class="play-button" aria-label="Play Ding">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Ding</p>
+          <div class="sound-meta">
+            <span class="play-count">4x</span>
+            <button class="favorite-button" aria-label="Add to favorites" title="Add to favorites">☆</button>
+          </div>
+        </div>
+
+        <div class="sound-card">
+          <button class="play-button" aria-label="Play Fail">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Fail</p>
+          <div class="sound-meta">
+            <span class="play-count">3x</span>
+            <button class="favorite-button" aria-label="Add to favorites" title="Add to favorites">☆</button>
+          </div>
+        </div>
+
+        <div class="sound-card">
+          <button class="play-button" aria-label="Play Rimshot">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Rimshot</p>
+          <div class="sound-meta">
+            <span class="play-count">5x</span>
+            <button class="favorite-button" aria-label="Add to favorites" title="Add to favorites">☆</button>
+          </div>
+        </div>
+
+        <div class="sound-card">
+          <button class="play-button" aria-label="Play Sad Trombone">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Sad Trombone</p>
+          <div class="sound-meta">
+            <span class="play-count">2x</span>
+            <button class="favorite-button" aria-label="Add to favorites" title="Add to favorites">☆</button>
+          </div>
+        </div>
+
+        <div class="sound-card">
+          <button class="play-button" aria-label="Play Victory">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Victory</p>
+          <div class="sound-meta">
+            <span class="play-count">7x</span>
+            <button class="favorite-button" aria-label="Add to favorites" title="Add to favorites">☆</button>
+          </div>
+        </div>
+
+        <div class="sound-card">
+          <button class="play-button" aria-label="Play Woosh">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Woosh</p>
+          <div class="sound-meta">
+            <span class="play-count">1x</span>
+            <button class="favorite-button" aria-label="Add to favorites" title="Add to favorites">☆</button>
+          </div>
+        </div>
+
+        <div class="sound-card">
+          <button class="play-button" aria-label="Play Laugh Track">
+            <div class="play-icon"></div>
+          </button>
+          <p class="sound-name">Laugh Track</p>
+          <div class="sound-meta">
+            <span class="play-count">0x</span>
+            <button class="favorite-button" aria-label="Add to favorites" title="Add to favorites">☆</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Sidebar -->
+    <div class="sidebar">
+      <!-- Voice Channel Panel -->
+      <div class="sidebar-panel voice-panel">
+        <div class="voice-header">
+          <h3>Voice Channel</h3>
+          <span class="connection-badge connected">
+            <span class="connection-dot dot-connected"></span>
+            Connected
+          </span>
+        </div>
+
+        <select class="channel-select" id="channelSelect">
+          <option value="">Select a voice channel...</option>
+          <option value="general">General</option>
+          <option value="gaming">Gaming</option>
+          <option value="music">Music</option>
+          <option value="podcast">Podcast Lounge</option>
+        </select>
+
+        <div class="now-playing">
+          <h4>Now Playing</h4>
+          <div class="now-playing-content" id="nowPlaying">
+            No sound playing
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Panel -->
+      <div class="sidebar-panel upload-panel">
+        <h3>Upload Sounds</h3>
+
+        <div class="dropzone" id="dropzone">
+          <div class="dropzone-content">
+            <div class="upload-icon">⬆️</div>
+            <p class="dropzone-text">
+              Drag and drop audio files here<br>
+              or <a href="#" class="dropzone-link">browse files</a>
+            </p>
+          </div>
+        </div>
+
+        <div class="upload-info">
+          <div class="upload-info-item">
+            <span class="upload-info-label">Supported formats:</span>
+            <div class="upload-info-value">MP3, WAV, OGG</div>
+          </div>
+          <div class="upload-info-item">
+            <span class="upload-info-label">Max file size:</span>
+            <div class="upload-info-value">5 MB</div>
+          </div>
+          <div class="upload-info-item">
+            <span class="upload-info-label">Max duration:</span>
+            <div class="upload-info-value">30 seconds</div>
+          </div>
+          <div class="upload-info-item">
+            <span class="upload-info-label">Sounds:</span>
+            <div class="upload-info-value"><span id="soundsUsed">12</span>/50</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sound card interaction
+    document.addEventListener('DOMContentLoaded', function() {
+      // Play button interactions
+      const playButtons = document.querySelectorAll('.play-button');
+      const nowPlayingElement = document.getElementById('nowPlaying');
+
+      playButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          const soundCard = this.closest('.sound-card');
+          const soundName = soundCard.querySelector('.sound-name').textContent;
+
+          // Visual feedback
+          this.style.transform = 'scale(0.96)';
+          setTimeout(() => {
+            this.style.transform = '';
+          }, 100);
+
+          // Update now playing
+          nowPlayingElement.textContent = soundName;
+          nowPlayingElement.classList.add('active');
+
+          // Simulate sound finishing after a delay
+          setTimeout(() => {
+            if (nowPlayingElement.textContent === soundName) {
+              nowPlayingElement.textContent = 'No sound playing';
+              nowPlayingElement.classList.remove('active');
+            }
+          }, 3000);
+        });
+      });
+
+      // Favorite button interactions
+      const favoriteButtons = document.querySelectorAll('.favorite-button');
+
+      favoriteButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          this.classList.toggle('active');
+
+          const soundCard = this.closest('.sound-card');
+          const isFavorite = this.classList.contains('active');
+
+          if (isFavorite) {
+            soundCard.classList.add('favorite');
+            this.textContent = '★';
+            this.setAttribute('aria-label', 'Remove from favorites');
+            this.setAttribute('title', 'Remove from favorites');
+          } else {
+            soundCard.classList.remove('favorite');
+            this.textContent = '☆';
+            this.setAttribute('aria-label', 'Add to favorites');
+            this.setAttribute('title', 'Add to favorites');
+          }
+
+          // Sort cards: favorites first
+          const soundsGrid = document.getElementById('soundsGrid');
+          const cards = Array.from(soundsGrid.querySelectorAll('.sound-card'));
+          cards.sort((a, b) => {
+            const aFav = a.classList.contains('favorite') ? 0 : 1;
+            const bFav = b.classList.contains('favorite') ? 0 : 1;
+            return aFav - bFav;
+          });
+
+          cards.forEach(card => soundsGrid.appendChild(card));
+        });
+      });
+
+      // Search functionality
+      const searchInput = document.getElementById('soundSearch');
+      searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        const soundCards = document.querySelectorAll('.sound-card');
+
+        soundCards.forEach(card => {
+          const soundName = card.querySelector('.sound-name').textContent.toLowerCase();
+          if (soundName.includes(query)) {
+            card.style.display = '';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      });
+
+      // Dropzone interaction
+      const dropzone = document.getElementById('dropzone');
+
+      dropzone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropzone.classList.add('drag-over');
+      });
+
+      dropzone.addEventListener('dragleave', function() {
+        dropzone.classList.remove('drag-over');
+      });
+
+      dropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('drag-over');
+        // File drop would be handled here
+      });
+
+      // Browse files link
+      const browseLink = document.querySelector('.dropzone-link');
+      browseLink.addEventListener('click', function(e) {
+        e.preventDefault();
+        // File picker would be opened here
+      });
+
+      // Channel selector interaction
+      const channelSelect = document.getElementById('channelSelect');
+      channelSelect.addEventListener('change', function(e) {
+        // Would connect bot to selected channel
+      });
+    });
+  </script>
+</body>
+</html>
