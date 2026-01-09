@@ -2,6 +2,7 @@ using Discord.Audio;
 using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -18,14 +19,16 @@ namespace DiscordBot.Tests.Services;
 public class AudioServiceTests : IAsyncDisposable
 {
     private readonly DiscordSocketClient _client;
+    private readonly Mock<IAudioNotifier> _mockAudioNotifier;
     private readonly Mock<ILogger<AudioService>> _mockLogger;
     private readonly AudioService _service;
 
     public AudioServiceTests()
     {
         _client = new DiscordSocketClient();
+        _mockAudioNotifier = new Mock<IAudioNotifier>();
         _mockLogger = new Mock<ILogger<AudioService>>();
-        _service = new AudioService(_client, _mockLogger.Object);
+        _service = new AudioService(_client, _mockAudioNotifier.Object, _mockLogger.Object);
     }
 
     public async ValueTask DisposeAsync()

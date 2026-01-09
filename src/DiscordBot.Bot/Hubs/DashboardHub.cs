@@ -1,3 +1,5 @@
+using Discord.WebSocket;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -30,6 +32,12 @@ public class DashboardHub : Hub
     public const string SystemHealthGroupName = "system-health";
 
     /// <summary>
+    /// The prefix for guild-specific audio groups.
+    /// Full group name is "{AudioGroupPrefix}{guildId}".
+    /// </summary>
+    public const string AudioGroupPrefix = "guild-audio-";
+
+    /// <summary>
     /// Tracing attribute for SignalR connection ID.
     /// </summary>
     private const string SignalRConnectionIdAttribute = "signalr.connection.id";
@@ -43,6 +51,9 @@ public class DashboardHub : Hub
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
     private readonly IInstrumentedCache _instrumentedCache;
     private readonly IPerformanceSubscriptionTracker _subscriptionTracker;
+    private readonly IAudioService _audioService;
+    private readonly IPlaybackService _playbackService;
+    private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<DashboardHub> _logger;
 
     /// <summary>
@@ -57,6 +68,9 @@ public class DashboardHub : Hub
     /// <param name="backgroundServiceHealthRegistry">The background service health registry.</param>
     /// <param name="instrumentedCache">The instrumented cache service.</param>
     /// <param name="subscriptionTracker">The performance subscription tracker.</param>
+    /// <param name="audioService">The audio service for voice connection status.</param>
+    /// <param name="playbackService">The playback service for audio playback status.</param>
+    /// <param name="discordClient">The Discord client for channel name resolution.</param>
     /// <param name="logger">The logger.</param>
     public DashboardHub(
         IBotService botService,
@@ -68,6 +82,9 @@ public class DashboardHub : Hub
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
         IInstrumentedCache instrumentedCache,
         IPerformanceSubscriptionTracker subscriptionTracker,
+        IAudioService audioService,
+        IPlaybackService playbackService,
+        DiscordSocketClient discordClient,
         ILogger<DashboardHub> logger)
     {
         _botService = botService;
@@ -79,6 +96,9 @@ public class DashboardHub : Hub
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
         _instrumentedCache = instrumentedCache;
         _subscriptionTracker = subscriptionTracker;
+        _audioService = audioService;
+        _playbackService = playbackService;
+        _discordClient = discordClient;
         _logger = logger;
     }
 
@@ -821,9 +841,153 @@ public class DashboardHub : Hub
     }
 
     /// <summary>
+    /// Joins a guild-specific audio group to receive audio events for that guild.
+    /// </summary>
+    /// <param name="guildId">The Discord guild ID to subscribe to audio events for.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task JoinGuildAudioGroup(ulong guildId)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "join_guild_audio_group");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+
+        try
+        {
+            var groupName = GetGuildAudioGroupName(guildId);
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogDebug(
+                "Client joined guild audio group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
+                Context.ConnectionId,
+                userName,
+                guildId);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Leaves a guild-specific audio group to stop receiving audio events for that guild.
+    /// </summary>
+    /// <param name="guildId">The Discord guild ID to unsubscribe from audio events for.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task LeaveGuildAudioGroup(ulong guildId)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "leave_guild_audio_group");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+
+        try
+        {
+            var groupName = GetGuildAudioGroupName(guildId);
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+
+            _logger.LogDebug(
+                "Client left guild audio group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
+                Context.ConnectionId,
+                userName,
+                guildId);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets the current audio status for a guild.
+    /// </summary>
+    /// <param name="guildId">The Discord guild ID to get audio status for.</param>
+    /// <returns>The current audio status for the guild.</returns>
+    public AudioStatusDto GetCurrentAudioStatus(ulong guildId)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_current_audio_status");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+
+        try
+        {
+            _logger.LogDebug(
+                "Audio status requested by client: ConnectionId={ConnectionId}, GuildId={GuildId}",
+                Context.ConnectionId,
+                guildId);
+
+            var isConnected = _audioService.IsConnected(guildId);
+            var channelId = _audioService.GetConnectedChannelId(guildId);
+            var isPlaying = _playbackService.IsPlaying(guildId);
+            var queueLength = _playbackService.GetQueueLength(guildId);
+
+            string? channelName = null;
+            if (channelId.HasValue)
+            {
+                var guild = _discordClient.GetGuild(guildId);
+                var channel = guild?.GetVoiceChannel(channelId.Value);
+                channelName = channel?.Name;
+            }
+
+            var status = new AudioStatusDto
+            {
+                GuildId = guildId,
+                IsConnected = isConnected,
+                ChannelId = channelId,
+                ChannelName = channelName,
+                IsPlaying = isPlaying,
+                QueueLength = queueLength,
+                Timestamp = DateTime.UtcNow
+            };
+
+            _logger.LogTrace(
+                "Audio status retrieved: GuildId={GuildId}, IsConnected={IsConnected}, IsPlaying={IsPlaying}, QueueLength={QueueLength}",
+                guildId,
+                status.IsConnected,
+                status.IsPlaying,
+                status.QueueLength);
+
+            BotActivitySource.SetSuccess(activity);
+            return status;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Gets the group name for a guild.
     /// </summary>
     /// <param name="guildId">The guild ID.</param>
     /// <returns>The group name.</returns>
     private static string GetGuildGroupName(ulong guildId) => $"guild-{guildId}";
+
+    /// <summary>
+    /// Gets the audio group name for a guild.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <returns>The audio group name.</returns>
+    internal static string GetGuildAudioGroupName(ulong guildId) => $"{AudioGroupPrefix}{guildId}";
 }
