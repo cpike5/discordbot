@@ -9,9 +9,10 @@
         ToastManager.show('info', 'New features available.');
 *@
 
-<!-- Toast Container -->
+<!-- Toast Container - positioned below navbar (64px + 16px gap = 80px from top) with high z-index -->
 <div id="toastContainer"
-     class="fixed top-20 right-4 z-[1300] flex flex-col gap-2 pointer-events-none max-h-[calc(100vh-80px)] overflow-hidden"
+     class="fixed right-4 flex flex-col gap-2 pointer-events-none overflow-hidden"
+     style="top: 80px; max-height: calc(100vh - 96px); z-index: 9999;"
      role="region"
      aria-label="Notifications">
     <!-- Accessible live region for screen readers -->
