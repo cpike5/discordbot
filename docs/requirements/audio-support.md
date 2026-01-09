@@ -138,6 +138,7 @@ Enable the bot to join voice channels and play audio, with a soundboard feature 
 | MaxDurationSeconds | int | Max sound duration |
 | MaxFileSizeBytes | long | Max upload file size |
 | MaxSoundsPerGuild | int | Sound count limit |
+| MaxStorageBytes | long | Total storage limit per guild |
 
 ### CommandRoleRestriction Entity (or embed in settings)
 | Field | Type | Description |
@@ -157,6 +158,7 @@ Enable the bot to join voice channels and play audio, with a soundboard feature 
 | DefaultMaxDurationSeconds | 30 | Default max sound duration |
 | DefaultMaxFileSizeBytes | 10485760 (10MB) | Default max file size |
 | DefaultMaxSoundsPerGuild | 100 | Default sound count limit |
+| DefaultMaxStorageBytes | 524288000 (500MB) | Default total storage limit per guild |
 | DefaultAutoLeaveTimeoutMinutes | 0 | Default idle timeout (0 = stay) |
 | SupportedFormats | `["mp3", "wav", "ogg"]` | Allowed audio formats |
 
@@ -197,6 +199,7 @@ Enable the bot to join voice channels and play audio, with a soundboard feature 
 | Upload exceeds size limit | "File too large. Maximum size is {limit}." |
 | Sound exceeds duration limit | "Sound too long. Maximum duration is {limit} seconds." |
 | Guild sound limit reached | "Sound limit reached ({limit}). Delete some sounds first." |
+| Guild storage limit reached | "Storage limit reached ({used} of {limit}). Delete some sounds first." |
 
 ---
 

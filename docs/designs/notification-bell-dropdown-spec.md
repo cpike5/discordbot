@@ -1,7 +1,7 @@
 # Notification Bell Dropdown - UI/UX Specification
 
-**Version:** 1.0
-**Last Updated:** 2026-01-05
+**Version:** 1.1
+**Last Updated:** 2026-01-08
 **Status:** Design Specification
 **Related Issues:** #607, #739, #740, #741, #742, #743, #744
 
@@ -9,7 +9,16 @@
 
 ## Overview
 
-This specification defines the UI/UX design for a notification bell dropdown component in the Discord bot admin dashboard navbar. The component provides real-time notification delivery for performance alerts, bot status changes, guild events, and command errors through SignalR integration.
+This specification defines the UI/UX design for a **global** notification bell dropdown component in the admin UI navbar. The component is available on **all authenticated pages** and provides real-time notification delivery for performance alerts, bot status changes, guild events, and command errors through SignalR integration.
+
+### Global Architecture
+
+The notification system is designed to work across all pages:
+
+- **Navbar Integration:** Bell icon in `_Navbar.cshtml`, included via `_Layout.cshtml` on every page
+- **SignalR Connection:** `DashboardHub` connection established globally in `_Layout.cshtml`
+- **User-Specific Delivery:** Notifications broadcast to specific users via `Clients.User(userId)`
+- **Persistent State:** Unread count and notifications persist across page navigation
 
 ### Design Principles
 
@@ -36,7 +45,7 @@ This specification defines the UI/UX design for a notification bell dropdown com
 
 ### 1. Bell Button (Trigger)
 
-**Location:** Navbar, right section, between connection status and user menu
+**Location:** Global navbar (`_Navbar.cshtml`), right section, between connection status and user menu. Available on all authenticated pages.
 
 **States:**
 - **Default**: Gray bell icon, no badge
@@ -867,10 +876,26 @@ This specification defines the UI/UX design for a notification bell dropdown com
 
 ## JavaScript Integration
 
+### Global Initialization
+
+The notification bell initializes automatically on every page via `_Layout.cshtml`:
+
+```html
+<!-- Already included globally in _Layout.cshtml -->
+<script src="~/js/dashboard-hub.js"></script>
+<script src="~/js/notification-bell.js"></script>
+```
+
+On page load, the notification bell:
+1. Connects to `DashboardHub` (if not already connected)
+2. Fetches initial unread count via `GetNotificationSummary()`
+3. Registers event handlers for real-time updates
+4. Restores dropdown state if previously open
+
 ### SignalR Event Handlers
 
 ```javascript
-// Listen for new notifications from SignalR
+// Listen for new notifications from SignalR (works on any page)
 DashboardHub.on('NotificationReceived', (notification) => {
   addNotificationToDropdown(notification);
   updateUnreadBadge();
@@ -1334,12 +1359,15 @@ Add filter controls in dropdown header:
 
 ## Notes
 
+- **Global Availability:** The notification bell appears on all authenticated pages via `_Layout.cshtml`. Unauthenticated pages (Landing, Login) do not show the bell.
+- **SignalR Connection Sharing:** The `DashboardHub` connection is shared across all notification features. The bell subscribes to user-specific notifications without joining additional groups.
 - **Discord Snowflake IDs:** When passing Discord IDs (guild IDs, user IDs) to JavaScript, always use strings to avoid precision loss with 64-bit integers
 - **Local Timezone:** Display timestamps in user's local timezone with relative time ("2 minutes ago")
 - **Performance:** Limit dropdown to 15 notifications, lazy-load older notifications on "View all" page
 - **Security:** Validate user permissions for notification access (users should only see notifications relevant to their guilds/permissions)
 - **Persistence:** Consider storing dismissed notifications for 30 days for audit trail
 - **Rate Limiting:** Throttle notification creation to prevent spam (e.g., max 1 alert per metric per 5 minutes)
+- **Cross-Tab Sync:** Notifications sync across browser tabs via SignalR (all tabs receive updates)
 
 ---
 
