@@ -337,11 +337,20 @@
         background-color: rgba(203, 78, 27, 0.1);
     }
 
+    .dropzone.has-file {
+        border-color: #57ab5a;
+        background-color: rgba(87, 171, 90, 0.1);
+    }
+
     .dropzone-icon {
         width: 32px;
         height: 32px;
         margin: 0 auto 0.75rem;
         color: #949ba4;
+    }
+
+    .dropzone.has-file .dropzone-icon {
+        color: #57ab5a;
     }
 
     .dropzone-text {
@@ -356,10 +365,204 @@
         margin-top: 0.25rem;
     }
 
+    /* Upload Form */
+    .upload-form {
+        margin-top: 1rem;
+    }
+
+    .upload-form.hidden {
+        display: none;
+    }
+
+    .file-preview {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background-color: #1a1d23;
+        border-radius: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .file-preview-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 0.5rem;
+        background-color: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .file-preview-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .file-preview-name {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #dbdee1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .file-preview-size {
+        font-size: 0.75rem;
+        color: #949ba4;
+    }
+
+    .file-preview-clear {
+        width: 28px;
+        height: 28px;
+        border-radius: 0.25rem;
+        background: transparent;
+        border: none;
+        color: #949ba4;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .file-preview-clear:hover {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .upload-name-input {
+        width: 100%;
+        background-color: #1a1d23;
+        border: 1px solid #40444b;
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        color: #dbdee1;
+        margin-bottom: 0.75rem;
+        transition: all 0.2s;
+    }
+
+    .upload-name-input:hover {
+        border-color: #72767d;
+    }
+
+    .upload-name-input:focus {
+        outline: none;
+        border-color: #cb4e1b;
+        box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.1);
+    }
+
+    .upload-name-input::placeholder {
+        color: #949ba4;
+    }
+
+    .upload-btn {
+        width: 100%;
+        padding: 0.625rem 1rem;
+        background-color: #cb4e1b;
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .upload-btn:hover:not(:disabled) {
+        background-color: #e5591f;
+    }
+
+    .upload-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Upload Progress */
+    .upload-progress {
+        margin-top: 0.75rem;
+    }
+
+    .upload-progress.hidden {
+        display: none;
+    }
+
+    .progress-bar-container {
+        height: 8px;
+        background-color: #1a1d23;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background-color: #cb4e1b;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        width: 0%;
+    }
+
+    .progress-text {
+        font-size: 0.75rem;
+        color: #949ba4;
+        text-align: center;
+    }
+
+    /* Upload Messages */
+    .upload-message {
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        margin-top: 0.75rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .upload-message.hidden {
+        display: none;
+    }
+
+    .upload-message.success {
+        background-color: rgba(87, 171, 90, 0.1);
+        color: #57ab5a;
+        border: 1px solid rgba(87, 171, 90, 0.3);
+    }
+
+    .upload-message.error {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .upload-message svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+
+    .upload-message-text {
+        flex: 1;
+    }
+
     .upload-limits {
         font-size: 0.75rem;
         color: #949ba4;
         line-height: 1.5;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #40444b;
     }
 
     .upload-limits p {
@@ -716,8 +919,60 @@
                     <svg class="dropzone-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
-                    <p class="dropzone-text">Drop audio file here</p>
-                    <p class="dropzone-hint">or click to browse</p>
+                    <p id="dropzoneText" class="dropzone-text">Drop audio file here</p>
+                    <p id="dropzoneHint" class="dropzone-hint">or click to browse</p>
+                </div>
+
+                <!-- Upload Form (hidden until file selected) -->
+                <div id="uploadForm" class="upload-form hidden">
+                    <!-- File Preview -->
+                    <div class="file-preview">
+                        <div class="file-preview-icon">
+                            <svg fill="currentColor" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                            </svg>
+                        </div>
+                        <div class="file-preview-info">
+                            <div id="filePreviewName" class="file-preview-name">--</div>
+                            <div id="filePreviewSize" class="file-preview-size">--</div>
+                        </div>
+                        <button type="button" id="clearFileBtn" class="file-preview-clear" title="Clear selection">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Sound Name Input -->
+                    <input type="text"
+                           id="soundNameInput"
+                           class="upload-name-input"
+                           placeholder="Sound name (required)"
+                           maxlength="50">
+
+                    <!-- Upload Button -->
+                    <button type="button" id="uploadBtn" class="upload-btn" disabled>
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        <span id="uploadBtnText">Upload Sound</span>
+                    </button>
+
+                    <!-- Progress Indicator -->
+                    <div id="uploadProgress" class="upload-progress hidden">
+                        <div class="progress-bar-container">
+                            <div id="progressBar" class="progress-bar"></div>
+                        </div>
+                        <div id="progressText" class="progress-text">Uploading...</div>
+                    </div>
+                </div>
+
+                <!-- Upload Message -->
+                <div id="uploadMessage" class="upload-message hidden">
+                    <svg id="uploadMessageIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span id="uploadMessageText" class="upload-message-text"></span>
                 </div>
 
                 <!-- Upload Limits -->
@@ -725,7 +980,7 @@
                     <p><strong>Formats:</strong> @Model.SupportedFormats</p>
                     <p><strong>Max size:</strong> @Model.MaxFileSizeMB MB</p>
                     <p><strong>Max duration:</strong> @Model.MaxDurationSeconds seconds</p>
-                    <p><strong>Guild limit:</strong> @Model.CurrentSoundCount / @Model.MaxSounds sounds</p>
+                    <p><strong>Sounds:</strong> @Model.CurrentSoundCount / @Model.MaxSounds</p>
                 </div>
             </div>
 
@@ -874,6 +1129,9 @@
 
             // File input
             document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+            // Upload form handlers
+            setupUploadHandlers();
         }
 
         // Filter sounds by search term
@@ -1006,8 +1264,8 @@
                 return;
             }
 
-            // Call API to join channel
-            fetch(`/api/portal/soundboard/${window.guildId}/join`, {
+            // Call API to join channel (POST /channel)
+            fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1039,9 +1297,9 @@
         }
 
         function leaveChannel() {
-            // Call API to leave channel
-            fetch(`/api/portal/soundboard/${window.guildId}/leave`, {
-                method: 'POST',
+            // Call API to leave channel (DELETE /channel)
+            fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
+                method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
                 }
@@ -1079,11 +1337,18 @@
             });
         }
 
+        // File upload state
+        let selectedFile = null;
+        let isUploading = false;
+        const maxSizeBytes = @Model.MaxFileSizeMB * 1024 * 1024;
+        const maxSounds = @Model.MaxSounds;
+        const currentSoundCount = @Model.CurrentSoundCount;
+
         // File upload functions
         function handleFileSelect(event) {
             const files = event.target.files;
             if (files.length > 0) {
-                handleFiles(files);
+                selectFile(files[0]);
             }
         }
 
@@ -1105,52 +1370,245 @@
             document.getElementById('dropzone').classList.remove('drag-over');
 
             const files = event.dataTransfer.files;
-            handleFiles(files);
+            if (files.length > 0) {
+                selectFile(files[0]);
+            }
         }
 
-        function handleFiles(files) {
-            const formData = new FormData();
+        function selectFile(file) {
+            // Clear any previous message
+            hideUploadMessage();
 
-            for (const file of files) {
-                // Validate file type
-                const validTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3'];
-                if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg)$/i)) {
-                    alert(`Invalid file type: ${file.name}. Please upload MP3, WAV, or OGG files.`);
-                    continue;
-                }
-
-                // Validate file size
-                const maxSizeBytes = @Model.MaxFileSizeMB * 1024 * 1024;
-                if (file.size > maxSizeBytes) {
-                    alert(`File too large: ${file.name}. Maximum size is @Model.MaxFileSizeMB MB.`);
-                    continue;
-                }
-
-                formData.append('file', file);
+            // Validate file type
+            const validTypes = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp3', 'audio/x-wav'];
+            const validExtensions = /\.(mp3|wav|ogg)$/i;
+            if (!validTypes.includes(file.type) && !file.name.match(validExtensions)) {
+                showUploadMessage('error', `Invalid file type. Please upload MP3, WAV, or OGG files.`);
+                return;
             }
 
-            // Upload file
-            fetch(`/api/portal/soundboard/${window.guildId}/upload`, {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Upload failed');
+            // Validate file size
+            if (file.size > maxSizeBytes) {
+                showUploadMessage('error', `File too large. Maximum size is @Model.MaxFileSizeMB MB.`);
+                return;
+            }
+
+            // Check sound count limit
+            if (currentSoundCount >= maxSounds) {
+                showUploadMessage('error', `Sound limit reached. This guild has ${maxSounds} sounds maximum. Please delete some before uploading new ones.`);
+                return;
+            }
+
+            // Store selected file
+            selectedFile = file;
+
+            // Update dropzone appearance
+            const dropzone = document.getElementById('dropzone');
+            dropzone.classList.add('has-file');
+            document.getElementById('dropzoneText').textContent = 'File selected';
+            document.getElementById('dropzoneHint').textContent = 'Click to change';
+
+            // Show upload form
+            document.getElementById('uploadForm').classList.remove('hidden');
+            document.getElementById('filePreviewName').textContent = file.name;
+            document.getElementById('filePreviewSize').textContent = formatFileSize(file.size);
+
+            // Pre-fill name from filename (without extension)
+            const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+            document.getElementById('soundNameInput').value = nameWithoutExt;
+            document.getElementById('soundNameInput').focus();
+
+            // Enable upload button
+            updateUploadButton();
+        }
+
+        function clearFileSelection() {
+            selectedFile = null;
+
+            // Reset dropzone
+            const dropzone = document.getElementById('dropzone');
+            dropzone.classList.remove('has-file');
+            document.getElementById('dropzoneText').textContent = 'Drop audio file here';
+            document.getElementById('dropzoneHint').textContent = 'or click to browse';
+
+            // Hide upload form
+            document.getElementById('uploadForm').classList.add('hidden');
+            document.getElementById('soundNameInput').value = '';
+            document.getElementById('fileInput').value = '';
+
+            // Hide any messages
+            hideUploadMessage();
+        }
+
+        function updateUploadButton() {
+            const btn = document.getElementById('uploadBtn');
+            const name = document.getElementById('soundNameInput').value.trim();
+            btn.disabled = !selectedFile || !name || isUploading;
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        function showUploadMessage(type, message) {
+            const container = document.getElementById('uploadMessage');
+            const icon = document.getElementById('uploadMessageIcon');
+            const text = document.getElementById('uploadMessageText');
+
+            container.classList.remove('hidden', 'success', 'error');
+            container.classList.add(type);
+
+            if (type === 'success') {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />';
+            } else {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />';
+            }
+
+            text.textContent = message;
+        }
+
+        function hideUploadMessage() {
+            document.getElementById('uploadMessage').classList.add('hidden');
+        }
+
+        function uploadFile() {
+            if (!selectedFile || isUploading) return;
+
+            const name = document.getElementById('soundNameInput').value.trim();
+            if (!name) {
+                showUploadMessage('error', 'Please enter a name for the sound.');
+                return;
+            }
+
+            isUploading = true;
+            updateUploadButton();
+
+            // Show progress
+            const progressContainer = document.getElementById('uploadProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Uploading...';
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('name', name);
+
+            // Use XMLHttpRequest for progress tracking
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `/api/portal/soundboard/${window.guildId}/sounds`, true);
+
+            xhr.upload.onprogress = function(event) {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    progressBar.style.width = percent + '%';
+                    progressText.textContent = `Uploading... ${percent}%`;
                 }
-                return response.json();
-            })
-            .then(data => {
-                alert('Upload successful! Reloading page...');
-                location.reload();
-            })
-            .catch(error => {
-                console.error('Error uploading file:', error);
-                alert('Failed to upload file. Please try again.');
+            };
+
+            xhr.onload = function() {
+                isUploading = false;
+                progressContainer.classList.add('hidden');
+
+                if (xhr.status === 201) {
+                    // Success
+                    const data = JSON.parse(xhr.responseText);
+                    showUploadMessage('success', `Sound "${data.name}" uploaded successfully!`);
+                    clearFileSelection();
+
+                    // Add the new sound to the grid without full page reload
+                    addSoundToGrid(data);
+                } else {
+                    // Error - try to get message from response
+                    let errorMessage = 'Upload failed. Please try again.';
+                    try {
+                        const error = JSON.parse(xhr.responseText);
+                        if (error.message) {
+                            errorMessage = error.message;
+                            if (error.detail) {
+                                errorMessage += ' ' + error.detail;
+                            }
+                        }
+                    } catch (e) {
+                        // Use default message
+                    }
+                    showUploadMessage('error', errorMessage);
+                    updateUploadButton();
+                }
+            };
+
+            xhr.onerror = function() {
+                isUploading = false;
+                progressContainer.classList.add('hidden');
+                showUploadMessage('error', 'Network error. Please check your connection and try again.');
+                updateUploadButton();
+            };
+
+            xhr.send(formData);
+        }
+
+        function addSoundToGrid(sound) {
+            const grid = document.getElementById('soundGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            // Hide empty state if visible
+            emptyState.classList.add('hidden');
+            grid.classList.remove('hidden');
+
+            // Create new sound card
+            const card = document.createElement('div');
+            card.className = 'sound-card';
+            card.setAttribute('data-sound-id', sound.id);
+            card.setAttribute('data-sound-name', sound.name);
+            card.innerHTML = `
+                <button class="favorite-btn" data-sound-id="${sound.id}" title="Add to favorites">
+                    <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+                <div class="play-icon-wrapper">
+                    <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </div>
+                <div class="sound-name">${sound.name}</div>
+                <div class="sound-plays">0 plays</div>
+            `;
+
+            // Add event listeners
+            card.querySelector('.favorite-btn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleFavorite(sound.id);
             });
 
-            // Reset file input
-            document.getElementById('fileInput').value = '';
+            card.addEventListener('click', function() {
+                playSound(sound.id, sound.name);
+            });
+
+            // Add to beginning of grid (newest first)
+            grid.insertBefore(card, grid.firstChild);
+
+            // Re-sort with favorites
+            initializeFavorites();
+        }
+
+        // Setup additional upload event handlers
+        function setupUploadHandlers() {
+            document.getElementById('clearFileBtn').addEventListener('click', clearFileSelection);
+            document.getElementById('soundNameInput').addEventListener('input', updateUploadButton);
+            document.getElementById('uploadBtn').addEventListener('click', uploadFile);
+
+            // Handle Enter key in name input
+            document.getElementById('soundNameInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    uploadFile();
+                }
+            });
         }
     </script>
 }
