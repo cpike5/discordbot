@@ -69,6 +69,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPerformanceAlertRepository, PerformanceAlertRepository>();
         services.AddScoped<IMetricSnapshotRepository, MetricSnapshotRepository>();
         services.AddScoped<ISoundRepository, SoundRepository>();
+        services.AddScoped<ISoundPlayLogRepository, SoundPlayLogRepository>();
         services.AddScoped<IGuildAudioSettingsRepository, GuildAudioSettingsRepository>();
 
         // Register services
