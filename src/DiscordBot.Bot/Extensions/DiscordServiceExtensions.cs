@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Extensions;

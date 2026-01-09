@@ -3,7 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Core.Interfaces;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Commands;
 
 /// <summary>
 /// Service for managing Discord slash command registration.

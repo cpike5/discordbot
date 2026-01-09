@@ -2,7 +2,7 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Preconditions;
-using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using FluentAssertions;

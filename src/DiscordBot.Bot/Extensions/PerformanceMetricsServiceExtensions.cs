@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data.Repositories;

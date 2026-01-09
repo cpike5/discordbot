@@ -5,7 +5,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Commands;
 
 /// <summary>
 /// Background service that aggregates command performance metrics from the command log repository.
@@ -327,7 +327,7 @@ public class CommandPerformanceAggregator : MonitoredBackgroundService, ICommand
             return sortedValues[0];
         }
 
-        var index = (int)Math.Ceiling((percentile / 100.0) * sortedValues.Count) - 1;
+        var index = (int)Math.Ceiling(percentile / 100.0 * sortedValues.Count) - 1;
         index = Math.Max(0, Math.Min(sortedValues.Count - 1, index));
 
         return sortedValues[index];

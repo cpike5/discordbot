@@ -26,6 +26,7 @@ using Serilog;
 using Serilog.Exceptions;
 using System.Reflection;
 using DiscordBot.Bot.Services.RatWatch;
+using DiscordBot.Bot.Services.Commands;
 
 // Get service version from assembly for consistent use across logging and APM
 var serviceVersion = Assembly.GetExecutingAssembly()

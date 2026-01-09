@@ -3,7 +3,7 @@ using Discord.Interactions;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Utilities;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Commands;
 
 /// <summary>
 /// Service for logging command executions to the database.

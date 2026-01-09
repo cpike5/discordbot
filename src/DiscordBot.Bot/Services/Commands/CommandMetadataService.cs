@@ -6,7 +6,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using System.Reflection;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Commands;
 
 /// <summary>
 /// Service for extracting command metadata from Discord.NET's InteractionService.

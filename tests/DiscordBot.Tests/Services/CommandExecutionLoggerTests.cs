@@ -1,6 +1,6 @@
 using Discord;
 using Discord.Interactions;
-using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
