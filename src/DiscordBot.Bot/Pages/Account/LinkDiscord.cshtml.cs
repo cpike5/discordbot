@@ -21,6 +21,7 @@ public class LinkDiscordModel : PageModel
     private readonly IDiscordTokenService _tokenService;
     private readonly IDiscordUserInfoService _userInfoService;
     private readonly IGuildMembershipService _guildMembershipService;
+    private readonly IUserDiscordGuildService _userDiscordGuildService;
     private readonly IVerificationService _verificationService;
     private readonly DiscordOAuthSettings _oauthSettings;
     private readonly ILogger<LinkDiscordModel> _logger;
@@ -31,6 +32,7 @@ public class LinkDiscordModel : PageModel
         IDiscordTokenService tokenService,
         IDiscordUserInfoService userInfoService,
         IGuildMembershipService guildMembershipService,
+        IUserDiscordGuildService userDiscordGuildService,
         IVerificationService verificationService,
         DiscordOAuthSettings oauthSettings,
         ILogger<LinkDiscordModel> logger)
@@ -40,6 +42,7 @@ public class LinkDiscordModel : PageModel
         _tokenService = tokenService;
         _userInfoService = userInfoService;
         _guildMembershipService = guildMembershipService;
+        _userDiscordGuildService = userDiscordGuildService;
         _verificationService = verificationService;
         _oauthSettings = oauthSettings;
         _logger = logger;
@@ -233,6 +236,10 @@ public class LinkDiscordModel : PageModel
             // Delete OAuth tokens
             await _tokenService.DeleteTokensAsync(user.Id);
             _logger.LogDebug("Deleted OAuth tokens for user {UserId}", user.Id);
+
+            // Delete stored guild memberships
+            await _userDiscordGuildService.DeleteUserGuildsAsync(user.Id);
+            _logger.LogDebug("Deleted stored guild memberships for user {UserId}", user.Id);
 
             // Invalidate cache
             _userInfoService.InvalidateCache(user.Id);

@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -6,7 +7,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace DiscordBot.Bot.Pages.Account;
 
@@ -19,6 +22,8 @@ public class ExternalLoginModel : PageModel
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IDiscordTokenService _tokenService;
+    private readonly IUserDiscordGuildService _userDiscordGuildService;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<ExternalLoginModel> _logger;
     private readonly IAuditLogService _auditLogService;
 
@@ -26,12 +31,16 @@ public class ExternalLoginModel : PageModel
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
         IDiscordTokenService tokenService,
+        IUserDiscordGuildService userDiscordGuildService,
+        IHttpClientFactory httpClientFactory,
         ILogger<ExternalLoginModel> logger,
         IAuditLogService auditLogService)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _tokenService = tokenService;
+        _userDiscordGuildService = userDiscordGuildService;
+        _httpClientFactory = httpClientFactory;
         _logger = logger;
         _auditLogService = auditLogService;
     }
@@ -113,10 +122,17 @@ public class ExternalLoginModel : PageModel
             // Update user's Discord info and last login
             await UpdateUserDiscordInfoAsync(info);
 
-            // Store OAuth tokens if this is a Discord login
+            // Store OAuth tokens and guild memberships if this is a Discord login
             if (info.LoginProvider == "Discord")
             {
                 await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+
+                // Store guild memberships from OAuth
+                var user = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+                if (user != null && !string.IsNullOrEmpty(accessToken))
+                {
+                    await StoreGuildMembershipsAsync(user.Id, accessToken);
+                }
             }
 
             // Audit log for successful OAuth login
@@ -205,10 +221,16 @@ public class ExternalLoginModel : PageModel
                         await _userManager.UpdateAsync(existingDiscordUser);
                     }
 
-                    // Store OAuth tokens BEFORE signing in if this is a Discord login
+                    // Store OAuth tokens and guild memberships BEFORE signing in if this is a Discord login
                     if (info.LoginProvider == "Discord")
                     {
                         await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+
+                        // Store guild memberships from OAuth
+                        if (!string.IsNullOrEmpty(accessToken))
+                        {
+                            await StoreGuildMembershipsAsync(existingDiscordUser.Id, accessToken);
+                        }
                     }
 
                     await _signInManager.SignInAsync(existingDiscordUser, isPersistent: true);
@@ -240,10 +262,16 @@ public class ExternalLoginModel : PageModel
                 // Update Discord info
                 await UpdateExistingUserDiscordInfoAsync(existingUser, discordId, discordUsername, avatarHash);
 
-                // Store OAuth tokens BEFORE signing in if this is a Discord login
+                // Store OAuth tokens and guild memberships BEFORE signing in if this is a Discord login
                 if (info.LoginProvider == "Discord")
                 {
                     await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+
+                    // Store guild memberships from OAuth
+                    if (!string.IsNullOrEmpty(accessToken))
+                    {
+                        await StoreGuildMembershipsAsync(existingUser.Id, accessToken);
+                    }
                 }
 
                 await _signInManager.SignInAsync(existingUser, isPersistent: true);
@@ -329,10 +357,16 @@ public class ExternalLoginModel : PageModel
             _logger.LogError(ex, "Failed to log audit entry for user creation via Discord OAuth");
         }
 
-        // Store OAuth tokens BEFORE signing in if this is a Discord login
+        // Store OAuth tokens and guild memberships BEFORE signing in if this is a Discord login
         if (info.LoginProvider == "Discord")
         {
             await StoreOAuthTokensAsync(info, accessToken, refreshToken, expiresAt);
+
+            // Store guild memberships from OAuth
+            if (!string.IsNullOrEmpty(accessToken))
+            {
+                await StoreGuildMembershipsAsync(user.Id, accessToken);
+            }
         }
 
         // Sign in the new user
@@ -494,5 +528,80 @@ public class ExternalLoginModel : PageModel
             // Don't fail the login if token storage fails - user can still use the app
             _logger.LogError(ex, "Failed to store OAuth tokens for {Provider} login", info.LoginProvider);
         }
+    }
+
+    /// <summary>
+    /// Fetches guild memberships from Discord API and stores them locally.
+    /// Called during OAuth to capture which guilds the user belongs to.
+    /// </summary>
+    /// <param name="applicationUserId">The ApplicationUser ID to store memberships for.</param>
+    /// <param name="accessToken">The OAuth access token for Discord API calls.</param>
+    private async Task StoreGuildMembershipsAsync(string applicationUserId, string accessToken)
+    {
+        try
+        {
+            _logger.LogDebug("Fetching guild memberships from Discord API for user {UserId}", applicationUserId);
+
+            // Create HTTP client and make API request
+            var httpClient = _httpClientFactory.CreateClient("Discord");
+            httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await httpClient.GetAsync("users/@me/guilds", HttpContext.RequestAborted);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Failed to fetch guilds from Discord API for user {UserId}, status {StatusCode}: {ReasonPhrase}",
+                    applicationUserId, response.StatusCode, response.ReasonPhrase);
+                return;
+            }
+
+            var content = await response.Content.ReadAsStringAsync(HttpContext.RequestAborted);
+            var discordGuilds = JsonSerializer.Deserialize<List<DiscordApiGuildResponse>>(content, new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+
+            if (discordGuilds == null)
+            {
+                _logger.LogWarning("Failed to deserialize Discord guilds response for user {UserId}", applicationUserId);
+                return;
+            }
+
+            // Map to DTOs
+            var guilds = discordGuilds.Select(g => new DiscordGuildDto
+            {
+                Id = ulong.Parse(g.Id),
+                Name = g.Name,
+                Icon = g.Icon,
+                Owner = g.Owner,
+                Permissions = long.Parse(g.Permissions)
+            }).ToList();
+
+            // Store guild memberships
+            var count = await _userDiscordGuildService.StoreGuildMembershipsAsync(
+                applicationUserId,
+                guilds,
+                HttpContext.RequestAborted);
+
+            _logger.LogInformation(
+                "Successfully stored {Count} guild memberships for user {UserId}",
+                count, applicationUserId);
+        }
+        catch (Exception ex)
+        {
+            // Don't fail the login if guild storage fails - user can still use the app
+            _logger.LogError(ex, "Failed to store guild memberships for user {UserId}", applicationUserId);
+        }
+    }
+
+    // Private class for Discord API guild response deserialization
+    private class DiscordApiGuildResponse
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Icon { get; set; }
+        public bool Owner { get; set; }
+        public string Permissions { get; set; } = "0";
     }
 }

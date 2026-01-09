@@ -3,6 +3,7 @@ using System;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DiscordBot.Infrastructure.Migrations
 {
     [DbContext(typeof(BotDbContext))]
-    partial class BotDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260109182921_AddUserDiscordGuilds")]
+    partial class AddUserDiscordGuilds
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.22");
@@ -1508,38 +1511,6 @@ namespace DiscordBot.Infrastructure.Migrations
                     b.ToTable("Sounds", (string)null);
                 });
 
-            modelBuilder.Entity("DiscordBot.Core.Entities.SoundPlayLog", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<long>("GuildId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("PlayedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("SoundId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<long>("UserId")
-                        .HasColumnType("INTEGER");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlayedAt")
-                        .HasDatabaseName("IX_SoundPlayLogs_PlayedAt");
-
-                    b.HasIndex("GuildId", "PlayedAt")
-                        .HasDatabaseName("IX_SoundPlayLogs_GuildId_PlayedAt");
-
-                    b.HasIndex("SoundId", "PlayedAt")
-                        .HasDatabaseName("IX_SoundPlayLogs_SoundId_PlayedAt");
-
-                    b.ToTable("SoundPlayLogs", (string)null);
-                });
-
             modelBuilder.Entity("DiscordBot.Core.Entities.User", b =>
                 {
                     b.Property<long>("Id")
@@ -2317,17 +2288,6 @@ namespace DiscordBot.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Guild");
-                });
-
-            modelBuilder.Entity("DiscordBot.Core.Entities.SoundPlayLog", b =>
-                {
-                    b.HasOne("DiscordBot.Core.Entities.Sound", "Sound")
-                        .WithMany()
-                        .HasForeignKey("SoundId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Sound");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.UserActivityLog", b =>
