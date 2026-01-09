@@ -2,7 +2,7 @@
 @model DiscordBot.Bot.Pages.Guilds.Soundboard.IndexModel
 @using DiscordBot.Bot.ViewModels.Components
 @{
-    ViewData["Title"] = $"Soundboard - {Model.ViewModel.GuildName}";
+    ViewData["Title"] = $"Audio - {Model.ViewModel.GuildName}";
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -34,7 +34,7 @@
                 </svg>
             </li>
             <li>
-                <span class="text-text-primary font-medium">Soundboard</span>
+                <span class="text-text-primary font-medium">Audio</span>
             </li>
         </ol>
     </nav>
@@ -42,10 +42,17 @@
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-text-primary">Soundboard</h1>
-            <p class="mt-1 text-sm text-text-secondary">Manage sounds for @Model.ViewModel.GuildName</p>
+            <h1 class="text-2xl font-bold text-text-primary">Audio</h1>
+            <p class="mt-1 text-sm text-text-secondary">Manage audio settings and soundboard for @Model.ViewModel.GuildName</p>
         </div>
     </div>
+
+    <!-- Audio Tabs Navigation -->
+    <partial name="Shared/Components/_AudioTabs" model='new AudioTabsViewModel {
+        GuildId = Model.ViewModel.GuildId,
+        ActiveTab = "soundboard",
+        SoundCount = Model.ViewModel.Stats.TotalSounds
+    }' />
 
     <!-- Success Message -->
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))

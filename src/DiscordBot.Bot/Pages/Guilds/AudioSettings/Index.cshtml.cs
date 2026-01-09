@@ -16,17 +16,20 @@ public class IndexModel : PageModel
 {
     private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly IGuildService _guildService;
+    private readonly ISoundService _soundService;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IGuildAudioSettingsService audioSettingsService,
         IGuildService guildService,
+        ISoundService soundService,
         DiscordSocketClient discordClient,
         ILogger<IndexModel> logger)
     {
         _audioSettingsService = audioSettingsService;
         _guildService = guildService;
+        _soundService = soundService;
         _discordClient = discordClient;
         _logger = logger;
     }
@@ -56,6 +59,11 @@ public class IndexModel : PageModel
     /// Gets or sets the sound folder path for display.
     /// </summary>
     public string SoundFolderPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the total sound count for display in the AudioTabs component.
+    /// </summary>
+    public int SoundCount { get; set; }
 
     /// <summary>
     /// The soundboard commands that can have role restrictions.
@@ -101,6 +109,9 @@ public class IndexModel : PageModel
 
         // Set the sound folder path for display
         SoundFolderPath = $"/data/sounds/{GuildId}";
+
+        // Load sound count for the AudioTabs badge
+        SoundCount = await _soundService.GetSoundCountAsync(GuildId, cancellationToken);
 
         return Page();
     }
