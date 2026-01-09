@@ -6,6 +6,27 @@ This document describes the external dependencies required for audio features (s
 
 The bot's audio features require external tools for audio processing. These are not bundled with the application and must be installed separately on the host system.
 
+## Audio Pipeline
+
+Understanding the audio pipeline helps diagnose issues:
+
+```
+Sound File → FFmpeg → PCM Stream → Discord Voice Server
+   (.mp3)      ↓         ↓              ↓
+             Transcode  Encrypt     UDP Stream
+             48kHz      (libsodium)
+             16-bit
+             Stereo
+```
+
+**The flow:**
+1. **Sound file** (mp3, wav, ogg) is read from disk
+2. **FFmpeg** transcodes it to Opus-ready PCM (48kHz, 16-bit, stereo)
+3. **Discord.NET** encrypts the PCM bytes using **libsodium**
+4. Encrypted audio is sent over UDP to the Discord Voice Server
+
+**Key insight:** Unlike text messages which are fire-and-forget, audio requires maintaining a continuous session per guild. The PCM stream must persist for the duration of the voice connection.
+
 ## Required Dependencies
 
 ### FFmpeg
@@ -32,8 +53,16 @@ Discord.NET audio requires additional native libraries:
 
 | Library | Purpose | Notes |
 |---------|---------|-------|
-| **libsodium** | Voice encryption | Usually bundled with Discord.NET on Windows; may need explicit installation on Linux |
-| **libopus** | Opus audio encoding | Usually bundled with Discord.NET on Windows; may need explicit installation on Linux |
+| **libsodium** | Voice encryption | Must be in build output directory on Windows; apt package on Linux |
+| **libopus** | Opus audio encoding | Must be in build output directory on Windows; apt package on Linux |
+
+**Windows setup:**
+
+The native DLLs must be in your build output directory (e.g., `bin/Debug/net8.0/`):
+- `libsodium.dll`
+- `opus.dll`
+
+You can obtain these via NuGet packages or download them manually. The bot will crash with `DllNotFoundException` if these are missing.
 
 **Linux installation:**
 ```bash
@@ -204,6 +233,71 @@ chown -R 1000:1000 ./sounds
 **Linux fix:**
 ```bash
 sudo apt install libsodium23 libopus0
+```
+
+### Consecutive Playback Failures
+
+**Symptoms:** First sound plays correctly, but subsequent sounds are silent or cut off.
+
+**Root cause:** Discord.NET's `CreatePCMStream()` doesn't work properly when called multiple times on the same `IAudioClient` after disposing previous streams. This is a known quirk of the Discord.NET audio pipeline.
+
+**What happens:**
+1. First sound plays correctly with a fresh PCM stream
+2. Second sound has the first 1-2 seconds cut off
+3. All subsequent sounds produce complete silence
+
+**Solution:** Create ONE persistent PCM stream per voice connection and reuse it for all playback operations:
+
+```csharp
+// AudioService maintains cached PCM streams per guild
+private readonly ConcurrentDictionary<ulong, AudioOutStream> _pcmStreams = new();
+
+public AudioOutStream? GetOrCreatePcmStream(ulong guildId)
+{
+    // Return existing stream if we have one
+    if (_pcmStreams.TryGetValue(guildId, out var existingStream))
+    {
+        return existingStream;
+    }
+
+    // Get audio client
+    if (!_connections.TryGetValue(guildId, out var connection))
+    {
+        return null;
+    }
+
+    // Create new PCM stream and cache it
+    var pcmStream = connection.AudioClient.CreatePCMStream(AudioApplication.Voice);
+    _pcmStreams[guildId] = pcmStream;
+    return pcmStream;
+}
+```
+
+**Important:** Clean up the cached PCM stream when the bot leaves the voice channel:
+
+```csharp
+// In disconnect logic
+if (_pcmStreams.TryRemove(guildId, out var pcmStream))
+{
+    await pcmStream.FlushAsync();
+    pcmStream.Dispose();
+}
+```
+
+### Audio Cut-Off at Start
+
+**Symptoms:** The first 100-200ms of audio is missing when playback begins.
+
+**Cause:** Discord's UDP connection takes a few milliseconds to "wake up" the user's client, causing the initial audio to be lost.
+
+**Solution:** Send a brief silence frame before actual audio:
+
+```csharp
+// 48kHz * 2 channels * 2 bytes (16-bit) = 192,000 bytes per second
+// 200ms = 38,400 bytes of silence
+byte[] silence = new byte[38400];
+await discordStream.WriteAsync(silence, 0, silence.Length);
+// Now send actual audio
 ```
 
 ### File Permission Errors
