@@ -1,0 +1,536 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.Soundboard.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"Soundboard - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Soundboard</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Soundboard</h1>
+            <p class="mt-1 text-sm text-text-secondary">Manage sounds for @Model.ViewModel.GuildName</p>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Stats Cards Section -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <!-- Total Sounds Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-text-secondary text-sm mb-1">Total Sounds</p>
+                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.TotalSounds</p>
+                </div>
+                <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-text-tertiary">of @Model.ViewModel.MaxSoundsPerGuild limit</p>
+        </div>
+
+        <!-- Plays Today Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-text-secondary text-sm mb-1">Plays Today</p>
+                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.PlaysToday</p>
+                </div>
+                <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-text-tertiary">Play tracking coming soon</p>
+        </div>
+
+        <!-- Storage Used Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-text-secondary text-sm mb-1">Storage Used</p>
+                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.StorageUsedFormatted</p>
+                </div>
+                <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-text-tertiary">of @Model.ViewModel.Stats.StorageLimitFormatted limit (@Model.ViewModel.Stats.StoragePercentage%)</p>
+        </div>
+
+        <!-- Top Sound Card -->
+        <div class="bg-bg-secondary border border-accent-orange rounded-lg p-5" style="background: linear-gradient(135deg, var(--color-bg-secondary) 0%, rgba(249, 115, 22, 0.1) 100%);">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-text-secondary text-sm mb-1">Top Sound</p>
+                    @if (!string.IsNullOrEmpty(Model.ViewModel.Stats.TopSoundName))
+                    {
+                        <p class="text-3xl font-bold text-text-primary truncate max-w-[150px]" title="@Model.ViewModel.Stats.TopSoundName">@Model.ViewModel.Stats.TopSoundName</p>
+                    }
+                    else
+                    {
+                        <p class="text-3xl font-bold text-text-tertiary">--</p>
+                    }
+                </div>
+                <div class="w-10 h-10 bg-accent-orange/30 rounded-lg flex items-center justify-center text-accent-orange">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                </div>
+            </div>
+            @if (Model.ViewModel.Stats.TopSoundPlays > 0)
+            {
+                <p class="text-xs text-text-tertiary">@Model.ViewModel.Stats.TopSoundPlays plays</p>
+            }
+            else
+            {
+                <p class="text-xs text-text-tertiary">No plays yet</p>
+            }
+        </div>
+    </div>
+
+    <!-- Main Content Layout: Sound List (70%) + Sidebar (30%) -->
+    <div class="grid grid-cols-1 lg:grid-cols-7 gap-6">
+
+        <!-- Left Panel: Sound List (70%) -->
+        <div class="lg:col-span-4">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <!-- Table Header -->
+                <div class="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-text-primary">Sounds</h2>
+                    </div>
+                    <span class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-accent-blue bg-accent-blue/20 rounded-full">
+                        @Model.ViewModel.Stats.TotalSounds @(Model.ViewModel.Stats.TotalSounds == 1 ? "sound" : "sounds")
+                    </span>
+                </div>
+
+                @if (Model.ViewModel.Sounds.Any())
+                {
+                    <!-- Sounds Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full min-w-[600px]">
+                            <thead class="bg-bg-tertiary">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 50px;"></th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 80px;">Duration</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 100px;">Size</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 80px;">Plays</th>
+                                    <th class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 100px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border-primary">
+                                @foreach (var sound in Model.ViewModel.Sounds)
+                                {
+                                    <tr class="hover:bg-bg-hover transition-colors sound-row">
+                                        <td class="px-4 py-3">
+                                            <button type="button"
+                                                    class="play-button inline-flex items-center justify-center w-8 h-8 rounded bg-accent-blue text-white hover:bg-accent-blue-hover transition-colors"
+                                                    title="Preview not available"
+                                                    disabled>
+                                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z"/>
+                                                </svg>
+                                            </button>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="font-medium text-text-primary">@sound.Name</div>
+                                            <div class="text-sm text-text-tertiary">@sound.FileName</div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-1 text-text-secondary text-sm">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                @sound.DurationFormatted
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-1 text-text-secondary text-sm">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                @sound.FileSizeFormatted
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-1 text-text-secondary text-sm">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                                </svg>
+                                                @sound.PlayCount
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center justify-end gap-1 row-actions">
+                                                <button type="button"
+                                                        onclick="showDeleteModal('@sound.Id', '@sound.Name')"
+                                                        class="inline-flex items-center justify-center w-8 h-8 rounded text-error hover:bg-error/10 transition-colors"
+                                                        title="Delete @sound.Name">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                                <div class="relative">
+                                                    <button type="button"
+                                                            onclick="toggleMenu('@sound.Id')"
+                                                            class="inline-flex items-center justify-center w-8 h-8 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+                                                            title="More options">
+                                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                            <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
+                                                        </svg>
+                                                    </button>
+                                                    <div id="menu-@sound.Id" class="hidden absolute right-0 mt-1 w-36 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-10">
+                                                        <button type="button"
+                                                                onclick="downloadSound('@sound.Id', '@sound.FileName')"
+                                                                class="w-full px-4 py-2 text-sm text-text-primary hover:bg-bg-hover text-left rounded-lg flex items-center gap-2">
+                                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                                            </svg>
+                                                            Download
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <!-- Empty State -->
+                    <div class="p-8">
+                        <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                            Type = EmptyStateType.FirstTime,
+                            Title = "No Sounds Yet",
+                            Description = "Upload your first sound file or discover existing files from the sounds folder.",
+                            Size = EmptyStateSize.Default,
+                            IconSvgPath = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                        }' />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Right Sidebar (30%) -->
+        <div class="lg:col-span-3 space-y-6">
+
+            <!-- Upload Sounds Section -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h3 class="text-sm font-semibold text-text-primary mb-1">Upload Sounds</h3>
+                <p class="text-xs text-text-tertiary mb-4">@Model.ViewModel.SupportedFormats up to @(Model.ViewModel.MaxFileSizeBytes / (1024 * 1024)) MB, max @Model.ViewModel.MaxDurationSeconds s</p>
+
+                <!-- Upload Form -->
+                <form method="post" asp-page-handler="Upload" asp-route-guildId="@Model.ViewModel.GuildId" enctype="multipart/form-data">
+                    <!-- Dropzone -->
+                    <div id="dropzone"
+                         class="border-2 border-dashed border-border-primary rounded-lg p-6 bg-bg-tertiary text-center cursor-pointer hover:border-accent-blue hover:bg-bg-hover transition-colors"
+                         onclick="document.getElementById('file-input').click()">
+                        <div class="flex flex-col items-center justify-center">
+                            <svg class="w-12 h-12 text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                            </svg>
+                            <p class="text-sm font-medium text-text-primary">Drag & drop audio files</p>
+                            <p class="text-xs text-text-tertiary">or click to browse</p>
+                        </div>
+                    </div>
+                    <input type="file"
+                           id="file-input"
+                           name="file"
+                           accept=".mp3,.wav,.ogg,.m4a,audio/*"
+                           class="hidden"
+                           onchange="handleFileSelect(this)" />
+
+                    <!-- Selected File Display -->
+                    <div id="selected-file" class="hidden mt-3 p-3 bg-bg-tertiary rounded-lg flex items-center justify-between">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <svg class="w-5 h-5 text-accent-blue flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
+                            </svg>
+                            <span id="selected-file-name" class="text-sm text-text-primary truncate"></span>
+                        </div>
+                        <button type="button" onclick="clearFileSelection()" class="text-text-tertiary hover:text-error transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Upload Button -->
+                    <button type="submit"
+                            id="upload-btn"
+                            class="hidden w-full mt-3 px-4 py-2 bg-accent-orange text-white font-medium rounded-lg hover:bg-accent-orange-hover transition-colors">
+                        Upload Sound
+                    </button>
+                </form>
+
+                <!-- Discover Button -->
+                <form method="post" asp-page-handler="Discover" asp-route-guildId="@Model.ViewModel.GuildId" class="mt-4">
+                    <button type="submit"
+                            class="w-full px-3 py-2 border border-border-primary rounded-lg text-sm font-semibold text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7V5a2 2 0 012-2h6l2 2h6a2 2 0 012 2v2" />
+                        </svg>
+                        Discover sounds from folder
+                    </button>
+                </form>
+            </div>
+
+            <!-- Format Info -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h3 class="text-sm font-semibold text-text-primary mb-3">Supported Formats</h3>
+                <div class="space-y-2 text-sm text-text-secondary">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>MP3, WAV, OGG audio files</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Max file size: @(Model.ViewModel.MaxFileSizeBytes / (1024 * 1024)) MB</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Max duration: @Model.ViewModel.MaxDurationSeconds seconds</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Max @Model.ViewModel.MaxSoundsPerGuild sounds per guild</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="delete-modal-title">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideDeleteModal()" aria-hidden="true"></div>
+    <!-- Modal Dialog -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+            <!-- Modal Content -->
+            <div class="p-6">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 id="delete-modal-title" class="text-lg font-semibold text-text-primary">Delete Sound</h3>
+                        <p class="mt-2 text-sm text-text-secondary">
+                            Are you sure you want to delete <span id="delete-sound-name" class="font-medium text-text-primary"></span>? This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- Modal Footer -->
+            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                <button type="button" onclick="hideDeleteModal()"
+                        class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                    Cancel
+                </button>
+                <form id="delete-form" method="post" asp-page-handler="Delete" asp-route-guildId="@Model.ViewModel.GuildId" class="inline-block">
+                    <input type="hidden" id="delete-sound-id" name="soundId" value="" />
+                    <button type="submit"
+                            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors">
+                        Delete Sound
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <style>
+        .sound-row .row-actions {
+            opacity: 0;
+            transition: opacity 0.15s ease-in-out;
+        }
+        .sound-row:hover .row-actions {
+            opacity: 1;
+        }
+        .play-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #dropzone.drag-over {
+            border-color: var(--color-accent-blue);
+            background-color: var(--color-accent-blue-muted);
+        }
+    </style>
+
+    <script>
+        // Guild ID for API calls (as string to preserve precision)
+        window.guildId = '@Model.ViewModel.GuildId';
+
+        // Delete modal handling
+        function showDeleteModal(soundId, soundName) {
+            document.getElementById('delete-sound-id').value = soundId;
+            document.getElementById('delete-sound-name').textContent = soundName;
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // 3-dot menu handling
+        function toggleMenu(soundId) {
+            const menu = document.getElementById('menu-' + soundId);
+            // Close all other menus first
+            document.querySelectorAll('[id^="menu-"]').forEach(m => {
+                if (m.id !== 'menu-' + soundId) {
+                    m.classList.add('hidden');
+                }
+            });
+            menu.classList.toggle('hidden');
+        }
+
+        // Close menus when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('[id^="menu-"]') && !event.target.closest('button[onclick^="toggleMenu"]')) {
+                document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
+            }
+        });
+
+        // Download sound (placeholder - would need API endpoint)
+        function downloadSound(soundId, fileName) {
+            // For now, just close the menu - actual download would need an API endpoint
+            document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
+            alert('Download feature coming soon. File: ' + fileName);
+        }
+
+        // File upload handling
+        function handleFileSelect(input) {
+            if (input.files && input.files.length > 0) {
+                const file = input.files[0];
+                document.getElementById('selected-file-name').textContent = file.name;
+                document.getElementById('selected-file').classList.remove('hidden');
+                document.getElementById('upload-btn').classList.remove('hidden');
+            }
+        }
+
+        function clearFileSelection() {
+            document.getElementById('file-input').value = '';
+            document.getElementById('selected-file').classList.add('hidden');
+            document.getElementById('upload-btn').classList.add('hidden');
+        }
+
+        // Drag and drop handling
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.add('drag-over'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.remove('drag-over'), false);
+        });
+
+        dropzone.addEventListener('drop', function(e) {
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect(fileInput);
+            }
+        });
+
+        // Escape key to close modals
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                hideDeleteModal();
+                document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
+            }
+        });
+    </script>
+}
