@@ -197,10 +197,14 @@
                                         <td class="px-4 py-3">
                                             <button type="button"
                                                     class="play-button inline-flex items-center justify-center w-8 h-8 rounded bg-accent-blue text-white hover:bg-accent-blue-hover transition-colors"
-                                                    title="Preview not available"
-                                                    disabled>
-                                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                                    data-sound-id="@sound.Id"
+                                                    onclick="togglePlaySound('@sound.Id')"
+                                                    title="Play @sound.Name">
+                                                <svg class="play-icon w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                                     <path d="M8 5v14l11-7z"/>
+                                                </svg>
+                                                <svg class="stop-icon w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M6 6h12v12H6z"/>
                                                 </svg>
                                             </button>
                                         </td>
@@ -445,6 +449,23 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+        .play-button.playing {
+            background-color: var(--color-accent-orange);
+            animation: pulse-play 1.5s ease-in-out infinite;
+        }
+        .play-button.playing:hover {
+            background-color: var(--color-accent-orange-hover);
+        }
+        .play-button.playing .play-icon {
+            display: none;
+        }
+        .play-button.playing .stop-icon {
+            display: block;
+        }
+        @@keyframes pulse-play {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
         #dropzone.drag-over {
             border-color: var(--color-accent-blue);
             background-color: var(--color-accent-blue-muted);
@@ -454,6 +475,65 @@
     <script>
         // Guild ID for API calls (as string to preserve precision)
         window.guildId = '@Model.ViewModel.GuildId';
+
+        // Audio playback handling
+        const audioPlayer = new Audio();
+        let currentPlayingSoundId = null;
+
+        // Audio event listeners
+        audioPlayer.addEventListener('ended', function() {
+            if (currentPlayingSoundId) {
+                resetPlayButton(currentPlayingSoundId);
+                currentPlayingSoundId = null;
+            }
+        });
+
+        audioPlayer.addEventListener('error', function(e) {
+            console.error('[Soundboard] Audio playback error:', e);
+            if (currentPlayingSoundId) {
+                resetPlayButton(currentPlayingSoundId);
+                currentPlayingSoundId = null;
+            }
+        });
+
+        function togglePlaySound(soundId) {
+            if (currentPlayingSoundId === soundId) {
+                // Stop current sound
+                audioPlayer.pause();
+                audioPlayer.currentTime = 0;
+                resetPlayButton(soundId);
+                currentPlayingSoundId = null;
+            } else {
+                // Stop previous sound if playing
+                if (currentPlayingSoundId) {
+                    resetPlayButton(currentPlayingSoundId);
+                }
+                // Play new sound
+                audioPlayer.src = `/api/guilds/${window.guildId}/sounds/${soundId}/download`;
+                audioPlayer.play().catch(function(err) {
+                    console.error('[Soundboard] Playback failed:', err);
+                    resetPlayButton(soundId);
+                });
+                setPlayingState(soundId);
+                currentPlayingSoundId = soundId;
+            }
+        }
+
+        function setPlayingState(soundId) {
+            const btn = document.querySelector(`[data-sound-id="${soundId}"]`);
+            if (btn) {
+                btn.classList.add('playing');
+                btn.title = btn.title.replace('Play ', 'Stop ');
+            }
+        }
+
+        function resetPlayButton(soundId) {
+            const btn = document.querySelector(`[data-sound-id="${soundId}"]`);
+            if (btn) {
+                btn.classList.remove('playing');
+                btn.title = btn.title.replace('Stop ', 'Play ');
+            }
+        }
 
         // Delete modal handling
         function showDeleteModal(soundId, soundName) {
@@ -538,11 +618,18 @@
             }
         });
 
-        // Escape key to close modals
+        // Escape key to close modals and stop audio
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 hideDeleteModal();
                 document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
+                // Stop any playing audio
+                if (currentPlayingSoundId) {
+                    audioPlayer.pause();
+                    audioPlayer.currentTime = 0;
+                    resetPlayButton(currentPlayingSoundId);
+                    currentPlayingSoundId = null;
+                }
             }
         });
 
