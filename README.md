@@ -1,6 +1,6 @@
 # Discord Bot Management System
 
-[![Version](https://img.shields.io/badge/version-v0.5.0--dev-blue)](https://github.com/cpike5/discordbot/releases)
+[![Version](https://img.shields.io/badge/version-v0.7.1--dev-blue)](https://github.com/cpike5/discordbot/releases)
 [![CI](https://github.com/cpike5/discordbot/actions/workflows/ci.yml/badge.svg)](https://github.com/cpike5/discordbot/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
 [![Discord.NET](https://img.shields.io/badge/Discord.NET-3.18.0-5865F2)](https://github.com/discord-net/Discord.Net)
@@ -55,6 +55,8 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 - **Message Logging** - Consent-aware Discord message capture with GDPR-compliant data handling
 - **Audit Logging** - Comprehensive audit trail for user, guild, bot, and system events with fluent builder API
 - **SignalR Real-time Updates** - Live dashboard updates for bot status and command execution ([docs](docs/articles/signalr-realtime.md))
+- **Soundboard** - Audio playback in voice channels with guild-managed sound libraries ([docs](docs/articles/soundboard.md))
+- **Consent & Privacy** - GDPR-compliant user consent management and data handling ([docs](docs/articles/consent-privacy.md))
 
 ## Quick Start
 
@@ -208,6 +210,24 @@ Moderation tools for server staff. Requires moderation to be enabled for the gui
 - `/mod-tag add/remove/list` - Manage user tags for tracking
 - `/watchlist add/remove/list` - Manage user watchlist
 - `/investigate <user>` - Comprehensive user investigation
+
+### Soundboard & Voice Commands
+
+Audio playback in voice channels. See [soundboard.md](docs/articles/soundboard.md) and [audio-dependencies.md](docs/articles/audio-dependencies.md) for setup.
+
+- `/play <sound>` - Play a sound in voice channel
+- `/sounds` - List available sounds
+- `/stop` - Stop current playback
+- `/join` - Join your current voice channel
+- `/join-channel <channel>` - Join a specific voice channel
+- `/leave` - Leave the voice channel
+
+### Consent & Privacy Commands
+
+User consent and data privacy management. See [consent-privacy.md](docs/articles/consent-privacy.md) for details.
+
+- `/consent` - Manage your data consent preferences
+- `/privacy` - View privacy information and data usage
 
 ## Logging
 
@@ -463,6 +483,9 @@ This project is for educational and development purposes.
 - [Utility Commands](docs/articles/utility-commands.md) - User/server/role information commands
 - [Scheduled Messages](docs/articles/scheduled-messages.md) - Automated message scheduling
 - [Member Directory](docs/articles/member-directory.md) - Guild member management
+- [Soundboard](docs/articles/soundboard.md) - Audio playback in voice channels
+- [Audio Dependencies](docs/articles/audio-dependencies.md) - FFmpeg, libsodium, libopus setup
+- [Consent & Privacy](docs/articles/consent-privacy.md) - User consent and data privacy management
 - [Bot Performance Dashboard](docs/articles/bot-performance-dashboard.md) - Performance monitoring
 - [User Management](docs/articles/user-management.md) - Admin UI user management
 - [Bot Verification](docs/articles/bot-verification.md) - Discord account linking flow
