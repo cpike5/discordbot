@@ -98,6 +98,11 @@ public record RecentCommandLogItem
     public Guid Id { get; init; }
 
     /// <summary>
+    /// Gets the Discord user ID of the user who executed the command.
+    /// </summary>
+    public ulong UserId { get; init; }
+
+    /// <summary>
     /// Gets the username of the user who executed the command.
     /// </summary>
     public string Username { get; init; } = string.Empty;
@@ -142,6 +147,7 @@ public record RecentCommandLogItem
         return new RecentCommandLogItem
         {
             Id = dto.Id,
+            UserId = dto.UserId,
             Username = dto.Username ?? "Unknown",
             CommandName = dto.CommandName,
             ExecutedAt = dto.ExecutedAt,

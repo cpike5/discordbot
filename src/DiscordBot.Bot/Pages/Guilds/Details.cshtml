@@ -661,7 +661,7 @@
                                     <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                    @cmd.Username
+                                    <span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guild.Id">@cmd.Username</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
                                     <span data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">
@@ -708,7 +708,7 @@
                         <div class="space-y-1 text-sm">
                             <div class="flex justify-between">
                                 <span class="text-text-tertiary">User:</span>
-                                <span class="text-text-secondary">@cmd.Username</span>
+                                <span class="text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guild.Id">@cmd.Username</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-text-tertiary">Time:</span>
