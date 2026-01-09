@@ -4,6 +4,75 @@
 @{
     ViewData["Title"] = Model.ViewModel.Name;
     var guild = Model.ViewModel;
+
+    // Define tabs for the tab panel
+    var tabs = new List<TabItemViewModel>
+    {
+        new TabItemViewModel
+        {
+            Id = "overview",
+            Label = "Overview",
+            ShortLabel = "Overview",
+            IconPathOutline = "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+            IconPathSolid = "M11.078 2.25c-.917 0-1.699.663-1.855 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 00-.986.57c-.166.115-.334.126-.45.083L6.3 5.508a1.875 1.875 0 00-2.282.819l-.922 1.597a1.875 1.875 0 00.432 2.385l.84.692c.095.078.17.229.154.43a7.598 7.598 0 000 1.139c.015.2-.059.352-.153.43l-.841.692a1.875 1.875 0 00-.432 2.385l.922 1.597a1.875 1.875 0 002.282.818l1.019-.382c.115-.043.283-.031.45.082.312.214.641.405.985.57.182.088.277.228.297.35l.178 1.071c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.349.344-.165.673-.356.985-.57.167-.114.335-.125.45-.082l1.02.382a1.875 1.875 0 002.28-.819l.923-1.597a1.875 1.875 0 00-.432-2.385l-.84-.692c-.095-.078-.17-.229-.154-.43a7.614 7.614 0 000-1.139c-.016-.2.059-.352.153-.43l.84-.692c.708-.582.891-1.59.433-2.385l-.922-1.597a1.875 1.875 0 00-2.282-.818l-1.02.382c-.114.043-.282.031-.449-.083a7.49 7.49 0 00-.985-.57c-.183-.087-.277-.227-.297-.348l-.179-1.072a1.875 1.875 0 00-1.85-1.567h-1.843zM12 15.75a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z"
+        },
+        new TabItemViewModel
+        {
+            Id = "members",
+            Label = "Members",
+            ShortLabel = "Members",
+            IconPathOutline = "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+            IconPathSolid = "M8.25 6.75a3.75 3.75 0 117.5 0 3.75 3.75 0 01-7.5 0zM15.75 9.75a3 3 0 116 0 3 3 0 01-6 0zM2.25 9.75a3 3 0 116 0 3 3 0 01-6 0zM6.31 15.117A6.745 6.745 0 0112 12a6.745 6.745 0 016.709 7.498.75.75 0 01-.372.568A12.696 12.696 0 0112 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 01-.372-.568 6.787 6.787 0 011.019-4.38z"
+        },
+        new TabItemViewModel
+        {
+            Id = "messages",
+            Label = "Messages",
+            ShortLabel = "Msgs",
+            IconPathOutline = "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+            IconPathSolid = "M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z",
+            BadgeCount = Model.ScheduledMessagesActive > 0 ? Model.ScheduledMessagesActive : null,
+            BadgeVariant = TabBadgeVariant.Success
+        },
+        new TabItemViewModel
+        {
+            Id = "ratwatch",
+            Label = "Rat Watch",
+            ShortLabel = "Rats",
+            IconPathOutline = "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+            IconPathSolid = "M12 15a3 3 0 100-6 3 3 0 000 6z M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 010-1.113z",
+            BadgeCount = Model.RatWatchPending > 0 ? Model.RatWatchPending : null,
+            BadgeVariant = TabBadgeVariant.Warning
+        },
+        new TabItemViewModel
+        {
+            Id = "reminders",
+            Label = "Reminders",
+            ShortLabel = "Remind",
+            IconPathOutline = "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9",
+            IconPathSolid = "M5.85 3.5a.75.75 0 00-1.117-1 9.719 9.719 0 00-2.348 4.876.75.75 0 001.479.248A8.219 8.219 0 015.85 3.5zM19.267 2.5a.75.75 0 10-1.118 1 8.22 8.22 0 011.987 4.124.75.75 0 001.48-.248A9.72 9.72 0 0019.266 2.5zM12 2.25A6.75 6.75 0 005.25 9v.75a8.217 8.217 0 01-2.119 5.52.75.75 0 00.298 1.206c1.544.57 3.16.99 4.831 1.243a3.75 3.75 0 107.48 0 24.583 24.583 0 004.83-1.244.75.75 0 00.298-1.205 8.217 8.217 0 01-2.118-5.52V9A6.75 6.75 0 0012 2.25z",
+            BadgeCount = Model.RemindersPending > 0 ? Model.RemindersPending : null,
+            BadgeVariant = TabBadgeVariant.Info
+        },
+        new TabItemViewModel
+        {
+            Id = "activity",
+            Label = "Activity",
+            ShortLabel = "Activity",
+            IconPathOutline = "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01",
+            IconPathSolid = "M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625z M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z"
+        }
+    };
+
+    var tabPanelModel = new TabPanelViewModel
+    {
+        Id = "guildDetails",
+        Tabs = tabs,
+        ActiveTabId = "overview",
+        NavigationMode = TabNavigationMode.InPage,
+        PersistenceMode = TabPersistenceMode.UrlHash,
+        AriaLabel = "Guild details navigation"
+    };
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
@@ -205,7 +274,7 @@
         </div>
     }
 
-    <!-- Guild Information Card -->
+    <!-- Guild Information Card (Always visible, not in tabs) -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
         <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Information</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
@@ -290,455 +359,496 @@
         </div>
     </div>
 
-    <!-- Guild Settings Card (conditional) -->
-    @if (guild.Settings.HasSettings)
-    {
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
-            <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Settings</h2>
-            <div class="space-y-3">
-                @if (!string.IsNullOrEmpty(guild.Settings.WelcomeChannel))
-                {
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 text-sm">
-                        <span class="text-text-secondary">Welcome Channel</span>
-                        <span class="text-text-primary font-medium truncate">#@guild.Settings.WelcomeChannel</span>
-                    </div>
-                }
-                @if (!string.IsNullOrEmpty(guild.Settings.LogChannel))
-                {
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 text-sm">
-                        <span class="text-text-secondary">Log Channel</span>
-                        <span class="text-text-primary font-medium truncate">#@guild.Settings.LogChannel</span>
-                    </div>
-                }
-                @if (guild.Settings.AutoModEnabled)
-                {
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 text-sm">
-                        <span class="text-text-secondary">Auto-Moderation</span>
-                        <span class="text-success font-medium">Enabled</span>
-                    </div>
-                }
-            </div>
-        </div>
-    }
+    <!-- Tab Panel Navigation -->
+    <partial name="Shared/Components/_TabPanel" model="tabPanelModel" />
 
-    <!-- Member Directory Summary Card -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-text-primary">Member Directory</h2>
-            <a asp-page="Members/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
-                View All →
-            </a>
-        </div>
+    <!-- Tab Panel Content -->
 
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-            <!-- Total Members -->
-            <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span class="text-xs text-text-tertiary font-medium">Total Members</span>
+    <!-- Overview Tab -->
+    <div data-tab-panel-for="guildDetails" data-tab-id="overview" role="tabpanel" aria-labelledby="guildDetails-tab-overview">
+        @if (guild.Settings.HasSettings)
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+                <h3 class="text-lg font-semibold text-text-primary mb-4">Guild Settings</h3>
+                <div class="space-y-3">
+                    @if (!string.IsNullOrEmpty(guild.Settings.WelcomeChannel))
+                    {
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 text-sm">
+                            <span class="text-text-secondary">Welcome Channel</span>
+                            <span class="text-text-primary font-medium truncate">#@guild.Settings.WelcomeChannel</span>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(guild.Settings.LogChannel))
+                    {
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 text-sm">
+                            <span class="text-text-secondary">Log Channel</span>
+                            <span class="text-text-primary font-medium truncate">#@guild.Settings.LogChannel</span>
+                        </div>
+                    }
+                    @if (guild.Settings.AutoModEnabled)
+                    {
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4 text-sm">
+                            <span class="text-text-secondary">Auto-Moderation</span>
+                            <span class="text-success font-medium">Enabled</span>
+                        </div>
+                    }
                 </div>
-                <p class="text-2xl font-bold text-text-primary">@guild.MemberCount.ToString("N0")</p>
             </div>
-
-            <!-- Quick Actions -->
-            <div class="bg-bg-primary rounded-lg p-3 sm:p-4 col-span-2 md:col-span-2">
-                <div class="flex items-center gap-2 mb-2">
-                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <span class="text-xs text-text-tertiary font-medium">Quick Actions</span>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    <a asp-page="Members/Index" asp-route-guildId="@guild.Id" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors">
+        }
+        else
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+                <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <p class="text-text-secondary mb-3">No custom settings configured yet</p>
+                @if (guild.CanEdit)
+                {
+                    <a asp-page="Edit" asp-route-id="@guild.Id" class="btn btn-primary inline-flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Configure Settings
+                    </a>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Members Tab -->
+    <div data-tab-panel-for="guildDetails" data-tab-id="members" role="tabpanel" aria-labelledby="guildDetails-tab-members" hidden>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-text-primary">Member Directory</h3>
+                <a asp-page="Members/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                    View All →
+                </a>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                <!-- Total Members -->
+                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                    <div class="flex items-center gap-2 mb-1">
+                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <span class="text-xs text-text-tertiary font-medium">Total Members</span>
+                    </div>
+                    <p class="text-2xl font-bold text-text-primary">@guild.MemberCount.ToString("N0")</p>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="bg-bg-primary rounded-lg p-3 sm:p-4 col-span-2 md:col-span-2">
+                    <div class="flex items-center gap-2 mb-2">
+                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
-                        Search Members
-                    </a>
-                    <a asp-page="Members/Index" asp-route-guildId="@guild.Id" asp-route-sortBy="JoinedAt" asp-route-sortDescending="true" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Recent Joins
-                    </a>
+                        <span class="text-xs text-text-tertiary font-medium">Quick Actions</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <a asp-page="Members/Index" asp-route-guildId="@guild.Id" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            Search Members
+                        </a>
+                        <a asp-page="Members/Index" asp-route-guildId="@guild.Id" asp-route-sortBy="JoinedAt" asp-route-sortDescending="true" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-bg-secondary rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-tertiary transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Recent Joins
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Scheduled Messages Summary Card -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-text-primary">Scheduled Messages</h2>
-            <a asp-page="ScheduledMessages/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
-                View All →
-            </a>
-        </div>
-
-        @if (Model.ScheduledMessagesTotal > 0)
-        {
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
-                <!-- Total -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Total</span>
-                    </div>
-                    <p class="text-2xl font-bold text-text-primary">@Model.ScheduledMessagesTotal</p>
-                </div>
-
-                <!-- Active -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Active</span>
-                    </div>
-                    <p class="text-2xl font-bold text-success">@Model.ScheduledMessagesActive</p>
-                </div>
-
-                <!-- Paused -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Paused</span>
-                    </div>
-                    <p class="text-2xl font-bold text-warning">@Model.ScheduledMessagesPaused</p>
-                </div>
-
-                <!-- Next Run -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Next Run</span>
-                    </div>
-                    @if (Model.NextScheduledExecution.HasValue)
-                    {
-                        <span class="text-sm font-bold text-text-primary" data-utc="@Model.NextScheduledExecutionUtcIso" data-format="datetime-short">Loading...</span>
-                        <p class="text-xs text-text-tertiary line-clamp-2 sm:truncate mt-1" title="@Model.NextScheduledMessageTitle">@Model.NextScheduledMessageTitle</p>
-                    }
-                    else
-                    {
-                        <p class="text-sm text-text-tertiary">--</p>
-                    }
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="text-center py-6">
-                <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p class="text-text-secondary mb-3">No scheduled messages yet</p>
-                <a asp-page="ScheduledMessages/Create" asp-route-guildId="@guild.Id" class="btn btn-primary inline-flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    Create Scheduled Message
+    <!-- Messages Tab -->
+    <div data-tab-panel-for="guildDetails" data-tab-id="messages" role="tabpanel" aria-labelledby="guildDetails-tab-messages" hidden>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-text-primary">Scheduled Messages</h3>
+                <a asp-page="ScheduledMessages/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                    View All →
                 </a>
             </div>
-        }
-    </div>
 
-    <!-- Rat Watch Summary Card -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-                <h2 class="text-lg font-semibold text-text-primary">Rat Watch</h2>
-                @if (Model.RatWatchEnabled)
-                {
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
-                        <span class="w-1.5 h-1.5 rounded-full bg-success mr-1"></span>
-                        Enabled
-                    </span>
-                }
-                else
-                {
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
-                        <span class="w-1.5 h-1.5 rounded-full bg-error mr-1"></span>
-                        Disabled
-                    </span>
-                }
-            </div>
-            <div class="flex items-center gap-3">
-                <a asp-page="RatWatch/Index" asp-route-guildId="@guild.Id" class="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                    Settings
-                </a>
-                <a asp-page="RatWatch/Analytics" asp-route-guildId="@guild.Id" class="text-sm text-text-secondary hover:text-text-primary transition-colors">
-                    Analytics
-                </a>
-                <a asp-page="RatWatch/Incidents" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
-                    Incidents →
-                </a>
-            </div>
-        </div>
-
-        @if (Model.RatWatchTotal > 0)
-        {
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-                <!-- Total -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Total Watches</span>
+            @if (Model.ScheduledMessagesTotal > 0)
+            {
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                    <!-- Total -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Total</span>
+                        </div>
+                        <p class="text-2xl font-bold text-text-primary">@Model.ScheduledMessagesTotal</p>
                     </div>
-                    <p class="text-2xl font-bold text-text-primary">@Model.RatWatchTotal</p>
-                </div>
 
-                <!-- Pending -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Pending/Voting</span>
+                    <!-- Active -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Active</span>
+                        </div>
+                        <p class="text-2xl font-bold text-success">@Model.ScheduledMessagesActive</p>
                     </div>
-                    <p class="text-2xl font-bold text-warning">@Model.RatWatchPending</p>
-                </div>
 
-                <!-- Completed -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Completed</span>
+                    <!-- Paused -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Paused</span>
+                        </div>
+                        <p class="text-2xl font-bold text-warning">@Model.ScheduledMessagesPaused</p>
                     </div>
-                    <p class="text-2xl font-bold text-success">@Model.RatWatchCompleted</p>
-                </div>
 
-                <!-- Top Rat -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Top Rat</span>
-                    </div>
-                    @if (!string.IsNullOrEmpty(Model.TopRatUsername))
-                    {
-                        <p class="text-sm font-bold text-text-primary truncate" title="@Model.TopRatUsername">@Model.TopRatUsername</p>
-                        <p class="text-xs text-error">@Model.TopRatGuiltyCount guilty</p>
-                    }
-                    else
-                    {
-                        <p class="text-sm text-text-tertiary">None yet</p>
-                    }
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="text-center py-6">
-                <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                <p class="text-text-secondary mb-3">No Rat Watches yet</p>
-                <p class="text-sm text-text-tertiary">Use the "Rat Watch" context menu on messages in Discord to start accountability tracking.</p>
-            </div>
-        }
-    </div>
-
-    <!-- Reminders Summary Card -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-semibold text-text-primary">Reminders</h2>
-            <a asp-page="Reminders/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
-                View All →
-            </a>
-        </div>
-
-        @if (Model.RemindersTotal > 0)
-        {
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-                <!-- Total -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Total</span>
-                    </div>
-                    <p class="text-2xl font-bold text-text-primary">@Model.RemindersTotal</p>
-                </div>
-
-                <!-- Pending -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Pending</span>
-                    </div>
-                    <p class="text-2xl font-bold text-accent-blue">@Model.RemindersPending</p>
-                </div>
-
-                <!-- Delivered Today -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Delivered Today</span>
-                    </div>
-                    <p class="text-2xl font-bold text-success">@Model.RemindersDeliveredToday</p>
-                </div>
-
-                <!-- Failed -->
-                <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
-                    <div class="flex items-center gap-2 mb-1">
-                        <svg class="w-4 h-4 @(Model.RemindersFailed > 0 ? "text-error" : "text-text-tertiary")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <span class="text-xs text-text-tertiary font-medium">Failed</span>
-                    </div>
-                    <p class="text-2xl font-bold @(Model.RemindersFailed > 0 ? "text-error" : "text-text-primary")">@Model.RemindersFailed</p>
-                </div>
-            </div>
-        }
-        else
-        {
-            <div class="text-center py-6">
-                <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <p class="text-text-secondary mb-3">No reminders yet</p>
-                <p class="text-sm text-text-tertiary">Users can create reminders using the /remind command in Discord.</p>
-            </div>
-        }
-    </div>
-
-    <!-- Recent Command Activity Card -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
-        <div class="px-4 sm:px-6 py-4 border-b border-border-primary">
-            <h2 class="text-lg font-semibold text-text-primary">Recent Command Activity</h2>
-            <p class="text-sm text-text-secondary mt-1">Last 10 commands executed in this server</p>
-        </div>
-
-        @if (guild.RecentCommandLogs.Any())
-        {
-            <!-- Desktop Table -->
-            <div class="overflow-x-auto hidden md:block">
-                <table class="min-w-full divide-y divide-border-primary">
-                    <thead class="bg-bg-tertiary">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Command</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Response</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-border-primary">
-                        @foreach (var cmd in guild.RecentCommandLogs)
+                    <!-- Next Run -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Next Run</span>
+                        </div>
+                        @if (Model.NextScheduledExecution.HasValue)
                         {
-                            <tr class="hover:bg-bg-tertiary/50 transition-colors">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                    <span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guild.Id">@cmd.Username</span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                    <span data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">
+                            <span class="text-sm font-bold text-text-primary" data-utc="@Model.NextScheduledExecutionUtcIso" data-format="datetime-short">Loading...</span>
+                            <p class="text-xs text-text-tertiary line-clamp-2 sm:truncate mt-1" title="@Model.NextScheduledMessageTitle">@Model.NextScheduledMessageTitle</p>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-text-tertiary">--</p>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-6">
+                    <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p class="text-text-secondary mb-3">No scheduled messages yet</p>
+                    <a asp-page="ScheduledMessages/Create" asp-route-guildId="@guild.Id" class="btn btn-primary inline-flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        Create Scheduled Message
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Rat Watch Tab -->
+    <div data-tab-panel-for="guildDetails" data-tab-id="ratwatch" role="tabpanel" aria-labelledby="guildDetails-tab-ratwatch" hidden>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-lg font-semibold text-text-primary">Rat Watch</h3>
+                    @if (Model.RatWatchEnabled)
+                    {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                            <span class="w-1.5 h-1.5 rounded-full bg-success mr-1"></span>
+                            Enabled
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                            <span class="w-1.5 h-1.5 rounded-full bg-error mr-1"></span>
+                            Disabled
+                        </span>
+                    }
+                </div>
+                <div class="flex items-center gap-3">
+                    <a asp-page="RatWatch/Index" asp-route-guildId="@guild.Id" class="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                        Settings
+                    </a>
+                    <a asp-page="RatWatch/Analytics" asp-route-guildId="@guild.Id" class="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                        Analytics
+                    </a>
+                    <a asp-page="RatWatch/Incidents" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                        Incidents →
+                    </a>
+                </div>
+            </div>
+
+            @if (Model.RatWatchTotal > 0)
+            {
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                    <!-- Total -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Total Watches</span>
+                        </div>
+                        <p class="text-2xl font-bold text-text-primary">@Model.RatWatchTotal</p>
+                    </div>
+
+                    <!-- Pending -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Pending/Voting</span>
+                        </div>
+                        <p class="text-2xl font-bold text-warning">@Model.RatWatchPending</p>
+                    </div>
+
+                    <!-- Completed -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Completed</span>
+                        </div>
+                        <p class="text-2xl font-bold text-success">@Model.RatWatchCompleted</p>
+                    </div>
+
+                    <!-- Top Rat -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Top Rat</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.TopRatUsername))
+                        {
+                            <p class="text-sm font-bold text-text-primary truncate" title="@Model.TopRatUsername">@Model.TopRatUsername</p>
+                            <p class="text-xs text-error">@Model.TopRatGuiltyCount guilty</p>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-text-tertiary">None yet</p>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-6">
+                    <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <p class="text-text-secondary mb-3">No Rat Watches yet</p>
+                    <p class="text-sm text-text-tertiary">Use the "Rat Watch" context menu on messages in Discord to start accountability tracking.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Reminders Tab -->
+    <div data-tab-panel-for="guildDetails" data-tab-id="reminders" role="tabpanel" aria-labelledby="guildDetails-tab-reminders" hidden>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-text-primary">Reminders</h3>
+                <a asp-page="Reminders/Index" asp-route-guildId="@guild.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                    View All →
+                </a>
+            </div>
+
+            @if (Model.RemindersTotal > 0)
+            {
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                    <!-- Total -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Total</span>
+                        </div>
+                        <p class="text-2xl font-bold text-text-primary">@Model.RemindersTotal</p>
+                    </div>
+
+                    <!-- Pending -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Pending</span>
+                        </div>
+                        <p class="text-2xl font-bold text-accent-blue">@Model.RemindersPending</p>
+                    </div>
+
+                    <!-- Delivered Today -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Delivered Today</span>
+                        </div>
+                        <p class="text-2xl font-bold text-success">@Model.RemindersDeliveredToday</p>
+                    </div>
+
+                    <!-- Failed -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 @(Model.RemindersFailed > 0 ? "text-error" : "text-text-tertiary")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Failed</span>
+                        </div>
+                        <p class="text-2xl font-bold @(Model.RemindersFailed > 0 ? "text-error" : "text-text-primary")">@Model.RemindersFailed</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-6">
+                    <svg class="w-12 h-12 text-text-tertiary mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <p class="text-text-secondary mb-3">No reminders yet</p>
+                    <p class="text-sm text-text-tertiary">Users can create reminders using the /remind command in Discord.</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Activity Tab -->
+    <div data-tab-panel-for="guildDetails" data-tab-id="activity" role="tabpanel" aria-labelledby="guildDetails-tab-activity" hidden>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-4 sm:px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Recent Command Activity</h3>
+                <p class="text-sm text-text-secondary mt-1">Last 10 commands executed in this server</p>
+            </div>
+
+            @if (guild.RecentCommandLogs.Any())
+            {
+                <!-- Desktop Table -->
+                <div class="overflow-x-auto hidden md:block">
+                    <table class="min-w-full divide-y divide-border-primary">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Command</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Response</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            @foreach (var cmd in guild.RecentCommandLogs)
+                            {
+                                <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                        <span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guild.Id">@cmd.Username</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                        <span data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">
+                                            @GetRelativeTime(cmd.ExecutedAt)
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                        @cmd.ResponseTimeMs ms
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @{
+                                            var statusBadge = new BadgeViewModel
+                                            {
+                                                Text = cmd.Success ? "Success" : "Failed",
+                                                Variant = cmd.Success ? BadgeVariant.Success : BadgeVariant.Error,
+                                                Size = BadgeSize.Small
+                                            };
+                                        }
+                                        <partial name="Shared/Components/_Badge" model="statusBadge" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card Layout -->
+                <div class="md:hidden divide-y divide-border-primary">
+                    @foreach (var cmd in guild.RecentCommandLogs)
+                    {
+                        <div class="p-3 sm:p-4 hover:bg-bg-tertiary/50 transition-colors">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
+                                @{
+                                    var mobileBadge = new BadgeViewModel
+                                    {
+                                        Text = cmd.Success ? "Success" : "Failed",
+                                        Variant = cmd.Success ? BadgeVariant.Success : BadgeVariant.Error,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="mobileBadge" />
+                            </div>
+                            <div class="space-y-1 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">User:</span>
+                                    <span class="text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guild.Id">@cmd.Username</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">Time:</span>
+                                    <span class="text-text-secondary" data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">
                                         @GetRelativeTime(cmd.ExecutedAt)
                                     </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                    @cmd.ResponseTimeMs ms
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    @{
-                                        var statusBadge = new BadgeViewModel
-                                        {
-                                            Text = cmd.Success ? "Success" : "Failed",
-                                            Variant = cmd.Success ? BadgeVariant.Success : BadgeVariant.Error,
-                                            Size = BadgeSize.Small
-                                        };
-                                    }
-                                    <partial name="Shared/Components/_Badge" model="statusBadge" />
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Mobile Card Layout -->
-            <div class="md:hidden divide-y divide-border-primary">
-                @foreach (var cmd in guild.RecentCommandLogs)
-                {
-                    <div class="p-3 sm:p-4 hover:bg-bg-tertiary/50 transition-colors">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
-                            @{
-                                var mobileBadge = new BadgeViewModel
-                                {
-                                    Text = cmd.Success ? "Success" : "Failed",
-                                    Variant = cmd.Success ? BadgeVariant.Success : BadgeVariant.Error,
-                                    Size = BadgeSize.Small
-                                };
-                            }
-                            <partial name="Shared/Components/_Badge" model="mobileBadge" />
-                        </div>
-                        <div class="space-y-1 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-text-tertiary">User:</span>
-                                <span class="text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guild.Id">@cmd.Username</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-text-tertiary">Time:</span>
-                                <span class="text-text-secondary" data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">
-                                    @GetRelativeTime(cmd.ExecutedAt)
-                                </span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-text-tertiary">Response:</span>
-                                <span class="text-text-secondary">@cmd.ResponseTimeMs ms</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">Response:</span>
+                                    <span class="text-text-secondary">@cmd.ResponseTimeMs ms</span>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                }
-            </div>
-        }
-        else
-        {
-            <div class="p-12 text-center">
-                @{
-                    var emptyState = new EmptyStateViewModel
-                    {
-                        Type = EmptyStateType.NoData,
-                        Title = "No command activity yet",
-                        Description = "No commands have been executed in this server"
-                    };
-                }
-                <partial name="Shared/Components/_EmptyState" model="emptyState" />
-            </div>
-        }
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="p-12 text-center">
+                    @{
+                        var emptyState = new EmptyStateViewModel
+                        {
+                            Type = EmptyStateType.NoData,
+                            Title = "No command activity yet",
+                            Description = "No commands have been executed in this server"
+                        };
+                    }
+                    <partial name="Shared/Components/_EmptyState" model="emptyState" />
+                </div>
+            }
+        </div>
     </div>
 </div>
 
 <!-- Toast Container -->
 <partial name="Shared/Components/_ToastContainer" />
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
+}
+
 @section Scripts {
     <script src="~/js/toast.js"></script>
     <script src="~/js/guild-sync.js"></script>
+    <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script>
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
