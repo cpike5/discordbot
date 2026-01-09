@@ -236,6 +236,11 @@ try
         options.AddPolicy("GuildAccess", policy =>
             policy.Requirements.Add(new GuildAccessRequirement()));
 
+        // Portal guild membership authorization - lighter weight than admin access
+        // Only requires Discord OAuth and guild membership, no role checks
+        options.AddPolicy("PortalGuildMember", policy =>
+            policy.Requirements.Add(new PortalGuildMemberRequirement()));
+
         // Fallback policy - require authentication for all pages by default
         options.FallbackPolicy = new AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
@@ -247,6 +252,7 @@ try
 
     // Register custom authorization handlers
     builder.Services.AddScoped<IAuthorizationHandler, GuildAccessHandler>();
+    builder.Services.AddScoped<IAuthorizationHandler, PortalGuildMemberAuthorizationHandler>();
 
     // Register claims transformation for Discord-linked users
     builder.Services.AddScoped<IClaimsTransformation, DiscordClaimsTransformation>();
