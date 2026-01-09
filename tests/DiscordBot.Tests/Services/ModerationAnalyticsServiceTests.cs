@@ -1,4 +1,4 @@
-using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Moderation;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;

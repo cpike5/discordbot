@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Moderation;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Configuration;

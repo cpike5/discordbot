@@ -4,7 +4,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Moderation;
 
 /// <summary>
 /// Service for generating moderation analytics and metrics.
@@ -70,7 +70,7 @@ public class ModerationAnalyticsService : IModerationAnalyticsService
 
             // Calculate average cases per day
             var daySpan = (end - start).TotalDays;
-            var casesPerDay = daySpan > 0 ? (decimal)totalCases / (decimal)daySpan : 0m;
+            var casesPerDay = daySpan > 0 ? totalCases / (decimal)daySpan : 0m;
 
             // Calculate change from previous period
             var periodLength = end - start;
@@ -87,7 +87,7 @@ public class ModerationAnalyticsService : IModerationAnalyticsService
 
             var previousCaseCount = previousCases.Count();
             var changeFromPreviousPeriod = previousCaseCount > 0
-                ? ((decimal)(totalCases - previousCaseCount) / previousCaseCount) * 100
+                ? (decimal)(totalCases - previousCaseCount) / previousCaseCount * 100
                 : totalCases > 0 ? 100m : 0m;
 
             _logger.LogInformation(
@@ -293,7 +293,7 @@ public class ModerationAnalyticsService : IModerationAnalyticsService
                     MuteCount = x.Cases.Count(c => c.Type == CaseType.Mute),
                     KickCount = x.Cases.Count(c => c.Type == CaseType.Kick),
                     BanCount = x.Cases.Count(c => c.Type == CaseType.Ban),
-                    Percentage = totalActions > 0 ? ((decimal)x.Cases.Count / totalActions) * 100 : 0m
+                    Percentage = totalActions > 0 ? (decimal)x.Cases.Count / totalActions * 100 : 0m
                 })
                 .OrderByDescending(x => x.TotalActions)
                 .Take(limit)

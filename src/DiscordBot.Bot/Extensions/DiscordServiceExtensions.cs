@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.Moderation;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Extensions;

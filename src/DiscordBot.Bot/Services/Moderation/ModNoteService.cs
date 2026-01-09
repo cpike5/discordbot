@@ -4,7 +4,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Moderation;
 
 /// <summary>
 /// Service implementation for managing moderator notes about users.
