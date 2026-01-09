@@ -1,9 +1,11 @@
 using Discord.WebSocket;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Pages.Guilds.AudioSettings;
 
@@ -18,6 +20,7 @@ public class IndexModel : PageModel
     private readonly IGuildService _guildService;
     private readonly ISoundService _soundService;
     private readonly DiscordSocketClient _discordClient;
+    private readonly SoundboardOptions _soundboardOptions;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -25,12 +28,14 @@ public class IndexModel : PageModel
         IGuildService guildService,
         ISoundService soundService,
         DiscordSocketClient discordClient,
+        IOptions<SoundboardOptions> soundboardOptions,
         ILogger<IndexModel> logger)
     {
         _audioSettingsService = audioSettingsService;
         _guildService = guildService;
         _soundService = soundService;
         _discordClient = discordClient;
+        _soundboardOptions = soundboardOptions.Value;
         _logger = logger;
     }
 
@@ -107,8 +112,8 @@ public class IndexModel : PageModel
                 .ToList();
         }
 
-        // Set the sound folder path for display
-        SoundFolderPath = $"/data/sounds/{GuildId}";
+        // Set the sound folder path for display (from configuration)
+        SoundFolderPath = Path.Combine(_soundboardOptions.BasePath, GuildId.ToString());
 
         // Load sound count for the AudioTabs badge
         SoundCount = await _soundService.GetSoundCountAsync(GuildId, cancellationToken);

@@ -39,7 +39,7 @@ public interface IGuildAudioSettingsService
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// If the restriction already exists, this operation is idempotent.
-    /// Valid command names: "upload", "play", "delete", "list", "manage"
+    /// Valid command names: "join", "leave", "play", "sounds", "stop"
     /// </remarks>
     Task AddCommandRestrictionAsync(ulong guildId, string commandName, ulong roleId, CancellationToken ct = default);
 

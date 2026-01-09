@@ -180,6 +180,23 @@ ldconfig -p | grep opus
 # libopus.so.0 (libc6,x86-64) => /lib/x86_64-linux-gnu/libopus.so.0
 ```
 
+### Creating Symlinks for .NET
+
+**Important:** Ubuntu/Debian packages install versioned libraries (e.g., `libopus.so.0`, `libsodium.so.23`), but .NET's P/Invoke looks for unversioned names (`libopus.so`, `libsodium.so`). You must create symlinks in your application directory for .NET to find them.
+
+```bash
+# Find where the libraries are installed
+dpkg -L libopus0 | grep "\.so"
+dpkg -L libsodium23 | grep "\.so"
+
+# Create symlinks in your bot's application directory
+# Replace /opt/discordbot with your actual deployment path
+sudo ln -s /usr/lib/x86_64-linux-gnu/libopus.so.0 /opt/discordbot/libopus.so
+sudo ln -s /usr/lib/x86_64-linux-gnu/libsodium.so.23 /opt/discordbot/libsodium.so
+```
+
+**Note:** Creating the symlinks in `/usr/lib/x86_64-linux-gnu/` alone is not sufficient. .NET searches the application directory first, so the symlinks must be placed there.
+
 ## Configuration
 
 Audio dependencies are configured in `appsettings.json` under the `Soundboard` section:
@@ -330,17 +347,32 @@ chown -R 1000:1000 ./sounds
 
 ### Voice Connection Issues
 
-**Symptoms:** Bot joins channel but no audio plays.
+**Symptoms:** Bot joins channel but no audio plays, or you see errors like:
+```
+Unable to load shared library 'opus' or one of its dependencies
+```
 
 **Possible causes:**
-1. Missing libsodium or libopus
-2. FFmpeg not configured correctly
-3. Bot lacks voice permissions in Discord
+1. Missing libsodium or libopus packages
+2. Missing symlinks for .NET P/Invoke (most common on Linux)
+3. FFmpeg not configured correctly
+4. Bot lacks voice permissions in Discord
 
 **Linux fix:**
 ```bash
+# Install the packages
 sudo apt install libsodium23 libopus0
+
+# Create symlinks in your application directory (required for .NET)
+# Replace /opt/discordbot with your actual deployment path
+sudo ln -s /usr/lib/x86_64-linux-gnu/libopus.so.0 /opt/discordbot/libopus.so
+sudo ln -s /usr/lib/x86_64-linux-gnu/libsodium.so.23 /opt/discordbot/libsodium.so
+
+# Restart your bot service
+sudo systemctl restart discordbot
 ```
+
+**Why symlinks are needed:** Ubuntu/Debian packages install versioned libraries (e.g., `libopus.so.0`), but .NET looks for unversioned names (`libopus.so`). The symlinks must be in your application directory, not just in the system library path.
 
 ### Consecutive Playback Failures
 
@@ -434,13 +466,19 @@ await discordStream.WriteAsync(silence, 0, silence.Length);
 ### Production (Linux Server)
 
 1. Install via package manager: `sudo apt install ffmpeg libsodium23 libopus0`
-2. Create sounds directory with proper permissions:
+2. Create symlinks for .NET to find the native libraries:
+   ```bash
+   # Replace /opt/discordbot with your actual deployment path
+   sudo ln -s /usr/lib/x86_64-linux-gnu/libopus.so.0 /opt/discordbot/libopus.so
+   sudo ln -s /usr/lib/x86_64-linux-gnu/libsodium.so.23 /opt/discordbot/libsodium.so
+   ```
+3. Create sounds directory with proper permissions:
    ```bash
    sudo mkdir -p /var/discordbot/sounds
    sudo chown -R www-data:www-data /var/discordbot/sounds
    ```
-3. Configure `Soundboard:BasePath` to the production sounds directory
-4. Consider using systemd for service management
+4. Configure `Soundboard:BasePath` to the production sounds directory
+5. Consider using systemd for service management
 
 ### CI/CD
 
@@ -459,6 +497,7 @@ For build pipelines that need audio processing:
 - [ ] FFmpeg installed and accessible (via PATH or explicit config)
 - [ ] libsodium available (system package or DLL in output)
 - [ ] libopus available (system package or DLL in output)
+- [ ] **Linux only:** Symlinks created in application directory (`libopus.so`, `libsodium.so`)
 - [ ] Sounds directory exists with correct permissions
 - [ ] `Soundboard:BasePath` configured for production path
 - [ ] Storage limits configured appropriately for server capacity
