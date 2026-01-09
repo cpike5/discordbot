@@ -7,7 +7,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.RatWatch;
 
 /// <summary>
 /// Background service that periodically checks for due Rat Watches and expired voting sessions.
@@ -400,7 +400,7 @@ public class RatWatchExecutionService : MonitoredBackgroundService
             }
 
             // Build the verdict message
-            var isGuilty = watchDto.Status == Core.Enums.RatWatchStatus.Guilty;
+            var isGuilty = watchDto.Status == RatWatchStatus.Guilty;
             var verdictEmoji = isGuilty ? "🐀" : "✅";
             var verdictText = isGuilty ? "**GUILTY**" : "**CLEARED**";
 

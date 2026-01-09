@@ -1,5 +1,5 @@
 using Discord.WebSocket;
-using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.RatWatch;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;

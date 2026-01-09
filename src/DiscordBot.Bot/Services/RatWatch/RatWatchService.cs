@@ -8,7 +8,7 @@ using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
 using System.Text.RegularExpressions;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.RatWatch;
 
 /// <summary>
 /// Service implementation for managing Rat Watch accountability trackers.
@@ -71,7 +71,7 @@ public class RatWatchService : IRatWatchService
             }
 
             var now = DateTime.UtcNow;
-            var watch = new RatWatch
+            var watch = new Core.Entities.RatWatch
             {
                 Id = Guid.NewGuid(),
                 GuildId = dto.GuildId,
@@ -461,7 +461,7 @@ public class RatWatchService : IRatWatchService
     }
 
     /// <inheritdoc/>
-    public async Task<IEnumerable<RatWatch>> GetDueWatchesAsync(CancellationToken ct = default)
+    public async Task<IEnumerable<Core.Entities.RatWatch>> GetDueWatchesAsync(CancellationToken ct = default)
     {
         using var activity = BotActivitySource.StartServiceActivity(
             "rat_watch",
@@ -539,7 +539,7 @@ public class RatWatchService : IRatWatchService
     }
 
     /// <inheritdoc/>
-    public async Task<IEnumerable<RatWatch>> GetExpiredVotingAsync(CancellationToken ct = default)
+    public async Task<IEnumerable<Core.Entities.RatWatch>> GetExpiredVotingAsync(CancellationToken ct = default)
     {
         using var activity = BotActivitySource.StartServiceActivity(
             "rat_watch",
@@ -907,7 +907,7 @@ public class RatWatchService : IRatWatchService
     /// Maps a RatWatch entity to a RatWatchDto.
     /// Resolves usernames from Discord and calculates vote tallies.
     /// </summary>
-    private async Task<RatWatchDto> MapToDtoAsync(RatWatch watch, CancellationToken ct)
+    private async Task<RatWatchDto> MapToDtoAsync(Core.Entities.RatWatch watch, CancellationToken ct)
     {
         var accusedUsername = await GetUsernameAsync(watch.AccusedUserId, watch.GuildId);
         var initiatorUsername = await GetUsernameAsync(watch.InitiatorUserId, watch.GuildId);

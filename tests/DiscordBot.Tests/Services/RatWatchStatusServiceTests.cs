@@ -1,5 +1,5 @@
 using Discord.WebSocket;
-using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.RatWatch;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;

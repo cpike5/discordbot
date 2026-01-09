@@ -1,7 +1,7 @@
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.RatWatch;
 
 /// <summary>
 /// Service for managing the bot's Discord status during active Rat Watches.
