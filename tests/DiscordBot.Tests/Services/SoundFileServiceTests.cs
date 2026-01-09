@@ -23,7 +23,7 @@ public class SoundFileServiceTests
         _options = Options.Create(new SoundboardOptions
         {
             BasePath = "sounds",
-            SupportedFormats = new() { ".mp3", ".wav", ".ogg", ".m4a" }
+            SupportedFormats = ["mp3", "wav", "ogg"]
         });
 
         _service = new SoundFileService(
@@ -90,11 +90,9 @@ public class SoundFileServiceTests
     [InlineData("sound.mp3")]
     [InlineData("sound.wav")]
     [InlineData("sound.ogg")]
-    [InlineData("sound.m4a")]
     [InlineData("sound.MP3")]
     [InlineData("sound.WAV")]
     [InlineData("sound.OGG")]
-    [InlineData("sound.M4A")]
     public void IsValidAudioFormat_WithSupportedFormats_ReturnsTrue(string fileName)
     {
         // Act
@@ -127,7 +125,6 @@ public class SoundFileServiceTests
     [InlineData(".mp3")]
     [InlineData(".wav")]
     [InlineData(".ogg")]
-    [InlineData(".m4a")]
     public void IsValidAudioFormat_WithExtensionOnly_ReturnsTrue(string fileName)
     {
         // Act
@@ -232,7 +229,7 @@ public class SoundFileServiceTests
     public void IsValidAudioFormat_WithMixedCaseExtension_ReturnsTrueForValidFormat()
     {
         // Arrange
-        var testCases = new[] { "sound.Mp3", "sound.wAv", "sound.OgG", "sound.m4A" };
+        var testCases = new[] { "sound.Mp3", "sound.wAv", "sound.OgG" };
 
         // Act & Assert
         foreach (var fileName in testCases)

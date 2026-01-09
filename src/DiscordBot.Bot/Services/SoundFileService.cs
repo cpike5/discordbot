@@ -197,9 +197,12 @@ public class SoundFileService : ISoundFileService
             return false;
         }
 
+        // Remove leading dot from extension for comparison (e.g., ".mp3" -> "mp3")
+        var extensionWithoutDot = extension.TrimStart('.');
+
         // Case-insensitive comparison against supported formats
         return _options.SupportedFormats.Any(format =>
-            format.Equals(extension, StringComparison.OrdinalIgnoreCase));
+            format.Equals(extensionWithoutDot, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <inheritdoc/>

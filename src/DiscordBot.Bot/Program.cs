@@ -343,6 +343,10 @@ try
     builder.Services.Configure<HistoricalMetricsOptions>(
         builder.Configuration.GetSection(HistoricalMetricsOptions.SectionName));
 
+    // Add Soundboard configuration (audio services added when implemented)
+    builder.Services.Configure<SoundboardOptions>(
+        builder.Configuration.GetSection(SoundboardOptions.SectionName));
+
     // Add Moderation services (includes detection services and handlers)
     builder.Services.AddModerationServices(builder.Configuration);
 
