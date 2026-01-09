@@ -52,6 +52,10 @@ public class GuildAudioSettingsConfiguration : IEntityTypeConfiguration<GuildAud
             .IsRequired()
             .HasDefaultValue(104_857_600);
 
+        builder.Property(s => s.EnableMemberPortal)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         // DateTime properties - stored as UTC
         builder.Property(s => s.CreatedAt)
             .IsRequired();
