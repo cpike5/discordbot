@@ -324,6 +324,13 @@ try
     builder.Services.AddScoped<IReminderService, ReminderService>();
     builder.Services.AddHostedService<ReminderExecutionService>();
 
+    // Add Soundboard services
+    builder.Services.Configure<SoundboardOptions>(
+        builder.Configuration.GetSection(SoundboardOptions.SectionName));
+    builder.Services.AddScoped<ISoundService, SoundService>();
+    builder.Services.AddScoped<ISoundFileService, SoundFileService>();
+    builder.Services.AddScoped<IGuildAudioSettingsService, GuildAudioSettingsService>();
+
     // Add Analytics Aggregation services
     builder.Services.Configure<AnalyticsRetentionOptions>(
         builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName));
