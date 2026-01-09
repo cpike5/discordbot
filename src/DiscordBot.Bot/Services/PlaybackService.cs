@@ -4,6 +4,7 @@ using Discord.Audio;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,7 @@ namespace DiscordBot.Bot.Services;
 public class PlaybackService : IPlaybackService
 {
     private readonly IAudioService _audioService;
+    private readonly IAudioNotifier _audioNotifier;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<PlaybackService> _logger;
     private readonly SoundboardOptions _options;
@@ -33,16 +35,19 @@ public class PlaybackService : IPlaybackService
     /// Initializes a new instance of the <see cref="PlaybackService"/> class.
     /// </summary>
     /// <param name="audioService">The audio service for voice connections.</param>
+    /// <param name="audioNotifier">The audio notifier for SignalR broadcasts.</param>
     /// <param name="serviceScopeFactory">The service scope factory for resolving scoped services.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="options">Soundboard configuration options.</param>
     public PlaybackService(
         IAudioService audioService,
+        IAudioNotifier audioNotifier,
         IServiceScopeFactory serviceScopeFactory,
         ILogger<PlaybackService> logger,
         IOptions<SoundboardOptions> options)
     {
         _audioService = audioService;
+        _audioNotifier = audioNotifier;
         _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
         _options = options.Value;
@@ -103,6 +108,9 @@ public class PlaybackService : IPlaybackService
                     state.Queue.Enqueue(sound);
                     _logger.LogDebug("Added sound {SoundName} to queue (position {QueuePosition}) in guild {GuildId}",
                         sound.Name, state.Queue.Count, guildId);
+
+                    // Broadcast queue update
+                    BroadcastQueueUpdate(guildId, state);
                 }
                 else
                 {
@@ -116,6 +124,9 @@ public class PlaybackService : IPlaybackService
                     }
 
                     state.Queue.Enqueue(sound);
+
+                    // Broadcast queue update
+                    BroadcastQueueUpdate(guildId, state);
                 }
 
                 // Start playback loop if not already running
@@ -170,6 +181,9 @@ public class PlaybackService : IPlaybackService
                 }
 
                 state.Queue.Clear();
+
+                // Broadcast queue update (empty queue)
+                BroadcastQueueUpdate(guildId, state);
 
                 activity?.SetTag("playback.queue_cleared", true);
             }
@@ -240,6 +254,7 @@ public class PlaybackService : IPlaybackService
                     {
                         // Queue empty, stop playback loop
                         state.IsPlaying = false;
+                        state.CurrentSound = null;
                         state.CancellationTokenSource?.Dispose();
                         state.CancellationTokenSource = null;
                         _logger.LogDebug("Playback queue empty, stopping playback loop for guild {GuildId}", guildId);
@@ -248,8 +263,12 @@ public class PlaybackService : IPlaybackService
 
                     sound = state.Queue.Dequeue();
                     state.IsPlaying = true;
+                    state.CurrentSound = sound;
                     state.CancellationTokenSource?.Dispose();
                     state.CancellationTokenSource = new CancellationTokenSource();
+
+                    // Broadcast queue update (sound dequeued)
+                    BroadcastQueueUpdate(guildId, state);
                 }
                 finally
                 {
@@ -308,6 +327,9 @@ public class PlaybackService : IPlaybackService
             guildId: guildId,
             entityId: sound.Id.ToString());
 
+        var wasCancelled = false;
+        var durationSeconds = sound.DurationSeconds;
+
         try
         {
             var filePath = Path.Combine(_options.BasePath, guildId.ToString(), sound.FileName);
@@ -328,6 +350,9 @@ public class PlaybackService : IPlaybackService
 
             // Update last activity on voice connection
             _audioService.UpdateLastActivity(guildId);
+
+            // Broadcast PlaybackStarted event
+            _ = _audioNotifier.NotifyPlaybackStartedAsync(guildId, sound.Id, sound.Name, durationSeconds, cancellationToken);
 
             // Create PCM stream
             using var pcmStream = audioClient.CreatePCMStream(AudioApplication.Music, bufferMillis: 1000);
@@ -362,6 +387,11 @@ public class PlaybackService : IPlaybackService
             var buffer = new byte[bufferSize];
             int bytesRead;
 
+            // Track playback progress for SignalR notifications
+            var playbackStartTime = Stopwatch.GetTimestamp();
+            var lastProgressBroadcast = playbackStartTime;
+            const long progressBroadcastIntervalTicks = TimeSpan.TicksPerSecond; // 1 second
+
             try
             {
                 while ((bytesRead = await ffmpeg.StandardOutput.BaseStream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
@@ -370,14 +400,38 @@ public class PlaybackService : IPlaybackService
                     {
                         _logger.LogDebug("Playback cancelled for sound {SoundName} in guild {GuildId}",
                             sound.Name, guildId);
+                        wasCancelled = true;
                         break;
                     }
 
                     await pcmStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+
+                    // Broadcast progress updates every ~1 second
+                    var currentTime = Stopwatch.GetTimestamp();
+                    var elapsedSinceLastBroadcast = currentTime - lastProgressBroadcast;
+                    if (elapsedSinceLastBroadcast >= progressBroadcastIntervalTicks && durationSeconds > 0)
+                    {
+                        var elapsedTotalSeconds = Stopwatch.GetElapsedTime(playbackStartTime).TotalSeconds;
+                        var positionSeconds = Math.Min(elapsedTotalSeconds, durationSeconds);
+
+                        _ = _audioNotifier.NotifyPlaybackProgressAsync(
+                            guildId,
+                            sound.Id,
+                            positionSeconds,
+                            durationSeconds,
+                            cancellationToken);
+
+                        lastProgressBroadcast = currentTime;
+                    }
                 }
 
                 // Flush the stream to ensure all audio is sent
                 await pcmStream.FlushAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                wasCancelled = true;
+                throw;
             }
             finally
             {
@@ -394,12 +448,20 @@ public class PlaybackService : IPlaybackService
                     _logger.LogWarning("FFmpeg errors for sound {SoundName} in guild {GuildId}: {ErrorOutput}",
                         sound.Name, guildId, errorOutput);
                 }
+
+                // Broadcast PlaybackFinished event
+                _ = _audioNotifier.NotifyPlaybackFinishedAsync(guildId, sound.Id, wasCancelled, CancellationToken.None);
             }
 
             _logger.LogInformation("Completed playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
                 sound.Name, sound.Id, guildId);
 
             BotActivitySource.SetSuccess(activity);
+        }
+        catch (OperationCanceledException)
+        {
+            // Already handled - re-throw to let the caller handle it
+            throw;
         }
         catch (Exception ex)
         {
@@ -408,6 +470,32 @@ public class PlaybackService : IPlaybackService
             BotActivitySource.RecordException(activity, ex);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Broadcasts a queue update notification to subscribed clients.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="state">The current playback state.</param>
+    private void BroadcastQueueUpdate(ulong guildId, PlaybackState state)
+    {
+        var queueItems = state.Queue
+            .Select((sound, index) => new QueueItemDto
+            {
+                Position = index,
+                SoundId = sound.Id,
+                Name = sound.Name,
+                DurationSeconds = sound.DurationSeconds
+            })
+            .ToList();
+
+        var queueDto = new QueueUpdatedDto
+        {
+            GuildId = guildId,
+            Queue = queueItems
+        };
+
+        _ = _audioNotifier.NotifyQueueUpdatedAsync(guildId, queueDto);
     }
 
     /// <summary>
@@ -430,5 +518,10 @@ public class PlaybackService : IPlaybackService
         /// Used to stop playback when a new sound should replace the current one.
         /// </summary>
         public CancellationTokenSource? CancellationTokenSource { get; set; }
+
+        /// <summary>
+        /// The currently playing sound (used for notifications).
+        /// </summary>
+        public Sound? CurrentSound { get; set; }
     }
 }

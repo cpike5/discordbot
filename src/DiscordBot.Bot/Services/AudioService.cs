@@ -3,6 +3,7 @@ using Discord.Audio;
 using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Services;
 
@@ -13,6 +14,7 @@ namespace DiscordBot.Bot.Services;
 public class AudioService : IAudioService
 {
     private readonly DiscordSocketClient _client;
+    private readonly IAudioNotifier _audioNotifier;
     private readonly ILogger<AudioService> _logger;
     private readonly ConcurrentDictionary<ulong, VoiceConnectionInfo> _connections = new();
     private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildLocks = new();
@@ -21,12 +23,15 @@ public class AudioService : IAudioService
     /// Initializes a new instance of the <see cref="AudioService"/> class.
     /// </summary>
     /// <param name="client">The Discord socket client.</param>
+    /// <param name="audioNotifier">The audio notifier for SignalR broadcasts.</param>
     /// <param name="logger">The logger.</param>
     public AudioService(
         DiscordSocketClient client,
+        IAudioNotifier audioNotifier,
         ILogger<AudioService> logger)
     {
         _client = client;
+        _audioNotifier = audioNotifier;
         _logger = logger;
     }
 
@@ -89,6 +94,9 @@ public class AudioService : IAudioService
             _logger.LogInformation("Successfully joined voice channel {ChannelId} ({ChannelName}) in guild {GuildId}",
                 voiceChannelId, voiceChannel.Name, guildId);
 
+            // Broadcast AudioConnected event to subscribed clients
+            _ = _audioNotifier.NotifyAudioConnectedAsync(guildId, voiceChannelId, voiceChannel.Name, cancellationToken);
+
             BotActivitySource.SetSuccess(activity);
             return audioClient;
         }
@@ -129,6 +137,9 @@ public class AudioService : IAudioService
             await DisconnectInternalAsync(guildId);
 
             _logger.LogInformation("Successfully left voice channel in guild {GuildId}", guildId);
+
+            // Broadcast AudioDisconnected event to subscribed clients
+            _ = _audioNotifier.NotifyAudioDisconnectedAsync(guildId, "User requested disconnect", cancellationToken);
 
             BotActivitySource.SetSuccess(activity);
             return true;

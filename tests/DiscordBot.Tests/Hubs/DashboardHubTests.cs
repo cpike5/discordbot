@@ -1,4 +1,6 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
@@ -24,6 +26,9 @@ public class DashboardHubTests
     private readonly Mock<IBackgroundServiceHealthRegistry> _mockBackgroundServiceHealthRegistry;
     private readonly Mock<IInstrumentedCache> _mockInstrumentedCache;
     private readonly Mock<IPerformanceSubscriptionTracker> _mockSubscriptionTracker;
+    private readonly Mock<IAudioService> _mockAudioService;
+    private readonly Mock<IPlaybackService> _mockPlaybackService;
+    private readonly Mock<DiscordSocketClient> _mockDiscordClient;
     private readonly Mock<ILogger<DashboardHub>> _mockLogger;
     private readonly Mock<IGroupManager> _mockGroupManager;
     private readonly Mock<HubCallerContext> _mockContext;
@@ -40,6 +45,9 @@ public class DashboardHubTests
         _mockBackgroundServiceHealthRegistry = new Mock<IBackgroundServiceHealthRegistry>();
         _mockInstrumentedCache = new Mock<IInstrumentedCache>();
         _mockSubscriptionTracker = new Mock<IPerformanceSubscriptionTracker>();
+        _mockAudioService = new Mock<IAudioService>();
+        _mockPlaybackService = new Mock<IPlaybackService>();
+        _mockDiscordClient = new Mock<DiscordSocketClient>();
         _mockLogger = new Mock<ILogger<DashboardHub>>();
         _mockGroupManager = new Mock<IGroupManager>();
         _mockContext = new Mock<HubCallerContext>();
@@ -54,6 +62,9 @@ public class DashboardHubTests
             _mockBackgroundServiceHealthRegistry.Object,
             _mockInstrumentedCache.Object,
             _mockSubscriptionTracker.Object,
+            _mockAudioService.Object,
+            _mockPlaybackService.Object,
+            _mockDiscordClient.Object,
             _mockLogger.Object);
 
         // Setup hub context with mocked group manager

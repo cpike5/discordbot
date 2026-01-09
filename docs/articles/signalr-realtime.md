@@ -17,6 +17,8 @@ SignalR automatically negotiates the best transport protocol (WebSockets, Server
 | `DashboardHub` | `src/DiscordBot.Bot/Hubs/DashboardHub.cs` | SignalR hub for managing client connections and providing hub methods |
 | `DashboardNotifier` | `src/DiscordBot.Bot/Services/DashboardNotifier.cs` | Service for broadcasting events from backend services to connected clients |
 | `IDashboardNotifier` | `src/DiscordBot.Core/Interfaces/IDashboardNotifier.cs` | Abstraction for the notifier service (Core layer) |
+| `AudioNotifier` | `src/DiscordBot.Bot/Services/AudioNotifier.cs` | Service for broadcasting audio/playback events to guild-specific groups |
+| `IAudioNotifier` | `src/DiscordBot.Core/Interfaces/IAudioNotifier.cs` | Abstraction for the audio notifier service (Core layer) |
 
 ### Client Components
 
@@ -1278,6 +1280,437 @@ This prevents unnecessary work when no dashboard pages are open.
 
 ---
 
+## Audio Status Real-Time Updates
+
+The dashboard supports real-time audio status updates via guild-specific audio groups. This enables live monitoring of voice channel connections and soundboard playback without page refresh.
+
+### Audio Groups
+
+Audio events are broadcast to guild-specific groups, allowing clients to subscribe to audio updates for specific guilds.
+
+| Group Pattern | Example | Purpose |
+|---------------|---------|---------|
+| `guild-audio-{guildId}` | `guild-audio-123456789012345678` | Voice connection and playback events for a specific guild |
+
+The group name prefix is defined as a constant in `DashboardHub`:
+- `DashboardHub.AudioGroupPrefix` = `"guild-audio-"`
+
+### Audio Hub Methods
+
+#### JoinGuildAudioGroup(guildId)
+
+Subscribes the client to receive real-time audio events for a specific guild.
+
+**Parameters:**
+- `guildId` (ulong): The Discord guild ID
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+// Join audio group for guild 123456789012345678
+await DashboardHub.invoke('JoinGuildAudioGroup', '123456789012345678');
+```
+
+**Broadcast Events Received:**
+- `AudioConnected` - When bot joins a voice channel
+- `AudioDisconnected` - When bot leaves a voice channel
+- `PlaybackStarted` - When a sound starts playing
+- `PlaybackProgress` - During playback (~1 second intervals)
+- `PlaybackFinished` - When a sound finishes playing
+- `QueueUpdated` - When the playback queue changes
+
+---
+
+#### LeaveGuildAudioGroup(guildId)
+
+Unsubscribes from audio events for a specific guild.
+
+**Parameters:**
+- `guildId` (ulong): The Discord guild ID
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+// Leave audio group when navigating away
+await DashboardHub.invoke('LeaveGuildAudioGroup', '123456789012345678');
+```
+
+---
+
+#### GetCurrentAudioStatus(guildId)
+
+Gets a snapshot of current audio status for a guild.
+
+**Parameters:**
+- `guildId` (ulong): The Discord guild ID
+
+**Returns:** `AudioStatusDto`
+
+**JavaScript Example:**
+
+```javascript
+// Get current audio status on page load
+const status = await DashboardHub.invoke('GetCurrentAudioStatus', '123456789012345678');
+console.log('Connected:', status.isConnected);
+console.log('Channel:', status.channelName);
+console.log('Playing:', status.isPlaying);
+console.log('Queue Length:', status.queueLength);
+```
+
+**Response Properties:**
+- `guildId` (ulong): The guild ID
+- `isConnected` (bool): Whether bot is connected to a voice channel
+- `channelId` (ulong?): Connected voice channel ID (null if not connected)
+- `channelName` (string?): Connected voice channel name (null if not connected)
+- `isPlaying` (bool): Whether audio is currently playing
+- `currentSound` (PlaybackStartedDto?): Currently playing sound info (null if not playing)
+- `currentPositionSeconds` (double?): Current playback position (null if not playing)
+- `queueLength` (int): Number of sounds in the queue
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+### Audio Server-to-Client Events
+
+#### AudioConnected
+
+Broadcast to the guild's audio group when the bot joins a voice channel.
+
+**Event Data:** `AudioConnectedDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('AudioConnected', (data) => {
+    console.log('Bot connected to:', data.channelName);
+    updateVoiceStatus('connected', data.channelName);
+});
+```
+
+**Data Properties:**
+- `guildId` (ulong): The guild ID
+- `channelId` (ulong): The voice channel ID
+- `channelName` (string): The voice channel name
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### AudioDisconnected
+
+Broadcast to the guild's audio group when the bot leaves a voice channel.
+
+**Event Data:** `AudioDisconnectedDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('AudioDisconnected', (data) => {
+    console.log('Bot disconnected:', data.reason);
+    updateVoiceStatus('disconnected');
+});
+```
+
+**Data Properties:**
+- `guildId` (ulong): The guild ID
+- `reason` (string): Reason for disconnection
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### PlaybackStarted
+
+Broadcast to the guild's audio group when a sound starts playing.
+
+**Event Data:** `PlaybackStartedDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('PlaybackStarted', (data) => {
+    console.log('Now playing:', data.name);
+    console.log('Duration:', data.durationSeconds, 'seconds');
+    showNowPlaying(data.name, data.durationSeconds);
+});
+```
+
+**Data Properties:**
+- `guildId` (ulong): The guild ID
+- `soundId` (Guid): The sound ID
+- `name` (string): The sound name
+- `durationSeconds` (double): Duration in seconds
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### PlaybackProgress
+
+Broadcast to the guild's audio group approximately every 1 second during playback.
+
+**Event Data:** `PlaybackProgressDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('PlaybackProgress', (data) => {
+    const percent = (data.positionSeconds / data.durationSeconds) * 100;
+    updateProgressBar(percent);
+    updateTimeDisplay(data.positionSeconds, data.durationSeconds);
+});
+```
+
+**Data Properties:**
+- `guildId` (ulong): The guild ID
+- `soundId` (Guid): The sound ID being played
+- `positionSeconds` (double): Current position in seconds
+- `durationSeconds` (double): Total duration in seconds
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### PlaybackFinished
+
+Broadcast to the guild's audio group when a sound finishes playing.
+
+**Event Data:** `PlaybackFinishedDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('PlaybackFinished', (data) => {
+    console.log('Finished:', data.soundId);
+    console.log('Was cancelled:', data.wasCancelled);
+    clearNowPlaying();
+});
+```
+
+**Data Properties:**
+- `guildId` (ulong): The guild ID
+- `soundId` (Guid): The sound ID that finished
+- `wasCancelled` (bool): Whether playback was cancelled (vs. completed naturally)
+- `timestamp` (DateTime): UTC timestamp
+
+---
+
+#### QueueUpdated
+
+Broadcast to the guild's audio group when the playback queue changes.
+
+**Event Data:** `QueueUpdatedDto`
+
+**JavaScript Example:**
+
+```javascript
+DashboardHub.on('QueueUpdated', (data) => {
+    console.log('Queue updated:', data.queue.length, 'items');
+    renderQueue(data.queue);
+});
+```
+
+**Data Properties:**
+- `guildId` (ulong): The guild ID
+- `queue` (List<QueueItemDto>): The current queue items
+- `timestamp` (DateTime): UTC timestamp
+
+**QueueItemDto Properties:**
+- `position` (int): Position in queue (0-based)
+- `soundId` (Guid): The sound ID
+- `name` (string): The sound name
+- `durationSeconds` (double): Duration in seconds
+
+---
+
+### Audio Client Usage Examples
+
+#### Soundboard Page
+
+```javascript
+// Connect and subscribe to audio events for a guild
+document.addEventListener('DOMContentLoaded', async () => {
+    const guildId = getGuildIdFromPage();
+
+    const connected = await DashboardHub.connect();
+    if (!connected) {
+        showConnectionError();
+        return;
+    }
+
+    // Subscribe to audio events
+    await DashboardHub.invoke('JoinGuildAudioGroup', guildId);
+
+    // Register event handlers
+    DashboardHub.on('AudioConnected', handleAudioConnected);
+    DashboardHub.on('AudioDisconnected', handleAudioDisconnected);
+    DashboardHub.on('PlaybackStarted', handlePlaybackStarted);
+    DashboardHub.on('PlaybackProgress', handlePlaybackProgress);
+    DashboardHub.on('PlaybackFinished', handlePlaybackFinished);
+    DashboardHub.on('QueueUpdated', handleQueueUpdated);
+
+    // Get initial status
+    const status = await DashboardHub.invoke('GetCurrentAudioStatus', guildId);
+    renderAudioStatus(status);
+});
+
+// Cleanup on page leave
+window.addEventListener('beforeunload', async () => {
+    const guildId = getGuildIdFromPage();
+    await DashboardHub.invoke('LeaveGuildAudioGroup', guildId);
+    DashboardHub.disconnect();
+});
+```
+
+#### Displaying Now Playing
+
+```javascript
+function handlePlaybackStarted(data) {
+    const nowPlaying = document.getElementById('now-playing');
+    nowPlaying.innerHTML = `
+        <div class="now-playing-card">
+            <span class="sound-name">${escapeHtml(data.name)}</span>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+            <span class="time-display">
+                0:00 / ${formatTime(data.durationSeconds)}
+            </span>
+        </div>
+    `;
+}
+
+function handlePlaybackProgress(data) {
+    const percent = (data.positionSeconds / data.durationSeconds) * 100;
+    document.getElementById('progress-fill').style.width = `${percent}%`;
+    document.querySelector('.time-display').textContent =
+        `${formatTime(data.positionSeconds)} / ${formatTime(data.durationSeconds)}`;
+}
+
+function handlePlaybackFinished(data) {
+    document.getElementById('now-playing').innerHTML = '';
+}
+
+function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+```
+
+#### Displaying Queue
+
+```javascript
+function handleQueueUpdated(data) {
+    const queueList = document.getElementById('queue-list');
+
+    if (data.queue.length === 0) {
+        queueList.innerHTML = '<div class="empty-queue">Queue is empty</div>';
+        return;
+    }
+
+    queueList.innerHTML = data.queue.map((item, index) => `
+        <div class="queue-item">
+            <span class="queue-position">${index + 1}</span>
+            <span class="queue-name">${escapeHtml(item.name)}</span>
+            <span class="queue-duration">${formatTime(item.durationSeconds)}</span>
+        </div>
+    `).join('');
+}
+```
+
+### Audio Broadcasting from Services
+
+The `IAudioNotifier` interface is injected into `AudioService` and `PlaybackService` to broadcast events automatically:
+
+```csharp
+public class AudioService : IAudioService
+{
+    private readonly IAudioNotifier _audioNotifier;
+
+    public async Task<IAudioClient?> JoinChannelAsync(ulong guildId, ulong channelId, ...)
+    {
+        // ... connection logic ...
+
+        // Broadcast to subscribed clients
+        await _audioNotifier.NotifyAudioConnectedAsync(
+            guildId, channelId, voiceChannel.Name);
+
+        return audioClient;
+    }
+}
+```
+
+```csharp
+public class PlaybackService : IPlaybackService
+{
+    private readonly IAudioNotifier _audioNotifier;
+
+    private async Task PlaySoundAsync(ulong guildId, Sound sound, ...)
+    {
+        // Notify playback started
+        await _audioNotifier.NotifyPlaybackStartedAsync(
+            guildId, sound.Id, sound.Name, sound.DurationSeconds);
+
+        // ... playback loop with progress notifications ...
+
+        // Notify playback finished
+        await _audioNotifier.NotifyPlaybackFinishedAsync(
+            guildId, sound.Id, wasCancelled);
+    }
+}
+```
+
+### Audio Troubleshooting
+
+#### Audio events not received
+
+**Symptoms:**
+- Connected to hub but audio events don't fire
+- Soundboard page doesn't show playback status
+
+**Solutions:**
+1. Verify you joined the audio group:
+   ```javascript
+   await DashboardHub.invoke('JoinGuildAudioGroup', guildId);
+   ```
+2. Ensure event handlers are registered before subscribing
+3. Check the guildId matches exactly (as string)
+4. Verify AudioService and PlaybackService have IAudioNotifier injected
+5. Check server logs for broadcast errors
+
+---
+
+#### Progress updates not smooth
+
+**Symptoms:**
+- Progress bar jumps rather than moving smoothly
+- Time display updates irregularly
+
+**Solutions:**
+1. Progress updates are sent approximately every 1 second
+2. For smoother UI, interpolate between updates:
+   ```javascript
+   let lastProgress = { position: 0, duration: 0, time: Date.now() };
+
+   function handlePlaybackProgress(data) {
+       lastProgress = { position: data.positionSeconds, duration: data.durationSeconds, time: Date.now() };
+   }
+
+   function updateProgressUI() {
+       if (lastProgress.duration > 0) {
+           const elapsed = (Date.now() - lastProgress.time) / 1000;
+           const currentPosition = Math.min(lastProgress.position + elapsed, lastProgress.duration);
+           const percent = (currentPosition / lastProgress.duration) * 100;
+           document.getElementById('progress-fill').style.width = `${percent}%`;
+       }
+       requestAnimationFrame(updateProgressUI);
+   }
+   requestAnimationFrame(updateProgressUI);
+   ```
+
+---
+
 ## Future Enhancements
 
 This infrastructure provides the foundation for additional real-time features:
@@ -1293,6 +1726,6 @@ This infrastructure provides the foundation for additional real-time features:
 
 ---
 
-**Version:** 0.4.0
-**Last Updated:** 2026-01-08
-**Issue Reference:** #243, #622, #632
+**Version:** 0.5.0
+**Last Updated:** 2026-01-09
+**Issue Reference:** #243, #622, #632, #893
