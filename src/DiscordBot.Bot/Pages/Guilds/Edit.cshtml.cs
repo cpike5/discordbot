@@ -15,13 +15,16 @@ namespace DiscordBot.Bot.Pages.Guilds;
 public class EditModel : PageModel
 {
     private readonly IGuildService _guildService;
+    private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly ILogger<EditModel> _logger;
 
     public EditModel(
         IGuildService guildService,
+        IGuildAudioSettingsService audioSettingsService,
         ILogger<EditModel> logger)
     {
         _guildService = guildService;
+        _audioSettingsService = audioSettingsService;
         _logger = logger;
     }
 
@@ -45,6 +48,11 @@ public class EditModel : PageModel
     public string? SuccessMessage { get; set; }
 
     /// <summary>
+    /// Whether audio settings loaded successfully. If false, hide audio section.
+    /// </summary>
+    public bool AudioSettingsLoaded { get; set; }
+
+    /// <summary>
     /// Input model for form binding with validation attributes.
     /// </summary>
     public class InputModel
@@ -53,6 +61,16 @@ public class EditModel : PageModel
 
         [Display(Name = "Bot Active")]
         public bool IsActive { get; set; } = true;
+
+        [Display(Name = "Audio Enabled")]
+        public bool AudioEnabled { get; set; } = true;
+
+        [Display(Name = "Auto-leave Timeout")]
+        [Range(0, 1440, ErrorMessage = "Auto-leave timeout must be between 0 and 1440 minutes")]
+        public int AutoLeaveTimeoutMinutes { get; set; } = 5;
+
+        [Display(Name = "Queue Enabled")]
+        public bool QueueEnabled { get; set; } = true;
     }
 
     public async Task<IActionResult> OnGetAsync(ulong id, CancellationToken cancellationToken)
@@ -76,13 +94,28 @@ public class EditModel : PageModel
             IsActive = ViewModel.IsActive
         };
 
+        // Load audio settings (don't fail page if this fails)
+        try
+        {
+            var audioSettings = await _audioSettingsService.GetSettingsAsync(id, cancellationToken);
+            Input.AudioEnabled = audioSettings.AudioEnabled;
+            Input.AutoLeaveTimeoutMinutes = audioSettings.AutoLeaveTimeoutMinutes;
+            Input.QueueEnabled = audioSettings.QueueEnabled;
+            AudioSettingsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load audio settings for guild {GuildId}", id);
+            AudioSettingsLoaded = false;
+        }
+
         return Page();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("User submitting guild edit for guild {GuildId}, IsActive={IsActive}",
-            Input.GuildId, Input.IsActive);
+        _logger.LogInformation("User submitting guild edit for guild {GuildId}, IsActive={IsActive}, AudioEnabled={AudioEnabled}",
+            Input.GuildId, Input.IsActive, Input.AudioEnabled);
 
         if (!ModelState.IsValid)
         {
@@ -113,6 +146,26 @@ public class EditModel : PageModel
             return Page();
         }
 
+        // Update audio settings
+        try
+        {
+            await _audioSettingsService.UpdateSettingsAsync(Input.GuildId, settings =>
+            {
+                settings.AudioEnabled = Input.AudioEnabled;
+                settings.AutoLeaveTimeoutMinutes = Input.AutoLeaveTimeoutMinutes;
+                settings.QueueEnabled = Input.QueueEnabled;
+            }, cancellationToken);
+
+            _logger.LogInformation("Successfully updated audio settings for guild {GuildId}", Input.GuildId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to update audio settings for guild {GuildId}", Input.GuildId);
+            ErrorMessage = "Guild settings saved, but audio settings failed to update. Please try again.";
+            await LoadViewModelAsync(Input.GuildId, cancellationToken);
+            return Page();
+        }
+
         _logger.LogInformation("Successfully updated guild {GuildId}", Input.GuildId);
         SuccessMessage = "Guild settings saved successfully.";
 
@@ -125,6 +178,18 @@ public class EditModel : PageModel
         if (guild != null)
         {
             ViewModel = GuildEditViewModel.FromDto(guild);
+        }
+
+        // Reload audio settings to restore AudioSettingsLoaded flag
+        try
+        {
+            await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
+            AudioSettingsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reload audio settings for guild {GuildId}", guildId);
+            AudioSettingsLoaded = false;
         }
     }
 }

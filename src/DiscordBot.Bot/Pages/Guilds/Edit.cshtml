@@ -107,6 +107,62 @@
             </div>
         </div>
 
+        <!-- Audio Settings Section -->
+        @if (Model.AudioSettingsLoaded)
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+                <div class="px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-lg font-semibold text-text-primary">Audio Settings</h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- Audio Enabled Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_AudioEnabled" class="text-sm font-medium text-text-primary">Audio Enabled</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Enable or disable audio features</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input asp-for="Input.AudioEnabled" class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+
+                    <!-- Auto-leave Timeout -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_AutoLeaveTimeoutMinutes" class="text-sm font-medium text-text-primary">Auto-leave Timeout</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Minutes of inactivity before leaving voice (0 = stay indefinitely)</p>
+                        </div>
+                        <input asp-for="Input.AutoLeaveTimeoutMinutes"
+                               type="number"
+                               min="0"
+                               max="1440"
+                               class="w-24 px-3 py-1.5 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20" />
+                    </div>
+                    <span asp-validation-for="Input.AutoLeaveTimeoutMinutes" class="text-error text-xs"></span>
+
+                    <!-- Queue Enabled Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_QueueEnabled" class="text-sm font-medium text-text-primary">Queue Enabled</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Whether sounds queue or replace current</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input asp-for="Input.QueueEnabled" class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+
+                    <!-- More Settings Link -->
+                    <div class="pt-2 border-t border-border-primary">
+                        <a asp-page="/Guilds/AudioSettings" asp-route-guildId="@Model.ViewModel.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                            More settings...
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+
         <!-- Form Actions -->
         <div class="flex items-center justify-end gap-4">
             <a asp-page="Details" asp-route-id="@Model.ViewModel.Id" class="btn btn-secondary">
