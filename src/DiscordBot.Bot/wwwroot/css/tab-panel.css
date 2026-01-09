@@ -60,7 +60,10 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    /* Desktop: comfortable padding */
     padding: 0.75rem 1rem;
+    /* Ensure minimum touch target height of 44px */
+    min-height: 2.75rem; /* 44px */
     font-size: 0.875rem;
     font-weight: 500;
     color: var(--color-text-secondary);
@@ -74,6 +77,9 @@
     scroll-snap-align: start;
     flex-shrink: 0;
     text-decoration: none;
+    /* Improve touch handling */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
@@ -113,15 +119,18 @@
     display: none;
 }
 
+/* Mobile: Maintain 44px touch targets while optimizing space */
 @media (max-width: 640px) {
     .tab-panel-tab {
-        padding: 0.625rem 0.75rem;
+        /* Wider horizontal padding for touch targets, maintain min-height for 44px target */
+        padding: 0.75rem 0.875rem;
+        min-height: 2.75rem; /* 44px - consistent with desktop */
         font-size: 0.8125rem;
     }
 
     .tab-panel-tab .tab-icon {
-        width: 1rem;
-        height: 1rem;
+        width: 1.125rem;
+        height: 1.125rem;
     }
 
     .tab-panel-tab .tab-label-long {
@@ -130,6 +139,17 @@
 
     .tab-panel-tab .tab-label-short {
         display: inline;
+    }
+}
+
+/* Extra small screens (320px+) - icon-only mode if needed */
+@media (max-width: 400px) {
+    .tab-panel-tabs {
+        gap: 0.125rem;
+    }
+
+    .tab-panel-tab {
+        padding: 0.75rem 0.75rem;
     }
 }
 
