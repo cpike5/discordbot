@@ -435,3 +435,6 @@ api/.manifest
 # Temp directory
 temp/
 api/.manifest
+
+# Sounds
+sounds
