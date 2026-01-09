@@ -211,6 +211,22 @@ public record SoundboardIndexViewModel
     public string SupportedFormats { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the current sort order (e.g., "name-asc", "name-desc", "newest", "oldest").
+    /// </summary>
+    public string CurrentSort { get; init; } = "name-asc";
+
+    /// <summary>
+    /// Gets the display label for the current sort order.
+    /// </summary>
+    public string CurrentSortLabel => CurrentSort switch
+    {
+        "name-desc" => "Name (Z-A)",
+        "newest" => "Newest First",
+        "oldest" => "Oldest First",
+        _ => "Name (A-Z)"
+    };
+
+    /// <summary>
     /// Creates a SoundboardIndexViewModel from service data.
     /// </summary>
     public static SoundboardIndexViewModel Create(
@@ -218,7 +234,8 @@ public record SoundboardIndexViewModel
         string guildName,
         string? guildIconUrl,
         IReadOnlyList<Sound> sounds,
-        GuildAudioSettings settings)
+        GuildAudioSettings settings,
+        string currentSort = "name-asc")
     {
         // Map sounds to view models
         var soundViewModels = sounds.Select(SoundViewModel.FromEntity).ToList();
@@ -259,7 +276,8 @@ public record SoundboardIndexViewModel
             MaxSoundsPerGuild = settings.MaxSoundsPerGuild,
             MaxFileSizeBytes = settings.MaxFileSizeBytes,
             MaxDurationSeconds = settings.MaxDurationSeconds,
-            SupportedFormats = "MP3, WAV, OGG" // Static for now, could be made configurable
+            SupportedFormats = "MP3, WAV, OGG", // Static for now, could be made configurable
+            CurrentSort = currentSort
         };
     }
 
