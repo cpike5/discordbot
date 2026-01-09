@@ -56,21 +56,128 @@ Discord.NET audio requires additional native libraries:
 | **libsodium** | Voice encryption | Must be in build output directory on Windows; apt package on Linux |
 | **libopus** | Opus audio encoding | Must be in build output directory on Windows; apt package on Linux |
 
-**Windows setup:**
+## Windows Setup (Complete Guide)
+
+### Step 1: Install FFmpeg
+
+**Option A: Using winget (Recommended)**
+```powershell
+winget install ffmpeg
+```
+
+**Option B: Manual Installation**
+1. Download FFmpeg from [ffmpeg.org/download.html](https://ffmpeg.org/download.html) (choose "Windows builds from gyan.dev")
+2. Download the "essentials" build (e.g., `ffmpeg-release-essentials.zip`)
+3. Extract to `C:\ffmpeg`
+4. Add `C:\ffmpeg\bin` to your system PATH:
+   - Press Win+X → System → Advanced system settings → Environment Variables
+   - Under "System variables", select `Path` → Edit → New → `C:\ffmpeg\bin`
+   - Click OK to save
+
+**Verify installation:**
+```powershell
+ffmpeg -version
+ffprobe -version
+```
+
+### Step 2: Install Native Libraries (libsodium and opus)
 
 The native DLLs must be in your build output directory (e.g., `bin/Debug/net8.0/`):
 - `libsodium.dll`
 - `opus.dll`
 
-You can obtain these via NuGet packages or download them manually. The bot will crash with `DllNotFoundException` if these are missing.
+**Option A: Using NuGet packages (Recommended)**
 
-**Linux installation:**
+Add these packages to your project:
+```xml
+<PackageReference Include="libsodium" Version="1.0.19" />
+```
+
+The `Discord.Net.WebSocket` package typically includes opus support, but if needed:
+```xml
+<PackageReference Include="Concentus" Version="2.2.0" />
+```
+
+**Option B: Manual Download**
+
+1. **libsodium**: Download from [libsodium releases](https://download.libsodium.org/libsodium/releases/)
+   - Get `libsodium-*-msvc.zip`
+   - Extract and copy `libsodium.dll` from `x64/Release/v143/dynamic/` to your output directory
+
+2. **opus**: Download from [opus-tools](https://opus-codec.org/downloads/)
+   - Or get a pre-built Windows binary from various sources
+   - Copy `opus.dll` to your output directory
+
+**Automatic copy on build** (add to your `.csproj`):
+```xml
+<ItemGroup>
+  <None Include="path\to\libsodium.dll" CopyToOutputDirectory="PreserveNewest" />
+  <None Include="path\to\opus.dll" CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup>
+```
+
+### Step 3: Verify Setup
+
+Run the bot and try joining a voice channel. If you see `DllNotFoundException`, the native libraries are not in the correct location.
+
+## Linux Setup (Complete Guide)
+
+### Debian / Ubuntu
+
 ```bash
-# Debian/Ubuntu
-sudo apt install libsodium23 libopus0
+# Update package list
+sudo apt update
 
-# RHEL/Fedora
-sudo dnf install libsodium opus
+# Install all audio dependencies
+sudo apt install -y ffmpeg libsodium23 libopus0
+
+# Verify installation
+ffmpeg -version
+ldconfig -p | grep -E "libsodium|libopus"
+```
+
+### Ubuntu 22.04+ / Debian 12+
+
+The package names may differ slightly:
+```bash
+sudo apt install -y ffmpeg libsodium23 libopus0
+```
+
+### RHEL / Fedora / Rocky Linux / AlmaLinux
+
+```bash
+# Enable EPEL repository (if needed)
+sudo dnf install -y epel-release
+
+# Install dependencies
+sudo dnf install -y ffmpeg libsodium opus
+
+# Verify
+ffmpeg -version
+```
+
+### Arch Linux
+
+```bash
+sudo pacman -S ffmpeg libsodium opus
+```
+
+### Alpine Linux (Docker base images)
+
+```bash
+apk add --no-cache ffmpeg libsodium opus
+```
+
+### Verify Native Library Installation
+
+```bash
+# Check if libraries are found
+ldconfig -p | grep libsodium
+ldconfig -p | grep opus
+
+# Expected output like:
+# libsodium.so.23 (libc6,x86-64) => /lib/x86_64-linux-gnu/libsodium.so.23
+# libopus.so.0 (libc6,x86-64) => /lib/x86_64-linux-gnu/libopus.so.0
 ```
 
 ## Configuration
@@ -313,15 +420,27 @@ await discordStream.WriteAsync(silence, 0, silence.Length);
 
 ### Development (Windows)
 
-1. Install FFmpeg via winget or download from ffmpeg.org
-2. Add to PATH or configure `FfmpegPath`
-3. Sounds stored in `./sounds` relative to project
+1. Follow the [Windows Setup guide](#windows-setup-complete-guide) above
+2. Ensure FFmpeg is in PATH or configure `Soundboard:FfmpegPath` in `appsettings.Development.json`
+3. Sounds are stored in `./sounds` relative to the project directory
+4. Native DLLs are automatically copied to output on build (if using NuGet packages)
 
-### Production (Linux)
+### Development (Linux/macOS)
 
-1. Install via package manager: `apt install ffmpeg libsodium23 libopus0`
-2. Create sounds directory with proper permissions
-3. Configure volume mounts if using containers
+1. Follow the [Linux Setup guide](#linux-setup-complete-guide) above
+2. FFmpeg is typically in PATH after installation; no additional config needed
+3. Sounds are stored in `./sounds` relative to the project directory
+
+### Production (Linux Server)
+
+1. Install via package manager: `sudo apt install ffmpeg libsodium23 libopus0`
+2. Create sounds directory with proper permissions:
+   ```bash
+   sudo mkdir -p /var/discordbot/sounds
+   sudo chown -R www-data:www-data /var/discordbot/sounds
+   ```
+3. Configure `Soundboard:BasePath` to the production sounds directory
+4. Consider using systemd for service management
 
 ### CI/CD
 
@@ -329,12 +448,23 @@ For build pipelines that need audio processing:
 
 ```yaml
 # GitHub Actions example
-- name: Install FFmpeg
-  run: sudo apt-get update && sudo apt-get install -y ffmpeg
+- name: Install audio dependencies
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y ffmpeg libsodium23 libopus0
 ```
+
+### Production Checklist
+
+- [ ] FFmpeg installed and accessible (via PATH or explicit config)
+- [ ] libsodium available (system package or DLL in output)
+- [ ] libopus available (system package or DLL in output)
+- [ ] Sounds directory exists with correct permissions
+- [ ] `Soundboard:BasePath` configured for production path
+- [ ] Storage limits configured appropriately for server capacity
 
 ## See Also
 
-- [Audio Support Requirements](../requirements/audio-support.md) - Full feature specification
+- [Soundboard Feature](soundboard.md) - Soundboard commands and admin UI
 - [Discord.NET Audio Documentation](https://docs.discord.net/faq/voice/sending-voice.html) - Official voice guide
 - [FFmpeg Documentation](https://ffmpeg.org/documentation.html) - FFmpeg reference

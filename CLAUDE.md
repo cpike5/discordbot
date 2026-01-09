@@ -12,6 +12,8 @@ Discord bot management system built with .NET 8 and Discord.NET. Combines a Disc
 
 - .NET 8 SDK
 - Node.js (for Tailwind CSS build - runs automatically on `dotnet build`)
+- FFmpeg (for audio features) - see [audio-dependencies.md](docs/articles/audio-dependencies.md)
+- libsodium and libopus (for Discord voice encryption/encoding)
 
 ## Build & Run Commands
 
@@ -151,7 +153,8 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup, troubleshooting |
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access |
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
-| [audio-dependencies.md](docs/articles/audio-dependencies.md) | Audio dependencies (FFmpeg, libsodium, libopus) setup |
+| [audio-dependencies.md](docs/articles/audio-dependencies.md) | Audio dependencies (FFmpeg, libsodium, libopus) setup for Windows/Linux |
+| [soundboard.md](docs/articles/soundboard.md) | Soundboard feature, commands, and admin UI |
 | [log-aggregation.md](docs/articles/log-aggregation.md) | Elasticsearch and Seq centralized logging setup |
 | [elastic-stack-setup.md](docs/articles/elastic-stack-setup.md) | Local development setup for Elastic Stack (Elasticsearch, Kibana, APM) |
 | [kibana-dashboards.md](docs/articles/kibana-dashboards.md) | Kibana dashboards, saved searches, and alerting setup |
@@ -199,7 +202,7 @@ All HTML prototypes are located in `docs/prototypes/`. Open them directly in a b
 - Slash commands only (no prefix commands)
 - `InteractionHandler` discovers and registers command modules from assembly
 - Command modules inherit from `InteractionModuleBase<SocketInteractionContext>`
-- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`, `RequireGuildActive`, `RequireModerationEnabled`, `RequireModerator`
+- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`, `RequireGuildActive`, `RequireModerationEnabled`, `RequireModerator`, `RequireAudioEnabled`, `RequireVoiceChannel`
 
 **Command Modules:**
 | Module | Commands |
@@ -220,6 +223,8 @@ All HTML prototypes are located in `docs/prototypes/`. Open them directly in a b
 | `WatchlistModule` | `/watchlist add/remove/list` |
 | `InvestigateModule` | `/investigate` |
 | `ConsentModule` | `/consent`, `/privacy` |
+| `SoundboardModule` | `/play <sound>`, `/sounds`, `/stop` |
+| `VoiceModule` | `/join`, `/join-channel <channel>`, `/leave` |
 
 **Interactive Components Pattern:**
 - Use `ComponentIdBuilder` to create custom IDs: `{handler}:{action}:{userId}:{correlationId}:{data}`
@@ -302,6 +307,8 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 | Flagged Events | `/Guilds/{guildId:long}/FlaggedEvents` | Auto-moderation flagged events |
 | Flagged Event Details | `/Guilds/{guildId:long}/FlaggedEvents/{id:guid}` | Single flagged event |
 | Reminders | `/Guilds/{guildId:long}/Reminders` | Guild reminders management |
+| Soundboard | `/Guilds/Soundboard/{guildId:long}` | Guild soundboard management |
+| Audio Settings | `/Guilds/AudioSettings/{guildId:long}` | Guild audio configuration |
 | Public Leaderboard | `/Guilds/{guildId:long}/Leaderboard` | Public Rat Watch leaderboard (no auth) |
 | Global Rat Watch Analytics | `/Admin/RatWatchAnalytics` | Cross-guild Rat Watch metrics (Admin+) |
 | Performance Dashboard | `/Admin/Performance` | Performance overview dashboard |
@@ -350,6 +357,7 @@ When running locally (`dotnet run --project src/DiscordBot.Bot`):
 - **Commands not appearing**: Without `TestGuildId` configured, global commands take up to 1 hour to propagate
 - **Bot doesn't connect**: Check bot token in user secrets and that gateway intents are enabled in Discord Developer Portal
 - **OAuth fails**: Verify redirect URIs in Discord Developer Portal match your environment
+- **Audio not playing**: Ensure FFmpeg is installed and in PATH (or configure `Soundboard:FfmpegPath`). On Windows, ensure `libsodium.dll` and `opus.dll` are in the build output directory. See [audio-dependencies.md](docs/articles/audio-dependencies.md)
 
 ## JavaScript and Discord Snowflake IDs
 
