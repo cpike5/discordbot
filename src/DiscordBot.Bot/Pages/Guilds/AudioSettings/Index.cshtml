@@ -2,47 +2,49 @@
 @model DiscordBot.Bot.Pages.Guilds.AudioSettings.IndexModel
 @using DiscordBot.Bot.ViewModels.Components
 @{
-    ViewData["Title"] = "Audio Settings";
+    ViewData["Title"] = $"Audio - {Model.GuildName}";
 }
 
-<!-- Breadcrumb Navigation -->
-<nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
-    <ol class="flex items-center gap-2">
-        <li><a asp-page="/Index" class="hover:text-text-primary transition-colors">Home</a></li>
-        <li aria-hidden="true">
-            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-        </li>
-        <li><a asp-page="/Guilds/Index" class="hover:text-text-primary transition-colors">Servers</a></li>
-        <li aria-hidden="true">
-            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-        </li>
-        <li><a asp-page="/Guilds/Details" asp-route-id="@Model.GuildId" class="hover:text-text-primary transition-colors">@Model.GuildName</a></li>
-        <li aria-hidden="true">
-            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-        </li>
-        <li class="text-text-primary font-medium" aria-current="page">Audio Settings</li>
-    </ol>
-</nav>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-2">
+            <li><a asp-page="/Index" class="hover:text-text-primary transition-colors">Home</a></li>
+            <li aria-hidden="true">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li><a asp-page="/Guilds/Index" class="hover:text-text-primary transition-colors">Servers</a></li>
+            <li aria-hidden="true">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li><a asp-page="/Guilds/Details" asp-route-id="@Model.GuildId" class="hover:text-text-primary transition-colors">@Model.GuildName</a></li>
+            <li aria-hidden="true">
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li class="text-text-primary font-medium" aria-current="page">Audio</li>
+        </ol>
+    </nav>
 
-<!-- Page Header -->
-<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-    <div>
-        <h1 class="text-2xl font-bold text-text-primary">Audio Settings</h1>
-        <p class="text-sm text-text-secondary mt-1">Configure audio and soundboard features for this server</p>
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Audio</h1>
+            <p class="text-sm text-text-secondary mt-1">Manage audio settings and soundboard for @Model.GuildName</p>
+        </div>
     </div>
-    <a asp-page="/Guilds/Soundboard/Index" asp-route-guildId="@Model.GuildId" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-        </svg>
-        Manage Sounds
-    </a>
-</div>
+
+    <!-- Audio Tabs Navigation -->
+    <partial name="Shared/Components/_AudioTabs" model='new AudioTabsViewModel {
+        GuildId = Model.GuildId,
+        ActiveTab = "settings",
+        SoundCount = Model.SoundCount
+    }' />
 
 <div class="max-w-4xl">
     <!-- General Settings Section -->
@@ -280,6 +282,7 @@
             Reset to Defaults
         </button>
     </div>
+</div>
 </div>
 
 <!-- Hidden form with anti-forgery token -->

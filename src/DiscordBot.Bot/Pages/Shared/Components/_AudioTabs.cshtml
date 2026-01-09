@@ -1,0 +1,166 @@
+@model DiscordBot.Bot.ViewModels.Components.AudioTabsViewModel
+@{
+    string GetTabClass(string tab) => Model.ActiveTab == tab ? "audio-tab active" : "audio-tab";
+
+    // Icon paths - outline and solid versions
+    var icons = new Dictionary<string, (string outline, string solid)>
+    {
+        ["soundboard"] = (
+            "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3",
+            "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
+        ),
+        ["settings"] = (
+            "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+            "M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z"
+        )
+    };
+}
+
+<div class="audio-tabs-container" id="audioTabsContainer">
+    <nav class="audio-tabs" id="audioTabs" role="tablist" aria-label="Audio sections">
+        <a asp-page="/Guilds/Soundboard/Index" asp-route-guildId="@Model.GuildId" class="@GetTabClass("soundboard")" role="tab" aria-selected="@(Model.ActiveTab == "soundboard" ? "true" : "false")">
+            @if (Model.ActiveTab == "soundboard")
+            {
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="@icons["soundboard"].solid" />
+                </svg>
+            }
+            else
+            {
+                <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@icons["soundboard"].outline" />
+                </svg>
+            }
+            <span>Soundboard</span>
+            @if (Model.SoundCount.HasValue && Model.SoundCount.Value > 0)
+            {
+                <span class="audio-tab-badge">@Model.SoundCount</span>
+            }
+        </a>
+        <a asp-page="/Guilds/AudioSettings/Index" asp-route-guildId="@Model.GuildId" class="@GetTabClass("settings")" role="tab" aria-selected="@(Model.ActiveTab == "settings" ? "true" : "false")">
+            @if (Model.ActiveTab == "settings")
+            {
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="@icons["settings"].solid" clip-rule="evenodd" />
+                </svg>
+            }
+            else
+            {
+                <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@icons["settings"].outline" />
+                </svg>
+            }
+            <span>Settings</span>
+        </a>
+    </nav>
+</div>
+
+<style>
+    /* Audio Tabs Navigation Styles */
+    .audio-tabs-container {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .audio-tabs {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.75rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .audio-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .audio-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        background: transparent;
+        border-radius: 0.5rem;
+        text-decoration: none;
+        white-space: nowrap;
+        transition: all 0.15s ease-out;
+    }
+
+    .audio-tab:hover {
+        color: var(--color-text-primary);
+        background: var(--color-bg-hover);
+    }
+
+    .audio-tab.active {
+        color: var(--color-text-primary);
+        background: var(--color-bg-tertiary);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .audio-tab .tab-icon {
+        width: 1.125rem;
+        height: 1.125rem;
+        flex-shrink: 0;
+    }
+
+    .audio-tab.active .tab-icon {
+        color: var(--color-accent-blue);
+    }
+
+    .audio-tab-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.25rem;
+        height: 1.25rem;
+        padding: 0 0.375rem;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        color: var(--color-accent-blue);
+        background: var(--color-accent-blue-muted);
+        border-radius: 9999px;
+    }
+
+    /* Scroll indicator shadows for mobile */
+    .audio-tabs-container.can-scroll-left::before,
+    .audio-tabs-container.can-scroll-right::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2rem;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    .audio-tabs-container.can-scroll-left::before {
+        left: 0;
+        background: linear-gradient(to right, var(--color-bg-primary) 0%, transparent 100%);
+        border-radius: 0.75rem 0 0 0.75rem;
+    }
+
+    .audio-tabs-container.can-scroll-right::after {
+        right: 0;
+        background: linear-gradient(to left, var(--color-bg-primary) 0%, transparent 100%);
+        border-radius: 0 0.75rem 0.75rem 0;
+    }
+
+    @@media (max-width: 640px) {
+        .audio-tab {
+            padding: 0.5rem 0.875rem;
+            font-size: 0.8125rem;
+        }
+
+        .audio-tab .tab-icon {
+            width: 1rem;
+            height: 1rem;
+        }
+    }
+</style>
