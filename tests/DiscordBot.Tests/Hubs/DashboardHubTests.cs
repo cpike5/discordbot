@@ -82,11 +82,11 @@ public class DashboardHubTests
     public async Task JoinGuildGroup_ShouldAddToGroup()
     {
         // Arrange
-        const ulong guildId = 123456789;
-        var expectedGroupName = $"guild-{guildId}";
+        const string guildIdString = "123456789";
+        var expectedGroupName = $"guild-{guildIdString}";
 
         // Act
-        await _hub.JoinGuildGroup(guildId);
+        await _hub.JoinGuildGroup(guildIdString);
 
         // Assert
         _mockGroupManager.Verify(
@@ -102,10 +102,10 @@ public class DashboardHubTests
     public async Task JoinGuildGroup_ShouldLogDebugMessage()
     {
         // Arrange
-        const ulong guildId = 987654321;
+        const string guildIdString = "987654321";
 
         // Act
-        await _hub.JoinGuildGroup(guildId);
+        await _hub.JoinGuildGroup(guildIdString);
 
         // Assert
         _mockLogger.Verify(
@@ -123,18 +123,18 @@ public class DashboardHubTests
     public async Task JoinGuildGroup_WithMultipleGuilds_ShouldAddToEachGroup()
     {
         // Arrange
-        const ulong guildId1 = 111111111;
-        const ulong guildId2 = 222222222;
+        const string guildIdString1 = "111111111";
+        const string guildIdString2 = "222222222";
 
         // Act
-        await _hub.JoinGuildGroup(guildId1);
-        await _hub.JoinGuildGroup(guildId2);
+        await _hub.JoinGuildGroup(guildIdString1);
+        await _hub.JoinGuildGroup(guildIdString2);
 
         // Assert
         _mockGroupManager.Verify(
             g => g.AddToGroupAsync(
                 "test-connection-id-123",
-                $"guild-{guildId1}",
+                $"guild-{guildIdString1}",
                 It.IsAny<CancellationToken>()),
             Times.Once,
             "Should add to first guild group");
@@ -142,7 +142,7 @@ public class DashboardHubTests
         _mockGroupManager.Verify(
             g => g.AddToGroupAsync(
                 "test-connection-id-123",
-                $"guild-{guildId2}",
+                $"guild-{guildIdString2}",
                 It.IsAny<CancellationToken>()),
             Times.Once,
             "Should add to second guild group");
@@ -152,11 +152,11 @@ public class DashboardHubTests
     public async Task LeaveGuildGroup_ShouldRemoveFromGroup()
     {
         // Arrange
-        const ulong guildId = 123456789;
-        var expectedGroupName = $"guild-{guildId}";
+        const string guildIdString = "123456789";
+        var expectedGroupName = $"guild-{guildIdString}";
 
         // Act
-        await _hub.LeaveGuildGroup(guildId);
+        await _hub.LeaveGuildGroup(guildIdString);
 
         // Assert
         _mockGroupManager.Verify(
@@ -172,10 +172,10 @@ public class DashboardHubTests
     public async Task LeaveGuildGroup_ShouldLogDebugMessage()
     {
         // Arrange
-        const ulong guildId = 987654321;
+        const string guildIdString = "987654321";
 
         // Act
-        await _hub.LeaveGuildGroup(guildId);
+        await _hub.LeaveGuildGroup(guildIdString);
 
         // Assert
         _mockLogger.Verify(

@@ -184,10 +184,16 @@ public class DashboardHub : Hub
     /// <summary>
     /// Joins a guild-specific group to receive updates for that guild.
     /// </summary>
-    /// <param name="guildId">The Discord guild ID to subscribe to.</param>
+    /// <param name="guildIdString">The Discord guild ID as a string (to preserve precision from JavaScript).</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task JoinGuildGroup(ulong guildId)
+    public async Task JoinGuildGroup(string guildIdString)
     {
+        if (!ulong.TryParse(guildIdString, out var guildId))
+        {
+            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+        }
+
         using var activity = BotActivitySource.StartServiceActivity(
             "dashboard_hub",
             "join_guild_group");
@@ -221,10 +227,16 @@ public class DashboardHub : Hub
     /// <summary>
     /// Leaves a guild-specific group to stop receiving updates for that guild.
     /// </summary>
-    /// <param name="guildId">The Discord guild ID to unsubscribe from.</param>
+    /// <param name="guildIdString">The Discord guild ID as a string (to preserve precision from JavaScript).</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task LeaveGuildGroup(ulong guildId)
+    public async Task LeaveGuildGroup(string guildIdString)
     {
+        if (!ulong.TryParse(guildIdString, out var guildId))
+        {
+            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+        }
+
         using var activity = BotActivitySource.StartServiceActivity(
             "dashboard_hub",
             "leave_guild_group");
@@ -843,10 +855,16 @@ public class DashboardHub : Hub
     /// <summary>
     /// Joins a guild-specific audio group to receive audio events for that guild.
     /// </summary>
-    /// <param name="guildId">The Discord guild ID to subscribe to audio events for.</param>
+    /// <param name="guildIdString">The Discord guild ID as a string (to preserve precision from JavaScript).</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task JoinGuildAudioGroup(ulong guildId)
+    public async Task JoinGuildAudioGroup(string guildIdString)
     {
+        if (!ulong.TryParse(guildIdString, out var guildId))
+        {
+            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+        }
+
         using var activity = BotActivitySource.StartServiceActivity(
             "dashboard_hub",
             "join_guild_audio_group");
@@ -880,10 +898,16 @@ public class DashboardHub : Hub
     /// <summary>
     /// Leaves a guild-specific audio group to stop receiving audio events for that guild.
     /// </summary>
-    /// <param name="guildId">The Discord guild ID to unsubscribe from audio events for.</param>
+    /// <param name="guildIdString">The Discord guild ID as a string (to preserve precision from JavaScript).</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    public async Task LeaveGuildAudioGroup(ulong guildId)
+    public async Task LeaveGuildAudioGroup(string guildIdString)
     {
+        if (!ulong.TryParse(guildIdString, out var guildId))
+        {
+            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+        }
+
         using var activity = BotActivitySource.StartServiceActivity(
             "dashboard_hub",
             "leave_guild_audio_group");
@@ -917,10 +941,16 @@ public class DashboardHub : Hub
     /// <summary>
     /// Gets the current audio status for a guild.
     /// </summary>
-    /// <param name="guildId">The Discord guild ID to get audio status for.</param>
+    /// <param name="guildIdString">The Discord guild ID as a string (to preserve precision from JavaScript).</param>
     /// <returns>The current audio status for the guild.</returns>
-    public AudioStatusDto GetCurrentAudioStatus(ulong guildId)
+    public AudioStatusDto GetCurrentAudioStatus(string guildIdString)
     {
+        if (!ulong.TryParse(guildIdString, out var guildId))
+        {
+            _logger.LogWarning("Invalid guild ID format received: {GuildIdString}", guildIdString);
+            throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
+        }
+
         using var activity = BotActivitySource.StartServiceActivity(
             "dashboard_hub",
             "get_current_audio_status");
