@@ -1,0 +1,147 @@
+@model DiscordBot.Bot.ViewModels.Components.TabPanelViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    var containerId = $"{Model.Id}-container";
+    var tablistId = $"{Model.Id}-tablist";
+    var containerClass = "tab-panel-container";
+    if (Model.Compact)
+    {
+        containerClass += " tab-panel-compact";
+    }
+    if (!string.IsNullOrEmpty(Model.ContainerClass))
+    {
+        containerClass += $" {Model.ContainerClass}";
+    }
+
+    string GetTabClass(TabItemViewModel tab)
+    {
+        var classes = "tab-panel-tab";
+        if (tab.Id == Model.ActiveTabId)
+        {
+            classes += " active";
+        }
+        if (tab.Disabled)
+        {
+            classes += " disabled";
+        }
+        return classes;
+    }
+
+}
+
+@*
+    TabPanel Component
+    ------------------
+    Usage requires including the following in your page:
+
+    @section Styles {
+        <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
+    }
+
+    @section Scripts {
+        <script src="~/js/tab-panel.js" asp-append-version="true"></script>
+    }
+
+    For in-page mode, create tab panels like:
+    <div data-tab-panel-for="[panelId]" data-tab-id="[tabId]" role="tabpanel"
+         aria-labelledby="[panelId]-tab-[tabId]" hidden>
+        <!-- Tab content -->
+    </div>
+*@
+
+<div class="@containerClass"
+     id="@containerId"
+     data-tab-panel
+     data-navigation-mode="@Model.NavigationMode.ToString().ToLowerInvariant()"
+     data-persistence-mode="@Model.PersistenceMode.ToString().ToLowerInvariant()"
+     data-panel-id="@Model.Id">
+    <nav class="tab-panel-tabs"
+         id="@tablistId"
+         role="tablist"
+         aria-label="@Model.AriaLabel">
+        @foreach (var tab in Model.Tabs)
+        {
+            var isActive = tab.Id == Model.ActiveTabId;
+            var tabElementId = $"{Model.Id}-tab-{tab.Id}";
+            var panelElementId = $"{Model.Id}-panel-{tab.Id}";
+
+            if (Model.NavigationMode == TabNavigationMode.PageNavigation)
+            {
+                <a href="@(tab.Href ?? "#")"
+                   class="@GetTabClass(tab)"
+                   id="@tabElementId"
+                   role="tab"
+                   aria-selected="@(isActive ? "true" : "false")"
+                   aria-disabled="@(tab.Disabled ? "true" : null)"
+                   tabindex="@(tab.Disabled ? "-1" : null)"
+                   data-tab-id="@tab.Id"
+                   data-icon-outline="@tab.IconPathOutline"
+                   data-icon-solid="@tab.IconPathSolid">
+                    @{ RenderTabContent(tab, isActive); }
+                </a>
+            }
+            else
+            {
+                <button type="button"
+                        class="@GetTabClass(tab)"
+                        id="@tabElementId"
+                        role="tab"
+                        aria-selected="@(isActive ? "true" : "false")"
+                        aria-controls="@panelElementId"
+                        tabindex="@(isActive ? "0" : "-1")"
+                        disabled="@(tab.Disabled ? true : null)"
+                        aria-disabled="@(tab.Disabled ? "true" : null)"
+                        data-tab-id="@tab.Id"
+                        data-icon-outline="@tab.IconPathOutline"
+                        data-icon-solid="@tab.IconPathSolid">
+                    @{ RenderTabContent(tab, isActive); }
+                </button>
+            }
+        }
+    </nav>
+</div>
+
+@functions {
+    private string GetBadgeClass(TabBadgeVariant variant) => variant switch
+    {
+        TabBadgeVariant.Success => "tab-badge tab-badge-success",
+        TabBadgeVariant.Warning => "tab-badge tab-badge-warning",
+        TabBadgeVariant.Error => "tab-badge tab-badge-error",
+        TabBadgeVariant.Info => "tab-badge tab-badge-info",
+        _ => "tab-badge"
+    };
+
+    private void RenderTabContent(TabItemViewModel tab, bool isActive)
+    {
+        if (tab.HasIcon)
+        {
+            if (isActive && !string.IsNullOrEmpty(tab.IconPathSolid))
+            {
+                <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="@tab.IconPathSolid" />
+                </svg>
+            }
+            else
+            {
+                <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" />
+                </svg>
+            }
+        }
+
+        if (!string.IsNullOrEmpty(tab.ShortLabel))
+        {
+            <span class="tab-label-long">@tab.Label</span>
+            <span class="tab-label-short">@tab.ShortLabel</span>
+        }
+        else
+        {
+            <span>@tab.Label</span>
+        }
+
+        if (tab.HasBadge)
+        {
+            <span class="@GetBadgeClass(tab.BadgeVariant)">@tab.BadgeCount</span>
+        }
+    }
+}
