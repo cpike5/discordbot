@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soundboard - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Page-specific styles */
+    .stats-card {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      transition: all var(--transition-normal);
+    }
+
+    .stats-card:hover {
+      border-color: var(--color-border-focus);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .stats-card.accent-orange {
+      border-color: var(--color-accent-orange);
+      background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-accent-orange-muted) 100%);
+    }
+
+    .sound-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    .sound-table thead {
+      background: var(--color-bg-tertiary);
+    }
+
+    .sound-table thead th {
+      padding: 0.75rem 1rem;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      border-bottom: 1px solid var(--color-border-primary);
+    }
+
+    .sound-table tbody td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--color-border-secondary);
+    }
+
+    .sound-table tbody tr:hover {
+      background: var(--color-bg-hover);
+    }
+
+    .sound-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .play-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      background: var(--color-accent-blue);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .play-button:hover {
+      background: var(--color-accent-blue-hover);
+      transform: scale(1.05);
+    }
+
+    .delete-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--color-error);
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .delete-button:hover {
+      background: var(--color-error-bg);
+    }
+
+    .menu-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--color-text-secondary);
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .menu-button:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+
+    .dropzone {
+      border: 2px dashed var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      background: var(--color-bg-tertiary);
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .dropzone:hover {
+      border-color: var(--color-accent-blue);
+      background: var(--color-bg-hover);
+    }
+
+    .dropzone.drag-over {
+      border-color: var(--color-accent-blue);
+      background: var(--color-accent-blue-muted);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: var(--color-success-bg);
+      color: var(--color-success);
+    }
+
+    .sound-row-primary {
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    .sound-row-secondary {
+      font-size: 0.875rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .sidebar-item {
+      padding: 1rem;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      margin-bottom: 1rem;
+    }
+
+    .sidebar-item-header {
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--color-border-secondary);
+    }
+
+    .queue-item:last-child {
+      border-bottom: none;
+    }
+
+    .queue-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    .now-playing-section {
+      padding: 0.75rem;
+      background: var(--color-bg-tertiary);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .now-playing-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--color-accent-blue-muted);
+      border-radius: var(--radius-lg);
+      color: var(--color-accent-blue);
+      flex-shrink: 0;
+    }
+
+    .now-playing-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .now-playing-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    .now-playing-status {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .stop-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: var(--color-error);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      flex-shrink: 0;
+    }
+
+    .stop-button:hover {
+      opacity: 0.9;
+    }
+
+    .skip-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 3px;
+      background: transparent;
+      color: var(--color-text-secondary);
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      flex-shrink: 0;
+    }
+
+    .skip-button:hover {
+      color: var(--color-text-primary);
+      background: var(--color-bg-hover);
+    }
+
+    .guild-selector {
+      padding: 1rem;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      margin-bottom: 1rem;
+    }
+
+    .guild-name {
+      font-weight: 500;
+      color: var(--color-text-primary);
+      font-size: 0.875rem;
+    }
+
+    .guild-info {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+      margin-top: 0.25rem;
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .btn-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-border-primary);
+      background: var(--color-bg-secondary);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      width: 100%;
+    }
+
+    .btn-icon:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-focus);
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 lg:hidden hidden" style="z-index: var(--z-fixed);" onclick="toggleSidebar()"></div>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar fixed top-0 left-0 right-0 flex items-center justify-between h-16 px-4 lg:px-6 bg-bg-secondary border-b border-border-primary" style="z-index: var(--z-fixed);">
+    <div class="flex items-center gap-4">
+      <button id="sidebarToggle" onclick="toggleSidebar()" class="lg:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Toggle sidebar">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <a href="#" class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-accent-orange flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+      </a>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button class="p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      </button>
+
+      <div class="relative">
+        <button onclick="toggleUserMenu()" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors" aria-label="User menu">
+          <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">AD</div>
+          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-bg-secondary border border-border-primary rounded-lg shadow-lg" style="z-index: var(--z-dropdown);">
+          <a href="#" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-t-lg">Profile</a>
+          <a href="#" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover">Settings</a>
+          <hr class="border-border-primary" />
+          <a href="#" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-b-lg">Sign Out</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="mt-16 p-4 lg:p-6">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Page Header -->
+      <div class="mb-8">
+        <div class="flex items-center gap-2 mb-2">
+          <a href="#" class="text-text-secondary hover:text-text-primary text-sm">Dashboard</a>
+          <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <span class="text-text-secondary text-sm">Soundboard</span>
+        </div>
+        <h1 class="text-4xl font-bold mb-2">Soundboard</h1>
+        <p class="text-text-secondary">Manage sounds for your Discord servers</p>
+      </div>
+
+      <!-- Stats Cards Section -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+        <!-- Total Sounds Card -->
+        <div class="stats-card">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-text-secondary text-sm mb-1">Total Sounds</p>
+              <p class="text-3xl font-bold">24</p>
+            </div>
+            <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 9.5A5.5 5.5 0 0 1 8.5 4H12a8 8 0 0 1 8 8v3.5A5.5 5.5 0 0 1 14.5 21H13a9 9 0 0 1-9-9V9.5z"/>
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-text-tertiary">+3 across all guilds</p>
+        </div>
+
+        <!-- Plays Today Card -->
+        <div class="stats-card">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-text-secondary text-sm mb-1">Plays Today</p>
+              <p class="text-3xl font-bold">127</p>
+            </div>
+            <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 text-xs text-success">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M7 16.5L3 12.5m0 0L6 9.5m-3 3h14"/>
+            </svg>
+            <span>+18% vs yesterday</span>
+          </div>
+        </div>
+
+        <!-- Storage Used Card -->
+        <div class="stats-card">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-text-secondary text-sm mb-1">Storage Used</p>
+              <p class="text-3xl font-bold">48 MB</p>
+            </div>
+            <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2m-2 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/>
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-text-tertiary">of 500 MB limit</p>
+        </div>
+
+        <!-- Top Sound Card -->
+        <div class="stats-card accent-orange">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-text-secondary text-sm mb-1">Top Sound</p>
+              <p class="text-3xl font-bold">airhorn</p>
+            </div>
+            <div class="w-10 h-10 bg-accent-orange/30 rounded-lg flex items-center justify-center text-accent-orange">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-text-tertiary">42 plays this week</p>
+        </div>
+
+      </div>
+
+      <!-- Main Content Layout: Sound List (70%) + Sidebar (30%) -->
+      <div class="grid grid-cols-1 lg:grid-cols-7 gap-6">
+
+        <!-- Left Panel: Sound List (70%) -->
+        <div class="lg:col-span-4">
+          <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+
+            <!-- Table Header -->
+            <div class="px-6 py-4 border-b border-border-primary flex items-center justify-between">
+              <div>
+                <h2 class="text-lg font-semibold">Sounds</h2>
+              </div>
+              <span class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-accent-blue bg-accent-blue/20 rounded-full">
+                6 sounds
+              </span>
+            </div>
+
+            <!-- Sounds Table -->
+            <div class="overflow-x-auto">
+              <table class="sound-table">
+                <thead>
+                  <tr>
+                    <th style="width: 40px;"></th>
+                    <th>Name</th>
+                    <th style="width: 80px;">Duration</th>
+                    <th style="width: 100px;">Size</th>
+                    <th style="width: 80px;">Plays</th>
+                    <th style="width: 100px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Sound Row 1: airhorn -->
+                  <tr>
+                    <td style="width: 40px;">
+                      <button class="play-button" title="Play airhorn">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </button>
+                    </td>
+                    <td>
+                      <div class="sound-row-primary">airhorn</div>
+                      <div class="sound-row-secondary">airhorn.mp3</div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        0:02
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        152.3 KB
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        42
+                      </div>
+                    </td>
+                    <td style="width: 100px;">
+                      <div class="flex items-center justify-end gap-1">
+                        <button class="delete-button" title="Delete airhorn">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                        <button class="menu-button" title="More options">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Sound Row 2: bruh -->
+                  <tr>
+                    <td style="width: 40px;">
+                      <button class="play-button" title="Play bruh">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </button>
+                    </td>
+                    <td>
+                      <div class="sound-row-primary">bruh</div>
+                      <div class="sound-row-secondary">bruh.mp3</div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        0:01
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        86.9 KB
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        38
+                      </div>
+                    </td>
+                    <td style="width: 100px;">
+                      <div class="flex items-center justify-end gap-1">
+                        <button class="delete-button" title="Delete bruh">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                        <button class="menu-button" title="More options">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Sound Row 3: sad_violin -->
+                  <tr>
+                    <td style="width: 40px;">
+                      <button class="play-button" title="Play sad_violin">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </button>
+                    </td>
+                    <td>
+                      <div class="sound-row-primary">sad_violin</div>
+                      <div class="sound-row-secondary">sad_violin.ogg</div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        0:08
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        410.2 KB
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        25
+                      </div>
+                    </td>
+                    <td style="width: 100px;">
+                      <div class="flex items-center justify-end gap-1">
+                        <button class="delete-button" title="Delete sad_violin">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                        <button class="menu-button" title="More options">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Sound Row 4: victory_fanfare -->
+                  <tr>
+                    <td style="width: 40px;">
+                      <button class="play-button" title="Play victory_fanfare">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </button>
+                    </td>
+                    <td>
+                      <div class="sound-row-primary">victory_fanfare</div>
+                      <div class="sound-row-secondary">victory_fanfare.mp3</div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        0:05
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        304.7 KB
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        19
+                      </div>
+                    </td>
+                    <td style="width: 100px;">
+                      <div class="flex items-center justify-end gap-1">
+                        <button class="delete-button" title="Delete victory_fanfare">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                        <button class="menu-button" title="More options">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Sound Row 5: wow -->
+                  <tr>
+                    <td style="width: 40px;">
+                      <button class="play-button" title="Play wow">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </button>
+                    </td>
+                    <td>
+                      <div class="sound-row-primary">wow</div>
+                      <div class="sound-row-secondary">wow.wav</div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        0:00
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        65.4 KB
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        156
+                      </div>
+                    </td>
+                    <td style="width: 100px;">
+                      <div class="flex items-center justify-end gap-1">
+                        <button class="delete-button" title="Delete wow">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                        <button class="menu-button" title="More options">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Sound Row 6: dun_dun_dunn -->
+                  <tr>
+                    <td style="width: 40px;">
+                      <button class="play-button" title="Play dun_dun_dunn">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M8 5v14l11-7z"/>
+                        </svg>
+                      </button>
+                    </td>
+                    <td>
+                      <div class="sound-row-primary">dun_dun_dunn</div>
+                      <div class="sound-row-secondary">dun_dun_dunn.mp3</div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        0:03
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        193.4 KB
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex items-center gap-1 text-text-secondary text-sm">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        31
+                      </div>
+                    </td>
+                    <td style="width: 100px;">
+                      <div class="flex items-center justify-end gap-1">
+                        <button class="delete-button" title="Delete dun_dun_dunn">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                        <button class="menu-button" title="More options">
+                          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Sidebar (30%) -->
+        <div class="lg:col-span-3 space-y-6">
+
+          <!-- Guild Selector -->
+          <div class="guild-selector flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-accent-orange text-white font-bold text-sm flex items-center justify-center flex-shrink-0">TO</div>
+            <div class="flex-1 min-w-0">
+              <div class="guild-name truncate">Toronto Metropolitan University Zone</div>
+              <div class="guild-info">7 members</div>
+            </div>
+            <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+
+          <!-- Voice Channel Control Panel -->
+          <div class="sidebar-item">
+            <div class="sidebar-item-header">Voice Channel</div>
+            <div class="flex items-center gap-2 mb-3 pb-3 border-b border-border-primary">
+              <div class="status-badge">
+                <span class="w-2 h-2 bg-success rounded-full"></span>
+                Connected
+              </div>
+            </div>
+            <p class="text-sm text-text-secondary mb-4">Connected to #General</p>
+
+            <!-- Channel Dropdown -->
+            <label class="text-xs text-text-secondary font-semibold uppercase tracking-widest mb-2 block">Voice Channel</label>
+            <div class="relative mb-4">
+              <select class="w-full appearance-none bg-bg-tertiary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors pr-8 cursor-pointer">
+                <option>General (3)</option>
+                <option>Gaming Room (2)</option>
+                <option>AFK Channel (1)</option>
+              </select>
+              <svg class="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+
+            <!-- Leave Channel Button -->
+            <button class="w-full px-3 py-2 border border-error rounded-lg text-sm font-semibold text-error hover:bg-error/10 transition-colors mb-4">
+              Leave Channel
+            </button>
+
+            <!-- Now Playing Section -->
+            <div class="mb-4">
+              <div class="sidebar-item-header" style="margin-bottom: 0.75rem;">Now Playing</div>
+              <div class="now-playing-section">
+                <div class="now-playing-icon">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+                <div class="now-playing-info">
+                  <div class="now-playing-name">airhorn</div>
+                  <div class="now-playing-status">Playing...</div>
+                </div>
+                <button class="stop-button" title="Stop playing">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Queue Section -->
+            <div>
+              <div class="sidebar-item-header" style="margin-bottom: 0.75rem;">Queue <span class="text-text-tertiary font-normal text-xs">(2 sounds)</span></div>
+              <div class="space-y-0.5">
+                <div class="queue-item">
+                  <div class="queue-number">1.</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm text-text-primary truncate">bruh</div>
+                  </div>
+                  <div class="text-xs text-text-tertiary flex-shrink-0 ml-2">1.2s</div>
+                  <button class="skip-button" title="Skip">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M4 18l8-8-8-8v16zM14 5l8 8-8 8V5z"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="queue-item">
+                  <div class="queue-number">2.</div>
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm text-text-primary truncate">victory_fanfare</div>
+                  </div>
+                  <div class="text-xs text-text-tertiary flex-shrink-0 ml-2">5.1s</div>
+                  <button class="skip-button" title="Skip">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M4 18l8-8-8-8v16zM14 5l8 8-8 8V5z"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Upload/Settings Buttons -->
+          <div class="button-group">
+            <button class="btn-icon">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              Upload
+            </button>
+            <button class="btn-icon">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Settings
+            </button>
+          </div>
+
+          <!-- Upload Sounds Section -->
+          <div class="sidebar-item">
+            <h3 class="text-sm font-semibold mb-1">Upload Sounds</h3>
+            <p class="text-xs text-text-tertiary mb-4">MP3, WAV, OGG up to 10MB, max 30s</p>
+
+            <!-- Dropzone -->
+            <div class="dropzone" id="dropzone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+              <div class="flex flex-col items-center justify-center">
+                <svg class="w-12 h-12 text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <p class="text-sm font-medium text-text-primary">Drag & drop audio files</p>
+                <p class="text-xs text-text-tertiary">or click to browse</p>
+              </div>
+            </div>
+
+            <!-- Discover Folder Button -->
+            <button class="w-full mt-3 px-3 py-2 border border-border-primary rounded-lg text-sm font-semibold text-text-primary hover:bg-bg-hover transition-colors flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V7M3 7V5a2 2 0 012-2h6l2 2h6a2 2 0 012 2v2" />
+              </svg>
+              Discover sounds from folder
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    function toggleSidebar() {
+      const overlay = document.getElementById('sidebarOverlay');
+      overlay.classList.toggle('hidden');
+    }
+
+    function toggleUserMenu() {
+      const menu = document.getElementById('userMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    // Close menus when clicking outside
+    document.addEventListener('click', function(event) {
+      const userMenu = document.getElementById('userMenu');
+      const userButton = event.target.closest('button[aria-label="User menu"]');
+      if (!userButton && !event.target.closest('#userMenu')) {
+        userMenu.classList.add('hidden');
+      }
+    });
+
+    // Dropzone drag and drop handling
+    const dropzone = document.getElementById('dropzone');
+
+    dropzone.addEventListener('click', function() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept = 'audio/*';
+      input.onchange = function(e) {
+        const files = e.target.files;
+        console.log('Selected files:', files);
+      };
+      input.click();
+    });
+
+    function handleDragOver(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      dropzone.classList.add('drag-over');
+    }
+
+    function handleDragLeave(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      dropzone.classList.remove('drag-over');
+    }
+
+    function handleDrop(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      dropzone.classList.remove('drag-over');
+      const files = event.dataTransfer.files;
+      console.log('Dropped files:', files);
+      // Handle file upload logic here
+    }
+
+    // Play button handlers
+    document.querySelectorAll('.play-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const soundRow = this.closest('tr');
+        const soundName = soundRow.querySelector('.sound-row-primary').textContent;
+        console.log('Playing:', soundName);
+      });
+    });
+
+    // Delete button handlers
+    document.querySelectorAll('.delete-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const soundRow = this.closest('tr');
+        const soundName = soundRow.querySelector('.sound-row-primary').textContent;
+        if (confirm(`Are you sure you want to delete "${soundName}"?`)) {
+          console.log('Deleted:', soundName);
+        }
+      });
+    });
+
+    // Stop button handler
+    document.querySelector('.stop-button').addEventListener('click', function() {
+      console.log('Stopped playing');
+    });
+
+    // Skip button handlers
+    document.querySelectorAll('.skip-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const queueItem = this.closest('.queue-item');
+        const soundName = queueItem.querySelector('.text-text-primary').textContent;
+        console.log('Skipped:', soundName);
+      });
+    });
+  </script>
+
+</body>
+</html>
