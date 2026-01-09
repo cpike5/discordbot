@@ -262,7 +262,7 @@
                                 </td>
                                 <!-- User -->
                                 <td class="px-6 py-4 text-text-secondary text-sm">
-                                    <span class="preview-trigger" data-preview-type="user" data-user-id="@log.UserId" @(log.GuildId.HasValue ? $"data-context-guild-id=\"{log.GuildId}\"" : "")>@log.Username</span>
+                                    <span class="preview-trigger" data-preview-type="user" data-user-id="@log.UserId" data-context-guild-id="@log.GuildId">@log.Username</span>
                                 </td>
                                 <!-- Duration (xl screens only) -->
                                 <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell">
@@ -369,7 +369,7 @@
                         </div>
                         <div>
                             <span class="text-text-tertiary">User:</span>
-                            <span class="text-text-primary ml-1 preview-trigger" data-preview-type="user" data-user-id="@log.UserId" @(log.GuildId.HasValue ? $"data-context-guild-id=\"{log.GuildId}\"" : "")>@log.Username</span>
+                            <span class="text-text-primary ml-1 preview-trigger" data-preview-type="user" data-user-id="@log.UserId" data-context-guild-id="@log.GuildId">@log.Username</span>
                         </div>
                         <div>
                             <span class="text-text-tertiary">Duration:</span>
