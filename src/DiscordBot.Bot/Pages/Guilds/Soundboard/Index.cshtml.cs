@@ -265,6 +265,10 @@ public class IndexModel : PageModel
             _logger.LogDebug("Saved sound file {FileName} to disk for guild {GuildId}",
                 generatedFileName, guildId);
 
+            // Extract audio duration using FFprobe
+            var filePath = _soundFileService.GetSoundFilePath(guildId, generatedFileName);
+            var duration = await _soundFileService.GetAudioDurationAsync(filePath, cancellationToken);
+
             // Create Sound entity
             var sound = new Sound
             {
@@ -273,7 +277,7 @@ public class IndexModel : PageModel
                 Name = Path.GetFileNameWithoutExtension(file.FileName),
                 FileName = generatedFileName,
                 FileSizeBytes = file.Length,
-                DurationSeconds = 0, // Placeholder - duration detection is future enhancement
+                DurationSeconds = duration,
                 UploadedAt = DateTime.UtcNow
             };
 
@@ -361,6 +365,9 @@ public class IndexModel : PageModel
                     continue;
                 }
 
+                // Extract audio duration using FFprobe
+                var duration = await _soundFileService.GetAudioDurationAsync(filePath, cancellationToken);
+
                 var sound = new Sound
                 {
                     Id = Guid.NewGuid(),
@@ -368,7 +375,7 @@ public class IndexModel : PageModel
                     Name = Path.GetFileNameWithoutExtension(fileName),
                     FileName = fileName,
                     FileSizeBytes = fileInfo.Length,
-                    DurationSeconds = 0, // Placeholder - duration detection is future enhancement
+                    DurationSeconds = duration,
                     UploadedAt = DateTime.UtcNow
                 };
 
@@ -376,8 +383,8 @@ public class IndexModel : PageModel
                 {
                     await _soundService.CreateSoundAsync(sound, cancellationToken);
                     newSoundsCount++;
-                    _logger.LogDebug("Discovered and added sound {Name} from file {FileName}",
-                        sound.Name, fileName);
+                    _logger.LogDebug("Discovered and added sound {Name} (duration: {Duration}s) from file {FileName}",
+                        sound.Name, duration, fileName);
                 }
                 catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
                 {
