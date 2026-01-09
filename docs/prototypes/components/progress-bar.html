@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Progress Bar - Components Library</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* ========================================
+       PROGRESS BAR COMPONENT STYLES
+       ======================================== */
+
+    /* ----------------------------------------
+       Progress Container
+       ---------------------------------------- */
+    .progress {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    .progress-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      width: 100%;
+    }
+
+    /* ----------------------------------------
+       Progress Track (Background)
+       ---------------------------------------- */
+    .progress-track {
+      position: relative;
+      width: 100%;
+      background-color: #3f4447;
+      border-radius: 9999px;
+      overflow: hidden;
+      flex-shrink: 0;
+      height: 4px;
+    }
+
+    /* ----------------------------------------
+       Progress Fill (The filled portion)
+       ---------------------------------------- */
+    .progress-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background-color: #cb4e1b;
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Success state (complete) */
+    .progress.progress-success .progress-fill {
+      background-color: #10b981;
+    }
+
+    /* ----------------------------------------
+       Size Variants
+       ---------------------------------------- */
+    /* Small progress bar */
+    .progress-sm .progress-track {
+      height: 2px;
+    }
+
+    /* Large progress bar */
+    .progress-lg .progress-track {
+      height: 8px;
+    }
+
+    /* ----------------------------------------
+       Indeterminate (Loading) Animation
+       ---------------------------------------- */
+    @keyframes progress-slide {
+      0% {
+        left: -100%;
+      }
+      100% {
+        left: 100%;
+      }
+    }
+
+    @keyframes progress-pulse {
+      0% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+
+    .progress-indeterminate .progress-fill {
+      width: 30% !important;
+      animation: progress-slide 1.5s ease-in-out infinite;
+    }
+
+    /* Pulsing variant for indeterminate */
+    .progress-indeterminate-pulse .progress-fill {
+      width: 100% !important;
+      animation: progress-pulse 1.5s ease-in-out infinite;
+      background: linear-gradient(90deg, #3f4447, #cb4e1b, #3f4447);
+      background-size: 200% 100%;
+    }
+
+    /* ----------------------------------------
+       Progress Label
+       ---------------------------------------- */
+    .progress-label {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+      font-weight: 500;
+      min-width: fit-content;
+      text-align: right;
+    }
+
+    .progress-label-primary {
+      color: #d7d3d0;
+      font-weight: 600;
+    }
+
+    /* ----------------------------------------
+       Progress With Time Display
+       ---------------------------------------- */
+    .progress-time-display {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 0.25rem;
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .progress-time-elapsed {
+      flex: 1;
+      text-align: left;
+    }
+
+    .progress-time-duration {
+      flex: 1;
+      text-align: right;
+    }
+
+    /* ----------------------------------------
+       Progress Caption
+       ---------------------------------------- */
+    .progress-caption {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .progress-caption-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="../index.html" class="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium">Back to Components</span>
+          </a>
+        </div>
+        <h1 class="text-lg font-semibold text-text-primary">Progress Bar</h1>
+        <div class="w-32"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-text-primary">Progress Bar Component</h2>
+      <p class="mt-2 text-text-secondary">
+        Progress bars display the progress of a task or operation. They can show determinate progress
+        with a percentage, or indeterminate progress for loading states. Supports various sizes,
+        labels, and time displays.
+      </p>
+    </div>
+
+    <!-- Empty Progress -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Empty Progress</h3>
+      <p class="text-sm text-text-secondary mb-6">Progress bar at 0% - not started.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-4">
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">Default Size</p>
+            <div class="progress">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Partial Progress -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Partial Progress</h3>
+      <p class="text-sm text-text-secondary mb-6">Progress bars at various completion percentages.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-6">
+          <!-- 25% -->
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">25% Complete</p>
+            <div class="progress">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 25%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 50% -->
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">50% Complete</p>
+            <div class="progress">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 50%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 75% -->
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">75% Complete</p>
+            <div class="progress">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 75%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Complete Progress -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Complete Progress</h3>
+      <p class="text-sm text-text-secondary mb-6">Progress bar at 100% - task completed.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-4">
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">100% Complete (Default Orange)</p>
+            <div class="progress">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 100%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">100% Complete (Success Green)</p>
+            <div class="progress progress-success">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 100%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Size Variants -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Size Variants</h3>
+      <p class="text-sm text-text-secondary mb-6">Progress bars in different sizes: small, default, and large.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-6">
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">Small (2px)</p>
+            <div class="progress progress-sm">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 65%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">Default (4px)</p>
+            <div class="progress">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 65%"></div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">Large (8px)</p>
+            <div class="progress progress-lg">
+              <div class="progress-track">
+                <div class="progress-fill" style="width: 65%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Progress With Percentage Label -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Percentage Label</h3>
+      <p class="text-sm text-text-secondary mb-6">Progress bar showing percentage text alongside the bar.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-6">
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">25% Progress</p>
+            <div class="progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 25%"></div>
+                </div>
+                <span class="progress-label">25%</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">50% Progress</p>
+            <div class="progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 50%"></div>
+                </div>
+                <span class="progress-label">50%</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">100% Progress</p>
+            <div class="progress progress-success">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 100%"></div>
+                </div>
+                <span class="progress-label progress-label-primary">Done</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Progress With Time Display -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Time Display</h3>
+      <p class="text-sm text-text-secondary mb-6">Progress bar showing elapsed and total time for media playback or operations.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-8">
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-3">Music Playback Progress</p>
+            <div class="progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 37.5%"></div>
+                </div>
+              </div>
+              <div class="progress-time-display">
+                <span class="progress-time-elapsed">1:30</span>
+                <span class="progress-time-duration">4:00</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-3">Video Upload Progress</p>
+            <div class="progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 72%"></div>
+                </div>
+              </div>
+              <div class="progress-time-display">
+                <span class="progress-time-elapsed">3:36 / 5:00</span>
+                <span class="progress-time-duration">Uploading...</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-3">Download Complete</p>
+            <div class="progress progress-success">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 100%"></div>
+                </div>
+              </div>
+              <div class="progress-time-display">
+                <span class="progress-time-elapsed">2:45</span>
+                <span class="progress-time-duration">Completed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Indeterminate Progress (Loading) -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Indeterminate Progress (Loading)</h3>
+      <p class="text-sm text-text-secondary mb-6">Animated progress bar for unknown duration tasks - no specific percentage shown.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-6">
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">Sliding Animation</p>
+            <div class="progress progress-indeterminate">
+              <div class="progress-track">
+                <div class="progress-fill"></div>
+              </div>
+            </div>
+            <p class="text-xs text-text-secondary mt-2">Loading data...</p>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">Pulsing Gradient Animation</p>
+            <div class="progress progress-indeterminate-pulse">
+              <div class="progress-track">
+                <div class="progress-fill"></div>
+              </div>
+            </div>
+            <p class="text-xs text-text-secondary mt-2">Processing request...</p>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-2">Large Indeterminate</p>
+            <div class="progress progress-lg progress-indeterminate">
+              <div class="progress-track">
+                <div class="progress-fill"></div>
+              </div>
+            </div>
+            <p class="text-xs text-text-secondary mt-2">Uploading files...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Real-World Examples -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Real-World Examples</h3>
+      <p class="text-sm text-text-secondary mb-6">Progress bars in common use cases.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-8">
+          <!-- File Upload -->
+          <div>
+            <div class="progress-caption-title">File Upload</div>
+            <p class="text-xs text-text-secondary mb-2">document.pdf</p>
+            <div class="progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 85%"></div>
+                </div>
+                <span class="progress-label">85%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Database Migration -->
+          <div>
+            <div class="progress-caption-title">Database Migration</div>
+            <p class="text-xs text-text-secondary mb-2">Migrating 15,000 records</p>
+            <div class="progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 62%"></div>
+                </div>
+                <span class="progress-label">9,300 / 15,000</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Installation Progress -->
+          <div>
+            <div class="progress-caption-title">Installation</div>
+            <p class="text-xs text-text-secondary mb-2">Installing packages...</p>
+            <div class="progress progress-indeterminate">
+              <div class="progress-track">
+                <div class="progress-fill"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Build Progress -->
+          <div>
+            <div class="progress-caption-title">Build Complete</div>
+            <p class="text-xs text-text-secondary mb-2">Built in 24.5 seconds</p>
+            <div class="progress progress-success">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 100%"></div>
+                </div>
+                <span class="progress-label progress-label-primary">✓ Done</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Multi-Step Process -->
+          <div>
+            <div class="progress-caption-title">Multi-Step Setup (Step 3 of 5)</div>
+            <div class="progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 60%"></div>
+                </div>
+                <span class="progress-label">60%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive Demo -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Interactive Demo</h3>
+      <p class="text-sm text-text-secondary mb-6">Click the button to animate progress through completion.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-6">
+          <!-- Demo Progress Bar -->
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-3">Simulated Download</p>
+            <div class="progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" id="demo-progress" style="width: 0%"></div>
+                </div>
+                <span class="progress-label" id="demo-label">0%</span>
+              </div>
+            </div>
+            <div class="progress-time-display">
+              <span class="progress-time-elapsed" id="demo-elapsed">0:00</span>
+              <span class="progress-time-duration" id="demo-duration">3:00</span>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="flex gap-3">
+            <button id="btn-start" class="px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white rounded transition-colors text-sm font-medium">
+              Start Download
+            </button>
+            <button id="btn-reset" class="px-4 py-2 bg-border-primary hover:bg-bg-hover text-text-primary rounded transition-colors text-sm font-medium" disabled>
+              Reset
+            </button>
+            <button id="btn-complete" class="px-4 py-2 bg-success hover:bg-opacity-80 text-white rounded transition-colors text-sm font-medium" disabled>
+              Jump to Complete
+            </button>
+          </div>
+
+          <!-- Status -->
+          <div id="demo-status" class="text-sm text-text-secondary"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Accessibility Info -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Accessibility</h3>
+      <p class="text-sm text-text-secondary mb-6">ARIA attributes for screen readers and assistive technologies.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="space-y-6">
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-3">Determinate Progress with ARIA</p>
+            <div class="progress" role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100" aria-label="File upload progress">
+              <div class="progress-wrapper">
+                <div class="progress-track" style="flex: 1;">
+                  <div class="progress-fill" style="width: 45%"></div>
+                </div>
+                <span class="progress-label">45%</span>
+              </div>
+            </div>
+            <p class="text-xs text-text-tertiary mt-2 font-mono">role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100"</p>
+          </div>
+
+          <div>
+            <p class="text-sm font-medium text-text-primary mb-3">Indeterminate Progress with ARIA</p>
+            <div class="progress progress-indeterminate" role="progressbar" aria-label="Loading data" aria-busy="true">
+              <div class="progress-track">
+                <div class="progress-fill"></div>
+              </div>
+            </div>
+            <p class="text-xs text-text-tertiary mt-2 font-mono">role="progressbar" aria-busy="true" (no aria-valuenow for indeterminate)</p>
+          </div>
+
+          <div class="bg-bg-tertiary rounded p-3 border border-border-primary">
+            <p class="text-xs text-text-tertiary font-semibold mb-2">ARIA Best Practices:</p>
+            <ul class="text-xs text-text-secondary space-y-1 list-disc list-inside">
+              <li>Use <code class="bg-bg-primary px-1 rounded">role="progressbar"</code> for semantic meaning</li>
+              <li>Set <code class="bg-bg-primary px-1 rounded">aria-valuenow</code> for determinate progress (0-100)</li>
+              <li>Omit <code class="bg-bg-primary px-1 rounded">aria-valuenow</code> for indeterminate (use <code class="bg-bg-primary px-1 rounded">aria-busy="true"</code>)</li>
+              <li>Always include descriptive <code class="bg-bg-primary px-1 rounded">aria-label</code></li>
+              <li>Update <code class="bg-bg-primary px-1 rounded">aria-valuenow</code> dynamically as progress changes</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-text-tertiary text-center">
+        Components Library - Discord Bot Admin
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    // Interactive Demo Logic
+    const demoProgress = document.getElementById('demo-progress');
+    const demoLabel = document.getElementById('demo-label');
+    const demoElapsed = document.getElementById('demo-elapsed');
+    const demoStatus = document.getElementById('demo-status');
+    const btnStart = document.getElementById('btn-start');
+    const btnReset = document.getElementById('btn-reset');
+    const btnComplete = document.getElementById('btn-complete');
+
+    let animationId = null;
+    let currentProgress = 0;
+    let startTime = null;
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    function updateProgress(percent) {
+      currentProgress = percent;
+      demoProgress.style.width = percent + '%';
+      demoLabel.textContent = Math.round(percent) + '%';
+      demoElapsed.textContent = formatTime((percent / 100) * 180);
+    }
+
+    function animateProgress() {
+      const elapsed = Date.now() - startTime;
+      const duration = 4000; // 4 seconds
+      const progress = Math.min((elapsed / duration) * 100, 100);
+
+      updateProgress(progress);
+
+      if (progress < 100) {
+        animationId = requestAnimationFrame(animateProgress);
+        demoStatus.textContent = 'Downloading...';
+      } else {
+        demoStatus.textContent = 'Download complete!';
+        btnStart.disabled = true;
+        btnReset.disabled = false;
+        btnComplete.disabled = true;
+      }
+    }
+
+    btnStart.addEventListener('click', () => {
+      if (animationId) cancelAnimationFrame(animationId);
+      currentProgress = 0;
+      startTime = Date.now();
+      btnStart.disabled = true;
+      btnReset.disabled = true;
+      btnComplete.disabled = true;
+      demoStatus.textContent = '';
+      animateProgress();
+    });
+
+    btnReset.addEventListener('click', () => {
+      if (animationId) cancelAnimationFrame(animationId);
+      currentProgress = 0;
+      updateProgress(0);
+      btnStart.disabled = false;
+      btnReset.disabled = true;
+      btnComplete.disabled = false;
+      demoStatus.textContent = '';
+    });
+
+    btnComplete.addEventListener('click', () => {
+      if (animationId) cancelAnimationFrame(animationId);
+      updateProgress(100);
+      demoProgress.parentElement.parentElement.classList.add('progress-success');
+      demoLabel.classList.add('progress-label-primary');
+      demoLabel.textContent = 'Done';
+      demoStatus.textContent = 'Download complete!';
+      btnStart.disabled = true;
+      btnReset.disabled = false;
+      btnComplete.disabled = true;
+    });
+  </script>
+
+</body>
+</html>
