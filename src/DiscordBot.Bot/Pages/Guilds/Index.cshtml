@@ -134,7 +134,13 @@
                     {
                         @foreach (var guild in Model.ViewModel.Guilds)
                         {
-                            <tr class="hover:bg-bg-hover/50 transition-colors">
+                            var detailsUrl = Url.Page("Details", new { id = guild.Id });
+                            <tr class="hover:bg-bg-hover transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
+                                onclick="if (!event.target.closest('button, a')) window.location.href='@detailsUrl'"
+                                tabindex="0"
+                                role="link"
+                                aria-label="View details for @guild.Name"
+                                onkeydown="if (event.key === 'Enter' && !event.target.closest('button, a')) window.location.href='@detailsUrl'">
                                 <!-- Server Name with Icon -->
                                 <td class="px-6 py-4">
                                     <div class="flex items-center gap-3">
@@ -149,7 +155,7 @@
                                             </div>
                                         }
                                         <div class="min-w-0">
-                                            <p class="font-medium text-text-primary truncate">@guild.Name</p>
+                                            <p class="font-medium text-text-primary group-hover:text-accent-blue transition-colors truncate">@guild.Name</p>
                                             <p class="text-xs text-text-tertiary font-mono">ID: @guild.Id</p>
                                         </div>
                                     </div>
@@ -236,7 +242,13 @@
         {
             @foreach (var guild in Model.ViewModel.Guilds)
             {
-                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                var mobileDetailsUrl = Url.Page("Details", new { id = guild.Id });
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 cursor-pointer group hover:bg-bg-hover transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
+                     onclick="if (!event.target.closest('button, a')) window.location.href='@mobileDetailsUrl'"
+                     tabindex="0"
+                     role="link"
+                     aria-label="View details for @guild.Name"
+                     onkeydown="if (event.key === 'Enter' && !event.target.closest('button, a')) window.location.href='@mobileDetailsUrl'">
                     <div class="flex items-start justify-between mb-3">
                         <div class="flex items-center gap-3">
                             @if (!string.IsNullOrEmpty(guild.IconUrl))
@@ -250,7 +262,7 @@
                                 </div>
                             }
                             <div class="min-w-0">
-                                <p class="font-medium text-text-primary truncate">@guild.Name</p>
+                                <p class="font-medium text-text-primary group-hover:text-accent-blue transition-colors truncate">@guild.Name</p>
                                 <p class="text-xs text-text-tertiary font-mono">@guild.Id</p>
                             </div>
                         </div>
