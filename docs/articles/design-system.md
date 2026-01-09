@@ -1001,43 +1001,426 @@ See [Autocomplete Component](autocomplete-component.md) for complete implementat
 }
 ```
 
-#### Toggle Switch
+#### Slider
+
+Interactive slider controls for adjusting numeric values within a range. Used for settings like volume, playback speed, or percentage adjustments.
+
+**Usage:** Volume controls, playback speed, opacity adjustments, threshold settings
 
 ```html
-<label class="toggle">
-  <input type="checkbox" class="toggle-input" />
-  <span class="toggle-slider"></span>
-  <span class="toggle-label">Enable notifications</span>
-</label>
+<!-- Basic slider with value display -->
+<div class="form-group">
+  <label for="volume-slider" class="form-label">Volume</label>
+  <div class="slider-wrapper">
+    <input
+      type="range"
+      id="volume-slider"
+      class="form-slider"
+      min="0"
+      max="100"
+      value="80"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="80"
+      aria-label="Volume"
+    />
+    <span class="slider-value" aria-live="polite">80%</span>
+  </div>
+</div>
+
+<!-- Slider with min/max labels -->
+<div class="form-group">
+  <label for="speed-slider" class="form-label">Playback Speed</label>
+  <div class="slider-wrapper slider-with-labels">
+    <span class="slider-label-min">0.5x</span>
+    <input
+      type="range"
+      id="speed-slider"
+      class="form-slider"
+      min="0.5"
+      max="2"
+      step="0.1"
+      value="1"
+      aria-valuemin="0.5"
+      aria-valuemax="2"
+      aria-valuenow="1"
+      aria-label="Playback speed"
+    />
+    <span class="slider-label-max">2.0x</span>
+    <span class="slider-value" aria-live="polite">1.0x</span>
+  </div>
+</div>
+
+<!-- Slider with numeric input -->
+<div class="form-group">
+  <label for="threshold-slider" class="form-label">Alert Threshold</label>
+  <div class="slider-with-input">
+    <input
+      type="range"
+      id="threshold-slider"
+      class="form-slider"
+      min="0"
+      max="100"
+      value="75"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="75"
+      aria-label="Alert threshold"
+    />
+    <input
+      type="number"
+      id="threshold-input"
+      class="form-input slider-input"
+      min="0"
+      max="100"
+      value="75"
+      aria-label="Alert threshold value"
+    />
+  </div>
+</div>
 ```
 
 ```css
-.toggle {
+/* Slider base styles */
+.slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+.form-slider {
+  flex: 1;
+  height: 2rem;              /* 32px - provides 44px touch target with padding */
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+/* Track */
+.form-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 0.375rem;          /* 6px */
+  background: linear-gradient(
+    to right,
+    #cb4e1b 0%,
+    #cb4e1b var(--slider-progress, 80%),
+    #3f4447 var(--slider-progress, 80%),
+    #3f4447 100%
+  );
+  border-radius: 9999px;
+}
+
+.form-slider::-moz-range-track {
+  width: 100%;
+  height: 0.375rem;
+  background-color: #3f4447;
+  border-radius: 9999px;
+}
+
+/* Progress (Firefox) */
+.form-slider::-moz-range-progress {
+  height: 0.375rem;
+  background-color: #cb4e1b;
+  border-radius: 9999px;
+}
+
+/* Thumb/Handle */
+.form-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;               /* 16px */
+  height: 1rem;
+  background-color: #cb4e1b;
+  border: 2px solid #cb4e1b;
+  border-radius: 50%;
+  cursor: pointer;
+  margin-top: -0.3125rem;    /* Center on track: (16px - 6px) / 2 */
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-slider::-moz-range-thumb {
+  width: 1rem;
+  height: 1rem;
+  background-color: #cb4e1b;
+  border: 2px solid #cb4e1b;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Hover state */
+.form-slider:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px rgba(203, 78, 27, 0.2);
+}
+
+.form-slider:hover::-moz-range-thumb {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px rgba(203, 78, 27, 0.2);
+}
+
+/* Active/dragging state */
+.form-slider:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 6px rgba(203, 78, 27, 0.25);
+}
+
+.form-slider:active::-moz-range-thumb {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 6px rgba(203, 78, 27, 0.25);
+}
+
+/* Focus state */
+.form-slider:focus-visible {
+  outline: none;
+}
+
+.form-slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid #098ecf;
+  outline-offset: 2px;
+}
+
+.form-slider:focus-visible::-moz-range-thumb {
+  outline: 2px solid #098ecf;
+  outline-offset: 2px;
+}
+
+/* Disabled state */
+.form-slider:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.form-slider:disabled::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    #7a7876 0%,
+    #7a7876 var(--slider-progress, 80%),
+    #3f4447 var(--slider-progress, 80%),
+    #3f4447 100%
+  );
+}
+
+.form-slider:disabled::-moz-range-progress {
+  background-color: #7a7876;
+}
+
+.form-slider:disabled::-webkit-slider-thumb,
+.form-slider:disabled::-moz-range-thumb {
+  background-color: #7a7876;
+  border-color: #7a7876;
+  cursor: not-allowed;
+}
+
+/* Value display */
+.slider-value {
+  min-width: 3.5rem;
+  text-align: right;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #d7d3d0;
+}
+
+/* Min/max labels */
+.slider-with-labels {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.slider-label-min,
+.slider-label-max {
+  font-size: 0.75rem;
+  color: #a8a5a3;
+  white-space: nowrap;
+}
+
+/* Slider with numeric input */
+.slider-with-input {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.slider-input {
+  width: 5rem;
+  text-align: center;
+}
+```
+
+**States:**
+
+| State | Appearance |
+|-------|------------|
+| Default | Orange fill for active portion, dark gray for inactive |
+| Hover | Handle scales up slightly with orange glow |
+| Active/Dragging | Handle scales larger with stronger glow |
+| Focus | Blue outline ring around handle |
+| Disabled | Muted gray colors, reduced opacity |
+
+**JavaScript Integration:**
+
+Update slider value display and sync with numeric input:
+
+```javascript
+// Update value display
+const slider = document.getElementById('volume-slider');
+const valueDisplay = slider.nextElementSibling;
+
+slider.addEventListener('input', (e) => {
+  const value = e.target.value;
+  valueDisplay.textContent = `${value}%`;
+
+  // Update CSS custom property for gradient
+  const percent = ((value - slider.min) / (slider.max - slider.min)) * 100;
+  slider.style.setProperty('--slider-progress', `${percent}%`);
+
+  // Update ARIA
+  slider.setAttribute('aria-valuenow', value);
+});
+
+// Sync slider with numeric input
+const numericInput = document.getElementById('threshold-input');
+slider.addEventListener('input', () => numericInput.value = slider.value);
+numericInput.addEventListener('input', () => slider.value = numericInput.value);
+```
+
+**Accessibility:**
+
+- Use native `<input type="range">` for keyboard support
+- Include `aria-valuemin`, `aria-valuemax`, `aria-valuenow` attributes
+- Use `aria-label` or associated `<label>` for context
+- Value display should have `aria-live="polite"` for screen reader updates
+- Minimum touch target: 44x44px (achieved with height + padding)
+- Arrow keys adjust value by step amount
+- Page Up/Down for larger adjustments
+
+**Tailwind Equivalent:**
+
+```html
+<div class="flex items-center gap-4 w-full">
+  <input type="range" class="flex-1 h-8 appearance-none bg-transparent cursor-pointer
+    [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:bg-border-primary [&::-webkit-slider-runnable-track]:rounded-full
+    [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-accent-orange [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:-mt-1
+    hover:[&::-webkit-slider-thumb]:scale-110
+    focus-visible:outline-none focus-visible:[&::-webkit-slider-thumb]:ring-2 focus-visible:[&::-webkit-slider-thumb]:ring-accent-blue focus-visible:[&::-webkit-slider-thumb]:ring-offset-2
+    disabled:opacity-50 disabled:cursor-not-allowed"
+  />
+  <span class="min-w-14 text-right text-sm font-semibold text-text-primary">80%</span>
+</div>
+```
+
+#### Toggle Switch
+
+Interactive switch controls for binary on/off settings. Provides immediate visual feedback and is ideal for settings that take effect instantly without requiring form submission.
+
+**Usage:** Enable/disable features, boolean settings, instant toggles
+
+```html
+<!-- Standard toggle with label on right -->
+<label class="form-toggle">
+  <input
+    type="checkbox"
+    class="form-toggle-input"
+    role="switch"
+    aria-checked="false"
+    onchange="this.setAttribute('aria-checked', this.checked)"
+  />
+  <span class="form-toggle-track" aria-hidden="true">
+    <span class="form-toggle-thumb"></span>
+  </span>
+  <span class="form-toggle-label">Enable notifications</span>
+</label>
+
+<!-- Toggle with description -->
+<label class="form-toggle">
+  <input
+    type="checkbox"
+    class="form-toggle-input"
+    role="switch"
+    checked
+    aria-checked="true"
+    onchange="this.setAttribute('aria-checked', this.checked)"
+  />
+  <span class="form-toggle-track" aria-hidden="true">
+    <span class="form-toggle-thumb"></span>
+  </span>
+  <span class="form-toggle-content">
+    <span class="form-toggle-label">Email notifications</span>
+    <span class="form-toggle-description">Receive email alerts for important events.</span>
+  </span>
+</label>
+
+<!-- Toggle with label on left -->
+<label class="form-toggle form-toggle-label-left">
+  <input
+    type="checkbox"
+    class="form-toggle-input"
+    role="switch"
+    checked
+    aria-checked="true"
+    onchange="this.setAttribute('aria-checked', this.checked)"
+  />
+  <span class="form-toggle-track" aria-hidden="true">
+    <span class="form-toggle-thumb"></span>
+  </span>
+  <span class="form-toggle-label">Show online status</span>
+</label>
+
+<!-- Settings list pattern -->
+<div class="form-toggle-row">
+  <div class="form-toggle-row-content">
+    <div class="form-toggle-row-title">Push Notifications</div>
+    <div class="form-toggle-row-description">Receive push notifications on your device for real-time alerts.</div>
+  </div>
+  <label class="form-toggle">
+    <input
+      type="checkbox"
+      class="form-toggle-input"
+      role="switch"
+      checked
+      aria-checked="true"
+      onchange="this.setAttribute('aria-checked', this.checked)"
+    />
+    <span class="form-toggle-track" aria-hidden="true">
+      <span class="form-toggle-thumb"></span>
+    </span>
+    <span class="sr-only">Push Notifications</span>
+  </label>
+</div>
+```
+
+```css
+/* Toggle base styles */
+.form-toggle {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   cursor: pointer;
 }
 
-.toggle-input {
+.form-toggle-input {
   position: absolute;
   opacity: 0;
   width: 0;
   height: 0;
 }
 
-.toggle-slider {
+/* Track */
+.form-toggle-track {
   position: relative;
   display: inline-block;
   width: 2.75rem;           /* 44px */
   height: 1.5rem;           /* 24px */
   background-color: #3f4447;
   border-radius: 9999px;
+  flex-shrink: 0;
   transition: background-color 0.2s ease-in-out;
 }
 
-.toggle-slider::before {
-  content: "";
+/* Thumb/Handle */
+.form-toggle-thumb {
   position: absolute;
   top: 0.125rem;            /* 2px */
   left: 0.125rem;
@@ -1045,25 +1428,512 @@ See [Autocomplete Component](autocomplete-component.md) for complete implementat
   height: 1.25rem;
   background-color: #d7d3d0;
   border-radius: 50%;
-  transition: transform 0.2s ease-in-out;
+  transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
 }
 
-.toggle-input:checked + .toggle-slider {
-  background-color: #cb4e1b;
+/* Hover state */
+.form-toggle:hover .form-toggle-track {
+  background-color: #4a4f52;
 }
 
-.toggle-input:checked + .toggle-slider::before {
-  transform: translateX(1.25rem);  /* 20px */
+.form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
+  background-color: #e5591f;
 }
 
-.toggle-input:focus-visible + .toggle-slider {
+/* Focus state */
+.form-toggle-input:focus-visible + .form-toggle-track {
   outline: 2px solid #098ecf;
   outline-offset: 2px;
 }
 
-.toggle-label {
+/* Checked/On state */
+.form-toggle-input:checked + .form-toggle-track {
+  background-color: #cb4e1b;
+}
+
+.form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+  transform: translateX(1.25rem);  /* 20px */
+  background-color: white;
+}
+
+/* Disabled state */
+.form-toggle-input:disabled + .form-toggle-track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-toggle-input:disabled ~ .form-toggle-content,
+.form-toggle-input:disabled ~ .form-toggle-label {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Label content */
+.form-toggle-label {
   font-size: 0.875rem;
   color: #d7d3d0;
+  line-height: 1.4;
+}
+
+.form-toggle-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.form-toggle-description {
+  font-size: 0.75rem;
+  color: #a8a5a3;
+  line-height: 1.4;
+}
+
+/* Label on left variant */
+.form-toggle-label-left {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+}
+
+/* Settings row pattern */
+.form-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1rem 0;
+  border-bottom: 1px solid #3f4447;
+}
+
+.form-toggle-row:last-child {
+  border-bottom: none;
+}
+
+.form-toggle-row-content {
+  flex: 1;
+  padding-right: 1rem;
+}
+
+.form-toggle-row-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #d7d3d0;
+  margin-bottom: 0.25rem;
+}
+
+.form-toggle-row-description {
+  font-size: 0.75rem;
+  color: #a8a5a3;
+}
+
+/* Size variants */
+.form-toggle-sm .form-toggle-track {
+  width: 2.25rem;           /* 36px */
+  height: 1.25rem;          /* 20px */
+}
+
+.form-toggle-sm .form-toggle-thumb {
+  width: 1rem;              /* 16px */
+  height: 1rem;
+}
+
+.form-toggle-sm .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+  transform: translateX(1rem);
+}
+
+.form-toggle-sm .form-toggle-label {
+  font-size: 0.75rem;
+}
+
+.form-toggle-lg .form-toggle-track {
+  width: 3.25rem;           /* 52px */
+  height: 1.75rem;          /* 28px */
+}
+
+.form-toggle-lg .form-toggle-thumb {
+  width: 1.5rem;            /* 24px */
+  height: 1.5rem;
+}
+
+.form-toggle-lg .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+  transform: translateX(1.5rem);
+}
+
+.form-toggle-lg .form-toggle-label {
+  font-size: 1rem;
+}
+```
+
+**States:**
+
+| State | Appearance |
+|-------|------------|
+| Off | Dark gray track (#3f4447), gray handle on left |
+| On | Orange track (#cb4e1b), white handle on right |
+| Hover (off) | Lighter gray track (#4a4f52) |
+| Hover (on) | Lighter orange track (#e5591f) |
+| Focus | Blue outline ring around track |
+| Disabled (off) | Reduced opacity (50%), no hover effects |
+| Disabled (on) | Orange track with reduced opacity, white handle |
+
+**Variants:**
+
+| Variant | Description | Class |
+|---------|-------------|-------|
+| Base | Default size (44px × 24px) | `.form-toggle` |
+| Small | Compact size (36px × 20px) | `.form-toggle-sm` |
+| Large | Larger size (52px × 28px) | `.form-toggle-lg` |
+| Label Left | Label on left side | `.form-toggle-label-left` |
+| With Description | Label + description text | Use `.form-toggle-content` wrapper |
+| Settings Row | Horizontal row layout | `.form-toggle-row` |
+
+**Accessibility:**
+
+- Use `role="switch"` on input element
+- Include `aria-checked` attribute (update with JavaScript on change)
+- Use `aria-hidden="true"` on visual track element
+- Clickable label toggles state
+- Keyboard: Space or Enter to toggle
+- Visible focus indicator (blue ring)
+- Screen reader announces "switch" role and checked state
+
+**Tailwind Equivalent:**
+
+```html
+<label class="flex items-center gap-3 cursor-pointer">
+  <input type="checkbox" class="sr-only peer" role="switch" />
+  <span class="relative inline-block w-11 h-6 bg-border-primary rounded-full flex-shrink-0 transition-colors
+    peer-checked:bg-accent-orange
+    peer-hover:bg-bg-hover peer-checked:peer-hover:bg-accent-orange-hover
+    peer-focus-visible:ring-2 peer-focus-visible:ring-accent-blue peer-focus-visible:ring-offset-2
+    peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"
+    aria-hidden="true">
+    <span class="absolute top-0.5 left-0.5 w-5 h-5 bg-text-secondary rounded-full transition-transform
+      peer-checked:translate-x-5 peer-checked:bg-white"></span>
+  </span>
+  <span class="text-sm text-text-primary peer-disabled:opacity-50">Enable notifications</span>
+</label>
+```
+
+**Prototype Reference:**
+
+See `docs/prototypes/forms/components/06-toggle-switch.html` for interactive examples including:
+- Standard toggle patterns
+- Size variants (small, base, large)
+- Label positioning options
+- Settings list integration
+- Icon and text label variations
+
+#### Progress Bar
+
+Progress indicators show completion status for ongoing operations. Used for file uploads, loading states, time-based progress, and determinate or indeterminate operations.
+
+**Usage:** File uploads, loading indicators, media playback, task completion, buffering
+
+```html
+<!-- Determinate progress (specific percentage) -->
+<div class="form-group">
+  <label class="form-label">Upload Progress</label>
+  <div
+    class="progress-bar"
+    role="progressbar"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    aria-valuenow="65"
+    aria-label="Upload progress"
+  >
+    <div class="progress-fill" style="width: 65%;"></div>
+  </div>
+  <span class="progress-label">65%</span>
+</div>
+
+<!-- Determinate with time display -->
+<div class="form-group">
+  <div class="progress-header">
+    <span class="form-label">Audio Playback</span>
+    <span class="progress-time">0:15 / 0:30</span>
+  </div>
+  <div
+    class="progress-bar"
+    role="progressbar"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    aria-valuenow="50"
+    aria-label="Playback progress"
+  >
+    <div class="progress-fill" style="width: 50%;"></div>
+  </div>
+</div>
+
+<!-- Indeterminate progress (loading state) -->
+<div class="form-group">
+  <label class="form-label">Processing...</label>
+  <div
+    class="progress-bar progress-indeterminate"
+    role="progressbar"
+    aria-label="Processing"
+    aria-busy="true"
+  >
+    <div class="progress-fill-animated"></div>
+  </div>
+</div>
+
+<!-- Small size variant -->
+<div class="form-group">
+  <label class="form-label">Quick Task</label>
+  <div
+    class="progress-bar progress-sm"
+    role="progressbar"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    aria-valuenow="80"
+    aria-label="Task progress"
+  >
+    <div class="progress-fill" style="width: 80%;"></div>
+  </div>
+</div>
+
+<!-- With buffering (for media) -->
+<div class="form-group">
+  <label class="form-label">Video Playback</label>
+  <div
+    class="progress-bar"
+    role="progressbar"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    aria-valuenow="40"
+    aria-label="Video progress"
+  >
+    <div class="progress-buffer" style="width: 70%;"></div>
+    <div class="progress-fill" style="width: 40%;"></div>
+  </div>
+</div>
+```
+
+```css
+/* Progress bar base */
+.progress-bar {
+  position: relative;
+  width: 100%;
+  height: 0.375rem;          /* 6px */
+  background-color: #3f4447;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+/* Determinate fill */
+.progress-fill {
+  height: 100%;
+  background-color: #cb4e1b;
+  border-radius: 9999px;
+  transition: width 0.3s ease-in-out;
+}
+
+/* Complete state (100%) */
+.progress-fill[style*="width: 100%"] {
+  background-color: #10b981;  /* Green for complete */
+}
+
+/* Progress label */
+.progress-label {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #d7d3d0;
+}
+
+/* Header with time display */
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.progress-time {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #a8a5a3;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Indeterminate/Loading state */
+.progress-indeterminate {
+  overflow: hidden;
+}
+
+.progress-fill-animated {
+  height: 100%;
+  width: 40%;
+  background-color: #cb4e1b;
+  border-radius: 9999px;
+  animation: progress-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+/* Buffering indicator (for media) */
+.progress-buffer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: rgba(203, 78, 27, 0.3);
+  border-radius: 9999px;
+  transition: width 0.3s ease-in-out;
+}
+
+/* Size variants */
+.progress-sm {
+  height: 0.25rem;           /* 4px */
+}
+
+.progress-lg {
+  height: 0.5rem;            /* 8px */
+}
+
+/* Color variants */
+.progress-success .progress-fill {
+  background-color: #10b981;  /* Green */
+}
+
+.progress-warning .progress-fill {
+  background-color: #f59e0b;  /* Amber */
+}
+
+.progress-error .progress-fill {
+  background-color: #ef4444;  /* Red */
+}
+
+.progress-info .progress-fill {
+  background-color: #098ecf;  /* Blue */
+}
+```
+
+**States:**
+
+| State | Appearance |
+|-------|------------|
+| Empty (0%) | Dark gray track only |
+| Partial (1-99%) | Orange fill animates smoothly |
+| Complete (100%) | Green fill indicating success |
+| Indeterminate | Animated shimmer effect |
+| Buffering | Lighter orange shows buffered amount behind progress |
+
+**Variants:**
+
+| Variant | Description | Class |
+|---------|-------------|-------|
+| Base | Default height (6px) | `.progress-bar` |
+| Small | Compact height (4px) | `.progress-sm` |
+| Large | Larger height (8px) | `.progress-lg` |
+| Success | Green color | `.progress-success` |
+| Warning | Amber color | `.progress-warning` |
+| Error | Red color | `.progress-error` |
+| Info | Blue color | `.progress-info` |
+| Indeterminate | Animated loading | `.progress-indeterminate` |
+
+**JavaScript Integration:**
+
+Update progress dynamically and handle completion:
+
+```javascript
+// Update progress value
+function updateProgress(element, value) {
+  const fill = element.querySelector('.progress-fill');
+  const label = element.nextElementSibling;
+
+  fill.style.width = `${value}%`;
+  element.setAttribute('aria-valuenow', value);
+
+  if (label && label.classList.contains('progress-label')) {
+    label.textContent = `${value}%`;
+  }
+
+  // Change to green at 100%
+  if (value >= 100) {
+    fill.style.backgroundColor = '#10b981';
+  }
+}
+
+// Update time display for media
+function updatePlaybackProgress(element, currentTime, duration) {
+  const value = (currentTime / duration) * 100;
+  const fill = element.querySelector('.progress-fill');
+  const timeDisplay = element.previousElementSibling.querySelector('.progress-time');
+
+  fill.style.width = `${value}%`;
+  element.setAttribute('aria-valuenow', value);
+
+  if (timeDisplay) {
+    timeDisplay.textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+  }
+}
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Toggle indeterminate state
+function showLoading(element) {
+  element.classList.add('progress-indeterminate');
+  element.setAttribute('aria-busy', 'true');
+  element.removeAttribute('aria-valuenow');
+}
+
+function hideLoading(element) {
+  element.classList.remove('progress-indeterminate');
+  element.setAttribute('aria-busy', 'false');
+  element.setAttribute('aria-valuenow', '0');
+}
+```
+
+**Accessibility:**
+
+- Use `role="progressbar"` on container element
+- Include `aria-valuemin="0"` and `aria-valuemax="100"` attributes
+- Update `aria-valuenow` with current value (0-100)
+- Use `aria-label` or associated label for context
+- For indeterminate state, use `aria-busy="true"` and omit `aria-valuenow`
+- Provide text alternative for percentage or time remaining
+- Announce progress updates for screen readers (use `aria-live="polite"` on label)
+
+**Tailwind Equivalent:**
+
+```html
+<!-- Determinate -->
+<div class="w-full h-1.5 bg-border-primary rounded-full overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="65">
+  <div class="h-full bg-accent-orange rounded-full transition-[width] duration-300" style="width: 65%;"></div>
+</div>
+
+<!-- Indeterminate -->
+<div class="w-full h-1.5 bg-border-primary rounded-full overflow-hidden" role="progressbar" aria-busy="true">
+  <div class="h-full w-2/5 bg-accent-orange rounded-full animate-[shimmer_1.5s_ease-in-out_infinite]"></div>
+</div>
+```
+
+**Animation Keyframes (add to Tailwind config):**
+
+```javascript
+// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      keyframes: {
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(350%)' }
+        }
+      }
+    }
+  }
 }
 ```
 

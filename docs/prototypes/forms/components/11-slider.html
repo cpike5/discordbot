@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slider - Form Components Library</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* ========================================
+       PAGE-SPECIFIC FORM COMPONENT STYLES
+       ======================================== */
+
+    /* ----------------------------------------
+       Form Group
+       ---------------------------------------- */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+    }
+
+    .form-help {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    /* ----------------------------------------
+       Slider Base
+       ---------------------------------------- */
+    .form-slider {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-slider-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    /* Hidden input, styled with appearance:none */
+    .form-slider-input {
+      flex: 1;
+      width: 100%;
+      height: 1.5rem;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    /* Chrome, Safari, Edge - track */
+    .form-slider-input::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 0.375rem;
+      background: linear-gradient(
+        to right,
+        #cb4e1b 0%,
+        #cb4e1b var(--slider-percentage),
+        #3f4447 var(--slider-percentage),
+        #3f4447 100%
+      );
+      border-radius: 9999px;
+      transition: background 0.15s ease-out;
+    }
+
+    /* Chrome, Safari, Edge - thumb */
+    .form-slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 1rem;
+      height: 1rem;
+      background-color: #cb4e1b;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background-color 0.15s ease-out, transform 0.15s ease-out;
+      margin-top: -0.3125rem;
+    }
+
+    .form-slider-input::-webkit-slider-thumb:hover {
+      background-color: #e5591f;
+      transform: scale(1.1);
+    }
+
+    .form-slider-input::-webkit-slider-thumb:active {
+      transform: scale(1.15);
+    }
+
+    /* Firefox - track */
+    .form-slider-input::-moz-range-track {
+      background: transparent;
+      border: none;
+    }
+
+    .form-slider-input::-moz-range-progress {
+      background-color: #cb4e1b;
+      height: 0.375rem;
+      border-radius: 9999px;
+    }
+
+    /* Firefox - thumb */
+    .form-slider-input::-moz-range-thumb {
+      width: 1rem;
+      height: 1rem;
+      background-color: #cb4e1b;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background-color 0.15s ease-out, transform 0.15s ease-out;
+    }
+
+    .form-slider-input::-moz-range-thumb:hover {
+      background-color: #e5591f;
+      transform: scale(1.1);
+    }
+
+    .form-slider-input::-moz-range-thumb:active {
+      transform: scale(1.15);
+    }
+
+    /* Focus state */
+    .form-slider-input:focus {
+      outline: none;
+    }
+
+    .form-slider-input:focus-visible {
+      outline: 2px solid #098ecf;
+      outline-offset: 4px;
+    }
+
+    .form-slider-input:focus::-webkit-slider-thumb {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    .form-slider-input:focus::-moz-range-thumb {
+      outline: 2px solid #098ecf;
+      outline-offset: 2px;
+    }
+
+    /* Disabled state */
+    .form-slider-input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .form-slider-input:disabled::-webkit-slider-runnable-track {
+      opacity: 0.5;
+    }
+
+    .form-slider-input:disabled::-webkit-slider-thumb {
+      cursor: not-allowed;
+    }
+
+    .form-slider-input:disabled::-moz-range-track {
+      opacity: 0.5;
+    }
+
+    .form-slider-input:disabled::-moz-range-thumb {
+      cursor: not-allowed;
+    }
+
+    .form-slider-input:disabled ~ .form-slider-value,
+    .form-slider-input:disabled ~ .form-slider-labels,
+    .form-slider-input:disabled ~ .form-slider-input-field {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ----------------------------------------
+       Slider Value Display
+       ---------------------------------------- */
+    .form-slider-value {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3.5rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #d7d3d0;
+      background-color: #262a2d;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      text-align: center;
+      transition: background-color 0.15s ease-out;
+    }
+
+    .form-slider-input:hover:not(:disabled) ~ .form-slider-value {
+      background-color: #2f3336;
+      border-color: #4a4f52;
+    }
+
+    /* ----------------------------------------
+       Slider Labels (Min/Max)
+       ---------------------------------------- */
+    .form-slider-labels {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      font-size: 0.75rem;
+      color: #a8a5a3;
+      margin-top: 0.25rem;
+    }
+
+    .form-slider-label-min,
+    .form-slider-label-max {
+      font-weight: 500;
+    }
+
+    /* ----------------------------------------
+       Slider Input Field (Adjacent)
+       ---------------------------------------- */
+    .form-slider-input-field {
+      display: flex;
+      align-items: center;
+      width: 5rem;
+    }
+
+    .form-slider-input-field input {
+      width: 100%;
+      padding: 0.375rem 0.5rem;
+      font-size: 0.875rem;
+      color: #d7d3d0;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      text-align: center;
+      transition: border-color 0.15s ease-out;
+    }
+
+    .form-slider-input-field input:focus {
+      border-color: #098ecf;
+      box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.2);
+      outline: none;
+    }
+
+    .form-slider-input-field input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ----------------------------------------
+       Slider Variants
+       ---------------------------------------- */
+    /* Small slider */
+    .form-slider-sm .form-slider-input {
+      height: 1.25rem;
+    }
+
+    .form-slider-sm .form-slider-input::-webkit-slider-runnable-track {
+      height: 0.25rem;
+    }
+
+    .form-slider-sm .form-slider-input::-webkit-slider-thumb {
+      width: 0.875rem;
+      height: 0.875rem;
+      margin-top: -0.3125rem;
+    }
+
+    .form-slider-sm .form-slider-input::-moz-range-progress {
+      height: 0.25rem;
+    }
+
+    .form-slider-sm .form-slider-input::-moz-range-thumb {
+      width: 0.875rem;
+      height: 0.875rem;
+    }
+
+    /* Large slider */
+    .form-slider-lg .form-slider-input {
+      height: 1.75rem;
+    }
+
+    .form-slider-lg .form-slider-input::-webkit-slider-runnable-track {
+      height: 0.5rem;
+    }
+
+    .form-slider-lg .form-slider-input::-webkit-slider-thumb {
+      width: 1.25rem;
+      height: 1.25rem;
+      margin-top: -0.375rem;
+    }
+
+    .form-slider-lg .form-slider-input::-moz-range-progress {
+      height: 0.5rem;
+    }
+
+    .form-slider-lg .form-slider-input::-moz-range-thumb {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    /* ----------------------------------------
+       Slider in Row Layout
+       ---------------------------------------- */
+    .form-slider-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 0;
+      border-bottom: 1px solid #3f4447;
+      gap: 1.5rem;
+    }
+
+    .form-slider-row:last-child {
+      border-bottom: none;
+    }
+
+    .form-slider-row-content {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .form-slider-row-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #d7d3d0;
+      margin-bottom: 0.25rem;
+    }
+
+    .form-slider-row-description {
+      font-size: 0.75rem;
+      color: #a8a5a3;
+    }
+
+    .form-slider-row-control {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+      max-width: 300px;
+    }
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1d2022;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #3f4447;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #4a4f52;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased min-h-screen">
+
+  <!-- Navigation Header -->
+  <header class="sticky top-0 z-10 bg-bg-secondary border-b border-border-primary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-4">
+          <a href="../index.html" class="flex items-center gap-2 text-text-secondary hover:text-text-primary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            <span class="text-sm font-medium">Back to Components</span>
+          </a>
+        </div>
+        <h1 class="text-lg font-semibold text-text-primary">Slider</h1>
+        <div class="w-32"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-text-primary">Slider Component</h2>
+      <p class="mt-2 text-text-secondary">
+        Range sliders allow users to select a value or range from a continuous scale. They provide
+        visual feedback and are ideal for settings like volume, brightness, speed, or percentages.
+      </p>
+    </div>
+
+    <!-- Basic Slider -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Basic Slider</h3>
+      <p class="text-sm text-text-secondary mb-6">Simple range slider with standard 0-100 range.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="form-group">
+          <label class="form-label" for="basic-slider">Volume Level</label>
+          <input
+            type="range"
+            id="basic-slider"
+            class="form-slider-input"
+            min="0"
+            max="100"
+            value="50"
+            aria-label="Volume Level"
+            style="--slider-percentage: 50%"
+          />
+          <div class="form-help">Adjust the volume from 0 to 100</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slider with Value Display -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Value Display</h3>
+      <p class="text-sm text-text-secondary mb-6">Slider showing the current value in a separate display box.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <div class="form-group">
+          <label class="form-label" for="value-slider-1">Brightness</label>
+          <div class="form-slider-container">
+            <input
+              type="range"
+              id="value-slider-1"
+              class="form-slider-input"
+              min="0"
+              max="100"
+              value="75"
+              aria-label="Brightness"
+              style="--slider-percentage: 75%"
+              oninput="updateValueDisplay(this, 'value-display-1'); this.style.setProperty('--slider-percentage', this.value + '%')"
+            />
+            <span class="form-slider-value" id="value-display-1">75%</span>
+          </div>
+          <div class="form-help">Current brightness: 75%</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="value-slider-2">Playback Speed</label>
+          <div class="form-slider-container">
+            <input
+              type="range"
+              id="value-slider-2"
+              class="form-slider-input"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value="1"
+              aria-label="Playback Speed"
+              style="--slider-percentage: 25%"
+              oninput="updateValueDisplay(this, 'value-display-2', 'x'); this.style.setProperty('--slider-percentage', ((this.value - this.min) / (this.max - this.min)) * 100 + '%')"
+            />
+            <span class="form-slider-value" id="value-display-2">1.0x</span>
+          </div>
+          <div class="form-help">Playback speed from 0.5x to 2.0x</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slider with Min/Max Labels -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Min/Max Labels</h3>
+      <p class="text-sm text-text-secondary mb-6">Slider with descriptive labels for minimum and maximum values.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-8">
+        <div class="form-group">
+          <label class="form-label" for="minmax-slider-1">Quality Setting</label>
+          <input
+            type="range"
+            id="minmax-slider-1"
+            class="form-slider-input"
+            min="0"
+            max="100"
+            value="50"
+            aria-label="Quality Setting"
+            style="--slider-percentage: 50%"
+            oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+          />
+          <div class="form-slider-labels">
+            <span class="form-slider-label-min">Low</span>
+            <span class="form-slider-label-max">High</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="minmax-slider-2">Zoom Level</label>
+          <input
+            type="range"
+            id="minmax-slider-2"
+            class="form-slider-input"
+            min="25"
+            max="400"
+            value="100"
+            step="25"
+            aria-label="Zoom Level"
+            style="--slider-percentage: 25%"
+            oninput="this.style.setProperty('--slider-percentage', ((this.value - this.min) / (this.max - this.min)) * 100 + '%')"
+          />
+          <div class="form-slider-labels">
+            <span class="form-slider-label-min">25%</span>
+            <span class="form-slider-label-max">400%</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Slider with Numeric Input -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">With Numeric Input</h3>
+      <p class="text-sm text-text-secondary mb-6">Slider paired with a numeric input field for precise value entry.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <div class="form-group">
+          <label class="form-label" for="numeric-slider-1">Volume</label>
+          <div class="form-slider-container">
+            <input
+              type="range"
+              id="numeric-slider-1"
+              class="form-slider-input"
+              min="0"
+              max="100"
+              value="50"
+              aria-label="Volume"
+              style="--slider-percentage: 50%"
+              oninput="syncSliderToInput(this, 'numeric-input-1'); this.style.setProperty('--slider-percentage', this.value + '%')"
+            />
+            <div class="form-slider-input-field">
+              <input
+                type="number"
+                id="numeric-input-1"
+                min="0"
+                max="100"
+                value="50"
+                oninput="syncInputToSlider('numeric-slider-1', this)"
+              />
+            </div>
+          </div>
+          <div class="form-help">0-100</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="numeric-slider-2">Scale Factor</label>
+          <div class="form-slider-container">
+            <input
+              type="range"
+              id="numeric-slider-2"
+              class="form-slider-input"
+              min="0.5"
+              max="3"
+              step="0.1"
+              value="1"
+              aria-label="Scale Factor"
+              style="--slider-percentage: 16.67%"
+              oninput="syncSliderToInputFloat(this, 'numeric-input-2'); this.style.setProperty('--slider-percentage', ((this.value - this.min) / (this.max - this.min)) * 100 + '%')"
+            />
+            <div class="form-slider-input-field">
+              <input
+                type="number"
+                id="numeric-input-2"
+                min="0.5"
+                max="3"
+                step="0.1"
+                value="1"
+                oninput="syncInputToSliderFloat('numeric-slider-2', this)"
+              />
+            </div>
+          </div>
+          <div class="form-help">0.5-3.0</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Size Variants -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Size Variants</h3>
+      <p class="text-sm text-text-secondary mb-6">Small, base, and large slider sizes for different contexts.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-8">
+        <div class="form-group form-slider-sm">
+          <label class="form-label" for="size-slider-sm">Small Slider</label>
+          <input
+            type="range"
+            id="size-slider-sm"
+            class="form-slider-input"
+            min="0"
+            max="100"
+            value="60"
+            aria-label="Small Slider"
+            style="--slider-percentage: 60%"
+            oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="size-slider-base">Base Slider (Default)</label>
+          <input
+            type="range"
+            id="size-slider-base"
+            class="form-slider-input"
+            min="0"
+            max="100"
+            value="60"
+            aria-label="Base Slider"
+            style="--slider-percentage: 60%"
+            oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+          />
+        </div>
+
+        <div class="form-group form-slider-lg">
+          <label class="form-label" for="size-slider-lg">Large Slider</label>
+          <input
+            type="range"
+            id="size-slider-lg"
+            class="form-slider-input"
+            min="0"
+            max="100"
+            value="60"
+            aria-label="Large Slider"
+            style="--slider-percentage: 60%"
+            oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+          />
+        </div>
+      </div>
+    </section>
+
+    <!-- Disabled States -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Disabled States</h3>
+      <p class="text-sm text-text-secondary mb-6">Non-interactive sliders in various states.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <div class="form-group">
+          <label class="form-label" for="disabled-slider-1">Disabled (Empty)</label>
+          <input
+            type="range"
+            id="disabled-slider-1"
+            class="form-slider-input"
+            min="0"
+            max="100"
+            value="0"
+            disabled
+            aria-label="Disabled Slider"
+            style="--slider-percentage: 0%"
+          />
+          <div class="form-help">This setting cannot be changed.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="disabled-slider-2">Disabled (Filled)</label>
+          <input
+            type="range"
+            id="disabled-slider-2"
+            class="form-slider-input"
+            min="0"
+            max="100"
+            value="75"
+            disabled
+            aria-label="Disabled Slider"
+            style="--slider-percentage: 75%"
+          />
+          <div class="form-help">This feature is locked to 75%.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Different Value Ranges -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Different Value Ranges</h3>
+      <p class="text-sm text-text-secondary mb-6">Sliders with custom min/max and step values.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6">
+        <div class="form-group">
+          <label class="form-label" for="range-slider-1">Temperature (5-35°C)</label>
+          <div class="form-slider-container">
+            <input
+              type="range"
+              id="range-slider-1"
+              class="form-slider-input"
+              min="5"
+              max="35"
+              value="20"
+              aria-label="Temperature"
+              style="--slider-percentage: 46.67%"
+              oninput="updateValueDisplay(this, 'range-display-1', '°C'); this.style.setProperty('--slider-percentage', ((this.value - this.min) / (this.max - this.min)) * 100 + '%')"
+            />
+            <span class="form-slider-value" id="range-display-1">20°C</span>
+          </div>
+          <div class="form-slider-labels">
+            <span class="form-slider-label-min">5°C</span>
+            <span class="form-slider-label-max">35°C</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="range-slider-2">Opacity (0-1)</label>
+          <div class="form-slider-container">
+            <input
+              type="range"
+              id="range-slider-2"
+              class="form-slider-input"
+              min="0"
+              max="1"
+              step="0.1"
+              value="0.8"
+              aria-label="Opacity"
+              style="--slider-percentage: 80%"
+              oninput="updateValueDisplay(this, 'range-display-2'); this.style.setProperty('--slider-percentage', this.value * 100 + '%')"
+            />
+            <span class="form-slider-value" id="range-display-2">0.8</span>
+          </div>
+          <div class="form-slider-labels">
+            <span class="form-slider-label-min">0 (Invisible)</span>
+            <span class="form-slider-label-max">1 (Opaque)</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="range-slider-3">Frequency (20-20000 Hz)</label>
+          <div class="form-slider-container">
+            <input
+              type="range"
+              id="range-slider-3"
+              class="form-slider-input"
+              min="20"
+              max="20000"
+              value="1000"
+              aria-label="Frequency"
+              style="--slider-percentage: 5%"
+              oninput="updateValueDisplay(this, 'range-display-3', ' Hz'); this.style.setProperty('--slider-percentage', ((this.value - this.min) / (this.max - this.min)) * 100 + '%')"
+            />
+            <span class="form-slider-value" id="range-display-3">1000 Hz</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings Row Pattern -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Settings List Pattern</h3>
+      <p class="text-sm text-text-secondary mb-6">Sliders in a settings list layout with descriptions.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h4 class="text-sm font-semibold text-text-primary mb-4">Audio Settings</h4>
+
+        <div class="form-slider-row">
+          <div class="form-slider-row-content">
+            <div class="form-slider-row-title">Master Volume</div>
+            <div class="form-slider-row-description">Control the overall volume output.</div>
+          </div>
+          <div class="form-slider-row-control">
+            <input
+              type="range"
+              class="form-slider-input"
+              min="0"
+              max="100"
+              value="80"
+              aria-label="Master Volume"
+              style="--slider-percentage: 80%"
+              oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+            />
+            <span class="form-slider-value" style="min-width: 2.5rem;">80%</span>
+          </div>
+        </div>
+
+        <div class="form-slider-row">
+          <div class="form-slider-row-content">
+            <div class="form-slider-row-title">Bass Boost</div>
+            <div class="form-slider-row-description">Enhance low-frequency audio output.</div>
+          </div>
+          <div class="form-slider-row-control">
+            <input
+              type="range"
+              class="form-slider-input"
+              min="0"
+              max="100"
+              value="50"
+              aria-label="Bass Boost"
+              style="--slider-percentage: 50%"
+              oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+            />
+            <span class="form-slider-value" style="min-width: 2.5rem;">50%</span>
+          </div>
+        </div>
+
+        <div class="form-slider-row">
+          <div class="form-slider-row-content">
+            <div class="form-slider-row-title">Treble</div>
+            <div class="form-slider-row-description">Adjust high-frequency audio output.</div>
+          </div>
+          <div class="form-slider-row-control">
+            <input
+              type="range"
+              class="form-slider-input"
+              min="0"
+              max="100"
+              value="60"
+              aria-label="Treble"
+              style="--slider-percentage: 60%"
+              oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+            />
+            <span class="form-slider-value" style="min-width: 2.5rem;">60%</span>
+          </div>
+        </div>
+
+        <div class="form-slider-row">
+          <div class="form-slider-row-content">
+            <div class="form-slider-row-title">Noise Gate Threshold</div>
+            <div class="form-slider-row-description">Minimum volume level to prevent background noise.</div>
+          </div>
+          <div class="form-slider-row-control">
+            <input
+              type="range"
+              class="form-slider-input"
+              min="-60"
+              max="0"
+              value="-30"
+              aria-label="Noise Gate Threshold"
+              style="--slider-percentage: 50%"
+              oninput="this.style.setProperty('--slider-percentage', ((this.value - this.min) / (this.max - this.min)) * 100 + '%')"
+            />
+            <span class="form-slider-value" style="min-width: 2.5rem;">-30 dB</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- All States Demo -->
+    <section class="mb-12">
+      <h3 class="text-lg font-semibold text-text-primary mb-4">Interactive States Demo</h3>
+      <p class="text-sm text-text-secondary mb-6">Visual demonstration of all slider states.</p>
+
+      <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-4">Default State</p>
+            <div class="form-group">
+              <label class="form-label" for="state-slider-default">Slider</label>
+              <input
+                type="range"
+                id="state-slider-default"
+                class="form-slider-input"
+                min="0"
+                max="100"
+                value="40"
+                style="--slider-percentage: 40%"
+                oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-4">Hover State (Manual)</p>
+            <div class="form-group">
+              <label class="form-label" for="state-slider-hover">Hover over the slider handle</label>
+              <input
+                type="range"
+                id="state-slider-hover"
+                class="form-slider-input"
+                min="0"
+                max="100"
+                value="60"
+                style="--slider-percentage: 60%"
+                oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-4">Disabled State</p>
+            <div class="form-group">
+              <label class="form-label" for="state-slider-disabled">Disabled slider</label>
+              <input
+                type="range"
+                id="state-slider-disabled"
+                class="form-slider-input"
+                min="0"
+                max="100"
+                value="75"
+                disabled
+                style="--slider-percentage: 75%"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-4">Focus State (Tab to Focus)</p>
+            <div class="form-group">
+              <label class="form-label" for="state-slider-focus">Tab into this slider</label>
+              <input
+                type="range"
+                id="state-slider-focus"
+                class="form-slider-input"
+                min="0"
+                max="100"
+                value="50"
+                style="--slider-percentage: 50%"
+                oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-4">Filled State (0-25)</p>
+            <div class="form-group">
+              <label class="form-label" for="state-slider-low">Low value</label>
+              <input
+                type="range"
+                id="state-slider-low"
+                class="form-slider-input"
+                min="0"
+                max="100"
+                value="25"
+                style="--slider-percentage: 25%"
+                oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+              />
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-4">Filled State (75-100)</p>
+            <div class="form-group">
+              <label class="form-label" for="state-slider-high">High value</label>
+              <input
+                type="range"
+                id="state-slider-high"
+                class="form-slider-input"
+                min="0"
+                max="100"
+                value="90"
+                style="--slider-percentage: 90%"
+                oninput="this.style.setProperty('--slider-percentage', this.value + '%')"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-border-primary bg-bg-secondary">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-sm text-text-tertiary text-center">
+        Form Components Library - Discord Bot Admin
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    /**
+     * Update value display for sliders with default formatting
+     */
+    function updateValueDisplay(slider, displayId, suffix = '') {
+      const display = document.getElementById(displayId);
+      if (display) {
+        display.textContent = slider.value + suffix;
+      }
+    }
+
+    /**
+     * Update value display for floating point sliders
+     */
+    function updateValueDisplayFloat(slider, displayId, suffix = '') {
+      const display = document.getElementById(displayId);
+      if (display) {
+        display.textContent = parseFloat(slider.value).toFixed(1) + suffix;
+      }
+    }
+
+    /**
+     * Sync slider value to numeric input field
+     */
+    function syncSliderToInput(slider, inputId) {
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.value = slider.value;
+      }
+    }
+
+    /**
+     * Sync slider value to numeric input field (float values)
+     */
+    function syncSliderToInputFloat(slider, inputId) {
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.value = parseFloat(slider.value).toFixed(1);
+      }
+    }
+
+    /**
+     * Sync numeric input value to slider
+     */
+    function syncInputToSlider(sliderId, input) {
+      const slider = document.getElementById(sliderId);
+      if (slider) {
+        const value = parseFloat(input.value);
+        if (!isNaN(value) && value >= slider.min && value <= slider.max) {
+          slider.value = value;
+          slider.style.setProperty('--slider-percentage', value + '%');
+        }
+      }
+    }
+
+    /**
+     * Sync numeric input value to slider (float values)
+     */
+    function syncInputToSliderFloat(sliderId, input) {
+      const slider = document.getElementById(sliderId);
+      if (slider) {
+        const value = parseFloat(input.value);
+        if (!isNaN(value) && value >= slider.min && value <= slider.max) {
+          slider.value = value;
+          const percentage = ((value - slider.min) / (slider.max - slider.min)) * 100;
+          slider.style.setProperty('--slider-percentage', percentage + '%');
+        }
+      }
+    }
+
+    // Initialize slider percentage on page load
+    document.querySelectorAll('.form-slider-input').forEach(slider => {
+      const updatePercentage = () => {
+        const percentage = ((slider.value - slider.min) / (slider.max - slider.min)) * 100;
+        slider.style.setProperty('--slider-percentage', percentage + '%');
+      };
+
+      slider.addEventListener('input', updatePercentage);
+      // Set initial percentage
+      updatePercentage();
+    });
+  </script>
+
+</body>
+</html>
