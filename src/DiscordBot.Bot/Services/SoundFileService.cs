@@ -166,20 +166,68 @@ public class SoundFileService : ISoundFileService
         {
             _logger.LogDebug("Getting audio duration for file '{FilePath}'", filePath);
 
-            // Placeholder implementation - requires audio library like NAudio
-            // For now, return 0.0 to indicate duration is unknown
-            await Task.CompletedTask;
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning("Cannot get duration - file does not exist: '{FilePath}'", filePath);
+                BotActivitySource.SetSuccess(activity);
+                return 0.0;
+            }
 
-            _logger.LogDebug("Audio duration not yet implemented, returning 0.0 for '{FilePath}'", filePath);
+            var ffprobePath = _options.FfprobePath ?? "ffprobe";
 
+            var startInfo = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = ffprobePath,
+                Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{filePath}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = new System.Diagnostics.Process { StartInfo = startInfo };
+
+            try
+            {
+                process.Start();
+            }
+            catch (System.ComponentModel.Win32Exception ex)
+            {
+                _logger.LogWarning(ex, "FFprobe not found at '{FfprobePath}'. Duration will be 0. Install FFmpeg or configure Soundboard:FfprobePath", ffprobePath);
+                BotActivitySource.SetSuccess(activity);
+                return 0.0;
+            }
+
+            var output = await process.StandardOutput.ReadToEndAsync(ct);
+            var error = await process.StandardError.ReadToEndAsync(ct);
+
+            await process.WaitForExitAsync(ct);
+
+            if (process.ExitCode != 0)
+            {
+                _logger.LogWarning("FFprobe exited with code {ExitCode} for file '{FilePath}': {Error}",
+                    process.ExitCode, filePath, error);
+                BotActivitySource.SetSuccess(activity);
+                return 0.0;
+            }
+
+            if (double.TryParse(output.Trim(), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var duration))
+            {
+                _logger.LogDebug("Audio duration for '{FilePath}': {Duration}s", filePath, duration);
+                BotActivitySource.SetSuccess(activity);
+                return duration;
+            }
+
+            _logger.LogWarning("Could not parse FFprobe output '{Output}' for file '{FilePath}'", output, filePath);
             BotActivitySource.SetSuccess(activity);
             return 0.0;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Failed to get audio duration for file '{FilePath}'", filePath);
             BotActivitySource.RecordException(activity, ex);
-            throw;
+            return 0.0;
         }
     }
 
