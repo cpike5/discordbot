@@ -66,6 +66,14 @@ public class IndexModel : PageModel
     public string? ErrorMessage { get; set; }
 
     /// <summary>
+    /// Current sort order for the sounds list.
+    /// Valid values: name-asc, name-desc, newest, oldest.
+    /// Defaults to name-asc (alphabetical A-Z).
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string Sort { get; set; } = "name-asc";
+
+    /// <summary>
     /// Handles GET requests to display the Soundboard management page.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -90,18 +98,23 @@ public class IndexModel : PageModel
             // Get all sounds for this guild
             var sounds = await _soundService.GetAllByGuildAsync(guildId, cancellationToken);
 
+            // Apply sorting
+            var sortedSounds = ApplySorting(sounds);
+
             // Get audio settings (creates defaults if not found)
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
 
-            _logger.LogDebug("Retrieved {Count} sounds for guild {GuildId}", sounds.Count, guildId);
+            _logger.LogDebug("Retrieved {Count} sounds for guild {GuildId}, sorted by {Sort}",
+                sounds.Count, guildId, Sort);
 
             // Build view model
             ViewModel = SoundboardIndexViewModel.Create(
                 guildId,
                 guild.Name,
                 guild.IconUrl,
-                sounds,
-                settings);
+                sortedSounds,
+                settings,
+                Sort);
 
             // Build voice channel panel view model
             VoiceChannelPanel = BuildVoiceChannelPanelViewModel(guildId);
@@ -143,7 +156,7 @@ public class IndexModel : PageModel
             {
                 _logger.LogWarning("Sound {SoundId} not found for guild {GuildId}", soundId, guildId);
                 ErrorMessage = "Sound not found.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Delete the physical file first
@@ -173,14 +186,14 @@ public class IndexModel : PageModel
                 ErrorMessage = "Failed to delete sound from database.";
             }
 
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting sound {SoundId} for guild {GuildId}",
                 soundId, guildId);
             ErrorMessage = "An error occurred while deleting the sound. Please try again.";
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
     }
 
@@ -204,14 +217,14 @@ public class IndexModel : PageModel
             if (file == null || file.Length == 0)
             {
                 ErrorMessage = "Please select a file to upload.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Validate file extension
             if (!_soundFileService.IsValidAudioFormat(file.FileName))
             {
                 ErrorMessage = "Invalid file format. Supported formats: MP3, WAV, OGG, M4A.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Get settings for validation
@@ -222,7 +235,7 @@ public class IndexModel : PageModel
             {
                 var maxSizeMB = settings.MaxFileSizeBytes / (1024.0 * 1024.0);
                 ErrorMessage = $"File size exceeds the maximum allowed size of {maxSizeMB:F1} MB.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Validate storage limit
@@ -234,7 +247,7 @@ public class IndexModel : PageModel
             if (!storageValid)
             {
                 ErrorMessage = "Adding this file would exceed the guild's storage limit.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Validate sound count limit
@@ -245,7 +258,7 @@ public class IndexModel : PageModel
             if (!countValid)
             {
                 ErrorMessage = $"Guild has reached the maximum limit of {settings.MaxSoundsPerGuild} sounds.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Generate unique filename to avoid conflicts
@@ -288,19 +301,19 @@ public class IndexModel : PageModel
                 sound.Name, guildId);
             SuccessMessage = $"Sound '{sound.Name}' uploaded successfully.";
 
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
         catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
         {
             _logger.LogWarning(ex, "Duplicate sound name for guild {GuildId}", guildId);
             ErrorMessage = "A sound with this name already exists.";
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error uploading sound for guild {GuildId}", guildId);
             ErrorMessage = "An error occurred while uploading the sound. Please try again.";
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
     }
 
@@ -323,7 +336,7 @@ public class IndexModel : PageModel
             if (!settings.AudioEnabled)
             {
                 ErrorMessage = "Audio features are not enabled for this guild.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Discover sound files from the guild's directory
@@ -334,7 +347,7 @@ public class IndexModel : PageModel
             if (discoveredFiles.Count == 0)
             {
                 ErrorMessage = "No sound files found in the guild's directory.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Get existing sounds to avoid duplicates
@@ -403,13 +416,13 @@ public class IndexModel : PageModel
                 ErrorMessage = "No new sounds found. All files in the directory are already registered.";
             }
 
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error discovering sounds for guild {GuildId}", guildId);
             ErrorMessage = "An error occurred while discovering sounds. Please try again.";
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
     }
 
@@ -436,7 +449,7 @@ public class IndexModel : PageModel
             if (string.IsNullOrWhiteSpace(newName))
             {
                 ErrorMessage = "Sound name cannot be empty.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             // Get sound
@@ -445,7 +458,7 @@ public class IndexModel : PageModel
             {
                 _logger.LogWarning("Sound {SoundId} not found for guild {GuildId}", soundId, guildId);
                 ErrorMessage = "Sound not found.";
-                return RedirectToPage("Index", new { guildId });
+                return RedirectToPage("Index", new { guildId, sort = Sort });
             }
 
             var oldName = sound.Name;
@@ -458,14 +471,14 @@ public class IndexModel : PageModel
             ErrorMessage = "Rename functionality is not yet implemented. Please delete and re-upload the sound with the new name.";
             _logger.LogWarning("Rename attempted but UpdateSoundAsync not available in ISoundService");
 
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error renaming sound {SoundId} for guild {GuildId}",
                 soundId, guildId);
             ErrorMessage = "An error occurred while renaming the sound. Please try again.";
-            return RedirectToPage("Index", new { guildId });
+            return RedirectToPage("Index", new { guildId, sort = Sort });
         }
     }
 
@@ -517,6 +530,22 @@ public class IndexModel : PageModel
             ChannelMemberCount = channelMemberCount,
             AvailableChannels = availableChannels
             // NowPlaying and Queue will be populated via SignalR in real-time
+        };
+    }
+
+    /// <summary>
+    /// Applies the current sort order to the sounds collection.
+    /// </summary>
+    /// <param name="sounds">The sounds to sort.</param>
+    /// <returns>A sorted list of sounds.</returns>
+    private IReadOnlyList<Sound> ApplySorting(IReadOnlyList<Sound> sounds)
+    {
+        return Sort?.ToLowerInvariant() switch
+        {
+            "name-desc" => sounds.OrderByDescending(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList(),
+            "newest" => sounds.OrderByDescending(s => s.UploadedAt).ToList(),
+            "oldest" => sounds.OrderBy(s => s.UploadedAt).ToList(),
+            _ => sounds.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList() // Default: name-asc
         };
     }
 }

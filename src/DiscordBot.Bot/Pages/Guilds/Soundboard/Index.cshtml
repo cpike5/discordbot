@@ -167,8 +167,38 @@
             <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
                 <!-- Table Header -->
                 <div class="px-6 py-4 border-b border-border-primary flex items-center justify-between">
-                    <div>
+                    <div class="flex items-center gap-4">
                         <h2 class="text-lg font-semibold text-text-primary">Sounds</h2>
+                        <!-- Sort Dropdown -->
+                        <div class="relative sort-dropdown-wrapper">
+                            <button type="button"
+                                    id="sortDropdownToggle"
+                                    class="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                                    aria-haspopup="listbox"
+                                    aria-expanded="false">
+                                <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                                </svg>
+                                <span id="sortSelectedText">@Model.ViewModel.CurrentSortLabel</span>
+                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div id="sortDropdown" class="hidden absolute left-0 mt-1 w-40 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-20" role="listbox">
+                                <a href="?sort=name-asc" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover @(Model.ViewModel.CurrentSort == "name-asc" ? "bg-bg-hover font-medium" : "")" role="option">
+                                    Name (A-Z)
+                                </a>
+                                <a href="?sort=name-desc" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover @(Model.ViewModel.CurrentSort == "name-desc" ? "bg-bg-hover font-medium" : "")" role="option">
+                                    Name (Z-A)
+                                </a>
+                                <a href="?sort=newest" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover @(Model.ViewModel.CurrentSort == "newest" ? "bg-bg-hover font-medium" : "")" role="option">
+                                    Newest First
+                                </a>
+                                <a href="?sort=oldest" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-b-lg @(Model.ViewModel.CurrentSort == "oldest" ? "bg-bg-hover font-medium" : "")" role="option">
+                                    Oldest First
+                                </a>
+                            </div>
+                        </div>
                     </div>
                     <span class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-accent-blue bg-accent-blue/20 rounded-full">
                         @Model.ViewModel.Stats.TotalSounds @(Model.ViewModel.Stats.TotalSounds == 1 ? "sound" : "sounds")
@@ -593,6 +623,17 @@
                     m.classList.remove('bottom-full', 'mb-1', 'top-full', 'mt-1');
                 });
             }
+            // Close sort dropdown when clicking outside
+            if (!event.target.closest('.sort-dropdown-wrapper')) {
+                document.getElementById('sortDropdown')?.classList.add('hidden');
+            }
+        });
+
+        // Sort dropdown toggle
+        document.getElementById('sortDropdownToggle')?.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const dropdown = document.getElementById('sortDropdown');
+            dropdown?.classList.toggle('hidden');
         });
 
         // Download sound
@@ -646,11 +687,12 @@
             }
         });
 
-        // Escape key to close modals and stop audio
+        // Escape key to close modals, dropdowns, and stop audio
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 hideDeleteModal();
                 document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
+                document.getElementById('sortDropdown')?.classList.add('hidden');
                 // Stop any playing audio
                 if (currentPlayingSoundId) {
                     audioPlayer.pause();
