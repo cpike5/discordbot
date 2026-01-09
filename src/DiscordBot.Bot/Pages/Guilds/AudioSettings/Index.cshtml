@@ -102,6 +102,19 @@
                 </label>
             </div>
 
+            <!-- Enable Member Portal -->
+            <div class="settings-row">
+                <div class="settings-row-content">
+                    <div class="settings-row-title">Member Portal</div>
+                    <div class="settings-row-description">Allow guild members to access the soundboard portal page. When disabled, only admins can access the portal.</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="enableMemberPortal" @(Model.Settings.EnableMemberPortal ? "checked" : "") />
+                    <span class="toggle-switch-track"></span>
+                    <span class="toggle-switch-thumb"></span>
+                </label>
+            </div>
+
             <!-- Sound Storage Path (Read-only) -->
             <div class="settings-row">
                 <div class="settings-row-content">
@@ -789,7 +802,8 @@
                 const data = {
                     audioEnabled: document.getElementById('audioEnabled').checked,
                     autoLeaveTimeoutMinutes: parseInt(document.getElementById('autoLeaveTimeout').value) || 0,
-                    queueEnabled: document.getElementById('queueEnabled').checked
+                    queueEnabled: document.getElementById('queueEnabled').checked,
+                    enableMemberPortal: document.getElementById('enableMemberPortal').checked
                 };
 
                 // Validate auto-leave timeout

@@ -62,6 +62,12 @@ public class GuildAudioSettings
     public Guild? Guild { get; set; }
 
     /// <summary>
+    /// Whether the member portal is enabled for this guild.
+    /// When enabled, guild members can access the soundboard portal page.
+    /// </summary>
+    public bool EnableMemberPortal { get; set; } = false;
+
+    /// <summary>
     /// Role-based access restrictions for soundboard commands.
     /// </summary>
     public List<CommandRoleRestriction> CommandRoleRestrictions { get; set; } = new();
