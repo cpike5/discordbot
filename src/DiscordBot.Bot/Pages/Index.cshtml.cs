@@ -23,6 +23,7 @@ public class IndexModel : PageModel
     private readonly ICommandLogService _commandLogService;
     private readonly IAuditLogService _auditLogService;
     private readonly IVersionService _versionService;
+    private readonly IRatWatchService _ratWatchService;
 
     public BotStatusViewModel BotStatus { get; private set; } = default!;
     public GuildStatsViewModel GuildStats { get; private set; } = default!;
@@ -43,7 +44,8 @@ public class IndexModel : PageModel
         IGuildService guildService,
         ICommandLogService commandLogService,
         IAuditLogService auditLogService,
-        IVersionService versionService)
+        IVersionService versionService,
+        IRatWatchService ratWatchService)
     {
         _logger = logger;
         _botService = botService;
@@ -51,6 +53,7 @@ public class IndexModel : PageModel
         _commandLogService = commandLogService;
         _auditLogService = auditLogService;
         _versionService = versionService;
+        _ratWatchService = ratWatchService;
     }
 
     public async Task<IActionResult> OnGetAsync()
@@ -92,6 +95,7 @@ public class IndexModel : PageModel
             PageSize = 10
         });
         var commandCountsTask = _commandLogService.GetCommandCountsByGuildAsync(todayStart);
+        var ratWatchActivityTask = _ratWatchService.GetRecentActivityAsync(10);
         var auditLogsTask = isAdmin
             ? _auditLogService.GetLogsAsync(new AuditLogQueryDto
             {
@@ -101,7 +105,7 @@ public class IndexModel : PageModel
             : null;
 
         // Await all tasks together
-        var tasksToAwait = new List<Task> { guildsTask, commandStatsTask, recentLogsTask, commandCountsTask };
+        var tasksToAwait = new List<Task> { guildsTask, commandStatsTask, recentLogsTask, commandCountsTask, ratWatchActivityTask };
         if (auditLogsTask != null)
         {
             tasksToAwait.Add(auditLogsTask);
@@ -113,6 +117,7 @@ public class IndexModel : PageModel
         var commandStats = commandStatsTask.Result;
         var recentLogsResponse = recentLogsTask.Result;
         var commandCountsByGuild = commandCountsTask.Result;
+        var ratWatchActivity = ratWatchActivityTask.Result;
 
         GuildStats = GuildStatsViewModel.FromGuilds(guilds);
         _logger.LogDebug("Guild stats retrieved: Total: {TotalGuilds}, Active: {ActiveGuilds}, Inactive: {InactiveGuilds}",
@@ -181,7 +186,7 @@ public class IndexModel : PageModel
         // Build Dashboard Redesign ViewModels
         BuildBotStatusBanner(statusDto, guilds);
         BuildHeroMetrics(guilds, CommandStats.TotalCommands);
-        BuildActivityTimeline(recentLogsResponse.Items);
+        BuildActivityTimeline(recentLogsResponse.Items, ratWatchActivity);
         BuildConnectedServersWidget(guilds, commandCountsByGuild);
 
         return Page();
@@ -224,17 +229,84 @@ public class IndexModel : PageModel
         };
     }
 
-    private void BuildActivityTimeline(IEnumerable<CommandLogDto> recentLogs)
+    private void BuildActivityTimeline(IEnumerable<CommandLogDto> recentLogs, IEnumerable<RatWatchDto> ratWatchActivity)
     {
-        var items = recentLogs.Select(log => new ActivityFeedItemViewModel
+        // Map command logs to activity feed items
+        var commandItems = recentLogs.Select(log => new ActivityFeedItemViewModel
         {
             Type = log.Success ? ActivityItemType.Success : ActivityItemType.Error,
             Message = log.Success ? $"Command executed: /{log.CommandName}" : $"Command failed: /{log.CommandName}",
             CommandText = "/" + log.CommandName,
             Source = log.GuildName ?? "Unknown Server",
             Timestamp = log.ExecutedAt
-        }).ToList();
+        });
+
+        // Map Rat Watch events to activity feed items
+        var ratWatchItems = ratWatchActivity.Select(watch => new ActivityFeedItemViewModel
+        {
+            Type = MapRatWatchStatusToActivityType(watch.Status),
+            Message = GetRatWatchMessage(watch),
+            Source = watch.GuildName ?? "Unknown Server",
+            Timestamp = GetRatWatchRelevantTimestamp(watch)
+        });
+
+        // Merge both sources, sort by timestamp descending, and take top 10
+        var items = commandItems
+            .Concat(ratWatchItems)
+            .OrderByDescending(i => i.Timestamp)
+            .Take(10)
+            .ToList();
+
+        _logger.LogDebug("Activity timeline built with {CommandCount} command logs and {RatWatchCount} Rat Watch events",
+            recentLogs.Count(), ratWatchActivity.Count());
+
         ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = "/CommandLogs", MaxHeight = "400px" };
+    }
+
+    private static ActivityItemType MapRatWatchStatusToActivityType(Core.Enums.RatWatchStatus status)
+    {
+        return status switch
+        {
+            Core.Enums.RatWatchStatus.Pending => ActivityItemType.Warning,
+            Core.Enums.RatWatchStatus.Voting => ActivityItemType.Info,
+            Core.Enums.RatWatchStatus.Guilty => ActivityItemType.Error,
+            Core.Enums.RatWatchStatus.NotGuilty => ActivityItemType.Success,
+            Core.Enums.RatWatchStatus.ClearedEarly => ActivityItemType.Success,
+            Core.Enums.RatWatchStatus.Cancelled => ActivityItemType.Info,
+            Core.Enums.RatWatchStatus.Expired => ActivityItemType.Warning,
+            _ => ActivityItemType.Info
+        };
+    }
+
+    private static string GetRatWatchMessage(RatWatchDto watch)
+    {
+        return watch.Status switch
+        {
+            Core.Enums.RatWatchStatus.Pending => $"Rat Watch created for @{watch.AccusedUsername}",
+            Core.Enums.RatWatchStatus.Voting => $"Rat Watch voting started for @{watch.AccusedUsername}",
+            Core.Enums.RatWatchStatus.Guilty => $"Rat Watch verdict: Guilty (@{watch.AccusedUsername})",
+            Core.Enums.RatWatchStatus.NotGuilty => $"Rat Watch verdict: Not Guilty (@{watch.AccusedUsername})",
+            Core.Enums.RatWatchStatus.ClearedEarly => $"Rat Watch cleared early (@{watch.AccusedUsername})",
+            Core.Enums.RatWatchStatus.Cancelled => $"Rat Watch cancelled (@{watch.AccusedUsername})",
+            Core.Enums.RatWatchStatus.Expired => $"Rat Watch expired (@{watch.AccusedUsername})",
+            _ => $"Rat Watch updated (@{watch.AccusedUsername})"
+        };
+    }
+
+    private static DateTime GetRatWatchRelevantTimestamp(RatWatchDto watch)
+    {
+        // Return the most relevant timestamp based on status
+        return watch.Status switch
+        {
+            Core.Enums.RatWatchStatus.Pending => watch.CreatedAt,
+            Core.Enums.RatWatchStatus.Voting => watch.VotingStartedAt ?? watch.CreatedAt,
+            Core.Enums.RatWatchStatus.Guilty => watch.VotingEndedAt ?? watch.VotingStartedAt ?? watch.CreatedAt,
+            Core.Enums.RatWatchStatus.NotGuilty => watch.VotingEndedAt ?? watch.VotingStartedAt ?? watch.CreatedAt,
+            Core.Enums.RatWatchStatus.ClearedEarly => watch.ClearedAt ?? watch.CreatedAt,
+            Core.Enums.RatWatchStatus.Cancelled => watch.CreatedAt, // No specific cancelled timestamp
+            Core.Enums.RatWatchStatus.Expired => watch.ScheduledAt, // Use scheduled time for expired
+            _ => watch.CreatedAt
+        };
     }
 
     private void BuildConnectedServersWidget(IEnumerable<GuildDto> guilds, IDictionary<ulong, int> commandCountsByGuild)
