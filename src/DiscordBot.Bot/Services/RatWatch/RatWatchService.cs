@@ -905,12 +905,13 @@ public class RatWatchService : IRatWatchService
 
     /// <summary>
     /// Maps a RatWatch entity to a RatWatchDto.
-    /// Resolves usernames from Discord and calculates vote tallies.
+    /// Resolves usernames and guild name from Discord and calculates vote tallies.
     /// </summary>
     private async Task<RatWatchDto> MapToDtoAsync(Core.Entities.RatWatch watch, CancellationToken ct)
     {
         var accusedUsername = await GetUsernameAsync(watch.AccusedUserId, watch.GuildId);
         var initiatorUsername = await GetUsernameAsync(watch.InitiatorUserId, watch.GuildId);
+        var guildName = GetGuildName(watch.GuildId, watch.Guild?.Name);
 
         var (guiltyVotes, notGuiltyVotes) = await GetVoteTallyAsync(watch.Id, ct);
 
@@ -918,6 +919,7 @@ public class RatWatchService : IRatWatchService
         {
             Id = watch.Id,
             GuildId = watch.GuildId,
+            GuildName = guildName,
             ChannelId = watch.ChannelId,
             AccusedUserId = watch.AccusedUserId,
             AccusedUsername = accusedUsername,
@@ -930,9 +932,32 @@ public class RatWatchService : IRatWatchService
             Status = watch.Status,
             VotingMessageId = watch.VotingMessageId,
             VotingStartedAt = watch.VotingStartedAt,
+            VotingEndedAt = watch.VotingEndedAt,
+            ClearedAt = watch.ClearedAt,
             GuiltyVotes = guiltyVotes,
             NotGuiltyVotes = notGuiltyVotes
         };
+    }
+
+    /// <summary>
+    /// Gets the guild name from Discord or falls back to the database name.
+    /// Returns "Unknown Guild" if neither is available.
+    /// </summary>
+    private string GetGuildName(ulong guildId, string? databaseName)
+    {
+        var guild = _client.GetGuild(guildId);
+        if (guild != null)
+        {
+            return guild.Name;
+        }
+
+        if (!string.IsNullOrEmpty(databaseName))
+        {
+            return databaseName;
+        }
+
+        _logger.LogDebug("Guild {GuildId} not found in Discord client or database", guildId);
+        return "Unknown Guild";
     }
 
     /// <inheritdoc/>
@@ -999,6 +1024,38 @@ public class RatWatchService : IRatWatchService
             BotActivitySource.SetRecordsReturned(activity, dtos.Count);
             BotActivitySource.SetSuccess(activity);
             return (dtos, totalCount);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<RatWatchDto>> GetRecentActivityAsync(int limit = 10, CancellationToken ct = default)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "get_recent_activity");
+
+        try
+        {
+            _logger.LogDebug("Getting {Limit} most recent Rat Watch events", limit);
+
+            var watches = await _watchRepository.GetRecentAsync(limit, ct);
+            var dtos = new List<RatWatchDto>();
+
+            foreach (var watch in watches)
+            {
+                dtos.Add(await MapToDtoAsync(watch, ct));
+            }
+
+            _logger.LogInformation("Retrieved {Count} recent Rat Watch events", dtos.Count);
+
+            BotActivitySource.SetRecordsReturned(activity, dtos.Count);
+            BotActivitySource.SetSuccess(activity);
+            return dtos;
         }
         catch (Exception ex)
         {

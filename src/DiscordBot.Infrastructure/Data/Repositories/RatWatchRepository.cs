@@ -443,4 +443,30 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
 
         return (items, totalCount);
     }
+
+    public async Task<IEnumerable<RatWatch>> GetRecentAsync(int limit, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving {Limit} most recent Rat Watches across all guilds", limit);
+
+        // Query all watches and compute the activity timestamp based on status
+        // Activity timestamp logic:
+        // - Pending: CreatedAt
+        // - Voting: VotingStartedAt
+        // - Guilty/NotGuilty: VotingEndedAt
+        // - ClearedEarly: ClearedAt
+        // - Cancelled: CreatedAt (fallback)
+        var watches = await DbSet
+            .AsNoTracking()
+            .Include(r => r.Guild)
+            .OrderByDescending(r =>
+                r.Status == RatWatchStatus.ClearedEarly && r.ClearedAt.HasValue ? r.ClearedAt.Value :
+                (r.Status == RatWatchStatus.Guilty || r.Status == RatWatchStatus.NotGuilty) && r.VotingEndedAt.HasValue ? r.VotingEndedAt.Value :
+                r.Status == RatWatchStatus.Voting && r.VotingStartedAt.HasValue ? r.VotingStartedAt.Value :
+                r.CreatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug("Retrieved {Count} recent Rat Watches", watches.Count);
+        return watches;
+    }
 }

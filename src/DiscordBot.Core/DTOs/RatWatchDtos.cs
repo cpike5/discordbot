@@ -61,6 +61,11 @@ public record RatWatchDto
     public ulong GuildId { get; init; }
 
     /// <summary>
+    /// Name of the guild where this watch was created (resolved from Discord).
+    /// </summary>
+    public string GuildName { get; init; } = string.Empty;
+
+    /// <summary>
     /// Discord channel snowflake ID where this watch was created.
     /// </summary>
     public ulong ChannelId { get; init; }
@@ -121,6 +126,18 @@ public record RatWatchDto
     /// Null if voting has not started yet.
     /// </summary>
     public DateTime? VotingStartedAt { get; init; }
+
+    /// <summary>
+    /// Timestamp when voting ended (UTC).
+    /// Null if voting has not ended.
+    /// </summary>
+    public DateTime? VotingEndedAt { get; init; }
+
+    /// <summary>
+    /// Timestamp when the accused cleared themselves early (UTC).
+    /// Null if not cleared early.
+    /// </summary>
+    public DateTime? ClearedAt { get; init; }
 
     /// <summary>
     /// Number of guilty votes cast.
