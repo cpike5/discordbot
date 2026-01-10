@@ -4,6 +4,8 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Autocomplete;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Preconditions;
+using DiscordBot.Core.Constants;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Commands;
@@ -44,23 +46,28 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
     /// Plays a sound from the guild's soundboard.
     /// </summary>
     /// <param name="soundName">The name of the sound to play.</param>
+    /// <param name="filter">The audio filter to apply (optional).</param>
     [SlashCommand("play", "Play a sound from the soundboard")]
     [RequireVoiceChannel]
     public async Task PlayAsync(
         [Summary("sound", "Name of the sound to play")]
         [Autocomplete(typeof(SoundAutocompleteHandler))]
-        string soundName)
+        string soundName,
+        [Summary("filter", "Audio filter to apply")]
+        [Autocomplete(typeof(FilterAutocompleteHandler))]
+        AudioFilter filter = AudioFilter.None)
     {
         var guildId = Context.Guild.Id;
         var userId = Context.User.Id;
 
         _logger.LogInformation(
-            "Play command executed by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId}), Sound: {SoundName}",
+            "Play command executed by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId}), Sound: {SoundName}, Filter: {Filter}",
             Context.User.Username,
             userId,
             Context.Guild.Name,
             guildId,
-            soundName);
+            soundName,
+            filter);
 
         try
         {
@@ -145,22 +152,28 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
             var queueLengthBefore = _playbackService.GetQueueLength(guildId);
 
             // Play the sound
-            await _playbackService.PlayAsync(guildId, sound, queueEnabled);
+            await _playbackService.PlayAsync(guildId, sound, queueEnabled, filter);
+
+            // Get filter display text for embed
+            var filterText = filter != AudioFilter.None && AudioFilters.Definitions.TryGetValue(filter, out var filterDef)
+                ? $" (with {filterDef.Name} effect)"
+                : string.Empty;
 
             // Determine response based on whether sound was queued or playing immediately
             if (queueEnabled && wasPlaying)
             {
                 var queuePosition = queueLengthBefore + 1;
                 _logger.LogInformation(
-                    "Sound '{SoundName}' queued for guild {GuildId} by user {UserId} at position {QueuePosition}",
+                    "Sound '{SoundName}' queued for guild {GuildId} by user {UserId} at position {QueuePosition}, Filter: {Filter}",
                     soundName,
                     guildId,
                     userId,
-                    queuePosition);
+                    queuePosition,
+                    filter);
 
                 var queuedEmbed = new EmbedBuilder()
                     .WithTitle("Sound Queued")
-                    .WithDescription($"Queued: **{sound.Name}** (position: {queuePosition})")
+                    .WithDescription($"Queued: **{sound.Name}**{filterText} (position: {queuePosition})")
                     .WithColor(Color.Blue)
                     .WithCurrentTimestamp()
                     .Build();
@@ -170,14 +183,15 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
             else
             {
                 _logger.LogInformation(
-                    "Sound '{SoundName}' now playing for guild {GuildId} by user {UserId}",
+                    "Sound '{SoundName}' now playing for guild {GuildId} by user {UserId}, Filter: {Filter}",
                     soundName,
                     guildId,
-                    userId);
+                    userId,
+                    filter);
 
                 var playingEmbed = new EmbedBuilder()
                     .WithTitle("Now Playing")
-                    .WithDescription($"Now playing: **{sound.Name}**")
+                    .WithDescription($"Now playing: **{sound.Name}**{filterText}")
                     .WithColor(Color.Green)
                     .WithCurrentTimestamp()
                     .Build();
