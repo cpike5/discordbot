@@ -26,11 +26,35 @@ See [Audio Dependencies](audio-dependencies.md) for detailed installation instru
 
 | Command | Description | Preconditions |
 |---------|-------------|---------------|
-| `/play <sound>` | Play a sound from the soundboard | `RequireGuildActive`, `RequireAudioEnabled` |
+| `/play <sound> [filter]` | Play a sound from the soundboard with optional audio filter | `RequireGuildActive`, `RequireAudioEnabled` |
 | `/sounds` | List all available sounds for the guild | `RequireGuildActive`, `RequireAudioEnabled` |
 | `/stop` | Stop playback and clear queue (Admin only) | `RequireGuildActive`, `RequireAudioEnabled`, `RequireAdmin` |
 
 **Autocomplete:** The `/play` command supports autocomplete for sound names, filtering available sounds as the user types.
+
+### Audio Filters
+
+The `/play` command supports an optional `filter` parameter to apply audio effects during playback. Filters are processed in real-time by FFmpeg.
+
+| Filter | Description | Effect |
+|--------|-------------|--------|
+| `None` | No filter applied | Original audio unchanged |
+| `Reverb` | Adds a reverb/echo effect | Creates spacious, echoing sound |
+| `BassBoost` | Boosts bass frequencies | Deeper, more powerful low-end |
+| `TrebleBoost` | Boosts treble frequencies | Brighter, crisper high-end |
+| `PitchUp` | Raises the pitch | Higher-pitched audio (chipmunk effect) |
+| `PitchDown` | Lowers the pitch | Lower-pitched audio (deep voice effect) |
+| `Nightcore` | Higher pitch + faster tempo | Upbeat, energetic remix style |
+| `SlowMo` | Slows down playback | Slower, drawn-out audio |
+
+**Example usage:**
+```
+/play airhorn filter:Nightcore
+/play bruh filter:BassBoost
+/play victory filter:Reverb
+```
+
+**Note:** If a filter fails to apply (e.g., incompatible audio format), playback automatically falls back to unfiltered audio.
 
 ### VoiceModule
 
@@ -221,10 +245,10 @@ sounds/
 
 ## Playback Flow
 
-1. User runs `/play airhorn`
+1. User runs `/play airhorn` (optionally with `filter:Nightcore`)
 2. Bot verifies user is in voice channel (or auto-joins)
 3. Sound file is located on disk
-4. FFmpeg transcodes to PCM (48kHz, 16-bit, stereo)
+4. FFmpeg transcodes to PCM (48kHz, 16-bit, stereo), applying filter if specified
 5. Audio is encrypted via libsodium
 6. Opus-encoded audio streams to Discord voice server
 7. Play count is incremented
