@@ -1,10 +1,260 @@
 @page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Portal.Soundboard.IndexModel
 @{
-    ViewData["Title"] = "Soundboard";
+    ViewData["Title"] = Model.IsAuthenticated ? "Soundboard" : "Verify Your Membership";
 }
 
 <style>
+    /* ===============================================
+       Landing Page Styles (Unauthenticated View)
+       =============================================== */
+    .landing-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background-color: #1d2022;
+    }
+
+    .landing-card {
+        width: 100%;
+        max-width: 480px;
+        background-color: #262a2d;
+        border: 1px solid #3f4447;
+        border-radius: 0.5rem;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .landing-guild-icon {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 1.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #3f4447;
+        box-shadow: 0 4px 12px rgba(203, 78, 27, 0.3);
+        overflow: hidden;
+        background: linear-gradient(135deg, #cb4e1b 0%, #e5591f 100%);
+    }
+
+    .landing-guild-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .landing-guild-icon-placeholder {
+        font-size: 3rem;
+        color: white;
+    }
+
+    .landing-guild-name {
+        font-size: 1.75rem;
+        font-weight: 600;
+        color: #dbdee1;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        word-break: break-word;
+    }
+
+    .landing-portal-badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #cb4e1b;
+        background-color: rgba(203, 78, 27, 0.1);
+        border: 1px solid rgba(203, 78, 27, 0.3);
+        padding: 0.375rem 0.75rem;
+        border-radius: 999px;
+        margin-bottom: 1.5rem;
+    }
+
+    .landing-description {
+        font-size: 1rem;
+        color: #d7d3d0;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .landing-description-highlight {
+        color: #cb4e1b;
+        font-weight: 500;
+    }
+
+    .landing-discord-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.875rem 1.5rem;
+        background-color: #5865F2;
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        margin-bottom: 1.5rem;
+    }
+
+    .landing-discord-button:hover {
+        background-color: #4752C4;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .landing-discord-button:active {
+        transform: translateY(0);
+    }
+
+    .landing-discord-logo {
+        width: 20px;
+        height: 20px;
+    }
+
+    .landing-permissions-notice {
+        background-color: #1a1d23;
+        border: 1px solid #3f4447;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        text-align: left;
+    }
+
+    .landing-permissions-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #d7d3d0;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+    }
+
+    .landing-permissions-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.813rem;
+        color: #a8a5a3;
+        line-height: 1.5;
+    }
+
+    .landing-permissions-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .landing-permission-icon {
+        color: #cb4e1b;
+        font-weight: bold;
+        flex-shrink: 0;
+        margin-top: 0.125rem;
+    }
+
+    .landing-footer-text {
+        font-size: 0.813rem;
+        color: #a8a5a3;
+        line-height: 1.5;
+    }
+
+    .landing-footer-text a {
+        color: #cb4e1b;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    .landing-footer-text a:hover {
+        color: #e5591f;
+        text-decoration: underline;
+    }
+
+    /* Landing page responsive */
+    @@media (max-width: 480px) {
+        .landing-card {
+            padding: 2rem 1.5rem;
+        }
+
+        .landing-guild-icon {
+            width: 100px;
+            height: 100px;
+        }
+
+        .landing-guild-icon-placeholder {
+            font-size: 2.5rem;
+        }
+
+        .landing-guild-name {
+            font-size: 1.5rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .landing-description {
+            font-size: 0.9375rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .landing-discord-button {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9375rem;
+        }
+    }
+
+    @@media (max-width: 360px) {
+        .landing-card {
+            padding: 1.5rem 1.25rem;
+        }
+
+        .landing-guild-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+        }
+
+        .landing-guild-icon-placeholder {
+            font-size: 2rem;
+        }
+
+        .landing-guild-name {
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .landing-portal-badge {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.625rem;
+        }
+
+        .landing-description {
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .landing-permissions-notice {
+            padding: 0.75rem;
+        }
+
+        .landing-permissions-title {
+            font-size: 0.75rem;
+        }
+
+        .landing-permissions-item {
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ===============================================
+       Soundboard Styles (Authenticated View)
+       =============================================== */
     * {
         margin: 0;
         padding: 0;
@@ -623,10 +873,141 @@
         color: #949ba4;
     }
 
-    /* Sound Grid */
+    .search-clear-btn {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0.25rem;
+        color: #949ba4;
+        transition: color 0.2s;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .search-clear-btn:hover {
+        color: #dbdee1;
+    }
+
+    .search-clear-btn.visible {
+        display: flex;
+    }
+
+    /* Toast container for portal */
+    .portal-toast-container {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-width: 400px;
+    }
+
+    .portal-toast {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        background-color: #262a2d;
+        border: 1px solid #40444b;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        animation: toast-slide-in 0.3s ease-out;
+    }
+
+    .portal-toast.success {
+        border-color: rgba(87, 171, 90, 0.3);
+    }
+
+    .portal-toast.error {
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .portal-toast.warning {
+        border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .portal-toast.info {
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .portal-toast-icon {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+
+    .portal-toast.success .portal-toast-icon {
+        color: #57ab5a;
+    }
+
+    .portal-toast.error .portal-toast-icon {
+        color: #ef4444;
+    }
+
+    .portal-toast.warning .portal-toast-icon {
+        color: #fbbf24;
+    }
+
+    .portal-toast.info .portal-toast-icon {
+        color: #3b82f6;
+    }
+
+    .portal-toast-message {
+        flex: 1;
+        font-size: 0.875rem;
+        color: #dbdee1;
+    }
+
+    .portal-toast-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #949ba4;
+        padding: 0.25rem;
+        transition: color 0.2s;
+    }
+
+    .portal-toast-close:hover {
+        color: #dbdee1;
+    }
+
+    @@keyframes toast-slide-in {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .portal-toast.dismissing {
+        animation: toast-slide-out 0.2s ease-in forwards;
+    }
+
+    @@keyframes toast-slide-out {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+
+    /* Sound Grid - 4 columns desktop, 2 columns mobile */
     .sound-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        grid-template-columns: repeat(4, 1fr);
         gap: 1rem;
     }
 
@@ -757,6 +1138,62 @@
         display: none !important;
     }
 
+    /* Toast notifications */
+    .toast-notification {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(100%);
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        z-index: 9999;
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+
+    .toast-notification.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+
+    .toast-info {
+        background-color: #3b82f6;
+        color: white;
+    }
+
+    .toast-success {
+        background-color: #57ab5a;
+        color: white;
+    }
+
+    .toast-warning {
+        background-color: #f59e0b;
+        color: #1a1d23;
+    }
+
+    .toast-error {
+        background-color: #ef4444;
+        color: white;
+    }
+
+    /* Highlight required field animation */
+    .highlight-required {
+        animation: highlight-pulse 0.5s ease-in-out 2;
+    }
+
+    @@keyframes highlight-pulse {
+        0%, 100% {
+            border-color: #40444b;
+            box-shadow: none;
+        }
+        50% {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+        }
+    }
+
     /* Responsive */
     @@media (max-width: 1023px) {
         .portal-content {
@@ -768,7 +1205,13 @@
         }
 
         .sound-grid {
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .sound-grid {
+            grid-template-columns: repeat(2, 1fr);
         }
     }
 
@@ -790,7 +1233,7 @@
         }
 
         .sound-grid {
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 0.75rem;
         }
 
@@ -804,27 +1247,91 @@
     }
 </style>
 
-<!-- Portal Header -->
-<header class="portal-header">
-    <div class="header-content">
-        <div class="header-left">
-            <div class="bot-icon">
-                <svg fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M19.75 10.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm-15.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/>
-                    <path d="M20 7a8 8 0 00-8-8 8 8 0 00-8 8v9a3 3 0 003 3h10a3 3 0 003-3V7z"/>
+@if (!Model.IsAuthenticated)
+{
+    <!-- ===============================================
+         Landing Page (Unauthenticated Users)
+         =============================================== -->
+    <div class="landing-container">
+        <div class="landing-card">
+            <!-- Guild Icon -->
+            <div class="landing-guild-icon">
+                @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
+                {
+                    <img src="@Model.GuildIconUrl" alt="@Model.GuildName" />
+                }
+                else
+                {
+                    <span class="landing-guild-icon-placeholder">@(Model.GuildName.Length > 0 ? Model.GuildName[0].ToString().ToUpper() : "?")</span>
+                }
+            </div>
+
+            <!-- Guild Name -->
+            <h1 class="landing-guild-name">@Model.GuildName</h1>
+
+            <!-- Portal Badge -->
+            <span class="landing-portal-badge">Soundboard Portal</span>
+
+            <!-- Description -->
+            <p class="landing-description">
+                To access this soundboard, we need to verify you're a member of <span class="landing-description-highlight">this server</span>
+            </p>
+
+            <!-- Discord Login Button -->
+            <a href="@Model.LoginUrl" class="landing-discord-button">
+                <svg class="landing-discord-logo" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/>
                 </svg>
+                Login with Discord
+            </a>
+
+            <!-- Permissions Notice -->
+            <div class="landing-permissions-notice">
+                <div class="landing-permissions-title">What we'll request</div>
+                <div class="landing-permissions-item">
+                    <span class="landing-permission-icon">✓</span>
+                    <span>Access to see your server memberships</span>
+                </div>
+                <div class="landing-permissions-item">
+                    <span class="landing-permission-icon">✓</span>
+                    <span>Your Discord username and avatar</span>
+                </div>
             </div>
-            <div class="header-text">
-                <h1>Soundboard</h1>
-                <p>@Model.GuildName</p>
-            </div>
-        </div>
-        <div class="status-badge @(Model.IsOnline ? "online" : "offline")">
-            <span class="status-dot"></span>
-            @(Model.IsOnline ? "Online" : "Offline")
+
+            <!-- Footer -->
+            <p class="landing-footer-text">
+                By logging in, you agree to our <a href="/Account/Privacy">Privacy Policy</a>
+            </p>
         </div>
     </div>
-</header>
+}
+else
+{
+    <!-- ===============================================
+         Soundboard Portal (Authenticated Users)
+         =============================================== -->
+
+    <!-- Portal Header -->
+    <header class="portal-header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="bot-icon">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M19.75 10.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm-15.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/>
+                        <path d="M20 7a8 8 0 00-8-8 8 8 0 00-8 8v9a3 3 0 003 3h10a3 3 0 003-3V7z"/>
+                    </svg>
+                </div>
+                <div class="header-text">
+                    <h1>Soundboard</h1>
+                    <p>@Model.GuildName</p>
+                </div>
+            </div>
+            <div class="status-badge @(Model.IsOnline ? "online" : "offline")">
+                <span class="status-dot"></span>
+                @(Model.IsOnline ? "Online" : "Offline")
+            </div>
+        </div>
+    </header>
 
 <!-- Main Content -->
 <main class="main-container">
@@ -995,7 +1502,12 @@
                     <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <input type="text" id="searchInput" class="search-input" placeholder="Search sounds...">
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search sounds..." style="padding-right: 2.5rem;">
+                    <button type="button" id="searchClearBtn" class="search-clear-btn" title="Clear search">
+                        <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Sound Grid -->
@@ -1034,25 +1546,211 @@
     </div>
 </main>
 
-<!-- Hidden file input for upload -->
-<input type="file" id="fileInput" accept="audio/mp3,audio/wav,audio/ogg,.mp3,.wav,.ogg" class="hidden">
+    <!-- Hidden file input for upload -->
+    <input type="file" id="fileInput" accept="audio/mp3,audio/wav,audio/ogg,.mp3,.wav,.ogg" class="hidden">
+} @* End of IsAuthenticated else block *@
+
+<!-- Toast Container -->
+<div id="portalToastContainer" class="portal-toast-container"></div>
 
 @@section Scripts {
+@if (Model.IsAuthenticated)
+{
     <script>
         // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)
         window.guildId = '@Model.GuildId';
 
         // State
-        let favorites = JSON.parse(localStorage.getItem('soundboard-favorites-' + window.guildId) || '[]');
+        let favorites = JSON.parse(localStorage.getItem('soundboard_favorites_' + window.guildId) || '[]');
         let currentlyPlaying = null;
+        let currentlyPlayingName = null;
         let isConnected = @Model.IsConnected.ToString().ToLower();
         let selectedChannel = '@(Model.CurrentChannelId?.ToString() ?? "")';
+        let searchDebounceTimer = null;
+        let statusPollInterval = null;
 
-        // Initialize
+        // ========================================
+        // Toast Notification System
+        // ========================================
+        const PortalToast = {
+            container: null,
+            icons: {
+                success: '<svg class="portal-toast-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+                error: '<svg class="portal-toast-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
+                warning: '<svg class="portal-toast-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>',
+                info: '<svg class="portal-toast-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
+            },
+
+            init() {
+                this.container = document.getElementById('portalToastContainer');
+            },
+
+            show(type, message, duration = 5000) {
+                if (!this.container) this.init();
+
+                const toast = document.createElement('div');
+                toast.className = `portal-toast ${type}`;
+                toast.innerHTML = `
+                    ${this.icons[type]}
+                    <span class="portal-toast-message">${this.escapeHtml(message)}</span>
+                    <button class="portal-toast-close" aria-label="Dismiss">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                `;
+
+                // Close button handler
+                toast.querySelector('.portal-toast-close').addEventListener('click', () => this.dismiss(toast));
+
+                this.container.appendChild(toast);
+
+                // Auto dismiss
+                if (duration > 0) {
+                    setTimeout(() => this.dismiss(toast), duration);
+                }
+
+                return toast;
+            },
+
+            dismiss(toast) {
+                if (!toast || !toast.parentNode) return;
+                toast.classList.add('dismissing');
+                setTimeout(() => toast.remove(), 200);
+            },
+
+            success(message, duration) { return this.show('success', message, duration); },
+            error(message, duration) { return this.show('error', message, duration); },
+            warning(message, duration) { return this.show('warning', message, duration); },
+            info(message, duration) { return this.show('info', message, duration); },
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        };
+
+        // ========================================
+        // Initialization
+        // ========================================
         document.addEventListener('DOMContentLoaded', function() {
+            PortalToast.init();
             initializeFavorites();
             setupEventHandlers();
+            startStatusPolling();
         });
+
+        // Helper: Show toast notification
+        function showToast(message, type = 'info') {
+            // Remove existing toast if any
+            const existingToast = document.querySelector('.toast-notification');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast-notification toast-${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            // Trigger animation
+            requestAnimationFrame(() => {
+                toast.classList.add('show');
+            });
+
+            // Remove after 3 seconds
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Helper: Update connection status UI
+        function updateConnectionUI(connected) {
+            const statusBadge = document.getElementById('connectionStatus');
+            const statusText = document.getElementById('connectionStatusText');
+            const joinBtn = document.getElementById('joinBtn');
+            const leaveBtn = document.getElementById('leaveBtn');
+
+            if (connected) {
+                statusBadge.classList.remove('disconnected');
+                statusBadge.classList.add('connected');
+                statusText.textContent = 'Connected';
+                joinBtn.disabled = true;
+                leaveBtn.disabled = false;
+            } else {
+                statusBadge.classList.remove('connected');
+                statusBadge.classList.add('disconnected');
+                statusText.textContent = 'Disconnected';
+                joinBtn.disabled = false;
+                leaveBtn.disabled = true;
+            }
+        }
+
+        // Helper: Update now playing UI
+        function updateNowPlayingUI(soundName) {
+            const nowPlayingContent = document.getElementById('nowPlayingContent');
+            const nowPlayingEmpty = document.getElementById('nowPlayingEmpty');
+            const nowPlayingNameEl = document.getElementById('nowPlayingName');
+
+            if (soundName) {
+                nowPlayingNameEl.textContent = soundName;
+                nowPlayingContent.classList.remove('hidden');
+                nowPlayingEmpty.classList.add('hidden');
+            } else {
+                nowPlayingContent.classList.add('hidden');
+                nowPlayingEmpty.classList.remove('hidden');
+            }
+        }
+
+        // Status polling for real-time updates
+        function startStatusPolling() {
+            // Poll every 3 seconds
+            statusPollInterval = setInterval(pollStatus, 3000);
+        }
+
+        function stopStatusPolling() {
+            if (statusPollInterval) {
+                clearInterval(statusPollInterval);
+                statusPollInterval = null;
+            }
+        }
+
+        function pollStatus() {
+            fetch(`/api/portal/soundboard/${window.guildId}/status`)
+                .then(response => response.json())
+                .then(data => {
+                    // Update connection state if changed
+                    if (data.isConnected !== isConnected) {
+                        isConnected = data.isConnected;
+                        updateConnectionUI(isConnected);
+
+                        if (!isConnected) {
+                            // Bot disconnected externally
+                            currentlyPlaying = null;
+                            currentlyPlayingName = null;
+                            updateNowPlayingUI(null);
+                            document.querySelectorAll('.sound-card').forEach(card => {
+                                card.classList.remove('playing');
+                            });
+                        }
+                    }
+
+                    // Update playing state if bot stopped playing
+                    if (!data.isPlaying && currentlyPlaying) {
+                        currentlyPlaying = null;
+                        currentlyPlayingName = null;
+                        updateNowPlayingUI(null);
+                        document.querySelectorAll('.sound-card').forEach(card => {
+                            card.classList.remove('playing');
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Status poll failed:', error);
+                });
+        }
 
         // Initialize favorites from localStorage
         function initializeFavorites() {
@@ -1065,6 +1763,11 @@
             });
 
             // Sort sound cards: favorites first, then by name
+            sortSoundGrid();
+        }
+
+        // Sort sound grid: favorites first, then alphabetical
+        function sortSoundGrid() {
             const grid = document.getElementById('soundGrid');
             const cards = Array.from(grid.querySelectorAll('.sound-card'));
 
@@ -1088,8 +1791,31 @@
 
         // Setup event handlers
         function setupEventHandlers() {
-            // Search functionality
-            document.getElementById('searchInput').addEventListener('input', filterSounds);
+            // Search functionality with debounce
+            const searchInput = document.getElementById('searchInput');
+            const clearBtn = document.getElementById('searchClearBtn');
+
+            searchInput.addEventListener('input', function() {
+                // Update clear button visibility
+                clearBtn.classList.toggle('visible', this.value.length > 0);
+
+                // Debounce search (150ms)
+                clearTimeout(searchDebounceTimer);
+                if (this.value === '') {
+                    // Immediate clear when search is emptied
+                    filterSounds();
+                } else {
+                    searchDebounceTimer = setTimeout(filterSounds, 150);
+                }
+            });
+
+            // Clear search button
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                clearBtn.classList.remove('visible');
+                filterSounds();
+                searchInput.focus();
+            });
 
             // Channel select
             document.getElementById('channelSelect').addEventListener('change', function() {
@@ -1134,7 +1860,9 @@
             setupUploadHandlers();
         }
 
-        // Filter sounds by search term
+        // ========================================
+        // Search Functionality
+        // ========================================
         function filterSounds() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const cards = document.querySelectorAll('.sound-card');
@@ -1162,7 +1890,9 @@
             }
         }
 
-        // Toggle favorite
+        // ========================================
+        // Favorites
+        // ========================================
         function toggleFavorite(soundId) {
             const btn = document.querySelector(`.favorite-btn[data-sound-id="${soundId}"]`);
             const svg = btn.querySelector('svg');
@@ -1179,16 +1909,19 @@
             }
 
             // Save to localStorage
-            localStorage.setItem('soundboard-favorites-' + window.guildId, JSON.stringify(favorites));
+            localStorage.setItem('soundboard_favorites_' + window.guildId, JSON.stringify(favorites));
 
             // Re-sort grid
-            initializeFavorites();
+            sortSoundGrid();
         }
 
-        // Play sound
+        // ========================================
+        // Sound Playback
+        // ========================================
         function playSound(soundId, soundName) {
             if (!isConnected) {
-                alert('Please join a voice channel first!');
+                PortalToast.warning('Please join a voice channel first!');
+                highlightChannelSelector();
                 return;
             }
 
@@ -1199,33 +1932,53 @@
                     'Content-Type': 'application/json'
                 }
             })
-            .then(response => {
+            .then(async response => {
                 if (!response.ok) {
-                    throw new Error('Failed to play sound');
+                    const errorData = await response.json().catch(() => ({}));
+                    if (errorData.message === 'Not connected to voice channel') {
+                        PortalToast.warning('Please join a voice channel first!');
+                        highlightChannelSelector();
+                        return Promise.reject('not_connected');
+                    }
+                    throw new Error(errorData.message || 'Failed to play sound');
                 }
                 return response.json();
             })
             .then(data => {
+                if (!data) return; // Rejected promise
+
                 currentlyPlaying = soundId;
+                currentlyPlayingName = soundName;
 
                 // Update Now Playing panel
-                document.getElementById('nowPlayingName').textContent = soundName;
-                document.getElementById('nowPlayingContent').classList.remove('hidden');
-                document.getElementById('nowPlayingEmpty').classList.add('hidden');
+                updateNowPlayingUI(soundName);
 
                 // Update card state
                 document.querySelectorAll('.sound-card').forEach(card => {
                     card.classList.remove('playing');
                 });
-                document.querySelector(`.sound-card[data-sound-id="${soundId}"]`).classList.add('playing');
+                const playingCard = document.querySelector(`.sound-card[data-sound-id="${soundId}"]`);
+                if (playingCard) {
+                    playingCard.classList.add('playing');
+                }
             })
             .catch(error => {
+                if (error === 'not_connected') return;
                 console.error('Error playing sound:', error);
-                alert('Failed to play sound. Please try again.');
+                PortalToast.error(error.message || 'Failed to play sound. Please try again.');
             });
         }
 
-        // Stop playing
+        function highlightChannelSelector() {
+            const selector = document.getElementById('channelSelect');
+            selector.style.borderColor = '#fbbf24';
+            selector.style.boxShadow = '0 0 0 2px rgba(251, 191, 36, 0.2)';
+            setTimeout(() => {
+                selector.style.borderColor = '';
+                selector.style.boxShadow = '';
+            }, 3000);
+        }
+
         function stopPlaying() {
             if (!currentlyPlaying) return;
 
@@ -1238,14 +1991,18 @@
             })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Failed to stop sound');
+                    return response.json().then(err => {
+                        throw new Error(err.message || 'Failed to stop sound');
+                    });
                 }
-
+                return response.json();
+            })
+            .then(data => {
                 currentlyPlaying = null;
+                currentlyPlayingName = null;
 
                 // Update Now Playing panel
-                document.getElementById('nowPlayingContent').classList.add('hidden');
-                document.getElementById('nowPlayingEmpty').classList.remove('hidden');
+                updateNowPlayingUI(null);
 
                 // Remove playing state from cards
                 document.querySelectorAll('.sound-card').forEach(card => {
@@ -1254,15 +2011,23 @@
             })
             .catch(error => {
                 console.error('Error stopping sound:', error);
+                PortalToast.error(error.message || 'Failed to stop playback');
             });
         }
 
-        // Voice channel functions
+        // ========================================
+        // Voice Channel Controls
+        // ========================================
         function joinChannel() {
             if (!selectedChannel) {
-                alert('Please select a voice channel first!');
+                PortalToast.warning('Please select a voice channel first!');
+                highlightChannelSelector();
                 return;
             }
+
+            const joinBtn = document.getElementById('joinBtn');
+            joinBtn.disabled = true;
+            joinBtn.innerHTML = '<svg class="animate-spin" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Joining...';
 
             // Call API to join channel (POST /channel)
             fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
@@ -1272,31 +2037,35 @@
                 },
                 body: JSON.stringify({ channelId: selectedChannel })
             })
-            .then(response => {
+            .then(async response => {
                 if (!response.ok) {
-                    throw new Error('Failed to join channel');
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || 'Failed to join channel');
                 }
-
+                return response.json();
+            })
+            .then(data => {
                 isConnected = true;
-
-                // Update UI
-                const statusBadge = document.getElementById('connectionStatus');
-                const statusText = document.getElementById('connectionStatusText');
-                statusBadge.classList.remove('disconnected');
-                statusBadge.classList.add('connected');
-                statusText.textContent = 'Connected';
-
-                // Update buttons
-                document.getElementById('joinBtn').disabled = true;
-                document.getElementById('leaveBtn').disabled = false;
+                updateConnectionUI(true);
+                PortalToast.success('Connected to voice channel');
             })
             .catch(error => {
                 console.error('Error joining channel:', error);
-                alert('Failed to join voice channel. Please try again.');
+                PortalToast.error(error.message || 'Failed to join voice channel');
+                joinBtn.disabled = false;
+            })
+            .finally(() => {
+                // Reset button state
+                joinBtn.disabled = isConnected;
+                joinBtn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg> Join';
             });
         }
 
         function leaveChannel() {
+            const leaveBtn = document.getElementById('leaveBtn');
+            leaveBtn.disabled = true;
+            leaveBtn.innerHTML = '<svg class="animate-spin" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Leaving...';
+
             // Call API to leave channel (DELETE /channel)
             fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
                 method: 'DELETE',
@@ -1304,47 +2073,52 @@
                     'Content-Type': 'application/json'
                 }
             })
-            .then(response => {
+            .then(async response => {
                 if (!response.ok) {
-                    throw new Error('Failed to leave channel');
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.message || 'Failed to leave channel');
                 }
-
+                return response.json();
+            })
+            .then(data => {
                 isConnected = false;
                 selectedChannel = '';
+                currentlyPlaying = null;
+                currentlyPlayingName = null;
 
-                // Stop any playing sound
-                if (currentlyPlaying) {
-                    stopPlaying();
-                }
-
-                // Update UI
-                const statusBadge = document.getElementById('connectionStatus');
-                const statusText = document.getElementById('connectionStatusText');
-                statusBadge.classList.remove('connected');
-                statusBadge.classList.add('disconnected');
-                statusText.textContent = 'Disconnected';
-
-                // Update buttons
-                document.getElementById('joinBtn').disabled = false;
-                document.getElementById('leaveBtn').disabled = true;
-
-                // Reset channel selector
+                // Update UI using helper functions
+                updateConnectionUI(false);
+                updateNowPlayingUI(null);
                 document.getElementById('channelSelect').value = '';
+
+                // Remove playing state from cards
+                document.querySelectorAll('.sound-card').forEach(card => {
+                    card.classList.remove('playing');
+                });
+
+                PortalToast.info('Disconnected from voice channel');
             })
             .catch(error => {
                 console.error('Error leaving channel:', error);
-                alert('Failed to leave voice channel. Please try again.');
+                PortalToast.error(error.message || 'Failed to leave voice channel');
+                leaveBtn.disabled = false;
+            })
+            .finally(() => {
+                // Reset button state
+                leaveBtn.disabled = !isConnected;
+                leaveBtn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg> Leave';
             });
         }
 
-        // File upload state
+        // ========================================
+        // File Upload
+        // ========================================
         let selectedFile = null;
         let isUploading = false;
         const maxSizeBytes = @Model.MaxFileSizeMB * 1024 * 1024;
         const maxSounds = @Model.MaxSounds;
         const currentSoundCount = @Model.CurrentSoundCount;
 
-        // File upload functions
         function handleFileSelect(event) {
             const files = event.target.files;
             if (files.length > 0) {
@@ -1610,5 +2384,19 @@
                 }
             });
         }
+
+        // Add animate-spin class for loading spinners
+        const style = document.createElement('style');
+        style.textContent = `
+            .animate-spin {
+                animation: spin 1s linear infinite;
+            }
+            @@keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
+}
 }
