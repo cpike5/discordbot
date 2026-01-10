@@ -338,7 +338,7 @@ public class PortalSoundboardController : ControllerBase
         // Play the sound (queueEnabled: false for immediate playback)
         try
         {
-            await _playbackService.PlayAsync(guildId, sound, queueEnabled: false, cancellationToken);
+            await _playbackService.PlayAsync(guildId, sound, queueEnabled: false, cancellationToken: cancellationToken);
             _logger.LogInformation("Successfully started playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
                 sound.Name, sound.Id, guildId);
             return Ok(new { Message = "Playing sound", SoundName = sound.Name, SoundId = soundId });

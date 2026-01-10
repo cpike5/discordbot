@@ -3,8 +3,10 @@ using System.Diagnostics;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Constants;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -53,7 +55,7 @@ public class PlaybackService : IPlaybackService
     }
 
     /// <inheritdoc/>
-    public async Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, CancellationToken cancellationToken = default)
+    public async Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, AudioFilter filter = AudioFilter.None, CancellationToken cancellationToken = default)
     {
         using var activity = BotActivitySource.StartServiceActivity(
             "playback",
@@ -85,14 +87,15 @@ public class PlaybackService : IPlaybackService
                 throw ex;
             }
 
-            _logger.LogInformation("Queueing sound {SoundName} ({SoundId}) for playback in guild {GuildId} (QueueMode: {QueueEnabled})",
-                sound.Name, sound.Id, guildId, queueEnabled);
+            _logger.LogInformation("Queueing sound {SoundName} ({SoundId}) for playback in guild {GuildId} (QueueMode: {QueueEnabled}, Filter: {Filter})",
+                sound.Name, sound.Id, guildId, queueEnabled, filter);
 
             activity?.SetTag("sound.id", sound.Id.ToString());
             activity?.SetTag("sound.name", sound.Name);
             activity?.SetTag("sound.file_size_bytes", sound.FileSizeBytes);
             activity?.SetTag("sound.duration_seconds", sound.DurationSeconds);
             activity?.SetTag("playback.queue_enabled", queueEnabled);
+            activity?.SetTag("playback.filter", filter.ToString());
 
             var guildLock = _guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
             await guildLock.WaitAsync(cancellationToken);
@@ -104,9 +107,9 @@ public class PlaybackService : IPlaybackService
                 if (queueEnabled)
                 {
                     // Queue mode: Add to queue
-                    state.Queue.Enqueue(sound);
-                    _logger.LogDebug("Added sound {SoundName} to queue (position {QueuePosition}) in guild {GuildId}",
-                        sound.Name, state.Queue.Count, guildId);
+                    state.Queue.Enqueue(new QueuedSound(sound, filter));
+                    _logger.LogDebug("Added sound {SoundName} to queue (position {QueuePosition}) in guild {GuildId} with filter {Filter}",
+                        sound.Name, state.Queue.Count, guildId, filter);
 
                     // Broadcast queue update
                     BroadcastQueueUpdate(guildId, state);
@@ -122,7 +125,7 @@ public class PlaybackService : IPlaybackService
                         state.Queue.Clear();
                     }
 
-                    state.Queue.Enqueue(sound);
+                    state.Queue.Enqueue(new QueuedSound(sound, filter));
 
                     // Broadcast queue update
                     BroadcastQueueUpdate(guildId, state);
@@ -271,21 +274,21 @@ public class PlaybackService : IPlaybackService
                     return false;
                 }
 
-                var removedSound = queueList[position];
+                var removedItem = queueList[position];
                 queueList.RemoveAt(position);
 
                 // Rebuild the queue
                 state.Queue.Clear();
-                foreach (var sound in queueList)
+                foreach (var queuedSound in queueList)
                 {
-                    state.Queue.Enqueue(sound);
+                    state.Queue.Enqueue(queuedSound);
                 }
 
                 _logger.LogInformation("Removed sound {SoundName} from queue position {Position} in guild {GuildId}",
-                    removedSound.Name, position, guildId);
+                    removedItem.Sound.Name, position, guildId);
 
                 activity?.SetTag("playback.removed_position", position);
-                activity?.SetTag("sound.name", removedSound.Name);
+                activity?.SetTag("sound.name", removedItem.Sound.Name);
 
                 // Broadcast queue update
                 BroadcastQueueUpdate(guildId, state);
@@ -323,7 +326,7 @@ public class PlaybackService : IPlaybackService
         {
             while (true)
             {
-                Sound? sound = null;
+                QueuedSound? queuedSound = null;
 
                 // Get next sound from queue
                 await guildLock.WaitAsync();
@@ -341,9 +344,9 @@ public class PlaybackService : IPlaybackService
                         return;
                     }
 
-                    sound = state.Queue.Dequeue();
+                    queuedSound = state.Queue.Dequeue();
                     state.IsPlaying = true;
-                    state.CurrentSound = sound;
+                    state.CurrentSound = queuedSound.Sound;
                     state.CancellationTokenSource?.Dispose();
                     state.CancellationTokenSource = new CancellationTokenSource();
 
@@ -355,7 +358,7 @@ public class PlaybackService : IPlaybackService
                     guildLock.Release();
                 }
 
-                if (sound == null)
+                if (queuedSound == null)
                 {
                     continue;
                 }
@@ -363,18 +366,18 @@ public class PlaybackService : IPlaybackService
                 // Play the sound
                 try
                 {
-                    await PlaySoundAsync(guildId, sound, state.CancellationTokenSource.Token);
+                    await PlaySoundAsync(guildId, queuedSound.Sound, queuedSound.Filter, state.CancellationTokenSource.Token);
                 }
                 catch (OperationCanceledException)
                 {
                     _logger.LogInformation("Playback cancelled for sound {SoundName} in guild {GuildId}",
-                        sound.Name, guildId);
+                        queuedSound.Sound.Name, guildId);
                     // Continue to next sound or exit loop
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error playing sound {SoundName} ({SoundId}) in guild {GuildId}",
-                        sound.Name, sound.Id, guildId);
+                        queuedSound.Sound.Name, queuedSound.Sound.Id, guildId);
                     // Continue to next sound despite error
                 }
             }
@@ -399,7 +402,11 @@ public class PlaybackService : IPlaybackService
     /// <summary>
     /// Plays a single sound file using FFmpeg to transcode to Opus PCM.
     /// </summary>
-    private async Task PlaySoundAsync(ulong guildId, Sound sound, CancellationToken cancellationToken)
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="sound">The sound to play.</param>
+    /// <param name="filter">The audio filter to apply.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task PlaySoundAsync(ulong guildId, Sound sound, AudioFilter filter, CancellationToken cancellationToken)
     {
         using var activity = BotActivitySource.StartServiceActivity(
             "playback",
@@ -414,12 +421,21 @@ public class PlaybackService : IPlaybackService
         {
             var filePath = Path.Combine(_options.BasePath, guildId.ToString(), sound.FileName);
 
-            _logger.LogInformation("Starting playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
-                sound.Name, sound.Id, guildId);
+            if (filter != AudioFilter.None)
+            {
+                _logger.LogInformation("Starting playback of sound {SoundName} ({SoundId}) in guild {GuildId} with filter {Filter}",
+                    sound.Name, sound.Id, guildId, filter);
+            }
+            else
+            {
+                _logger.LogInformation("Starting playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
+                    sound.Name, sound.Id, guildId);
+            }
 
             activity?.SetTag("sound.id", sound.Id.ToString());
             activity?.SetTag("sound.name", sound.Name);
             activity?.SetTag("sound.file_path", filePath);
+            activity?.SetTag("playback.filter", filter.ToString());
 
             // Update play count (use scoped service)
             using (var scope = _serviceScopeFactory.CreateScope())
@@ -449,23 +465,6 @@ public class PlaybackService : IPlaybackService
 
             _logger.LogDebug("Starting FFmpeg from path '{FfmpegPath}' for file '{FilePath}'", ffmpegPath, filePath);
 
-            // Start FFmpeg process
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = ffmpegPath,
-                Arguments = $"-hide_banner -loglevel warning -i \"{filePath}\" -ac 2 -f s16le -ar 48000 pipe:1",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using var ffmpeg = Process.Start(startInfo)
-                ?? throw new InvalidOperationException($"Failed to start FFmpeg process from '{ffmpegPath}'");
-
-            _logger.LogDebug("FFmpeg process started (PID: {ProcessId}) for sound {SoundName} in guild {GuildId}",
-                ffmpeg.Id, sound.Name, guildId);
-
             // Get persistent PCM stream (created once per connection, reused for all playback)
             var discord = _audioService.GetOrCreatePcmStream(guildId);
             if (discord == null)
@@ -473,77 +472,31 @@ public class PlaybackService : IPlaybackService
                 throw new InvalidOperationException($"Failed to get PCM stream for guild {guildId}");
             }
 
-            // Stream audio data from FFmpeg to Discord
-            // Buffer size: 3840 bytes = 20ms of audio at 48kHz stereo 16-bit
-            // (48000 samples/sec * 2 channels * 2 bytes/sample * 0.02 sec = 3840 bytes)
-            const int bufferSize = 3840;
-            var buffer = new byte[bufferSize];
-            int bytesRead;
+            // Try to play with filter, fall back to unfiltered if filter causes error
+            var effectiveFilter = filter;
+            var (success, filterFailed, cancelled) = await StreamAudioAsync(
+                guildId, sound, filePath, ffmpegPath, effectiveFilter, discord, durationSeconds, cancellationToken);
+            wasCancelled = cancelled;
 
-            // Track playback progress for SignalR notifications
-            var playbackStartTime = Stopwatch.GetTimestamp();
-            var lastProgressBroadcast = playbackStartTime;
-            const long progressBroadcastIntervalTicks = TimeSpan.TicksPerSecond; // 1 second
-
-            try
+            // If filter failed and we were using one, retry without filter
+            if (!success && filterFailed && effectiveFilter != AudioFilter.None)
             {
-                while ((bytesRead = await ffmpeg.StandardOutput.BaseStream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
-                {
-                    if (cancellationToken.IsCancellationRequested)
-                    {
-                        _logger.LogDebug("Playback cancelled for sound {SoundName} in guild {GuildId}",
-                            sound.Name, guildId);
-                        wasCancelled = true;
-                        break;
-                    }
+                _logger.LogWarning("Filter {Filter} failed for sound {SoundName}, retrying without filter",
+                    effectiveFilter, sound.Name);
+                activity?.SetTag("playback.filter_fallback", true);
 
-                    await discord.WriteAsync(buffer, 0, bytesRead, cancellationToken);
-
-                    // Broadcast progress updates every ~1 second
-                    var currentTime = Stopwatch.GetTimestamp();
-                    var elapsedSinceLastBroadcast = currentTime - lastProgressBroadcast;
-                    if (elapsedSinceLastBroadcast >= progressBroadcastIntervalTicks && durationSeconds > 0)
-                    {
-                        var elapsedTotalSeconds = Stopwatch.GetElapsedTime(playbackStartTime).TotalSeconds;
-                        var positionSeconds = Math.Min(elapsedTotalSeconds, durationSeconds);
-
-                        _ = _audioNotifier.NotifyPlaybackProgressAsync(
-                            guildId,
-                            sound.Id,
-                            positionSeconds,
-                            durationSeconds,
-                            cancellationToken);
-
-                        lastProgressBroadcast = currentTime;
-                    }
-                }
-
-                // Flush the stream to ensure all audio is sent
-                await discord.FlushAsync(cancellationToken);
+                effectiveFilter = AudioFilter.None;
+                (success, _, cancelled) = await StreamAudioAsync(
+                    guildId, sound, filePath, ffmpegPath, effectiveFilter, discord, durationSeconds, cancellationToken);
+                wasCancelled = cancelled;
             }
-            catch (OperationCanceledException)
-            {
-                wasCancelled = true;
-                throw;
-            }
-            finally
-            {
-                // Clean up FFmpeg process
-                if (!ffmpeg.HasExited)
-                {
-                    ffmpeg.Kill();
-                }
 
-                // Log any FFmpeg errors
-                var errorOutput = await ffmpeg.StandardError.ReadToEndAsync();
-                if (!string.IsNullOrWhiteSpace(errorOutput))
-                {
-                    _logger.LogWarning("FFmpeg errors for sound {SoundName} in guild {GuildId}: {ErrorOutput}",
-                        sound.Name, guildId, errorOutput);
-                }
+            // Broadcast PlaybackFinished event
+            _ = _audioNotifier.NotifyPlaybackFinishedAsync(guildId, sound.Id, wasCancelled, CancellationToken.None);
 
-                // Broadcast PlaybackFinished event
-                _ = _audioNotifier.NotifyPlaybackFinishedAsync(guildId, sound.Id, wasCancelled, CancellationToken.None);
+            if (!success && !wasCancelled)
+            {
+                throw new InvalidOperationException($"FFmpeg playback failed for sound {sound.Name}");
             }
 
             _logger.LogInformation("Completed playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
@@ -566,6 +519,129 @@ public class PlaybackService : IPlaybackService
     }
 
     /// <summary>
+    /// Streams audio from FFmpeg to Discord.
+    /// </summary>
+    /// <returns>A tuple of (success, filterFailed, wasCancelled).</returns>
+    private async Task<(bool Success, bool FilterFailed, bool WasCancelled)> StreamAudioAsync(
+        ulong guildId,
+        Sound sound,
+        string filePath,
+        string ffmpegPath,
+        AudioFilter filter,
+        Stream discord,
+        double durationSeconds,
+        CancellationToken cancellationToken)
+    {
+        var ffmpegArguments = BuildFfmpegArguments(filePath, filter);
+        _logger.LogDebug("FFmpeg arguments: {Arguments}", ffmpegArguments);
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = ffmpegPath,
+            Arguments = ffmpegArguments,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        using var ffmpeg = Process.Start(startInfo)
+            ?? throw new InvalidOperationException($"Failed to start FFmpeg process from '{ffmpegPath}'");
+
+        _logger.LogDebug("FFmpeg process started (PID: {ProcessId}) for sound {SoundName} in guild {GuildId} with filter {Filter}",
+            ffmpeg.Id, sound.Name, guildId, filter);
+
+        const int bufferSize = 3840; // 20ms of audio at 48kHz stereo 16-bit
+        var buffer = new byte[bufferSize];
+        int bytesRead;
+        long totalBytesRead = 0;
+        var wasCancelled = false;
+
+        var playbackStartTime = Stopwatch.GetTimestamp();
+        var lastProgressBroadcast = playbackStartTime;
+        const long progressBroadcastIntervalTicks = TimeSpan.TicksPerSecond;
+
+        try
+        {
+            while ((bytesRead = await ffmpeg.StandardOutput.BaseStream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogDebug("Playback cancelled for sound {SoundName} in guild {GuildId}", sound.Name, guildId);
+                    wasCancelled = true;
+                    break;
+                }
+
+                await discord.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                totalBytesRead += bytesRead;
+
+                var currentTime = Stopwatch.GetTimestamp();
+                var elapsedSinceLastBroadcast = currentTime - lastProgressBroadcast;
+                if (elapsedSinceLastBroadcast >= progressBroadcastIntervalTicks && durationSeconds > 0)
+                {
+                    var elapsedTotalSeconds = Stopwatch.GetElapsedTime(playbackStartTime).TotalSeconds;
+                    var positionSeconds = Math.Min(elapsedTotalSeconds, durationSeconds);
+
+                    _ = _audioNotifier.NotifyPlaybackProgressAsync(
+                        guildId, sound.Id, positionSeconds, durationSeconds, cancellationToken);
+
+                    lastProgressBroadcast = currentTime;
+                }
+            }
+
+            await discord.FlushAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            wasCancelled = true;
+            throw;
+        }
+        finally
+        {
+            if (!ffmpeg.HasExited)
+            {
+                ffmpeg.Kill();
+            }
+        }
+
+        // Check for FFmpeg errors
+        var errorOutput = await ffmpeg.StandardError.ReadToEndAsync();
+        var hasError = !string.IsNullOrWhiteSpace(errorOutput) || ffmpeg.ExitCode != 0;
+
+        if (hasError)
+        {
+            _logger.LogWarning("FFmpeg errors for sound {SoundName} in guild {GuildId} (exit code {ExitCode}): {ErrorOutput}",
+                sound.Name, guildId, ffmpeg.ExitCode, errorOutput);
+
+            // If we got very little data and had a filter, it's likely the filter caused the failure
+            var filterFailed = filter != AudioFilter.None && totalBytesRead < bufferSize * 10; // Less than ~200ms of audio
+            return (false, filterFailed, wasCancelled);
+        }
+
+        return (true, false, wasCancelled);
+    }
+
+    /// <summary>
+    /// Builds FFmpeg command line arguments for audio playback with optional filter.
+    /// </summary>
+    /// <param name="filePath">Path to the audio file.</param>
+    /// <param name="filter">The audio filter to apply.</param>
+    /// <returns>FFmpeg arguments string.</returns>
+    internal static string BuildFfmpegArguments(string filePath, AudioFilter filter)
+    {
+        var filterString = AudioFilters.GetFfmpegFilter(filter);
+
+        if (string.IsNullOrEmpty(filterString))
+        {
+            // No filter - standard transcoding
+            return $"-hide_banner -loglevel warning -i \"{filePath}\" -ac 2 -f s16le -ar 48000 pipe:1";
+        }
+
+        // With filter - insert -af between input and output format
+        return $"-hide_banner -loglevel warning -i \"{filePath}\" -af \"{filterString}\" -ac 2 -f s16le -ar 48000 pipe:1";
+    }
+
+    /// <summary>
     /// Broadcasts a queue update notification to subscribed clients.
     /// </summary>
     /// <param name="guildId">The guild ID.</param>
@@ -573,12 +649,12 @@ public class PlaybackService : IPlaybackService
     private void BroadcastQueueUpdate(ulong guildId, PlaybackState state)
     {
         var queueItems = state.Queue
-            .Select((sound, index) => new QueueItemDto
+            .Select((queuedSound, index) => new QueueItemDto
             {
                 Position = index,
-                SoundId = sound.Id,
-                Name = sound.Name,
-                DurationSeconds = sound.DurationSeconds
+                SoundId = queuedSound.Sound.Id,
+                Name = queuedSound.Sound.Name,
+                DurationSeconds = queuedSound.Sound.DurationSeconds
             })
             .ToList();
 
@@ -592,14 +668,19 @@ public class PlaybackService : IPlaybackService
     }
 
     /// <summary>
+    /// Represents a queued sound with its optional audio filter.
+    /// </summary>
+    private record QueuedSound(Sound Sound, AudioFilter Filter);
+
+    /// <summary>
     /// Represents the playback state for a guild.
     /// </summary>
     private class PlaybackState
     {
         /// <summary>
-        /// Queue of sounds to play.
+        /// Queue of sounds to play with their filters.
         /// </summary>
-        public Queue<Sound> Queue { get; } = new();
+        public Queue<QueuedSound> Queue { get; } = new();
 
         /// <summary>
         /// Whether a sound is currently playing.
