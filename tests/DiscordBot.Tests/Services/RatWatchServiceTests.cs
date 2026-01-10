@@ -819,4 +819,165 @@ public class RatWatchServiceTests
     }
 
     #endregion
+
+    #region GetRecentActivityAsync Tests
+
+    [Fact]
+    public async Task GetRecentActivityAsync_ReturnsWatchesFromRepository()
+    {
+        // Arrange
+        var watches = new List<RatWatch>
+        {
+            CreateTestWatch(status: RatWatchStatus.Guilty),
+            CreateTestWatch(status: RatWatchStatus.Voting),
+            CreateTestWatch(status: RatWatchStatus.Pending)
+        };
+
+        _mockWatchRepository
+            .Setup(r => r.GetRecentAsync(10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(watches);
+
+        _mockVoteRepository
+            .Setup(r => r.GetVoteTallyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((0, 0));
+
+        // Act
+        var result = await _service.GetRecentActivityAsync();
+
+        // Assert
+        result.Should().HaveCount(3);
+
+        _mockWatchRepository.Verify(
+            r => r.GetRecentAsync(10, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetRecentActivityAsync_RespectsLimitParameter()
+    {
+        // Arrange
+        var watches = new List<RatWatch>
+        {
+            CreateTestWatch(status: RatWatchStatus.Guilty)
+        };
+
+        _mockWatchRepository
+            .Setup(r => r.GetRecentAsync(5, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(watches);
+
+        _mockVoteRepository
+            .Setup(r => r.GetVoteTallyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((0, 0));
+
+        // Act
+        var result = await _service.GetRecentActivityAsync(limit: 5);
+
+        // Assert
+        result.Should().HaveCount(1);
+
+        _mockWatchRepository.Verify(
+            r => r.GetRecentAsync(5, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task GetRecentActivityAsync_ReturnsEmptyListWhenNoWatches()
+    {
+        // Arrange
+        _mockWatchRepository
+            .Setup(r => r.GetRecentAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<RatWatch>());
+
+        // Act
+        var result = await _service.GetRecentActivityAsync();
+
+        // Assert
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetRecentActivityAsync_MapsDtoWithGuildNameFromEntity()
+    {
+        // Arrange
+        var guild = new Guild
+        {
+            Id = 123456789UL,
+            Name = "Test Server"
+        };
+
+        var watch = CreateTestWatch(guildId: guild.Id, status: RatWatchStatus.Pending);
+        watch.Guild = guild;
+
+        _mockWatchRepository
+            .Setup(r => r.GetRecentAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<RatWatch> { watch });
+
+        _mockVoteRepository
+            .Setup(r => r.GetVoteTallyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((0, 0));
+
+        // Act
+        var result = (await _service.GetRecentActivityAsync()).ToList();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].GuildName.Should().Be("Test Server");
+    }
+
+    [Fact]
+    public async Task GetRecentActivityAsync_IncludesVotingTimestamps()
+    {
+        // Arrange
+        var votingStarted = DateTime.UtcNow.AddMinutes(-10);
+        var votingEnded = DateTime.UtcNow.AddMinutes(-5);
+
+        var watch = CreateTestWatch(
+            status: RatWatchStatus.Guilty,
+            votingStartedAt: votingStarted);
+        watch.VotingEndedAt = votingEnded;
+
+        _mockWatchRepository
+            .Setup(r => r.GetRecentAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<RatWatch> { watch });
+
+        _mockVoteRepository
+            .Setup(r => r.GetVoteTallyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((3, 1));
+
+        // Act
+        var result = (await _service.GetRecentActivityAsync()).ToList();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].VotingStartedAt.Should().Be(votingStarted);
+        result[0].VotingEndedAt.Should().Be(votingEnded);
+    }
+
+    [Fact]
+    public async Task GetRecentActivityAsync_IncludesClearedAtTimestamp()
+    {
+        // Arrange
+        var clearedAt = DateTime.UtcNow.AddMinutes(-5);
+
+        var watch = CreateTestWatch(status: RatWatchStatus.ClearedEarly);
+        watch.ClearedAt = clearedAt;
+
+        _mockWatchRepository
+            .Setup(r => r.GetRecentAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<RatWatch> { watch });
+
+        _mockVoteRepository
+            .Setup(r => r.GetVoteTallyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((0, 0));
+
+        // Act
+        var result = (await _service.GetRecentActivityAsync()).ToList();
+
+        // Assert
+        result.Should().HaveCount(1);
+        result[0].ClearedAt.Should().Be(clearedAt);
+        result[0].Status.Should().Be(RatWatchStatus.ClearedEarly);
+    }
+
+    #endregion
 }

@@ -178,4 +178,13 @@ public interface IRatWatchService
         ulong guildId,
         RatWatchIncidentFilterDto filter,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Gets recent Rat Watch events across all guilds for activity feeds.
+    /// Returns watches ordered by most recent status change timestamp.
+    /// </summary>
+    /// <param name="limit">Maximum number of watches to return. Defaults to 10.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Collection of recent watches with guild names included.</returns>
+    Task<IEnumerable<RatWatchDto>> GetRecentActivityAsync(int limit = 10, CancellationToken ct = default);
 }

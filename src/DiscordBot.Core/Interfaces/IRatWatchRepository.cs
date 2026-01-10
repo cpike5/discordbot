@@ -136,4 +136,14 @@ public interface IRatWatchRepository : IRepository<RatWatch>
         ulong guildId,
         RatWatchIncidentFilterDto filter,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets recent Rat Watch events across all guilds ordered by most recent activity timestamp.
+    /// The activity timestamp is determined by status: CreatedAt for Pending, VotingStartedAt for Voting,
+    /// VotingEndedAt for Guilty/NotGuilty, ClearedAt for ClearedEarly.
+    /// </summary>
+    /// <param name="limit">Maximum number of watches to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of recent watches with Guild navigation property included.</returns>
+    Task<IEnumerable<RatWatch>> GetRecentAsync(int limit, CancellationToken cancellationToken = default);
 }
