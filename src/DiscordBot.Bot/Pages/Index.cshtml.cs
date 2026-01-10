@@ -83,41 +83,29 @@ public class IndexModel : PageModel
         // Determine admin status for conditional audit log fetch
         var isAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
 
-        // Start all independent data retrieval tasks in parallel
+        // Retrieve data sequentially to avoid DbContext concurrency issues
+        // DbContext is not thread-safe and is scoped per request
         var since = DateTime.UtcNow.AddHours(-24);
         var todayStart = DateTime.UtcNow.Date;
 
-        var guildsTask = _guildService.GetAllGuildsAsync();
-        var commandStatsTask = _commandLogService.GetCommandStatsAsync(since);
-        var recentLogsTask = _commandLogService.GetLogsAsync(new CommandLogQueryDto
+        var guilds = await _guildService.GetAllGuildsAsync();
+        var commandStats = await _commandLogService.GetCommandStatsAsync(since);
+        var recentLogsResponse = await _commandLogService.GetLogsAsync(new CommandLogQueryDto
         {
             Page = 1,
             PageSize = 10
         });
-        var commandCountsTask = _commandLogService.GetCommandCountsByGuildAsync(todayStart);
-        var ratWatchActivityTask = _ratWatchService.GetRecentActivityAsync(10);
-        var auditLogsTask = isAdmin
-            ? _auditLogService.GetLogsAsync(new AuditLogQueryDto
+        var commandCountsByGuild = await _commandLogService.GetCommandCountsByGuildAsync(todayStart);
+        var ratWatchActivity = await _ratWatchService.GetRecentActivityAsync(10);
+        (IReadOnlyList<AuditLogDto> Items, int TotalCount)? auditLogsResponse = null;
+        if (isAdmin)
+        {
+            auditLogsResponse = await _auditLogService.GetLogsAsync(new AuditLogQueryDto
             {
                 Page = 1,
                 PageSize = 5
-            })
-            : null;
-
-        // Await all tasks together
-        var tasksToAwait = new List<Task> { guildsTask, commandStatsTask, recentLogsTask, commandCountsTask, ratWatchActivityTask };
-        if (auditLogsTask != null)
-        {
-            tasksToAwait.Add(auditLogsTask);
+            });
         }
-        await Task.WhenAll(tasksToAwait);
-
-        // Extract results (safe to use .Result after Task.WhenAll)
-        var guilds = guildsTask.Result;
-        var commandStats = commandStatsTask.Result;
-        var recentLogsResponse = recentLogsTask.Result;
-        var commandCountsByGuild = commandCountsTask.Result;
-        var ratWatchActivity = ratWatchActivityTask.Result;
 
         GuildStats = GuildStatsViewModel.FromGuilds(guilds);
         _logger.LogDebug("Guild stats retrieved: Total: {TotalGuilds}, Active: {ActiveGuilds}, Inactive: {InactiveGuilds}",
@@ -133,10 +121,9 @@ public class IndexModel : PageModel
             RecentActivity.Activities.Count);
 
         // Process audit logs if fetched
-        if (auditLogsTask != null)
+        if (auditLogsResponse.HasValue)
         {
-            var auditLogsResponse = auditLogsTask.Result;
-            AuditLog = AuditLogCardViewModel.FromLogs(auditLogsResponse.Items);
+            AuditLog = AuditLogCardViewModel.FromLogs(auditLogsResponse.Value.Items);
             _logger.LogDebug("Recent audit logs retrieved: {LogCount} items",
                 AuditLog.Logs.Count);
         }
