@@ -1,4 +1,5 @@
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Bot.Interfaces;
 
@@ -17,16 +18,18 @@ public interface IPlaybackService
     /// <param name="guildId">Discord guild snowflake ID.</param>
     /// <param name="sound">The sound entity to play.</param>
     /// <param name="queueEnabled">Whether to queue the sound or replace current playback.</param>
+    /// <param name="filter">Optional audio filter to apply during playback.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// Requires an active voice connection via IAudioService.JoinChannelAsync before calling.
     /// The audio file is transcoded using FFmpeg to Opus PCM format (48kHz, stereo, 16-bit).
     /// Updates the sound's play count and last activity timestamp on the voice connection.
+    /// If a filter is specified and causes an FFmpeg error, playback will retry without the filter.
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown if no audio client is available for the guild.</exception>
     /// <exception cref="FileNotFoundException">Thrown if the sound file does not exist.</exception>
-    Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, CancellationToken cancellationToken = default);
+    Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, AudioFilter filter = AudioFilter.None, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops the currently playing sound in the specified guild and clears the queue.
