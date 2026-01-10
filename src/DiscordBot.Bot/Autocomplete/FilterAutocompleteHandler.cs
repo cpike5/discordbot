@@ -39,7 +39,7 @@ public class FilterAutocompleteHandler : AutocompleteHandler
             .Take(25) // Discord autocomplete result limit
             .Select(kvp => new AutocompleteResult(
                 $"{kvp.Value.Name} - {kvp.Value.Description}",
-                (int)kvp.Key))
+                kvp.Key.ToString()))
             .ToList();
 
         return Task.FromResult(AutocompletionResult.FromSuccess(results));
