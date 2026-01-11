@@ -349,6 +349,11 @@ try
     builder.Services.AddSingleton<IPlaybackService, PlaybackService>();
     builder.Services.AddHostedService<VoiceAutoLeaveService>();
 
+    // Add Azure Speech TTS services
+    builder.Services.Configure<AzureSpeechOptions>(
+        builder.Configuration.GetSection(AzureSpeechOptions.SectionName));
+    builder.Services.AddSingleton<ITtsService, AzureTtsService>();
+
     // Add Analytics Aggregation services
     builder.Services.Configure<AnalyticsRetentionOptions>(
         builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName));

@@ -85,6 +85,26 @@ dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
 
 See [Identity Configuration](docs/articles/identity-configuration.md) for detailed authentication setup and troubleshooting.
 
+### Azure Speech Configuration (TTS)
+
+Azure Cognitive Services Speech is used for text-to-speech functionality. Configure via User Secrets:
+
+```bash
+cd src/DiscordBot.Bot
+dotnet user-secrets set "AzureSpeech:SubscriptionKey" "your-azure-speech-subscription-key"
+dotnet user-secrets set "AzureSpeech:Region" "eastus"  # Optional, defaults to eastus
+```
+
+#### Azure Portal Setup
+
+1. Go to https://portal.azure.com
+2. Create a Speech service resource (or use existing)
+3. Go to Keys and Endpoint
+4. Copy Key 1 or Key 2 to user secrets as `SubscriptionKey`
+5. Note the region (e.g., "eastus", "westus2") and set as `Region` if different from default
+
+See Azure Speech SDK documentation for available voices and regions.
+
 ## Configuration Options
 
 The application uses the `IOptions<T>` pattern for strongly-typed configuration. Options classes are located in `src/DiscordBot.Core/Configuration/` (with `DatabaseSettings` in `src/DiscordBot.Infrastructure/Configuration/`):
@@ -95,6 +115,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `AnalyticsRetentionOptions` | `AnalyticsRetention` | Analytics data retention settings |
 | `AuditLogRetentionOptions` | `AuditLogRetention` | Audit log cleanup settings |
 | `AutoModerationOptions` | `AutoModeration` | Auto-moderation rules and thresholds |
+| `AzureSpeechOptions` | `AzureSpeech` | Azure TTS service settings (use user secrets for SubscriptionKey) |
 | `BackgroundServicesOptions` | `BackgroundServices` | Background task intervals and delays |
 | `CachingOptions` | `Caching` | Cache duration settings for various services |
 | `DatabaseSettings` | `Database` | Query performance logging (slow query threshold, parameter logging) |
