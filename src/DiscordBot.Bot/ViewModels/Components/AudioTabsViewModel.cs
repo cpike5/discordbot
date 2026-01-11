@@ -13,7 +13,7 @@ public class AudioTabsViewModel
 
     /// <summary>
     /// The currently active tab identifier.
-    /// Valid values: "soundboard", "settings"
+    /// Valid values: "soundboard", "tts", "settings"
     /// </summary>
     public string ActiveTab { get; set; } = "soundboard";
 

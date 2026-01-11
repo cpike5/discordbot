@@ -1,0 +1,267 @@
+using Discord.WebSocket;
+using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace DiscordBot.Bot.Pages.Guilds.TextToSpeech;
+
+/// <summary>
+/// Page model for the Text-to-Speech management page.
+/// Displays TTS settings, statistics, and recent messages for a guild.
+/// </summary>
+[Authorize(Policy = "RequireAdmin")]
+public class IndexModel : PageModel
+{
+    private readonly ITtsHistoryService _ttsHistoryService;
+    private readonly ITtsSettingsService _ttsSettingsService;
+    private readonly IAudioService _audioService;
+    private readonly DiscordSocketClient _discordClient;
+    private readonly IGuildService _guildService;
+    private readonly ILogger<IndexModel> _logger;
+
+    public IndexModel(
+        ITtsHistoryService ttsHistoryService,
+        ITtsSettingsService ttsSettingsService,
+        IAudioService audioService,
+        DiscordSocketClient discordClient,
+        IGuildService guildService,
+        ILogger<IndexModel> logger)
+    {
+        _ttsHistoryService = ttsHistoryService;
+        _ttsSettingsService = ttsSettingsService;
+        _audioService = audioService;
+        _discordClient = discordClient;
+        _guildService = guildService;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// View model for display properties.
+    /// </summary>
+    public TtsIndexViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// View model for the voice channel control panel.
+    /// </summary>
+    public VoiceChannelPanelViewModel VoiceChannelPanel { get; set; } = null!;
+
+    /// <summary>
+    /// Success message from TempData.
+    /// </summary>
+    [TempData]
+    public string? SuccessMessage { get; set; }
+
+    /// <summary>
+    /// Error message from TempData.
+    /// </summary>
+    [TempData]
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Handles GET requests to display the TTS management page.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The page result.</returns>
+    public async Task<IActionResult> OnGetAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("User accessing TTS management for guild {GuildId}", guildId);
+
+        try
+        {
+            // Get guild info from service
+            var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+            if (guild == null)
+            {
+                _logger.LogWarning("Guild {GuildId} not found", guildId);
+                return NotFound();
+            }
+
+            // Get TTS settings (creates defaults if not found)
+            var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
+
+            // Get TTS statistics
+            var stats = await _ttsHistoryService.GetStatsAsync(guildId, cancellationToken);
+
+            // Get recent TTS messages
+            var recentMessages = await _ttsHistoryService.GetRecentMessagesAsync(guildId, 10, cancellationToken);
+
+            _logger.LogDebug("Retrieved TTS data for guild {GuildId}: {MessagesToday} messages today, {TotalMessages} recent messages",
+                guildId, stats.MessagesToday, recentMessages.Count());
+
+            // Build view model
+            ViewModel = TtsIndexViewModel.Create(
+                guildId,
+                guild.Name,
+                guild.IconUrl,
+                stats,
+                recentMessages,
+                settings);
+
+            // Build voice channel panel view model
+            VoiceChannelPanel = BuildVoiceChannelPanelViewModel(guildId);
+
+            return Page();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load TTS page for guild {GuildId}", guildId);
+            ErrorMessage = "Failed to load TTS page. Please try again.";
+
+            // Set fallback voice channel panel
+            VoiceChannelPanel = new VoiceChannelPanelViewModel { GuildId = guildId };
+
+            return Page();
+        }
+    }
+
+    /// <summary>
+    /// Handles POST requests to update TTS settings.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
+    /// <param name="defaultVoice">The default voice identifier.</param>
+    /// <param name="defaultSpeed">The default speech speed.</param>
+    /// <param name="defaultPitch">The default pitch adjustment.</param>
+    /// <param name="defaultVolume">The default volume level.</param>
+    /// <param name="autoPlayOnSend">Whether to auto-play TTS on send.</param>
+    /// <param name="announceJoinsLeaves">Whether to announce joins/leaves.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Redirect to the index page.</returns>
+    public async Task<IActionResult> OnPostUpdateSettingsAsync(
+        ulong guildId,
+        [FromForm] string defaultVoice,
+        [FromForm] double defaultSpeed,
+        [FromForm] double defaultPitch,
+        [FromForm] double defaultVolume,
+        [FromForm] bool autoPlayOnSend,
+        [FromForm] bool announceJoinsLeaves,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("User attempting to update TTS settings for guild {GuildId}", guildId);
+
+        try
+        {
+            // Get current settings
+            var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
+
+            // Update settings
+            settings.DefaultVoice = defaultVoice ?? string.Empty;
+            settings.DefaultSpeed = Math.Clamp(defaultSpeed, 0.5, 2.0);
+            settings.DefaultPitch = Math.Clamp(defaultPitch, 0.5, 2.0);
+            settings.DefaultVolume = Math.Clamp(defaultVolume, 0.0, 1.0);
+            settings.AutoPlayOnSend = autoPlayOnSend;
+            settings.AnnounceJoinsLeaves = announceJoinsLeaves;
+
+            await _ttsSettingsService.UpdateSettingsAsync(settings, cancellationToken);
+
+            _logger.LogInformation("Successfully updated TTS settings for guild {GuildId}", guildId);
+            SuccessMessage = "TTS settings updated successfully.";
+
+            return RedirectToPage("Index", new { guildId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating TTS settings for guild {GuildId}", guildId);
+            ErrorMessage = "An error occurred while updating settings. Please try again.";
+            return RedirectToPage("Index", new { guildId });
+        }
+    }
+
+    /// <summary>
+    /// Handles POST requests to delete a TTS message from history.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
+    /// <param name="messageId">The TTS message ID to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Redirect to the index page.</returns>
+    public async Task<IActionResult> OnPostDeleteMessageAsync(
+        ulong guildId,
+        Guid messageId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("User attempting to delete TTS message {MessageId} for guild {GuildId}",
+            messageId, guildId);
+
+        try
+        {
+            var deleted = await _ttsHistoryService.DeleteMessageAsync(messageId, cancellationToken);
+
+            if (deleted)
+            {
+                _logger.LogInformation("Successfully deleted TTS message {MessageId}", messageId);
+                SuccessMessage = "Message deleted successfully.";
+            }
+            else
+            {
+                _logger.LogWarning("TTS message {MessageId} not found", messageId);
+                ErrorMessage = "Message not found.";
+            }
+
+            return RedirectToPage("Index", new { guildId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting TTS message {MessageId} for guild {GuildId}",
+                messageId, guildId);
+            ErrorMessage = "An error occurred while deleting the message. Please try again.";
+            return RedirectToPage("Index", new { guildId });
+        }
+    }
+
+    /// <summary>
+    /// Builds the voice channel panel view model with current connection status and available channels.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <returns>The voice channel panel view model.</returns>
+    private VoiceChannelPanelViewModel BuildVoiceChannelPanelViewModel(ulong guildId)
+    {
+        var socketGuild = _discordClient.GetGuild(guildId);
+        var isConnected = _audioService.IsConnected(guildId);
+        var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
+
+        // Build available channels list
+        var availableChannels = new List<VoiceChannelInfo>();
+        if (socketGuild != null)
+        {
+            foreach (var channel in socketGuild.VoiceChannels.Where(c => c != null).OrderBy(c => c.Position))
+            {
+                availableChannels.Add(new VoiceChannelInfo
+                {
+                    Id = channel.Id,
+                    Name = channel.Name,
+                    MemberCount = channel.ConnectedUsers.Count
+                });
+            }
+        }
+
+        // Get connected channel info if connected
+        string? connectedChannelName = null;
+        int? channelMemberCount = null;
+        if (isConnected && connectedChannelId.HasValue && socketGuild != null)
+        {
+            var connectedChannel = socketGuild.GetVoiceChannel(connectedChannelId.Value);
+            if (connectedChannel != null)
+            {
+                connectedChannelName = connectedChannel.Name;
+                channelMemberCount = connectedChannel.ConnectedUsers.Count;
+            }
+        }
+
+        return new VoiceChannelPanelViewModel
+        {
+            GuildId = guildId,
+            IsConnected = isConnected,
+            ConnectedChannelId = connectedChannelId,
+            ConnectedChannelName = connectedChannelName,
+            ChannelMemberCount = channelMemberCount,
+            AvailableChannels = availableChannels
+            // NowPlaying and Queue will be populated via SignalR in real-time
+        };
+    }
+}

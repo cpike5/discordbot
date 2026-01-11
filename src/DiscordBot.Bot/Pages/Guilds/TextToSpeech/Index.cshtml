@@ -1,0 +1,562 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.TextToSpeech.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"Text-to-Speech - {Model.ViewModel.GuildName}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Text-to-Speech</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Text-to-Speech</h1>
+            <p class="mt-1 text-sm text-text-secondary">Send TTS messages to voice channels in @Model.ViewModel.GuildName</p>
+        </div>
+    </div>
+
+    <!-- Audio Tabs Navigation -->
+    <partial name="Shared/Components/_AudioTabs" model='new AudioTabsViewModel {
+        GuildId = Model.ViewModel.GuildId,
+        ActiveTab = "tts"
+    }' />
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Stats Cards Section -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <!-- Messages Today Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-text-secondary text-sm mb-1">Messages Today</p>
+                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.MessagesToday</p>
+                </div>
+                <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-text-tertiary">TTS messages sent today</p>
+        </div>
+
+        <!-- Total Playback Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-text-secondary text-sm mb-1">Total Playback</p>
+                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.TotalPlaybackFormatted</p>
+                </div>
+                <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-text-tertiary">All time audio duration</p>
+        </div>
+
+        <!-- Avg Latency Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-text-secondary text-sm mb-1">Avg Latency</p>
+                    <p class="text-3xl font-bold text-text-primary">342ms</p>
+                </div>
+                <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-text-tertiary">Average synthesis time</p>
+        </div>
+
+        <!-- Active Voices Card -->
+        <div class="bg-bg-secondary border border-accent-orange rounded-lg p-5" style="background: linear-gradient(135deg, var(--color-bg-secondary) 0%, rgba(249, 115, 22, 0.1) 100%);">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <p class="text-text-secondary text-sm mb-1">Active Voices</p>
+                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.UniqueUsers</p>
+                </div>
+                <div class="w-10 h-10 bg-accent-orange/30 rounded-lg flex items-center justify-center text-accent-orange">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm0-11c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V4c0-.55.45-1 1-1zm0 13c-2.67 0-5.19.78-7.3 2.1l1.42 1.41C6.86 17.59 9.34 17 12 17s5.14.59 7.3 1.51l1.42-1.41C17.19 16.78 14.67 16 12 16z"/>
+                    </svg>
+                </div>
+            </div>
+            <p class="text-xs text-text-tertiary">Voices used today</p>
+        </div>
+    </div>
+
+    <!-- Main Content Layout: TTS Controls (70%) + Sidebar (30%) -->
+    <div class="grid grid-cols-1 lg:grid-cols-7 gap-6">
+
+        <!-- Left Panel: TTS Controls (70%) -->
+        <div class="lg:col-span-4">
+
+            <!-- Message Input Section -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">Send Message</h2>
+                <form method="post" asp-page-handler="SendMessage" asp-route-guildId="@Model.ViewModel.GuildId" id="ttsForm">
+                    <div class="relative mb-4">
+                        <textarea id="messageInput"
+                                  name="message"
+                                  class="w-full min-h-[120px] p-4 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm resize-vertical focus:outline-none focus:border-border-focus"
+                                  placeholder="Type your message here..."
+                                  maxlength="@Model.ViewModel.MaxMessageLength"></textarea>
+                        <div id="charCounter" class="absolute bottom-2 right-3 text-xs text-text-tertiary pointer-events-none">
+                            0/@Model.ViewModel.MaxMessageLength
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button type="submit"
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-accent-orange text-white font-semibold text-sm rounded-lg hover:bg-accent-orange-hover transition-colors">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M15.5 1H8.5C7.12 1 6 2.12 6 3.5v17C6 21.88 7.12 23 8.5 23h7c1.38 0 2.5-1.12 2.5-2.5v-17C18 2.12 16.88 1 15.5 1zm0 2v17h-7V3h7z"/>
+                            </svg>
+                            Play in Channel
+                        </button>
+                        <button type="button"
+                                onclick="previewMessage()"
+                                class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-bg-tertiary border border-border-primary text-text-primary font-semibold text-sm rounded-lg hover:bg-bg-hover hover:border-border-focus transition-colors">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                            Preview
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Voice Settings Section -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+                <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">Voice Settings</h2>
+                <form method="post" asp-page-handler="UpdateSettings" asp-route-guildId="@Model.ViewModel.GuildId" id="settingsForm">
+
+                    <!-- Voice Selection -->
+                    <div class="mb-5">
+                        <label class="block text-xs font-medium uppercase tracking-wider text-text-secondary mb-2">Voice</label>
+                        <select id="voiceSelect"
+                                name="defaultVoice"
+                                class="w-full px-3 py-2.5 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm cursor-pointer focus:outline-none focus:border-border-focus"
+                                style="appearance: none; background-image: url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%23a8a5a3\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E'); background-repeat: no-repeat; background-position: right 0.5rem center; background-size: 1.25rem; padding-right: 2.5rem;">
+                            <optgroup label="English (US)">
+                                <option value="jenny" selected="@(Model.ViewModel.Settings.DefaultVoice == "jenny")">Jenny</option>
+                                <option value="nova" selected="@(Model.ViewModel.Settings.DefaultVoice == "nova")">Nova</option>
+                                <option value="guy" selected="@(Model.ViewModel.Settings.DefaultVoice == "guy")">Guy</option>
+                            </optgroup>
+                            <optgroup label="English (UK)">
+                                <option value="sonia" selected="@(Model.ViewModel.Settings.DefaultVoice == "sonia")">Sonia</option>
+                                <option value="ryan" selected="@(Model.ViewModel.Settings.DefaultVoice == "ryan")">Ryan</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <!-- Sliders -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-5">
+                        <div>
+                            <div class="flex justify-between items-center mb-2 text-sm font-medium">
+                                <span class="text-text-primary">Speed</span>
+                                <span id="speedValue" class="text-accent-blue font-semibold">@Model.ViewModel.Settings.DefaultSpeed.ToString("F1")x</span>
+                            </div>
+                            <input type="range"
+                                   id="speedSlider"
+                                   name="defaultSpeed"
+                                   class="w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
+                                   min="0.5"
+                                   max="2.0"
+                                   step="0.1"
+                                   value="@Model.ViewModel.Settings.DefaultSpeed"
+                                   oninput="updateSliderValue('speed')" />
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2 text-sm font-medium">
+                                <span class="text-text-primary">Pitch</span>
+                                <span id="pitchValue" class="text-accent-blue font-semibold">@Model.ViewModel.Settings.DefaultPitch.ToString("F1")x</span>
+                            </div>
+                            <input type="range"
+                                   id="pitchSlider"
+                                   name="defaultPitch"
+                                   class="w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
+                                   min="0.5"
+                                   max="2.0"
+                                   step="0.1"
+                                   value="@Model.ViewModel.Settings.DefaultPitch"
+                                   oninput="updateSliderValue('pitch')" />
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center mb-2 text-sm font-medium">
+                                <span class="text-text-primary">Volume</span>
+                                <span id="volumeValue" class="text-accent-blue font-semibold">@((int)(Model.ViewModel.Settings.DefaultVolume * 100))%</span>
+                            </div>
+                            <input type="range"
+                                   id="volumeSlider"
+                                   name="defaultVolume"
+                                   class="w-full h-1.5 bg-border-primary rounded-full appearance-none cursor-pointer"
+                                   min="0"
+                                   max="100"
+                                   step="1"
+                                   value="@((int)(Model.ViewModel.Settings.DefaultVolume * 100))"
+                                   oninput="updateSliderValue('volume')" />
+                        </div>
+                    </div>
+
+                    <!-- Toggle Switches -->
+                    <div class="pt-4 border-t border-border-primary">
+                        <div class="flex items-center gap-3 py-3 border-b border-border-secondary">
+                            <div class="flex-1">
+                                <span class="text-sm font-medium text-text-primary">Auto-play on send</span>
+                            </div>
+                            <label class="relative inline-block w-11 h-6">
+                                <input type="checkbox"
+                                       name="autoPlayOnSend"
+                                       class="peer sr-only"
+                                       @(Model.ViewModel.Settings.AutoPlayOnSend ? "checked" : "") />
+                                <span class="block w-11 h-6 bg-border-primary rounded-full peer-checked:bg-success transition-colors cursor-pointer"></span>
+                                <span class="dot absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></span>
+                            </label>
+                        </div>
+                        <div class="flex items-center gap-3 py-3">
+                            <div class="flex-1">
+                                <span class="text-sm font-medium text-text-primary">Announce joins/leaves</span>
+                            </div>
+                            <label class="relative inline-block w-11 h-6">
+                                <input type="checkbox"
+                                       name="announceJoinsLeaves"
+                                       class="peer sr-only"
+                                       @(Model.ViewModel.Settings.AnnounceJoinsLeaves ? "checked" : "") />
+                                <span class="block w-11 h-6 bg-border-primary rounded-full peer-checked:bg-success transition-colors cursor-pointer"></span>
+                                <span class="dot absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="mt-4">
+                        <button type="submit"
+                                class="w-full px-4 py-2.5 bg-accent-blue text-white font-semibold text-sm rounded-lg hover:bg-accent-blue-hover transition-colors">
+                            Save Settings
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Recent Messages Section -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="px-4 py-3 border-b border-border-primary flex items-center justify-between">
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-text-secondary">Recent Messages</h3>
+                    <span class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-white bg-accent-blue rounded-full">
+                        @Model.ViewModel.RecentMessages.Count
+                    </span>
+                </div>
+
+                @if (Model.ViewModel.RecentMessages.Any())
+                {
+                    <div class="divide-y divide-border-secondary">
+                        @foreach (var message in Model.ViewModel.RecentMessages)
+                        {
+                            <div class="flex items-center gap-3 p-4 hover:bg-bg-hover transition-colors group">
+                                <div class="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                                    @message.Username.Substring(0, Math.Min(2, message.Username.Length)).ToUpper()
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm text-text-primary truncate">@message.Message</div>
+                                    <div class="flex items-center gap-2 mt-1 text-xs text-text-tertiary">
+                                        <span class="preview-trigger" data-preview-type="user" data-user-id="@message.UserId" data-context-guild-id="@Model.ViewModel.GuildId">@message.Username</span>
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue-muted text-accent-blue rounded font-medium text-[0.65rem]">
+                                            @message.Voice
+                                        </span>
+                                        <span>@message.DurationFormatted</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button type="button"
+                                            onclick="replayMessage('@message.Id', '@message.Message')"
+                                            class="p-2 rounded text-accent-blue hover:bg-accent-blue/10 transition-colors"
+                                            title="Replay">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                    </button>
+                                    <button type="button"
+                                            onclick="showDeleteModal('@message.Id', '@message.Message')"
+                                            class="p-2 rounded text-error hover:bg-error/10 transition-colors"
+                                            title="Delete">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="p-8">
+                        <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                            Type = EmptyStateType.FirstTime,
+                            Title = "No Messages Yet",
+                            Description = "Send your first TTS message using the form above.",
+                            Size = EmptyStateSize.Default,
+                            IconSvgPath = "M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"
+                        }' />
+                    </div>
+                }
+            </div>
+
+        </div>
+
+        <!-- Right Sidebar (30%) -->
+        <div class="lg:col-span-3 space-y-6">
+
+            <!-- Voice Channel Control Panel -->
+            <partial name="Shared/Components/_VoiceChannelPanel" model="Model.VoiceChannelPanel" />
+
+        </div>
+
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="delete-modal-title">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideDeleteModal()" aria-hidden="true"></div>
+    <!-- Modal Dialog -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+            <!-- Modal Content -->
+            <div class="p-6">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 id="delete-modal-title" class="text-lg font-semibold text-text-primary">Delete Message</h3>
+                        <p class="mt-2 text-sm text-text-secondary">
+                            Are you sure you want to delete this message? This action cannot be undone.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <!-- Modal Footer -->
+            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                <button type="button" onclick="hideDeleteModal()"
+                        class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                    Cancel
+                </button>
+                <form id="delete-form" method="post" asp-page-handler="DeleteMessage" asp-route-guildId="@Model.ViewModel.GuildId" class="inline-block">
+                    <input type="hidden" id="delete-message-id" name="messageId" value="" />
+                    <button type="submit"
+                            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors">
+                        Delete Message
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <!-- Voice Channel Panel script (SignalR and DashboardHub are loaded in _Layout.cshtml) -->
+    <script src="~/js/voice-channel-panel.js"></script>
+
+    <style>
+        /* Slider styles */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--color-accent-blue);
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--color-accent-blue);
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            border: none;
+        }
+
+        input[type="range"]::-moz-range-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        input[type="range"]::-moz-range-track {
+            background: transparent;
+            border: none;
+        }
+
+        /* Character counter warning/error states */
+        #charCounter.warning {
+            color: var(--color-warning);
+        }
+
+        #charCounter.error {
+            color: var(--color-error);
+        }
+    </style>
+
+    <script>
+        // Guild ID for API calls (as string to preserve precision)
+        window.guildId = '@Model.ViewModel.GuildId';
+
+        // Character counter setup
+        const textarea = document.getElementById('messageInput');
+        const counter = document.getElementById('charCounter');
+
+        if (textarea && counter) {
+            textarea.addEventListener('input', function() {
+                const count = this.value.length;
+                const max = this.maxLength;
+                counter.textContent = `${count}/${max}`;
+
+                // Change color based on usage
+                if (count >= max) {
+                    counter.classList.add('error');
+                    counter.classList.remove('warning');
+                } else if (count >= max * 0.8) {
+                    counter.classList.add('warning');
+                    counter.classList.remove('error');
+                } else {
+                    counter.classList.remove('warning', 'error');
+                }
+            });
+        }
+
+        // Update slider values
+        function updateSliderValue(type) {
+            const slider = document.getElementById(`${type}Slider`);
+            const value = parseFloat(slider.value);
+            const display = document.getElementById(`${type}Value`);
+
+            if (type === 'volume') {
+                display.textContent = `${Math.round(value)}%`;
+            } else {
+                display.textContent = `${value.toFixed(1)}x`;
+            }
+        }
+
+        // Preview message (client-side only for now)
+        function previewMessage() {
+            const message = document.getElementById('messageInput').value;
+            if (!message.trim()) {
+                alert('Please enter a message');
+                return;
+            }
+            console.log('[TTS] Preview:', message);
+            // TODO: Implement client-side TTS preview using Web Speech API or Azure SDK
+            alert('Preview functionality coming soon!');
+        }
+
+        // Replay message
+        function replayMessage(messageId, messageText) {
+            console.log('[TTS] Replay:', messageId, messageText);
+            // TODO: Implement message replay via API
+            alert('Replay functionality coming soon!');
+        }
+
+        // Delete modal handling
+        function showDeleteModal(messageId, messageText) {
+            document.getElementById('delete-message-id').value = messageId;
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function hideDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+
+        // Escape key to close modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                hideDeleteModal();
+            }
+        });
+
+        // Initialize SignalR connection for real-time updates
+        (async function initializeRealtime() {
+            try {
+                await DashboardHub.connect();
+                console.log('[TTS] SignalR connected');
+            } catch (error) {
+                console.error('[TTS] Failed to connect SignalR:', error);
+            }
+        })();
+    </script>
+}
