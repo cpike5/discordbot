@@ -368,6 +368,69 @@ labels.user_id: "987654321098765432"
 
 ---
 
+## Trace Context Isolation
+
+Each Discord command, component interaction, gateway event, and background service execution creates an **independent root trace** with no parent context. This ensures clean trace graphs in Elastic APM where each operation can be analyzed in isolation.
+
+### Why This Matters
+
+In .NET, `Activity.Current` automatically propagates across async boundaries. Without proper isolation, all operations would inherit the bot startup activity as their parent, creating a tangled trace graph where thousands of commands appear as children of a single long-running startup trace.
+
+**Problem (contaminated traces):**
+```
+bot.lifecycle.start (startup activity - never ends)
+├─ discord.command ping
+├─ discord.command rat-stats
+├─ discord.gateway.connected
+├─ background.service.reminder_execution
+└─ ... (all operations as children)
+```
+
+**Solution (independent traces):**
+```
+bot.lifecycle.start (ends after startup)
+discord.command ping (root)
+discord.command rat-stats (root)
+discord.gateway.connected (root)
+background.service.reminder_execution (root)
+```
+
+Each operation now has its own trace ID and can be analyzed independently in Kibana APM.
+
+### How Root Activities Are Created
+
+Root activities are created by passing an explicit `ActivityContext` with random trace/span IDs to suppress the default parent inheritance:
+
+```csharp
+var rootContext = new ActivityContext(
+    ActivityTraceId.CreateRandom(),
+    ActivitySpanId.CreateRandom(),
+    ActivityTraceFlags.None);
+
+var activity = Source.StartActivity(name, ActivityKind.Server, rootContext);
+```
+
+The `BotActivitySource` helper methods handle this automatically. All entry-point activity methods accept an optional `asRootSpan` parameter (default `true`):
+
+- `StartCommandActivity()` - Slash commands
+- `StartComponentActivity()` - Buttons, select menus, modals
+- `StartGatewayActivity()` - Gateway events (connected, disconnected)
+- `StartEventActivity()` - Discord events (message received, member joined)
+- `StartBackgroundServiceActivity()` - Background service execution cycles
+- `StartBackgroundBatchActivity()` - Batch processing operations
+- `StartBackgroundCleanupActivity()` - Cleanup operations
+
+### When to Use Child Spans
+
+Internal service operations that are part of a parent request should NOT create root spans. These methods intentionally inherit `Activity.Current`:
+
+- `StartLifecycleActivity()` - Bot lifecycle (startup, shutdown)
+- `StartServiceActivity()` - Service layer operations within a command
+
+This allows you to see the full operation hierarchy when a command calls multiple services.
+
+---
+
 ## Custom Attributes
 
 The bot adds custom attributes to spans for rich contextual filtering and analysis. These attributes follow OpenTelemetry semantic conventions where applicable.

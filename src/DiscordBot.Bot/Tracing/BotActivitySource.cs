@@ -27,6 +27,21 @@ public static class BotActivitySource
     public static readonly ActivitySource Source = new(SourceName, Version);
 
     /// <summary>
+    /// Creates a new ActivityContext for a root activity (no parent).
+    /// Use this when you need to start an independent trace that should not
+    /// inherit from Activity.Current.
+    /// </summary>
+    /// <param name="traceFlags">Optional trace flags (default: None).</param>
+    /// <returns>A new ActivityContext with random trace and span IDs.</returns>
+    public static ActivityContext CreateRootContext(ActivityTraceFlags traceFlags = ActivityTraceFlags.None)
+    {
+        return new ActivityContext(
+            ActivityTraceId.CreateRandom(),
+            ActivitySpanId.CreateRandom(),
+            traceFlags);
+    }
+
+    /// <summary>
     /// Starts an activity for a Discord slash command execution.
     /// </summary>
     /// <param name="commandName">The name of the command being executed.</param>
@@ -34,17 +49,22 @@ public static class BotActivitySource
     /// <param name="userId">The user ID who invoked the command.</param>
     /// <param name="interactionId">The Discord interaction ID.</param>
     /// <param name="correlationId">The application correlation ID.</param>
+    /// <param name="asRootSpan">Whether to create an independent root span (default: true).</param>
     /// <returns>The started activity, or null if not sampled.</returns>
     public static Activity? StartCommandActivity(
         string commandName,
         ulong? guildId,
         ulong userId,
         ulong interactionId,
-        string correlationId)
+        string correlationId,
+        bool asRootSpan = true)
     {
+        var parentContext = asRootSpan ? CreateRootContext() : default;
+
         var activity = Source.StartActivity(
-            name: $"discord.command {commandName}",
-            kind: ActivityKind.Server);
+            $"discord.command {commandName}",
+            ActivityKind.Server,
+            parentContext);
 
         if (activity is null)
             return null;
@@ -70,6 +90,7 @@ public static class BotActivitySource
     /// <param name="userId">The user ID who triggered the interaction.</param>
     /// <param name="interactionId">The Discord interaction ID.</param>
     /// <param name="correlationId">The application correlation ID.</param>
+    /// <param name="asRootSpan">Whether to create an independent root span (default: true).</param>
     /// <returns>The started activity, or null if not sampled.</returns>
     public static Activity? StartComponentActivity(
         string componentType,
@@ -77,11 +98,15 @@ public static class BotActivitySource
         ulong? guildId,
         ulong userId,
         ulong interactionId,
-        string correlationId)
+        string correlationId,
+        bool asRootSpan = true)
     {
+        var parentContext = asRootSpan ? CreateRootContext() : default;
+
         var activity = Source.StartActivity(
-            name: $"discord.component {componentType}",
-            kind: ActivityKind.Server);
+            $"discord.component {componentType}",
+            ActivityKind.Server,
+            parentContext);
 
         if (activity is null)
             return null;
@@ -154,15 +179,20 @@ public static class BotActivitySource
     /// <param name="eventName">The gateway event name.</param>
     /// <param name="latency">Optional latency in milliseconds.</param>
     /// <param name="connectionState">Optional connection state.</param>
+    /// <param name="asRootSpan">Whether to create an independent root span (default: true).</param>
     /// <returns>The started activity, or null if not sampled.</returns>
     public static Activity? StartGatewayActivity(
         string eventName,
         int? latency = null,
-        string? connectionState = null)
+        string? connectionState = null,
+        bool asRootSpan = true)
     {
+        var parentContext = asRootSpan ? CreateRootContext() : default;
+
         var activity = Source.StartActivity(
-            name: eventName,
-            kind: ActivityKind.Server);
+            eventName,
+            ActivityKind.Server,
+            parentContext);
 
         if (activity is null)
             return null;
@@ -187,16 +217,21 @@ public static class BotActivitySource
     /// <param name="guildId">Optional guild ID where the event occurred.</param>
     /// <param name="channelId">Optional channel ID.</param>
     /// <param name="userId">Optional user ID.</param>
+    /// <param name="asRootSpan">Whether to create an independent root span (default: true).</param>
     /// <returns>The started activity, or null if not sampled.</returns>
     public static Activity? StartEventActivity(
         string eventName,
         ulong? guildId = null,
         ulong? channelId = null,
-        ulong? userId = null)
+        ulong? userId = null,
+        bool asRootSpan = true)
     {
+        var parentContext = asRootSpan ? CreateRootContext() : default;
+
         var activity = Source.StartActivity(
-            name: eventName,
-            kind: ActivityKind.Server);
+            eventName,
+            ActivityKind.Server,
+            parentContext);
 
         if (activity is null)
             return null;
@@ -225,17 +260,21 @@ public static class BotActivitySource
     /// <param name="serviceName">The name of the background service.</param>
     /// <param name="executionCycle">The current execution cycle number.</param>
     /// <param name="correlationId">Optional correlation ID for the execution.</param>
+    /// <param name="asRootSpan">Whether to create an independent root span (default: true).</param>
     /// <returns>The started activity, or null if not sampled.</returns>
     public static Activity? StartBackgroundServiceActivity(
         string serviceName,
         int executionCycle,
-        string? correlationId = null)
+        string? correlationId = null,
+        bool asRootSpan = true)
     {
         var spanName = string.Format(TracingConstants.Spans.BackgroundServiceExecute, serviceName);
+        var parentContext = asRootSpan ? CreateRootContext() : default;
 
         var activity = Source.StartActivity(
-            name: spanName,
-            kind: ActivityKind.Internal);
+            spanName,
+            ActivityKind.Internal,
+            parentContext);
 
         if (activity is null)
             return null;
@@ -258,17 +297,21 @@ public static class BotActivitySource
     /// <param name="serviceName">The name of the background service.</param>
     /// <param name="batchSize">The number of items in the batch.</param>
     /// <param name="batchType">Optional description of what is being batched.</param>
+    /// <param name="asRootSpan">Whether to create an independent root span (default: true).</param>
     /// <returns>The started activity, or null if not sampled.</returns>
     public static Activity? StartBackgroundBatchActivity(
         string serviceName,
         int batchSize,
-        string? batchType = null)
+        string? batchType = null,
+        bool asRootSpan = true)
     {
         var spanName = string.Format(TracingConstants.Spans.BackgroundServiceBatch, serviceName);
+        var parentContext = asRootSpan ? CreateRootContext() : default;
 
         var activity = Source.StartActivity(
-            name: spanName,
-            kind: ActivityKind.Internal);
+            spanName,
+            ActivityKind.Internal,
+            parentContext);
 
         if (activity is null)
             return null;
@@ -289,16 +332,20 @@ public static class BotActivitySource
     /// </summary>
     /// <param name="serviceName">The name of the background service.</param>
     /// <param name="targetType">The type of records being cleaned up.</param>
+    /// <param name="asRootSpan">Whether to create an independent root span (default: true).</param>
     /// <returns>The started activity, or null if not sampled.</returns>
     public static Activity? StartBackgroundCleanupActivity(
         string serviceName,
-        string targetType)
+        string targetType,
+        bool asRootSpan = true)
     {
         var spanName = string.Format(TracingConstants.Spans.BackgroundServiceCleanup, serviceName);
+        var parentContext = asRootSpan ? CreateRootContext() : default;
 
         var activity = Source.StartActivity(
-            name: spanName,
-            kind: ActivityKind.Internal);
+            spanName,
+            ActivityKind.Internal,
+            parentContext);
 
         if (activity is null)
             return null;
