@@ -1,0 +1,1260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text-to-Speech - Discord Bot Admin</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Page-specific styles */
+    .stats-card {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      transition: all var(--transition-normal);
+    }
+
+    .stats-card:hover {
+      border-color: var(--color-border-focus);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .stats-card.accent-orange {
+      border-color: var(--color-accent-orange);
+      background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-accent-orange-muted) 100%);
+    }
+
+    .sidebar-item {
+      padding: 1rem;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      margin-bottom: 1rem;
+    }
+
+    .sidebar-item-header {
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .message-input-section {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .textarea-wrapper {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .message-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      color: var(--color-text-primary);
+      font-family: inherit;
+      font-size: 0.875rem;
+      resize: vertical;
+      transition: border-color var(--transition-normal);
+    }
+
+    .message-textarea:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+    }
+
+    .character-counter {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+      pointer-events: none;
+    }
+
+    .character-counter.warning {
+      color: var(--color-warning);
+    }
+
+    .character-counter.error {
+      color: var(--color-error);
+    }
+
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: var(--radius-lg);
+      border: none;
+      background: var(--color-accent-orange);
+      color: white;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      width: 100%;
+    }
+
+    .btn-primary:hover {
+      background: var(--color-accent-orange-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--color-border-primary);
+      background: var(--color-bg-secondary);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      width: 100%;
+    }
+
+    .btn-secondary:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-focus);
+    }
+
+    .voice-settings-section {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .form-select {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      color: var(--color-text-primary);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: border-color var(--transition-normal);
+      appearance: none;
+      padding-right: 2rem;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a8a5a3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      background-size: 1.25rem;
+      padding-right: 2.5rem;
+    }
+
+    .form-select:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+    }
+
+    .slider-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .form-slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .slider-value {
+      color: var(--color-accent-blue);
+      font-weight: 600;
+    }
+
+    .form-slider-input {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-border-primary);
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    .form-slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-accent-blue);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-slider-input::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-slider-input::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-accent-blue);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      border: none;
+    }
+
+    .form-slider-input::-moz-range-thumb:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-slider-input::-moz-range-track {
+      background: transparent;
+      border: none;
+    }
+
+    .toggle-switch {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--color-border-secondary);
+    }
+
+    .toggle-switch:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .toggle-switch-label {
+      flex: 1;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    .toggle-switch-input {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: var(--color-border-primary);
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background var(--transition-normal);
+      border: none;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch-input.active {
+      background: var(--color-success);
+    }
+
+    .toggle-switch-input::after {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: left var(--transition-normal);
+    }
+
+    .toggle-switch-input.active::after {
+      left: 22px;
+    }
+
+    .recent-messages-section {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .recent-messages-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--color-border-primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .recent-messages-header h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin: 0;
+    }
+
+    .message-count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem 0.625rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: var(--color-accent-blue);
+      color: white;
+    }
+
+    .message-item {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--color-border-secondary);
+      align-items: center;
+      transition: background var(--transition-normal);
+    }
+
+    .message-item:last-child {
+      border-bottom: none;
+    }
+
+    .message-item:hover {
+      background: var(--color-bg-hover);
+    }
+
+    .message-avatar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .message-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .message-text {
+      font-size: 0.875rem;
+      color: var(--color-text-primary);
+      margin-bottom: 0.25rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .message-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .voice-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.5rem;
+      background: var(--color-accent-blue-muted);
+      color: var(--color-accent-blue);
+      border-radius: 4px;
+      font-weight: 500;
+      font-size: 0.7rem;
+    }
+
+    .message-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+    }
+
+    .message-item:hover .message-actions {
+      opacity: 1;
+    }
+
+    .action-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--color-text-secondary);
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .action-button:hover {
+      background: var(--color-bg-tertiary);
+    }
+
+    .action-button.play {
+      color: var(--color-accent-blue);
+    }
+
+    .action-button.play:hover {
+      background: var(--color-accent-blue-muted);
+    }
+
+    .action-button.delete {
+      color: var(--color-error);
+    }
+
+    .action-button.delete:hover {
+      background: var(--color-error-bg);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: var(--color-success-bg);
+      color: var(--color-success);
+    }
+
+    .sidebar-item-header-with-badge {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--color-border-secondary);
+    }
+
+    .queue-item:last-child {
+      border-bottom: none;
+    }
+
+    .queue-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+    }
+
+    .now-playing-section {
+      padding: 0.75rem;
+      background: var(--color-bg-tertiary);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .now-playing-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--color-accent-blue-muted);
+      border-radius: var(--radius-lg);
+      color: var(--color-accent-blue);
+      flex-shrink: 0;
+    }
+
+    .now-playing-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .now-playing-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .now-playing-status {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .stop-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: var(--color-error);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      flex-shrink: 0;
+    }
+
+    .stop-button:hover {
+      opacity: 0.9;
+    }
+
+    .skip-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 3px;
+      background: transparent;
+      color: var(--color-text-secondary);
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      flex-shrink: 0;
+    }
+
+    .skip-button:hover {
+      color: var(--color-text-primary);
+      background: var(--color-bg-hover);
+    }
+
+    .guild-selector {
+      padding: 1rem;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: var(--radius-lg);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      transition: border-color var(--transition-normal);
+    }
+
+    .guild-selector:hover {
+      border-color: var(--color-border-focus);
+    }
+
+    .guild-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.875rem;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .guild-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .guild-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
+    .guild-members {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .guild-dropdown-icon {
+      color: var(--color-text-tertiary);
+      flex-shrink: 0;
+    }
+
+    .voice-channel-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .voice-channel-status {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border-radius: var(--radius-lg);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--color-success);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .voice-channel-name {
+      font-size: 0.875rem;
+      color: var(--color-text-primary);
+    }
+
+    .btn-danger {
+      width: 100%;
+      padding: 0.625rem;
+      border: 1px solid var(--color-error);
+      background: transparent;
+      color: var(--color-error);
+      border-radius: var(--radius-lg);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .btn-danger:hover {
+      background: var(--color-error-bg);
+    }
+
+    /* Avatar color variations */
+    .avatar-blue {
+      background: #3b82f6;
+    }
+
+    .avatar-purple {
+      background: #a855f7;
+    }
+
+    .avatar-green {
+      background: #10b981;
+    }
+
+    .avatar-pink {
+      background: #ec4899;
+    }
+
+    .avatar-indigo {
+      background: #6366f1;
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Mobile Sidebar Overlay -->
+  <div id="sidebarOverlay" class="sidebar-overlay fixed inset-0 bg-black/50 lg:hidden hidden" style="z-index: var(--z-fixed);" onclick="toggleSidebar()"></div>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar fixed top-0 left-0 right-0 flex items-center justify-between h-16 px-4 lg:px-6 bg-bg-secondary border-b border-border-primary" style="z-index: var(--z-fixed);">
+    <div class="flex items-center gap-4">
+      <button id="sidebarToggle" onclick="toggleSidebar()" class="lg:hidden p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Toggle sidebar">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <a href="#" class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-accent-orange flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-text-primary hidden sm:block">Bot Admin</span>
+      </a>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <button class="p-2 rounded-md text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors" aria-label="Notifications">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      </button>
+
+      <div class="relative">
+        <button onclick="toggleUserMenu()" class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors" aria-label="User menu">
+          <div class="w-8 h-8 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-sm">AD</div>
+          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-bg-secondary border border-border-primary rounded-lg shadow-lg" style="z-index: var(--z-dropdown);">
+          <a href="#" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-t-lg">Profile</a>
+          <a href="#" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover">Settings</a>
+          <hr class="border-border-primary" />
+          <a href="#" class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover rounded-b-lg">Sign Out</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="mt-16 p-4 lg:p-6">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Page Header -->
+      <div class="mb-8">
+        <div class="flex items-center gap-2 mb-2">
+          <a href="#" class="text-text-secondary hover:text-text-primary text-sm">Dashboard</a>
+          <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <a href="#" class="text-text-secondary hover:text-text-primary text-sm">Gaming Central</a>
+          <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+          <span class="text-text-secondary text-sm">Text-to-Speech</span>
+        </div>
+        <h1 class="text-4xl font-bold mb-2">Text-to-Speech</h1>
+        <p class="text-text-secondary">Send TTS messages to voice channels</p>
+      </div>
+
+      <!-- Stats Cards Section -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+        <!-- Messages Today Card -->
+        <div class="stats-card">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-text-secondary text-sm mb-1">Messages Today</p>
+              <p class="text-3xl font-bold">47</p>
+            </div>
+            <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="flex items-center gap-1 text-xs text-success">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M7 16.5L3 12.5m0 0L6 9.5m-3 3h14"/>
+            </svg>
+            <span>+12% vs yesterday</span>
+          </div>
+        </div>
+
+        <!-- Total Playback Card -->
+        <div class="stats-card">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-text-secondary text-sm mb-1">Total Playback</p>
+              <p class="text-3xl font-bold">2.3h</p>
+            </div>
+            <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-text-tertiary">All time</p>
+        </div>
+
+        <!-- Avg Latency Card -->
+        <div class="stats-card">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-text-secondary text-sm mb-1">Avg Latency</p>
+              <p class="text-3xl font-bold">342ms</p>
+            </div>
+            <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-text-tertiary">Average synthesis time</p>
+        </div>
+
+        <!-- Active Voices Card -->
+        <div class="stats-card accent-orange">
+          <div class="flex items-start justify-between mb-4">
+            <div>
+              <p class="text-text-secondary text-sm mb-1">Active Voices</p>
+              <p class="text-3xl font-bold">3</p>
+            </div>
+            <div class="w-10 h-10 bg-accent-orange/30 rounded-lg flex items-center justify-center text-accent-orange">
+              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm0-11c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V4c0-.55.45-1 1-1zm0 13c-2.67 0-5.19.78-7.3 2.1l1.42 1.41C6.86 17.59 9.34 17 12 17s5.14.59 7.3 1.51l1.42-1.41C17.19 16.78 14.67 16 12 16z"/>
+              </svg>
+            </div>
+          </div>
+          <p class="text-xs text-text-tertiary">Voices used today</p>
+        </div>
+
+      </div>
+
+      <!-- Main Content Layout: TTS Controls (70%) + Sidebar (30%) -->
+      <div class="grid grid-cols-1 lg:grid-cols-7 gap-6">
+
+        <!-- Left Panel: TTS Controls (70%) -->
+        <div class="lg:col-span-4">
+
+          <!-- Message Input Section -->
+          <div class="message-input-section">
+            <h2 class="sidebar-item-header mb-4">Send Message</h2>
+            <div class="textarea-wrapper">
+              <textarea class="message-textarea" id="messageInput" placeholder="Type your message here..." maxlength="500"></textarea>
+              <div class="character-counter" id="charCounter">0/500</div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="button-group">
+              <button class="btn-primary" onclick="playInChannel()">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M15.5 1H8.5C7.12 1 6 2.12 6 3.5v17C6 21.88 7.12 23 8.5 23h7c1.38 0 2.5-1.12 2.5-2.5v-17C18 2.12 16.88 1 15.5 1zm0 2v17h-7V3h7z"/>
+                </svg>
+                Play in Channel
+              </button>
+              <button class="btn-secondary" onclick="previewMessage()">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                Preview
+              </button>
+            </div>
+          </div>
+
+          <!-- Voice Settings Section -->
+          <div class="voice-settings-section">
+            <h2 class="sidebar-item-header mb-4">Voice Settings</h2>
+
+            <!-- Voice Selection -->
+            <div class="form-group">
+              <label class="form-label">Voice</label>
+              <select class="form-select" id="voiceSelect" onchange="updateVoiceLabel()">
+                <optgroup label="English (US)">
+                  <option value="jenny">Jenny</option>
+                  <option value="nova">Nova</option>
+                  <option value="guy">Guy</option>
+                </optgroup>
+                <optgroup label="English (UK)">
+                  <option value="sonia">Sonia</option>
+                  <option value="ryan">Ryan</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <!-- Sliders -->
+            <div class="slider-group">
+              <div class="slider-container">
+                <div class="form-slider-label">
+                  <span>Speed</span>
+                  <span class="slider-value" id="speedValue">1.0x</span>
+                </div>
+                <input type="range" class="form-slider-input" id="speedSlider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updateSliderValue('speed')">
+              </div>
+              <div class="slider-container">
+                <div class="form-slider-label">
+                  <span>Pitch</span>
+                  <span class="slider-value" id="pitchValue">1.0x</span>
+                </div>
+                <input type="range" class="form-slider-input" id="pitchSlider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updateSliderValue('pitch')">
+              </div>
+              <div class="slider-container">
+                <div class="form-slider-label">
+                  <span>Volume</span>
+                  <span class="slider-value" id="volumeValue">80%</span>
+                </div>
+                <input type="range" class="form-slider-input" id="volumeSlider" min="0" max="100" step="1" value="80" oninput="updateSliderValue('volume')">
+              </div>
+            </div>
+
+            <!-- Toggle Switches -->
+            <div class="mt-6 pt-4 border-t border-border-primary">
+              <div class="toggle-switch">
+                <span class="toggle-switch-label">Auto-play on send</span>
+                <button class="toggle-switch-input" onclick="toggleSwitch(this)" title="Auto-play on send"></button>
+              </div>
+              <div class="toggle-switch">
+                <span class="toggle-switch-label">Announce joins/leaves</span>
+                <button class="toggle-switch-input" onclick="toggleSwitch(this)" title="Announce joins/leaves"></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Recent Messages Section -->
+          <div class="recent-messages-section">
+            <div class="recent-messages-header">
+              <h3>Recent Messages</h3>
+              <span class="message-count-badge" id="messageCount">5</span>
+            </div>
+            <div id="recentMessagesList">
+              <!-- Recent messages will be populated by JavaScript -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Sidebar (30%) -->
+        <div class="lg:col-span-3 space-y-6">
+
+          <!-- Guild Selector -->
+          <div class="guild-selector">
+            <div class="guild-icon avatar-purple">GM</div>
+            <div class="guild-info">
+              <div class="guild-name">Gaming Central</div>
+              <div class="guild-members">143 members</div>
+            </div>
+            <svg class="w-4 h-4 guild-dropdown-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+
+          <!-- Voice Channel Control Panel -->
+          <div class="sidebar-item">
+            <div class="sidebar-item-header">Voice Channel</div>
+
+            <!-- Connection Status -->
+            <div class="voice-channel-status mb-3">
+              <div class="status-dot"></div>
+              <span class="voice-channel-name">Connected to #General</span>
+            </div>
+
+            <!-- Channel Dropdown -->
+            <div class="form-group">
+              <label class="form-label">Voice Channel</label>
+              <select class="form-select">
+                <option>#General (3)</option>
+                <option>#Gaming Room (2)</option>
+                <option>#AFK Channel (1)</option>
+              </select>
+            </div>
+
+            <!-- Leave Channel Button -->
+            <button class="btn-danger mb-4">Leave Channel</button>
+
+            <!-- Now Playing Section -->
+            <div class="mb-4">
+              <div class="sidebar-item-header">Now Playing</div>
+              <div class="now-playing-section">
+                <div class="now-playing-icon">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+                <div class="now-playing-info">
+                  <div class="now-playing-name" id="nowPlayingName">Hello everyone, welcome to the server!</div>
+                  <div class="now-playing-status">Playing...</div>
+                </div>
+                <button class="stop-button" title="Stop playing" onclick="stopPlayback()">
+                  <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Queue Section -->
+            <div>
+              <div class="sidebar-item-header-with-badge">
+                <span>Queue</span>
+                <span class="text-text-tertiary font-normal text-xs" id="queueCount">(2 messages)</span>
+              </div>
+              <div class="space-y-0.5" id="queueList">
+                <!-- Queue items will be populated by JavaScript -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // Sample recent messages data
+    const recentMessages = [
+      {
+        id: 1,
+        username: "AdminUser",
+        initials: "AU",
+        avatarColor: "avatar-blue",
+        message: "Hello everyone, welcome to the server!",
+        voice: "Nova",
+        timestamp: "2 min ago"
+      },
+      {
+        id: 2,
+        username: "ModBot",
+        initials: "MB",
+        avatarColor: "avatar-green",
+        message: "The meeting will start in 5 minutes",
+        voice: "Jenny",
+        timestamp: "15 min ago"
+      },
+      {
+        id: 3,
+        username: "ServerBot",
+        initials: "SB",
+        avatarColor: "avatar-indigo",
+        message: "Please check the announcements channel",
+        voice: "Guy",
+        timestamp: "23 min ago"
+      },
+      {
+        id: 4,
+        username: "CoolUser",
+        initials: "CU",
+        avatarColor: "avatar-pink",
+        message: "Good morning!",
+        voice: "Sonia",
+        timestamp: "45 min ago"
+      },
+      {
+        id: 5,
+        username: "DevUser",
+        initials: "DU",
+        avatarColor: "avatar-purple",
+        message: "Testing text to speech feature",
+        voice: "Ryan",
+        timestamp: "1 hour ago"
+      }
+    ];
+
+    // Sample queue data
+    const queueItems = [
+      {
+        number: 1,
+        message: "Meeting announcement",
+        duration: "1.2s"
+      },
+      {
+        number: 2,
+        message: "Welcome message for new members",
+        duration: "3.8s"
+      }
+    ];
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+      renderRecentMessages();
+      renderQueue();
+      setupMessageInput();
+    });
+
+    // Render recent messages
+    function renderRecentMessages() {
+      const container = document.getElementById('recentMessagesList');
+      container.innerHTML = recentMessages.map(msg => `
+        <div class="message-item">
+          <div class="message-avatar ${msg.avatarColor}">${msg.initials}</div>
+          <div class="message-content">
+            <div class="message-text">${msg.message}</div>
+            <div class="message-meta">
+              <span>${msg.username}</span>
+              <span class="voice-badge">${msg.voice}</span>
+              <span>${msg.timestamp}</span>
+            </div>
+          </div>
+          <div class="message-actions">
+            <button class="action-button play" title="Replay" onclick="replayMessage('${msg.message}')">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            </button>
+            <button class="action-button delete" title="Delete" onclick="deleteMessage(${msg.id})">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Render queue items
+    function renderQueue() {
+      const container = document.getElementById('queueList');
+      container.innerHTML = queueItems.map(item => `
+        <div class="queue-item">
+          <div class="queue-number">${item.number}.</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-text-primary truncate">${item.message}</div>
+          </div>
+          <div class="text-xs text-text-tertiary flex-shrink-0 ml-2">${item.duration}</div>
+          <button class="skip-button" title="Skip" onclick="skipQueueItem(${item.number})">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M4 18l8-8-8-8v16zM14 5l8 8-8 8V5z"/>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // Setup character counter
+    function setupMessageInput() {
+      const textarea = document.getElementById('messageInput');
+      const counter = document.getElementById('charCounter');
+
+      textarea.addEventListener('input', function() {
+        const count = this.value.length;
+        const max = this.maxLength;
+        counter.textContent = `${count}/${max}`;
+
+        // Change color based on usage
+        if (count >= max) {
+          counter.classList.add('error');
+          counter.classList.remove('warning');
+        } else if (count >= max * 0.8) {
+          counter.classList.add('warning');
+          counter.classList.remove('error');
+        } else {
+          counter.classList.remove('warning', 'error');
+        }
+      });
+    }
+
+    // Update slider values
+    function updateSliderValue(type) {
+      const slider = document.getElementById(`${type}Slider`);
+      const value = parseFloat(slider.value);
+      const display = document.getElementById(`${type}Value`);
+
+      if (type === 'volume') {
+        display.textContent = `${Math.round(value)}%`;
+      } else {
+        display.textContent = `${value.toFixed(1)}x`;
+      }
+    }
+
+    // Update voice label
+    function updateVoiceLabel() {
+      const select = document.getElementById('voiceSelect');
+      console.log('Selected voice:', select.value);
+    }
+
+    // Toggle switch
+    function toggleSwitch(button) {
+      button.classList.toggle('active');
+    }
+
+    // Action handlers
+    function playInChannel() {
+      const message = document.getElementById('messageInput').value;
+      if (!message.trim()) {
+        alert('Please enter a message');
+        return;
+      }
+      console.log('Playing in channel:', message);
+      document.getElementById('nowPlayingName').textContent = message;
+    }
+
+    function previewMessage() {
+      const message = document.getElementById('messageInput').value;
+      if (!message.trim()) {
+        alert('Please enter a message');
+        return;
+      }
+      console.log('Previewing:', message);
+    }
+
+    function replayMessage(message) {
+      console.log('Replaying:', message);
+    }
+
+    function deleteMessage(id) {
+      if (confirm('Delete this message?')) {
+        console.log('Deleted message:', id);
+      }
+    }
+
+    function skipQueueItem(number) {
+      console.log('Skipped queue item:', number);
+    }
+
+    function stopPlayback() {
+      console.log('Stopped playback');
+    }
+
+    // Menu toggles
+    function toggleSidebar() {
+      const overlay = document.getElementById('sidebarOverlay');
+      overlay.classList.toggle('hidden');
+    }
+
+    function toggleUserMenu() {
+      const menu = document.getElementById('userMenu');
+      menu.classList.toggle('hidden');
+    }
+
+    // Close menus when clicking outside
+    document.addEventListener('click', function(event) {
+      const userMenu = document.getElementById('userMenu');
+      const userButton = event.target.closest('button[aria-label="User menu"]');
+      if (!userButton && !event.target.closest('#userMenu')) {
+        userMenu.classList.add('hidden');
+      }
+    });
+  </script>
+
+</body>
+</html>
