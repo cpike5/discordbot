@@ -27,6 +27,7 @@ using Serilog.Exceptions;
 using System.Reflection;
 using DiscordBot.Bot.Services.RatWatch;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.Tts;
 
 // Get service version from assembly for consistent use across logging and APM
 var serviceVersion = Assembly.GetExecutingAssembly()
@@ -341,6 +342,10 @@ try
     builder.Services.AddScoped<ISoundService, SoundService>();
     builder.Services.AddScoped<ISoundFileService, SoundFileService>();
     builder.Services.AddScoped<IGuildAudioSettingsService, GuildAudioSettingsService>();
+
+    // Add TTS services
+    builder.Services.AddScoped<ITtsSettingsService, TtsSettingsService>();
+    builder.Services.AddScoped<ITtsHistoryService, TtsHistoryService>();
 
     // Add Voice Channel services
     builder.Services.Configure<VoiceChannelOptions>(
