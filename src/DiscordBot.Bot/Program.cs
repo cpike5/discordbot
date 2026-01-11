@@ -1,20 +1,10 @@
-using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Hubs;
-using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Middleware;
-using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Core.Entities;
-using DiscordBot.Core.Interfaces;
-using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Extensions;
-using DiscordBot.Infrastructure.Services;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
 using Elastic.Apm.NetCoreAll;
 using Elastic.Apm.SerilogEnricher;
@@ -25,9 +15,6 @@ using Elastic.Transport;
 using Serilog;
 using Serilog.Exceptions;
 using System.Reflection;
-using DiscordBot.Bot.Services.RatWatch;
-using DiscordBot.Bot.Services.Commands;
-using DiscordBot.Bot.Services.Tts;
 
 // Get service version from assembly for consistent use across logging and APM
 var serviceVersion = Assembly.GetExecutingAssembly()
@@ -100,19 +87,21 @@ try
     // Enable systemd integration (only activates when running under systemd)
     builder.Host.UseSystemd();
 
-    // Add Discord bot services
+    // ==========================================
+    // Core Infrastructure Services
+    // ==========================================
+
+    // Add Discord bot services (client, handlers, interaction framework)
     builder.Services.AddDiscordBot(builder.Configuration);
 
     // Add Infrastructure services (database and repositories)
     builder.Services.AddInfrastructure(builder.Configuration);
 
-    // Add OpenTelemetry metrics
+    // Add OpenTelemetry metrics and tracing
     builder.Services.AddOpenTelemetryMetrics(builder.Configuration);
-
-    // Add OpenTelemetry tracing
     builder.Services.AddOpenTelemetryTracing(builder.Configuration);
 
-    // Add Elastic APM with priority-based sampling (dual-write during validation)
+    // Add Elastic APM with priority-based sampling
     builder.Services.AddElasticApmWithPrioritySampling(builder.Configuration);
 
     // Configure forwarded headers for reverse proxy (nginx, Cloudflare, etc.)
@@ -125,257 +114,67 @@ try
         options.KnownProxies.Clear();
     });
 
-    // Register configuration options classes
+    // ==========================================
+    // Configuration Options
+    // ==========================================
+
+    // Register shared configuration options (not owned by specific features)
     builder.Services.Configure<ApplicationOptions>(
         builder.Configuration.GetSection(ApplicationOptions.SectionName));
-    builder.Services.Configure<DiscordOAuthOptions>(
-        builder.Configuration.GetSection(DiscordOAuthOptions.SectionName));
     builder.Services.Configure<CachingOptions>(
         builder.Configuration.GetSection(CachingOptions.SectionName));
-    builder.Services.Configure<VerificationOptions>(
-        builder.Configuration.GetSection(VerificationOptions.SectionName));
     builder.Services.Configure<BackgroundServicesOptions>(
         builder.Configuration.GetSection(BackgroundServicesOptions.SectionName));
-    builder.Services.Configure<IdentityConfigOptions>(
-        builder.Configuration.GetSection(IdentityConfigOptions.SectionName));
     builder.Services.Configure<ObservabilityOptions>(
         builder.Configuration.GetSection(ObservabilityOptions.SectionName));
+    builder.Services.Configure<VerificationOptions>(
+        builder.Configuration.GetSection(VerificationOptions.SectionName));
 
-    // Load Identity configuration for startup
-    var identityConfig = builder.Configuration
-        .GetSection(IdentityConfigOptions.SectionName)
-        .Get<IdentityConfigOptions>() ?? new IdentityConfigOptions();
+    // ==========================================
+    // Identity & Authorization
+    // ==========================================
 
-    // Add ASP.NET Core Identity
-    builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
-    {
-        // Password settings
-        options.Password.RequireDigit = identityConfig.RequireDigit;
-        options.Password.RequireLowercase = identityConfig.RequireLowercase;
-        options.Password.RequireUppercase = identityConfig.RequireUppercase;
-        options.Password.RequireNonAlphanumeric = identityConfig.RequireNonAlphanumeric;
-        options.Password.RequiredLength = identityConfig.RequiredLength;
-        options.Password.RequiredUniqueChars = identityConfig.RequiredUniqueChars;
+    // Add Identity, Discord OAuth, and authorization policies
+    builder.Services.AddIdentityServices(builder.Configuration);
 
-        // Lockout settings
-        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(identityConfig.LockoutTimeSpanMinutes);
-        options.Lockout.MaxFailedAccessAttempts = identityConfig.MaxFailedAccessAttempts;
-        options.Lockout.AllowedForNewUsers = identityConfig.LockoutAllowedForNewUsers;
+    // ==========================================
+    // Application Services
+    // ==========================================
 
-        // User settings
-        options.User.RequireUniqueEmail = identityConfig.RequireUniqueEmail;
+    // Add core application services (BotService, GuildService, etc.)
+    builder.Services.AddApplicationServices();
 
-        // Sign-in settings
-        options.SignIn.RequireConfirmedAccount = identityConfig.RequireConfirmedAccount;
-        options.SignIn.RequireConfirmedEmail = identityConfig.RequireConfirmedEmail;
-    })
-    .AddEntityFrameworkStores<BotDbContext>()
-    .AddDefaultTokenProviders();
+    // ==========================================
+    // Feature Services
+    // ==========================================
 
-    // Configure application cookie
-    builder.Services.ConfigureApplicationCookie(options =>
-    {
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.Cookie.SameSite = SameSiteMode.Lax;
-        options.ExpireTimeSpan = TimeSpan.FromDays(identityConfig.CookieExpireDays);
-        options.SlidingExpiration = identityConfig.CookieSlidingExpiration;
-        options.LoginPath = identityConfig.LoginPath;
-        options.LogoutPath = identityConfig.LogoutPath;
-        options.AccessDeniedPath = identityConfig.AccessDeniedPath;
-    });
+    // Verification
+    builder.Services.AddVerification();
 
-    // Load Discord OAuth configuration
-    var oauthOptions = builder.Configuration
-        .GetSection(DiscordOAuthOptions.SectionName)
-        .Get<DiscordOAuthOptions>() ?? new DiscordOAuthOptions();
+    // Logging services
+    builder.Services.AddMessageLogging(builder.Configuration);
+    builder.Services.AddAuditLogging(builder.Configuration);
 
-    // Add Discord OAuth authentication (only if configured)
-    var isDiscordOAuthConfigured = !string.IsNullOrEmpty(oauthOptions.ClientId) && !string.IsNullOrEmpty(oauthOptions.ClientSecret);
+    // Scheduled operations
+    builder.Services.AddScheduledMessages(builder.Configuration);
+    builder.Services.AddRatWatch(builder.Configuration);
+    builder.Services.AddReminders(builder.Configuration);
 
-    if (isDiscordOAuthConfigured)
-    {
-        builder.Services.AddAuthentication()
-            .AddDiscord(options =>
-            {
-                options.ClientId = oauthOptions.ClientId!;
-                options.ClientSecret = oauthOptions.ClientSecret!;
-                options.Scope.Add("identify");
-                options.Scope.Add("email");
-                options.Scope.Add("guilds"); // Required for fetching user's guild list
-                options.SaveTokens = true;
-            });
-    }
+    // Voice and audio
+    builder.Services.AddVoiceSupport(builder.Configuration);
 
-    // Register whether Discord OAuth is configured for UI to consume
-    builder.Services.AddSingleton(new DiscordOAuthSettings { IsConfigured = isDiscordOAuthConfigured });
+    // Analytics and metrics
+    builder.Services.AddAnalytics(builder.Configuration);
 
-    // Add Authorization Policies
-    builder.Services.AddAuthorization(options =>
-    {
-        // Hierarchical role policies
-        options.AddPolicy("RequireSuperAdmin", policy =>
-            policy.RequireRole(IdentitySeeder.Roles.SuperAdmin));
-
-        options.AddPolicy("RequireAdmin", policy =>
-            policy.RequireRole(IdentitySeeder.Roles.SuperAdmin, IdentitySeeder.Roles.Admin));
-
-        options.AddPolicy("RequireModerator", policy =>
-            policy.RequireRole(
-                IdentitySeeder.Roles.SuperAdmin,
-                IdentitySeeder.Roles.Admin,
-                IdentitySeeder.Roles.Moderator));
-
-        options.AddPolicy("RequireViewer", policy =>
-            policy.RequireRole(
-                IdentitySeeder.Roles.SuperAdmin,
-                IdentitySeeder.Roles.Admin,
-                IdentitySeeder.Roles.Moderator,
-                IdentitySeeder.Roles.Viewer));
-
-        // Guild-specific authorization (handler will be added later)
-        options.AddPolicy("GuildAccess", policy =>
-            policy.Requirements.Add(new GuildAccessRequirement()));
-
-        // Portal guild membership authorization - lighter weight than admin access
-        // Only requires Discord OAuth and guild membership, no role checks
-        options.AddPolicy("PortalGuildMember", policy =>
-            policy.Requirements.Add(new PortalGuildMemberRequirement()));
-
-        // Fallback policy - require authentication for all pages by default
-        options.FallbackPolicy = new AuthorizationPolicyBuilder()
-            .RequireAuthenticatedUser()
-            .Build();
-    });
-
-    // Register IHttpContextAccessor for authorization handlers
-    builder.Services.AddHttpContextAccessor();
-
-    // Register custom authorization handlers
-    builder.Services.AddScoped<IAuthorizationHandler, GuildAccessHandler>();
-    builder.Services.AddScoped<IAuthorizationHandler, PortalGuildMemberAuthorizationHandler>();
-
-    // Register claims transformation for Discord-linked users
-    builder.Services.AddScoped<IClaimsTransformation, DiscordClaimsTransformation>();
-
-    // Add application services
-    builder.Services.AddSingleton<IVersionService, VersionService>();
-    builder.Services.AddSingleton<IDashboardNotifier, DashboardNotifier>();
-    builder.Services.AddSingleton<IAudioNotifier, AudioNotifier>();
-    builder.Services.AddSingleton<IDashboardUpdateService, DashboardUpdateService>();
-    builder.Services.AddScoped<IBotService, BotService>();
-    builder.Services.AddScoped<IGuildService, GuildService>();
-    builder.Services.AddScoped<ICommandLogService, CommandLogService>();
-    builder.Services.AddScoped<ICommandAnalyticsService, CommandAnalyticsService>();
-    builder.Services.AddScoped<ICommandMetadataService, CommandMetadataService>();
-    builder.Services.AddSingleton<IPageMetadataService, PageMetadataService>();
-    builder.Services.AddScoped<ICommandRegistrationService, CommandRegistrationService>();
-    builder.Services.AddScoped<IUserManagementService, UserManagementService>();
-    builder.Services.AddScoped<IWelcomeService, WelcomeService>();
-    builder.Services.AddScoped<ISearchService, SearchService>();
-
-    // Add Time Parsing service
-    builder.Services.AddScoped<ITimeParsingService, TimeParsingService>();
-
-    // Add Discord OAuth services
-    builder.Services.AddScoped<IDiscordTokenService, DiscordTokenService>();
-    builder.Services.AddScoped<IDiscordUserInfoService, DiscordUserInfoService>();
-    builder.Services.AddScoped<IGuildMembershipService, GuildMembershipService>();
-    builder.Services.AddScoped<IUserDiscordGuildService, UserDiscordGuildService>();
-
-    // Add Guild Member services
-    builder.Services.AddScoped<IGuildMemberService, GuildMemberService>();
-
-    // Add Discord OAuth Token Refresh background service
-    builder.Services.AddHostedService<DiscordTokenRefreshService>();
-
-    // Add Verification services
-    builder.Services.AddScoped<IVerificationService, VerificationService>();
-    builder.Services.AddHostedService<VerificationCleanupService>();
-
-    // Add Consent services
-    builder.Services.AddScoped<IConsentService, ConsentService>();
-
-    // Add Message Log services and cleanup
-    builder.Services.AddScoped<IMessageLogService, MessageLogService>();
-    builder.Services.Configure<DiscordBot.Core.Configuration.MessageLogRetentionOptions>(
-        builder.Configuration.GetSection("MessageLogRetention"));
-    builder.Services.AddHostedService<MessageLogCleanupService>();
-
-    // Add Audit Log services
-    builder.Services.AddSingleton<IAuditLogQueue, AuditLogQueue>();
-    builder.Services.AddScoped<IAuditLogService, AuditLogService>();
-    builder.Services.AddHostedService<AuditLogQueueProcessor>();
-    builder.Services.Configure<DiscordBot.Core.Configuration.AuditLogRetentionOptions>(
-        builder.Configuration.GetSection("AuditLogRetention"));
-    builder.Services.AddHostedService<AuditLogRetentionService>();
-
-    // Add Metrics update background services
-    builder.Services.AddHostedService<MetricsUpdateService>();
-    builder.Services.AddHostedService<BusinessMetricsUpdateService>();
-
-    // Add Scheduled Messages services
-    builder.Services.Configure<ScheduledMessagesOptions>(
-        builder.Configuration.GetSection(ScheduledMessagesOptions.SectionName));
-    builder.Services.AddScoped<IScheduledMessageService, ScheduledMessageService>();
-    builder.Services.AddHostedService<ScheduledMessageExecutionService>();
-
-    // Add Bot Status service (must be registered before RatWatchStatusService)
-    builder.Services.AddSingleton<IBotStatusService, BotStatusService>();
-
-    // Add Rat Watch services
-    builder.Services.Configure<RatWatchOptions>(
-        builder.Configuration.GetSection(RatWatchOptions.SectionName));
-    builder.Services.AddScoped<IRatWatchService, RatWatchService>();
-    builder.Services.AddSingleton<IRatWatchStatusService, RatWatchStatusService>();
-    builder.Services.AddHostedService<RatWatchExecutionService>();
-
-    // Add Reminder services
-    builder.Services.Configure<ReminderOptions>(
-        builder.Configuration.GetSection(ReminderOptions.SectionName));
-    builder.Services.AddScoped<IReminderService, ReminderService>();
-    builder.Services.AddHostedService<ReminderExecutionService>();
-
-    // Add Soundboard services
-    builder.Services.Configure<SoundboardOptions>(
-        builder.Configuration.GetSection(SoundboardOptions.SectionName));
-    builder.Services.AddScoped<ISoundService, SoundService>();
-    builder.Services.AddScoped<ISoundFileService, SoundFileService>();
-    builder.Services.AddScoped<IGuildAudioSettingsService, GuildAudioSettingsService>();
-
-    // Add TTS services
-    builder.Services.AddScoped<ITtsSettingsService, TtsSettingsService>();
-    builder.Services.AddScoped<ITtsHistoryService, TtsHistoryService>();
-
-    // Add Voice Channel services
-    builder.Services.Configure<VoiceChannelOptions>(
-        builder.Configuration.GetSection(VoiceChannelOptions.SectionName));
-    builder.Services.AddSingleton<IAudioService, AudioService>();
-    builder.Services.AddSingleton<IPlaybackService, PlaybackService>();
-    builder.Services.AddHostedService<VoiceAutoLeaveService>();
-
-    // Add Azure Speech TTS services
-    builder.Services.Configure<AzureSpeechOptions>(
-        builder.Configuration.GetSection(AzureSpeechOptions.SectionName));
-    builder.Services.AddSingleton<ITtsService, AzureTtsService>();
-
-    // Add Analytics Aggregation services
-    builder.Services.Configure<AnalyticsRetentionOptions>(
-        builder.Configuration.GetSection(AnalyticsRetentionOptions.SectionName));
-    builder.Services.AddHostedService<MemberActivityAggregationService>();
-    builder.Services.AddHostedService<ChannelActivityAggregationService>();
-    builder.Services.AddHostedService<GuildMetricsAggregationService>();
-    builder.Services.AddHostedService<AnalyticsRetentionService>();
-
-    // Add Historical Metrics configuration
-    builder.Services.Configure<HistoricalMetricsOptions>(
-        builder.Configuration.GetSection(HistoricalMetricsOptions.SectionName));
-
-    // Add Moderation services (includes detection services and handlers)
+    // Moderation services (includes detection services and handlers)
     builder.Services.AddModerationServices(builder.Configuration);
 
-    // Add Performance Metrics services (latency, connection state, API tracking, database metrics)
+    // Performance Metrics services (latency, connection state, API tracking, database metrics)
     builder.Services.AddPerformanceMetrics(builder.Configuration);
+
+    // ==========================================
+    // Web API & SignalR
+    // ==========================================
 
     // Add HttpClient for Discord API calls with tracing handler
     builder.Services.AddTransient<DiscordApiTracingHandler>();
@@ -421,11 +220,14 @@ try
 
     var app = builder.Build();
 
+    // ==========================================
+    // Middleware Pipeline
+    // ==========================================
+
     // Enable Elastic APM (must be very early in pipeline to capture all requests)
     // Configured via ElasticApm section in appsettings.json
     app.UseAllElasticApm(builder.Configuration);
 
-    // Configure middleware pipeline
     // Handle forwarded headers from reverse proxy (must be FIRST in pipeline)
     // Required for SignalR WebSocket connections behind nginx/Cloudflare
     app.UseForwardedHeaders();
@@ -474,6 +276,10 @@ try
 
     // Map Prometheus metrics endpoint
     app.UseOpenTelemetryPrometheusScrapingEndpoint();
+
+    // ==========================================
+    // Startup Tasks
+    // ==========================================
 
     // Seed Identity roles and default admin user
     using (var scope = app.Services.CreateScope())
