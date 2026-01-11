@@ -51,6 +51,8 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<GuildAudioSettings> GuildAudioSettings => Set<GuildAudioSettings>();
     public DbSet<CommandRoleRestriction> CommandRoleRestrictions => Set<CommandRoleRestriction>();
     public DbSet<UserDiscordGuild> UserDiscordGuilds => Set<UserDiscordGuild>();
+    public DbSet<TtsMessage> TtsMessages => Set<TtsMessage>();
+    public DbSet<GuildTtsSettings> GuildTtsSettings => Set<GuildTtsSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
