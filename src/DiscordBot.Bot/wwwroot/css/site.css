@@ -2527,3 +2527,151 @@
     transform: none !important;
   }
 }
+
+/* ==========================================================================
+   Guild Header Glass UI - Issue #1049
+   Glass-style status pill and secondary action buttons
+   ========================================================================== */
+
+/* Design Tokens */
+:root {
+  /* Glass Effect Backgrounds */
+  --color-glass-bg: rgba(47, 51, 54, 0.4);
+  --color-glass-bg-hover: rgba(54, 58, 62, 0.5);
+  --color-glass-bg-active: rgba(47, 51, 54, 0.6);
+
+  /* Glass Borders */
+  --color-glass-border: rgba(63, 68, 71, 0.6);
+  --color-glass-border-hover: rgba(9, 142, 207, 0.4);
+
+  /* Backdrop Blur */
+  --glass-blur: blur(8px);
+
+  /* Status Indicator Colors */
+  --color-status-active: #10b981;
+  --color-status-active-bg: rgba(16, 185, 129, 0.12);
+  --color-status-active-border: rgba(16, 185, 129, 0.3);
+
+  --color-status-inactive: #7a7876;
+  --color-status-inactive-bg: rgba(122, 120, 118, 0.12);
+  --color-status-inactive-border: rgba(122, 120, 118, 0.3);
+}
+
+/* Glass Pill Status Indicator */
+.status-glass {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  border-width: 1px;
+  border-style: solid;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  transition: all 0.15s ease-in-out;
+}
+
+.status-glass.status-active {
+  background-color: var(--color-status-active-bg);
+  border-color: var(--color-status-active-border);
+  color: var(--color-status-active);
+}
+
+.status-glass.status-inactive {
+  background-color: var(--color-status-inactive-bg);
+  border-color: var(--color-status-inactive-border);
+  color: var(--color-status-inactive);
+}
+
+.status-glass .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-glass.status-active .status-dot {
+  background-color: var(--color-status-active);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.status-glass.status-inactive .status-dot {
+  background-color: var(--color-status-inactive);
+}
+
+/* Glass Button Style */
+.btn-glass {
+  background-color: var(--color-glass-bg);
+  border-color: var(--color-glass-border);
+  color: #d7d3d0;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.btn-glass:hover:not(:disabled) {
+  background-color: var(--color-glass-bg-hover);
+  border-color: var(--color-glass-border-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.btn-glass:active:not(:disabled) {
+  background-color: var(--color-glass-bg-active);
+  border-color: rgba(9, 142, 207, 0.5);
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.btn-glass:focus-visible {
+  outline: 2px solid #098ecf;
+  outline-offset: 2px;
+}
+
+.btn-glass:disabled {
+  background-color: rgba(47, 51, 54, 0.3);
+  border-color: rgba(63, 68, 71, 0.4);
+  color: #7a7876;
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-glass svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: currentColor;
+}
+
+/* Fallback for Browsers Without Backdrop Filter */
+@supports not (backdrop-filter: blur(8px)) {
+  .status-glass,
+  .btn-glass {
+    /* Slightly more opaque background for readability without blur */
+    background-color: rgba(47, 51, 54, 0.6);
+  }
+
+  .status-glass.status-active {
+    background-color: rgba(16, 185, 129, 0.18);
+  }
+
+  .status-glass.status-inactive {
+    background-color: rgba(122, 120, 118, 0.18);
+  }
+
+  .btn-glass:hover:not(:disabled) {
+    background-color: rgba(54, 58, 62, 0.7);
+  }
+}
+
+/* Reduced motion support for glass elements */
+@media (prefers-reduced-motion: reduce) {
+  .status-glass,
+  .btn-glass {
+    transition: none;
+  }
+}
