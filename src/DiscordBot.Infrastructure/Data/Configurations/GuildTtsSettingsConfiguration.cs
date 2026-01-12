@@ -38,7 +38,7 @@ public class GuildTtsSettingsConfiguration : IEntityTypeConfiguration<GuildTtsSe
         builder.Property(s => s.DefaultVoice)
             .IsRequired()
             .HasMaxLength(100)
-            .HasDefaultValue(string.Empty);
+            .HasDefaultValue("en-US-JennyNeural");
 
         // Double properties with defaults
         builder.Property(s => s.DefaultSpeed)

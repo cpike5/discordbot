@@ -82,6 +82,16 @@ public class AzureTtsService : ITtsService
             Volume = _options.DefaultVolume
         };
 
+        // Defensive validation: ensure voice is never empty
+        if (string.IsNullOrWhiteSpace(ttsOptions.Voice))
+        {
+            _logger.LogWarning("Voice was null or empty, falling back to default: {DefaultVoice}",
+                _options.DefaultVoice);
+            ttsOptions.Voice = string.IsNullOrWhiteSpace(_options.DefaultVoice)
+                ? "en-US-JennyNeural"
+                : _options.DefaultVoice;
+        }
+
         _logger.LogInformation("Synthesizing speech: {TextLength} characters with voice {Voice} (speed: {Speed}, pitch: {Pitch}, volume: {Volume})",
             text.Length, ttsOptions.Voice, ttsOptions.Speed, ttsOptions.Pitch, ttsOptions.Volume);
 

@@ -257,9 +257,14 @@ public class IndexModel : PageModel
             // Get TTS settings for voice options
             var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
 
+            // Defensive validation: ensure DefaultVoice is never empty
+            var voice = string.IsNullOrWhiteSpace(settings.DefaultVoice)
+                ? "en-US-JennyNeural"
+                : settings.DefaultVoice;
+
             var options = new TtsOptions
             {
-                Voice = settings.DefaultVoice,
+                Voice = voice,
                 Speed = settings.DefaultSpeed,
                 Pitch = settings.DefaultPitch,
                 Volume = settings.DefaultVolume

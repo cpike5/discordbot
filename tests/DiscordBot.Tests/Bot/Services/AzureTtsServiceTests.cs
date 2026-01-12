@@ -259,6 +259,52 @@ public class AzureTtsServiceTests : IDisposable
             .WithMessage("*Azure Speech service is not configured*");
     }
 
+    [Fact]
+    public async Task SynthesizeSpeechAsync_UsesDefaultVoice_WhenOptionsVoiceIsEmpty()
+    {
+        // Arrange
+        var options = new AzureSpeechOptions { SubscriptionKey = null };
+        var service = CreateService(options);
+        var emptyVoiceOptions = new TtsOptions
+        {
+            Voice = "", // Empty voice
+            Speed = 1.0,
+            Pitch = 1.0,
+            Volume = 0.8
+        };
+
+        // Act
+        var act = async () => await service.SynthesizeSpeechAsync("Test", emptyVoiceOptions);
+
+        // Assert - Will throw InvalidOperationException for not configured, not ArgumentException for empty voice
+        // This proves that empty voice validation passed and fallback was applied
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Azure Speech service is not configured*");
+    }
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_UsesDefaultVoice_WhenOptionsVoiceIsNull()
+    {
+        // Arrange
+        var options = new AzureSpeechOptions { SubscriptionKey = null };
+        var service = CreateService(options);
+        var nullVoiceOptions = new TtsOptions
+        {
+            Voice = null!, // Null voice
+            Speed = 1.0,
+            Pitch = 1.0,
+            Volume = 0.8
+        };
+
+        // Act
+        var act = async () => await service.SynthesizeSpeechAsync("Test", nullVoiceOptions);
+
+        // Assert - Will throw InvalidOperationException for not configured, not ArgumentException for null voice
+        // This proves that null voice validation passed and fallback was applied
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Azure Speech service is not configured*");
+    }
+
     #endregion
 
     #region GetAvailableVoicesAsync Tests

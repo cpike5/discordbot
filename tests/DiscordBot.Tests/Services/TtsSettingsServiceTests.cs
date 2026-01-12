@@ -100,6 +100,39 @@ public class TtsSettingsServiceTests
         result.TtsEnabled.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task GetOrCreateSettingsAsync_ReturnsValidDefaultVoice()
+    {
+        // Arrange
+        ulong guildId = 123456789UL;
+        var settings = new GuildTtsSettings
+        {
+            GuildId = guildId,
+            TtsEnabled = true,
+            DefaultVoice = "en-US-JennyNeural", // Valid default voice
+            DefaultSpeed = 1.0,
+            DefaultPitch = 1.0,
+            DefaultVolume = 0.8,
+            MaxMessageLength = 500,
+            RateLimitPerMinute = 5,
+            AutoPlayOnSend = false,
+            AnnounceJoinsLeaves = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _mockSettingsRepository.Setup(r => r.GetOrCreateAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(settings);
+
+        // Act
+        var result = await _service.GetOrCreateSettingsAsync(guildId);
+
+        // Assert
+        result.DefaultVoice.Should().NotBeNull();
+        result.DefaultVoice.Should().NotBeEmpty();
+        result.DefaultVoice.Should().Be("en-US-JennyNeural");
+    }
+
     #endregion
 
     #region UpdateSettingsAsync Tests
