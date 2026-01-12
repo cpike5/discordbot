@@ -217,7 +217,7 @@ The application implements **priority-based sampling** via `ElasticApmTransactio
 
 | Priority | Sample Rate | Operations |
 |----------|-------------|------------|
-| **Always Sample** | 100% | Rate limit hits (`discord.api.rate_limit.remaining == 0`), Discord API errors (`discord.api.error.*`), auto-moderation detections (`automod.*`) |
+| **Always Sample** | 100% | Error transactions (outcome = failure), rate limit hits (`discord.api.rate_limit.remaining == 0`), Discord API errors (`discord.api.error.*`), auto-moderation detections (`automod.*`) |
 | **High Priority** | 50% (configurable) | Welcome flow (`member.joined`, `welcome.*`), moderation actions (`/warn`, `/kick`, `/ban`, `/mute`), Rat Watch operations (`ratwatch`, `rat-*`), scheduled messages |
 | **Default** | 10% (configurable) | Normal operations (most Discord commands, API requests, database queries) |
 | **Low Priority** | 1% (configurable) | Health checks (`/health`), metrics scraping (`/metrics`), high-frequency cache operations |
@@ -236,6 +236,7 @@ The application implements **priority-based sampling** via `ElasticApmTransactio
 
 ```csharp
 // Always sample critical operations (100%)
+// Includes error transactions (outcome = failure) to ensure 100% error capture
 if (IsAlwaysSampleOperation(name, transaction))
 {
     return 1.0;

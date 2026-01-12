@@ -106,6 +106,13 @@ public class ElasticApmTransactionFilter
     /// <returns>True if the operation should always be sampled.</returns>
     private static bool IsAlwaysSampleOperation(string name, ITransaction transaction)
     {
+        // Always sample transactions with failures (100% error rate)
+        // This ensures all exceptions are captured in APM for diagnostics
+        if (transaction.Outcome == Outcome.Failure)
+        {
+            return true;
+        }
+
         // Note: Using Labels dictionary is deprecated but necessary for reading labels.
         // The SetLabel method only supports writing, not reading.
 #pragma warning disable CS0618 // Type or member is obsolete
