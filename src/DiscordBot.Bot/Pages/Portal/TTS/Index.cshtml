@@ -1,0 +1,1235 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Portal.TTS.IndexModel
+@{
+    ViewData["Title"] = Model.IsAuthenticated ? "TTS Portal" : "Verify Your Membership";
+}
+
+<style>
+    /* ===============================================
+       Landing Page Styles (Unauthenticated View)
+       =============================================== */
+    .landing-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background-color: #1d2022;
+    }
+
+    .landing-card {
+        width: 100%;
+        max-width: 480px;
+        background-color: #262a2d;
+        border: 1px solid #3f4447;
+        border-radius: 0.5rem;
+        padding: 2.5rem 2rem;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .landing-guild-icon {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 1.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #3f4447;
+        box-shadow: 0 4px 12px rgba(203, 78, 27, 0.3);
+        overflow: hidden;
+        background: linear-gradient(135deg, #cb4e1b 0%, #e5591f 100%);
+    }
+
+    .landing-guild-icon img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .landing-guild-icon-placeholder {
+        font-size: 3rem;
+        color: white;
+    }
+
+    .landing-guild-name {
+        font-size: 1.75rem;
+        font-weight: 600;
+        color: #dbdee1;
+        margin-bottom: 0.5rem;
+        word-wrap: break-word;
+        word-break: break-word;
+    }
+
+    .landing-portal-badge {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #cb4e1b;
+        background-color: rgba(203, 78, 27, 0.1);
+        border: 1px solid rgba(203, 78, 27, 0.3);
+        padding: 0.375rem 0.75rem;
+        border-radius: 999px;
+        margin-bottom: 1.5rem;
+    }
+
+    .landing-description {
+        font-size: 1rem;
+        color: #d7d3d0;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .landing-description-highlight {
+        color: #cb4e1b;
+        font-weight: 500;
+    }
+
+    .landing-discord-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.875rem 1.5rem;
+        background-color: #5865F2;
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        margin-bottom: 1.5rem;
+    }
+
+    .landing-discord-button:hover {
+        background-color: #4752C4;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+        color: white;
+        text-decoration: none;
+    }
+
+    .landing-discord-button:active {
+        transform: translateY(0);
+    }
+
+    .landing-discord-logo {
+        width: 20px;
+        height: 20px;
+    }
+
+    .landing-permissions-notice {
+        background-color: #1a1d23;
+        border: 1px solid #3f4447;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+        text-align: left;
+    }
+
+    .landing-permissions-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #d7d3d0;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+    }
+
+    .landing-permissions-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.813rem;
+        color: #a8a5a3;
+        line-height: 1.5;
+    }
+
+    .landing-permissions-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .landing-permission-icon {
+        color: #cb4e1b;
+        font-weight: bold;
+        flex-shrink: 0;
+        margin-top: 0.125rem;
+    }
+
+    .landing-footer-text {
+        font-size: 0.813rem;
+        color: #a8a5a3;
+        line-height: 1.5;
+    }
+
+    .landing-footer-text a {
+        color: #cb4e1b;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+
+    .landing-footer-text a:hover {
+        color: #e5591f;
+        text-decoration: underline;
+    }
+
+    /* Landing page responsive */
+    @@media (max-width: 480px) {
+        .landing-card {
+            padding: 2rem 1.5rem;
+        }
+
+        .landing-guild-icon {
+            width: 100px;
+            height: 100px;
+        }
+
+        .landing-guild-icon-placeholder {
+            font-size: 2.5rem;
+        }
+
+        .landing-guild-name {
+            font-size: 1.5rem;
+            margin-bottom: 0.375rem;
+        }
+
+        .landing-description {
+            font-size: 0.9375rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .landing-discord-button {
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9375rem;
+        }
+    }
+
+    @@media (max-width: 360px) {
+        .landing-card {
+            padding: 1.5rem 1.25rem;
+        }
+
+        .landing-guild-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 1rem;
+        }
+
+        .landing-guild-icon-placeholder {
+            font-size: 2rem;
+        }
+
+        .landing-guild-name {
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .landing-portal-badge {
+            font-size: 0.7rem;
+            padding: 0.25rem 0.625rem;
+        }
+
+        .landing-description {
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+        }
+
+        .landing-permissions-notice {
+            padding: 0.75rem;
+        }
+
+        .landing-permissions-title {
+            font-size: 0.75rem;
+        }
+
+        .landing-permissions-item {
+            font-size: 0.75rem;
+        }
+    }
+
+    /* ===============================================
+       TTS Portal Styles (Authenticated View)
+       =============================================== */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    /* Header */
+    .portal-header {
+        background-color: #1a1d23;
+        border-bottom: 1px solid #40444b;
+        padding: 1rem 1.5rem;
+    }
+
+    .portal-header .header-content {
+        max-width: 1600px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .bot-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 0.5rem;
+        background-color: #cb4e1b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .bot-icon svg {
+        width: 24px;
+        height: 24px;
+        color: white;
+    }
+
+    .header-text h1 {
+        font-size: 1.125rem;
+        font-weight: bold;
+        color: #dbdee1;
+    }
+
+    .header-text p {
+        font-size: 0.875rem;
+        color: #949ba4;
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 9999px;
+    }
+
+    .status-badge.online {
+        background-color: rgba(87, 171, 90, 0.1);
+        color: #57ab5a;
+    }
+
+    .status-badge.offline {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: currentColor;
+    }
+
+    /* Main layout */
+    .main-container {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 1.5rem;
+    }
+
+    .portal-content {
+        display: flex;
+        gap: 1.5rem;
+    }
+
+    /* Sidebar - Fixed width on LEFT */
+    .sidebar {
+        width: 300px;
+        flex-shrink: 0;
+    }
+
+    .sidebar-panel {
+        background-color: #262a2d;
+        border: 1px solid #40444b;
+        border-radius: 0.5rem;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .sidebar-panel:last-child {
+        margin-bottom: 0;
+    }
+
+    .sidebar-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #949ba4;
+        margin-bottom: 0.75rem;
+    }
+
+    .connection-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+
+    .status-badge-voice {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        border-radius: 9999px;
+    }
+
+    .status-badge-voice.connected {
+        background-color: rgba(87, 171, 90, 0.1);
+        color: #57ab5a;
+    }
+
+    .status-badge-voice.disconnected {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+
+    .channel-label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: #949ba4;
+        margin-bottom: 0.5rem;
+    }
+
+    .channel-select {
+        width: 100%;
+        appearance: none;
+        background-color: #1a1d23;
+        border: 1px solid #40444b;
+        border-radius: 0.5rem;
+        padding: 0.5rem 2rem 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        color: #dbdee1;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 1rem;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23949ba4'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
+        background-size: 1.25rem;
+    }
+
+    .channel-select:hover {
+        border-color: #72767d;
+    }
+
+    .channel-select:focus {
+        outline: none;
+        border-color: #cb4e1b;
+        box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.1);
+    }
+
+    .button-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        border-radius: 0.5rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .btn-join {
+        background-color: #cb4e1b;
+        color: white;
+        width: 100%;
+    }
+
+    .btn-join:hover:not(:disabled) {
+        background-color: #e5591f;
+    }
+
+    .btn-leave {
+        background-color: #ef4444;
+        color: white;
+        width: 100%;
+    }
+
+    .btn-leave:hover:not(:disabled) {
+        background-color: #dc2626;
+    }
+
+    /* Now Playing */
+    .now-playing-container {
+        background-color: #1a1d23;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+
+    .now-playing-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .now-playing-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 0.5rem;
+        background-color: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .now-playing-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .now-playing-name {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #dbdee1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .now-playing-status {
+        font-size: 0.75rem;
+        color: #949ba4;
+    }
+
+    .stop-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 0.5rem;
+        background-color: #ef4444;
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .stop-btn:hover {
+        background-color: #dc2626;
+    }
+
+    .empty-now-playing {
+        text-align: center;
+        padding: 1.5rem;
+        color: #949ba4;
+    }
+
+    .empty-now-playing svg {
+        width: 32px;
+        height: 32px;
+        margin: 0 auto 0.75rem;
+        opacity: 0.5;
+    }
+
+    .empty-now-playing p {
+        font-size: 0.875rem;
+    }
+
+    /* TTS Form Panel - Flexible on RIGHT */
+    .tts-panel {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .tts-form-wrapper {
+        background-color: #262a2d;
+        border: 1px solid #40444b;
+        border-radius: 0.5rem;
+        padding: 1.25rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .form-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #dbdee1;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-label-small {
+        font-size: 0.75rem;
+        color: #949ba4;
+        font-weight: 400;
+    }
+
+    .form-textarea {
+        width: 100%;
+        background-color: #1a1d23;
+        border: 1px solid #40444b;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        font-size: 0.875rem;
+        color: #dbdee1;
+        font-family: inherit;
+        resize: vertical;
+        transition: all 0.2s;
+    }
+
+    .form-textarea:hover {
+        border-color: #72767d;
+    }
+
+    .form-textarea:focus {
+        outline: none;
+        border-color: #cb4e1b;
+        box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.1);
+    }
+
+    .form-textarea::placeholder {
+        color: #949ba4;
+    }
+
+    .char-counter {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: #949ba4;
+        margin-top: 0.5rem;
+    }
+
+    .char-count {
+        font-weight: 500;
+    }
+
+    .char-count.warning {
+        color: #fbbf24;
+    }
+
+    .char-count.error {
+        color: #ef4444;
+    }
+
+    .form-select {
+        width: 100%;
+        appearance: none;
+        background-color: #1a1d23;
+        border: 1px solid #40444b;
+        border-radius: 0.5rem;
+        padding: 0.5rem 2rem 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        color: #dbdee1;
+        cursor: pointer;
+        transition: all 0.2s;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23949ba4'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
+        background-size: 1.25rem;
+    }
+
+    .form-select:hover {
+        border-color: #72767d;
+    }
+
+    .form-select:focus {
+        outline: none;
+        border-color: #cb4e1b;
+        box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.1);
+    }
+
+    .form-select optgroup {
+        background-color: #1a1d23;
+        color: #dbdee1;
+    }
+
+    .form-select option {
+        background-color: #1a1d23;
+        color: #dbdee1;
+    }
+
+    .slider-group {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .slider-value {
+        min-width: 50px;
+        text-align: right;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #cb4e1b;
+    }
+
+    .form-range {
+        flex: 1;
+        appearance: none;
+        height: 6px;
+        width: 100%;
+        border-radius: 3px;
+        background: linear-gradient(to right, #40444b 0%, #40444b 100%);
+        background-color: #40444b;
+        outline: none;
+        -webkit-appearance: none;
+    }
+
+    .form-range::-webkit-slider-thumb {
+        appearance: none;
+        -webkit-appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background-color: #cb4e1b;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 2px solid #262a2d;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-range::-webkit-slider-thumb:hover {
+        background-color: #e5591f;
+        transform: scale(1.1);
+    }
+
+    .form-range::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background-color: #cb4e1b;
+        cursor: pointer;
+        border: 2px solid #262a2d;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s;
+    }
+
+    .form-range::-moz-range-thumb:hover {
+        background-color: #e5591f;
+        transform: scale(1.1);
+    }
+
+    .form-range::-moz-range-track {
+        background: transparent;
+        border: none;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .send-btn {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background-color: #cb4e1b;
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .send-btn:hover:not(:disabled) {
+        background-color: #e5591f;
+    }
+
+    .send-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .send-btn.loading {
+        pointer-events: none;
+    }
+
+    .send-btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    /* Toast container for portal */
+    .portal-toast-container {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-width: 400px;
+    }
+
+    .portal-toast {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        background-color: #262a2d;
+        border: 1px solid #40444b;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+        animation: toast-slide-in 0.3s ease-out;
+    }
+
+    .portal-toast.success {
+        border-color: rgba(87, 171, 90, 0.3);
+    }
+
+    .portal-toast.error {
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    .portal-toast.warning {
+        border-color: rgba(251, 191, 36, 0.3);
+    }
+
+    .portal-toast.info {
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .portal-toast-icon {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+
+    .portal-toast.success .portal-toast-icon {
+        color: #57ab5a;
+    }
+
+    .portal-toast.error .portal-toast-icon {
+        color: #ef4444;
+    }
+
+    .portal-toast.warning .portal-toast-icon {
+        color: #fbbf24;
+    }
+
+    .portal-toast.info .portal-toast-icon {
+        color: #3b82f6;
+    }
+
+    .portal-toast-message {
+        flex: 1;
+        font-size: 0.875rem;
+        color: #dbdee1;
+    }
+
+    .portal-toast-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #949ba4;
+        padding: 0.25rem;
+        transition: color 0.2s;
+    }
+
+    .portal-toast-close:hover {
+        color: #dbdee1;
+    }
+
+    @@keyframes toast-slide-in {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    .portal-toast.dismissing {
+        animation: toast-slide-out 0.2s ease-in forwards;
+    }
+
+    @@keyframes toast-slide-out {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+
+    .hidden {
+        display: none !important;
+    }
+
+    /* Responsive */
+    @@media (max-width: 1023px) {
+        .portal-content {
+            flex-direction: column;
+        }
+
+        .sidebar {
+            width: 100%;
+        }
+
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 640px) {
+        .portal-header {
+            padding: 1rem;
+        }
+
+        .main-container {
+            padding: 1rem;
+        }
+
+        .portal-content {
+            gap: 1rem;
+        }
+
+        .button-row {
+            grid-template-columns: 1fr;
+        }
+
+        .tts-form-wrapper {
+            padding: 1rem;
+        }
+
+        .sidebar-panel {
+            padding: 1rem;
+        }
+    }
+</style>
+
+@if (!Model.IsAuthenticated)
+{
+    <!-- ===============================================
+         Landing Page (Unauthenticated Users)
+         =============================================== -->
+    <div class="landing-container">
+        <div class="landing-card">
+            <!-- Guild Icon -->
+            <div class="landing-guild-icon">
+                @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
+                {
+                    <img src="@Model.GuildIconUrl" alt="@Model.GuildName" />
+                }
+                else
+                {
+                    <span class="landing-guild-icon-placeholder">@(Model.GuildName.Length > 0 ? Model.GuildName[0].ToString().ToUpper() : "?")</span>
+                }
+            </div>
+
+            <!-- Guild Name -->
+            <h1 class="landing-guild-name">@Model.GuildName</h1>
+
+            <!-- Portal Badge -->
+            <span class="landing-portal-badge">TTS Portal</span>
+
+            <!-- Description -->
+            <p class="landing-description">
+                To send TTS messages, we need to verify you're a member of <span class="landing-description-highlight">this server</span>
+            </p>
+
+            <!-- Discord Login Button -->
+            <a href="@Model.LoginUrl" class="landing-discord-button">
+                <svg class="landing-discord-logo" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/>
+                </svg>
+                Login with Discord
+            </a>
+
+            <!-- Permissions Notice -->
+            <div class="landing-permissions-notice">
+                <div class="landing-permissions-title">What we'll request</div>
+                <div class="landing-permissions-item">
+                    <span class="landing-permission-icon">✓</span>
+                    <span>Access to see your server memberships</span>
+                </div>
+                <div class="landing-permissions-item">
+                    <span class="landing-permission-icon">✓</span>
+                    <span>Your Discord username and avatar</span>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <p class="landing-footer-text">
+                By logging in, you agree to our <a href="/Account/Privacy">Privacy Policy</a>
+            </p>
+        </div>
+    </div>
+}
+else
+{
+    <!-- ===============================================
+         TTS Portal (Authenticated Users)
+         =============================================== -->
+
+    <!-- Portal Header -->
+    <header class="portal-header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="bot-icon">
+                    <svg fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8zm0 18c-3.35 0-6-2.57-6-6.1 0-2.5 1.72-5.61 6-9.51 4.28 3.9 6 7.01 6 9.51 0 3.53-2.65 6.1-6 6.1z"/>
+                    </svg>
+                </div>
+                <div class="header-text">
+                    <h1>Text-to-Speech</h1>
+                    <p>@Model.GuildName</p>
+                </div>
+            </div>
+            <div class="status-badge @(Model.IsOnline ? "online" : "offline")">
+                <span class="status-dot"></span>
+                @(Model.IsOnline ? "Online" : "Offline")
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <div class="portal-content">
+
+            <!-- LEFT: Sidebar (Fixed width 300px) -->
+            <div class="sidebar">
+
+                <!-- Voice Channel Section -->
+                <div class="sidebar-panel">
+                    <div class="sidebar-title">Voice Channel</div>
+
+                    <!-- Connection Status -->
+                    <div class="connection-status">
+                        <span id="connectionStatus" class="status-badge-voice @(Model.IsConnected ? "connected" : "disconnected")">
+                            <span class="status-dot"></span>
+                            <span id="connectionStatusText">@(Model.IsConnected ? "Connected" : "Disconnected")</span>
+                        </span>
+                    </div>
+
+                    <!-- Channel Selector -->
+                    <label class="channel-label">Select Channel</label>
+                    <select id="channelSelect" class="channel-select">
+                        <option value="">-- Select a channel --</option>
+                        @foreach (var channel in Model.VoiceChannels)
+                        {
+                            <option value="@channel.Id" selected="@(channel.Id == Model.CurrentChannelId)">
+                                @channel.Name (@channel.MemberCount @(channel.MemberCount == 1 ? "member" : "members"))
+                            </option>
+                        }
+                    </select>
+
+                    <!-- Join/Leave Buttons -->
+                    <div class="button-row">
+                        <button id="joinBtn" class="btn btn-join" @(Model.IsConnected ? "disabled" : "")>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                            </svg>
+                            Join
+                        </button>
+                        <button id="leaveBtn" class="btn btn-leave" @(!Model.IsConnected ? "disabled" : "")>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            Leave
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Now Playing Section -->
+                <div class="sidebar-panel">
+                    <div class="sidebar-title">Now Playing</div>
+
+                    <!-- Now Playing Content (hidden when nothing playing) -->
+                    <div id="nowPlayingContent" class="hidden">
+                        <div class="now-playing-container">
+                            <div class="now-playing-item">
+                                <div class="now-playing-icon">
+                                    <svg fill="currentColor" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
+                                        <path d="M8 5v14l11-7z"/>
+                                    </svg>
+                                </div>
+                                <div class="now-playing-info">
+                                    <div id="nowPlayingName" class="now-playing-name">--</div>
+                                    <div class="now-playing-status">Playing...</div>
+                                </div>
+                                <button class="stop-btn" title="Stop">
+                                    <svg fill="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                                        <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty state when nothing playing -->
+                    <div id="nowPlayingEmpty" class="empty-now-playing">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p>No message playing</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- RIGHT: TTS Form Panel (Flexible) -->
+            <div class="tts-panel">
+                <div class="tts-form-wrapper">
+
+                    <!-- Message Input -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            Message
+                            <span class="form-label-small">(max 200 characters)</span>
+                        </label>
+                        <textarea id="messageInput"
+                                  class="form-textarea"
+                                  rows="6"
+                                  maxlength="200"
+                                  placeholder="Enter the message you want the bot to say..."></textarea>
+                        <div class="char-counter">
+                            <span>Character count:</span>
+                            <span class="char-count" id="charCount">0</span><span> / <span id="charMax">200</span></span>
+                        </div>
+                    </div>
+
+                    <!-- Voice Selection -->
+                    <div class="form-group">
+                        <label class="form-label">Voice</label>
+                        <select id="voiceSelect" class="form-select">
+                            <option value="">-- Select a voice --</option>
+                            @foreach (var localeGroup in Model.AvailableVoices.GroupBy(v => v.Locale).OrderBy(g => g.Key))
+                            {
+                                <optgroup label="@localeGroup.Key">
+                                    @foreach (var voice in localeGroup.OrderBy(v => v.DisplayName))
+                                    {
+                                        <option value="@voice.Name">@voice.DisplayName</option>
+                                    }
+                                </optgroup>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Speed and Pitch Controls -->
+                    <div class="form-row">
+                        <!-- Speed Slider -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                Speed
+                                <span class="form-label-small">
+                                    <span id="speedValue">1.0x</span>
+                                </span>
+                            </label>
+                            <div class="slider-group">
+                                <input type="range"
+                                       id="speedSlider"
+                                       class="form-range"
+                                       min="0.5"
+                                       max="2.0"
+                                       step="0.1"
+                                       value="1.0"
+                                       aria-label="Speech rate multiplier">
+                            </div>
+                        </div>
+
+                        <!-- Pitch Slider -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                Pitch
+                                <span class="form-label-small">
+                                    <span id="pitchValue">1.0x</span>
+                                </span>
+                            </label>
+                            <div class="slider-group">
+                                <input type="range"
+                                       id="pitchSlider"
+                                       class="form-range"
+                                       min="0.5"
+                                       max="2.0"
+                                       step="0.1"
+                                       value="1.0"
+                                       aria-label="Pitch adjustment">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Send Button -->
+                    <div class="form-group">
+                        <button id="sendBtn" class="send-btn" disabled>
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                            Send Message
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+} @* End of IsAuthenticated else block *@
+
+<!-- Toast Container -->
+<div id="portalToastContainer" class="portal-toast-container"></div>
+
+@section Scripts {
+@if (Model.IsAuthenticated)
+{
+    <script>
+        // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)
+        window.guildId = '@Model.GuildId';
+    </script>
+    <script src="~/js/portal-tts.js"></script>
+}
+}
