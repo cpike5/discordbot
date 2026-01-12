@@ -61,7 +61,7 @@ public class GuildTtsSettingsRepository : Repository<GuildTtsSettings>, IGuildTt
         {
             GuildId = guildId,
             TtsEnabled = true,
-            DefaultVoice = string.Empty,
+            DefaultVoice = "en-US-JennyNeural",
             DefaultSpeed = 1.0,
             DefaultPitch = 1.0,
             DefaultVolume = 0.8,

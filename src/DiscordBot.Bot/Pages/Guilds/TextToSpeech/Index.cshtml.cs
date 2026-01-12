@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -287,11 +288,11 @@ public class IndexModel : PageModel
             {
                 Id = Guid.NewGuid(),
                 GuildId = guildId,
-                UserId = 0, // TODO: Get from current user claims
+                UserId = User.GetDiscordUserId(),
                 Username = User.Identity?.Name ?? "Admin UI",
                 Message = message,
                 Voice = options.Voice ?? string.Empty,
-                DurationSeconds = 0, // TODO: Calculate from audio stream
+                DurationSeconds = CalculateAudioDuration(audioStream),
                 CreatedAt = DateTime.UtcNow
             };
             await _ttsHistoryService.LogMessageAsync(ttsMessage, cancellationToken);
@@ -313,6 +314,25 @@ public class IndexModel : PageModel
             ErrorMessage = "An error occurred while sending the message. Please try again.";
             return RedirectToPage("Index", new { guildId });
         }
+    }
+
+    /// <summary>
+    /// Calculates the duration of PCM audio stream in seconds.
+    /// </summary>
+    /// <param name="audioStream">The audio stream (48kHz, 16-bit, stereo PCM).</param>
+    /// <returns>Duration in seconds.</returns>
+    /// <remarks>
+    /// PCM format: 48kHz sample rate, 16-bit (2 bytes per sample), stereo (2 channels).
+    /// Bytes per second = 48000 samples/sec * 2 bytes/sample * 2 channels = 192000 bytes/sec.
+    /// </remarks>
+    private static double CalculateAudioDuration(Stream audioStream)
+    {
+        const int sampleRate = 48000;
+        const int bytesPerSample = 2; // 16-bit
+        const int channels = 2; // stereo
+        const int bytesPerSecond = sampleRate * bytesPerSample * channels; // 192000
+
+        return audioStream.Length / (double)bytesPerSecond;
     }
 
     /// <summary>

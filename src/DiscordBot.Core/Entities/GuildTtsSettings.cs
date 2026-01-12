@@ -18,7 +18,7 @@ public class GuildTtsSettings
     /// <summary>
     /// Gets or sets the default voice identifier for TTS messages.
     /// </summary>
-    public string DefaultVoice { get; set; } = string.Empty;
+    public string DefaultVoice { get; set; } = "en-US-JennyNeural";
 
     /// <summary>
     /// Gets or sets the default speech speed multiplier (1.0 = normal speed).
