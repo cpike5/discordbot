@@ -2,7 +2,9 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -18,6 +20,7 @@ public class IndexModel : PageModel
 {
     private readonly ITtsHistoryService _ttsHistoryService;
     private readonly ITtsSettingsService _ttsSettingsService;
+    private readonly ITtsService _ttsService;
     private readonly IAudioService _audioService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildService _guildService;
@@ -26,6 +29,7 @@ public class IndexModel : PageModel
     public IndexModel(
         ITtsHistoryService ttsHistoryService,
         ITtsSettingsService ttsSettingsService,
+        ITtsService ttsService,
         IAudioService audioService,
         DiscordSocketClient discordClient,
         IGuildService guildService,
@@ -33,6 +37,7 @@ public class IndexModel : PageModel
     {
         _ttsHistoryService = ttsHistoryService;
         _ttsSettingsService = ttsSettingsService;
+        _ttsService = ttsService;
         _audioService = audioService;
         _discordClient = discordClient;
         _guildService = guildService;
@@ -47,7 +52,7 @@ public class IndexModel : PageModel
     /// <summary>
     /// View model for the voice channel control panel.
     /// </summary>
-    public VoiceChannelPanelViewModel VoiceChannelPanel { get; set; } = null!;
+    public VoiceChannelPanelViewModel? VoiceChannelPanel { get; set; }
 
     /// <summary>
     /// Success message from TempData.
@@ -210,6 +215,102 @@ public class IndexModel : PageModel
             _logger.LogError(ex, "Error deleting TTS message {MessageId} for guild {GuildId}",
                 messageId, guildId);
             ErrorMessage = "An error occurred while deleting the message. Please try again.";
+            return RedirectToPage("Index", new { guildId });
+        }
+    }
+
+    /// <summary>
+    /// Handles POST requests to send a TTS message to the voice channel.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
+    /// <param name="message">The message text to synthesize and play.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Redirect to the index page.</returns>
+    public async Task<IActionResult> OnPostSendMessageAsync(
+        ulong guildId,
+        [FromForm] string message,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("User attempting to send TTS message for guild {GuildId}", guildId);
+
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            ErrorMessage = "Message cannot be empty.";
+            return RedirectToPage("Index", new { guildId });
+        }
+
+        if (!_ttsService.IsConfigured)
+        {
+            ErrorMessage = "TTS service is not configured. Please configure Azure Speech settings.";
+            return RedirectToPage("Index", new { guildId });
+        }
+
+        if (!_audioService.IsConnected(guildId))
+        {
+            ErrorMessage = "Bot is not connected to a voice channel. Please join a voice channel first.";
+            return RedirectToPage("Index", new { guildId });
+        }
+
+        try
+        {
+            // Get TTS settings for voice options
+            var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
+
+            var options = new TtsOptions
+            {
+                Voice = settings.DefaultVoice,
+                Speed = settings.DefaultSpeed,
+                Pitch = settings.DefaultPitch,
+                Volume = settings.DefaultVolume
+            };
+
+            // Synthesize the speech
+            using var audioStream = await _ttsService.SynthesizeSpeechAsync(message, options, cancellationToken);
+
+            // Get the PCM stream for playback
+            var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
+            if (pcmStream == null)
+            {
+                ErrorMessage = "Failed to get audio stream. Please try reconnecting to the voice channel.";
+                return RedirectToPage("Index", new { guildId });
+            }
+
+            // Stream the audio to Discord
+            await audioStream.CopyToAsync(pcmStream, cancellationToken);
+            await pcmStream.FlushAsync(cancellationToken);
+
+            // Update activity to prevent auto-leave
+            _audioService.UpdateLastActivity(guildId);
+
+            // Record in history
+            var ttsMessage = new TtsMessage
+            {
+                Id = Guid.NewGuid(),
+                GuildId = guildId,
+                UserId = 0, // TODO: Get from current user claims
+                Username = User.Identity?.Name ?? "Admin UI",
+                Message = message,
+                Voice = options.Voice ?? string.Empty,
+                DurationSeconds = 0, // TODO: Calculate from audio stream
+                CreatedAt = DateTime.UtcNow
+            };
+            await _ttsHistoryService.LogMessageAsync(ttsMessage, cancellationToken);
+
+            _logger.LogInformation("Successfully played TTS message for guild {GuildId}", guildId);
+            SuccessMessage = "Message sent to voice channel.";
+
+            return RedirectToPage("Index", new { guildId });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "TTS service error for guild {GuildId}: {Message}", guildId, ex.Message);
+            ErrorMessage = ex.Message;
+            return RedirectToPage("Index", new { guildId });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending TTS message for guild {GuildId}", guildId);
+            ErrorMessage = "An error occurred while sending the message. Please try again.";
             return RedirectToPage("Index", new { guildId });
         }
     }

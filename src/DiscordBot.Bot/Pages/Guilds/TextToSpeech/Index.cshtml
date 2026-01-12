@@ -170,7 +170,7 @@
                         <button type="submit"
                                 class="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-accent-orange text-white font-semibold text-sm rounded-lg hover:bg-accent-orange-hover transition-colors">
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M15.5 1H8.5C7.12 1 6 2.12 6 3.5v17C6 21.88 7.12 23 8.5 23h7c1.38 0 2.5-1.12 2.5-2.5v-17C18 2.12 16.88 1 15.5 1zm0 2v17h-7V3h7z"/>
+                                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                             </svg>
                             Play in Channel
                         </button>
@@ -369,7 +369,10 @@
         <div class="lg:col-span-3 space-y-6">
 
             <!-- Voice Channel Control Panel -->
-            <partial name="Shared/Components/_VoiceChannelPanel" model="Model.VoiceChannelPanel" />
+            @if (Model.VoiceChannelPanel != null)
+            {
+                <partial name="Shared/Components/_VoiceChannelPanel" model="Model.VoiceChannelPanel" />
+            }
 
         </div>
 
