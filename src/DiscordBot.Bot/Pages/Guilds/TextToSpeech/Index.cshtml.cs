@@ -138,7 +138,7 @@ public class IndexModel : PageModel
     /// <param name="autoPlayOnSend">Whether to auto-play TTS on send.</param>
     /// <param name="announceJoinsLeaves">Whether to announce joins/leaves.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Redirect to the index page.</returns>
+    /// <returns>Redirect to the index page or JSON for AJAX requests.</returns>
     public async Task<IActionResult> OnPostUpdateSettingsAsync(
         ulong guildId,
         [FromForm] string defaultVoice,
@@ -150,6 +150,9 @@ public class IndexModel : PageModel
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("User attempting to update TTS settings for guild {GuildId}", guildId);
+
+        // Check if this is an AJAX request
+        var isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
 
         try
         {
@@ -167,13 +170,35 @@ public class IndexModel : PageModel
             await _ttsSettingsService.UpdateSettingsAsync(settings, cancellationToken);
 
             _logger.LogInformation("Successfully updated TTS settings for guild {GuildId}", guildId);
-            SuccessMessage = "TTS settings updated successfully.";
 
+            if (isAjax)
+            {
+                return new JsonResult(new
+                {
+                    success = true,
+                    message = "TTS settings updated successfully."
+                });
+            }
+
+            SuccessMessage = "TTS settings updated successfully.";
             return RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error updating TTS settings for guild {GuildId}", guildId);
+
+            if (isAjax)
+            {
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "An error occurred while updating settings. Please try again."
+                })
+                {
+                    StatusCode = 400
+                };
+            }
+
             ErrorMessage = "An error occurred while updating settings. Please try again.";
             return RedirectToPage("Index", new { guildId });
         }
@@ -185,7 +210,7 @@ public class IndexModel : PageModel
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
     /// <param name="messageId">The TTS message ID to delete.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Redirect to the index page.</returns>
+    /// <returns>Redirect to the index page or JSON for AJAX requests.</returns>
     public async Task<IActionResult> OnPostDeleteMessageAsync(
         ulong guildId,
         Guid messageId,
@@ -194,6 +219,9 @@ public class IndexModel : PageModel
         _logger.LogInformation("User attempting to delete TTS message {MessageId} for guild {GuildId}",
             messageId, guildId);
 
+        // Check if this is an AJAX request
+        var isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+
         try
         {
             var deleted = await _ttsHistoryService.DeleteMessageAsync(messageId, cancellationToken);
@@ -201,20 +229,59 @@ public class IndexModel : PageModel
             if (deleted)
             {
                 _logger.LogInformation("Successfully deleted TTS message {MessageId}", messageId);
+
+                if (isAjax)
+                {
+                    return new JsonResult(new
+                    {
+                        success = true,
+                        message = "Message deleted successfully.",
+                        messageId = messageId.ToString()
+                    });
+                }
+
                 SuccessMessage = "Message deleted successfully.";
             }
             else
             {
                 _logger.LogWarning("TTS message {MessageId} not found", messageId);
+
+                if (isAjax)
+                {
+                    return new JsonResult(new
+                    {
+                        success = false,
+                        message = "Message not found."
+                    })
+                    {
+                        StatusCode = 400
+                    };
+                }
+
                 ErrorMessage = "Message not found.";
             }
 
-            return RedirectToPage("Index", new { guildId });
+            return isAjax
+                ? new JsonResult(new { success = false, message = "An unexpected error occurred." }) { StatusCode = 400 }
+                : RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting TTS message {MessageId} for guild {GuildId}",
                 messageId, guildId);
+
+            if (isAjax)
+            {
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "An error occurred while deleting the message. Please try again."
+                })
+                {
+                    StatusCode = 400
+                };
+            }
+
             ErrorMessage = "An error occurred while deleting the message. Please try again.";
             return RedirectToPage("Index", new { guildId });
         }
@@ -226,7 +293,7 @@ public class IndexModel : PageModel
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
     /// <param name="message">The message text to synthesize and play.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Redirect to the index page.</returns>
+    /// <returns>Redirect to the index page or JSON for AJAX requests.</returns>
     public async Task<IActionResult> OnPostSendMessageAsync(
         ulong guildId,
         [FromForm] string message,
@@ -234,21 +301,39 @@ public class IndexModel : PageModel
     {
         _logger.LogInformation("User attempting to send TTS message for guild {GuildId}", guildId);
 
+        // Check if this is an AJAX request
+        var isAjax = Request.Headers["X-Requested-With"] == "XMLHttpRequest";
+
         if (string.IsNullOrWhiteSpace(message))
         {
-            ErrorMessage = "Message cannot be empty.";
+            var errorMsg = "Message cannot be empty.";
+            if (isAjax)
+            {
+                return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
+            }
+            ErrorMessage = errorMsg;
             return RedirectToPage("Index", new { guildId });
         }
 
         if (!_ttsService.IsConfigured)
         {
-            ErrorMessage = "TTS service is not configured. Please configure Azure Speech settings.";
+            var errorMsg = "TTS service is not configured. Please configure Azure Speech settings.";
+            if (isAjax)
+            {
+                return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
+            }
+            ErrorMessage = errorMsg;
             return RedirectToPage("Index", new { guildId });
         }
 
         if (!_audioService.IsConnected(guildId))
         {
-            ErrorMessage = "Bot is not connected to a voice channel. Please join a voice channel first.";
+            var errorMsg = "Bot is not connected to a voice channel. Please join a voice channel first.";
+            if (isAjax)
+            {
+                return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
+            }
+            ErrorMessage = errorMsg;
             return RedirectToPage("Index", new { guildId });
         }
 
@@ -277,7 +362,12 @@ public class IndexModel : PageModel
             var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
             if (pcmStream == null)
             {
-                ErrorMessage = "Failed to get audio stream. Please try reconnecting to the voice channel.";
+                var errorMsg = "Failed to get audio stream. Please try reconnecting to the voice channel.";
+                if (isAjax)
+                {
+                    return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
+                }
+                ErrorMessage = errorMsg;
                 return RedirectToPage("Index", new { guildId });
             }
 
@@ -303,20 +393,59 @@ public class IndexModel : PageModel
             await _ttsHistoryService.LogMessageAsync(ttsMessage, cancellationToken);
 
             _logger.LogInformation("Successfully played TTS message for guild {GuildId}", guildId);
-            SuccessMessage = "Message sent to voice channel.";
 
+            if (isAjax)
+            {
+                // Get updated stats for AJAX response
+                var stats = await _ttsHistoryService.GetStatsAsync(guildId, cancellationToken);
+
+                // Build recent message DTO for client-side rendering
+                var recentMessage = new
+                {
+                    id = ttsMessage.Id.ToString(),
+                    userId = ttsMessage.UserId.ToString(),
+                    username = ttsMessage.Username,
+                    message = ttsMessage.Message,
+                    voice = ttsMessage.Voice,
+                    durationFormatted = FormatDuration(ttsMessage.DurationSeconds)
+                };
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    message = "Message sent to voice channel.",
+                    stats = new
+                    {
+                        messagesToday = stats.MessagesToday,
+                        totalPlaybackFormatted = FormatPlaybackTime(stats.TotalPlaybackSeconds),
+                        uniqueUsers = stats.UniqueUsers
+                    },
+                    recentMessage
+                });
+            }
+
+            SuccessMessage = "Message sent to voice channel.";
             return RedirectToPage("Index", new { guildId });
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "TTS service error for guild {GuildId}: {Message}", guildId, ex.Message);
+            if (isAjax)
+            {
+                return new JsonResult(new { success = false, message = ex.Message }) { StatusCode = 400 };
+            }
             ErrorMessage = ex.Message;
             return RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error sending TTS message for guild {GuildId}", guildId);
-            ErrorMessage = "An error occurred while sending the message. Please try again.";
+            var errorMsg = "An error occurred while sending the message. Please try again.";
+            if (isAjax)
+            {
+                return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
+            }
+            ErrorMessage = errorMsg;
             return RedirectToPage("Index", new { guildId });
         }
     }
@@ -338,6 +467,40 @@ public class IndexModel : PageModel
         const int bytesPerSecond = sampleRate * bytesPerSample * channels; // 192000
 
         return audioStream.Length / (double)bytesPerSecond;
+    }
+
+    /// <summary>
+    /// Formats a duration in seconds to a human-readable string.
+    /// </summary>
+    /// <param name="durationSeconds">Duration in seconds.</param>
+    /// <returns>Formatted duration string (e.g., "1m 23s", "45s").</returns>
+    private static string FormatDuration(double durationSeconds)
+    {
+        var timeSpan = TimeSpan.FromSeconds(durationSeconds);
+        if (timeSpan.TotalMinutes >= 1)
+        {
+            return $"{(int)timeSpan.TotalMinutes}m {timeSpan.Seconds}s";
+        }
+        return $"{(int)timeSpan.TotalSeconds}s";
+    }
+
+    /// <summary>
+    /// Formats total playback time in seconds to a human-readable string.
+    /// </summary>
+    /// <param name="totalSeconds">Total seconds of playback.</param>
+    /// <returns>Formatted playback time (e.g., "2h 15m", "45m", "30s").</returns>
+    private static string FormatPlaybackTime(double totalSeconds)
+    {
+        var timeSpan = TimeSpan.FromSeconds(totalSeconds);
+        if (timeSpan.TotalHours >= 1)
+        {
+            return $"{(int)timeSpan.TotalHours}h {timeSpan.Minutes}m";
+        }
+        if (timeSpan.TotalMinutes >= 1)
+        {
+            return $"{(int)timeSpan.TotalMinutes}m";
+        }
+        return $"{(int)timeSpan.TotalSeconds}s";
     }
 
     /// <summary>

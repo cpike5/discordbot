@@ -84,7 +84,7 @@
             <div class="flex items-start justify-between mb-4">
                 <div>
                     <p class="text-text-secondary text-sm mb-1">Messages Today</p>
-                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.MessagesToday</p>
+                    <p id="statsMessagesToday" class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.MessagesToday</p>
                 </div>
                 <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -100,7 +100,7 @@
             <div class="flex items-start justify-between mb-4">
                 <div>
                     <p class="text-text-secondary text-sm mb-1">Total Playback</p>
-                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.TotalPlaybackFormatted</p>
+                    <p id="statsTotalPlayback" class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.TotalPlaybackFormatted</p>
                 </div>
                 <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -132,7 +132,7 @@
             <div class="flex items-start justify-between mb-4">
                 <div>
                     <p class="text-text-secondary text-sm mb-1">Active Voices</p>
-                    <p class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.UniqueUsers</p>
+                    <p id="statsActiveVoices" class="text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.UniqueUsers</p>
                 </div>
                 <div class="w-10 h-10 bg-accent-orange/30 rounded-lg flex items-center justify-center text-accent-orange">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -153,7 +153,8 @@
             <!-- Message Input Section -->
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
                 <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">Send Message</h2>
-                <form method="post" asp-page-handler="SendMessage" asp-route-guildId="@Model.ViewModel.GuildId" id="ttsForm">
+                <form method="post" asp-page-handler="SendMessage" asp-route-guildId="@Model.ViewModel.GuildId"
+                      id="ttsForm" onsubmit="event.preventDefault(); window.ttsPage?.sendMessage(this);">
                     <div class="relative mb-4">
                         <textarea id="messageInput"
                                   name="message"
@@ -190,7 +191,8 @@
             <!-- Voice Settings Section -->
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
                 <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">Voice Settings</h2>
-                <form method="post" asp-page-handler="UpdateSettings" asp-route-guildId="@Model.ViewModel.GuildId" id="settingsForm">
+                <form method="post" asp-page-handler="UpdateSettings" asp-route-guildId="@Model.ViewModel.GuildId"
+                      id="settingsForm" onsubmit="event.preventDefault(); window.ttsPage?.updateSettings(this);">
 
                     <!-- Voice Selection -->
                     <div class="mb-5">
@@ -315,10 +317,10 @@
 
                 @if (Model.ViewModel.RecentMessages.Any())
                 {
-                    <div class="divide-y divide-border-secondary">
+                    <div id="recentMessagesList" class="divide-y divide-border-secondary">
                         @foreach (var message in Model.ViewModel.RecentMessages)
                         {
-                            <div class="flex items-center gap-3 p-4 hover:bg-bg-hover transition-colors group">
+                            <div class="flex items-center gap-3 p-4 hover:bg-bg-hover transition-colors group" data-message-id="@message.Id">
                                 <div class="w-9 h-9 rounded-full bg-accent-blue flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                                     @message.Username.Substring(0, Math.Min(2, message.Username.Length)).ToUpper()
                                 </div>
@@ -356,7 +358,7 @@
                 }
                 else
                 {
-                    <div class="p-8">
+                    <div id="recentMessagesList" class="p-8">
                         <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
                             Type = EmptyStateType.FirstTime,
                             Title = "No Messages Yet",
@@ -413,13 +415,12 @@
                         class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
                     Cancel
                 </button>
-                <form id="delete-form" method="post" asp-page-handler="DeleteMessage" asp-route-guildId="@Model.ViewModel.GuildId" class="inline-block">
-                    <input type="hidden" id="delete-message-id" name="messageId" value="" />
-                    <button type="submit"
-                            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors">
-                        Delete Message
-                    </button>
-                </form>
+                <button type="button"
+                        id="confirm-delete-btn"
+                        onclick="const messageId = document.getElementById('delete-message-id').value; window.ttsPage?.deleteMessage(messageId);"
+                        class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors">
+                    Delete Message
+                </button>
             </div>
         </div>
     </div>
@@ -428,6 +429,8 @@
 @section Scripts {
     <!-- Voice Channel Panel script (SignalR and DashboardHub are loaded in _Layout.cshtml) -->
     <script src="~/js/voice-channel-panel.js"></script>
+    <!-- TTS Page AJAX handlers -->
+    <script src="~/js/tts-page.js" asp-append-version="true"></script>
 
     <style>
         /* Gradient card style */
