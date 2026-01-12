@@ -16,6 +16,11 @@ public class PortalHeaderViewModel
     public string GuildName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the guild icon URL.
+    /// </summary>
+    public string? GuildIconUrl { get; set; }
+
+    /// <summary>
     /// Gets or sets whether the bot is online.
     /// </summary>
     public bool IsOnline { get; set; }
