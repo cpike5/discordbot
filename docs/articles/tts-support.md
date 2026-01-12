@@ -93,6 +93,154 @@ See [Audio Dependencies](audio-dependencies.md) for detailed installation instru
 - Auto-play on send option
 - Join/leave announcements (optional)
 
+## TTS Member Portal
+
+Guild members can access a web-based TTS portal to send text-to-speech messages without using Discord slash commands or admin privileges.
+
+**Portal URL:** `/Portal/TTS/{guildId}`
+
+**Authorization:** Discord OAuth required (guild membership verified)
+
+### Features
+
+- **Authentication**: Discord OAuth with automatic guild membership verification
+- **Landing Page**: Unauthenticated users see guild info and "Sign in with Discord" button
+- **Voice Channel Selection**: Join/leave voice channels via dropdown selector
+- **Message Input**: Large textarea with real-time character counter (respects guild max length)
+- **Voice Customization**:
+  - Voice selector dropdown (categorized by locale: English US, English UK, Spanish, etc.)
+  - Speed slider (0.5-2.0x)
+  - Pitch slider (0.5-2.0x)
+- **Now Playing**: Shows currently playing TTS message (first 50 characters)
+- **Rate Limiting**: Enforced per-user based on `GuildTtsSettings.RateLimitPerMinute`
+- **Real-time Status**: Connection and playback status polling (3-second interval)
+- **Mobile Responsive**: Sidebar stacks on mobile devices, touch-friendly controls
+
+### Access Control
+
+**Unauthenticated Users**
+- See landing page with guild name and icon
+- "Sign in with Discord" button redirects to OAuth flow
+- Return URL preserved to redirect back to portal after authentication
+
+**Authenticated Non-Members**
+- See "Access Denied" message
+- Explanation that user must be a member of the guild
+- Link to Discord server invite (if applicable)
+
+**Guild Members**
+- Full portal access with all features enabled
+- Can send TTS messages to voice channels
+- Subject to same rate limits as slash command users
+
+### Configuration
+
+The portal respects all guild TTS settings from `GuildTtsSettings`:
+- `TtsEnabled` - Portal returns 404 if TTS is disabled for the guild
+- `MaxMessageLength` - Character limit enforced in textarea
+- `RateLimitPerMinute` - Rate limiting enforced per user (429 response on exceed)
+- `DefaultVoice` - Initial voice selection in dropdown
+- `DefaultSpeed` - Initial speed slider value
+- `DefaultPitch` - Initial pitch slider value
+
+### User Experience
+
+**Sending a TTS Message:**
+1. Select a voice channel from the dropdown (bot joins automatically)
+2. Type message in textarea (character counter updates in real-time)
+3. Optionally adjust voice, speed, and pitch settings
+4. Click "Send to Channel" button
+5. Button shows loading state during synthesis
+6. Textarea clears on success, toast notification appears
+7. Voice/speed/pitch settings remain for next message
+
+**Rate Limiting:**
+- After reaching rate limit, user receives 429 error with clear message
+- Toast notification shows remaining wait time
+- Send button remains functional (server enforces limit)
+
+**Connection Status:**
+- Green indicator when connected to voice channel
+- Gray indicator when not connected
+- Send button disabled when not connected
+- Status updates every 3 seconds via polling
+
+**Now Playing Panel:**
+- Appears when TTS audio is playing
+- Shows message text (truncated to 50 characters)
+- Stop button to interrupt current playback
+- Hides automatically when playback completes
+
+### Technical Implementation
+
+**Frontend:**
+- Razor Page with two states: landing page (unauthenticated) and full portal (authenticated)
+- Vanilla JavaScript with AJAX for form submission (no page reloads)
+- Status polling every 3 seconds to update connection and playback state
+- Toast notification system for success/error feedback
+- Character counter with real-time updates and warning colors
+
+**Backend API:**
+- `GET /api/portal/tts/{guildId}/status` - Connection and playback status
+- `POST /api/portal/tts/{guildId}/send` - Synthesize and play TTS message
+- `POST /api/portal/tts/{guildId}/channel` - Join voice channel
+- `DELETE /api/portal/tts/{guildId}/channel` - Leave voice channel
+- `POST /api/portal/tts/{guildId}/stop` - Stop current playback
+
+**Security:**
+- All API endpoints require `[Authorize(Policy = "PortalGuildMember")]`
+- Guild membership verified via Discord API on each request
+- Rate limiting enforced server-side (user-level key: `tts:{guildId}:{userId}`)
+- XSS prevention: User-submitted text rendered as `textContent` (not `innerHTML`)
+- Input validation: Message length, voice name, speed/pitch ranges
+
+**Logging:**
+- All TTS messages sent via portal logged to `TtsMessages` table
+- Includes: GuildId, UserId, Username, Message, Voice, DurationSeconds, CreatedAt
+- Same logging mechanism as slash command TTS
+
+### Differences from Admin UI
+
+| Feature | Admin UI | Member Portal |
+|---------|----------|---------------|
+| **Authorization** | Requires Admin role | Requires guild membership only |
+| **URL Pattern** | `/Guilds/TextToSpeech/{guildId}` | `/Portal/TTS/{guildId}` |
+| **Message History** | Yes (view all messages) | No (send-only) |
+| **Preview Audio** | Yes (browser playback) | No |
+| **Settings Management** | Yes (edit guild settings) | No (read-only) |
+| **Landing Page** | N/A (requires login) | Yes (for unauthenticated users) |
+| **Rate Limiting** | Admin bypass (optional) | Always enforced |
+| **Analytics** | Yes (usage stats) | No |
+
+### Use Cases
+
+**Community Servers:**
+- Allow members to send announcements via TTS without moderator privileges
+- Useful for events, game nights, or community gatherings
+
+**Friend Servers:**
+- Casual TTS access for all members without command syntax
+- Web-based interface more accessible than slash commands
+
+**Music/Entertainment Bots:**
+- Provide TTS as a member-accessible feature alongside soundboard
+- Integrated voice channel controls for seamless audio experience
+
+**Accessibility:**
+- Web interface may be easier than Discord commands for some users
+- Keyboard navigation and screen reader support
+
+### Future Enhancements (Out of Scope)
+
+Potential future additions to the portal:
+- **Preview Button**: Client-side audio preview before sending to channel
+- **Message History**: Show user's own TTS message history with replay
+- **Voice Presets**: Save favorite voice/speed/pitch combinations per user
+- **Queue Management**: View queued messages when multiple users send simultaneously
+- **SignalR Real-time**: Replace polling with WebSocket-based real-time updates
+- **Message Templates**: Save frequently used phrases for quick access
+- **SSML Support**: Advanced users can write custom SSML for prosody control
+
 ## Azure Speech Configuration
 
 ### User Secrets Setup

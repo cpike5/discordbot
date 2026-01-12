@@ -333,6 +333,7 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 | Soundboard | `/Guilds/Soundboard/{guildId:long}` | Guild soundboard management |
 | Audio Settings | `/Guilds/AudioSettings/{guildId:long}` | Guild audio configuration |
 | Text-to-Speech | `/Guilds/TextToSpeech/{guildId:long}` | Guild TTS message management |
+| TTS Portal | `/Portal/TTS/{guildId:long}` | TTS message composer for guild members (OAuth required) |
 | Public Leaderboard | `/Guilds/{guildId:long}/Leaderboard` | Public Rat Watch leaderboard (no auth) |
 | Global Rat Watch Analytics | `/Admin/RatWatchAnalytics` | Cross-guild Rat Watch metrics (Admin+) |
 | Performance Dashboard | `/Admin/Performance` | Performance overview dashboard |
