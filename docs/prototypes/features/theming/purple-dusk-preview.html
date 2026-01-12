@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purple Dusk Theme - Color Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #e7e2de;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #4f214a;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #614978;
+            font-size: 1.125rem;
+            margin-bottom: 3rem;
+        }
+
+        .section {
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            color: #4f214a;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .color-block {
+            border-radius: 0.5rem;
+            padding: 3rem 1.5rem;
+            text-align: center;
+            border: 2px solid #bfb7b1;
+        }
+
+        .color-label {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+        }
+
+        .color-hex {
+            font-family: monospace;
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+
+        /* Background colors */
+        .bg-primary { background: #e7e2de; color: #4f214a; }
+        .bg-secondary { background: #d9d3cf; color: #4f214a; }
+        .bg-tertiary { background: #cbc4bf; color: #4f214a; }
+        .bg-hover { background: #bfb7b1; color: #4f214a; }
+
+        /* Text colors */
+        .text-primary { background: white; color: #4f214a; }
+        .text-secondary { background: white; color: #614978; }
+        .text-tertiary { background: white; color: #887a99; }
+        .text-inverse { background: #4f214a; color: #e7e2de; }
+
+        /* Accent colors */
+        .accent-purple { background: #614978; color: #e7e2de; }
+        .accent-purple-hover { background: #7a5c8f; color: #e7e2de; }
+        .accent-purple-active { background: #4f214a; color: #e7e2de; }
+        .accent-pink { background: #d5345b; color: white; }
+        .accent-pink-hover { background: #e5476d; color: white; }
+        .accent-pink-active { background: #b82a4d; color: white; }
+
+        /* Border colors */
+        .border-primary { background: white; color: #4f214a; border: 3px solid #bfb7b1; }
+        .border-secondary { background: white; color: #4f214a; border: 3px solid #d9d3cf; }
+
+        /* UI Examples */
+        .example-card {
+            background: #d9d3cf;
+            border-radius: 0.75rem;
+            padding: 2rem;
+            border: 1px solid #bfb7b1;
+            margin-bottom: 1rem;
+        }
+
+        .example-card h3 {
+            color: #4f214a;
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .example-card p {
+            color: #614978;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #614978;
+            color: #e7e2de;
+        }
+
+        .btn-primary:hover {
+            background: #7a5c8f;
+        }
+
+        .btn-secondary {
+            background: #d5345b;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #e5476d;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: #614978;
+            border: 2px solid #614978;
+        }
+
+        .btn-outline:hover {
+            background: #614978;
+            color: #e7e2de;
+        }
+
+        .input-example {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #bfb7b1;
+            border-radius: 0.5rem;
+            background: #e7e2de;
+            color: #4f214a;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .input-example::placeholder {
+            color: #887a99;
+        }
+
+        .input-example:focus {
+            outline: none;
+            border-color: #614978;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Purple Dusk Theme</h1>
+        <p class="subtitle">Light theme with warm beige backgrounds and purple accents</p>
+
+        <!-- Background Colors -->
+        <div class="section">
+            <h2 class="section-title">Background Colors</h2>
+            <div class="color-grid">
+                <div class="color-block bg-primary">
+                    <div class="color-label">Primary Background</div>
+                    <div class="color-hex">#e7e2de</div>
+                </div>
+                <div class="color-block bg-secondary">
+                    <div class="color-label">Secondary (Cards)</div>
+                    <div class="color-hex">#d9d3cf</div>
+                </div>
+                <div class="color-block bg-tertiary">
+                    <div class="color-label">Tertiary (Modals)</div>
+                    <div class="color-hex">#cbc4bf</div>
+                </div>
+                <div class="color-block bg-hover">
+                    <div class="color-label">Hover State</div>
+                    <div class="color-hex">#bfb7b1</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Colors -->
+        <div class="section">
+            <h2 class="section-title">Text Colors</h2>
+            <div class="color-grid">
+                <div class="color-block text-primary">
+                    <div class="color-label">Primary Text</div>
+                    <div class="color-hex">#4f214a</div>
+                </div>
+                <div class="color-block text-secondary">
+                    <div class="color-label">Secondary Text</div>
+                    <div class="color-hex">#614978</div>
+                </div>
+                <div class="color-block text-tertiary">
+                    <div class="color-label">Tertiary (Disabled)</div>
+                    <div class="color-hex">#887a99</div>
+                </div>
+                <div class="color-block text-inverse">
+                    <div class="color-label">Inverse Text</div>
+                    <div class="color-hex">#e7e2de on #4f214a</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accent Colors -->
+        <div class="section">
+            <h2 class="section-title">Accent Colors</h2>
+            <div class="color-grid">
+                <div class="color-block accent-purple">
+                    <div class="color-label">Purple Primary</div>
+                    <div class="color-hex">#614978</div>
+                </div>
+                <div class="color-block accent-purple-hover">
+                    <div class="color-label">Purple Hover</div>
+                    <div class="color-hex">#7a5c8f</div>
+                </div>
+                <div class="color-block accent-purple-active">
+                    <div class="color-label">Purple Active</div>
+                    <div class="color-hex">#4f214a</div>
+                </div>
+                <div class="color-block accent-pink">
+                    <div class="color-label">Pink Secondary</div>
+                    <div class="color-hex">#d5345b</div>
+                </div>
+                <div class="color-block accent-pink-hover">
+                    <div class="color-label">Pink Hover</div>
+                    <div class="color-hex">#e5476d</div>
+                </div>
+                <div class="color-block accent-pink-active">
+                    <div class="color-label">Pink Active</div>
+                    <div class="color-hex">#b82a4d</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Border Colors -->
+        <div class="section">
+            <h2 class="section-title">Border Colors</h2>
+            <div class="color-grid">
+                <div class="color-block border-primary">
+                    <div class="color-label">Primary Border</div>
+                    <div class="color-hex">#bfb7b1</div>
+                </div>
+                <div class="color-block border-secondary">
+                    <div class="color-label">Secondary Border</div>
+                    <div class="color-hex">#d9d3cf</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- UI Examples -->
+        <div class="section">
+            <h2 class="section-title">UI Components Example</h2>
+
+            <div class="example-card">
+                <h3>Example Card Component</h3>
+                <p>This is what a card would look like with secondary background and text hierarchy. Primary text is deep purple, secondary text is medium purple for labels and less important content.</p>
+
+                <input type="text" class="input-example" placeholder="Enter your text here...">
+
+                <div class="button-group">
+                    <button class="btn btn-primary">Primary Action</button>
+                    <button class="btn btn-secondary">Secondary Action</button>
+                    <button class="btn btn-outline">Outline Button</button>
+                </div>
+            </div>
+
+            <div class="example-card">
+                <h3>Another Card</h3>
+                <p>Notice how the cards sit on the primary beige background with subtle borders. Hover over the buttons to see the interaction states!</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
