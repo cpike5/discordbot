@@ -176,6 +176,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
 | [audio-dependencies.md](docs/articles/audio-dependencies.md) | Audio dependencies (FFmpeg, libsodium, libopus) setup for Windows/Linux |
 | [soundboard.md](docs/articles/soundboard.md) | Soundboard feature, commands, and admin UI |
+| [tts-support.md](docs/articles/tts-support.md) | Text-to-Speech feature with Azure Cognitive Services |
 | [log-aggregation.md](docs/articles/log-aggregation.md) | Elasticsearch and Seq centralized logging setup |
 | [elastic-stack-setup.md](docs/articles/elastic-stack-setup.md) | Local development setup for Elastic Stack (Elasticsearch, Kibana, APM) |
 | [kibana-dashboards.md](docs/articles/kibana-dashboards.md) | Kibana dashboards, saved searches, and alerting setup |
@@ -223,7 +224,7 @@ All HTML prototypes are located in `docs/prototypes/`. Open them directly in a b
 - Slash commands only (no prefix commands)
 - `InteractionHandler` discovers and registers command modules from assembly
 - Command modules inherit from `InteractionModuleBase<SocketInteractionContext>`
-- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`, `RequireGuildActive`, `RequireModerationEnabled`, `RequireModerator`, `RequireAudioEnabled`, `RequireVoiceChannel`
+- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`, `RequireGuildActive`, `RequireModerationEnabled`, `RequireModerator`, `RequireAudioEnabled`, `RequireVoiceChannel`, `RequireTtsEnabled`
 
 **Command Modules:**
 | Module | Commands |
@@ -244,6 +245,7 @@ All HTML prototypes are located in `docs/prototypes/`. Open them directly in a b
 | `WatchlistModule` | `/watchlist add/remove/list` |
 | `InvestigateModule` | `/investigate` |
 | `ConsentModule` | `/consent`, `/privacy` |
+| `TtsModule` | `/tts <message> [voice]` |
 | `SoundboardModule` | `/play <sound>`, `/sounds`, `/stop` |
 | `VoiceModule` | `/join`, `/join-channel <channel>`, `/leave` |
 
