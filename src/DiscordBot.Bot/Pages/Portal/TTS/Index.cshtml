@@ -1014,29 +1014,16 @@ else
          TTS Portal (Authenticated Users)
          =============================================== -->
 
-    <!-- Portal Header -->
-    <header class="portal-header">
-        <div class="header-content">
-            <div class="header-left">
-                <div class="bot-icon">
-                    <svg fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8zm0 18c-3.35 0-6-2.57-6-6.1 0-2.5 1.72-5.61 6-9.51 4.28 3.9 6 7.01 6 9.51 0 3.53-2.65 6.1-6 6.1z"/>
-                    </svg>
-                </div>
-                <div class="header-text">
-                    <h1>Text-to-Speech</h1>
-                    <p>@Model.GuildName</p>
-                </div>
-            </div>
-            <div class="status-badge @(Model.IsOnline ? "online" : "offline")">
-                <span class="status-dot"></span>
-                @(Model.IsOnline ? "Online" : "Offline")
-            </div>
-        </div>
-    </header>
+    <!-- Portal Header with Navigation -->
+    <partial name="../Shared/_PortalHeader" model='new DiscordBot.Bot.ViewModels.Portal.PortalHeaderViewModel {
+        GuildId = Model.GuildId,
+        GuildName = Model.GuildName,
+        IsOnline = Model.IsOnline,
+        ActiveTab = "tts"
+    }' />
 
     <!-- Main Content -->
-    <main class="main-container">
+    <main class="main-container" data-guild-id="@Model.GuildId">
         <div class="portal-content">
 
             <!-- LEFT: Sidebar (Fixed width 300px) -->
@@ -1097,10 +1084,10 @@ else
                                     </svg>
                                 </div>
                                 <div class="now-playing-info">
-                                    <div id="nowPlayingName" class="now-playing-name">--</div>
+                                    <div id="nowPlayingMessage" class="now-playing-name">--</div>
                                     <div class="now-playing-status">Playing...</div>
                                 </div>
-                                <button class="stop-btn" title="Stop">
+                                <button id="stopBtn" class="stop-btn" title="Stop">
                                     <svg fill="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
                                         <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
                                     </svg>
@@ -1131,12 +1118,12 @@ else
                             Message
                             <span class="form-label-small">(max 200 characters)</span>
                         </label>
-                        <textarea id="messageInput"
+                        <textarea id="ttsMessage"
                                   class="form-textarea"
                                   rows="6"
                                   maxlength="200"
                                   placeholder="Enter the message you want the bot to say..."></textarea>
-                        <div class="char-counter">
+                        <div id="charCounter" class="char-counter">
                             <span>Character count:</span>
                             <span class="char-count" id="charCount">0</span><span> / <span id="charMax">200</span></span>
                         </div>

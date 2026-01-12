@@ -32,6 +32,9 @@ public class PortalTtsController : ControllerBase
     // Track current TTS message being played per guild
     private static readonly ConcurrentDictionary<ulong, string> _currentMessages = new();
 
+    // Track whether TTS is currently playing per guild
+    private static readonly ConcurrentDictionary<ulong, bool> _ttsPlaybackState = new();
+
     /// <summary>
     /// Initializes a new instance of the <see cref="PortalTtsController"/> class.
     /// </summary>
@@ -82,7 +85,11 @@ public class PortalTtsController : ControllerBase
             channelName = channel?.Name;
         }
 
-        var isPlaying = _playbackService.IsPlaying(guildId);
+        // Check both soundboard and TTS playback
+        var isSoundboardPlaying = _playbackService.IsPlaying(guildId);
+        var isTtsPlaying = _ttsPlaybackState.TryGetValue(guildId, out var ttsPlaying) && ttsPlaying;
+        var isPlaying = isSoundboardPlaying || isTtsPlaying;
+
         var currentMessage = _currentMessages.TryGetValue(guildId, out var message) ? message : null;
 
         var response = new TtsStatusResponse
@@ -229,12 +236,16 @@ public class PortalTtsController : ControllerBase
             : request.Message;
         _currentMessages.AddOrUpdate(guildId, truncatedMessage, (k, v) => truncatedMessage);
 
+        // Mark TTS as playing
+        _ttsPlaybackState.AddOrUpdate(guildId, true, (k, v) => true);
+
         // Get the PCM stream for playback
         var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
         if (pcmStream == null)
         {
             _logger.LogError("Failed to get PCM stream for guild {GuildId}", guildId);
             _currentMessages.TryRemove(guildId, out _);
+            _ttsPlaybackState.TryRemove(guildId, out _);
             return BadRequest(new ApiErrorDto
             {
                 Message = "Failed to get audio stream",
@@ -259,6 +270,7 @@ public class PortalTtsController : ControllerBase
         {
             _logger.LogError(ex, "Failed to stream TTS audio for guild {GuildId}", guildId);
             _currentMessages.TryRemove(guildId, out _);
+            _ttsPlaybackState.TryRemove(guildId, out _);
             return BadRequest(new ApiErrorDto
             {
                 Message = "Failed to play TTS",
@@ -266,6 +278,12 @@ public class PortalTtsController : ControllerBase
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
+        }
+        finally
+        {
+            // Clear TTS playback state and message tracking after streaming completes
+            _ttsPlaybackState.TryRemove(guildId, out _);
+            _currentMessages.TryRemove(guildId, out _);
         }
 
         // Log to database
@@ -401,7 +419,8 @@ public class PortalTtsController : ControllerBase
         // Stop any playback first
         await _playbackService.StopAsync(guildId, cancellationToken);
 
-        // Clear current message tracking
+        // Clear TTS playback state and message tracking
+        _ttsPlaybackState.TryRemove(guildId, out _);
         _currentMessages.TryRemove(guildId, out _);
 
         var success = await _audioService.LeaveChannelAsync(guildId, cancellationToken);
@@ -446,15 +465,24 @@ public class PortalTtsController : ControllerBase
             });
         }
 
-        if (!_playbackService.IsPlaying(guildId))
+        // Check if anything is playing (soundboard or TTS)
+        var isSoundboardPlaying = _playbackService.IsPlaying(guildId);
+        var isTtsPlaying = _ttsPlaybackState.TryGetValue(guildId, out var ttsPlaying) && ttsPlaying;
+
+        if (!isSoundboardPlaying && !isTtsPlaying)
         {
             _logger.LogDebug("Nothing playing in guild {GuildId}", guildId);
             return Ok(new { Message = "Nothing playing" });
         }
 
-        await _playbackService.StopAsync(guildId, cancellationToken);
+        // Stop soundboard playback if active
+        if (isSoundboardPlaying)
+        {
+            await _playbackService.StopAsync(guildId, cancellationToken);
+        }
 
-        // Clear current message tracking
+        // Clear TTS playback state and message tracking
+        _ttsPlaybackState.TryRemove(guildId, out _);
         _currentMessages.TryRemove(guildId, out _);
 
         _logger.LogInformation("Successfully stopped TTS playback in guild {GuildId}", guildId);

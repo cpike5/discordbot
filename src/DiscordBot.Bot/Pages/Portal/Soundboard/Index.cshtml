@@ -1311,27 +1311,13 @@ else
          Soundboard Portal (Authenticated Users)
          =============================================== -->
 
-    <!-- Portal Header -->
-    <header class="portal-header">
-        <div class="header-content">
-            <div class="header-left">
-                <div class="bot-icon">
-                    <svg fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M19.75 10.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm-15.5 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"/>
-                        <path d="M20 7a8 8 0 00-8-8 8 8 0 00-8 8v9a3 3 0 003 3h10a3 3 0 003-3V7z"/>
-                    </svg>
-                </div>
-                <div class="header-text">
-                    <h1>Soundboard</h1>
-                    <p>@Model.GuildName</p>
-                </div>
-            </div>
-            <div class="status-badge @(Model.IsOnline ? "online" : "offline")">
-                <span class="status-dot"></span>
-                @(Model.IsOnline ? "Online" : "Offline")
-            </div>
-        </div>
-    </header>
+    <!-- Portal Header with Navigation -->
+    <partial name="../Shared/_PortalHeader" model='new DiscordBot.Bot.ViewModels.Portal.PortalHeaderViewModel {
+        GuildId = Model.GuildId,
+        GuildName = Model.GuildName,
+        IsOnline = Model.IsOnline,
+        ActiveTab = "soundboard"
+    }' />
 
 <!-- Main Content -->
 <main class="main-container">

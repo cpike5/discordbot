@@ -11,7 +11,7 @@ public class SendTtsRequest
     /// Gets or sets the text message to synthesize.
     /// </summary>
     [Required]
-    [MaxLength(500)]
+    [MaxLength(200)]
     public string Message { get; set; } = string.Empty;
 
     /// <summary>

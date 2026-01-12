@@ -13,7 +13,8 @@
         SPEED_DEFAULT: 1.0,
         PITCH_MIN: 0.5,
         PITCH_MAX: 2.0,
-        PITCH_DEFAULT: 1.0
+        PITCH_DEFAULT: 1.0,
+        STORAGE_KEY_VOICE: 'tts_selected_voice'  // localStorage key for voice persistence
     };
 
     // ========================================
@@ -41,22 +42,24 @@
     // Initialization
     // ========================================
     function init() {
-        // Get guild ID from data attribute on page
+        // Get guild ID from data attribute on page (preferred) or window.guildId (fallback)
         const guildIdElement = document.querySelector('[data-guild-id]');
-        if (!guildIdElement) {
-            console.log('[PortalTTS] Guild ID element not found, skipping initialization');
-            return;
+        if (guildIdElement) {
+            guildId = guildIdElement.dataset.guildId;
+        } else if (window.guildId) {
+            guildId = window.guildId;
+            console.log('[PortalTTS] Using window.guildId fallback');
         }
 
-        guildId = guildIdElement.dataset.guildId;
         if (!guildId) {
-            console.log('[PortalTTS] No guild ID provided');
+            console.log('[PortalTTS] No guild ID provided, skipping initialization');
             return;
         }
 
         console.log('[PortalTTS] Initializing for guild:', guildId);
 
         setupEventHandlers();
+        loadSavedVoice();
         startStatusPolling();
     }
 
@@ -111,7 +114,8 @@
         const voiceSelect = document.getElementById('voiceSelect');
         if (voiceSelect) {
             voiceSelect.addEventListener('change', function() {
-                // Voice selection change - no immediate action needed
+                // Save selected voice to localStorage
+                saveSelectedVoice(this.value);
             });
         }
 
@@ -124,6 +128,39 @@
         const pitchSlider = document.getElementById('pitchSlider');
         if (pitchSlider) {
             pitchSlider.addEventListener('input', updatePitchDisplay);
+        }
+    }
+
+    // ========================================
+    // Voice Persistence
+    // ========================================
+    function loadSavedVoice() {
+        try {
+            const savedVoice = localStorage.getItem(CONFIG.STORAGE_KEY_VOICE);
+            if (savedVoice) {
+                const voiceSelect = document.getElementById('voiceSelect');
+                if (voiceSelect) {
+                    // Check if the saved voice still exists in the dropdown
+                    const option = voiceSelect.querySelector(`option[value="${savedVoice}"]`);
+                    if (option) {
+                        voiceSelect.value = savedVoice;
+                        console.log('[PortalTTS] Restored saved voice:', savedVoice);
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('[PortalTTS] Failed to load saved voice:', error);
+        }
+    }
+
+    function saveSelectedVoice(voice) {
+        try {
+            if (voice) {
+                localStorage.setItem(CONFIG.STORAGE_KEY_VOICE, voice);
+                console.log('[PortalTTS] Saved voice preference:', voice);
+            }
+        } catch (error) {
+            console.warn('[PortalTTS] Failed to save voice:', error);
         }
     }
 
@@ -193,6 +230,10 @@
     // ========================================
     async function sendTtsMessage() {
         const messageInput = document.getElementById('ttsMessage');
+        if (!messageInput) {
+            console.error('[PortalTTS] Message input element not found');
+            return;
+        }
         const message = messageInput.value.trim();
 
         if (!message) {
@@ -212,8 +253,16 @@
         }
 
         const voice = document.getElementById('voiceSelect').value;
+        if (!voice) {
+            showToast('warning', 'Please select a voice first!');
+            return;
+        }
         const speed = parseFloat(document.getElementById('speedSlider').value) || CONFIG.SPEED_DEFAULT;
         const pitch = parseFloat(document.getElementById('pitchSlider').value) || CONFIG.PITCH_DEFAULT;
+
+        // Clear textarea immediately so user can start typing next message
+        messageInput.value = '';
+        updateCharacterCount();
 
         // Disable send button and show loading
         const sendBtn = document.getElementById('sendBtn');
@@ -248,9 +297,6 @@
                 throw new Error(errorData.message || 'Failed to send message');
             }
 
-            // Clear textarea on success
-            messageInput.value = '';
-            updateCharacterCount();
             showToast('success', 'Message sent successfully');
         } catch (error) {
             console.error('[PortalTTS] Send error:', error);
@@ -353,7 +399,9 @@
     }
 
     async function stopPlayback() {
-        if (!isPlaying) return;
+        if (!isPlaying) {
+            return;
+        }
 
         try {
             const response = await fetch(API.stop(guildId), {
@@ -380,6 +428,7 @@
     // ========================================
     function updateCharacterCount() {
         const messageInput = document.getElementById('ttsMessage');
+        if (!messageInput) return;
         const count = messageInput.value.length;
         const charCount = document.getElementById('charCount');
         const charCounter = document.getElementById('charCounter');

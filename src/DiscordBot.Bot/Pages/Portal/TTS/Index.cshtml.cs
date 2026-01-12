@@ -151,7 +151,7 @@ public class IndexModel : PageModel
             {
                 _logger.LogDebug("Unauthenticated user viewing landing page for guild {GuildId}", guildId);
                 // Still populate available voices for potential future use
-                PopulateAvailableVoices();
+                await PopulateAvailableVoicesAsync(cancellationToken);
                 return Page();
             }
 
@@ -161,7 +161,7 @@ public class IndexModel : PageModel
             {
                 _logger.LogDebug("User not found or no Discord linked, showing landing page for guild {GuildId}", guildId);
                 IsAuthenticated = false; // Treat as unauthenticated for UI purposes
-                PopulateAvailableVoices();
+                await PopulateAvailableVoicesAsync(cancellationToken);
                 return Page();
             }
 
@@ -194,7 +194,7 @@ public class IndexModel : PageModel
             VoiceChannels = voiceChannels;
             CurrentChannelId = _audioService.GetConnectedChannelId(guildId);
             IsConnected = _audioService.IsConnected(guildId);
-            PopulateAvailableVoices();
+            await PopulateAvailableVoicesAsync(cancellationToken);
 
             _logger.LogDebug("Loaded TTS Portal for guild {GuildId}", guildId);
 
@@ -209,96 +209,81 @@ public class IndexModel : PageModel
 
     /// <summary>
     /// Populates the list of available TTS voices.
-    /// This would typically come from Azure Cognitive Services or similar TTS provider.
-    /// For now, providing a curated list of common voices.
+    /// Uses a curated list to keep the dropdown manageable.
     /// </summary>
-    private void PopulateAvailableVoices()
+    private Task PopulateAvailableVoicesAsync(CancellationToken cancellationToken = default)
     {
-        // TODO: Replace with actual voice list from Azure Cognitive Services or TTS service
-        // This is a placeholder with common English voices
-        AvailableVoices = new List<TtsVoiceInfo>
+        // Use curated list of most popular voices
+        AvailableVoices = GetCuratedVoices();
+        _logger.LogDebug("Loaded {Count} curated voices", AvailableVoices.Count);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Gets a curated list of essential voices.
+    /// Only includes the most commonly used voices to keep the dropdown manageable.
+    /// </summary>
+    private static List<TtsVoiceInfo> GetCuratedVoices()
+    {
+        return new List<TtsVoiceInfo>
         {
-            // English (US)
-            new() { Name = "en-US-AvaNeural", DisplayName = "Ava (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-AmberNeural", DisplayName = "Amber (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-AriaNeural", DisplayName = "Aria (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-AshleyNeural", DisplayName = "Ashley (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-CoraNeural", DisplayName = "Cora (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-ElizabethNeural", DisplayName = "Elizabeth (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-MichelleNeural", DisplayName = "Michelle (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-MonicaNeural", DisplayName = "Monica (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-AmandaNeural", DisplayName = "Amanda (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-BrandonNeural", DisplayName = "Brandon (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-ChristopherNeural", DisplayName = "Christopher (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-DavidNeural", DisplayName = "David (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-EricNeural", DisplayName = "Eric (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-GuyNeural", DisplayName = "Guy (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-JacobNeural", DisplayName = "Jacob (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-JasonNeural", DisplayName = "Jason (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-JennyNeural", DisplayName = "Jenny (Female, Friendly)", Locale = "English (US)" },
-            new() { Name = "en-US-JesseNeural", DisplayName = "Jesse (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-JordanNeural", DisplayName = "Jordan (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-LouisaNeural", DisplayName = "Louisa (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-MichaelNeural", DisplayName = "Michael (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-RogerNeural", DisplayName = "Roger (Male)", Locale = "English (US)" },
-            new() { Name = "en-US-SarahNeural", DisplayName = "Sarah (Female)", Locale = "English (US)" },
-            new() { Name = "en-US-ThomasNeural", DisplayName = "Thomas (Male)", Locale = "English (US)" },
+            // English (US) - most popular only
+            new() { Name = "en-US-JennyNeural", DisplayName = "Jenny (Female)", Locale = "en-US" },
+            new() { Name = "en-US-GuyNeural", DisplayName = "Guy (Male)", Locale = "en-US" },
+            new() { Name = "en-US-AriaNeural", DisplayName = "Aria (Female)", Locale = "en-US" },
+            new() { Name = "en-US-DavisNeural", DisplayName = "Davis (Male)", Locale = "en-US" },
+            new() { Name = "en-US-JaneNeural", DisplayName = "Jane (Female)", Locale = "en-US" },
+            new() { Name = "en-US-JasonNeural", DisplayName = "Jason (Male)", Locale = "en-US" },
 
             // English (UK)
-            new() { Name = "en-GB-AbbiNeural", DisplayName = "Abbi (Female)", Locale = "English (UK)" },
-            new() { Name = "en-GB-BellaNeural", DisplayName = "Bella (Female)", Locale = "English (UK)" },
-            new() { Name = "en-GB-ElliotNeural", DisplayName = "Elliot (Male)", Locale = "English (UK)" },
-            new() { Name = "en-GB-EthanNeural", DisplayName = "Ethan (Male)", Locale = "English (UK)" },
-            new() { Name = "en-GB-LibbyNeural", DisplayName = "Libby (Female)", Locale = "English (UK)" },
-            new() { Name = "en-GB-MaisieNeural", DisplayName = "Maisie (Female, Child)", Locale = "English (UK)" },
-            new() { Name = "en-GB-OliverNeural", DisplayName = "Oliver (Male, Child)", Locale = "English (UK)" },
-            new() { Name = "en-GB-OliverNeural", DisplayName = "Oliver (Male)", Locale = "English (UK)" },
-            new() { Name = "en-GB-RyanNeural", DisplayName = "Ryan (Male)", Locale = "English (UK)" },
-            new() { Name = "en-GB-SoniaNeural", DisplayName = "Sonia (Female)", Locale = "English (UK)" },
-            new() { Name = "en-GB-ThomasNeural", DisplayName = "Thomas (Male)", Locale = "English (UK)" },
-
-            // Spanish
-            new() { Name = "es-ES-AlvaroNeural", DisplayName = "Alvaro (Male)", Locale = "Spanish (Spain)" },
-            new() { Name = "es-ES-ElviraNeural", DisplayName = "Elvira (Female)", Locale = "Spanish (Spain)" },
-            new() { Name = "es-MX-DaliaNeural", DisplayName = "Dalia (Female)", Locale = "Spanish (Mexico)" },
-            new() { Name = "es-MX-JorgeNeural", DisplayName = "Jorge (Male)", Locale = "Spanish (Mexico)" },
-
-            // French
-            new() { Name = "fr-FR-CelesteNeural", DisplayName = "Celeste (Female)", Locale = "French" },
-            new() { Name = "fr-FR-CoralieNeural", DisplayName = "Coralie (Female)", Locale = "French" },
-            new() { Name = "fr-FR-DeniseNeural", DisplayName = "Denise (Female)", Locale = "French" },
-            new() { Name = "fr-FR-EloiseNeural", DisplayName = "Eloise (Female, Child)", Locale = "French" },
-            new() { Name = "fr-FR-HenriNeural", DisplayName = "Henri (Male)", Locale = "French" },
-            new() { Name = "fr-FR-JacquelineNeural", DisplayName = "Jacqueline (Female)", Locale = "French" },
-            new() { Name = "fr-FR-JeromeNeural", DisplayName = "Jerome (Male)", Locale = "French" },
-            new() { Name = "fr-FR-JosephineNeural", DisplayName = "Josephine (Female)", Locale = "French" },
-            new() { Name = "fr-FR-MauriceNeural", DisplayName = "Maurice (Male)", Locale = "French" },
-            new() { Name = "fr-FR-YvetteNeural", DisplayName = "Yvette (Female)", Locale = "French" },
-
-            // German
-            new() { Name = "de-DE-AmalaNeural", DisplayName = "Amala (Female)", Locale = "German" },
-            new() { Name = "de-DE-BerndNeural", DisplayName = "Bernd (Male)", Locale = "German" },
-            new() { Name = "de-DE-CoraNeural", DisplayName = "Cora (Female)", Locale = "German" },
-            new() { Name = "de-DE-EddyNeural", DisplayName = "Eddy (Male)", Locale = "German" },
-            new() { Name = "de-DE-GisberNeural", DisplayName = "Gisber (Male)", Locale = "German" },
-            new() { Name = "de-DE-KasperNeural", DisplayName = "Kasper (Male)", Locale = "German" },
-            new() { Name = "de-DE-KerstinNeural", DisplayName = "Kerstin (Female)", Locale = "German" },
+            new() { Name = "en-GB-SoniaNeural", DisplayName = "Sonia (Female)", Locale = "en-GB" },
+            new() { Name = "en-GB-RyanNeural", DisplayName = "Ryan (Male)", Locale = "en-GB" },
+            new() { Name = "en-GB-LibbyNeural", DisplayName = "Libby (Female)", Locale = "en-GB" },
 
             // Japanese
-            new() { Name = "ja-JP-AzukaNeural", DisplayName = "Azuka (Female)", Locale = "Japanese" },
-            new() { Name = "ja-JP-DaisukeNeural", DisplayName = "Daisuke (Male)", Locale = "Japanese" },
-            new() { Name = "ja-JP-KeitaNeural", DisplayName = "Keita (Male)", Locale = "Japanese" },
-            new() { Name = "ja-JP-MayuNeural", DisplayName = "Mayu (Female)", Locale = "Japanese" },
-            new() { Name = "ja-JP-NaokiNeural", DisplayName = "Naoki (Male)", Locale = "Japanese" },
-            new() { Name = "ja-JP-NatsukiNeural", DisplayName = "Natsuki (Female)", Locale = "Japanese" },
-            new() { Name = "ja-JP-ShioriNeural", DisplayName = "Shiori (Female)", Locale = "Japanese" },
+            new() { Name = "ja-JP-NanamiNeural", DisplayName = "Nanami (Female)", Locale = "ja-JP" },
+            new() { Name = "ja-JP-KeitaNeural", DisplayName = "Keita (Male)", Locale = "ja-JP" },
+            new() { Name = "ja-JP-MayuNeural", DisplayName = "Mayu (Female)", Locale = "ja-JP" },
+            new() { Name = "ja-JP-NaokiNeural", DisplayName = "Naoki (Male)", Locale = "ja-JP" },
+
+            // French
+            new() { Name = "fr-FR-DeniseNeural", DisplayName = "Denise (Female)", Locale = "fr-FR" },
+            new() { Name = "fr-FR-HenriNeural", DisplayName = "Henri (Male)", Locale = "fr-FR" },
+            new() { Name = "fr-FR-BrigitteNeural", DisplayName = "Brigitte (Female)", Locale = "fr-FR" },
+
+            // German
+            new() { Name = "de-DE-KatjaNeural", DisplayName = "Katja (Female)", Locale = "de-DE" },
+            new() { Name = "de-DE-ConradNeural", DisplayName = "Conrad (Male)", Locale = "de-DE" },
+
+            // Italian
+            new() { Name = "it-IT-ElsaNeural", DisplayName = "Elsa (Female)", Locale = "it-IT" },
+            new() { Name = "it-IT-DiegoNeural", DisplayName = "Diego (Male)", Locale = "it-IT" },
+
+            // Spanish
+            new() { Name = "es-ES-ElviraNeural", DisplayName = "Elvira (Female)", Locale = "es-ES" },
+            new() { Name = "es-ES-AlvaroNeural", DisplayName = "Alvaro (Male)", Locale = "es-ES" },
+            new() { Name = "es-MX-DaliaNeural", DisplayName = "Dalia (Female)", Locale = "es-MX" },
+
+            // Hindi (Indian)
+            new() { Name = "hi-IN-SwaraNeural", DisplayName = "Swara (Female)", Locale = "hi-IN" },
+            new() { Name = "hi-IN-MadhurNeural", DisplayName = "Madhur (Male)", Locale = "hi-IN" },
 
             // Chinese (Mandarin)
-            new() { Name = "zh-CN-XiaoxiaoNeural", DisplayName = "Xiaoxiao (Female)", Locale = "Chinese (Mandarin)" },
-            new() { Name = "zh-CN-XiaoyuNeural", DisplayName = "Xiaoyu (Female)", Locale = "Chinese (Mandarin)" },
-            new() { Name = "zh-CN-XiaomoNeural", DisplayName = "Xiaomo (Female)", Locale = "Chinese (Mandarin)" },
-            new() { Name = "zh-CN-YunyangNeural", DisplayName = "Yunyang (Male)", Locale = "Chinese (Mandarin)" },
-            new() { Name = "zh-CN-YunxiaNeural", DisplayName = "Yunxia (Male)", Locale = "Chinese (Mandarin)" },
+            new() { Name = "zh-CN-XiaoxiaoNeural", DisplayName = "Xiaoxiao (Female)", Locale = "zh-CN" },
+            new() { Name = "zh-CN-YunxiNeural", DisplayName = "Yunxi (Male)", Locale = "zh-CN" },
+            new() { Name = "zh-CN-YunyangNeural", DisplayName = "Yunyang (Male)", Locale = "zh-CN" },
+
+            // Swedish
+            new() { Name = "sv-SE-SofieNeural", DisplayName = "Sofie (Female)", Locale = "sv-SE" },
+            new() { Name = "sv-SE-MattiasNeural", DisplayName = "Mattias (Male)", Locale = "sv-SE" },
+
+            // Russian
+            new() { Name = "ru-RU-SvetlanaNeural", DisplayName = "Svetlana (Female)", Locale = "ru-RU" },
+            new() { Name = "ru-RU-DmitryNeural", DisplayName = "Dmitry (Male)", Locale = "ru-RU" },
+
+            // Arabic
+            new() { Name = "ar-SA-ZariyahNeural", DisplayName = "Zariyah (Female)", Locale = "ar-SA" },
+            new() { Name = "ar-SA-HamedNeural", DisplayName = "Hamed (Male)", Locale = "ar-SA" },
         };
     }
 }
