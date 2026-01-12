@@ -39,7 +39,7 @@ public class FilterAutocompleteHandler : AutocompleteHandler
             .Take(25) // Discord autocomplete result limit
             .Select(kvp => new AutocompleteResult(
                 $"{kvp.Value.Name} - {kvp.Value.Description}",
-                kvp.Key.ToString()))
+                (int)kvp.Key)) // Return enum integer value for Discord.NET enum parameter binding
             .ToList();
 
         return Task.FromResult(AutocompletionResult.FromSuccess(results));
