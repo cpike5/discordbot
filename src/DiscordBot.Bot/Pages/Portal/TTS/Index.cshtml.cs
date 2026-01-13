@@ -21,6 +21,7 @@ public class IndexModel : PageModel
     private readonly DiscordSocketClient _discordClient;
     private readonly IAudioService _audioService;
     private readonly ITtsService _ttsService;
+    private readonly ISettingsService _settingsService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<IndexModel> _logger;
 
@@ -29,6 +30,7 @@ public class IndexModel : PageModel
         DiscordSocketClient discordClient,
         IAudioService audioService,
         ITtsService ttsService,
+        ISettingsService settingsService,
         UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger)
     {
@@ -36,6 +38,7 @@ public class IndexModel : PageModel
         _discordClient = discordClient;
         _audioService = audioService;
         _ttsService = ttsService;
+        _settingsService = settingsService;
         _userManager = userManager;
         _logger = logger;
     }
@@ -103,6 +106,11 @@ public class IndexModel : PageModel
     public string LoginUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets whether audio features are globally disabled at the bot level.
+    /// </summary>
+    public bool IsAudioGloballyDisabled { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the TTS Portal page.
     /// Shows a landing page for unauthenticated users.
     /// </summary>
@@ -133,6 +141,10 @@ public class IndexModel : PageModel
                 _logger.LogWarning("Guild {GuildId} not found in Discord client", guildId);
                 return NotFound();
             }
+
+            // Check if audio is globally disabled
+            var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
+            IsAudioGloballyDisabled = !isGloballyEnabled;
 
             // Set basic guild info for landing page (needed for both auth states)
             GuildId = guildId;

@@ -38,6 +38,7 @@ public class PortalTtsIntegrationTests : IDisposable
     private readonly Mock<ITtsMessageRepository> _mockTtsMessageRepository;
     private readonly Mock<IAudioService> _mockAudioService;
     private readonly Mock<IPlaybackService> _mockPlaybackService;
+    private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly Mock<DiscordSocketClient> _mockDiscordClient;
     private readonly Mock<ILogger<PortalTtsController>> _mockLogger;
     private readonly AzureSpeechOptions _azureSpeechOptions;
@@ -53,8 +54,13 @@ public class PortalTtsIntegrationTests : IDisposable
         _mockTtsMessageRepository = new Mock<ITtsMessageRepository>();
         _mockAudioService = new Mock<IAudioService>();
         _mockPlaybackService = new Mock<IPlaybackService>();
+        _mockSettingsService = new Mock<ISettingsService>();
         _mockDiscordClient = new Mock<DiscordSocketClient>(MockBehavior.Default, new DiscordSocketConfig());
         _mockLogger = new Mock<ILogger<PortalTtsController>>();
+
+        // Setup bot-level audio enabled by default
+        _mockSettingsService.Setup(s => s.GetSettingValueAsync<bool?>("Features:AudioEnabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         // Setup Azure Speech options
         _azureSpeechOptions = new AzureSpeechOptions
@@ -71,6 +77,7 @@ public class PortalTtsIntegrationTests : IDisposable
             _mockTtsMessageRepository.Object,
             _mockAudioService.Object,
             _mockPlaybackService.Object,
+            _mockSettingsService.Object,
             _mockDiscordClient.Object,
             Options.Create(_azureSpeechOptions),
             _mockLogger.Object);

@@ -24,6 +24,7 @@ public class PortalSoundboardController : ControllerBase
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
     private readonly IGuildAudioSettingsService _audioSettingsService;
+    private readonly ISettingsService _settingsService;
     private readonly IAudioNotifier _audioNotifier;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<PortalSoundboardController> _logger;
@@ -36,6 +37,7 @@ public class PortalSoundboardController : ControllerBase
     /// <param name="audioService">The audio service for voice connections.</param>
     /// <param name="playbackService">The playback service for audio control.</param>
     /// <param name="audioSettingsService">The audio settings service.</param>
+    /// <param name="settingsService">The bot-level settings service.</param>
     /// <param name="audioNotifier">The audio notifier for real-time updates.</param>
     /// <param name="discordClient">The Discord socket client.</param>
     /// <param name="logger">The logger.</param>
@@ -45,6 +47,7 @@ public class PortalSoundboardController : ControllerBase
         IAudioService audioService,
         IPlaybackService playbackService,
         IGuildAudioSettingsService audioSettingsService,
+        ISettingsService settingsService,
         IAudioNotifier audioNotifier,
         DiscordSocketClient discordClient,
         ILogger<PortalSoundboardController> logger)
@@ -54,9 +57,19 @@ public class PortalSoundboardController : ControllerBase
         _audioService = audioService;
         _playbackService = playbackService;
         _audioSettingsService = audioSettingsService;
+        _settingsService = settingsService;
         _audioNotifier = audioNotifier;
         _discordClient = discordClient;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Checks if audio features are globally enabled at the bot level.
+    /// </summary>
+    /// <returns>True if audio is globally enabled, false otherwise.</returns>
+    private async Task<bool> IsAudioGloballyEnabledAsync()
+    {
+        return await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
     }
 
     /// <summary>
@@ -72,6 +85,19 @@ public class PortalSoundboardController : ControllerBase
     public async Task<IActionResult> GetSounds(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Get sounds request for guild {GuildId}", guildId);
+
+        // Check if audio is globally enabled at the bot level
+        if (!await IsAudioGloballyEnabledAsync())
+        {
+            _logger.LogWarning("Audio features globally disabled - rejecting GetSounds for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio features disabled",
+                Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
 
         // Check if audio is enabled for this guild
         var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
@@ -123,6 +149,19 @@ public class PortalSoundboardController : ControllerBase
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Upload sound request for guild {GuildId}, name {SoundName}", guildId, name);
+
+        // Check if audio is globally enabled at the bot level
+        if (!await IsAudioGloballyEnabledAsync())
+        {
+            _logger.LogWarning("Audio features globally disabled - rejecting UploadSound for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio features disabled",
+                Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
 
         // Check if audio is enabled for this guild
         var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
@@ -293,6 +332,19 @@ public class PortalSoundboardController : ControllerBase
     {
         _logger.LogInformation("Play sound request for sound {SoundId} in guild {GuildId}", soundId, guildId);
 
+        // Check if audio is globally enabled at the bot level
+        if (!await IsAudioGloballyEnabledAsync())
+        {
+            _logger.LogWarning("Audio features globally disabled - rejecting PlaySound for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio features disabled",
+                Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
         // Check if audio is enabled for this guild
         var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
         if (audioSettings == null || !audioSettings.AudioEnabled)
@@ -423,6 +475,19 @@ public class PortalSoundboardController : ControllerBase
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Join channel request for guild {GuildId}, channel {ChannelId}", guildId, request.ChannelId);
+
+        // Check if audio is globally enabled at the bot level
+        if (!await IsAudioGloballyEnabledAsync())
+        {
+            _logger.LogWarning("Audio features globally disabled - rejecting JoinChannel for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio features disabled",
+                Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
 
         // Check if audio is enabled for this guild
         var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);

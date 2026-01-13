@@ -53,6 +53,19 @@
         ActiveTab = "tts"
     }' />
 
+    <!-- Audio Globally Disabled Warning -->
+    @if (Model.IsAudioGloballyDisabled)
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                Variant = AlertVariant.Warning,
+                Title = "Audio Features Disabled",
+                Message = "Audio features have been disabled globally by an administrator. TTS commands will not work until audio is re-enabled in Settings.",
+                IsDismissible = false
+            }' />
+        </div>
+    }
+
     <!-- Success Message -->
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {

@@ -29,6 +29,7 @@ public class PortalTtsController : ControllerBase
     private readonly ITtsMessageRepository _ttsMessageRepository;
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
+    private readonly ISettingsService _settingsService;
     private readonly DiscordSocketClient _discordClient;
     private readonly AzureSpeechOptions _azureSpeechOptions;
     private readonly ILogger<PortalTtsController> _logger;
@@ -47,6 +48,7 @@ public class PortalTtsController : ControllerBase
     /// <param name="ttsMessageRepository">The TTS message repository.</param>
     /// <param name="audioService">The audio service for voice connections.</param>
     /// <param name="playbackService">The playback service for audio control.</param>
+    /// <param name="settingsService">The bot-level settings service.</param>
     /// <param name="discordClient">The Discord socket client.</param>
     /// <param name="azureSpeechOptions">The Azure Speech configuration options.</param>
     /// <param name="logger">The logger.</param>
@@ -56,6 +58,7 @@ public class PortalTtsController : ControllerBase
         ITtsMessageRepository ttsMessageRepository,
         IAudioService audioService,
         IPlaybackService playbackService,
+        ISettingsService settingsService,
         DiscordSocketClient discordClient,
         IOptions<AzureSpeechOptions> azureSpeechOptions,
         ILogger<PortalTtsController> logger)
@@ -65,9 +68,19 @@ public class PortalTtsController : ControllerBase
         _ttsMessageRepository = ttsMessageRepository;
         _audioService = audioService;
         _playbackService = playbackService;
+        _settingsService = settingsService;
         _discordClient = discordClient;
         _azureSpeechOptions = azureSpeechOptions.Value;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Checks if audio features are globally enabled at the bot level.
+    /// </summary>
+    /// <returns>True if audio is globally enabled, false otherwise.</returns>
+    private async Task<bool> IsAudioGloballyEnabledAsync()
+    {
+        return await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
     }
 
     /// <summary>
@@ -129,6 +142,19 @@ public class PortalTtsController : ControllerBase
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Send TTS request for guild {GuildId}, voice {Voice}", guildId, request.Voice);
+
+        // Check if audio is globally enabled at the bot level
+        if (!await IsAudioGloballyEnabledAsync())
+        {
+            _logger.LogWarning("Audio features globally disabled - rejecting SendTts for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio features disabled",
+                Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
 
         // Check if TTS is enabled for this guild
         var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
@@ -399,6 +425,19 @@ public class PortalTtsController : ControllerBase
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Join channel request for guild {GuildId}, channel {ChannelId}", guildId, request.ChannelId);
+
+        // Check if audio is globally enabled at the bot level
+        if (!await IsAudioGloballyEnabledAsync())
+        {
+            _logger.LogWarning("Audio features globally disabled - rejecting JoinChannel for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio features disabled",
+                Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
 
         // Check if TTS is enabled for this guild
         var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);

@@ -46,6 +46,19 @@
         SoundCount = Model.SoundCount
     }' />
 
+    <!-- Audio Globally Disabled Warning -->
+    @if (Model.IsAudioGloballyDisabled)
+    {
+        <div class="mb-6 max-w-4xl mx-auto">
+            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                Variant = AlertVariant.Warning,
+                Title = "Audio Features Disabled",
+                Message = "Audio features have been disabled globally by an administrator. Audio commands will not work until audio is re-enabled in Settings.",
+                IsDismissible = false
+            }' />
+        </div>
+    }
+
 <div class="max-w-4xl mx-auto">
     <!-- General Settings Section -->
     <section class="settings-section mb-6">
