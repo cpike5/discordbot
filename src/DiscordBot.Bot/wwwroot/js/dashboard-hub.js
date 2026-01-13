@@ -302,6 +302,60 @@ const DashboardHub = (function() {
     }
 
     /**
+     * Joins a guild-specific audio group to receive audio events for that guild.
+     * @param {string} guildId - The Discord guild ID.
+     * @returns {Promise<void>}
+     */
+    async function joinGuildAudioGroup(guildId) {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot join guild audio group');
+            return;
+        }
+        try {
+            await connection.invoke('JoinGuildAudioGroup', guildId);
+            console.log('[DashboardHub] Joined guild audio group:', guildId);
+        } catch (error) {
+            console.error('[DashboardHub] Failed to join guild audio group:', error);
+        }
+    }
+
+    /**
+     * Leaves a guild-specific audio group.
+     * @param {string} guildId - The Discord guild ID.
+     * @returns {Promise<void>}
+     */
+    async function leaveGuildAudioGroup(guildId) {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot leave guild audio group');
+            return;
+        }
+        try {
+            await connection.invoke('LeaveGuildAudioGroup', guildId);
+            console.log('[DashboardHub] Left guild audio group:', guildId);
+        } catch (error) {
+            console.error('[DashboardHub] Failed to leave guild audio group:', error);
+        }
+    }
+
+    /**
+     * Gets the current audio status for a guild.
+     * @param {string} guildId - The Discord guild ID.
+     * @returns {Promise<object|null>} The audio status object or null on error.
+     */
+    async function getCurrentAudioStatus(guildId) {
+        if (!connection || !isConnected) {
+            console.warn('[DashboardHub] Not connected, cannot get audio status');
+            return null;
+        }
+        try {
+            return await connection.invoke('GetCurrentAudioStatus', guildId);
+        } catch (error) {
+            console.error('[DashboardHub] Failed to get audio status:', error);
+            return null;
+        }
+    }
+
+    /**
      * Registers a handler for a specific server event.
      * @param {string} eventName - The event name from the server.
      * @param {function} handler - The callback function.
@@ -405,6 +459,9 @@ const DashboardHub = (function() {
         joinSystemHealthGroup,
         leaveSystemHealthGroup,
         getCurrentSystemHealth,
+        joinGuildAudioGroup,
+        leaveGuildAudioGroup,
+        getCurrentAudioStatus,
         on,
         off,
         isConnected: getIsConnected,
