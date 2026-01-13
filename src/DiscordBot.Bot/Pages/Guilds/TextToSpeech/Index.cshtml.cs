@@ -25,6 +25,7 @@ public class IndexModel : PageModel
     private readonly IAudioService _audioService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildService _guildService;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -34,6 +35,7 @@ public class IndexModel : PageModel
         IAudioService audioService,
         DiscordSocketClient discordClient,
         IGuildService guildService,
+        ISettingsService settingsService,
         ILogger<IndexModel> logger)
     {
         _ttsHistoryService = ttsHistoryService;
@@ -42,6 +44,7 @@ public class IndexModel : PageModel
         _audioService = audioService;
         _discordClient = discordClient;
         _guildService = guildService;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
@@ -68,6 +71,11 @@ public class IndexModel : PageModel
     public string? ErrorMessage { get; set; }
 
     /// <summary>
+    /// Gets whether audio features are globally disabled at the bot level.
+    /// </summary>
+    public bool IsAudioGloballyDisabled { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the TTS management page.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -81,6 +89,10 @@ public class IndexModel : PageModel
 
         try
         {
+            // Check if audio is globally disabled
+            var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
+            IsAudioGloballyDisabled = !isGloballyEnabled;
+
             // Get guild info from service
             var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
             if (guild == null)

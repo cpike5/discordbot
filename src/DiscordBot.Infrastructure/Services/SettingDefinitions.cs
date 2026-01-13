@@ -124,6 +124,15 @@ public static class SettingDefinitions
             requiresRestart: false,
             description: "Enable or disable the Rat Watch accountability feature globally"
         ),
+        new(
+            key: "Features:AudioEnabled",
+            displayName: "Audio Features",
+            category: SettingCategory.Features,
+            dataType: SettingDataType.Boolean,
+            defaultValue: "true",
+            requiresRestart: false,
+            description: "Enable or disable all audio features globally (soundboard, TTS, voice commands)"
+        ),
 
         // Advanced Category
         new(

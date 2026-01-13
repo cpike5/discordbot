@@ -24,6 +24,7 @@ public class IndexModel : PageModel
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IAudioService _audioService;
+    private readonly ISettingsService _settingsService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<IndexModel> _logger;
 
@@ -33,6 +34,7 @@ public class IndexModel : PageModel
         IGuildService guildService,
         DiscordSocketClient discordClient,
         IAudioService audioService,
+        ISettingsService settingsService,
         UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger)
     {
@@ -41,6 +43,7 @@ public class IndexModel : PageModel
         _guildService = guildService;
         _discordClient = discordClient;
         _audioService = audioService;
+        _settingsService = settingsService;
         _userManager = userManager;
         _logger = logger;
     }
@@ -133,6 +136,11 @@ public class IndexModel : PageModel
     public string LoginUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets whether audio features are globally disabled at the bot level.
+    /// </summary>
+    public bool IsAudioGloballyDisabled { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the Soundboard Portal page.
     /// Shows a landing page for unauthenticated users.
     /// </summary>
@@ -148,6 +156,10 @@ public class IndexModel : PageModel
 
         try
         {
+            // Check if audio is globally disabled at bot level
+            var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
+            IsAudioGloballyDisabled = !isGloballyEnabled;
+
             // Check if portal is enabled for this guild first (before auth check)
             var audioSettings = await _audioSettingsRepository.GetByGuildIdAsync(guildId);
 

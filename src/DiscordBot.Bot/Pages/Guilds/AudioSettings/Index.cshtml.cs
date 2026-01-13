@@ -21,6 +21,7 @@ public class IndexModel : PageModel
     private readonly ISoundService _soundService;
     private readonly DiscordSocketClient _discordClient;
     private readonly SoundboardOptions _soundboardOptions;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -29,6 +30,7 @@ public class IndexModel : PageModel
         ISoundService soundService,
         DiscordSocketClient discordClient,
         IOptions<SoundboardOptions> soundboardOptions,
+        ISettingsService settingsService,
         ILogger<IndexModel> logger)
     {
         _audioSettingsService = audioSettingsService;
@@ -36,6 +38,7 @@ public class IndexModel : PageModel
         _soundService = soundService;
         _discordClient = discordClient;
         _soundboardOptions = soundboardOptions.Value;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
@@ -71,6 +74,11 @@ public class IndexModel : PageModel
     public int SoundCount { get; set; }
 
     /// <summary>
+    /// Gets whether audio features are globally disabled at the bot level.
+    /// </summary>
+    public bool IsAudioGloballyDisabled { get; set; }
+
+    /// <summary>
     /// The soundboard commands that can have role restrictions.
     /// </summary>
     public static readonly string[] SoundboardCommands = { "join", "leave", "play", "sounds", "stop" };
@@ -82,6 +90,10 @@ public class IndexModel : PageModel
     {
         _logger.LogDebug("Audio settings page accessed for guild {GuildId} by user {UserId}",
             GuildId, User.Identity?.Name);
+
+        // Check if audio is globally disabled
+        var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
+        IsAudioGloballyDisabled = !isGloballyEnabled;
 
         // Load guild information
         var guild = await _guildService.GetGuildByIdAsync(GuildId, cancellationToken);
