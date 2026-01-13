@@ -119,9 +119,23 @@ public record SoundboardStatsViewModel
 
     /// <summary>
     /// Gets the number of plays today.
-    /// Currently always 0 (placeholder for future feature).
     /// </summary>
     public int PlaysToday { get; init; }
+
+    /// <summary>
+    /// Gets the number of plays yesterday.
+    /// </summary>
+    public int PlaysYesterday { get; init; }
+
+    /// <summary>
+    /// Gets the comparison text to display (e.g., "+12% vs yesterday", "No data").
+    /// </summary>
+    public string ComparisonText { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the CSS class for the comparison text color (e.g., "text-green-600", "text-red-600").
+    /// </summary>
+    public string ComparisonCssClass { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the total storage used in bytes.
@@ -235,6 +249,8 @@ public record SoundboardIndexViewModel
         string? guildIconUrl,
         IReadOnlyList<Sound> sounds,
         GuildAudioSettings settings,
+        int playsToday,
+        int playsYesterday,
         string currentSort = "name-asc")
     {
         // Map sounds to view models
@@ -252,11 +268,17 @@ public record SoundboardIndexViewModel
         // Find most played sound
         var topSound = sounds.OrderByDescending(s => s.PlayCount).FirstOrDefault();
 
+        // Calculate comparison text and CSS class
+        var (comparisonText, comparisonCssClass) = CalculateComparison(playsToday, playsYesterday);
+
         // Build statistics
         var stats = new SoundboardStatsViewModel
         {
             TotalSounds = sounds.Count,
-            PlaysToday = 0, // Placeholder for future feature
+            PlaysToday = playsToday,
+            PlaysYesterday = playsYesterday,
+            ComparisonText = comparisonText,
+            ComparisonCssClass = comparisonCssClass,
             StorageUsedBytes = storageUsedBytes,
             StorageLimitBytes = storageLimitBytes,
             StorageUsedFormatted = FormatFileSize(storageUsedBytes),
@@ -279,6 +301,44 @@ public record SoundboardIndexViewModel
             SupportedFormats = "MP3, WAV, OGG", // Static for now, could be made configurable
             CurrentSort = currentSort
         };
+    }
+
+    /// <summary>
+    /// Calculates comparison text and CSS class for play statistics.
+    /// </summary>
+    /// <param name="today">Number of plays today.</param>
+    /// <param name="yesterday">Number of plays yesterday.</param>
+    /// <returns>A tuple containing the comparison text and CSS class.</returns>
+    private static (string text, string cssClass) CalculateComparison(int today, int yesterday)
+    {
+        // Handle case where yesterday had no plays
+        if (yesterday == 0)
+        {
+            if (today > 0)
+            {
+                return ($"+{today} (no data yesterday)", "text-green-600");
+            }
+            else
+            {
+                return ("No data", "text-gray-500");
+            }
+        }
+
+        // Calculate percentage change
+        var percentageChange = ((today - yesterday) / (double)yesterday) * 100;
+
+        if (percentageChange > 0)
+        {
+            return ($"+{percentageChange:F0}% vs yesterday", "text-green-600");
+        }
+        else if (percentageChange < 0)
+        {
+            return ($"{percentageChange:F0}% vs yesterday", "text-red-600");
+        }
+        else
+        {
+            return ("Same as yesterday", "text-gray-500");
+        }
     }
 
     /// <summary>

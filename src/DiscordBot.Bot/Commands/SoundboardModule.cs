@@ -198,6 +198,9 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
 
                 await RespondAsync(embed: playingEmbed, ephemeral: true);
             }
+
+            // Log play event (fire-and-forget - don't block on logging)
+            _ = _soundService.LogPlayAsync(sound.Id, guildId, userId);
         }
         catch (FileNotFoundException)
         {

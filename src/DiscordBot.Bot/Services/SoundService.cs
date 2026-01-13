@@ -15,17 +15,20 @@ public class SoundService : ISoundService
 {
     private readonly ISoundRepository _soundRepository;
     private readonly IGuildAudioSettingsRepository _settingsRepository;
+    private readonly ISoundPlayLogRepository _playLogRepository;
     private readonly ILogger<SoundService> _logger;
     private readonly SoundboardOptions _options;
 
     public SoundService(
         ISoundRepository soundRepository,
         IGuildAudioSettingsRepository settingsRepository,
+        ISoundPlayLogRepository playLogRepository,
         ILogger<SoundService> logger,
         IOptions<SoundboardOptions> options)
     {
         _soundRepository = soundRepository;
         _settingsRepository = settingsRepository;
+        _playLogRepository = playLogRepository;
         _logger = logger;
         _options = options.Value;
     }
@@ -332,6 +335,7 @@ public class SoundService : ISoundService
 
             _logger.LogDebug("Guild {GuildId} has {Count} sounds", guildId, count);
 
+            BotActivitySource.SetRecordsReturned(activity, count);
             BotActivitySource.SetSuccess(activity);
             return count;
         }
@@ -339,6 +343,54 @@ public class SoundService : ISoundService
         {
             BotActivitySource.RecordException(activity, ex);
             throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task LogPlayAsync(Guid soundId, ulong guildId, ulong userId, CancellationToken ct = default)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "sound",
+            "log_play",
+            guildId: guildId,
+            entityId: soundId.ToString());
+
+        try
+        {
+            _logger.LogDebug(
+                "Logging play event for sound {SoundId} in guild {GuildId} by user {UserId}",
+                soundId,
+                guildId,
+                userId);
+
+            var playLog = new SoundPlayLog
+            {
+                SoundId = soundId,
+                GuildId = guildId,
+                UserId = userId,
+                PlayedAt = DateTime.UtcNow
+            };
+
+            await _playLogRepository.AddAsync(playLog, ct);
+
+            _logger.LogDebug(
+                "Play event logged successfully for sound {SoundId} in guild {GuildId}",
+                soundId,
+                guildId);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            // Log failure as warning but don't rethrow - logging shouldn't block playback
+            _logger.LogWarning(
+                ex,
+                "Failed to log play event for sound {SoundId} in guild {GuildId} by user {UserId}",
+                soundId,
+                guildId,
+                userId);
+
+            BotActivitySource.RecordException(activity, ex);
         }
     }
 }
