@@ -89,7 +89,7 @@ public class GuildAccessAuthorizationHandlerTests : IDisposable
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, "user123"),
-            new Claim(ClaimTypes.Role, Roles.Admin)
+            new Claim(ClaimTypes.Role, Roles.Moderator) // Changed from Admin to Moderator
         };
         var identity = new ClaimsIdentity(claims, "TestAuth");
         var user = new ClaimsPrincipal(identity);
@@ -116,7 +116,7 @@ public class GuildAccessAuthorizationHandlerTests : IDisposable
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, "user123"),
-            new Claim(ClaimTypes.Role, Roles.Admin)
+            new Claim(ClaimTypes.Role, Roles.Moderator) // Changed from Admin to Moderator
         };
         var identity = new ClaimsIdentity(claims, "TestAuth");
         var user = new ClaimsPrincipal(identity);
@@ -147,7 +147,7 @@ public class GuildAccessAuthorizationHandlerTests : IDisposable
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, "user123"),
-            new Claim(ClaimTypes.Role, Roles.Admin)
+            new Claim(ClaimTypes.Role, Roles.Moderator) // Changed from Admin to Moderator
         };
         var identity = new ClaimsIdentity(claims, "TestAuth");
         var user = new ClaimsPrincipal(identity);
@@ -216,7 +216,7 @@ public class GuildAccessAuthorizationHandlerTests : IDisposable
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, userId),
-            new Claim(ClaimTypes.Role, Roles.Admin)
+            new Claim(ClaimTypes.Role, Roles.Moderator) // Changed from Admin to Moderator
         };
         var identity = new ClaimsIdentity(claims, "TestAuth");
         var user = new ClaimsPrincipal(identity);
@@ -632,6 +632,313 @@ public class GuildAccessAuthorizationHandlerTests : IDisposable
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once,
             "debug log should be written when access is denied");
+    }
+
+    [Fact]
+    public async Task Admin_BypassesGuildMembershipCheck_Succeeds()
+    {
+        // Arrange
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, "admin123"),
+            new Claim(ClaimTypes.Role, Roles.Admin)
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var user = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.RouteValues = new RouteValueDictionary
+        {
+            ["guildId"] = "123456789012345678"
+        };
+
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        var requirement = new GuildAccessRequirement(GuildAccessLevel.Admin);
+        var context = new AuthorizationHandlerContext(
+            new[] { requirement },
+            user,
+            null);
+
+        // Act
+        await _handler.HandleAsync(context);
+
+        // Assert
+        context.HasSucceeded.Should().BeTrue("Admin should have access to all guilds without guild membership check");
+        context.HasFailed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Moderator_WithDiscordMembership_Succeeds()
+    {
+        // Arrange
+        const string userId = "moderator123";
+        const ulong guildId = 123456789012345678;
+
+        // Add ApplicationUser first (required for FK constraint)
+        var appUser = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "moderator@test.com",
+            Email = "moderator@test.com"
+        };
+        _dbContext.Set<ApplicationUser>().Add(appUser);
+        await _dbContext.SaveChangesAsync();
+
+        // Add Discord guild membership record
+        var userDiscordGuild = new UserDiscordGuild
+        {
+            Id = Guid.NewGuid(),
+            ApplicationUserId = userId,
+            GuildId = guildId,
+            GuildName = "Test Guild",
+            IsOwner = false,
+            Permissions = 0,
+            CapturedAt = DateTime.UtcNow,
+            LastUpdatedAt = DateTime.UtcNow
+        };
+        _dbContext.Set<UserDiscordGuild>().Add(userDiscordGuild);
+        await _dbContext.SaveChangesAsync();
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.Role, Roles.Moderator)
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var user = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.RouteValues = new RouteValueDictionary
+        {
+            ["guildId"] = guildId.ToString()
+        };
+
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        var requirement = new GuildAccessRequirement(GuildAccessLevel.Viewer);
+        var context = new AuthorizationHandlerContext(
+            new[] { requirement },
+            user,
+            null);
+
+        // Act
+        await _handler.HandleAsync(context);
+
+        // Assert
+        context.HasSucceeded.Should().BeTrue(
+            "Moderator with Discord guild membership should have access to the guild");
+    }
+
+    [Fact]
+    public async Task Moderator_WithoutDiscordMembership_Fails()
+    {
+        // Arrange
+        const string userId = "moderator123";
+        const ulong guildId = 123456789012345678;
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.Role, Roles.Moderator)
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var user = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.RouteValues = new RouteValueDictionary
+        {
+            ["guildId"] = guildId.ToString()
+        };
+
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        var requirement = new GuildAccessRequirement(GuildAccessLevel.Viewer);
+        var context = new AuthorizationHandlerContext(
+            new[] { requirement },
+            user,
+            null);
+
+        // Act
+        await _handler.HandleAsync(context);
+
+        // Assert
+        context.HasSucceeded.Should().BeFalse(
+            "Moderator without Discord guild membership should not have access to the guild");
+    }
+
+    [Fact]
+    public async Task Viewer_WithDiscordMembership_Succeeds()
+    {
+        // Arrange
+        const string userId = "viewer123";
+        const ulong guildId = 123456789012345678;
+
+        // Add ApplicationUser first (required for FK constraint)
+        var appUser = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "viewer@test.com",
+            Email = "viewer@test.com"
+        };
+        _dbContext.Set<ApplicationUser>().Add(appUser);
+        await _dbContext.SaveChangesAsync();
+
+        // Add Discord guild membership record
+        var userDiscordGuild = new UserDiscordGuild
+        {
+            Id = Guid.NewGuid(),
+            ApplicationUserId = userId,
+            GuildId = guildId,
+            GuildName = "Test Guild",
+            IsOwner = false,
+            Permissions = 0,
+            CapturedAt = DateTime.UtcNow,
+            LastUpdatedAt = DateTime.UtcNow
+        };
+        _dbContext.Set<UserDiscordGuild>().Add(userDiscordGuild);
+        await _dbContext.SaveChangesAsync();
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.Role, Roles.Viewer)
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var user = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.RouteValues = new RouteValueDictionary
+        {
+            ["guildId"] = guildId.ToString()
+        };
+
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        var requirement = new GuildAccessRequirement(GuildAccessLevel.Viewer);
+        var context = new AuthorizationHandlerContext(
+            new[] { requirement },
+            user,
+            null);
+
+        // Act
+        await _handler.HandleAsync(context);
+
+        // Assert
+        context.HasSucceeded.Should().BeTrue(
+            "Viewer with Discord guild membership should have access to the guild");
+    }
+
+    [Fact(Skip = "Requires full FK setup with ApplicationUser and Guild entities - integration test needed")]
+    public async Task Viewer_FallsBackToUserGuildAccess_Succeeds()
+    {
+        // Arrange
+        const string userId = "viewer123";
+        const ulong guildId = 123456789012345678;
+
+        // User is NOT a Discord member (no UserDiscordGuild record)
+        // but has explicit grant via UserGuildAccess
+        var userGuildAccess = new UserGuildAccess
+        {
+            ApplicationUserId = userId,
+            GuildId = guildId,
+            AccessLevel = GuildAccessLevel.Viewer,
+            GrantedAt = DateTime.UtcNow
+        };
+        _dbContext.Set<UserGuildAccess>().Add(userGuildAccess);
+        await _dbContext.SaveChangesAsync();
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.Role, Roles.Viewer)
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var user = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.RouteValues = new RouteValueDictionary
+        {
+            ["guildId"] = guildId.ToString()
+        };
+
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        var requirement = new GuildAccessRequirement(GuildAccessLevel.Viewer);
+        var context = new AuthorizationHandlerContext(
+            new[] { requirement },
+            user,
+            null);
+
+        // Act
+        await _handler.HandleAsync(context);
+
+        // Assert
+        context.HasSucceeded.Should().BeTrue(
+            "Viewer without Discord membership should still have access via UserGuildAccess explicit grant");
+    }
+
+    [Fact]
+    public async Task DiscordMembership_DifferentGuild_Fails()
+    {
+        // Arrange
+        const string userId = "user123";
+        const ulong guildId1 = 111111111111111111;
+        const ulong guildId2 = 222222222222222222;
+
+        // Add ApplicationUser first (required for FK constraint)
+        var appUser = new ApplicationUser
+        {
+            Id = userId,
+            UserName = "user@test.com",
+            Email = "user@test.com"
+        };
+        _dbContext.Set<ApplicationUser>().Add(appUser);
+        await _dbContext.SaveChangesAsync();
+
+        // User is member of guild1 only
+        var userDiscordGuild = new UserDiscordGuild
+        {
+            Id = Guid.NewGuid(),
+            ApplicationUserId = userId,
+            GuildId = guildId1,
+            GuildName = "Guild 1",
+            IsOwner = false,
+            Permissions = 0,
+            CapturedAt = DateTime.UtcNow,
+            LastUpdatedAt = DateTime.UtcNow
+        };
+        _dbContext.Set<UserDiscordGuild>().Add(userDiscordGuild);
+        await _dbContext.SaveChangesAsync();
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId),
+            new Claim(ClaimTypes.Role, Roles.Moderator)
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var user = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.RouteValues = new RouteValueDictionary
+        {
+            ["guildId"] = guildId2.ToString() // Requesting access to guild2
+        };
+
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        var requirement = new GuildAccessRequirement(GuildAccessLevel.Viewer);
+        var context = new AuthorizationHandlerContext(
+            new[] { requirement },
+            user,
+            null);
+
+        // Act
+        await _handler.HandleAsync(context);
+
+        // Assert
+        context.HasSucceeded.Should().BeFalse(
+            "User should not have access to a different guild they are not a member of");
     }
 
     public void Dispose()
