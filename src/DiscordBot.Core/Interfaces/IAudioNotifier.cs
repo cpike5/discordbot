@@ -14,12 +14,14 @@ public interface IAudioNotifier
     /// <param name="guildId">The guild ID.</param>
     /// <param name="channelId">The voice channel ID.</param>
     /// <param name="channelName">The voice channel name.</param>
+    /// <param name="memberCount">The number of members in the voice channel (excluding bots).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task NotifyAudioConnectedAsync(
         ulong guildId,
         ulong channelId,
         string channelName,
+        int memberCount,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -90,5 +92,21 @@ public interface IAudioNotifier
     Task NotifyQueueUpdatedAsync(
         ulong guildId,
         QueueUpdatedDto queue,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Notifies clients that the voice channel member count has changed.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="channelId">The voice channel ID.</param>
+    /// <param name="channelName">The voice channel name.</param>
+    /// <param name="memberCount">The updated number of members in the channel (excluding bots).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task NotifyVoiceChannelMemberCountUpdatedAsync(
+        ulong guildId,
+        ulong channelId,
+        string channelName,
+        int memberCount,
         CancellationToken cancellationToken = default);
 }

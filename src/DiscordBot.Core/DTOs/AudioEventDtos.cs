@@ -21,7 +21,43 @@ public class AudioConnectedDto
     public string ChannelName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the number of members in the voice channel (excluding bots).
+    /// </summary>
+    public int MemberCount { get; set; }
+
+    /// <summary>
     /// Gets or sets the timestamp when the connection was established.
+    /// </summary>
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// DTO for voice channel member count updated event when users join/leave the channel.
+/// </summary>
+public class VoiceChannelMemberCountUpdatedDto
+{
+    /// <summary>
+    /// Gets or sets the guild ID.
+    /// </summary>
+    public ulong GuildId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the voice channel ID.
+    /// </summary>
+    public ulong ChannelId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the voice channel name.
+    /// </summary>
+    public string ChannelName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the updated member count (excluding bots).
+    /// </summary>
+    public int MemberCount { get; set; }
+
+    /// <summary>
+    /// Gets or sets the timestamp of the update.
     /// </summary>
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }

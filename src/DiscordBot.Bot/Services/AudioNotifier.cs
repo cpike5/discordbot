@@ -36,6 +36,9 @@ public class AudioNotifier : IAudioNotifier
 
         /// <summary>Event fired when the playback queue changes.</summary>
         public const string QueueUpdated = "QueueUpdated";
+
+        /// <summary>Event fired when voice channel member count changes.</summary>
+        public const string VoiceChannelMemberCountUpdated = "VoiceChannelMemberCountUpdated";
     }
 
     /// <summary>
@@ -56,6 +59,7 @@ public class AudioNotifier : IAudioNotifier
         ulong guildId,
         ulong channelId,
         string channelName,
+        int memberCount,
         CancellationToken cancellationToken = default)
     {
         var groupName = DashboardHub.GetGuildAudioGroupName(guildId);
@@ -64,14 +68,16 @@ public class AudioNotifier : IAudioNotifier
             GuildId = guildId,
             ChannelId = channelId,
             ChannelName = channelName,
+            MemberCount = memberCount,
             Timestamp = DateTime.UtcNow
         };
 
         _logger.LogDebug(
-            "Broadcasting AudioConnected: GuildId={GuildId}, ChannelId={ChannelId}, ChannelName={ChannelName}",
+            "Broadcasting AudioConnected: GuildId={GuildId}, ChannelId={ChannelId}, ChannelName={ChannelName}, MemberCount={MemberCount}",
             guildId,
             channelId,
-            channelName);
+            channelName,
+            memberCount);
 
         await _hubContext.Clients.Group(groupName).SendAsync(
             Events.AudioConnected,
@@ -215,6 +221,36 @@ public class AudioNotifier : IAudioNotifier
         await _hubContext.Clients.Group(groupName).SendAsync(
             Events.QueueUpdated,
             queue,
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task NotifyVoiceChannelMemberCountUpdatedAsync(
+        ulong guildId,
+        ulong channelId,
+        string channelName,
+        int memberCount,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = DashboardHub.GetGuildAudioGroupName(guildId);
+        var data = new VoiceChannelMemberCountUpdatedDto
+        {
+            GuildId = guildId,
+            ChannelId = channelId,
+            ChannelName = channelName,
+            MemberCount = memberCount,
+            Timestamp = DateTime.UtcNow
+        };
+
+        _logger.LogDebug(
+            "Broadcasting VoiceChannelMemberCountUpdated: GuildId={GuildId}, ChannelId={ChannelId}, MemberCount={MemberCount}",
+            guildId,
+            channelId,
+            memberCount);
+
+        await _hubContext.Clients.Group(groupName).SendAsync(
+            Events.VoiceChannelMemberCountUpdated,
+            data,
             cancellationToken);
     }
 }

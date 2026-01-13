@@ -86,6 +86,11 @@ public class IndexModel : PageModel
     public bool IsConnected { get; set; }
 
     /// <summary>
+    /// Gets the number of members in the currently connected voice channel (excluding bots).
+    /// </summary>
+    public int? CurrentChannelMemberCount { get; set; }
+
+    /// <summary>
     /// Gets the maximum number of sounds allowed per guild.
     /// </summary>
     public int MaxSounds { get; set; }
@@ -244,6 +249,16 @@ public class IndexModel : PageModel
             VoiceChannels = voiceChannels;
             CurrentChannelId = _audioService.GetConnectedChannelId(guildId);
             IsConnected = _audioService.IsConnected(guildId);
+
+            // Get member count if connected
+            if (IsConnected && CurrentChannelId.HasValue)
+            {
+                var connectedChannel = socketGuild.GetVoiceChannel(CurrentChannelId.Value);
+                if (connectedChannel != null)
+                {
+                    CurrentChannelMemberCount = connectedChannel.ConnectedUsers.Count(u => !u.IsBot);
+                }
+            }
             MaxSounds = settings.MaxSoundsPerGuild;
             CurrentSoundCount = sounds.Count;
             SupportedFormats = "MP3, WAV, OGG";
