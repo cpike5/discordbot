@@ -549,15 +549,24 @@ public class RatWatchService : IRatWatchService
         {
             _logger.LogTrace("Getting expired voting Rat Watches");
 
-            // Get guild settings to determine voting duration
-            var settings = await _settingsRepository.GetAllAsync(ct);
-            var votingDurations = settings.ToDictionary(s => s.GuildId, s => s.VotingDurationMinutes);
-
             var now = DateTime.UtcNow;
             var allVoting = await _watchRepository.GetActiveVotingAsync(now, ct);
+            var votingList = allVoting.ToList();
+
+            if (votingList.Count == 0)
+            {
+                _logger.LogDebug("No active voting Rat Watches found");
+                BotActivitySource.SetRecordsReturned(activity, 0);
+                BotActivitySource.SetSuccess(activity);
+                return [];
+            }
+
+            // Only fetch voting durations for guilds that have active voting watches
+            var guildIds = votingList.Select(w => w.GuildId).Distinct();
+            var votingDurations = await _settingsRepository.GetVotingDurationsForGuildsAsync(guildIds, ct);
 
             // Filter to only those where voting window has expired based on guild settings
-            var expiredVoting = allVoting.Where(w =>
+            var expiredVoting = votingList.Where(w =>
             {
                 if (!w.VotingStartedAt.HasValue)
                 {
@@ -913,7 +922,24 @@ public class RatWatchService : IRatWatchService
         var initiatorUsername = await GetUsernameAsync(watch.InitiatorUserId, watch.GuildId);
         var guildName = GetGuildName(watch.GuildId, watch.Guild?.Name);
 
-        var (guiltyVotes, notGuiltyVotes) = await GetVoteTallyAsync(watch.Id, ct);
+        // Use pre-loaded votes if available to avoid additional DB query
+        int guiltyVotes, notGuiltyVotes;
+        if (watch.Votes != null && watch.Votes.Count > 0)
+        {
+            guiltyVotes = watch.Votes.Count(v => v.IsGuiltyVote);
+            notGuiltyVotes = watch.Votes.Count(v => !v.IsGuiltyVote);
+        }
+        else if (watch.Votes != null)
+        {
+            // Votes loaded but empty
+            guiltyVotes = 0;
+            notGuiltyVotes = 0;
+        }
+        else
+        {
+            // Votes not loaded, fetch from database
+            (guiltyVotes, notGuiltyVotes) = await GetVoteTallyAsync(watch.Id, ct);
+        }
 
         return new RatWatchDto
         {
@@ -1056,6 +1082,30 @@ public class RatWatchService : IRatWatchService
             BotActivitySource.SetRecordsReturned(activity, dtos.Count);
             BotActivitySource.SetSuccess(activity);
             return dtos;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> HasStatusAsync(Guid watchId, RatWatchStatus expectedStatus, CancellationToken ct = default)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "rat_watch",
+            "has_status",
+            entityId: watchId.ToString());
+
+        try
+        {
+            _logger.LogDebug("Checking if Rat Watch {WatchId} has status {ExpectedStatus}", watchId, expectedStatus);
+
+            var result = await _watchRepository.HasStatusAsync(watchId, expectedStatus, ct);
+
+            BotActivitySource.SetSuccess(activity);
+            return result;
         }
         catch (Exception ex)
         {

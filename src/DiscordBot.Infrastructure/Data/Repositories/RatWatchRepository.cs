@@ -469,4 +469,17 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
         _logger.LogDebug("Retrieved {Count} recent Rat Watches", watches.Count);
         return watches;
     }
+
+    public async Task<bool> HasStatusAsync(Guid watchId, RatWatchStatus expectedStatus, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Checking if Rat Watch {WatchId} has status {ExpectedStatus}", watchId, expectedStatus);
+
+        var hasStatus = await DbSet
+            .AsNoTracking()
+            .Where(r => r.Id == watchId && r.Status == expectedStatus)
+            .AnyAsync(cancellationToken);
+
+        _logger.LogDebug("Rat Watch {WatchId} has status {ExpectedStatus}: {Result}", watchId, expectedStatus, hasStatus);
+        return hasStatus;
+    }
 }

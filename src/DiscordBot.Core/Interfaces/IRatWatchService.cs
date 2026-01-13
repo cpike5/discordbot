@@ -187,4 +187,15 @@ public interface IRatWatchService
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Collection of recent watches with guild names included.</returns>
     Task<IEnumerable<RatWatchDto>> GetRecentActivityAsync(int limit = 10, CancellationToken ct = default);
+
+    /// <summary>
+    /// Checks if a watch has the specified status.
+    /// More efficient than loading the full entity when only status verification is needed.
+    /// Used by background services to verify watch status before processing.
+    /// </summary>
+    /// <param name="watchId">The watch ID to check.</param>
+    /// <param name="expectedStatus">The expected status.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>True if the watch exists and has the expected status, false otherwise.</returns>
+    Task<bool> HasStatusAsync(Guid watchId, Enums.RatWatchStatus expectedStatus, CancellationToken ct = default);
 }

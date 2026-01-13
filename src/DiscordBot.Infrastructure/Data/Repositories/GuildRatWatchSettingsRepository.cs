@@ -75,4 +75,34 @@ public class GuildRatWatchSettingsRepository : Repository<GuildRatWatchSettings>
 
         return settings;
     }
+
+    public async Task<Dictionary<ulong, int>> GetVotingDurationsForGuildsAsync(
+        IEnumerable<ulong> guildIds,
+        CancellationToken cancellationToken = default)
+    {
+        var guildIdList = guildIds.ToList();
+        if (guildIdList.Count == 0)
+        {
+            _logger.LogDebug("GetVotingDurationsForGuildsAsync called with empty guild list");
+            return new Dictionary<ulong, int>();
+        }
+
+        _logger.LogDebug(
+            "Retrieving voting durations for {Count} guilds",
+            guildIdList.Count);
+
+        var settings = await DbSet
+            .AsNoTracking()
+            .Where(s => guildIdList.Contains(s.GuildId))
+            .Select(s => new { s.GuildId, s.VotingDurationMinutes })
+            .ToListAsync(cancellationToken);
+
+        var result = settings.ToDictionary(s => s.GuildId, s => s.VotingDurationMinutes);
+
+        _logger.LogDebug(
+            "Retrieved voting durations for {Count} guilds (requested {Requested})",
+            result.Count, guildIdList.Count);
+
+        return result;
+    }
 }
