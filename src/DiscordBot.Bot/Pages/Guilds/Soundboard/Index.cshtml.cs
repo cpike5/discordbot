@@ -20,6 +20,7 @@ public class IndexModel : PageModel
     private readonly ISoundService _soundService;
     private readonly ISoundFileService _soundFileService;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
+    private readonly ISoundPlayLogRepository _soundPlayLogRepository;
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IAudioService _audioService;
@@ -31,6 +32,7 @@ public class IndexModel : PageModel
         ISoundService soundService,
         ISoundFileService soundFileService,
         IGuildAudioSettingsRepository audioSettingsRepository,
+        ISoundPlayLogRepository soundPlayLogRepository,
         IGuildService guildService,
         DiscordSocketClient discordClient,
         IAudioService audioService,
@@ -41,6 +43,7 @@ public class IndexModel : PageModel
         _soundService = soundService;
         _soundFileService = soundFileService;
         _audioSettingsRepository = audioSettingsRepository;
+        _soundPlayLogRepository = soundPlayLogRepository;
         _guildService = guildService;
         _discordClient = discordClient;
         _audioService = audioService;
@@ -119,8 +122,20 @@ public class IndexModel : PageModel
             // Get audio settings (creates defaults if not found)
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
 
-            _logger.LogDebug("Retrieved {Count} sounds for guild {GuildId}, sorted by {Sort}",
-                sounds.Count, guildId, Sort);
+            // Query play statistics
+            var todayUtc = DateTime.UtcNow.Date;
+            var yesterdayUtc = todayUtc.AddDays(-1);
+
+            // Get play counts since start of today and yesterday
+            var playsSinceTodayStart = await _soundPlayLogRepository.GetPlayCountAsync(guildId, todayUtc, cancellationToken);
+            var playsSinceYesterdayStart = await _soundPlayLogRepository.GetPlayCountAsync(guildId, yesterdayUtc, cancellationToken);
+
+            // Calculate actual counts for today and yesterday
+            var playsToday = playsSinceTodayStart;
+            var playsYesterday = playsSinceYesterdayStart - playsSinceTodayStart;
+
+            _logger.LogDebug("Retrieved {Count} sounds for guild {GuildId}, sorted by {Sort}. Plays today: {PlaysToday}, yesterday: {PlaysYesterday}",
+                sounds.Count, guildId, Sort, playsToday, playsYesterday);
 
             // Build view model
             ViewModel = SoundboardIndexViewModel.Create(
@@ -129,6 +144,8 @@ public class IndexModel : PageModel
                 guild.IconUrl,
                 sortedSounds,
                 settings,
+                playsToday,
+                playsYesterday,
                 Sort);
 
             // Build voice channel panel view model

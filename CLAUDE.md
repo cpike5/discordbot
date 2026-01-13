@@ -133,6 +133,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `SamplingOptions` | `OpenTelemetry:Tracing:Sampling` | OpenTelemetry trace sampling rates (priority-based sampling) |
 | `ScheduledMessagesOptions` | `ScheduledMessages` | Scheduled message delivery settings |
 | `SoundboardOptions` | `Soundboard` | Audio/soundboard settings (FFmpeg path, file limits, supported formats) |
+| `SoundPlayLogRetentionOptions` | `SoundPlayLogRetention` | Sound play log cleanup settings |
 | `VerificationOptions` | `Verification` | Verification code generation settings |
 | `VoiceChannelOptions` | `VoiceChannel` | Voice channel auto-leave settings (timeout, check interval) |
 | `ElasticApm:*` | `ElasticApm` | Elastic APM distributed tracing configuration (see appsettings.json for full options) |

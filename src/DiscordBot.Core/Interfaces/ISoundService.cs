@@ -106,4 +106,19 @@ public interface ISoundService
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Count of sounds in the guild.</returns>
     Task<int> GetSoundCountAsync(ulong guildId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Logs a sound play event for analytics tracking.
+    /// Creates a new SoundPlayLog entry with the current timestamp.
+    /// </summary>
+    /// <param name="soundId">Unique identifier of the sound.</param>
+    /// <param name="guildId">Discord guild ID where the sound was played.</param>
+    /// <param name="userId">Discord user ID who played the sound.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// This method logs failures as warnings but does not throw exceptions.
+    /// Logging failures should not block playback functionality.
+    /// </remarks>
+    Task LogPlayAsync(Guid soundId, ulong guildId, ulong userId, CancellationToken ct = default);
 }

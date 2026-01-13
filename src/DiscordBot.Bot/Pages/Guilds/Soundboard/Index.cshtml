@@ -122,7 +122,14 @@
                     </svg>
                 </div>
             </div>
-            <p class="text-xs text-text-tertiary">Play tracking coming soon</p>
+            @if (!string.IsNullOrEmpty(Model.ViewModel.Stats.ComparisonText))
+            {
+                <p class="text-xs @Model.ViewModel.Stats.ComparisonCssClass">@Model.ViewModel.Stats.ComparisonText</p>
+            }
+            else
+            {
+                <p class="text-xs text-text-tertiary">No comparison data</p>
+            }
         </div>
 
         <!-- Storage Used Card -->
