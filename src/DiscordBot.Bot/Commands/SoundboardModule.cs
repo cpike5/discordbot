@@ -143,9 +143,10 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 }
             }
 
-            // Get audio settings to check if queueing is enabled
+            // Get audio settings to check if queueing is enabled and silent playback
             var settings = await _audioSettingsService.GetSettingsAsync(guildId);
             var queueEnabled = settings?.QueueEnabled ?? false;
+            var silentPlayback = settings?.SilentPlayback ?? false;
 
             // Get current queue length before playing (to determine if sound will be queued)
             var wasPlaying = _playbackService.IsPlaying(guildId);
@@ -171,14 +172,23 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                     queuePosition,
                     filter);
 
-                var queuedEmbed = new EmbedBuilder()
-                    .WithTitle("Sound Queued")
-                    .WithDescription($"Queued: **{sound.Name}**{filterText} (position: {queuePosition})")
-                    .WithColor(Color.Blue)
-                    .WithCurrentTimestamp()
-                    .Build();
+                // Silent playback: acknowledge without visible response
+                if (silentPlayback)
+                {
+                    await DeferAsync(ephemeral: true);
+                    await DeleteOriginalResponseAsync();
+                }
+                else
+                {
+                    var queuedEmbed = new EmbedBuilder()
+                        .WithTitle("Sound Queued")
+                        .WithDescription($"Queued: **{sound.Name}**{filterText} (position: {queuePosition})")
+                        .WithColor(Color.Blue)
+                        .WithCurrentTimestamp()
+                        .Build();
 
-                await RespondAsync(embed: queuedEmbed, ephemeral: true);
+                    await RespondAsync(embed: queuedEmbed, ephemeral: true);
+                }
             }
             else
             {
@@ -189,14 +199,23 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                     userId,
                     filter);
 
-                var playingEmbed = new EmbedBuilder()
-                    .WithTitle("Now Playing")
-                    .WithDescription($"Now playing: **{sound.Name}**{filterText}")
-                    .WithColor(Color.Green)
-                    .WithCurrentTimestamp()
-                    .Build();
+                // Silent playback: acknowledge without visible response
+                if (silentPlayback)
+                {
+                    await DeferAsync(ephemeral: true);
+                    await DeleteOriginalResponseAsync();
+                }
+                else
+                {
+                    var playingEmbed = new EmbedBuilder()
+                        .WithTitle("Now Playing")
+                        .WithDescription($"Now playing: **{sound.Name}**{filterText}")
+                        .WithColor(Color.Green)
+                        .WithCurrentTimestamp()
+                        .Build();
 
-                await RespondAsync(embed: playingEmbed, ephemeral: true);
+                    await RespondAsync(embed: playingEmbed, ephemeral: true);
+                }
             }
 
             // Log play event (fire-and-forget - don't block on logging)

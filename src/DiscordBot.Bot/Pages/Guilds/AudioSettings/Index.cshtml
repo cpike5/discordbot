@@ -128,6 +128,19 @@
                 </label>
             </div>
 
+            <!-- Silent Playback -->
+            <div class="settings-row">
+                <div class="settings-row-content">
+                    <div class="settings-row-title">Silent Playback</div>
+                    <div class="settings-row-description">Suppress "Now Playing" and "Sound Queued" confirmation messages for /play commands. Error messages are always shown regardless of this setting.</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="silentPlayback" @(Model.Settings.SilentPlayback ? "checked" : "") />
+                    <span class="toggle-switch-track"></span>
+                    <span class="toggle-switch-thumb"></span>
+                </label>
+            </div>
+
             <!-- Portal Links (shown when Member Portal is enabled) -->
             <div class="settings-row portal-links-row" id="portalLinksRow" style="@(Model.Settings.EnableMemberPortal ? "" : "display: none;")">
                 <div class="settings-row-content">
@@ -888,7 +901,8 @@
                     audioEnabled: document.getElementById('audioEnabled').checked,
                     autoLeaveTimeoutMinutes: parseInt(document.getElementById('autoLeaveTimeout').value) || 0,
                     queueEnabled: document.getElementById('queueEnabled').checked,
-                    enableMemberPortal: document.getElementById('enableMemberPortal').checked
+                    enableMemberPortal: document.getElementById('enableMemberPortal').checked,
+                    silentPlayback: document.getElementById('silentPlayback').checked
                 };
 
                 // Validate auto-leave timeout

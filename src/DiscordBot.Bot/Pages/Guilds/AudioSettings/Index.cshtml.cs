@@ -150,6 +150,7 @@ public class IndexModel : PageModel
                 settings.AutoLeaveTimeoutMinutes = request.AutoLeaveTimeoutMinutes;
                 settings.QueueEnabled = request.QueueEnabled;
                 settings.EnableMemberPortal = request.EnableMemberPortal;
+                settings.SilentPlayback = request.SilentPlayback;
             }, cancellationToken);
 
             _logger.LogInformation("General audio settings saved for guild {GuildId}", GuildId);
@@ -272,6 +273,7 @@ public class IndexModel : PageModel
                 settings.AutoLeaveTimeoutMinutes = 5;
                 settings.QueueEnabled = true;
                 settings.EnableMemberPortal = false;
+                settings.SilentPlayback = false;
                 settings.MaxDurationSeconds = 30;
                 settings.MaxFileSizeBytes = 5_242_880; // 5 MB
                 settings.MaxSoundsPerGuild = 50;
@@ -297,6 +299,7 @@ public class IndexModel : PageModel
         public int AutoLeaveTimeoutMinutes { get; set; }
         public bool QueueEnabled { get; set; }
         public bool EnableMemberPortal { get; set; }
+        public bool SilentPlayback { get; set; }
     }
 
     /// <summary>

@@ -68,6 +68,12 @@ public class GuildAudioSettings
     public bool EnableMemberPortal { get; set; } = false;
 
     /// <summary>
+    /// Whether to suppress the "Now Playing" and "Sound Queued" confirmation messages for /play commands.
+    /// When enabled, sounds play silently without a visible response. Error messages are always shown.
+    /// </summary>
+    public bool SilentPlayback { get; set; } = false;
+
+    /// <summary>
     /// Role-based access restrictions for soundboard commands.
     /// </summary>
     public List<CommandRoleRestriction> CommandRoleRestrictions { get; set; } = new();
