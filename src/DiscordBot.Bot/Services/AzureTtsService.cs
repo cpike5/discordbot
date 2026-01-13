@@ -140,6 +140,71 @@ public class AzureTtsService : ITtsService
     }
 
     /// <inheritdoc/>
+    public IEnumerable<Core.Models.VoiceInfo> GetCuratedVoices()
+    {
+        return new List<Core.Models.VoiceInfo>
+        {
+            // English (US) - most popular only
+            new() { ShortName = "en-US-JennyNeural", DisplayName = "Jenny", Locale = "en-US", Gender = "Female" },
+            new() { ShortName = "en-US-GuyNeural", DisplayName = "Guy", Locale = "en-US", Gender = "Male" },
+            new() { ShortName = "en-US-AriaNeural", DisplayName = "Aria", Locale = "en-US", Gender = "Female" },
+            new() { ShortName = "en-US-DavisNeural", DisplayName = "Davis", Locale = "en-US", Gender = "Male" },
+            new() { ShortName = "en-US-JaneNeural", DisplayName = "Jane", Locale = "en-US", Gender = "Female" },
+            new() { ShortName = "en-US-JasonNeural", DisplayName = "Jason", Locale = "en-US", Gender = "Male" },
+
+            // English (UK)
+            new() { ShortName = "en-GB-SoniaNeural", DisplayName = "Sonia", Locale = "en-GB", Gender = "Female" },
+            new() { ShortName = "en-GB-RyanNeural", DisplayName = "Ryan", Locale = "en-GB", Gender = "Male" },
+            new() { ShortName = "en-GB-LibbyNeural", DisplayName = "Libby", Locale = "en-GB", Gender = "Female" },
+
+            // Japanese
+            new() { ShortName = "ja-JP-NanamiNeural", DisplayName = "Nanami", Locale = "ja-JP", Gender = "Female" },
+            new() { ShortName = "ja-JP-KeitaNeural", DisplayName = "Keita", Locale = "ja-JP", Gender = "Male" },
+            new() { ShortName = "ja-JP-MayuNeural", DisplayName = "Mayu", Locale = "ja-JP", Gender = "Female" },
+            new() { ShortName = "ja-JP-NaokiNeural", DisplayName = "Naoki", Locale = "ja-JP", Gender = "Male" },
+
+            // French
+            new() { ShortName = "fr-FR-DeniseNeural", DisplayName = "Denise", Locale = "fr-FR", Gender = "Female" },
+            new() { ShortName = "fr-FR-HenriNeural", DisplayName = "Henri", Locale = "fr-FR", Gender = "Male" },
+            new() { ShortName = "fr-FR-BrigitteNeural", DisplayName = "Brigitte", Locale = "fr-FR", Gender = "Female" },
+
+            // German
+            new() { ShortName = "de-DE-KatjaNeural", DisplayName = "Katja", Locale = "de-DE", Gender = "Female" },
+            new() { ShortName = "de-DE-ConradNeural", DisplayName = "Conrad", Locale = "de-DE", Gender = "Male" },
+
+            // Italian
+            new() { ShortName = "it-IT-ElsaNeural", DisplayName = "Elsa", Locale = "it-IT", Gender = "Female" },
+            new() { ShortName = "it-IT-DiegoNeural", DisplayName = "Diego", Locale = "it-IT", Gender = "Male" },
+
+            // Spanish
+            new() { ShortName = "es-ES-ElviraNeural", DisplayName = "Elvira", Locale = "es-ES", Gender = "Female" },
+            new() { ShortName = "es-ES-AlvaroNeural", DisplayName = "Alvaro", Locale = "es-ES", Gender = "Male" },
+            new() { ShortName = "es-MX-DaliaNeural", DisplayName = "Dalia", Locale = "es-MX", Gender = "Female" },
+
+            // Hindi (Indian)
+            new() { ShortName = "hi-IN-SwaraNeural", DisplayName = "Swara", Locale = "hi-IN", Gender = "Female" },
+            new() { ShortName = "hi-IN-MadhurNeural", DisplayName = "Madhur", Locale = "hi-IN", Gender = "Male" },
+
+            // Chinese (Mandarin)
+            new() { ShortName = "zh-CN-XiaoxiaoNeural", DisplayName = "Xiaoxiao", Locale = "zh-CN", Gender = "Female" },
+            new() { ShortName = "zh-CN-YunxiNeural", DisplayName = "Yunxi", Locale = "zh-CN", Gender = "Male" },
+            new() { ShortName = "zh-CN-YunyangNeural", DisplayName = "Yunyang", Locale = "zh-CN", Gender = "Male" },
+
+            // Swedish
+            new() { ShortName = "sv-SE-SofieNeural", DisplayName = "Sofie", Locale = "sv-SE", Gender = "Female" },
+            new() { ShortName = "sv-SE-MattiasNeural", DisplayName = "Mattias", Locale = "sv-SE", Gender = "Male" },
+
+            // Russian
+            new() { ShortName = "ru-RU-SvetlanaNeural", DisplayName = "Svetlana", Locale = "ru-RU", Gender = "Female" },
+            new() { ShortName = "ru-RU-DmitryNeural", DisplayName = "Dmitry", Locale = "ru-RU", Gender = "Male" },
+
+            // Arabic
+            new() { ShortName = "ar-SA-ZariyahNeural", DisplayName = "Zariyah", Locale = "ar-SA", Gender = "Female" },
+            new() { ShortName = "ar-SA-HamedNeural", DisplayName = "Hamed", Locale = "ar-SA", Gender = "Male" },
+        };
+    }
+
+    /// <inheritdoc/>
     public async Task<IEnumerable<Core.Models.VoiceInfo>> GetAvailableVoicesAsync(string? locale = "en-US", CancellationToken cancellationToken = default)
     {
         if (!IsConfigured)
