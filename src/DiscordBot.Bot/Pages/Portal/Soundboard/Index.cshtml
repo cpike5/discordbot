@@ -1713,6 +1713,11 @@ else
                 DashboardHub.on('VoiceChannelMemberCountUpdated', handleVoiceChannelMemberCountUpdated);
                 DashboardHub.on('SoundUploaded', handleSoundUploaded);
                 DashboardHub.on('SoundDeleted', handleSoundDeleted);
+                DashboardHub.on('QueueUpdated', handleQueueUpdated);
+
+                // Global events - register empty handlers to suppress SignalR warnings
+                // BotStatusUpdated is broadcast to all clients but not relevant for Portal
+                DashboardHub.on('BotStatusUpdated', () => {});
 
                 // Connection state handlers
                 DashboardHub.on('reconnected', async () => {
@@ -1945,6 +1950,14 @@ else
                     PortalToast.warning(`Sound "${soundName}" was deleted`);
                 }, 300);
             }
+        }
+
+        // Handle queue updated event from SignalR
+        function handleQueueUpdated(data) {
+            console.log('[Soundboard] QueueUpdated:', data.queue.length, 'items');
+            // Currently the Portal doesn't display a queue UI, but the handler
+            // prevents SignalR "No client method found" warnings.
+            // Future enhancement: Display queue in the Now Playing panel
         }
 
         // Helper: Show toast notification
