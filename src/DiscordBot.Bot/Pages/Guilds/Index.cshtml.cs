@@ -1,7 +1,9 @@
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -15,12 +17,18 @@ public class IndexModel : PageModel
 {
     private readonly IGuildService _guildService;
     private readonly IAuthorizationService _authorizationService;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<IndexModel> _logger;
 
-    public IndexModel(IGuildService guildService, IAuthorizationService authorizationService, ILogger<IndexModel> logger)
+    public IndexModel(
+        IGuildService guildService,
+        IAuthorizationService authorizationService,
+        UserManager<ApplicationUser> userManager,
+        ILogger<IndexModel> logger)
     {
         _guildService = guildService;
         _authorizationService = authorizationService;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -65,10 +73,38 @@ public class IndexModel : PageModel
     /// </summary>
     public GuildListViewModel ViewModel { get; set; } = new();
 
+    /// <summary>
+    /// Indicates whether the guild list is filtered based on user access.
+    /// </summary>
+    public bool IsFiltered { get; set; }
+
+    /// <summary>
+    /// The total number of guilds connected to the bot (before user filtering).
+    /// Only populated when IsFiltered is true.
+    /// </summary>
+    public int TotalGuilds { get; set; }
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild list page. Search={Search}, Status={Status}, Sort={Sort}, Page={Page}",
             SearchTerm, StatusFilter, SortBy, CurrentPage);
+
+        // Get current user and their roles for filtering
+        var user = await _userManager.GetUserAsync(User);
+        var userRoles = user != null ? await _userManager.GetRolesAsync(user) : Array.Empty<string>();
+
+        // Determine if user-based filtering will be applied
+        IsFiltered = userRoles.Any() &&
+                     !userRoles.Contains("SuperAdmin") &&
+                     !userRoles.Contains("Admin") &&
+                     (userRoles.Contains("Moderator") || userRoles.Contains("Viewer"));
+
+        // If filtered, get total guild count before filtering
+        if (IsFiltered)
+        {
+            var allGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
+            TotalGuilds = allGuilds.Count;
+        }
 
         var query = new GuildSearchQueryDto
         {
@@ -77,7 +113,9 @@ public class IndexModel : PageModel
             Page = CurrentPage,
             PageSize = PageSize,
             SortBy = SortBy,
-            SortDescending = SortDescending
+            SortDescending = SortDescending,
+            UserId = user?.Id,
+            UserRoles = userRoles
         };
 
         var paginatedGuilds = await _guildService.GetGuildsAsync(query, cancellationToken);

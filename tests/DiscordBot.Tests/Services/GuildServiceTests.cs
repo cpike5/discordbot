@@ -4,7 +4,10 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Data;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -17,17 +20,30 @@ namespace DiscordBot.Tests.Services;
 /// interactions while documenting the expected Discord client behaviors.
 /// Integration testing through the controller layer provides better coverage for this service.
 /// </summary>
-public class GuildServiceTests
+public class GuildServiceTests : IDisposable
 {
     private readonly Mock<IGuildRepository> _mockGuildRepository;
     private readonly Mock<ILogger<GuildService>> _mockLogger;
     private readonly Mock<IAuditLogService> _mockAuditLogService;
+    private readonly BotDbContext _dbContext;
+    private readonly SqliteConnection _connection;
 
     public GuildServiceTests()
     {
         _mockGuildRepository = new Mock<IGuildRepository>();
         _mockLogger = new Mock<ILogger<GuildService>>();
         _mockAuditLogService = new Mock<IAuditLogService>();
+
+        // Setup SQLite in-memory database
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
+
+        var options = new DbContextOptionsBuilder<BotDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+
+        _dbContext = new BotDbContext(options);
+        _dbContext.Database.EnsureCreated();
 
         // Setup audit log service to return a builder that returns itself for fluent API
         var mockBuilder = new Mock<IAuditLogBuilder>();
@@ -45,6 +61,12 @@ public class GuildServiceTests
         mockBuilder.Setup(x => x.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         _mockAuditLogService.Setup(x => x.CreateBuilder()).Returns(mockBuilder.Object);
+    }
+
+    public void Dispose()
+    {
+        _dbContext.Dispose();
+        _connection.Dispose();
     }
 
     /// <summary>
@@ -88,7 +110,7 @@ public class GuildServiceTests
         // Arrange
         const ulong guildId = 999999999UL;
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         _mockGuildRepository
             .Setup(r => r.GetByDiscordIdAsync(guildId, It.IsAny<CancellationToken>()))
@@ -110,7 +132,7 @@ public class GuildServiceTests
         // Arrange
         const ulong guildId = 123456789UL;
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guild = new Guild
         {
@@ -165,7 +187,7 @@ public class GuildServiceTests
         // Arrange
         const ulong guildId = 999999999UL;
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
         var request = new GuildUpdateRequestDto { Prefix = "?" };
 
         _mockGuildRepository
@@ -193,7 +215,7 @@ public class GuildServiceTests
         // Arrange
         const ulong guildId = 999999999UL;
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         // Act
         var result = await service.SyncGuildAsync(guildId);
@@ -215,7 +237,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
         var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
 
@@ -243,7 +265,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -281,7 +303,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -319,7 +341,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -358,7 +380,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -396,7 +418,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -435,7 +457,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -475,7 +497,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -515,7 +537,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -555,7 +577,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var now = DateTime.UtcNow;
         var guilds = new List<Guild>
@@ -596,7 +618,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var guilds = new List<Guild>
         {
@@ -642,7 +664,7 @@ public class GuildServiceTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         var now = DateTime.UtcNow;
         var guilds = new List<Guild>

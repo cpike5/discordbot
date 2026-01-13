@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using DiscordBot.Bot.Pages.Guilds;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -22,6 +24,7 @@ public class IndexModelSyncTests
 {
     private readonly Mock<IGuildService> _mockGuildService;
     private readonly Mock<IAuthorizationService> _mockAuthorizationService;
+    private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
     private readonly Mock<ILogger<IndexModel>> _mockLogger;
     private readonly IndexModel _indexModel;
 
@@ -31,9 +34,16 @@ public class IndexModelSyncTests
         _mockAuthorizationService = new Mock<IAuthorizationService>();
         _mockLogger = new Mock<ILogger<IndexModel>>();
 
+        // Setup UserManager mock
+        var userStore = new Mock<IUserStore<ApplicationUser>>();
+        _mockUserManager = new Mock<UserManager<ApplicationUser>>(
+            userStore.Object,
+            null!, null!, null!, null!, null!, null!, null!, null!);
+
         _indexModel = new IndexModel(
             _mockGuildService.Object,
             _mockAuthorizationService.Object,
+            _mockUserManager.Object,
             _mockLogger.Object);
 
         SetupPageContext(isAjax: false);

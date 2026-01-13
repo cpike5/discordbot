@@ -1,10 +1,13 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Authorization;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Utilities;
+using DiscordBot.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace DiscordBot.Bot.Services;
 
@@ -17,6 +20,7 @@ public class GuildService : IGuildService
     private readonly DiscordSocketClient _client;
     private readonly ILogger<GuildService> _logger;
     private readonly IAuditLogService _auditLogService;
+    private readonly BotDbContext _dbContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GuildService"/> class.
@@ -25,16 +29,19 @@ public class GuildService : IGuildService
     /// <param name="client">The Discord socket client.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="auditLogService">The audit log service.</param>
+    /// <param name="dbContext">The database context.</param>
     public GuildService(
         IGuildRepository guildRepository,
         DiscordSocketClient client,
         ILogger<GuildService> logger,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        BotDbContext dbContext)
     {
         _guildRepository = guildRepository;
         _client = client;
         _logger = logger;
         _auditLogService = auditLogService;
+        _dbContext = dbContext;
     }
 
     /// <inheritdoc/>
@@ -98,16 +105,42 @@ public class GuildService : IGuildService
         try
         {
             _logger.LogDebug("Retrieving guilds with query: Search={Search}, IsActive={IsActive}, " +
-                "Page={Page}, PageSize={PageSize}, SortBy={SortBy}, SortDesc={SortDesc}",
+                "Page={Page}, PageSize={PageSize}, SortBy={SortBy}, SortDesc={SortDesc}, UserId={UserId}",
                 query.SearchTerm, query.IsActive, query.Page, query.PageSize,
-                query.SortBy, query.SortDescending);
+                query.SortBy, query.SortDescending, query.UserId);
+
+            // Determine if user-based filtering is needed
+            var requiresUserFiltering = ShouldFilterByUserAccess(query.UserRoles);
 
             // Get all guilds first (using existing method)
             var allGuilds = await GetAllGuildsAsync(cancellationToken);
 
-            // Apply filters
-            var filtered = allGuilds.AsEnumerable();
+            // Apply user-based access filtering
+            IEnumerable<GuildDto> filtered = allGuilds;
+            if (requiresUserFiltering && !string.IsNullOrWhiteSpace(query.UserId))
+            {
+                // Get guild IDs the user has Discord membership in
+                var userDiscordGuildIds = await _dbContext.UserDiscordGuilds
+                    .Where(udg => udg.ApplicationUserId == query.UserId)
+                    .Select(udg => udg.GuildId)
+                    .ToListAsync(cancellationToken);
 
+                // Get guild IDs with explicit UserGuildAccess grants
+                var explicitAccessGuildIds = await _dbContext.UserGuildAccess
+                    .Where(uga => uga.ApplicationUserId == query.UserId)
+                    .Select(uga => uga.GuildId)
+                    .ToListAsync(cancellationToken);
+
+                // Combine both sets
+                var accessibleGuildIds = userDiscordGuildIds.Union(explicitAccessGuildIds).ToHashSet();
+
+                filtered = filtered.Where(g => accessibleGuildIds.Contains(g.Id));
+
+                _logger.LogDebug("User {UserId} has access to {Count} guilds via Discord membership or explicit grants",
+                    query.UserId, accessibleGuildIds.Count);
+            }
+
+            // Apply search filter
             if (!string.IsNullOrWhiteSpace(query.SearchTerm))
             {
                 var searchLower = query.SearchTerm.ToLowerInvariant();
@@ -116,6 +149,7 @@ public class GuildService : IGuildService
                     g.Id.ToString().Contains(searchLower));
             }
 
+            // Apply status filter
             if (query.IsActive.HasValue)
             {
                 filtered = filtered.Where(g => g.IsActive == query.IsActive.Value);
@@ -164,6 +198,30 @@ public class GuildService : IGuildService
             BotActivitySource.RecordException(activity, ex);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Determines if guild access should be filtered based on user roles.
+    /// </summary>
+    /// <param name="userRoles">The user's roles.</param>
+    /// <returns>True if filtering is required (Moderator/Viewer), false for SuperAdmin/Admin.</returns>
+    private static bool ShouldFilterByUserAccess(IEnumerable<string>? userRoles)
+    {
+        if (userRoles == null)
+        {
+            return false;
+        }
+
+        var roleList = userRoles.ToList();
+
+        // SuperAdmin and Admin see all guilds
+        if (roleList.Contains(Roles.SuperAdmin) || roleList.Contains(Roles.Admin))
+        {
+            return false;
+        }
+
+        // Moderator and Viewer need filtering
+        return roleList.Contains(Roles.Moderator) || roleList.Contains(Roles.Viewer);
     }
 
     /// <inheritdoc/>
