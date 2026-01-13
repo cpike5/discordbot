@@ -106,8 +106,11 @@ public class AudioService : IAudioService
             _logger.LogInformation("Successfully joined voice channel {ChannelId} ({ChannelName}) in guild {GuildId}",
                 voiceChannelId, voiceChannel.Name, guildId);
 
+            // Get member count (excluding bots)
+            var memberCount = voiceChannel.ConnectedUsers.Count(u => !u.IsBot);
+
             // Broadcast AudioConnected event to subscribed clients
-            _ = _audioNotifier.NotifyAudioConnectedAsync(guildId, voiceChannelId, voiceChannel.Name, cancellationToken);
+            _ = _audioNotifier.NotifyAudioConnectedAsync(guildId, voiceChannelId, voiceChannel.Name, memberCount, cancellationToken);
 
             BotActivitySource.SetSuccess(activity);
             return audioClient;

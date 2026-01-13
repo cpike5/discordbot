@@ -403,6 +403,15 @@
         color: #ef4444;
     }
 
+    .channel-member-count {
+        font-size: 0.75rem;
+        color: #949ba4;
+    }
+
+    .channel-member-count.hidden {
+        display: none;
+    }
+
     .channel-label {
         display: block;
         font-size: 0.75rem;
@@ -1362,6 +1371,12 @@ else
                         <span class="status-dot"></span>
                         <span id="connectionStatusText">@(Model.IsConnected ? "Connected" : "Disconnected")</span>
                     </span>
+                    <span id="channelMemberCount" class="channel-member-count @(Model.IsConnected ? "" : "hidden")">
+                        @if (Model.IsConnected && Model.CurrentChannelMemberCount.HasValue)
+                        {
+                            <text>@Model.CurrentChannelMemberCount @(Model.CurrentChannelMemberCount == 1 ? "member" : "members")</text>
+                        }
+                    </span>
                 </div>
 
                 <!-- Channel Selector -->
@@ -1675,6 +1690,7 @@ else
                 DashboardHub.on('PlaybackProgress', handlePlaybackProgress);
                 DashboardHub.on('AudioConnected', handleAudioConnected);
                 DashboardHub.on('AudioDisconnected', handleAudioDisconnected);
+                DashboardHub.on('VoiceChannelMemberCountUpdated', handleVoiceChannelMemberCountUpdated);
 
                 // Connection state handlers
                 DashboardHub.on('reconnected', async () => {
@@ -1787,16 +1803,36 @@ else
 
         // Handle audio connected event from SignalR
         function handleAudioConnected(data) {
-            console.log('[Soundboard] AudioConnected:', data.channelName);
+            console.log('[Soundboard] AudioConnected:', data.channelName, 'MemberCount:', data.memberCount);
 
             isConnected = true;
-            updateConnectionUI(true);
+            updateConnectionUI(true, data.memberCount);
 
             // Update channel selector to show connected channel
             const channelSelect = document.getElementById('channelSelect');
             if (data.channelId && channelSelect) {
                 channelSelect.value = data.channelId.toString();
                 selectedChannel = data.channelId.toString();
+            }
+        }
+
+        // Handle voice channel member count update from SignalR
+        function handleVoiceChannelMemberCountUpdated(data) {
+            console.log('[Soundboard] VoiceChannelMemberCountUpdated:', data.channelId, 'MemberCount:', data.memberCount);
+
+            // Update member count display if connected to this channel
+            if (isConnected && selectedChannel === data.channelId.toString()) {
+                updateMemberCountDisplay(data.memberCount);
+            }
+
+            // Update the channel selector option for this channel
+            const channelSelect = document.getElementById('channelSelect');
+            if (channelSelect) {
+                const option = channelSelect.querySelector(`option[value="${data.channelId}"]`);
+                if (option) {
+                    const channelName = data.channelName || option.textContent.replace(/\s*\(\d+\s*members?\)\s*$/, '').trim();
+                    option.textContent = `${channelName} (${data.memberCount} ${data.memberCount === 1 ? 'member' : 'members'})`;
+                }
             }
         }
 
@@ -1810,7 +1846,7 @@ else
             currentlyPlayingName = null;
 
             // Update UI
-            updateConnectionUI(false);
+            updateConnectionUI(false, null);
             updateNowPlayingUI(null);
             document.getElementById('channelSelect').value = '';
 
@@ -1846,11 +1882,12 @@ else
         }
 
         // Helper: Update connection status UI
-        function updateConnectionUI(connected) {
+        function updateConnectionUI(connected, memberCount) {
             const statusBadge = document.getElementById('connectionStatus');
             const statusText = document.getElementById('connectionStatusText');
             const joinBtn = document.getElementById('joinBtn');
             const leaveBtn = document.getElementById('leaveBtn');
+            const memberCountEl = document.getElementById('channelMemberCount');
 
             if (connected) {
                 statusBadge.classList.remove('disconnected');
@@ -1858,12 +1895,31 @@ else
                 statusText.textContent = 'Connected';
                 joinBtn.disabled = true;
                 leaveBtn.disabled = false;
+                // Show and update member count
+                if (memberCountEl) {
+                    memberCountEl.classList.remove('hidden');
+                    if (memberCount !== undefined && memberCount !== null) {
+                        memberCountEl.textContent = `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`;
+                    }
+                }
             } else {
                 statusBadge.classList.remove('connected');
                 statusBadge.classList.add('disconnected');
                 statusText.textContent = 'Disconnected';
                 joinBtn.disabled = false;
                 leaveBtn.disabled = true;
+                // Hide member count
+                if (memberCountEl) {
+                    memberCountEl.classList.add('hidden');
+                }
+            }
+        }
+
+        // Helper: Update member count display
+        function updateMemberCountDisplay(memberCount) {
+            const memberCountEl = document.getElementById('channelMemberCount');
+            if (memberCountEl && memberCount !== undefined && memberCount !== null) {
+                memberCountEl.textContent = `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`;
             }
         }
 

@@ -77,6 +77,9 @@ public static class DiscordServiceExtensions
         // Register MemberEventHandler as singleton
         services.AddSingleton<MemberEventHandler>();
 
+        // Register VoiceStateHandler for real-time voice channel member count updates
+        services.AddSingleton<VoiceStateHandler>();
+
         // Register member sync services
         services.AddSingleton<IMemberSyncQueue, MemberSyncQueue>();
         services.AddHostedService<MemberSyncService>();

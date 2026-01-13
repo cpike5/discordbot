@@ -24,6 +24,7 @@ public class BotHostedService : IHostedService
     private readonly MessageLoggingHandler _messageLoggingHandler;
     private readonly WelcomeHandler _welcomeHandler;
     private readonly MemberEventHandler _memberEventHandler;
+    private readonly VoiceStateHandler _voiceStateHandler;
     private readonly AutoModerationHandler _autoModerationHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
@@ -49,6 +50,7 @@ public class BotHostedService : IHostedService
         MessageLoggingHandler messageLoggingHandler,
         WelcomeHandler welcomeHandler,
         MemberEventHandler memberEventHandler,
+        VoiceStateHandler voiceStateHandler,
         AutoModerationHandler autoModerationHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
@@ -72,6 +74,7 @@ public class BotHostedService : IHostedService
         _messageLoggingHandler = messageLoggingHandler;
         _welcomeHandler = welcomeHandler;
         _memberEventHandler = memberEventHandler;
+        _voiceStateHandler = voiceStateHandler;
         _autoModerationHandler = autoModerationHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
@@ -129,6 +132,9 @@ public class BotHostedService : IHostedService
             _client.UserJoined += _memberEventHandler.HandleUserJoinedAsync;
             _client.UserLeft += _memberEventHandler.HandleUserLeftAsync;
             _client.GuildMemberUpdated += _memberEventHandler.HandleGuildMemberUpdatedAsync;
+
+            // Wire voice state handler for real-time member count updates
+            _client.UserVoiceStateUpdated += _voiceStateHandler.HandleUserVoiceStateUpdatedAsync;
 
             // Queue member sync for new guilds
             _client.JoinedGuild += OnBotJoinedGuild;
