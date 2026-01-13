@@ -31,4 +31,11 @@ public interface ITtsService
     /// </summary>
     /// <returns>True if the service is properly configured, false otherwise.</returns>
     bool IsConfigured { get; }
+
+    /// <summary>
+    /// Gets the curated list of popular TTS voices across multiple languages.
+    /// This list is consistent between the Discord /tts command and the web TTS Portal.
+    /// </summary>
+    /// <returns>Collection of curated voice information ordered by locale and name.</returns>
+    IEnumerable<VoiceInfo> GetCuratedVoices();
 }
