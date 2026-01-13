@@ -137,6 +137,7 @@ public class IndexModel : PageModel
     /// <param name="defaultVolume">The default volume level.</param>
     /// <param name="autoPlayOnSend">Whether to auto-play TTS on send.</param>
     /// <param name="announceJoinsLeaves">Whether to announce joins/leaves.</param>
+    /// <param name="rateLimitPerMinute">The rate limit for TTS messages per user per minute.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Redirect to the index page or JSON for AJAX requests.</returns>
     public async Task<IActionResult> OnPostUpdateSettingsAsync(
@@ -147,6 +148,7 @@ public class IndexModel : PageModel
         [FromForm] double defaultVolume,
         [FromForm] bool autoPlayOnSend,
         [FromForm] bool announceJoinsLeaves,
+        [FromForm] int rateLimitPerMinute,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("User attempting to update TTS settings for guild {GuildId}", guildId);
@@ -166,6 +168,7 @@ public class IndexModel : PageModel
             settings.DefaultVolume = Math.Clamp(defaultVolume, 0.0, 1.0);
             settings.AutoPlayOnSend = autoPlayOnSend;
             settings.AnnounceJoinsLeaves = announceJoinsLeaves;
+            settings.RateLimitPerMinute = Math.Clamp(rateLimitPerMinute, 1, 60);
 
             await _ttsSettingsService.UpdateSettingsAsync(settings, cancellationToken);
 
