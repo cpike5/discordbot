@@ -17,6 +17,7 @@ namespace DiscordBot.Bot.Handlers;
 /// <summary>
 /// Handles Discord interaction events and command discovery/registration.
 /// Discovers command modules from the assembly and registers them with Discord.
+/// Filters modules based on configuration, skipping disabled modules during registration.
 /// </summary>
 public class InteractionHandler
 {
@@ -28,6 +29,7 @@ public class InteractionHandler
     private readonly ICommandExecutionLogger _commandExecutionLogger;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly BotMetrics _botMetrics;
+    private readonly ICommandModuleConfigurationService _commandModuleConfigService;
 
     // AsyncLocal storage for tracking execution context across async calls
     private static readonly AsyncLocal<ExecutionContext> _executionContext = new();
@@ -40,7 +42,8 @@ public class InteractionHandler
         ILogger<InteractionHandler> logger,
         ICommandExecutionLogger commandExecutionLogger,
         IDashboardUpdateService dashboardUpdateService,
-        BotMetrics botMetrics)
+        BotMetrics botMetrics,
+        ICommandModuleConfigurationService commandModuleConfigService)
     {
         _client = client;
         _interactionService = interactionService;
@@ -50,17 +53,72 @@ public class InteractionHandler
         _commandExecutionLogger = commandExecutionLogger;
         _dashboardUpdateService = dashboardUpdateService;
         _botMetrics = botMetrics;
+        _commandModuleConfigService = commandModuleConfigService;
     }
 
     /// <summary>
     /// Initializes the interaction handler by discovering command modules and wiring up events.
+    /// Filters out disabled modules based on configuration.
     /// </summary>
     public async Task InitializeAsync()
     {
         _logger.LogInformation("Initializing interaction handler");
 
-        // Discover and add command modules from the executing assembly
-        await _interactionService.AddModulesAsync(Assembly.GetExecutingAssembly(), _serviceProvider);
+        // Sync module configurations to ensure database has all module definitions
+        await _commandModuleConfigService.SyncModulesAsync();
+
+        // Get all module configurations to determine which are enabled
+        var moduleConfigurations = await _commandModuleConfigService.GetAllModulesAsync();
+        var enabledModuleNames = moduleConfigurations
+            .Where(m => m.IsEnabled)
+            .Select(m => m.ModuleName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Discover command module types from the executing assembly
+        var assembly = Assembly.GetExecutingAssembly();
+        var allModuleTypes = assembly.GetTypes()
+            .Where(t => t.IsClass && !t.IsAbstract && IsInteractionModule(t))
+            .ToList();
+
+        var loadedModules = new List<string>();
+        var skippedModules = new List<string>();
+
+        // Register only enabled modules
+        foreach (var moduleType in allModuleTypes)
+        {
+            var moduleName = moduleType.Name;
+
+            // If we have no configuration for this module, default to enabled
+            if (!moduleConfigurations.Any(m => m.ModuleName.Equals(moduleName, StringComparison.OrdinalIgnoreCase)))
+            {
+                await _interactionService.AddModuleAsync(moduleType, _serviceProvider);
+                loadedModules.Add(moduleName);
+                _logger.LogDebug("Loaded unconfigured module {ModuleName} (defaulting to enabled)", moduleName);
+                continue;
+            }
+
+            if (enabledModuleNames.Contains(moduleName))
+            {
+                await _interactionService.AddModuleAsync(moduleType, _serviceProvider);
+                loadedModules.Add(moduleName);
+            }
+            else
+            {
+                skippedModules.Add(moduleName);
+            }
+        }
+
+        // Log summary of loaded and skipped modules
+        _logger.LogInformation("Loaded {EnabledCount} command modules: {Modules}",
+            loadedModules.Count,
+            string.Join(", ", loadedModules.OrderBy(n => n)));
+
+        if (skippedModules.Count > 0)
+        {
+            _logger.LogInformation("Skipped {DisabledCount} disabled modules: {Modules}",
+                skippedModules.Count,
+                string.Join(", ", skippedModules.OrderBy(n => n)));
+        }
 
         // Wire up event handlers
         _client.Ready += OnReadyAsync;
@@ -69,6 +127,25 @@ public class InteractionHandler
         _interactionService.ComponentCommandExecuted += OnComponentCommandExecutedAsync;
 
         _logger.LogDebug("Interaction handler initialized with {ModuleCount} modules", _interactionService.Modules.Count());
+    }
+
+    /// <summary>
+    /// Determines if a type is a Discord.NET interaction module.
+    /// Checks if the type inherits from InteractionModuleBase (generic or non-generic).
+    /// </summary>
+    private static bool IsInteractionModule(Type type)
+    {
+        var baseType = type.BaseType;
+        while (baseType != null)
+        {
+            if (baseType.IsGenericType &&
+                baseType.GetGenericTypeDefinition() == typeof(InteractionModuleBase<>))
+            {
+                return true;
+            }
+            baseType = baseType.BaseType;
+        }
+        return false;
     }
 
     /// <summary>
