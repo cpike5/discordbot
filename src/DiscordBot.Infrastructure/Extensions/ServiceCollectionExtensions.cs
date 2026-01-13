@@ -73,10 +73,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGuildAudioSettingsRepository, GuildAudioSettingsRepository>();
         services.AddScoped<ITtsMessageRepository, TtsMessageRepository>();
         services.AddScoped<IGuildTtsSettingsRepository, GuildTtsSettingsRepository>();
+        services.AddScoped<ICommandModuleConfigurationRepository, CommandModuleConfigurationRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests
         services.AddSingleton<ISettingsService, SettingsService>();
+        // CommandModuleConfigurationService is registered as Singleton to maintain restart pending flag across requests
+        services.AddSingleton<ICommandModuleConfigurationService, CommandModuleConfigurationService>();
 
         return services;
     }
