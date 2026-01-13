@@ -88,6 +88,11 @@ public class IndexModel : PageModel
     public bool IsAudioGloballyDisabled { get; set; }
 
     /// <summary>
+    /// Gets whether the member portal is enabled for this guild.
+    /// </summary>
+    public bool IsMemberPortalEnabled { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the Soundboard management page.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -121,6 +126,9 @@ public class IndexModel : PageModel
 
             // Get audio settings (creates defaults if not found)
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
+
+            // Set member portal enabled flag for UI
+            IsMemberPortalEnabled = settings.EnableMemberPortal;
 
             // Query play statistics
             var todayUtc = DateTime.UtcNow.Date;
