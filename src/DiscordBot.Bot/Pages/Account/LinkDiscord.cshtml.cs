@@ -424,4 +424,50 @@ public class LinkDiscordModel : PageModel
 
         return RedirectToPage();
     }
+
+    /// <summary>
+    /// Handles POST requests to refresh Discord guild data from the Discord API.
+    /// Fetches the latest guild memberships and updates the local cache.
+    /// </summary>
+    public async Task<IActionResult> OnPostRefreshDiscordDataAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogTrace("Entering {MethodName}", nameof(OnPostRefreshDiscordDataAsync));
+
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            _logger.LogWarning("User not found during Discord data refresh");
+            return NotFound("User not found.");
+        }
+
+        if (!user.DiscordUserId.HasValue)
+        {
+            _logger.LogWarning("User {UserId} attempted to refresh Discord data but no Discord account is linked", user.Id);
+            StatusMessage = "No Discord account is currently linked.";
+            IsSuccess = false;
+            return RedirectToPage();
+        }
+
+        _logger.LogInformation("User {UserId} refreshing Discord guild data", user.Id);
+
+        try
+        {
+            await _userDiscordGuildService.RefreshUserGuildsAsync(user.Id, cancellationToken);
+
+            // Invalidate user info cache for consistency
+            _userInfoService.InvalidateCache(user.Id);
+
+            _logger.LogInformation("User {UserId} refreshed Discord guild data successfully", user.Id);
+            StatusMessage = "Discord data refreshed successfully.";
+            IsSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refreshing Discord data for user {UserId}", user.Id);
+            StatusMessage = "An error occurred while refreshing Discord data. Please try again.";
+            IsSuccess = false;
+        }
+
+        return RedirectToPage();
+    }
 }

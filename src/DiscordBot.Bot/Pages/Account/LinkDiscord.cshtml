@@ -160,8 +160,26 @@
                 </div>
             }
 
+            <!-- Refresh Discord Data Button -->
+            <div class="flex items-center justify-between py-4 border-t border-border-primary border-b">
+                <div>
+                    <p class="text-sm font-medium text-text-primary">Refresh Discord Data</p>
+                    <p class="text-xs text-text-tertiary mt-0.5">Fetch the latest guilds and permissions from Discord</p>
+                </div>
+                <form method="post" asp-page-handler="RefreshDiscordData">
+                    <button
+                        type="submit"
+                        class="py-2 px-4 text-sm font-semibold text-white bg-accent-blue border border-accent-blue rounded-md transition-colors hover:bg-accent-blue-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                        <svg class="inline w-4 h-4 mr-2 -mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh Data
+                    </button>
+                </form>
+            </div>
+
             <!-- Unlink Button -->
-            <div class="flex items-center justify-between pt-4 border-t border-border-primary">
+            <div class="flex items-center justify-between pt-4">
                 <div>
                     <p class="text-sm font-medium text-text-primary">Unlink Discord Account</p>
                     <p class="text-xs text-text-tertiary mt-0.5">This will remove the Discord connection and clear all associated data</p>

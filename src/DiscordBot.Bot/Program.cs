@@ -123,6 +123,8 @@ try
         builder.Configuration.GetSection(ApplicationOptions.SectionName));
     builder.Services.Configure<CachingOptions>(
         builder.Configuration.GetSection(CachingOptions.SectionName));
+    builder.Services.Configure<GuildMembershipCacheOptions>(
+        builder.Configuration.GetSection(GuildMembershipCacheOptions.SectionName));
     builder.Services.Configure<BackgroundServicesOptions>(
         builder.Configuration.GetSection(BackgroundServicesOptions.SectionName));
     builder.Services.Configure<ObservabilityOptions>(

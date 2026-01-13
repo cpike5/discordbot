@@ -1,12 +1,15 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Services;
@@ -27,7 +30,22 @@ public class UserDiscordGuildServiceTests : IDisposable
     {
         (_context, _connection) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<UserDiscordGuildService>>();
-        _service = new UserDiscordGuildService(_context, _mockLogger.Object);
+
+        var cacheMock = new Mock<IInstrumentedCache>();
+        var httpClientFactoryMock = new Mock<IHttpClientFactory>();
+        var tokenServiceMock = new Mock<IDiscordTokenService>();
+        var cacheOptions = Options.Create(new GuildMembershipCacheOptions
+        {
+            StoredGuildMembershipDurationMinutes = 30
+        });
+
+        _service = new UserDiscordGuildService(
+            _context,
+            _mockLogger.Object,
+            cacheMock.Object,
+            httpClientFactoryMock.Object,
+            tokenServiceMock.Object,
+            cacheOptions);
     }
 
     public void Dispose()

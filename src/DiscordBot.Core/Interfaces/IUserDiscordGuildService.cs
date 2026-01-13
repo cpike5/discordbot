@@ -55,4 +55,19 @@ public interface IUserDiscordGuildService
     Task DeleteUserGuildsAsync(
         string applicationUserId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches guild memberships from Discord API, updates database, and invalidates cache.
+    /// </summary>
+    /// <param name="applicationUserId">The ApplicationUser ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task RefreshUserGuildsAsync(
+        string applicationUserId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Invalidates cached guild memberships for the specified user.
+    /// </summary>
+    /// <param name="applicationUserId">The ApplicationUser ID.</param>
+    void InvalidateCache(string applicationUserId);
 }
