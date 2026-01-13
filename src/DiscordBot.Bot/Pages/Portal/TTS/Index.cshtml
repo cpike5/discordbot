@@ -1117,16 +1117,16 @@ else
                     <div class="form-group">
                         <label class="form-label">
                             Message
-                            <span class="form-label-small">(max 200 characters)</span>
+                            <span class="form-label-small">(max <span id="maxLengthLabel">500</span> characters)</span>
                         </label>
                         <textarea id="ttsMessage"
                                   class="form-textarea"
                                   rows="6"
-                                  maxlength="200"
+                                  maxlength="500"
                                   placeholder="Enter the message you want the bot to say..."></textarea>
                         <div id="charCounter" class="char-counter">
                             <span>Character count:</span>
-                            <span class="char-count" id="charCount">0</span><span> / <span id="charMax">200</span></span>
+                            <span class="char-count" id="charCount">0</span><span> / <span id="charMax">500</span></span>
                         </div>
                     </div>
 

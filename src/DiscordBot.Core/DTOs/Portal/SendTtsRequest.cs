@@ -9,9 +9,9 @@ public class SendTtsRequest
 {
     /// <summary>
     /// Gets or sets the text message to synthesize.
+    /// Maximum length is configurable via AzureSpeechOptions.MaxTextLength (default: 500).
     /// </summary>
     [Required]
-    [MaxLength(200)]
     public string Message { get; set; } = string.Empty;
 
     /// <summary>

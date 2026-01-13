@@ -6,7 +6,6 @@
     // ========================================
     const CONFIG = {
         STATUS_POLL_INTERVAL: 3000,        // 3 seconds
-        MAX_MESSAGE_LENGTH: 200,
         CHARACTER_WARNING_THRESHOLD: 0.9,   // 90%
         SPEED_MIN: 0.5,
         SPEED_MAX: 2.0,
@@ -35,8 +34,10 @@
     let statusPollTimer = null;
     let isConnected = false;
     let isPlaying = false;
+    let isSending = false;                 // Track if a message is currently being sent
     let currentMessage = null;
     let selectedChannel = null;
+    let maxMessageLength = 500;            // Dynamic max length from server (default: 500)
 
     // ========================================
     // Initialization
@@ -192,6 +193,13 @@
 
             const data = await response.json();
 
+            // Update max message length if provided by server
+            if (data.maxMessageLength && data.maxMessageLength !== maxMessageLength) {
+                maxMessageLength = data.maxMessageLength;
+                console.log('[PortalTTS] Max message length updated:', maxMessageLength);
+                updateCharacterCount(); // Update UI with new limit
+            }
+
             // Update connection state if changed
             if (data.isConnected !== isConnected) {
                 isConnected = data.isConnected;
@@ -241,8 +249,8 @@
             return;
         }
 
-        if (message.length > CONFIG.MAX_MESSAGE_LENGTH) {
-            showToast('error', `Message exceeds maximum length of ${CONFIG.MAX_MESSAGE_LENGTH} characters`);
+        if (message.length > maxMessageLength) {
+            showToast('error', `Message exceeds maximum length of ${maxMessageLength} characters`);
             return;
         }
 
@@ -259,6 +267,9 @@
         }
         const speed = parseFloat(document.getElementById('speedSlider').value) || CONFIG.SPEED_DEFAULT;
         const pitch = parseFloat(document.getElementById('pitchSlider').value) || CONFIG.PITCH_DEFAULT;
+
+        // Mark as sending to prevent duplicate submissions
+        isSending = true;
 
         // Clear textarea immediately so user can start typing next message
         messageInput.value = '';
@@ -302,9 +313,9 @@
             console.error('[PortalTTS] Send error:', error);
             showToast('error', error.message);
         } finally {
-            sendBtn.disabled = false;
-            sendBtn.textContent = originalText;
+            isSending = false;
             sendBtn.innerHTML = originalHtml;
+            updateCharacterCount(); // Re-evaluate button state based on current input
         }
     }
 
@@ -431,27 +442,41 @@
         if (!messageInput) return;
         const count = messageInput.value.length;
         const charCount = document.getElementById('charCount');
+        const charMax = document.getElementById('charMax');
+        const maxLengthLabel = document.getElementById('maxLengthLabel');
         const charCounter = document.getElementById('charCounter');
         const sendBtn = document.getElementById('sendBtn');
+        const messageTextarea = document.getElementById('ttsMessage');
 
         if (charCount) {
             charCount.textContent = count;
         }
 
+        // Update max length displays
+        if (charMax) {
+            charMax.textContent = maxMessageLength;
+        }
+        if (maxLengthLabel) {
+            maxLengthLabel.textContent = maxMessageLength;
+        }
+        if (messageTextarea) {
+            messageTextarea.setAttribute('maxlength', maxMessageLength);
+        }
+
         // Color coding
         if (charCounter) {
-            if (count >= CONFIG.MAX_MESSAGE_LENGTH) {
+            if (count >= maxMessageLength) {
                 charCounter.style.color = '#ef4444'; // Red - over limit
-            } else if (count >= CONFIG.MAX_MESSAGE_LENGTH * CONFIG.CHARACTER_WARNING_THRESHOLD) {
+            } else if (count >= maxMessageLength * CONFIG.CHARACTER_WARNING_THRESHOLD) {
                 charCounter.style.color = '#fbbf24'; // Orange warning
             } else {
                 charCounter.style.color = '#949ba4'; // Normal gray
             }
         }
 
-        // Update send button state (disabled if empty or not connected)
+        // Update send button state (disabled if empty, not connected, over limit, or currently sending)
         if (sendBtn) {
-            sendBtn.disabled = count === 0 || !isConnected || count > CONFIG.MAX_MESSAGE_LENGTH;
+            sendBtn.disabled = count === 0 || !isConnected || count > maxMessageLength || isSending;
         }
     }
 

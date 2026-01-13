@@ -29,4 +29,9 @@ public class TtsStatusResponse
     /// Gets or sets the current message being played (truncated to 50 characters).
     /// </summary>
     public string? CurrentMessage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum allowed message length in characters.
+    /// </summary>
+    public int MaxMessageLength { get; set; }
 }

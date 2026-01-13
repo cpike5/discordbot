@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Portal;
 using DiscordBot.Core.Entities;
@@ -9,6 +10,7 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Controllers;
 
@@ -27,6 +29,7 @@ public class PortalTtsController : ControllerBase
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
     private readonly DiscordSocketClient _discordClient;
+    private readonly AzureSpeechOptions _azureSpeechOptions;
     private readonly ILogger<PortalTtsController> _logger;
 
     // Track current TTS message being played per guild
@@ -44,6 +47,7 @@ public class PortalTtsController : ControllerBase
     /// <param name="audioService">The audio service for voice connections.</param>
     /// <param name="playbackService">The playback service for audio control.</param>
     /// <param name="discordClient">The Discord socket client.</param>
+    /// <param name="azureSpeechOptions">The Azure Speech configuration options.</param>
     /// <param name="logger">The logger.</param>
     public PortalTtsController(
         ITtsService ttsService,
@@ -52,6 +56,7 @@ public class PortalTtsController : ControllerBase
         IAudioService audioService,
         IPlaybackService playbackService,
         DiscordSocketClient discordClient,
+        IOptions<AzureSpeechOptions> azureSpeechOptions,
         ILogger<PortalTtsController> logger)
     {
         _ttsService = ttsService;
@@ -60,6 +65,7 @@ public class PortalTtsController : ControllerBase
         _audioService = audioService;
         _playbackService = playbackService;
         _discordClient = discordClient;
+        _azureSpeechOptions = azureSpeechOptions.Value;
         _logger = logger;
     }
 
@@ -98,7 +104,8 @@ public class PortalTtsController : ControllerBase
             ChannelId = channelId,
             ChannelName = channelName,
             IsPlaying = isPlaying,
-            CurrentMessage = currentMessage
+            CurrentMessage = currentMessage,
+            MaxMessageLength = _azureSpeechOptions.MaxTextLength
         };
 
         return Ok(response);
