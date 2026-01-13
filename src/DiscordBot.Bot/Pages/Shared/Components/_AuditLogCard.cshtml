@@ -12,16 +12,18 @@
             </div>
             <h2 class="text-lg font-semibold text-text-primary">Recent Audit Logs</h2>
         </div>
-        <a
-            href="/Admin/AuditLogs"
-            class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-primary rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary"
-            aria-label="View all audit logs"
-            title="View all audit logs"
-        >
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-        </a>
+        <authorize policy="RequireAdmin">
+            <a
+                href="/Admin/AuditLogs"
+                class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-primary rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary"
+                aria-label="View all audit logs"
+                title="View all audit logs"
+            >
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+            </a>
+        </authorize>
     </div>
 
     @if (Model.Logs.Any())
@@ -69,11 +71,13 @@
         </div>
 
         <!-- Card Footer -->
-        <div class="px-5 py-3 border-t border-border-primary bg-bg-primary/30">
-            <a href="/Admin/AuditLogs" class="text-sm font-medium text-accent-purple hover:text-accent-purple/80 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary rounded px-2 py-1">
-                View all audit logs
-            </a>
-        </div>
+        <authorize policy="RequireAdmin">
+            <div class="px-5 py-3 border-t border-border-primary bg-bg-primary/30">
+                <a href="/Admin/AuditLogs" class="text-sm font-medium text-accent-purple hover:text-accent-purple/80 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary rounded px-2 py-1">
+                    View all audit logs
+                </a>
+            </div>
+        </authorize>
     }
     else
     {
