@@ -132,6 +132,8 @@ public class ExternalLoginModel : PageModel
                 if (user != null && !string.IsNullOrEmpty(accessToken))
                 {
                     await StoreGuildMembershipsAsync(user.Id, accessToken);
+                    // Invalidate cache to ensure fresh data is loaded
+                    _userDiscordGuildService.InvalidateCache(user.Id);
                 }
             }
 
@@ -230,6 +232,8 @@ public class ExternalLoginModel : PageModel
                         if (!string.IsNullOrEmpty(accessToken))
                         {
                             await StoreGuildMembershipsAsync(existingDiscordUser.Id, accessToken);
+                            // Invalidate cache to ensure fresh data is loaded
+                            _userDiscordGuildService.InvalidateCache(existingDiscordUser.Id);
                         }
                     }
 
@@ -271,6 +275,8 @@ public class ExternalLoginModel : PageModel
                     if (!string.IsNullOrEmpty(accessToken))
                     {
                         await StoreGuildMembershipsAsync(existingUser.Id, accessToken);
+                        // Invalidate cache to ensure fresh data is loaded
+                        _userDiscordGuildService.InvalidateCache(existingUser.Id);
                     }
                 }
 
@@ -366,6 +372,8 @@ public class ExternalLoginModel : PageModel
             if (!string.IsNullOrEmpty(accessToken))
             {
                 await StoreGuildMembershipsAsync(user.Id, accessToken);
+                // Invalidate cache to ensure fresh data is loaded
+                _userDiscordGuildService.InvalidateCache(user.Id);
             }
         }
 
