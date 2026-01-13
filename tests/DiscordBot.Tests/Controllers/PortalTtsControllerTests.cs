@@ -4,6 +4,7 @@ using Discord.Audio;
 using Discord.WebSocket;
 using DiscordBot.Bot.Controllers;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Portal;
 using DiscordBot.Core.Entities;
@@ -13,6 +14,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Controllers;
@@ -41,6 +43,12 @@ public class PortalTtsControllerTests
         _mockDiscordClient = new Mock<DiscordSocketClient>(MockBehavior.Default, new DiscordSocketConfig());
         _mockLogger = new Mock<ILogger<PortalTtsController>>();
 
+        var azureSpeechOptions = Options.Create(new AzureSpeechOptions
+        {
+            SubscriptionKey = "test-key",
+            Region = "eastus"
+        });
+
         _controller = new PortalTtsController(
             _mockTtsService.Object,
             _mockTtsSettingsService.Object,
@@ -48,6 +56,7 @@ public class PortalTtsControllerTests
             _mockAudioService.Object,
             _mockPlaybackService.Object,
             _mockDiscordClient.Object,
+            azureSpeechOptions,
             _mockLogger.Object);
 
         // Setup HttpContext and User claims
