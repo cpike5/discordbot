@@ -38,6 +38,24 @@
         </div>
     </div>
 
+    <!-- Filtered View Info Banner -->
+    @if (Model.IsFiltered)
+    {
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+            <div class="flex items-start gap-3">
+                <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="flex-1">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        You're viewing <strong>@Model.ViewModel.TotalCount</strong> of <strong>@Model.TotalGuilds</strong> total servers.
+                        Only servers where you are a Discord member are shown.
+                    </p>
+                </div>
+            </div>
+        </div>
+    }
+
     <!-- Search & Filter Bar -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
         <form method="get" class="flex flex-col md:flex-row md:items-end gap-4">
@@ -220,8 +238,10 @@
                             <td colspan="5" class="px-6 py-12 text-center">
                                 @{
                                     var hasFilters = !string.IsNullOrEmpty(Model.SearchTerm) || Model.StatusFilter.HasValue;
-                                    var emptyTitle = hasFilters ? "No servers found" : "No servers yet";
-                                    var emptyDesc = hasFilters ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
+                                    var emptyTitle = Model.IsFiltered && !hasFilters ? "No accessible servers" :
+                                                     hasFilters ? "No servers found" : "No servers yet";
+                                    var emptyDesc = Model.IsFiltered && !hasFilters ? "You don't have access to any servers. Contact an admin to grant access or join a Discord server with this bot." :
+                                                    hasFilters ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
                                 }
                                 <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
                                     Type = EmptyStateType.NoResults,
@@ -326,8 +346,10 @@
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
                 @{
                     var hasFilters = !string.IsNullOrEmpty(Model.SearchTerm) || Model.StatusFilter.HasValue;
-                    var emptyTitle = hasFilters ? "No servers found" : "No servers yet";
-                    var emptyDesc = hasFilters ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
+                    var emptyTitle = Model.IsFiltered && !hasFilters ? "No accessible servers" :
+                                     hasFilters ? "No servers found" : "No servers yet";
+                    var emptyDesc = Model.IsFiltered && !hasFilters ? "You don't have access to any servers. Contact an admin to grant access or join a Discord server with this bot." :
+                                    hasFilters ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
                 }
                 <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
                     Type = EmptyStateType.NoResults,

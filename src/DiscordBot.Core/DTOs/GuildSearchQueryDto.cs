@@ -34,4 +34,16 @@ public class GuildSearchQueryDto
     /// Sort in descending order if true.
     /// </summary>
     public bool SortDescending { get; set; }
+
+    /// <summary>
+    /// The requesting user's ID for filtering guilds based on access rights.
+    /// If null, no user-based filtering is applied (SuperAdmin/Admin see all).
+    /// </summary>
+    public string? UserId { get; set; }
+
+    /// <summary>
+    /// The requesting user's roles for determining filtering behavior.
+    /// SuperAdmin and Admin see all guilds. Moderator and Viewer see only guilds they're Discord members of.
+    /// </summary>
+    public IEnumerable<string>? UserRoles { get; set; }
 }

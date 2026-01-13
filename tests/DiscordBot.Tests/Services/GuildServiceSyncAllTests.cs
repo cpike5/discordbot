@@ -3,7 +3,10 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Data;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -15,17 +18,30 @@ namespace DiscordBot.Tests.Services;
 /// NOTE: DiscordSocketClient.Guilds cannot be easily mocked as it returns IReadOnlyCollection of sealed SocketGuild.
 /// These tests document expected behavior and test repository interactions where possible.
 /// </summary>
-public class GuildServiceSyncAllTests
+public class GuildServiceSyncAllTests : IDisposable
 {
     private readonly Mock<IGuildRepository> _mockGuildRepository;
     private readonly Mock<ILogger<GuildService>> _mockLogger;
     private readonly Mock<IAuditLogService> _mockAuditLogService;
+    private readonly BotDbContext _dbContext;
+    private readonly SqliteConnection _connection;
 
     public GuildServiceSyncAllTests()
     {
         _mockGuildRepository = new Mock<IGuildRepository>();
         _mockLogger = new Mock<ILogger<GuildService>>();
         _mockAuditLogService = new Mock<IAuditLogService>();
+
+        // Setup SQLite in-memory database
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
+
+        var options = new DbContextOptionsBuilder<BotDbContext>()
+            .UseSqlite(_connection)
+            .Options;
+
+        _dbContext = new BotDbContext(options);
+        _dbContext.Database.EnsureCreated();
 
         // Setup audit log service to return a builder that returns itself for fluent API
         var mockBuilder = new Mock<IAuditLogBuilder>();
@@ -43,6 +59,12 @@ public class GuildServiceSyncAllTests
         mockBuilder.Setup(x => x.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         _mockAuditLogService.Setup(x => x.CreateBuilder()).Returns(mockBuilder.Object);
+    }
+
+    public void Dispose()
+    {
+        _dbContext.Dispose();
+        _connection.Dispose();
     }
 
     /// <summary>
@@ -103,7 +125,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         // Act
         var result = await service.SyncAllGuildsAsync();
@@ -137,7 +159,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
         var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
 
@@ -168,7 +190,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         // Act
         await service.SyncAllGuildsAsync();
@@ -193,7 +215,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         // Act
         await service.SyncAllGuildsAsync();
@@ -302,7 +324,7 @@ public class GuildServiceSyncAllTests
     {
         // Arrange
         var client = new DiscordSocketClient();
-        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object);
+        var service = new GuildService(_mockGuildRepository.Object, client, _mockLogger.Object, _mockAuditLogService.Object, _dbContext);
 
         // Act
         var result = await service.SyncAllGuildsAsync(); // Using default CancellationToken
