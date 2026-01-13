@@ -89,6 +89,7 @@ The `/play` command supports an optional `filter` parameter to apply audio effec
 - Enable/disable audio features for the guild
 - Auto-leave timeout (minutes before bot leaves when idle)
 - Queue mode vs replace mode for playback
+- Silent playback mode (suppress confirmation messages)
 - Maximum sound duration (seconds)
 - Maximum file size (bytes)
 - Maximum sounds per guild
@@ -174,6 +175,7 @@ Per-guild audio configuration.
 | `AudioEnabled` | bool | Whether audio is enabled |
 | `AutoLeaveTimeoutMinutes` | int | Idle timeout (0 = indefinite) |
 | `QueueEnabled` | bool | Queue mode vs replace mode |
+| `SilentPlayback` | bool | Suppress "Now Playing" confirmation messages |
 | `MaxDurationSeconds` | int | Max sound duration |
 | `MaxFileSizeBytes` | long | Max file size |
 | `MaxSoundsPerGuild` | int | Max sounds |
@@ -259,6 +261,18 @@ sounds/
 - **Replace Mode** (`QueueEnabled = false`): New sounds stop current playback and play immediately
 
 Configure per-guild in the Audio Settings admin page.
+
+## Silent Playback Mode
+
+When **Silent Playback** is enabled (`SilentPlayback = true`), the `/play` command suppresses the "Now Playing" and "Sound Queued" confirmation messages. This is useful for guilds that find the confirmation messages noisy or prefer a cleaner experience.
+
+**Behavior:**
+- **Enabled**: The bot plays sounds without showing any success confirmation
+- **Disabled** (default): The bot shows an ephemeral embed confirming which sound is playing
+
+**Important:** Error messages are always shown regardless of this setting. If a sound fails to play (e.g., sound not found, permission denied, file missing), users will still see the error message.
+
+Configure per-guild in the Audio Settings admin page under "Silent Playback".
 
 ## Troubleshooting
 
