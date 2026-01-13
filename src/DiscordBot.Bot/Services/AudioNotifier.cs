@@ -39,6 +39,12 @@ public class AudioNotifier : IAudioNotifier
 
         /// <summary>Event fired when voice channel member count changes.</summary>
         public const string VoiceChannelMemberCountUpdated = "VoiceChannelMemberCountUpdated";
+
+        /// <summary>Event fired when a new sound is uploaded to the soundboard.</summary>
+        public const string SoundUploaded = "SoundUploaded";
+
+        /// <summary>Event fired when a sound is deleted from the soundboard.</summary>
+        public const string SoundDeleted = "SoundDeleted";
     }
 
     /// <summary>
@@ -250,6 +256,61 @@ public class AudioNotifier : IAudioNotifier
 
         await _hubContext.Clients.Group(groupName).SendAsync(
             Events.VoiceChannelMemberCountUpdated,
+            data,
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task NotifySoundUploadedAsync(
+        ulong guildId,
+        Guid soundId,
+        string name,
+        int playCount,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = DashboardHub.GetGuildAudioGroupName(guildId);
+        var data = new SoundUploadedDto
+        {
+            GuildId = guildId,
+            SoundId = soundId,
+            Name = name,
+            PlayCount = playCount,
+            Timestamp = DateTime.UtcNow
+        };
+
+        _logger.LogDebug(
+            "Broadcasting SoundUploaded: GuildId={GuildId}, SoundId={SoundId}, Name={Name}",
+            guildId,
+            soundId,
+            name);
+
+        await _hubContext.Clients.Group(groupName).SendAsync(
+            Events.SoundUploaded,
+            data,
+            cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task NotifySoundDeletedAsync(
+        ulong guildId,
+        Guid soundId,
+        CancellationToken cancellationToken = default)
+    {
+        var groupName = DashboardHub.GetGuildAudioGroupName(guildId);
+        var data = new SoundDeletedDto
+        {
+            GuildId = guildId,
+            SoundId = soundId,
+            Timestamp = DateTime.UtcNow
+        };
+
+        _logger.LogDebug(
+            "Broadcasting SoundDeleted: GuildId={GuildId}, SoundId={SoundId}",
+            guildId,
+            soundId);
+
+        await _hubContext.Clients.Group(groupName).SendAsync(
+            Events.SoundDeleted,
             data,
             cancellationToken);
     }

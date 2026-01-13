@@ -1691,6 +1691,8 @@ else
                 DashboardHub.on('AudioConnected', handleAudioConnected);
                 DashboardHub.on('AudioDisconnected', handleAudioDisconnected);
                 DashboardHub.on('VoiceChannelMemberCountUpdated', handleVoiceChannelMemberCountUpdated);
+                DashboardHub.on('SoundUploaded', handleSoundUploaded);
+                DashboardHub.on('SoundDeleted', handleSoundDeleted);
 
                 // Connection state handlers
                 DashboardHub.on('reconnected', async () => {
@@ -1854,6 +1856,75 @@ else
             document.querySelectorAll('.sound-card').forEach(card => {
                 card.classList.remove('playing');
             });
+        }
+
+        // Handle sound uploaded event from SignalR (another user uploaded a sound)
+        function handleSoundUploaded(data) {
+            console.log('[Soundboard] SoundUploaded:', data.name, data.soundId);
+
+            // Check if this sound already exists (uploaded by this user)
+            const existingCard = document.querySelector(`.sound-card[data-sound-id="${data.soundId}"]`);
+            if (existingCard) {
+                console.log('[Soundboard] Sound already in grid, skipping');
+                return;
+            }
+
+            // Add the new sound to the grid
+            addSoundToGrid({
+                id: data.soundId,
+                name: data.name,
+                playCount: data.playCount
+            });
+
+            // Show a toast notification
+            PortalToast.info(`New sound "${data.name}" was added`);
+        }
+
+        // Handle sound deleted event from SignalR (admin deleted a sound)
+        function handleSoundDeleted(data) {
+            console.log('[Soundboard] SoundDeleted:', data.soundId);
+
+            const grid = document.getElementById('soundGrid');
+            const emptyState = document.getElementById('emptyState');
+
+            // Find and remove the sound card
+            const card = document.querySelector(`.sound-card[data-sound-id="${data.soundId}"]`);
+            if (card) {
+                const soundName = card.getAttribute('data-sound-name') || 'Sound';
+
+                // Add fade-out animation
+                card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.9)';
+
+                setTimeout(() => {
+                    card.remove();
+
+                    // If deleted sound was playing, clear now playing UI
+                    if (currentlyPlaying === data.soundId) {
+                        currentlyPlaying = null;
+                        currentlyPlayingName = null;
+                        updateNowPlayingUI(null);
+                    }
+
+                    // Remove from favorites if present
+                    const favIndex = favorites.indexOf(data.soundId);
+                    if (favIndex > -1) {
+                        favorites.splice(favIndex, 1);
+                        localStorage.setItem('soundboard_favorites_' + window.guildId, JSON.stringify(favorites));
+                    }
+
+                    // Show empty state if no sounds remain
+                    const remainingCards = grid.querySelectorAll('.sound-card');
+                    if (remainingCards.length === 0) {
+                        grid.classList.add('hidden');
+                        emptyState.classList.remove('hidden');
+                    }
+
+                    // Show toast notification
+                    PortalToast.warning(`Sound "${soundName}" was deleted`);
+                }, 300);
+            }
         }
 
         // Helper: Show toast notification

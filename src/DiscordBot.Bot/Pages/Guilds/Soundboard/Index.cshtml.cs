@@ -23,6 +23,7 @@ public class IndexModel : PageModel
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IAudioService _audioService;
+    private readonly IAudioNotifier _audioNotifier;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -32,6 +33,7 @@ public class IndexModel : PageModel
         IGuildService guildService,
         DiscordSocketClient discordClient,
         IAudioService audioService,
+        IAudioNotifier audioNotifier,
         ILogger<IndexModel> logger)
     {
         _soundService = soundService;
@@ -40,6 +42,7 @@ public class IndexModel : PageModel
         _guildService = guildService;
         _discordClient = discordClient;
         _audioService = audioService;
+        _audioNotifier = audioNotifier;
         _logger = logger;
     }
 
@@ -179,6 +182,9 @@ public class IndexModel : PageModel
                 _logger.LogInformation("Successfully deleted sound {SoundId} ({Name})",
                     soundId, sound.Name);
                 SuccessMessage = "Sound deleted successfully.";
+
+                // Broadcast deletion to portal viewers via SignalR
+                await _audioNotifier.NotifySoundDeletedAsync(guildId, soundId, cancellationToken);
             }
             else
             {
