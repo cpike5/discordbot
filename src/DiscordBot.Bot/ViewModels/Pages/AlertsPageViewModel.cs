@@ -39,6 +39,12 @@ public record AlertsPageViewModel
     public ActiveAlertSummaryDto AlertSummary { get; init; } = new();
 
     /// <summary>
+    /// Gets a value indicating whether the current user can edit alert settings.
+    /// Only Admin and SuperAdmin roles can modify alert configurations.
+    /// </summary>
+    public bool CanEdit { get; init; }
+
+    /// <summary>
     /// Gets the CSS class for an alert severity level.
     /// </summary>
     /// <param name="severity">The alert severity level.</param>

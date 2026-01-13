@@ -22,6 +22,12 @@ public class AlertsModel : PageModel
     public AlertsPageViewModel ViewModel { get; private set; } = new();
 
     /// <summary>
+    /// Gets a value indicating whether the current user can edit alert settings.
+    /// Only Admin and SuperAdmin roles can modify alert configurations.
+    /// </summary>
+    public bool CanEdit => User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="AlertsModel"/> class.
     /// </summary>
     /// <param name="alertService">The performance alert service.</param>
@@ -73,7 +79,8 @@ public class AlertsModel : PageModel
                 RecentIncidents = recentIncidentsTask.Result.Items,
                 AutoRecoveryEvents = autoRecoveryEventsTask.Result,
                 AlertFrequencyData = alertFrequencyTask.Result,
-                AlertSummary = summaryTask.Result
+                AlertSummary = summaryTask.Result,
+                CanEdit = CanEdit
             };
 
             _logger.LogDebug(

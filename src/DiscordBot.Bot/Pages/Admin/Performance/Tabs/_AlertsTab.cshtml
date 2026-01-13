@@ -12,7 +12,7 @@
             <h2 class="chart-card-title">Active Alerts</h2>
             <p class="chart-card-subtitle">Current issues requiring attention</p>
         </div>
-        @if (Model.ActiveIncidents.Any())
+        @if (Model.ActiveIncidents.Any() && Model.CanEdit)
         {
             @await Html.PartialAsync("Components/_Button", new ButtonViewModel
             {
@@ -78,7 +78,7 @@
                                 <span data-utc-time="@incident.TriggeredAt.ToString("o")" data-format="relative">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
                             </div>
                         </div>
-                        @if (!incident.IsAcknowledged)
+                        @if (!incident.IsAcknowledged && Model.CanEdit)
                         {
                             <div class="alert-actions flex items-center gap-2">
                                 @await Html.PartialAsync("Components/_Button", new ButtonViewModel
@@ -116,19 +116,22 @@
             <h2 class="chart-card-title">Alert Threshold Configuration</h2>
             <p class="chart-card-subtitle">Define warning and critical thresholds for key metrics</p>
         </div>
-        @await Html.PartialAsync("Components/_Button", new ButtonViewModel
+        @if (Model.CanEdit)
         {
-            Text = "Save Changes",
-            Type = "button",
-            Variant = ButtonVariant.Primary,
-            OnClick = "alertsTabSaveConfig()",
-            IconLeft = "M5 13l4 4L19 7",
-            AdditionalAttributes = new Dictionary<string, string>
+            @await Html.PartialAsync("Components/_Button", new ButtonViewModel
             {
-                { "id", "alertsTabSaveConfigBtn" },
-                { "style", "display: none;" }
-            }
-        })
+                Text = "Save Changes",
+                Type = "button",
+                Variant = ButtonVariant.Primary,
+                OnClick = "alertsTabSaveConfig()",
+                IconLeft = "M5 13l4 4L19 7",
+                AdditionalAttributes = new Dictionary<string, string>
+                {
+                    { "id", "alertsTabSaveConfigBtn" },
+                    { "style", "display: none;" }
+                }
+            })
+        }
     </div>
     <div class="overflow-x-auto">
         <table class="config-table">
@@ -172,7 +175,8 @@
                                        min="0"
                                        data-field="warning"
                                        class="alerts-threshold-input"
-                                       aria-label="Warning threshold for @config.DisplayName" />
+                                       aria-label="Warning threshold for @config.DisplayName"
+                                       @(Model.CanEdit ? "" : "disabled") />
                                 <span class="text-text-secondary">@config.ThresholdUnit</span>
                             </div>
                         </td>
@@ -183,7 +187,8 @@
                                        min="0"
                                        data-field="critical"
                                        class="alerts-threshold-input"
-                                       aria-label="Critical threshold for @config.DisplayName" />
+                                       aria-label="Critical threshold for @config.DisplayName"
+                                       @(Model.CanEdit ? "" : "disabled") />
                                 <span class="text-text-secondary">@config.ThresholdUnit</span>
                             </div>
                         </td>
@@ -198,7 +203,8 @@
                                        @(config.IsEnabled ? "checked" : "")
                                        data-field="enabled"
                                        class="alerts-enabled-toggle"
-                                       aria-label="Enable alerts for @config.DisplayName">
+                                       aria-label="Enable alerts for @config.DisplayName"
+                                       @(Model.CanEdit ? "" : "disabled")>
                                 <span class="toggle-slider"></span>
                             </label>
                         </td>
