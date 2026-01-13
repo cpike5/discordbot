@@ -17,6 +17,7 @@ public class SoundServiceTests
 {
     private readonly Mock<ISoundRepository> _mockSoundRepository;
     private readonly Mock<IGuildAudioSettingsRepository> _mockSettingsRepository;
+    private readonly Mock<ISoundPlayLogRepository> _mockPlayLogRepository;
     private readonly Mock<ILogger<SoundService>> _mockLogger;
     private readonly IOptions<SoundboardOptions> _options;
     private readonly SoundService _service;
@@ -25,6 +26,7 @@ public class SoundServiceTests
     {
         _mockSoundRepository = new Mock<ISoundRepository>();
         _mockSettingsRepository = new Mock<IGuildAudioSettingsRepository>();
+        _mockPlayLogRepository = new Mock<ISoundPlayLogRepository>();
         _mockLogger = new Mock<ILogger<SoundService>>();
         _options = Options.Create(new SoundboardOptions
         {
@@ -38,6 +40,7 @@ public class SoundServiceTests
         _service = new SoundService(
             _mockSoundRepository.Object,
             _mockSettingsRepository.Object,
+            _mockPlayLogRepository.Object,
             _mockLogger.Object,
             _options);
     }

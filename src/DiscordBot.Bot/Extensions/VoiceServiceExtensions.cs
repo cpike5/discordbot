@@ -62,11 +62,16 @@ public static class VoiceServiceExtensions
         // Bind options
         services.Configure<SoundboardOptions>(
             configuration.GetSection(SoundboardOptions.SectionName));
+        services.Configure<SoundPlayLogRetentionOptions>(
+            configuration.GetSection(SoundPlayLogRetentionOptions.SectionName));
 
         // Soundboard services (scoped for per-request)
         services.AddScoped<ISoundService, SoundService>();
         services.AddScoped<ISoundFileService, SoundFileService>();
         services.AddScoped<IGuildAudioSettingsService, GuildAudioSettingsService>();
+
+        // Background service for play log retention cleanup
+        services.AddHostedService<SoundPlayLogRetentionService>();
 
         return services;
     }

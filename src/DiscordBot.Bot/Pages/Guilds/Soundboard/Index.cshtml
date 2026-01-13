@@ -54,6 +54,19 @@
         SoundCount = Model.ViewModel.Stats.TotalSounds
     }' />
 
+    <!-- Audio Globally Disabled Warning -->
+    @if (Model.IsAudioGloballyDisabled)
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                Variant = AlertVariant.Warning,
+                Title = "Audio Features Disabled",
+                Message = "Audio features have been disabled globally by an administrator. Soundboard commands will not work until audio is re-enabled in Settings.",
+                IsDismissible = false
+            }' />
+        </div>
+    }
+
     <!-- Success Message -->
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {
@@ -109,7 +122,14 @@
                     </svg>
                 </div>
             </div>
-            <p class="text-xs text-text-tertiary">Play tracking coming soon</p>
+            @if (!string.IsNullOrEmpty(Model.ViewModel.Stats.ComparisonText))
+            {
+                <p class="text-xs @Model.ViewModel.Stats.ComparisonCssClass">@Model.ViewModel.Stats.ComparisonText</p>
+            }
+            else
+            {
+                <p class="text-xs text-text-tertiary">No comparison data</p>
+            }
         </div>
 
         <!-- Storage Used Card -->

@@ -20,29 +20,35 @@ public class IndexModel : PageModel
     private readonly ISoundService _soundService;
     private readonly ISoundFileService _soundFileService;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
+    private readonly ISoundPlayLogRepository _soundPlayLogRepository;
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IAudioService _audioService;
     private readonly IAudioNotifier _audioNotifier;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         ISoundService soundService,
         ISoundFileService soundFileService,
         IGuildAudioSettingsRepository audioSettingsRepository,
+        ISoundPlayLogRepository soundPlayLogRepository,
         IGuildService guildService,
         DiscordSocketClient discordClient,
         IAudioService audioService,
         IAudioNotifier audioNotifier,
+        ISettingsService settingsService,
         ILogger<IndexModel> logger)
     {
         _soundService = soundService;
         _soundFileService = soundFileService;
         _audioSettingsRepository = audioSettingsRepository;
+        _soundPlayLogRepository = soundPlayLogRepository;
         _guildService = guildService;
         _discordClient = discordClient;
         _audioService = audioService;
         _audioNotifier = audioNotifier;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
@@ -77,6 +83,11 @@ public class IndexModel : PageModel
     public string Sort { get; set; } = "name-asc";
 
     /// <summary>
+    /// Gets whether audio features are globally disabled at the bot level.
+    /// </summary>
+    public bool IsAudioGloballyDisabled { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the Soundboard management page.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -90,6 +101,10 @@ public class IndexModel : PageModel
 
         try
         {
+            // Check if audio is globally disabled
+            var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
+            IsAudioGloballyDisabled = !isGloballyEnabled;
+
             // Get guild info from service
             var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
             if (guild == null)
@@ -107,8 +122,20 @@ public class IndexModel : PageModel
             // Get audio settings (creates defaults if not found)
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
 
-            _logger.LogDebug("Retrieved {Count} sounds for guild {GuildId}, sorted by {Sort}",
-                sounds.Count, guildId, Sort);
+            // Query play statistics
+            var todayUtc = DateTime.UtcNow.Date;
+            var yesterdayUtc = todayUtc.AddDays(-1);
+
+            // Get play counts since start of today and yesterday
+            var playsSinceTodayStart = await _soundPlayLogRepository.GetPlayCountAsync(guildId, todayUtc, cancellationToken);
+            var playsSinceYesterdayStart = await _soundPlayLogRepository.GetPlayCountAsync(guildId, yesterdayUtc, cancellationToken);
+
+            // Calculate actual counts for today and yesterday
+            var playsToday = playsSinceTodayStart;
+            var playsYesterday = playsSinceYesterdayStart - playsSinceTodayStart;
+
+            _logger.LogDebug("Retrieved {Count} sounds for guild {GuildId}, sorted by {Sort}. Plays today: {PlaysToday}, yesterday: {PlaysYesterday}",
+                sounds.Count, guildId, Sort, playsToday, playsYesterday);
 
             // Build view model
             ViewModel = SoundboardIndexViewModel.Create(
@@ -117,6 +144,8 @@ public class IndexModel : PageModel
                 guild.IconUrl,
                 sortedSounds,
                 settings,
+                playsToday,
+                playsYesterday,
                 Sort);
 
             // Build voice channel panel view model
