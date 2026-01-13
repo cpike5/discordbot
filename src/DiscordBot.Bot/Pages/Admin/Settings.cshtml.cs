@@ -19,6 +19,7 @@ namespace DiscordBot.Bot.Pages.Admin;
 public class SettingsModel : PageModel
 {
     private readonly ISettingsService _settingsService;
+    private readonly ICommandModuleConfigurationService _commandModuleConfigurationService;
     private readonly IAuditLogQueue _auditLogQueue;
     private readonly ILogger<SettingsModel> _logger;
 
@@ -50,14 +51,22 @@ public class SettingsModel : PageModel
     public string? ActiveCategory { get; set; }
 
     /// <summary>
+    /// Form property for command module enabled states.
+    /// </summary>
+    [BindProperty]
+    public Dictionary<string, bool> CommandModules { get; set; } = new();
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="SettingsModel"/> class.
     /// </summary>
     public SettingsModel(
         ISettingsService settingsService,
+        ICommandModuleConfigurationService commandModuleConfigurationService,
         IAuditLogQueue auditLogQueue,
         ILogger<SettingsModel> logger)
     {
         _settingsService = settingsService;
+        _commandModuleConfigurationService = commandModuleConfigurationService;
         _auditLogQueue = auditLogQueue;
         _logger = logger;
     }
@@ -420,11 +429,126 @@ public class SettingsModel : PageModel
         }
     }
 
+    /// <summary>
+    /// Handles POST requests to save command module configurations.
+    /// </summary>
+    public async Task<IActionResult> OnPostSaveCommandModulesAsync()
+    {
+        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
+        {
+            _logger.LogWarning("Non-admin user {UserId} attempted to save command module settings", User.Identity?.Name);
+            return Forbid();
+        }
+
+        _logger.LogInformation("Command module settings save requested by user {UserId}", User.Identity?.Name);
+
+        try
+        {
+            var userId = User.Identity?.Name ?? "Unknown";
+
+            // Get current states for audit logging
+            var currentModules = await _commandModuleConfigurationService.GetAllModulesAsync();
+            var currentStates = currentModules.ToDictionary(m => m.ModuleName, m => m.IsEnabled);
+
+            // Prepare the update DTO
+            var updateDto = new CommandModuleConfigurationUpdateDto
+            {
+                Modules = CommandModules
+            };
+
+            var result = await _commandModuleConfigurationService.UpdateModulesAsync(updateDto, userId);
+
+            if (result.Success || result.UpdatedModules.Count > 0)
+            {
+                _logger.LogInformation("Command module settings saved successfully by user {UserId}. Updated modules: {Modules}",
+                    userId, string.Join(", ", result.UpdatedModules));
+
+                // Audit log each module change (issue #1084)
+                foreach (var moduleName in result.UpdatedModules)
+                {
+                    var previousState = currentStates.GetValueOrDefault(moduleName, true);
+                    var newState = CommandModules.GetValueOrDefault(moduleName, true);
+
+                    _auditLogQueue.Enqueue(new AuditLogCreateDto
+                    {
+                        Category = AuditLogCategory.Configuration,
+                        Action = AuditLogAction.SettingChanged,
+                        ActorType = AuditLogActorType.User,
+                        ActorId = userId,
+                        Details = JsonSerializer.Serialize(new
+                        {
+                            SettingsCategory = "Commands",
+                            ModuleName = moduleName,
+                            Change = new
+                            {
+                                Key = $"CommandModule:{moduleName}:IsEnabled",
+                                DisplayName = $"Command module '{moduleName}'",
+                                OldValue = previousState.ToString(),
+                                NewValue = newState.ToString()
+                            },
+                            Description = $"Command module '{moduleName}' {(newState ? "enabled" : "disabled")}",
+                            RestartRequired = result.RequiresRestart
+                        })
+                    });
+                }
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    message = result.UpdatedModules.Count > 0
+                        ? $"Command module settings saved successfully. {result.UpdatedModules.Count} module(s) updated."
+                        : "No changes detected.",
+                    restartRequired = result.RequiresRestart
+                });
+            }
+            else
+            {
+                _logger.LogWarning("Command module settings save failed for user {UserId}. Errors: {Errors}",
+                    userId, string.Join(", ", result.Errors));
+
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "Failed to save command module settings.",
+                    errors = result.Errors
+                })
+                {
+                    StatusCode = 400
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while saving command module settings, requested by {UserId}",
+                User.Identity?.Name);
+
+            return new JsonResult(new
+            {
+                success = false,
+                message = "An error occurred while saving command module settings. Please check logs for details."
+            })
+            {
+                StatusCode = 500
+            };
+        }
+    }
+
     private async Task LoadViewModelAsync()
     {
         var generalSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.General);
         var featuresSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Features);
         var advancedSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Advanced);
+
+        // Load command module configurations grouped by category
+        var allModules = await _commandModuleConfigurationService.GetAllModulesAsync();
+        var modulesByCategory = allModules
+            .GroupBy(m => m.Category)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<CommandModuleConfigurationDto>)g.OrderBy(m => m.DisplayName).ToList());
+
+        // Determine if restart is pending from either settings or command modules
+        var isRestartPending = _settingsService.IsRestartPending || _commandModuleConfigurationService.IsRestartPending;
 
         ViewModel = new SettingsViewModel
         {
@@ -432,7 +556,8 @@ public class SettingsModel : PageModel
             GeneralSettings = generalSettings,
             FeaturesSettings = featuresSettings,
             AdvancedSettings = advancedSettings,
-            IsRestartPending = _settingsService.IsRestartPending
+            CommandModulesByCategory = modulesByCategory,
+            IsRestartPending = isRestartPending
         };
 
         ResetCategoryModal = new ConfirmationModalViewModel
@@ -457,7 +582,7 @@ public class SettingsModel : PageModel
             FormHandler = "ResetAll"
         };
 
-        _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, RestartPending={RestartPending}",
-            generalSettings.Count, featuresSettings.Count, advancedSettings.Count, _settingsService.IsRestartPending);
+        _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, CommandModules={ModuleCount}, RestartPending={RestartPending}",
+            generalSettings.Count, featuresSettings.Count, advancedSettings.Count, allModules.Count, isRestartPending);
     }
 }

@@ -29,6 +29,12 @@ public class SettingsViewModel
     public IReadOnlyList<SettingDto> AdvancedSettings { get; set; } = new List<SettingDto>();
 
     /// <summary>
+    /// Gets or sets the command module configurations grouped by category.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<CommandModuleConfigurationDto>> CommandModulesByCategory { get; set; }
+        = new Dictionary<string, IReadOnlyList<CommandModuleConfigurationDto>>();
+
+    /// <summary>
     /// Gets or sets whether a restart is pending due to settings changes.
     /// </summary>
     public bool IsRestartPending { get; set; }

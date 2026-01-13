@@ -336,6 +336,101 @@
     }
 
     /**
+     * Build form data for command module toggles
+     * @returns {FormData} - FormData with command module states
+     */
+    function buildCommandModulesFormData() {
+        const formData = new FormData();
+
+        // Add the anti-forgery token
+        const form = document.getElementById('settingsForm');
+        const token = form?.querySelector('input[name="__RequestVerificationToken"]');
+        if (token) {
+            formData.append('__RequestVerificationToken', token.value);
+        }
+
+        // Process all command module toggles - add their current state (true/false)
+        const toggles = document.querySelectorAll('input[data-command-module-toggle]');
+        toggles.forEach(toggle => {
+            if (!toggle.disabled) {
+                formData.append(toggle.name, toggle.checked ? 'true' : 'false');
+            }
+        });
+
+        return formData;
+    }
+
+    /**
+     * Save command module configurations
+     */
+    async function saveCommandModules() {
+        const formData = buildCommandModulesFormData();
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+        // Get the save button from the event
+        const saveButton = event?.target;
+
+        // Hide any existing inline alerts for Commands
+        hideInlineAlerts('Commands');
+
+        // Show loading state
+        setButtonLoading(saveButton);
+
+        try {
+            const response = await fetch('?handler=SaveCommandModules', {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': token
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Show success button state
+                const willReload = data.restartRequired;
+                setButtonSuccess(saveButton, !willReload);
+
+                // Show inline success alert
+                showInlineSuccess(data.message, 'Commands');
+
+                // Show toast
+                window.quickActions?.showToast(data.message, 'success');
+                isDirty = false;
+
+                // If restart required, reload page to show banner
+                if (willReload) {
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            } else {
+                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to save command module settings.';
+
+                // Show error button state (allows retry)
+                setButtonError(saveButton);
+
+                // Show inline error alert
+                showInlineError(errorMsg, 'Commands');
+
+                // Show toast with longer duration for errors
+                window.quickActions?.showToast(errorMsg, 'error');
+            }
+        } catch (error) {
+            console.error('Save command modules error:', error);
+            const errorMsg = 'An error occurred while saving command module settings.';
+
+            // Show error button state
+            setButtonError(saveButton);
+
+            // Show inline error alert
+            showInlineError(errorMsg, 'Commands');
+
+            // Show toast
+            window.quickActions?.showToast(errorMsg, 'error');
+        }
+    }
+
+    /**
      * Save all settings across all categories
      */
     async function saveAllSettings() {
@@ -569,6 +664,7 @@
         switchTab,
         saveCategory,
         saveAllSettings,
+        saveCommandModules,
         showResetCategoryModal,
         showResetAllModal
     };
