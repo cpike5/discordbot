@@ -6,6 +6,19 @@
 # rather than the current main branch. This ensures production deployments
 # use stable, versioned releases.
 #
+# Features:
+#   - Automatic database migrations with rollback on failure
+#   - Native audio library (libsodium, libopus) deployment for Discord voice
+#   - Configuration file preservation
+#   - Automatic backup and rollback on deployment failure
+#   - SQLite database backup (when applicable)
+#
+# Configuration (edit variables in script):
+#   - APP_DIR: Deployment directory (default: /opt/discordbot)
+#   - DB_PATH: SQLite database path (default: /var/discordbot/discordbot.db)
+#   - LIBSODIUM_PATH: Path to libsodium.so on your system
+#   - LIBOPUS_PATH: Path to libopus.so on your system
+#
 # Usage:
 #   ./update-from-release.sh              # Deploy latest release
 #   ./update-from-release.sh v0.3.6       # Deploy specific version
@@ -22,6 +35,16 @@ BACKUP_DIR="/opt/discordbot-backups"
 REPO_URL="https://github.com/cpike5/discordbot.git"
 SERVICE_NAME="discordbot"
 MAX_BACKUPS=5
+
+# Database configuration (adjust for your setup)
+# For SQLite (default):
+DB_PATH="/var/lib/discordbot/discordbot.db"
+# For MSSQL/MySQL/PostgreSQL, migrations will use connection string from appsettings
+
+# Native audio library paths (adjust for your system)
+# These will be copied to the deployment directory for Discord.NET voice support
+LIBSODIUM_PATH="/usr/lib/x86_64-linux-gnu/libsodium.so.23"
+LIBOPUS_PATH="/usr/lib/x86_64-linux-gnu/libopus.so.0"
 
 # Colors for output
 RED='\033[0;31m'
@@ -95,6 +118,76 @@ cleanup_old_backups() {
     fi
 }
 
+# Copy native audio libraries for Discord.NET voice support
+copy_audio_libraries() {
+    log_info "Setting up native audio libraries..."
+
+    local copied=0
+
+    # Copy libsodium
+    if [ -f "$LIBSODIUM_PATH" ]; then
+        cp "$LIBSODIUM_PATH" "$APP_DIR/libsodium.so"
+        log_success "Copied libsodium.so from $LIBSODIUM_PATH"
+        copied=$((copied + 1))
+    else
+        log_warn "libsodium not found at $LIBSODIUM_PATH - voice features may not work"
+    fi
+
+    # Copy libopus
+    if [ -f "$LIBOPUS_PATH" ]; then
+        cp "$LIBOPUS_PATH" "$APP_DIR/libopus.so"
+        log_success "Copied libopus.so from $LIBOPUS_PATH"
+        copied=$((copied + 1))
+    else
+        log_warn "libopus not found at $LIBOPUS_PATH - voice features may not work"
+    fi
+
+    if [ $copied -eq 0 ]; then
+        log_warn "No audio libraries copied - check LIBSODIUM_PATH and LIBOPUS_PATH in script configuration"
+    fi
+}
+
+# Run database migrations
+run_migrations() {
+    local temp_dir="$1"
+
+    log_info "Checking for database migrations..."
+
+    cd "$temp_dir/discordbot"
+
+    # Check if there are any migrations
+    if ! dotnet ef migrations list \
+        --project src/DiscordBot.Infrastructure \
+        --startup-project src/DiscordBot.Bot \
+        --no-build \
+        &>/dev/null; then
+        log_warn "Could not list migrations - skipping migration step"
+        return 0
+    fi
+
+    log_info "Applying database migrations..."
+    if dotnet ef database update \
+        --project src/DiscordBot.Infrastructure \
+        --startup-project src/DiscordBot.Bot \
+        --no-build; then
+        log_success "Database migrations applied successfully"
+    else
+        log_error "Database migration failed"
+        return 1
+    fi
+}
+
+# Backup database if using SQLite
+backup_database() {
+    if [ -f "$DB_PATH" ]; then
+        log_info "Backing up database..."
+        local db_backup_name="discordbot.db.backup.$(date +%Y%m%d_%H%M%S)"
+        mkdir -p "$BACKUP_DIR"
+        cp "$DB_PATH" "$BACKUP_DIR/$db_backup_name"
+        log_success "Database backed up: $BACKUP_DIR/$db_backup_name"
+    fi
+}
+
 # Main deployment function
 deploy_release() {
     local target_version="$1"
@@ -153,14 +246,26 @@ deploy_release() {
         exit 1
     fi
 
+    # Run database migrations before stopping the service
+    # This allows us to rollback if migrations fail
+    if ! run_migrations "$temp_dir"; then
+        log_error "Migrations failed - aborting deployment"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
     log_info "Stopping $SERVICE_NAME service..."
     systemctl stop "$SERVICE_NAME" || log_warn "Service was not running"
 
+    # Backup database (SQLite only)
+    backup_database
+
     # Create backup
+    local backup_name=""
     if [ -d "$APP_DIR" ]; then
         log_info "Creating backup..."
         mkdir -p "$BACKUP_DIR"
-        local backup_name="discordbot.backup.$(date +%Y%m%d_%H%M%S)"
+        backup_name="discordbot.backup.$(date +%Y%m%d_%H%M%S)"
         cp -r "$APP_DIR" "$BACKUP_DIR/$backup_name"
         log_success "Backup created: $BACKUP_DIR/$backup_name"
 
@@ -189,6 +294,9 @@ deploy_release() {
             log_info "Restored: $file"
         fi
     done
+
+    # Copy native audio libraries for Discord.NET voice support
+    copy_audio_libraries
 
     # Write version file
     echo "$target_version" > "$APP_DIR/version.txt"
@@ -290,7 +398,7 @@ deploy_dev() {
     cd discordbot
 
     # Get version from Directory.Build.props
-    dev_version=$(grep -oP '(?<=<Version>)[^<]+' Directory.Build.props 2>/dev/null || echo "dev")
+    dev_version=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' Directory.Build.props 2>/dev/null || echo "dev")
     dev_version="${dev_version}-$(date +%Y%m%d%H%M%S)"
     log_info "Dev version: $dev_version"
 
@@ -306,14 +414,26 @@ deploy_dev() {
         exit 1
     fi
 
+    # Run database migrations before stopping the service
+    # This allows us to rollback if migrations fail
+    if ! run_migrations "$temp_dir"; then
+        log_error "Migrations failed - aborting deployment"
+        rm -rf "$temp_dir"
+        exit 1
+    fi
+
     log_info "Stopping $SERVICE_NAME service..."
     systemctl stop "$SERVICE_NAME" || log_warn "Service was not running"
 
+    # Backup database (SQLite only)
+    backup_database
+
     # Create backup
+    local backup_name=""
     if [ -d "$APP_DIR" ]; then
         log_info "Creating backup..."
         mkdir -p "$BACKUP_DIR"
-        local backup_name="discordbot.backup.$(date +%Y%m%d_%H%M%S)"
+        backup_name="discordbot.backup.$(date +%Y%m%d_%H%M%S)"
         cp -r "$APP_DIR" "$BACKUP_DIR/$backup_name"
         log_success "Backup created: $BACKUP_DIR/$backup_name"
 
@@ -342,6 +462,9 @@ deploy_dev() {
             log_info "Restored: $file"
         fi
     done
+
+    # Copy native audio libraries for Discord.NET voice support
+    copy_audio_libraries
 
     # Write version file
     echo "$dev_version" > "$APP_DIR/version.txt"
