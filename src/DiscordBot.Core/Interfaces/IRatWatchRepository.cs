@@ -146,4 +146,14 @@ public interface IRatWatchRepository : IRepository<RatWatch>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Collection of recent watches with Guild navigation property included.</returns>
     Task<IEnumerable<RatWatch>> GetRecentAsync(int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a watch exists with the specified status.
+    /// More efficient than loading the full entity when only status verification is needed.
+    /// </summary>
+    /// <param name="watchId">The watch ID to check.</param>
+    /// <param name="expectedStatus">The expected status.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the watch exists and has the expected status, false otherwise.</returns>
+    Task<bool> HasStatusAsync(Guid watchId, Enums.RatWatchStatus expectedStatus, CancellationToken cancellationToken = default);
 }

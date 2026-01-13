@@ -26,4 +26,16 @@ public interface IGuildRatWatchSettingsRepository : IRepository<GuildRatWatchSet
     Task<GuildRatWatchSettings> GetOrCreateAsync(
         ulong guildId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the voting duration for specific guilds.
+    /// Returns a dictionary mapping guild ID to voting duration in minutes.
+    /// Only includes guilds that have custom settings configured.
+    /// </summary>
+    /// <param name="guildIds">The guild IDs to get voting durations for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Dictionary mapping guild ID to voting duration in minutes.</returns>
+    Task<Dictionary<ulong, int>> GetVotingDurationsForGuildsAsync(
+        IEnumerable<ulong> guildIds,
+        CancellationToken cancellationToken = default);
 }

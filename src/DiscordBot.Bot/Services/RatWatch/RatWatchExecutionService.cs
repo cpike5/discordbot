@@ -154,8 +154,9 @@ public class RatWatchExecutionService : MonitoredBackgroundService
                     }
 
                     // Re-check status before posting (handles race condition with cancellation)
-                    var currentWatch = await service.GetByIdAsync(watch.Id, cts.Token);
-                    if (currentWatch == null || currentWatch.Status != RatWatchStatus.Pending)
+                    // Use HasStatusAsync for efficiency - avoids loading full entity just for status check
+                    var isPending = await service.HasStatusAsync(watch.Id, RatWatchStatus.Pending, cts.Token);
+                    if (!isPending)
                     {
                         return false;
                     }
