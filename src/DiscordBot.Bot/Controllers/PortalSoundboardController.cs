@@ -24,6 +24,7 @@ public class PortalSoundboardController : ControllerBase
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
     private readonly IGuildAudioSettingsService _audioSettingsService;
+    private readonly IAudioNotifier _audioNotifier;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<PortalSoundboardController> _logger;
 
@@ -35,6 +36,7 @@ public class PortalSoundboardController : ControllerBase
     /// <param name="audioService">The audio service for voice connections.</param>
     /// <param name="playbackService">The playback service for audio control.</param>
     /// <param name="audioSettingsService">The audio settings service.</param>
+    /// <param name="audioNotifier">The audio notifier for real-time updates.</param>
     /// <param name="discordClient">The Discord socket client.</param>
     /// <param name="logger">The logger.</param>
     public PortalSoundboardController(
@@ -43,6 +45,7 @@ public class PortalSoundboardController : ControllerBase
         IAudioService audioService,
         IPlaybackService playbackService,
         IGuildAudioSettingsService audioSettingsService,
+        IAudioNotifier audioNotifier,
         DiscordSocketClient discordClient,
         ILogger<PortalSoundboardController> logger)
     {
@@ -51,6 +54,7 @@ public class PortalSoundboardController : ControllerBase
         _audioService = audioService;
         _playbackService = playbackService;
         _audioSettingsService = audioSettingsService;
+        _audioNotifier = audioNotifier;
         _discordClient = discordClient;
         _logger = logger;
     }
@@ -249,6 +253,14 @@ public class PortalSoundboardController : ControllerBase
 
         _logger.LogInformation("Successfully uploaded sound {SoundName} ({SoundId}) for guild {GuildId}",
             createdSound.Name, createdSound.Id, guildId);
+
+        // Broadcast to other portal viewers via SignalR
+        await _audioNotifier.NotifySoundUploadedAsync(
+            guildId,
+            createdSound.Id,
+            createdSound.Name,
+            createdSound.PlayCount,
+            cancellationToken);
 
         return CreatedAtAction(
             nameof(GetSounds),

@@ -109,4 +109,32 @@ public interface IAudioNotifier
         string channelName,
         int memberCount,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Notifies clients that a new sound has been uploaded to the soundboard.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="soundId">The sound ID.</param>
+    /// <param name="name">The sound name.</param>
+    /// <param name="playCount">The play count (0 for new sounds).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task NotifySoundUploadedAsync(
+        ulong guildId,
+        Guid soundId,
+        string name,
+        int playCount,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Notifies clients that a sound has been deleted from the soundboard.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="soundId">The sound ID that was deleted.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    Task NotifySoundDeletedAsync(
+        ulong guildId,
+        Guid soundId,
+        CancellationToken cancellationToken = default);
 }
