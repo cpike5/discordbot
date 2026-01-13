@@ -106,6 +106,44 @@ public static class TracingConstants
         // Discord API retry attributes
         public const string DiscordApiRetryAttempt = "discord.api.retry.attempt";
         public const string DiscordApiRetryBackoffMs = "discord.api.retry.backoff_ms";
+
+        // Azure TTS attributes
+        public const string TtsTextLength = "tts.text_length";
+        public const string TtsVoice = "tts.voice";
+        public const string TtsRegion = "tts.region";
+        public const string TtsAudioSizeBytes = "tts.audio_size_bytes";
+        public const string TtsSpeed = "tts.speed";
+        public const string TtsPitch = "tts.pitch";
+        public const string TtsVolume = "tts.volume";
+        public const string TtsSynthesisResult = "tts.synthesis_result";
+        public const string TtsCancellationReason = "tts.cancellation_reason";
+
+        // Audio conversion and streaming attributes
+        public const string AudioFormatFrom = "audio.format_from";
+        public const string AudioFormatTo = "audio.format_to";
+        public const string AudioDurationSeconds = "audio.duration_seconds";
+        public const string AudioBytesWritten = "audio.bytes_written";
+        public const string AudioBytesStreamed = "audio.bytes_streamed";
+        public const string AudioBufferCount = "audio.buffer_count";
+        public const string AudioFilter = "audio.filter";
+
+        // FFmpeg attributes
+        public const string FfmpegProcessId = "ffmpeg.process_id";
+        public const string FfmpegExitCode = "ffmpeg.exit_code";
+        public const string FfmpegArguments = "ffmpeg.arguments";
+
+        // Sound attributes
+        public const string SoundId = "sound.id";
+        public const string SoundName = "sound.name";
+        public const string SoundFilePath = "sound.file_path";
+        public const string SoundFileSizeBytes = "sound.file_size_bytes";
+        public const string SoundDurationSeconds = "sound.duration_seconds";
+
+        // Voice channel attributes
+        public const string VoiceChannelId = "voice.channel_id";
+        public const string VoiceChannelName = "voice.channel_name";
+        public const string VoiceConnectedAt = "voice.connected_at";
+        public const string VoiceConnectionDurationSeconds = "voice.connection_duration_seconds";
     }
 
     /// <summary>
@@ -155,6 +193,22 @@ public static class TracingConstants
         // Discord API spans
         public const string DiscordApiRequest = "discord.api.{0} {1}";
         public const string DiscordApiRetry = "discord.api.retry";
+
+        // Azure TTS spans
+        public const string AzureSpeechSynthesize = "azure_speech.synthesize";
+        public const string AzureSpeechGetVoices = "azure_speech.get_voices";
+
+        // TTS audio processing spans
+        public const string TtsAudioConvert = "tts.audio_convert";
+        public const string DiscordAudioStream = "discord.audio_stream";
+
+        // Soundboard spans
+        public const string SoundboardFfmpegTranscode = "soundboard.ffmpeg_transcode";
+        public const string SoundboardAudioStream = "soundboard.audio_stream";
+
+        // Voice channel spans
+        public const string DiscordVoiceJoin = "discord.voice_join";
+        public const string DiscordVoiceLeave = "discord.voice_leave";
     }
 
     /// <summary>

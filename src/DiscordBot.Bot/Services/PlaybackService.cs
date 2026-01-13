@@ -535,6 +535,12 @@ public class PlaybackService : IPlaybackService
         var ffmpegArguments = BuildFfmpegArguments(filePath, filter);
         _logger.LogDebug("FFmpeg arguments: {Arguments}", ffmpegArguments);
 
+        // Start activity for FFmpeg transcode
+        using var transcodeActivity = BotActivitySource.StartFfmpegTranscodeActivity(
+            soundName: sound.Name,
+            filePath: Path.GetFileName(filePath), // Relative path only for security
+            filter: filter.ToString());
+
         var startInfo = new ProcessStartInfo
         {
             FileName = ffmpegPath,
@@ -551,6 +557,9 @@ public class PlaybackService : IPlaybackService
         _logger.LogDebug("FFmpeg process started (PID: {ProcessId}) for sound {SoundName} in guild {GuildId} with filter {Filter}",
             ffmpeg.Id, sound.Name, guildId, filter);
 
+        // Record FFmpeg process ID
+        transcodeActivity?.SetTag(TracingConstants.Attributes.FfmpegProcessId, ffmpeg.Id);
+
         const int bufferSize = 3840; // 20ms of audio at 48kHz stereo 16-bit
         var buffer = new byte[bufferSize];
         int bytesRead;
@@ -561,8 +570,15 @@ public class PlaybackService : IPlaybackService
         var lastProgressBroadcast = playbackStartTime;
         const long progressBroadcastIntervalTicks = TimeSpan.TicksPerSecond;
 
+        // Start child activity for audio streaming
+        using var streamActivity = BotActivitySource.StartSoundboardStreamActivity(
+            guildId: guildId,
+            soundId: sound.Id);
+
         try
         {
+            int bufferCount = 0;
+
             while ((bytesRead = await ffmpeg.StandardOutput.BaseStream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -574,6 +590,7 @@ public class PlaybackService : IPlaybackService
 
                 await discord.WriteAsync(buffer, 0, bytesRead, cancellationToken);
                 totalBytesRead += bytesRead;
+                bufferCount++;
 
                 var currentTime = Stopwatch.GetTimestamp();
                 var elapsedSinceLastBroadcast = currentTime - lastProgressBroadcast;
@@ -590,10 +607,24 @@ public class PlaybackService : IPlaybackService
             }
 
             await discord.FlushAsync(cancellationToken);
+
+            // Record streaming metrics
+            BotActivitySource.RecordAudioStreamMetrics(
+                streamActivity,
+                bytesWritten: totalBytesRead,
+                bufferCount: bufferCount);
+
+            BotActivitySource.SetSuccess(streamActivity);
         }
         catch (OperationCanceledException)
         {
             wasCancelled = true;
+            BotActivitySource.RecordException(streamActivity, new OperationCanceledException("Playback cancelled"));
+            throw;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(streamActivity, ex);
             throw;
         }
         finally
@@ -608,16 +639,34 @@ public class PlaybackService : IPlaybackService
         var errorOutput = await ffmpeg.StandardError.ReadToEndAsync();
         var hasError = !string.IsNullOrWhiteSpace(errorOutput) || ffmpeg.ExitCode != 0;
 
+        // Record FFmpeg completion
+        BotActivitySource.RecordFfmpegDetails(
+            transcodeActivity,
+            processId: ffmpeg.Id,
+            exitCode: ffmpeg.ExitCode,
+            arguments: ffmpegArguments);
+
         if (hasError)
         {
             _logger.LogWarning("FFmpeg errors for sound {SoundName} in guild {GuildId} (exit code {ExitCode}): {ErrorOutput}",
                 sound.Name, guildId, ffmpeg.ExitCode, errorOutput);
 
+            // Truncate error output for trace attribute
+            transcodeActivity?.SetTag("ffmpeg.error_output", errorOutput.Length > 256 ? errorOutput.Substring(0, 256) : errorOutput);
+
             // If we got very little data and had a filter, it's likely the filter caused the failure
             var filterFailed = filter != AudioFilter.None && totalBytesRead < bufferSize * 10; // Less than ~200ms of audio
+
+            if (filterFailed)
+            {
+                transcodeActivity?.SetTag("ffmpeg.filter_failed", true);
+            }
+
+            BotActivitySource.SetSuccess(transcodeActivity); // Mark as handled (not an unhandled error)
             return (false, filterFailed, wasCancelled);
         }
 
+        BotActivitySource.SetSuccess(transcodeActivity);
         return (true, false, wasCancelled);
     }
 

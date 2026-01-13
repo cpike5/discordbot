@@ -433,6 +433,191 @@ public static class BotActivitySource
     }
 
     /// <summary>
+    /// Starts an activity for Azure Speech synthesis.
+    /// </summary>
+    /// <param name="textLength">The length of the text being synthesized.</param>
+    /// <param name="voice">The voice name.</param>
+    /// <param name="region">The Azure region.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartAzureSpeechActivity(
+        int textLength,
+        string voice,
+        string region)
+    {
+        var activity = Source.StartActivity(
+            name: TracingConstants.Spans.AzureSpeechSynthesize,
+            kind: ActivityKind.Client);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.TtsTextLength, textLength);
+        activity.SetTag(TracingConstants.Attributes.TtsVoice, voice);
+        activity.SetTag(TracingConstants.Attributes.TtsRegion, region);
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for retrieving available voices from Azure Speech.
+    /// </summary>
+    /// <param name="locale">The locale filter for voices.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartGetVoicesActivity(string? locale)
+    {
+        var activity = Source.StartActivity(
+            name: TracingConstants.Spans.AzureSpeechGetVoices,
+            kind: ActivityKind.Client);
+
+        if (activity is null)
+            return null;
+
+        if (!string.IsNullOrEmpty(locale))
+        {
+            activity.SetTag("tts.locale", locale);
+        }
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for audio format conversion.
+    /// </summary>
+    /// <param name="fromFormat">Source audio format.</param>
+    /// <param name="toFormat">Target audio format.</param>
+    /// <param name="bytesIn">Input byte count.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartAudioConversionActivity(
+        string fromFormat,
+        string toFormat,
+        int bytesIn)
+    {
+        var activity = Source.StartActivity(
+            name: TracingConstants.Spans.TtsAudioConvert,
+            kind: ActivityKind.Internal);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.AudioFormatFrom, fromFormat);
+        activity.SetTag(TracingConstants.Attributes.AudioFormatTo, toFormat);
+        activity.SetTag("audio.bytes_in", bytesIn);
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for Discord audio streaming.
+    /// </summary>
+    /// <param name="guildId">The guild ID where audio is being streamed.</param>
+    /// <param name="durationSeconds">Expected duration in seconds.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartDiscordAudioStreamActivity(
+        ulong guildId,
+        double durationSeconds)
+    {
+        var activity = Source.StartActivity(
+            name: TracingConstants.Spans.DiscordAudioStream,
+            kind: ActivityKind.Client);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+        activity.SetTag(TracingConstants.Attributes.AudioDurationSeconds, durationSeconds);
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for FFmpeg transcoding.
+    /// </summary>
+    /// <param name="soundName">The name of the sound being transcoded.</param>
+    /// <param name="filePath">The relative file path.</param>
+    /// <param name="filter">The audio filter being applied.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartFfmpegTranscodeActivity(
+        string soundName,
+        string filePath,
+        string filter)
+    {
+        var activity = Source.StartActivity(
+            name: TracingConstants.Spans.SoundboardFfmpegTranscode,
+            kind: ActivityKind.Internal);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.SoundName, soundName);
+        activity.SetTag(TracingConstants.Attributes.SoundFilePath, filePath);
+        activity.SetTag(TracingConstants.Attributes.AudioFilter, filter);
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity for soundboard audio streaming to Discord.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="soundId">The sound ID.</param>
+    /// <returns>The started activity, or null if not sampled.</returns>
+    public static Activity? StartSoundboardStreamActivity(
+        ulong guildId,
+        Guid soundId)
+    {
+        var activity = Source.StartActivity(
+            name: TracingConstants.Spans.SoundboardAudioStream,
+            kind: ActivityKind.Client);
+
+        if (activity is null)
+            return null;
+
+        activity.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+        activity.SetTag(TracingConstants.Attributes.SoundId, soundId.ToString());
+
+        return activity;
+    }
+
+    /// <summary>
+    /// Records audio streaming completion metrics on the activity.
+    /// </summary>
+    /// <param name="activity">The activity to record on.</param>
+    /// <param name="bytesWritten">Total bytes written to the stream.</param>
+    /// <param name="bufferCount">Number of buffers written.</param>
+    public static void RecordAudioStreamMetrics(
+        Activity? activity,
+        long bytesWritten,
+        int bufferCount)
+    {
+        if (activity is null)
+            return;
+
+        activity.SetTag(TracingConstants.Attributes.AudioBytesWritten, bytesWritten);
+        activity.SetTag(TracingConstants.Attributes.AudioBufferCount, bufferCount);
+    }
+
+    /// <summary>
+    /// Records FFmpeg process details on the activity.
+    /// </summary>
+    /// <param name="activity">The activity to record on.</param>
+    /// <param name="processId">The FFmpeg process ID.</param>
+    /// <param name="exitCode">The process exit code.</param>
+    /// <param name="arguments">The FFmpeg arguments (sanitized).</param>
+    public static void RecordFfmpegDetails(
+        Activity? activity,
+        int processId,
+        int exitCode,
+        string arguments)
+    {
+        if (activity is null)
+            return;
+
+        activity.SetTag(TracingConstants.Attributes.FfmpegProcessId, processId);
+        activity.SetTag(TracingConstants.Attributes.FfmpegExitCode, exitCode);
+        activity.SetTag(TracingConstants.Attributes.FfmpegArguments, arguments);
+    }
+
+    /// <summary>
     /// Sanitizes custom IDs to remove potentially sensitive data like user-specific correlation IDs.
     /// Extracts the handler:action portion for tracing.
     /// </summary>

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.CognitiveServices.Speech;
@@ -95,11 +96,22 @@ public class AzureTtsService : ITtsService
         _logger.LogInformation("Synthesizing speech: {TextLength} characters with voice {Voice} (speed: {Speed}, pitch: {Pitch}, volume: {Volume})",
             text.Length, ttsOptions.Voice, ttsOptions.Speed, ttsOptions.Pitch, ttsOptions.Volume);
 
+        // Start tracing activity for Azure Speech synthesis
+        using var activity = BotActivitySource.StartAzureSpeechActivity(
+            textLength: text.Length,
+            voice: ttsOptions.Voice,
+            region: _options.Region);
+
         try
         {
             // Build SSML for synthesis
             var ssml = BuildSsml(text, ttsOptions);
             _logger.LogDebug("SSML: {Ssml}", ssml);
+
+            // Add TTS options to activity
+            activity?.SetTag(TracingConstants.Attributes.TtsSpeed, ttsOptions.Speed);
+            activity?.SetTag(TracingConstants.Attributes.TtsPitch, ttsOptions.Pitch);
+            activity?.SetTag(TracingConstants.Attributes.TtsVolume, ttsOptions.Volume);
 
             // Create synthesizer with raw PCM output format (mono - we'll convert to stereo)
             // Azure Speech SDK outputs Raw48Khz16BitMonoPcm
@@ -110,13 +122,20 @@ public class AzureTtsService : ITtsService
             // Synthesize speech from SSML
             var result = await synthesizer.SpeakSsmlAsync(ssml);
 
+            // Record synthesis result
+            activity?.SetTag(TracingConstants.Attributes.TtsSynthesisResult, result.Reason.ToString());
+
             if (result.Reason == ResultReason.SynthesizingAudioCompleted)
             {
                 _logger.LogInformation("Speech synthesis completed successfully. Audio data size: {SizeBytes} bytes", result.AudioData.Length);
 
+                // Record audio size
+                activity?.SetTag(TracingConstants.Attributes.TtsAudioSizeBytes, result.AudioData.Length);
+
                 // Convert mono PCM to stereo PCM for Discord
                 var stereoData = ConvertMonoToStereo(result.AudioData);
 
+                BotActivitySource.SetSuccess(activity);
                 return new MemoryStream(stereoData);
             }
             else if (result.Reason == ResultReason.Canceled)
@@ -124,17 +143,25 @@ public class AzureTtsService : ITtsService
                 var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
                 _logger.LogError("Speech synthesis cancelled: {Reason} - {ErrorDetails}", cancellation.Reason, cancellation.ErrorDetails);
 
-                throw new InvalidOperationException($"Speech synthesis failed: {cancellation.ErrorDetails}");
+                // Record cancellation details
+                activity?.SetTag(TracingConstants.Attributes.TtsCancellationReason, cancellation.Reason.ToString());
+
+                var ex = new InvalidOperationException($"Speech synthesis failed: {cancellation.ErrorDetails}");
+                BotActivitySource.RecordException(activity, ex);
+                throw ex;
             }
             else
             {
                 _logger.LogError("Speech synthesis failed with reason: {Reason}", result.Reason);
-                throw new InvalidOperationException($"Speech synthesis failed: {result.Reason}");
+                var ex = new InvalidOperationException($"Speech synthesis failed: {result.Reason}");
+                BotActivitySource.RecordException(activity, ex);
+                throw ex;
             }
         }
         catch (Exception ex) when (ex is not ArgumentException && ex is not InvalidOperationException)
         {
             _logger.LogError(ex, "Unexpected error during speech synthesis");
+            BotActivitySource.RecordException(activity, ex);
             throw new InvalidOperationException("Speech synthesis failed. See inner exception for details.", ex);
         }
     }
@@ -234,38 +261,51 @@ public class AzureTtsService : ITtsService
 
             _logger.LogInformation("Fetching available voices from Azure Speech service for locale '{Locale}'", cacheKey);
 
-            using var synthesizer = new SpeechSynthesizer(_speechConfig!, null);
-            var result = await synthesizer.GetVoicesAsync(locale);
+            // Start tracing activity for voice retrieval
+            using var activity = BotActivitySource.StartGetVoicesActivity(locale);
 
-            if (result.Reason == ResultReason.VoicesListRetrieved)
+            try
             {
-                var voices = result.Voices
-                    .Select(v => new Core.Models.VoiceInfo
-                    {
-                        ShortName = v.ShortName,
-                        DisplayName = v.LocalName,
-                        Locale = v.Locale,
-                        Gender = v.Gender.ToString()
-                    })
-                    .ToList();
+                using var synthesizer = new SpeechSynthesizer(_speechConfig!, null);
+                var result = await synthesizer.GetVoicesAsync(locale);
 
-                _logger.LogInformation("Retrieved {Count} voices for locale '{Locale}'", voices.Count, cacheKey);
+                if (result.Reason == ResultReason.VoicesListRetrieved)
+                {
+                    var voices = result.Voices
+                        .Select(v => new Core.Models.VoiceInfo
+                        {
+                            ShortName = v.ShortName,
+                            DisplayName = v.LocalName,
+                            Locale = v.Locale,
+                            Gender = v.Gender.ToString()
+                        })
+                        .ToList();
 
-                // Cache the results
-                _voiceCache[cacheKey] = voices;
+                    _logger.LogInformation("Retrieved {Count} voices for locale '{Locale}'", voices.Count, cacheKey);
 
-                return voices;
+                    // Record voice count
+                    activity?.SetTag("tts.voices_retrieved", voices.Count);
+
+                    // Cache the results
+                    _voiceCache[cacheKey] = voices;
+
+                    BotActivitySource.SetSuccess(activity);
+                    return voices;
+                }
+                else
+                {
+                    _logger.LogError("Failed to retrieve voices. Reason: {Reason}", result.Reason);
+                    activity?.SetTag("tts.retrieval_failed", result.Reason.ToString());
+                    BotActivitySource.SetSuccess(activity); // Not an error, just no voices
+                    return Enumerable.Empty<Core.Models.VoiceInfo>();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogError("Failed to retrieve voices. Reason: {Reason}", result.Reason);
+                _logger.LogError(ex, "Error retrieving available voices for locale '{Locale}'", locale);
+                BotActivitySource.RecordException(activity, ex);
                 return Enumerable.Empty<Core.Models.VoiceInfo>();
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error retrieving available voices for locale '{Locale}'", locale);
-            return Enumerable.Empty<Core.Models.VoiceInfo>();
         }
         finally
         {
@@ -318,27 +358,46 @@ public class AzureTtsService : ITtsService
     /// </remarks>
     private byte[] ConvertMonoToStereo(byte[] monoData)
     {
-        // Each sample is 2 bytes (16-bit). For stereo, we need to duplicate each sample.
-        var stereoData = new byte[monoData.Length * 2];
+        // Start activity for audio conversion
+        using var activity = BotActivitySource.StartAudioConversionActivity(
+            fromFormat: "mono_48khz_16bit",
+            toFormat: "stereo_48khz_16bit",
+            bytesIn: monoData.Length);
 
-        for (int i = 0; i < monoData.Length; i += 2)
+        try
         {
-            // Get the mono sample (2 bytes)
-            var sampleLow = monoData[i];
-            var sampleHigh = monoData[i + 1];
+            // Each sample is 2 bytes (16-bit). For stereo, we need to duplicate each sample.
+            var stereoData = new byte[monoData.Length * 2];
 
-            // Write to left channel
-            stereoData[i * 2] = sampleLow;
-            stereoData[i * 2 + 1] = sampleHigh;
+            for (int i = 0; i < monoData.Length; i += 2)
+            {
+                // Get the mono sample (2 bytes)
+                var sampleLow = monoData[i];
+                var sampleHigh = monoData[i + 1];
 
-            // Write to right channel (duplicate)
-            stereoData[i * 2 + 2] = sampleLow;
-            stereoData[i * 2 + 3] = sampleHigh;
+                // Write to left channel
+                stereoData[i * 2] = sampleLow;
+                stereoData[i * 2 + 1] = sampleHigh;
+
+                // Write to right channel (duplicate)
+                stereoData[i * 2 + 2] = sampleLow;
+                stereoData[i * 2 + 3] = sampleHigh;
+            }
+
+            _logger.LogDebug("Converted mono audio ({MonoBytes} bytes) to stereo ({StereoBytes} bytes)",
+                monoData.Length, stereoData.Length);
+
+            // Record output size
+            activity?.SetTag("audio.bytes_out", stereoData.Length);
+            BotActivitySource.SetSuccess(activity);
+
+            return stereoData;
         }
-
-        _logger.LogDebug("Converted mono audio ({MonoBytes} bytes) to stereo ({StereoBytes} bytes)",
-            monoData.Length, stereoData.Length);
-
-        return stereoData;
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error converting mono to stereo");
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
     }
 }

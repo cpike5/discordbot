@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Portal;
@@ -265,13 +266,45 @@ public class PortalTtsController : ControllerBase
         // Stream the audio to Discord
         try
         {
-            await audioStream.CopyToAsync(pcmStream, cancellationToken);
-            await pcmStream.FlushAsync(cancellationToken);
+            // Start activity for Discord audio streaming
+            using var streamActivity = BotActivitySource.StartDiscordAudioStreamActivity(
+                guildId: guildId,
+                durationSeconds: durationSeconds);
 
-            // Update activity to prevent auto-leave
-            _audioService.UpdateLastActivity(guildId);
+            try
+            {
+                var bytesWritten = 0L;
+                var buffer = new byte[3840]; // Match PlaybackService buffer size (20ms at 48kHz stereo 16-bit)
+                int bytesRead;
 
-            _logger.LogInformation("Successfully played TTS message for guild {GuildId}", guildId);
+                while ((bytesRead = await audioStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                {
+                    await pcmStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                    bytesWritten += bytesRead;
+                }
+
+                await pcmStream.FlushAsync(cancellationToken);
+
+                // Record streaming metrics
+                BotActivitySource.RecordAudioStreamMetrics(
+                    streamActivity,
+                    bytesWritten: bytesWritten,
+                    bufferCount: (int)(bytesWritten / 3840));
+
+                // Update activity to prevent auto-leave
+                _audioService.UpdateLastActivity(guildId);
+
+                _logger.LogInformation("Successfully played TTS message for guild {GuildId}. Bytes written: {BytesWritten}",
+                    guildId, bytesWritten);
+
+                BotActivitySource.SetSuccess(streamActivity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to stream TTS audio for guild {GuildId}", guildId);
+                BotActivitySource.RecordException(streamActivity, ex);
+                throw;
+            }
         }
         catch (Exception ex)
         {

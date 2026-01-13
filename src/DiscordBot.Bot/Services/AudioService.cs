@@ -57,6 +57,10 @@ public class AudioService : IAudioService
                 if (existingConnection.ChannelId == voiceChannelId)
                 {
                     _logger.LogInformation("Already connected to voice channel {ChannelId} in guild {GuildId}", voiceChannelId, guildId);
+
+                    // Add voice channel attributes
+                    activity?.SetTag(TracingConstants.Attributes.VoiceChannelId, voiceChannelId.ToString());
+
                     BotActivitySource.SetSuccess(activity);
                     return existingConnection.AudioClient;
                 }
@@ -84,6 +88,10 @@ public class AudioService : IAudioService
                 return null;
             }
 
+            // Add voice channel attributes
+            activity?.SetTag(TracingConstants.Attributes.VoiceChannelId, voiceChannelId.ToString());
+            activity?.SetTag(TracingConstants.Attributes.VoiceChannelName, voiceChannel.Name);
+
             // Connect to voice channel
             var audioClient = await voiceChannel.ConnectAsync();
 
@@ -91,6 +99,9 @@ public class AudioService : IAudioService
             var now = DateTime.UtcNow;
             var connectionInfo = new VoiceConnectionInfo(audioClient, voiceChannelId, now, now);
             _connections[guildId] = connectionInfo;
+
+            // Add connection timestamp
+            activity?.SetTag(TracingConstants.Attributes.VoiceConnectedAt, now.ToString("O"));
 
             _logger.LogInformation("Successfully joined voice channel {ChannelId} ({ChannelName}) in guild {GuildId}",
                 voiceChannelId, voiceChannel.Name, guildId);
@@ -134,6 +145,13 @@ public class AudioService : IAudioService
             }
 
             _logger.LogInformation("Leaving voice channel {ChannelId} in guild {GuildId}", connection.ChannelId, guildId);
+
+            // Add voice channel attributes
+            activity?.SetTag(TracingConstants.Attributes.VoiceChannelId, connection.ChannelId.ToString());
+
+            // Calculate connection duration
+            var connectionDuration = DateTime.UtcNow - connection.ConnectedAt;
+            activity?.SetTag(TracingConstants.Attributes.VoiceConnectionDurationSeconds, connectionDuration.TotalSeconds);
 
             await DisconnectInternalAsync(guildId);
 
