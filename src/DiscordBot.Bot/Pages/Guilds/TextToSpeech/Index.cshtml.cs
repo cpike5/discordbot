@@ -26,6 +26,7 @@ public class IndexModel : PageModel
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildService _guildService;
     private readonly ISettingsService _settingsService;
+    private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -36,6 +37,7 @@ public class IndexModel : PageModel
         DiscordSocketClient discordClient,
         IGuildService guildService,
         ISettingsService settingsService,
+        IGuildAudioSettingsRepository audioSettingsRepository,
         ILogger<IndexModel> logger)
     {
         _ttsHistoryService = ttsHistoryService;
@@ -45,6 +47,7 @@ public class IndexModel : PageModel
         _discordClient = discordClient;
         _guildService = guildService;
         _settingsService = settingsService;
+        _audioSettingsRepository = audioSettingsRepository;
         _logger = logger;
     }
 
@@ -76,6 +79,11 @@ public class IndexModel : PageModel
     public bool IsAudioGloballyDisabled { get; set; }
 
     /// <summary>
+    /// Gets whether the member portal is enabled for this guild.
+    /// </summary>
+    public bool IsMemberPortalEnabled { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the TTS management page.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -103,6 +111,10 @@ public class IndexModel : PageModel
 
             // Get TTS settings (creates defaults if not found)
             var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
+
+            // Get audio settings to check if member portal is enabled
+            var audioSettings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
+            IsMemberPortalEnabled = audioSettings.EnableMemberPortal;
 
             // Get TTS statistics
             var stats = await _ttsHistoryService.GetStatsAsync(guildId, cancellationToken);
