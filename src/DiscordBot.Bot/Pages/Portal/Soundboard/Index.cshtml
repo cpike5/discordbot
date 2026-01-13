@@ -1035,15 +1035,40 @@
     .sound-card.playing {
         border-color: #3b82f6;
         background-color: rgba(59, 130, 246, 0.1);
+        animation: card-pulse 2s ease-in-out infinite;
     }
 
     .sound-card.playing .play-icon {
         animation: pulse 1s ease-in-out infinite;
     }
 
+    .sound-card.playing .play-icon-wrapper {
+        animation: glow-pulse 1.5s ease-in-out infinite;
+    }
+
     @@keyframes pulse {
         0%, 100% { transform: scale(1); }
         50% { transform: scale(1.1); }
+    }
+
+    @@keyframes card-pulse {
+        0%, 100% {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+        }
+        50% {
+            border-color: #60a5fa;
+            box-shadow: 0 0 12px 2px rgba(59, 130, 246, 0.4);
+        }
+    }
+
+    @@keyframes glow-pulse {
+        0%, 100% {
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+        }
+        50% {
+            box-shadow: 0 0 16px rgba(59, 130, 246, 0.8);
+        }
     }
 
     .favorite-btn {
@@ -1541,6 +1566,9 @@ else
 <div id="portalToastContainer" class="portal-toast-container"></div>
 
 @section Scripts {
+    <!-- SignalR for real-time updates -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="/js/dashboard-hub.js"></script>
 @if (Model.IsAuthenticated)
 {
     <script>
@@ -1554,7 +1582,7 @@ else
         let isConnected = @Model.IsConnected.ToString().ToLower();
         let selectedChannel = '@(Model.CurrentChannelId?.ToString() ?? "")';
         let searchDebounceTimer = null;
-        let statusPollInterval = null;
+        let signalRConnected = false;
 
         // ========================================
         // Toast Notification System
@@ -1621,12 +1649,176 @@ else
         // ========================================
         // Initialization
         // ========================================
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             PortalToast.init();
             initializeFavorites();
             setupEventHandlers();
-            startStatusPolling();
+            await initSignalR();
         });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', async () => {
+            if (signalRConnected) {
+                await DashboardHub.leaveGuildAudioGroup(window.guildId);
+                DashboardHub.disconnect();
+            }
+        });
+
+        // ========================================
+        // SignalR Real-Time Connection
+        // ========================================
+        async function initSignalR() {
+            try {
+                // Register event handlers before connecting
+                DashboardHub.on('PlaybackStarted', handlePlaybackStarted);
+                DashboardHub.on('PlaybackFinished', handlePlaybackFinished);
+                DashboardHub.on('PlaybackProgress', handlePlaybackProgress);
+                DashboardHub.on('AudioConnected', handleAudioConnected);
+                DashboardHub.on('AudioDisconnected', handleAudioDisconnected);
+
+                // Connection state handlers
+                DashboardHub.on('reconnected', async () => {
+                    console.log('[Soundboard] SignalR reconnected, rejoining audio group');
+                    await DashboardHub.joinGuildAudioGroup(window.guildId);
+                    // Refresh status after reconnect
+                    const status = await DashboardHub.getCurrentAudioStatus(window.guildId);
+                    if (status) {
+                        syncFromAudioStatus(status);
+                    }
+                });
+
+                DashboardHub.on('disconnected', () => {
+                    console.warn('[Soundboard] SignalR disconnected');
+                    signalRConnected = false;
+                });
+
+                // Connect to SignalR hub
+                const connected = await DashboardHub.connect();
+                if (connected) {
+                    signalRConnected = true;
+                    console.log('[Soundboard] SignalR connected');
+
+                    // Join the guild audio group to receive events
+                    await DashboardHub.joinGuildAudioGroup(window.guildId);
+
+                    // Get initial status
+                    const status = await DashboardHub.getCurrentAudioStatus(window.guildId);
+                    if (status) {
+                        syncFromAudioStatus(status);
+                    }
+                } else {
+                    console.warn('[Soundboard] Failed to connect to SignalR, updates may be delayed');
+                }
+            } catch (error) {
+                console.error('[Soundboard] SignalR initialization error:', error);
+            }
+        }
+
+        // Sync UI from audio status DTO
+        function syncFromAudioStatus(status) {
+            if (status.isConnected !== isConnected) {
+                isConnected = status.isConnected;
+                updateConnectionUI(isConnected);
+            }
+
+            if (!status.isPlaying && currentlyPlaying) {
+                // Bot stopped playing
+                currentlyPlaying = null;
+                currentlyPlayingName = null;
+                updateNowPlayingUI(null);
+                document.querySelectorAll('.sound-card').forEach(card => {
+                    card.classList.remove('playing');
+                });
+            }
+        }
+
+        // Handle playback started event from SignalR
+        function handlePlaybackStarted(data) {
+            console.log('[Soundboard] PlaybackStarted:', data.name);
+
+            currentlyPlaying = data.soundId;
+            currentlyPlayingName = data.name;
+
+            // Update Now Playing panel
+            updateNowPlayingUI(data.name);
+
+            // Update card state
+            document.querySelectorAll('.sound-card').forEach(card => {
+                card.classList.remove('playing');
+            });
+            const playingCard = document.querySelector(`.sound-card[data-sound-id="${data.soundId}"]`);
+            if (playingCard) {
+                playingCard.classList.add('playing');
+
+                // Increment play count in UI
+                const playsEl = playingCard.querySelector('.sound-plays');
+                if (playsEl) {
+                    const currentText = playsEl.textContent;
+                    const match = currentText.match(/^(\d+)/);
+                    if (match) {
+                        const newCount = parseInt(match[1], 10) + 1;
+                        playsEl.textContent = `${newCount} plays`;
+                    }
+                }
+            }
+        }
+
+        // Handle playback finished event from SignalR
+        function handlePlaybackFinished(data) {
+            console.log('[Soundboard] PlaybackFinished:', data.soundId, 'cancelled:', data.wasCancelled);
+
+            currentlyPlaying = null;
+            currentlyPlayingName = null;
+
+            // Update Now Playing panel
+            updateNowPlayingUI(null);
+
+            // Remove playing state from cards
+            document.querySelectorAll('.sound-card').forEach(card => {
+                card.classList.remove('playing');
+            });
+        }
+
+        // Handle playback progress event from SignalR (optional progress bar)
+        function handlePlaybackProgress(data) {
+            // Could be used for a progress bar in the future
+            // For now, just confirms playback is ongoing
+        }
+
+        // Handle audio connected event from SignalR
+        function handleAudioConnected(data) {
+            console.log('[Soundboard] AudioConnected:', data.channelName);
+
+            isConnected = true;
+            updateConnectionUI(true);
+
+            // Update channel selector to show connected channel
+            const channelSelect = document.getElementById('channelSelect');
+            if (data.channelId && channelSelect) {
+                channelSelect.value = data.channelId.toString();
+                selectedChannel = data.channelId.toString();
+            }
+        }
+
+        // Handle audio disconnected event from SignalR
+        function handleAudioDisconnected(data) {
+            console.log('[Soundboard] AudioDisconnected:', data.reason);
+
+            isConnected = false;
+            selectedChannel = '';
+            currentlyPlaying = null;
+            currentlyPlayingName = null;
+
+            // Update UI
+            updateConnectionUI(false);
+            updateNowPlayingUI(null);
+            document.getElementById('channelSelect').value = '';
+
+            // Remove playing state from cards
+            document.querySelectorAll('.sound-card').forEach(card => {
+                card.classList.remove('playing');
+            });
+        }
 
         // Helper: Show toast notification
         function showToast(message, type = 'info') {
@@ -1689,54 +1881,6 @@ else
                 nowPlayingContent.classList.add('hidden');
                 nowPlayingEmpty.classList.remove('hidden');
             }
-        }
-
-        // Status polling for real-time updates
-        function startStatusPolling() {
-            // Poll every 3 seconds
-            statusPollInterval = setInterval(pollStatus, 3000);
-        }
-
-        function stopStatusPolling() {
-            if (statusPollInterval) {
-                clearInterval(statusPollInterval);
-                statusPollInterval = null;
-            }
-        }
-
-        function pollStatus() {
-            fetch(`/api/portal/soundboard/${window.guildId}/status`)
-                .then(response => response.json())
-                .then(data => {
-                    // Update connection state if changed
-                    if (data.isConnected !== isConnected) {
-                        isConnected = data.isConnected;
-                        updateConnectionUI(isConnected);
-
-                        if (!isConnected) {
-                            // Bot disconnected externally
-                            currentlyPlaying = null;
-                            currentlyPlayingName = null;
-                            updateNowPlayingUI(null);
-                            document.querySelectorAll('.sound-card').forEach(card => {
-                                card.classList.remove('playing');
-                            });
-                        }
-                    }
-
-                    // Update playing state if bot stopped playing
-                    if (!data.isPlaying && currentlyPlaying) {
-                        currentlyPlaying = null;
-                        currentlyPlayingName = null;
-                        updateNowPlayingUI(null);
-                        document.querySelectorAll('.sound-card').forEach(card => {
-                            card.classList.remove('playing');
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Status poll failed:', error);
-                });
         }
 
         // Initialize favorites from localStorage
