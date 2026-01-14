@@ -5,6 +5,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -64,14 +65,20 @@ public static class VoiceServiceExtensions
             configuration.GetSection(SoundboardOptions.SectionName));
         services.Configure<SoundPlayLogRetentionOptions>(
             configuration.GetSection(SoundPlayLogRetentionOptions.SectionName));
+        services.Configure<AudioCacheOptions>(
+            configuration.GetSection(AudioCacheOptions.SectionName));
 
         // Soundboard services (scoped for per-request)
         services.AddScoped<ISoundService, SoundService>();
         services.AddScoped<ISoundFileService, SoundFileService>();
         services.AddScoped<IGuildAudioSettingsService, GuildAudioSettingsService>();
 
-        // Background service for play log retention cleanup
+        // Audio cache service (singleton for connection pooling and shared state)
+        services.AddSingleton<ISoundCacheService, SoundCacheService>();
+
+        // Background services
         services.AddHostedService<SoundPlayLogRetentionService>();
+        services.AddHostedService<AudioCacheCleanupService>();
 
         return services;
     }
