@@ -9,10 +9,11 @@ namespace DiscordBot.Bot.TagHelpers;
 /// Tag helper that conditionally renders content based on authorization policy.
 /// </summary>
 /// <example>
-/// <authorize-view policy="RequireAdmin">
+/// <authorize policy="RequireAdmin">
 ///     <p>Only visible to admins</p>
-/// </authorize-view>
+/// </authorize>
 /// </example>
+[HtmlTargetElement("authorize")]
 [HtmlTargetElement("authorize-view")]
 public class AuthorizeViewTagHelper : TagHelper
 {
