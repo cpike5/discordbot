@@ -4,13 +4,15 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
-/// Background service that aggregates channel activity from MessageLog into hourly ChannelActivitySnapshot records.
+/// Background service that aggregates channel activity from UserActivityEvent into hourly ChannelActivitySnapshot records.
 /// Runs at configured intervals to process the previous complete hour's data.
+/// Uses consent-free analytics events to include all user activity regardless of MessageLogging consent.
 /// </summary>
 public class ChannelActivityAggregationService : MonitoredBackgroundService
 {
@@ -124,7 +126,7 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
         _logger.LogDebug("Starting hourly channel activity aggregation");
 
         using var scope = _scopeFactory.CreateScope();
-        var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
+        var userActivityEventRepository = scope.ServiceProvider.GetRequiredService<IUserActivityEventRepository>();
         var channelActivityRepository = scope.ServiceProvider.GetRequiredService<IChannelActivityRepository>();
         var guildRepository = scope.ServiceProvider.GetRequiredService<IGuildRepository>();
 
@@ -150,7 +152,7 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
             {
                 var snapshotCount = await AggregateGuildChannelActivityAsync(
                     guild.Id,
-                    messageLogRepository,
+                    userActivityEventRepository,
                     channelActivityRepository,
                     stoppingToken);
 
@@ -172,13 +174,13 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
     /// Aggregates channel activity for a single guild for the previous complete hour.
     /// </summary>
     /// <param name="guildId">The guild ID to aggregate.</param>
-    /// <param name="messageLogRepo">The message log repository.</param>
+    /// <param name="userActivityEventRepo">The user activity event repository.</param>
     /// <param name="channelActivityRepo">The channel activity repository.</param>
     /// <param name="stoppingToken">Cancellation token.</param>
     /// <returns>Number of snapshots created/updated.</returns>
     private async Task<int> AggregateGuildChannelActivityAsync(
         ulong guildId,
-        IMessageLogRepository messageLogRepo,
+        IUserActivityEventRepository userActivityEventRepo,
         IChannelActivityRepository channelActivityRepo,
         CancellationToken stoppingToken)
     {
@@ -190,26 +192,27 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
 
         _logger.LogDebug("Aggregating channel activity for guild {GuildId}, hour {Hour}", guildId, previousHour);
 
-        // Query MessageLog for the previous hour
-        var messages = await messageLogRepo.GetGuildMessagesAsync(
+        // Query UserActivityEvent for the previous hour (Message events only)
+        var activityEvents = await userActivityEventRepo.GetByGuildAsync(
             guildId,
             since: previousHour,
-            limit: int.MaxValue,
+            until: periodEnd,
             cancellationToken: stoppingToken);
 
-        var messageList = messages
-            .Where(m => m.Timestamp >= previousHour && m.Timestamp < periodEnd)
+        var messageEvents = activityEvents
+            .Where(e => e.Timestamp >= previousHour && e.Timestamp < periodEnd)
+            .Where(e => e.EventType == ActivityEventType.Message)
             .ToList();
 
-        if (messageList.Count == 0)
+        if (messageEvents.Count == 0)
         {
-            _logger.LogTrace("No messages found for guild {GuildId} in hour {Hour}", guildId, previousHour);
+            _logger.LogTrace("No message events found for guild {GuildId} in hour {Hour}", guildId, previousHour);
             return 0;
         }
 
         // Group by ChannelId and compute aggregates
-        var channelGroups = messageList
-            .GroupBy(m => m.ChannelId)
+        var channelGroups = messageEvents
+            .GroupBy(e => e.ChannelId)
             .ToList();
 
         _logger.LogDebug("Processing {ChannelCount} active channels for guild {GuildId}, hour {Hour}",
@@ -221,12 +224,12 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
         {
             if (stoppingToken.IsCancellationRequested) break;
 
-            var channelMessages = channelGroup.ToList();
-            var uniqueUsers = channelMessages.Select(m => m.AuthorId).Distinct().Count();
-            var totalContentLength = channelMessages.Sum(m => m.Content?.Length ?? 0);
-            var averageMessageLength = channelMessages.Count > 0
-                ? (double)totalContentLength / channelMessages.Count
-                : 0.0;
+            var channelEvents = channelGroup.ToList();
+            var uniqueUsers = channelEvents.Select(e => e.UserId).Distinct().Count();
+
+            // Note: UserActivityEvent doesn't store content, so AverageMessageLength is unavailable
+            // This is a trade-off for consent-free analytics (no message content stored)
+            var averageMessageLength = 0.0;
 
             // Try to get channel name from Discord client
             var channelName = await GetChannelNameAsync(guildId, channelGroup.Key);
@@ -238,7 +241,7 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
                 ChannelName = channelName,
                 PeriodStart = previousHour,
                 Granularity = SnapshotGranularity.Hourly,
-                MessageCount = channelMessages.Count,
+                MessageCount = channelEvents.Count,
                 UniqueUsers = uniqueUsers,
                 PeakHour = null, // Null for hourly snapshots
                 PeakHourMessageCount = null,
