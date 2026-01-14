@@ -10,7 +10,7 @@ using DiscordBot.Core.Interfaces;
 namespace DiscordBot.Bot.Commands;
 
 /// <summary>
-/// Slash commands for direct moderation actions (warn, kick, ban, mute, purge).
+/// Slash commands for direct moderation actions (warn, kick, ban, unban, mute, purge).
 /// </summary>
 [RequireGuildActive]
 [RequireModerationEnabled]
@@ -452,6 +452,103 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
     }
 
     /// <summary>
+    /// Unban a user from the server.
+    /// </summary>
+    [SlashCommand("unban", "Unban a user from the server")]
+    [RequireBanMembers]
+    [RequireBotPermission(GuildPermission.BanMembers)]
+    public async Task UnbanAsync(
+        [Summary("user_id", "The ID of the banned user")] string userId,
+        [Summary("reason", "Reason for the unban")] string? reason = null)
+    {
+        _logger.LogInformation(
+            "Unban command executed by {ModeratorUsername} (ID: {ModeratorId}) for user ID {TargetId} in guild {GuildName} (ID: {GuildId})",
+            Context.User.Username,
+            Context.User.Id,
+            userId,
+            Context.Guild.Name,
+            Context.Guild.Id);
+
+        // Parse the user ID
+        if (!ulong.TryParse(userId, out var targetUserId))
+        {
+            await RespondAsync("Invalid user ID format. Please provide a valid Discord user ID.", ephemeral: true);
+            _logger.LogDebug("Invalid user ID format provided: {UserId}", userId);
+            return;
+        }
+
+        try
+        {
+            // Check if the user is actually banned
+            var ban = await Context.Guild.GetBanAsync(targetUserId);
+            if (ban == null)
+            {
+                await RespondAsync("That user is not banned from this server.", ephemeral: true);
+                _logger.LogDebug("User {UserId} is not banned in guild {GuildId}", targetUserId, Context.Guild.Id);
+                return;
+            }
+
+            // Create moderation case for audit trail
+            var createDto = new ModerationCaseCreateDto
+            {
+                GuildId = Context.Guild.Id,
+                TargetUserId = targetUserId,
+                ModeratorUserId = Context.User.Id,
+                Type = CaseType.Unban,
+                Reason = reason
+            };
+
+            var caseDto = await _moderationService.CreateCaseAsync(createDto);
+
+            _logger.LogInformation(
+                "Unban case created: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}",
+                caseDto.CaseNumber,
+                targetUserId,
+                Context.User.Id);
+
+            // Remove the ban using Discord API
+            await Context.Guild.RemoveBanAsync(targetUserId, new RequestOptions { AuditLogReason = reason });
+            _logger.LogInformation("User {UserId} unbanned from guild {GuildId}", targetUserId, Context.Guild.Id);
+
+            // Send confirmation embed
+            var confirmEmbedBuilder = new EmbedBuilder()
+                .WithTitle("✅ User Unbanned")
+                .WithColor(GetTypeColor(CaseType.Unban))
+                .AddField("User", $"{ban.User.Username} ({ban.User.Id})", inline: true)
+                .AddField("Case", $"#{caseDto.CaseNumber}", inline: true)
+                .AddField("Moderator", Context.User.Mention, inline: true)
+                .WithCurrentTimestamp();
+
+            if (!string.IsNullOrEmpty(reason))
+            {
+                confirmEmbedBuilder.AddField("Reason", reason);
+            }
+
+            if (!string.IsNullOrEmpty(ban.Reason))
+            {
+                confirmEmbedBuilder.AddField("Original Ban Reason", ban.Reason);
+            }
+
+            await RespondAsync(embed: confirmEmbedBuilder.Build());
+
+            _logger.LogDebug("Unban command completed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to unban user {UserId}", targetUserId);
+
+            var errorEmbed = new EmbedBuilder()
+                .WithTitle("❌ Error")
+                .WithDescription($"Failed to unban user: {ex.Message}")
+                .WithColor(Color.Red)
+                .WithCurrentTimestamp()
+                .Build();
+
+            await RespondAsync(embed: errorEmbed, ephemeral: true);
+        }
+    }
+
+    /// <summary>
     /// Timeout/mute a user.
     /// </summary>
     [SlashCommand("mute", "Timeout a user")]
@@ -731,6 +828,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         CaseType.Kick => Color.Orange,
         CaseType.Ban => Color.Red,
         CaseType.Mute => Color.LightOrange,
+        CaseType.Unban => Color.Green,
         _ => Color.Blue
     };
 }
