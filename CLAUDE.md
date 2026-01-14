@@ -202,6 +202,11 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [troubleshooting-guide.md](docs/articles/troubleshooting-guide.md) | Common issues and solutions |
 | [discord-bot-setup.md](docs/articles/discord-bot-setup.md) | Discord Developer Portal setup guide |
 
+**Large Files Warning:** Some documentation files exceed the standard read limit:
+- `api-endpoints.md` - Use Grep to search for specific endpoints or read with offset/limit
+- `design-system.md` - Use Grep to search for specific components or tokens
+
+When working with these files, search for specific content rather than reading the entire file.
 
 ## HTML Prototypes
 
