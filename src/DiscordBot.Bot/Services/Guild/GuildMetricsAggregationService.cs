@@ -150,7 +150,7 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
         _logger.LogDebug("Starting daily guild metrics aggregation");
 
         using var scope = _scopeFactory.CreateScope();
-        var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
+        var userActivityEventRepository = scope.ServiceProvider.GetRequiredService<IUserActivityEventRepository>();
         var commandLogRepository = scope.ServiceProvider.GetRequiredService<ICommandLogRepository>();
         var moderationCaseRepository = scope.ServiceProvider.GetRequiredService<IModerationCaseRepository>();
         var guildMemberRepository = scope.ServiceProvider.GetRequiredService<IGuildMemberRepository>();
@@ -180,7 +180,7 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
             {
                 var created = await AggregateGuildDailyMetricsAsync(
                     guild.Id,
-                    messageLogRepository,
+                    userActivityEventRepository,
                     commandLogRepository,
                     moderationCaseRepository,
                     guildMemberRepository,
@@ -209,7 +209,7 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
     /// Aggregates daily metrics for a single guild for the previous complete day.
     /// </summary>
     /// <param name="guildId">The guild ID to aggregate.</param>
-    /// <param name="messageLogRepo">The message log repository.</param>
+    /// <param name="userActivityEventRepo">The user activity event repository.</param>
     /// <param name="commandLogRepo">The command log repository.</param>
     /// <param name="moderationCaseRepo">The moderation case repository.</param>
     /// <param name="guildMemberRepo">The guild member repository.</param>
@@ -219,7 +219,7 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
     /// <returns>True if a snapshot was created/updated, false otherwise.</returns>
     private async Task<bool> AggregateGuildDailyMetricsAsync(
         ulong guildId,
-        IMessageLogRepository messageLogRepo,
+        IUserActivityEventRepository userActivityEventRepo,
         ICommandLogRepository commandLogRepo,
         IModerationCaseRepository moderationCaseRepo,
         IGuildMemberRepository guildMemberRepo,
@@ -262,15 +262,17 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
             .DefaultIfEmpty(0)
             .Sum();
 
-        // Get total messages
-        var messages = await messageLogRepo.GetGuildMessagesAsync(
+        // Get total messages using UserActivityEvent (consent-free analytics)
+        var eventCounts = await userActivityEventRepo.GetEventCountsAsync(
             guildId,
             since: dayStart,
-            limit: int.MaxValue,
+            until: dayEnd,
+            eventType: ActivityEventType.Message,
             cancellationToken: stoppingToken);
 
-        var totalMessages = messages
-            .Count(m => m.Timestamp >= dayStart && m.Timestamp < dayEnd);
+        var totalMessages = eventCounts.TryGetValue(ActivityEventType.Message, out var messageCount)
+            ? (int)messageCount
+            : 0;
 
         // Get commands executed
         var commandsByGuild = await commandLogRepo.GetCommandCountsByGuildAsync(dayStart, stoppingToken);
@@ -284,10 +286,16 @@ public class GuildMetricsAggregationService : MonitoredBackgroundService
             cancellationToken: stoppingToken);
         var moderationActions = moderationCases.Items.Count();
 
-        // Get active channels
-        var activeChannels = messages
-            .Where(m => m.Timestamp >= dayStart && m.Timestamp < dayEnd)
-            .Select(m => m.ChannelId)
+        // Get active channels using UserActivityEvent (consent-free analytics)
+        var allMessageEvents = await userActivityEventRepo.GetByGuildAsync(
+            guildId,
+            since: dayStart,
+            until: dayEnd,
+            cancellationToken: stoppingToken);
+
+        var activeChannels = allMessageEvents
+            .Where(e => e.EventType == ActivityEventType.Message)
+            .Select(e => e.ChannelId)
             .Distinct()
             .Count();
 
