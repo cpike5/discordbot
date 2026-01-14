@@ -71,6 +71,9 @@ public static class DiscordServiceExtensions
         // Register MessageLoggingHandler as singleton
         services.AddSingleton<MessageLoggingHandler>();
 
+        // Register ActivityEventTrackingHandler as singleton
+        services.AddSingleton<ActivityEventTrackingHandler>();
+
         // Register WelcomeHandler as singleton
         services.AddSingleton<WelcomeHandler>();
 

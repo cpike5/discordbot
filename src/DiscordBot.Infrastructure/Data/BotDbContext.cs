@@ -54,6 +54,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<TtsMessage> TtsMessages => Set<TtsMessage>();
     public DbSet<GuildTtsSettings> GuildTtsSettings => Set<GuildTtsSettings>();
     public DbSet<CommandModuleConfiguration> CommandModuleConfigurations => Set<CommandModuleConfiguration>();
+    public DbSet<UserActivityEvent> UserActivityEvents => Set<UserActivityEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
