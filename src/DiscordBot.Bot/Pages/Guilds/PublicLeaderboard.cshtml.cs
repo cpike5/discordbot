@@ -1,6 +1,9 @@
 using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -8,8 +11,9 @@ namespace DiscordBot.Bot.Pages.Guilds;
 
 /// <summary>
 /// Public leaderboard page for a guild's Rat Watch feature.
-/// No authentication required - displays publicly if enabled in guild settings.
+/// Requires authentication and guild membership verification.
 /// </summary>
+[AllowAnonymous]
 public class PublicLeaderboardModel : PageModel
 {
     private readonly IRatRecordRepository _ratRecordRepository;
@@ -17,6 +21,7 @@ public class PublicLeaderboardModel : PageModel
     private readonly IGuildRatWatchSettingsRepository _ratWatchSettingsRepository;
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly IConfiguration _configuration;
     private readonly ILogger<PublicLeaderboardModel> _logger;
 
@@ -26,6 +31,7 @@ public class PublicLeaderboardModel : PageModel
         IGuildRatWatchSettingsRepository ratWatchSettingsRepository,
         IGuildService guildService,
         DiscordSocketClient discordClient,
+        UserManager<ApplicationUser> userManager,
         IConfiguration configuration,
         ILogger<PublicLeaderboardModel> logger)
     {
@@ -34,6 +40,7 @@ public class PublicLeaderboardModel : PageModel
         _ratWatchSettingsRepository = ratWatchSettingsRepository;
         _guildService = guildService;
         _discordClient = discordClient;
+        _userManager = userManager;
         _configuration = configuration;
         _logger = logger;
     }
@@ -79,6 +86,23 @@ public class PublicLeaderboardModel : PageModel
     public string AppTitle { get; private set; } = "Discord Bot";
 
     /// <summary>
+    /// Gets whether the user is authenticated with Discord OAuth.
+    /// When false, displays the landing page instead of leaderboard data.
+    /// </summary>
+    public bool IsAuthenticated { get; private set; }
+
+    /// <summary>
+    /// Gets whether the authenticated user is authorized to view this leaderboard.
+    /// True when user is a member of the guild.
+    /// </summary>
+    public bool IsAuthorized { get; private set; }
+
+    /// <summary>
+    /// Gets the login URL with return URL for Discord OAuth.
+    /// </summary>
+    public string LoginUrl { get; private set; } = string.Empty;
+
+    /// <summary>
     /// Handles GET requests to display the public leaderboard.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -89,6 +113,13 @@ public class PublicLeaderboardModel : PageModel
         GuildId = guildId;
 
         _logger.LogInformation("Public leaderboard requested for guild {GuildId}", guildId);
+
+        // Build login URL with return URL
+        var returnUrl = HttpContext.Request.Path.ToString();
+        LoginUrl = $"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}";
+
+        // Get application title early (needed for landing page)
+        AppTitle = _configuration.GetValue<string>("Application:Title") ?? "Discord Bot";
 
         try
         {
@@ -123,6 +154,45 @@ public class PublicLeaderboardModel : PageModel
                 // Still show page, but with a message that it's not public
                 return Page();
             }
+
+            // Check authentication state
+            IsAuthenticated = User.Identity?.IsAuthenticated ?? false;
+
+            if (!IsAuthenticated)
+            {
+                _logger.LogDebug("Unauthenticated user viewing landing page for guild {GuildId}", guildId);
+                return Page();
+            }
+
+            // User is authenticated - check guild membership
+            var applicationUser = await _userManager.GetUserAsync(User);
+            if (applicationUser == null || !applicationUser.DiscordUserId.HasValue)
+            {
+                _logger.LogDebug("User not found or no Discord linked, showing landing page for guild {GuildId}", guildId);
+                IsAuthenticated = false; // Treat as unauthenticated for UI purposes
+                return Page();
+            }
+
+            // Check if user is a member of the guild
+            var socketGuild = _discordClient.GetGuild(guildId);
+            if (socketGuild == null)
+            {
+                _logger.LogWarning("Guild {GuildId} not found in Discord client", guildId);
+                return NotFound();
+            }
+
+            var guildUser = socketGuild.GetUser(applicationUser.DiscordUserId.Value);
+            if (guildUser == null)
+            {
+                _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
+                    applicationUser.DiscordUserId.Value, guildId);
+                return Forbid();
+            }
+
+            // User is authenticated and authorized
+            IsAuthorized = true;
+            _logger.LogDebug("User {DiscordUserId} authorized to view leaderboard for guild {GuildId}",
+                applicationUser.DiscordUserId.Value, guildId);
 
             // Phase 2: Parallelize data loading calls
             var funStatsTask = _ratRecordRepository.GetFunStatsAsync(guildId, cancellationToken);
@@ -172,9 +242,6 @@ public class PublicLeaderboardModel : PageModel
                 };
             });
             RecentIncidents = (await Task.WhenAll(incidentTasks)).ToList();
-
-            // Get application title from configuration
-            AppTitle = _configuration.GetValue<string>("Application:Title") ?? "Discord Bot";
 
             _logger.LogInformation(
                 "Public leaderboard loaded for guild {GuildId}. Entries: {EntryCount}, Recent: {RecentCount}",
