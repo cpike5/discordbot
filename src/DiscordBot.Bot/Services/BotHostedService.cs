@@ -22,6 +22,7 @@ public class BotHostedService : IHostedService
     private readonly DiscordSocketClient _client;
     private readonly InteractionHandler _interactionHandler;
     private readonly MessageLoggingHandler _messageLoggingHandler;
+    private readonly ActivityEventTrackingHandler _activityEventTrackingHandler;
     private readonly WelcomeHandler _welcomeHandler;
     private readonly MemberEventHandler _memberEventHandler;
     private readonly VoiceStateHandler _voiceStateHandler;
@@ -48,6 +49,7 @@ public class BotHostedService : IHostedService
         DiscordSocketClient client,
         InteractionHandler interactionHandler,
         MessageLoggingHandler messageLoggingHandler,
+        ActivityEventTrackingHandler activityEventTrackingHandler,
         WelcomeHandler welcomeHandler,
         MemberEventHandler memberEventHandler,
         VoiceStateHandler voiceStateHandler,
@@ -72,6 +74,7 @@ public class BotHostedService : IHostedService
         _client = client;
         _interactionHandler = interactionHandler;
         _messageLoggingHandler = messageLoggingHandler;
+        _activityEventTrackingHandler = activityEventTrackingHandler;
         _welcomeHandler = welcomeHandler;
         _memberEventHandler = memberEventHandler;
         _voiceStateHandler = voiceStateHandler;
@@ -120,6 +123,13 @@ public class BotHostedService : IHostedService
 
             // Wire message logging handler
             _client.MessageReceived += _messageLoggingHandler.HandleMessageReceivedAsync;
+
+            // Wire activity event tracking handler (consent-free analytics)
+            _client.MessageReceived += _activityEventTrackingHandler.HandleMessageReceivedAsync;
+            _client.ReactionAdded += _activityEventTrackingHandler.HandleReactionAddedAsync;
+            _client.UserVoiceStateUpdated += _activityEventTrackingHandler.HandleUserVoiceStateUpdatedAsync;
+            _client.UserJoined += _activityEventTrackingHandler.HandleUserJoinedAsync;
+            _client.UserLeft += _activityEventTrackingHandler.HandleUserLeftAsync;
 
             // Wire auto-moderation handler for message and join monitoring
             _client.MessageReceived += _autoModerationHandler.HandleMessageReceivedAsync;
@@ -219,6 +229,11 @@ public class BotHostedService : IHostedService
             _client.Disconnected -= OnDisconnectedAsync;
             _client.LatencyUpdated -= OnLatencyUpdatedAsync;
             _client.MessageReceived -= _messageLoggingHandler.HandleMessageReceivedAsync;
+            _client.MessageReceived -= _activityEventTrackingHandler.HandleMessageReceivedAsync;
+            _client.ReactionAdded -= _activityEventTrackingHandler.HandleReactionAddedAsync;
+            _client.UserVoiceStateUpdated -= _activityEventTrackingHandler.HandleUserVoiceStateUpdatedAsync;
+            _client.UserJoined -= _activityEventTrackingHandler.HandleUserJoinedAsync;
+            _client.UserLeft -= _activityEventTrackingHandler.HandleUserLeftAsync;
             _client.MessageReceived -= _autoModerationHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _autoModerationHandler.HandleUserJoinedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
