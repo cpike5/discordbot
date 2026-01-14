@@ -63,6 +63,14 @@ const DashboardHub = (function() {
             await connection.start();
             isConnected = true;
             reconnectAttempts = 0;
+
+            // Register all pre-stored event handlers with the new connection
+            for (const [eventName, handlers] of Object.entries(eventHandlers)) {
+                for (const handler of handlers) {
+                    connection.on(eventName, handler);
+                }
+            }
+
             console.log('[DashboardHub] Connected successfully');
             triggerEvent('connected', { connectionId: connection.connectionId });
 
