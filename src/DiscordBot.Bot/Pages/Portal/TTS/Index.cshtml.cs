@@ -5,7 +5,6 @@ using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Portal.TTS;
 
@@ -15,14 +14,11 @@ namespace DiscordBot.Bot.Pages.Portal.TTS;
 /// for authenticated guild members.
 /// </summary>
 [AllowAnonymous]
-public class IndexModel : PageModel
+public class IndexModel : PortalPageModelBase
 {
-    private readonly IGuildService _guildService;
-    private readonly DiscordSocketClient _discordClient;
     private readonly IAudioService _audioService;
     private readonly ITtsService _ttsService;
     private readonly ISettingsService _settingsService;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -33,35 +29,13 @@ public class IndexModel : PageModel
         ISettingsService settingsService,
         UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger)
+        : base(guildService, discordClient, userManager, logger)
     {
-        _guildService = guildService;
-        _discordClient = discordClient;
         _audioService = audioService;
         _ttsService = ttsService;
         _settingsService = settingsService;
-        _userManager = userManager;
         _logger = logger;
     }
-
-    /// <summary>
-    /// Gets the guild's Discord snowflake ID.
-    /// </summary>
-    public ulong GuildId { get; set; }
-
-    /// <summary>
-    /// Gets the guild name.
-    /// </summary>
-    public string GuildName { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets the guild icon URL.
-    /// </summary>
-    public string? GuildIconUrl { get; set; }
-
-    /// <summary>
-    /// Gets whether the bot is online (connected to Discord gateway).
-    /// </summary>
-    public bool IsOnline { get; set; }
 
     /// <summary>
     /// Gets the list of voice channels in the guild.
@@ -89,23 +63,6 @@ public class IndexModel : PageModel
     public int MaxMessageLength { get; set; } = 200;
 
     /// <summary>
-    /// Gets whether the user is authenticated with Discord OAuth.
-    /// When false, display the landing page instead of the TTS interface.
-    /// </summary>
-    public bool IsAuthenticated { get; set; }
-
-    /// <summary>
-    /// Gets whether the authenticated user is authorized to view this portal.
-    /// True when user is a member of the guild.
-    /// </summary>
-    public bool IsAuthorized { get; set; }
-
-    /// <summary>
-    /// Gets the login URL with return URL for Discord OAuth.
-    /// </summary>
-    public string LoginUrl { get; set; } = string.Empty;
-
-    /// <summary>
     /// Gets whether audio features are globally disabled at the bot level.
     /// </summary>
     public bool IsAudioGloballyDisabled { get; set; }
@@ -121,92 +78,35 @@ public class IndexModel : PageModel
         ulong guildId,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("User {UserId} accessing TTS Portal for guild {GuildId}",
-            User.Identity?.Name ?? "anonymous", guildId);
-
         try
         {
-            // Get guild info - return 404 if not found (don't reveal guild doesn't exist)
-            var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
-            if (guild == null)
-            {
-                _logger.LogWarning("Guild {GuildId} not found", guildId);
-                return NotFound();
-            }
-
-            // Check if Discord guild is available
-            var socketGuild = _discordClient.GetGuild(guildId);
-            if (socketGuild == null)
-            {
-                _logger.LogWarning("Guild {GuildId} not found in Discord client", guildId);
-                return NotFound();
-            }
-
             // Check if audio is globally disabled
             var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
             IsAudioGloballyDisabled = !isGloballyEnabled;
 
-            // Set basic guild info for landing page (needed for both auth states)
-            GuildId = guildId;
-            GuildName = guild.Name;
-            GuildIconUrl = guild.IconUrl;
-            IsOnline = _discordClient.ConnectionState == Discord.ConnectionState.Connected;
+            // Perform common portal authorization check
+            var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "TTS", cancellationToken);
 
-            // Build login URL with return URL
-            var returnUrl = HttpContext.Request.Path.ToString();
-            LoginUrl = $"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}";
-
-            // Check authentication state
-            IsAuthenticated = User.Identity?.IsAuthenticated ?? false;
-
-            if (!IsAuthenticated)
+            // Handle auth failures
+            var actionResult = GetAuthResultAction(authResult);
+            if (actionResult != null)
             {
-                _logger.LogDebug("Unauthenticated user viewing landing page for guild {GuildId}", guildId);
-                // Still populate available voices for potential future use
-                PopulateAvailableVoices();
+                return actionResult;
+            }
+
+            // Always populate voices (needed for landing page too)
+            PopulateAvailableVoices();
+
+            // For landing page, we're done
+            if (authResult == PortalAuthResult.ShowLandingPage)
+            {
                 return Page();
             }
 
-            // User is authenticated - check guild membership
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null || !user.DiscordUserId.HasValue)
-            {
-                _logger.LogDebug("User not found or no Discord linked, showing landing page for guild {GuildId}", guildId);
-                IsAuthenticated = false; // Treat as unauthenticated for UI purposes
-                PopulateAvailableVoices();
-                return Page();
-            }
-
-            // Check if user is a member of the guild
-            var guildUser = socketGuild.GetUser(user.DiscordUserId.Value);
-            if (guildUser == null)
-            {
-                _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
-                    user.DiscordUserId.Value, guildId);
-                // Return 403 - authenticated but not authorized
-                return Forbid();
-            }
-
-            // User is authenticated and authorized - load full TTS interface
-            IsAuthorized = true;
-
-            // Build voice channels list
-            var voiceChannels = new List<VoiceChannelInfo>();
-            foreach (var channel in socketGuild.VoiceChannels.Where(c => c != null).OrderBy(c => c.Position))
-            {
-                voiceChannels.Add(new VoiceChannelInfo
-                {
-                    Id = channel.Id,
-                    Name = channel.Name,
-                    MemberCount = channel.ConnectedUsers.Count
-                });
-            }
-
-            // Set remaining view properties
-            VoiceChannels = voiceChannels;
+            // User is authorized - load full TTS interface
+            VoiceChannels = BuildVoiceChannelList(context!.SocketGuild);
             CurrentChannelId = _audioService.GetConnectedChannelId(guildId);
             IsConnected = _audioService.IsConnected(guildId);
-            PopulateAvailableVoices();
 
             _logger.LogDebug("Loaded TTS Portal for guild {GuildId}", guildId);
 
@@ -236,27 +136,6 @@ public class IndexModel : PageModel
             .ToList();
         _logger.LogDebug("Loaded {Count} curated voices", AvailableVoices.Count);
     }
-}
-
-/// <summary>
-/// DTO for voice channel information.
-/// </summary>
-public class VoiceChannelInfo
-{
-    /// <summary>
-    /// Gets or sets the Discord snowflake ID of the voice channel.
-    /// </summary>
-    public ulong Id { get; set; }
-
-    /// <summary>
-    /// Gets or sets the name of the voice channel.
-    /// </summary>
-    public string Name { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Gets or sets the number of members currently in the channel.
-    /// </summary>
-    public int MemberCount { get; set; }
 }
 
 /// <summary>
