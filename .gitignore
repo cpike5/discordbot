@@ -440,4 +440,4 @@ api/.manifest
 sounds
 
 # Audio cache (FFmpeg-processed PCM files)
-cache/
+cache
