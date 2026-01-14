@@ -12,9 +12,9 @@ namespace DiscordBot.Bot.Pages;
 
 /// <summary>
 /// Dashboard page for authenticated users.
-/// Anonymous users are redirected to the public landing page.
+/// Anonymous users are redirected to the public landing page via DashboardAnonymousRedirectFilter.
 /// </summary>
-[AllowAnonymous]
+[Authorize(Policy = "RequireViewer")]
 public class IndexModel : PageModel
 {
     private readonly ILogger<IndexModel> _logger;
@@ -58,21 +58,9 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnGetAsync()
     {
-        // Redirect anonymous users to the public landing page
-        if (User.Identity?.IsAuthenticated != true)
-        {
-            _logger.LogDebug("Anonymous user redirected from dashboard to landing page");
-            return RedirectToPage("/Landing");
-        }
-
-        // Require at least Viewer role for authenticated users
-        if (!User.IsInRole("Viewer") && !User.IsInRole("Moderator") && !User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
-        {
-            _logger.LogWarning("User {UserId} does not have required role to access dashboard", User.Identity?.Name);
-            return Forbid();
-        }
-
-        _logger.LogDebug("Dashboard accessed by authenticated user");
+        // Authorization is handled by [Authorize(Policy = "RequireViewer")] attribute
+        // Anonymous users are redirected to /Landing by DashboardAnonymousRedirectFilter
+        _logger.LogDebug("Dashboard accessed by authenticated user {UserId}", User.Identity?.Name);
 
         var statusDto = _botService.GetStatus();
         BotStatus = BotStatusViewModel.FromDto(statusDto);
