@@ -246,7 +246,8 @@ All HTML prototypes are located in `docs/prototypes/`. Open them directly in a b
 | `ModTagModule` | `/mod-tag add/remove/list` |
 | `WatchlistModule` | `/watchlist add/remove/list` |
 | `InvestigateModule` | `/investigate` |
-| `ConsentModule` | `/consent`, `/privacy` |
+| `ConsentModule` | `/consent grant/revoke/status` |
+| `PrivacyModule` | `/privacy preview-delete/delete-data` |
 | `TtsModule` | `/tts <message> [voice]` |
 | `SoundboardModule` | `/play <sound>`, `/sounds`, `/stop` |
 | `VoiceModule` | `/join`, `/join-channel <channel>`, `/leave` |
@@ -348,6 +349,7 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 | User Details | `/Admin/Users/Details?id={id}` | User profile and roles |
 | User Create | `/Admin/Users/Create` | Create new user |
 | User Edit | `/Admin/Users/Edit?id={id}` | Edit user |
+| User Purge | `/Admin/UserPurge` | Purge user data (GDPR) |
 | Audit Logs | `/Admin/AuditLogs` | System audit trail |
 | Audit Log Details | `/Admin/AuditLogs/Details/{id:long}` | Single audit entry |
 | Message Logs | `/Admin/MessageLogs` | Discord message history |

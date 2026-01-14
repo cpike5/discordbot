@@ -29,6 +29,8 @@ This guide provides comprehensive documentation for the Consent and Privacy feat
   - [/consent grant](#consent-grant)
   - [/consent revoke](#consent-revoke)
   - [/consent status](#consent-status)
+  - [/privacy preview-delete](#privacy-preview-delete)
+  - [/privacy delete-data](#privacy-delete-data)
 - [Web UI Privacy Page](#web-ui-privacy-page)
 - [User Data Handling](#user-data-handling)
   - [Data Collection](#data-collection)
@@ -278,7 +280,7 @@ Revokes previously granted consent for a specific data collection type.
 You have opted out of message logging. Your messages will no longer be logged.
 
 Note: Previously logged messages are retained per our data retention policy.
-Use /consent delete-data to request deletion of your data.
+Use /privacy delete-data to request deletion of your data.
 ```
 
 **Example Response (No Active Consent):**
@@ -293,7 +295,7 @@ Use /consent grant to grant consent.
 **Important Notes:**
 - Revoking consent does NOT automatically delete previously collected data
 - Data retention policies continue to apply to historical data
-- The `/consent delete-data` command mentioned in the response is a placeholder for future implementation
+- Use `/privacy delete-data` to permanently delete your data (requires confirmation)
 
 **Error Handling:**
 - Database errors return a generic error message and log detailed errors
@@ -356,6 +358,176 @@ Message Logging
 - Database errors return a generic error message and log detailed errors
 
 **Source Code:** `ConsentModule.StatusAsync()` in `src/DiscordBot.Bot/Commands/ConsentModule.cs`
+
+---
+
+### /privacy preview-delete
+
+Shows a preview of all data that would be permanently deleted if the user proceeds with data deletion. This is a non-destructive operation that helps users understand the scope of deletion.
+
+**Syntax:**
+```
+/privacy preview-delete
+```
+
+**Parameters:** None
+
+**Behavior:**
+1. Checks if user can be purged (users with Admin/SuperAdmin roles are blocked)
+2. If blocked, displays reason why deletion is not allowed
+3. If allowed, queries all data tables to count records associated with the user
+4. Displays a summary of data categories and record counts
+5. Shows anonymization note for RatWatch data (not deleted, only anonymized)
+
+**Example Response (User has data):**
+```
+📋 Data Deletion Preview
+
+The following data would be permanently deleted if you proceed:
+
+Total Records: 1,247
+
+Message Logs: 842 records
+Command Logs: 156 records
+Reminders: 3 records
+Sound Play Logs: 24 records
+Guild Memberships: 5 records
+User Profile: 1 record
+Rat Watch Records (anonymized): 2 records
+
+⚠️ Warning
+Use /privacy delete-data to permanently delete this data. This action cannot be undone.
+```
+
+**Example Response (User has no data):**
+```
+📋 Data Deletion Preview
+
+You have no data stored in our system.
+```
+
+**Example Response (Admin user blocked):**
+```
+⚠️ Cannot Delete Data
+
+User has administrative role(s): Admin. Remove admin privileges before purging.
+```
+
+**Data Categories Displayed:**
+- Message Logs (message content)
+- Command Logs (slash command history)
+- Rat Watch Votes
+- Rat Watch Records (anonymized, not deleted)
+- Rat Watches (anonymized, not deleted)
+- Reminders
+- Moderation Notes
+- Moderation Tags
+- Watchlist Entries
+- Soundboard History
+- TTS Messages
+- Guild Memberships
+- Consent Records
+- User Profile
+- Admin Account (if linked)
+
+**Error Handling:**
+- Database errors return a generic error message and log detailed errors
+- Always ephemeral (only visible to user who executed command)
+
+**Source Code:** `PrivacyModule.PreviewDeleteAsync()` in `src/DiscordBot.Bot/Commands/PrivacyModule.cs`
+
+---
+
+### /privacy delete-data
+
+Permanently deletes all user data from the system (GDPR "right to be forgotten"). This is a destructive operation that cannot be undone. Requires explicit confirmation.
+
+**Syntax:**
+```
+/privacy delete-data [confirm:DELETE]
+```
+
+**Parameters:**
+- `confirm` (optional): Must type exactly "DELETE" (case-sensitive) to proceed with deletion
+
+**Behavior Without Confirmation:**
+1. Displays warning embed with instructions
+2. Guides user to run command again with `confirm:DELETE` parameter
+3. Suggests using `/privacy preview-delete` first
+
+**Behavior With Confirmation:**
+1. Checks if user can be purged (Admin/SuperAdmin users are blocked)
+2. Defers response (deletion may take several seconds)
+3. Executes purge within a database transaction:
+   - Deletes all user data from all tables
+   - Anonymizes RatWatch data (sets UserId to 0)
+   - Deletes linked ApplicationUser account (if exists)
+   - Creates anonymized audit log entry
+4. Returns success or error result
+
+**Example Response (Confirmation Required):**
+```
+⚠️ Confirmation Required
+
+This will permanently delete all your data from our system.
+
+This action cannot be undone.
+
+To proceed, run this command again with:
+/privacy delete-data confirm:DELETE
+
+Use /privacy preview-delete to see what would be deleted first.
+```
+
+**Example Response (Success):**
+```
+✅ Data Deleted
+
+Your data has been permanently deleted from our system.
+
+Records Deleted: 1,247
+Reference ID: a1b2c3d4...
+
+Thank you for using our service.
+```
+
+**Example Response (Blocked):**
+```
+⚠️ Cannot Delete Data
+
+User has administrative role(s): SuperAdmin. Remove admin privileges before purging.
+```
+
+**Example Response (Error):**
+```
+❌ Deletion Failed
+
+An error occurred while deleting your data.
+
+Error: Transaction failed
+
+Please try again later or contact support.
+```
+
+**Important Notes:**
+- Deletion is **immediate and permanent**
+- A reference ID is provided for audit purposes
+- Users with Admin or SuperAdmin roles cannot delete their own data
+- Another admin must first remove elevated roles before user can request deletion
+- RatWatch data is anonymized (not deleted) to preserve historical accountability records
+- An anonymized audit log entry is created (does not store the user's Discord ID)
+
+**Transaction Safety:**
+- All deletions occur within a single database transaction
+- If any deletion fails, entire transaction is rolled back
+- Database remains in consistent state even if errors occur
+
+**Error Handling:**
+- Database errors return a generic error message with error code
+- Detailed errors are logged server-side with structured logging
+- Always ephemeral (only visible to user who executed command)
+
+**Source Code:** `PrivacyModule.DeleteDataAsync()` in `src/DiscordBot.Bot/Commands/PrivacyModule.cs`
 
 ---
 
@@ -573,48 +745,70 @@ Users will be able to request a data export containing:
 
 ### Data Deletion
 
-**Current Status:** Manual process (automated deletion planned for future release)
+**Current Status:** Implemented via `/privacy` slash command
 
-**Current Process:**
+**User-Initiated Deletion:**
 
-Users requesting data deletion should:
+Users can delete their own data using the following commands:
 
-1. Revoke all active consents using `/consent revoke` or the Privacy page
-2. Contact the bot administrator/owner
-3. Administrator manually deletes data using database queries or admin tools
+1. **Preview what will be deleted:** `/privacy preview-delete`
+   - Shows a summary of all data categories and record counts
+   - Non-destructive preview (no data is deleted)
+   - Checks if deletion is allowed (users with admin roles cannot delete their own data)
+
+2. **Delete all data:** `/privacy delete-data confirm:DELETE`
+   - Requires explicit confirmation by typing "DELETE"
+   - Permanently deletes all user data from the system
+   - Returns a reference ID for audit purposes
+   - Users with Admin or SuperAdmin roles must first have their roles removed by another admin
 
 **Data Deletion Scope:**
 
-When processing a deletion request, the following data should be removed:
+When processing a deletion request, the following data is permanently deleted or anonymized:
 
-- **MessageLog records** for the user (filter by `AuthorId = DiscordUserId`)
-- **UserConsent records** for the user (filter by `DiscordUserId`)
-- **AuditLog entries** created by the user (filter by `PerformedByUserId`)
-- **User account** in the admin system (if applicable, filter by `DiscordUserId`)
+**Deleted:**
+- **MessageLog records** (filter by `AuthorId = DiscordUserId`)
+- **CommandLog records** (filter by `UserId = DiscordUserId`)
+- **RatVotes** (filter by `VoterUserId = DiscordUserId`)
+- **Reminders** (filter by `UserId = DiscordUserId`)
+- **ModNotes** (filter by `AuthorUserId = DiscordUserId`)
+- **UserModTags** (filter by `UserId = DiscordUserId`)
+- **Watchlists** (filter by `UserId = DiscordUserId`)
+- **SoundPlayLogs** (filter by `UserId = DiscordUserId`)
+- **TtsMessages** (filter by `UserId = DiscordUserId`)
+- **GuildMembers** (filter by `UserId = DiscordUserId`)
+- **UserConsents** (filter by `DiscordUserId = DiscordUserId`)
+- **User entity** (core user profile)
+- **ApplicationUser** (if linked, includes UserGuildAccess, UserDiscordGuilds, DiscordOAuthTokens)
 
-**Data Deletion Limitations:**
+**Anonymized (not deleted):**
+- **RatRecords** (UserId set to 0 - preserves historical accountability data)
+- **RatWatches** (AccusedUserId and InitiatorUserId set to 0 - preserves incident records)
 
-Some data may be retained for legal or operational reasons:
+**Data Deletion Protection:**
 
-- Audit logs of admin actions performed by the user (if user was an admin)
-- Guild configuration changes attributed to the user
-- Aggregate statistics that cannot be disaggregated
+Users with elevated privileges cannot delete their own data:
+- Users with **Admin** or **SuperAdmin** roles are blocked from deletion
+- Another admin must first remove the user's elevated roles
+- This prevents accidental deletion of admin accounts and preserves audit trails
 
-**Planned Implementation:**
+**Admin-Initiated Deletion:**
 
-- Slash command: `/privacy delete-data` (requires confirmation)
-- Web UI: "Delete My Data" button with confirmation dialog
-- Automatic processing of deletion requests
-- Email/Discord notification when deletion is complete
+Admins can purge user data on behalf of users via the web interface at `/Admin/UserPurge`. This supports GDPR data subject requests and compliance scenarios.
 
-**GDPR Compliance Notes:**
+**GDPR Compliance:**
 
-- Data deletion requests should be processed within 30 days (GDPR requirement)
-- Users should receive confirmation when deletion is complete
-- Deletion should be permanent and irreversible
-- Logs of the deletion request itself should be retained for compliance auditing
+- ✅ Users can request data deletion at any time (GDPR Article 17)
+- ✅ Deletion is processed immediately (no 30-day delay)
+- ✅ Users receive confirmation when deletion is complete
+- ✅ Deletion is permanent and irreversible
+- ✅ An anonymized audit log entry is created for compliance tracking (does not store user ID)
 
-**Implementation Tracking:** See GitHub issue backlog for automated data deletion feature
+**Planned Enhancements:**
+
+- Web UI: "Delete My Data" button with confirmation dialog on Privacy page
+- Email/Discord notification when deletion is complete (currently inline response)
+- Scheduled deletion (allow user to request deletion with a 7-day grace period)
 
 ---
 
@@ -1529,8 +1723,8 @@ Revoking consent stops **future** message logging. Previously logged messages ar
 **Solution:**
 
 - Wait for messages to expire per retention policy (90 days by default)
-- Request manual data deletion by contacting the bot administrator
-- Future implementation: Use `/privacy delete-data` command (planned)
+- Use `/privacy delete-data confirm:DELETE` to permanently delete all your data
+- Preview what will be deleted first with `/privacy preview-delete`
 
 ---
 
@@ -1630,10 +1824,11 @@ Cache staleness. The web UI uses a 15-minute cache for consent checks.
    - Web UI "Export My Data" button
    - JSON/CSV export formats
 
-2. **Automated Data Deletion** (GitHub issue pending)
-   - `/privacy delete-data` command with confirmation
-   - Web UI "Delete My Data" button
-   - Automatic processing within 30 days (GDPR compliance)
+2. **Data Deletion Enhancements**
+   - ✅ `/privacy delete-data` command with confirmation (implemented)
+   - ✅ `/privacy preview-delete` command (implemented)
+   - Planned: Web UI "Delete My Data" button
+   - Planned: Scheduled deletion with grace period
 
 3. **Admin Consent Dashboard** (GitHub issue pending)
    - View all users' consent status
