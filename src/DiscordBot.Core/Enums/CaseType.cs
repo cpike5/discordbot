@@ -28,5 +28,10 @@ public enum CaseType
     /// <summary>
     /// Informational note only (no enforcement action).
     /// </summary>
-    Note = 4
+    Note = 4,
+
+    /// <summary>
+    /// User was unbanned from the guild.
+    /// </summary>
+    Unban = 5
 }
