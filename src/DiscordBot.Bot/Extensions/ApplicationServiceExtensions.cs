@@ -40,6 +40,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ITimeParsingService, TimeParsingService>();
         services.AddScoped<IGuildMemberService, GuildMemberService>();
         services.AddScoped<IConsentService, ConsentService>();
+        services.AddScoped<IUserPurgeService, UserPurgeService>();
 
         // Metrics update background services
         services.AddHostedService<MetricsUpdateService>();

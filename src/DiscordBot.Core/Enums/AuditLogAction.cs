@@ -98,5 +98,10 @@ public enum AuditLogAction
     /// <summary>
     /// The Discord bot disconnected from the Discord gateway.
     /// </summary>
-    BotDisconnected = 19
+    BotDisconnected = 19,
+
+    /// <summary>
+    /// User data was purged from the system (GDPR right to be forgotten).
+    /// </summary>
+    UserDataPurged = 20
 }
