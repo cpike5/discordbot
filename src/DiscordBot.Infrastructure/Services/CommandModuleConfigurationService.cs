@@ -47,6 +47,7 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
         // Feature modules
         new("RatWatchModule", "Rat Watch", "Rat Watch accountability feature", "Features", true),
         new("ReminderModule", "Reminders", "Personal reminder commands", "Features", true),
+        new("PrivacyModule", "Privacy", "User data privacy and GDPR deletion commands", "Features", true),
 
         // Audio modules
         new("TtsModule", "Text-to-Speech", "Text-to-speech commands", "Audio", true),
