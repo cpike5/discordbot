@@ -41,6 +41,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IGuildMemberService, GuildMemberService>();
         services.AddScoped<IConsentService, ConsentService>();
         services.AddScoped<IUserPurgeService, UserPurgeService>();
+        services.AddScoped<IUserDataExportService, UserDataExportService>();
         services.AddScoped<IBulkPurgeService, BulkPurgeService>();
 
         // Metrics update background services

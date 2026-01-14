@@ -17,6 +17,7 @@ namespace DiscordBot.Bot.Commands;
 public class PrivacyModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IUserPurgeService _purgeService;
+    private readonly IUserDataExportService _exportService;
     private readonly ILogger<PrivacyModule> _logger;
 
     /// <summary>
@@ -24,9 +25,11 @@ public class PrivacyModule : InteractionModuleBase<SocketInteractionContext>
     /// </summary>
     public PrivacyModule(
         IUserPurgeService purgeService,
+        IUserDataExportService exportService,
         ILogger<PrivacyModule> logger)
     {
         _purgeService = purgeService;
+        _exportService = exportService;
         _logger = logger;
     }
 
@@ -102,6 +105,87 @@ public class PrivacyModule : InteractionModuleBase<SocketInteractionContext>
                 .Build();
 
             await RespondAsync(embed: errorEmbed, ephemeral: true);
+        }
+    }
+
+    /// <summary>
+    /// Exports all user data as a downloadable ZIP file.
+    /// </summary>
+    [SlashCommand("export-data", "Export all your data as a downloadable file")]
+    public async Task ExportDataAsync()
+    {
+        var userId = Context.User.Id;
+
+        _logger.LogDebug(
+            "Export data command executed by {Username} (ID: {UserId})",
+            Context.User.Username, userId);
+
+        try
+        {
+            // Defer since export may take time
+            await DeferAsync(ephemeral: true);
+
+            _logger.LogInformation("User {UserId} initiated data export", userId);
+
+            // Execute export
+            var result = await _exportService.ExportUserDataAsync(userId);
+
+            if (result.Success)
+            {
+                var totalRecords = result.ExportedCounts.Values.Sum();
+                var expiresAtLocal = result.ExpiresAt!.Value;
+
+                var successEmbed = new EmbedBuilder()
+                    .WithTitle("📦 Data Export Ready")
+                    .WithDescription($"Your data has been exported and is ready for download.\n\n" +
+                                   $"**Records Exported:** {totalRecords}\n" +
+                                   $"**Export ID:** `{result.ExportId.ToString()![..8]}...`\n" +
+                                   $"**Expires:** <t:{new DateTimeOffset(expiresAtLocal).ToUnixTimeSeconds()}:R>\n\n" +
+                                   $"[Download Your Data]({result.DownloadUrl})\n\n" +
+                                   "⚠️ This link will expire in 7 days. Download your data before then.")
+                    .WithColor(Color.Blue)
+                    .WithCurrentTimestamp()
+                    .Build();
+
+                await FollowupAsync(embed: successEmbed, ephemeral: true);
+
+                _logger.LogInformation(
+                    "User {UserId} data export completed. {RecordCount} records exported",
+                    userId, totalRecords);
+            }
+            else
+            {
+                var errorEmbed = new EmbedBuilder()
+                    .WithTitle("❌ Export Failed")
+                    .WithDescription($"An error occurred while exporting your data.\n\n" +
+                                   $"**Error:** {result.ErrorMessage ?? "Unknown error"}\n\n" +
+                                   "Please try again later or contact support.")
+                    .WithColor(Color.Red)
+                    .WithCurrentTimestamp()
+                    .Build();
+
+                await FollowupAsync(embed: errorEmbed, ephemeral: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export data for user {UserId}", userId);
+
+            var errorEmbed = new EmbedBuilder()
+                .WithTitle("❌ Error")
+                .WithDescription("An error occurred while exporting your data. Please try again later.")
+                .WithColor(Color.Red)
+                .WithCurrentTimestamp()
+                .Build();
+
+            try
+            {
+                await FollowupAsync(embed: errorEmbed, ephemeral: true);
+            }
+            catch
+            {
+                await RespondAsync(embed: errorEmbed, ephemeral: true);
+            }
         }
     }
 
