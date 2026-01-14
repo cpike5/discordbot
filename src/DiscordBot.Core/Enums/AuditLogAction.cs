@@ -108,5 +108,10 @@ public enum AuditLogAction
     /// <summary>
     /// Bulk data purge operation was executed.
     /// </summary>
-    BulkDataPurged = 21
+    BulkDataPurged = 21,
+
+    /// <summary>
+    /// User data was exported (GDPR right of access).
+    /// </summary>
+    UserDataExported = 22
 }

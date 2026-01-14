@@ -183,6 +183,71 @@ else
         </div>
     }
 
+    <!-- Data Management Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+            <div>
+                <h3 class="text-lg font-semibold text-text-primary">Data Management</h3>
+                <p class="text-sm text-text-secondary mt-1">Export or delete your personal data</p>
+            </div>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <!-- Export Data Section -->
+            <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                <div class="w-12 h-12 rounded-full bg-info-bg border border-info-border flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-base font-semibold text-text-primary mb-1">Export My Data</h4>
+                    <p class="text-sm text-text-secondary mb-3">
+                        Download all your data in a portable JSON format. The export will be available for 7 days.
+                    </p>
+                    <form method="post" asp-page-handler="ExportData">
+                        <button type="submit" class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-accent-blue border border-accent-blue rounded-md transition-colors hover:bg-accent-blue-hover hover:border-accent-blue-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                            </svg>
+                            Export My Data
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Delete Data Section -->
+            <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-error-border">
+                <div class="w-12 h-12 rounded-full bg-error-bg border border-error-border flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-base font-semibold text-text-primary mb-1">Delete My Data</h4>
+                    <p class="text-sm text-text-secondary mb-3">
+                        Permanently delete all your data from our system. This action cannot be undone.
+                    </p>
+                    <form method="post" asp-page-handler="DeleteData" onsubmit="return confirm('Are you sure you want to permanently delete ALL your data? This action cannot be undone.\n\nType DELETE in the command to confirm:\n/privacy delete-data confirm:DELETE');">
+                        <button type="submit" class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error-hover hover:border-error-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Delete My Data
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+            <p class="text-xs text-text-tertiary">
+                Data management actions comply with GDPR Articles 15 (Right of Access) and 17 (Right to Erasure).
+                You can also use the <code class="px-1.5 py-0.5 bg-bg-tertiary rounded font-mono text-xs">/privacy</code> commands in Discord.
+            </p>
+        </div>
+    </div>
+
     @if (Model.ConsentHistory.Any())
     {
         <!-- Consent History Card -->
