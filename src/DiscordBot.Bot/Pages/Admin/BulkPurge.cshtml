@@ -1,0 +1,359 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.BulkPurgeModel
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = "Bulk Data Purge";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-h1 text-text-primary">Bulk Data Purge</h1>
+        <p class="mt-1 text-sm text-text-secondary">Permanently delete historical data by entity type, date range, and guild</p>
+    </div>
+
+    <!-- Warning Notice -->
+    <div class="mb-6 p-4 bg-error-bg border border-error-border rounded-lg">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+            <div>
+                <p class="text-sm font-semibold text-error">Warning: Irreversible Operation</p>
+                <p class="text-sm text-error/90 mt-1">
+                    This action permanently deletes data from the database. This operation cannot be undone. Always preview before executing.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Messages -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel { Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Success, Message = Model.SuccessMessage, IsDismissible = true }" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel { Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = true }" />
+        </div>
+    }
+
+    <!-- Filter Form -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">Select Purge Criteria</h2>
+        <form method="post" asp-page-handler="Preview" class="space-y-6">
+            <!-- Entity Type Selection -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-2">
+                    Entity Type <span class="text-error">*</span>
+                </label>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    @foreach (var entityType in Enum.GetValues<BulkPurgeEntityType>())
+                    {
+                        var isSelected = Model.EntityType == entityType;
+                        var description = entityType switch
+                        {
+                            BulkPurgeEntityType.Messages => "Discord message history",
+                            BulkPurgeEntityType.AuditLogs => "System audit trail",
+                            BulkPurgeEntityType.CommandLogs => "Command execution logs",
+                            BulkPurgeEntityType.ModerationCases => "Moderation case records",
+                            _ => ""
+                        };
+                        <label class="entity-type-card @(isSelected ? "selected" : "")">
+                            <input type="radio"
+                                   name="EntityType"
+                                   value="@entityType"
+                                   class="hidden"
+                                   @(isSelected ? "checked" : "") />
+                            <div class="card-content">
+                                <span class="font-medium text-text-primary">@entityType</span>
+                                <span class="text-xs text-text-secondary mt-1">@description</span>
+                            </div>
+                        </label>
+                    }
+                </div>
+            </div>
+
+            <!-- Date Range -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="start-date" class="block text-sm font-medium text-text-primary mb-2">
+                        Start Date (inclusive)
+                    </label>
+                    <input type="date"
+                           id="start-date"
+                           name="StartDate"
+                           value="@(Model.StartDate?.ToString("yyyy-MM-dd"))"
+                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                    <p class="mt-1 text-xs text-text-tertiary">Leave empty for no lower bound</p>
+                    @if (ViewData.ModelState["StartDate"]?.Errors.Count > 0)
+                    {
+                        <p class="mt-1 text-sm text-error">
+                            @ViewData.ModelState["StartDate"]?.Errors[0].ErrorMessage
+                        </p>
+                    }
+                </div>
+                <div>
+                    <label for="end-date" class="block text-sm font-medium text-text-primary mb-2">
+                        End Date (exclusive)
+                    </label>
+                    <input type="date"
+                           id="end-date"
+                           name="EndDate"
+                           value="@(Model.EndDate?.ToString("yyyy-MM-dd"))"
+                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                    <p class="mt-1 text-xs text-text-tertiary">Leave empty for no upper bound</p>
+                </div>
+            </div>
+
+            <!-- Guild ID Filter -->
+            <div>
+                <label for="guild-id" class="block text-sm font-medium text-text-primary mb-2">
+                    Guild ID (optional)
+                </label>
+                <input type="text"
+                       id="guild-id"
+                       name="GuildIdInput"
+                       value="@Model.GuildIdInput"
+                       placeholder="Enter Discord guild ID to limit purge to specific server"
+                       class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                <p class="mt-1 text-xs text-text-tertiary">Leave empty to purge across all guilds</p>
+                @if (ViewData.ModelState["GuildIdInput"]?.Errors.Count > 0)
+                {
+                    <p class="mt-1 text-sm text-error">
+                        @ViewData.ModelState["GuildIdInput"]?.Errors[0].ErrorMessage
+                    </p>
+                }
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-3 pt-4 border-t border-border-primary">
+                <button type="submit" class="btn btn-primary">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Preview Records
+                </button>
+                <a asp-page="BulkPurge" class="btn btn-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Preview Results -->
+    @if (Model.PreviewResult != null && Model.PreviewResult.Success)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                <h2 class="text-lg font-semibold text-text-primary">Preview: Records to be Deleted</h2>
+                <p class="text-sm text-text-secondary mt-1">
+                    The following records match your criteria and will be permanently deleted.
+                </p>
+            </div>
+
+            <div class="p-6">
+                @if (Model.PreviewResult.EstimatedCount > 0)
+                {
+                    <!-- Preview Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-bg-tertiary rounded-lg p-4">
+                            <p class="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">Entity Type</p>
+                            <p class="text-lg font-semibold text-text-primary">@Model.PreviewResult.EntityType</p>
+                        </div>
+                        <div class="bg-bg-tertiary rounded-lg p-4">
+                            <p class="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">Date Range</p>
+                            <p class="text-lg font-semibold text-text-primary">@Model.PreviewResult.DateRange</p>
+                        </div>
+                        <div class="bg-bg-tertiary rounded-lg p-4">
+                            <p class="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">Estimated Records</p>
+                            <p class="text-lg font-semibold text-error">@Model.PreviewResult.EstimatedCount.ToString("N0")</p>
+                        </div>
+                    </div>
+
+                    @if (Model.PreviewResult.GuildId.HasValue)
+                    {
+                        <div class="mb-6 p-3 bg-info-bg border border-info-border rounded-md">
+                            <p class="text-sm text-info">
+                                <span class="font-semibold">Guild Filter:</span>
+                                <span class="font-mono">@Model.PreviewResult.GuildId</span>
+                            </p>
+                        </div>
+                    }
+
+                    <!-- Execute Purge Form -->
+                    <div class="pt-6 border-t border-border-primary">
+                        <form method="post" asp-page-handler="Execute" id="purge-form" onsubmit="return confirmPurge();">
+                            <input type="hidden" name="EntityType" value="@Model.EntityType" />
+                            <input type="hidden" name="StartDate" value="@Model.StartDate?.ToString("yyyy-MM-dd")" />
+                            <input type="hidden" name="EndDate" value="@Model.EndDate?.ToString("yyyy-MM-dd")" />
+                            <input type="hidden" name="GuildIdInput" value="@Model.GuildIdInput" />
+
+                            <button type="submit" class="btn btn-error">
+                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Execute Purge (@Model.PreviewResult.EstimatedCount.ToString("N0") records)
+                            </button>
+                            <p class="mt-2 text-xs text-text-tertiary">
+                                This operation will permanently delete the records shown above. You will be asked to confirm before proceeding.
+                            </p>
+                        </form>
+                    </div>
+                }
+                else
+                {
+                    <!-- No Records Found -->
+                    <div class="text-center py-8">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+                            <svg class="w-10 h-10 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-text-primary mb-2">No Records Found</h3>
+                        <p class="text-sm text-text-secondary">
+                            No @Model.PreviewResult.EntityType records match the specified criteria. Try adjusting your date range or guild filter.
+                        </p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Purge Result -->
+    @if (Model.PurgeResult != null && Model.PurgeResult.Success)
+    {
+        <div class="bg-success-bg border border-success-border rounded-lg p-6 mb-6">
+            <div class="flex items-start gap-3">
+                <svg class="w-6 h-6 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-success mb-2">Purge Complete</h3>
+                    <p class="text-sm text-success/90 mb-4">
+                        Successfully deleted <span class="font-mono font-bold">@Model.PurgeResult.DeletedCount.ToString("N0")</span> @Model.PurgeResult.EntityType records.
+                    </p>
+
+                    @if (!string.IsNullOrEmpty(Model.PurgeResult.AuditLogCorrelationId))
+                    {
+                        <p class="text-xs text-success/80">
+                            Audit Correlation ID: <span class="font-mono">@Model.PurgeResult.AuditLogCorrelationId</span>
+                        </p>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Progress Indicator (for SignalR - hidden by default) -->
+    <div id="progress-container" class="hidden mb-6">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <div>
+                    <p class="text-sm font-medium text-text-primary" id="progress-message">Processing...</p>
+                    <p class="text-xs text-text-secondary" id="progress-detail"></p>
+                </div>
+            </div>
+            <div class="w-full bg-bg-tertiary rounded-full h-2">
+                <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+            <p class="mt-2 text-xs text-text-tertiary text-right" id="progress-percent">0%</p>
+        </div>
+    </div>
+
+    <!-- Additional Information -->
+    <div class="p-4 bg-info-bg border border-info-border rounded-md">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+            <div class="text-sm text-info">
+                <p class="font-semibold mb-1">Data Retention</p>
+                <p class="text-info/90">
+                    This tool is intended for manual data cleanup operations. For automated retention, configure the retention options in
+                    <a asp-page="/Admin/Settings" class="underline hover:no-underline">Settings</a>.
+                    All bulk purge operations are logged in the audit trail for compliance tracking.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function confirmPurge() {
+        const entityType = '@Model.EntityType';
+        const count = '@Model.PreviewResult?.EstimatedCount.ToString("N0")';
+        const dateRange = '@Model.PreviewResult?.DateRange';
+
+        const message = `WARNING: You are about to permanently delete ${count} ${entityType} records.\n\n` +
+                       `Date Range: ${dateRange}\n\n` +
+                       `This action CANNOT be undone.\n\n` +
+                       `Are you absolutely sure you want to proceed?`;
+
+        return confirm(message);
+    }
+
+    // Entity type card selection
+    document.querySelectorAll('.entity-type-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.entity-type-card').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+            this.querySelector('input[type="radio"]').checked = true;
+        });
+    });
+</script>
+
+<style>
+    .entity-type-card {
+        display: block;
+        cursor: pointer;
+        border: 2px solid var(--border-primary);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        background: var(--bg-primary);
+        transition: all 0.2s;
+    }
+
+    .entity-type-card:hover {
+        border-color: var(--border-focus);
+        background: var(--bg-tertiary);
+    }
+
+    .entity-type-card.selected {
+        border-color: var(--primary);
+        background: var(--primary-bg);
+    }
+
+    .entity-type-card .card-content {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .btn-error {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: white;
+        background-color: #dc2626;
+        border: 1px solid #dc2626;
+        border-radius: 0.375rem;
+        transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .btn-error:hover {
+        background-color: #b91c1c;
+        border-color: #b91c1c;
+    }
+
+    .btn-error:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 4px #ef4444;
+    }
+</style>

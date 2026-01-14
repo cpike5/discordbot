@@ -38,6 +38,11 @@ public class DashboardHub : Hub
     public const string AudioGroupPrefix = "guild-audio-";
 
     /// <summary>
+    /// The name of the SignalR group for bulk purge progress updates.
+    /// </summary>
+    public const string BulkPurgeGroupName = "bulk-purge";
+
+    /// <summary>
     /// Tracing attribute for SignalR connection ID.
     /// </summary>
     private const string SignalRConnectionIdAttribute = "signalr.connection.id";
@@ -418,6 +423,72 @@ public class DashboardHub : Hub
 
             _logger.LogDebug(
                 "Client left alerts group: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Joins the bulk purge group to receive progress updates during bulk purge operations.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task JoinBulkPurgeGroup()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "join_bulk_purge_group");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.AddToGroupAsync(Context.ConnectionId, BulkPurgeGroupName);
+
+            _logger.LogDebug(
+                "Client joined bulk purge group: ConnectionId={ConnectionId}, User={UserName}",
+                Context.ConnectionId,
+                userName);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Leaves the bulk purge group to stop receiving progress updates.
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task LeaveBulkPurgeGroup()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "leave_bulk_purge_group");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            var userName = Context.User?.Identity?.Name ?? "unknown";
+
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, BulkPurgeGroupName);
+
+            _logger.LogDebug(
+                "Client left bulk purge group: ConnectionId={ConnectionId}, User={UserName}",
                 Context.ConnectionId,
                 userName);
 

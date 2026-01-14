@@ -103,5 +103,10 @@ public enum AuditLogAction
     /// <summary>
     /// User data was purged from the system (GDPR right to be forgotten).
     /// </summary>
-    UserDataPurged = 20
+    UserDataPurged = 20,
+
+    /// <summary>
+    /// Bulk data purge operation was executed.
+    /// </summary>
+    BulkDataPurged = 21
 }
