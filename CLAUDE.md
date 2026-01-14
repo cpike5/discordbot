@@ -202,11 +202,33 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [troubleshooting-guide.md](docs/articles/troubleshooting-guide.md) | Common issues and solutions |
 | [discord-bot-setup.md](docs/articles/discord-bot-setup.md) | Discord Developer Portal setup guide |
 
-**Large Files Warning:** Some documentation files exceed the standard read limit:
+**Large Files Warning:** Some files exceed the standard read limit or are complex enough to warrant targeted searches:
+
+*Documentation:*
 - `api-endpoints.md` - Use Grep to search for specific endpoints or read with offset/limit
 - `design-system.md` - Use Grep to search for specific components or tokens
 
-When working with these files, search for specific content rather than reading the entire file.
+*Services (500+ lines):*
+- `RatWatchService.cs` (1,159 lines) - Rat Watch core logic
+- `UserManagementService.cs` (995 lines) - User CRUD and role management
+- `PlaybackService.cs` (918 lines) - Audio playback orchestration
+- `UserDataExportService.cs` (762 lines) - GDPR data export
+- `SearchService.cs` (749 lines) - Global search implementation
+- `ScheduledMessageService.cs` (669 lines) - Scheduled message management
+- `TimeParsingService.cs` (598 lines) - Natural language time parsing
+- `BotHostedService.cs` (587 lines) - Bot lifecycle and event handlers
+- `ConsentService.cs` (567 lines) - User consent management
+- `AlertMonitoringService.cs` (553 lines) - Performance alert monitoring
+
+*Controllers (500+ lines):*
+- `PerformanceMetricsController.cs` (1,111 lines) - Performance dashboard API
+- `AnalyticsController.cs` (698 lines) - Analytics endpoints
+- `PortalSoundboardController.cs` (652 lines) - Member portal soundboard API
+- `PortalTtsController.cs` (597 lines) - Member portal TTS API
+- `AlertsController.cs` (560 lines) - Alert management API
+- `PerformanceTabsController.cs` (551 lines) - Performance tab partials
+
+When working with these files, search for specific methods or sections rather than reading the entire file.
 
 ## HTML Prototypes
 
