@@ -55,6 +55,7 @@ Optional feature commands.
 |--------|--------------|----------|
 | `RatWatchModule` | Rat Watch | Rat Watch (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard`, `/rat-settings` |
 | `ReminderModule` | Reminders | `/remind set/list/delete` |
+| `PrivacyModule` | Privacy | `/privacy preview-delete`, `/privacy delete-data` |
 
 ### Audio Commands
 
@@ -82,7 +83,7 @@ Essential bot commands that cannot be disabled.
 |--------|--------------|----------|
 | `GeneralModule` | General | `/ping` |
 | `VerifyAccountModule` | Verify Account | `/verify` |
-| `ConsentModule` | Consent | `/consent`, `/privacy` |
+| `ConsentModule` | Consent | `/consent grant/revoke/status` |
 
 ## Always-Enabled Modules
 
