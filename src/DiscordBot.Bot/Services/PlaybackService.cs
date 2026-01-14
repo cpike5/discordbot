@@ -23,8 +23,10 @@ public class PlaybackService : IPlaybackService
     private readonly IAudioService _audioService;
     private readonly IAudioNotifier _audioNotifier;
     private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly ISoundCacheService _soundCacheService;
     private readonly ILogger<PlaybackService> _logger;
     private readonly SoundboardOptions _options;
+    private readonly AudioCacheOptions _cacheOptions;
 
     // Per-guild playback state
     private readonly ConcurrentDictionary<ulong, PlaybackState> _playbackStates = new();
@@ -38,20 +40,26 @@ public class PlaybackService : IPlaybackService
     /// <param name="audioService">The audio service for voice connections.</param>
     /// <param name="audioNotifier">The audio notifier for SignalR broadcasts.</param>
     /// <param name="serviceScopeFactory">The service scope factory for resolving scoped services.</param>
+    /// <param name="soundCacheService">The audio cache service for caching FFmpeg-processed audio.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="options">Soundboard configuration options.</param>
+    /// <param name="cacheOptions">Audio cache configuration options.</param>
     public PlaybackService(
         IAudioService audioService,
         IAudioNotifier audioNotifier,
         IServiceScopeFactory serviceScopeFactory,
+        ISoundCacheService soundCacheService,
         ILogger<PlaybackService> logger,
-        IOptions<SoundboardOptions> options)
+        IOptions<SoundboardOptions> options,
+        IOptions<AudioCacheOptions> cacheOptions)
     {
         _audioService = audioService;
         _audioNotifier = audioNotifier;
         _serviceScopeFactory = serviceScopeFactory;
+        _soundCacheService = soundCacheService;
         _logger = logger;
         _options = options.Value;
+        _cacheOptions = cacheOptions.Value;
     }
 
     /// <inheritdoc/>
@@ -519,7 +527,7 @@ public class PlaybackService : IPlaybackService
     }
 
     /// <summary>
-    /// Streams audio from FFmpeg to Discord.
+    /// Streams audio from cache or FFmpeg to Discord.
     /// </summary>
     /// <returns>A tuple of (success, filterFailed, wasCancelled).</returns>
     private async Task<(bool Success, bool FilterFailed, bool WasCancelled)> StreamAudioAsync(
@@ -532,33 +540,43 @@ public class PlaybackService : IPlaybackService
         double durationSeconds,
         CancellationToken cancellationToken)
     {
-        var ffmpegArguments = BuildFfmpegArguments(filePath, filter);
-        _logger.LogDebug("FFmpeg arguments: {Arguments}", ffmpegArguments);
+        // Check if audio is eligible for caching (based on duration)
+        var shouldCache = _cacheOptions.Enabled && durationSeconds <= _cacheOptions.MaxCacheDurationSeconds;
 
-        // Start activity for FFmpeg transcode
-        using var transcodeActivity = BotActivitySource.StartFfmpegTranscodeActivity(
-            soundName: sound.Name,
-            filePath: Path.GetFileName(filePath), // Relative path only for security
-            filter: filter.ToString());
+        // Get source file modification time for cache invalidation
+        var sourceFileModifiedUtc = File.GetLastWriteTimeUtc(filePath);
 
-        var startInfo = new ProcessStartInfo
+        // Try to get cached audio first
+        if (shouldCache)
         {
-            FileName = ffmpegPath,
-            Arguments = ffmpegArguments,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
+            var cachedStream = await _soundCacheService.TryGetAsync(sound.Id, filter, sourceFileModifiedUtc);
+            if (cachedStream != null)
+            {
+                _logger.LogDebug("Playing sound {SoundName} from cache in guild {GuildId}", sound.Name, guildId);
+                return await StreamFromCacheAsync(guildId, sound, cachedStream, discord, durationSeconds, cancellationToken);
+            }
+        }
 
-        using var ffmpeg = Process.Start(startInfo)
-            ?? throw new InvalidOperationException($"Failed to start FFmpeg process from '{ffmpegPath}'");
+        // Cache miss - transcode with FFmpeg
+        return await StreamFromFfmpegAsync(guildId, sound, filePath, ffmpegPath, filter, discord, durationSeconds, sourceFileModifiedUtc, shouldCache, cancellationToken);
+    }
 
-        _logger.LogDebug("FFmpeg process started (PID: {ProcessId}) for sound {SoundName} in guild {GuildId} with filter {Filter}",
-            ffmpeg.Id, sound.Name, guildId, filter);
+    /// <summary>
+    /// Streams audio from a cached file to Discord.
+    /// </summary>
+    private async Task<(bool Success, bool FilterFailed, bool WasCancelled)> StreamFromCacheAsync(
+        ulong guildId,
+        Sound sound,
+        Stream cachedStream,
+        Stream discord,
+        double durationSeconds,
+        CancellationToken cancellationToken)
+    {
+        using var streamActivity = BotActivitySource.StartSoundboardStreamActivity(
+            guildId: guildId,
+            soundId: sound.Id);
 
-        // Record FFmpeg process ID
-        transcodeActivity?.SetTag(TracingConstants.Attributes.FfmpegProcessId, ffmpeg.Id);
+        streamActivity?.SetTag("audio.source", "cache");
 
         const int bufferSize = 3840; // 20ms of audio at 48kHz stereo 16-bit
         var buffer = new byte[bufferSize];
@@ -570,16 +588,11 @@ public class PlaybackService : IPlaybackService
         var lastProgressBroadcast = playbackStartTime;
         const long progressBroadcastIntervalTicks = TimeSpan.TicksPerSecond;
 
-        // Start child activity for audio streaming
-        using var streamActivity = BotActivitySource.StartSoundboardStreamActivity(
-            guildId: guildId,
-            soundId: sound.Id);
-
         try
         {
             int bufferCount = 0;
 
-            while ((bytesRead = await ffmpeg.StandardOutput.BaseStream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
+            while ((bytesRead = await cachedStream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -608,6 +621,129 @@ public class PlaybackService : IPlaybackService
 
             await discord.FlushAsync(cancellationToken);
 
+            BotActivitySource.RecordAudioStreamMetrics(
+                streamActivity,
+                bytesWritten: totalBytesRead,
+                bufferCount: bufferCount);
+
+            BotActivitySource.SetSuccess(streamActivity);
+            return (true, false, wasCancelled);
+        }
+        catch (OperationCanceledException)
+        {
+            BotActivitySource.RecordException(streamActivity, new OperationCanceledException("Playback cancelled"));
+            throw;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(streamActivity, ex);
+            throw;
+        }
+        finally
+        {
+            await cachedStream.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Streams audio from FFmpeg to Discord, optionally caching the output.
+    /// </summary>
+    private async Task<(bool Success, bool FilterFailed, bool WasCancelled)> StreamFromFfmpegAsync(
+        ulong guildId,
+        Sound sound,
+        string filePath,
+        string ffmpegPath,
+        AudioFilter filter,
+        Stream discord,
+        double durationSeconds,
+        DateTime sourceFileModifiedUtc,
+        bool shouldCache,
+        CancellationToken cancellationToken)
+    {
+        var ffmpegArguments = BuildFfmpegArguments(filePath, filter);
+        _logger.LogDebug("FFmpeg arguments: {Arguments}", ffmpegArguments);
+
+        // Start activity for FFmpeg transcode
+        using var transcodeActivity = BotActivitySource.StartFfmpegTranscodeActivity(
+            soundName: sound.Name,
+            filePath: Path.GetFileName(filePath), // Relative path only for security
+            filter: filter.ToString());
+
+        transcodeActivity?.SetTag("audio.source", "ffmpeg");
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = ffmpegPath,
+            Arguments = ffmpegArguments,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        using var ffmpeg = Process.Start(startInfo)
+            ?? throw new InvalidOperationException($"Failed to start FFmpeg process from '{ffmpegPath}'");
+
+        _logger.LogDebug("FFmpeg process started (PID: {ProcessId}) for sound {SoundName} in guild {GuildId} with filter {Filter}",
+            ffmpeg.Id, sound.Name, guildId, filter);
+
+        // Record FFmpeg process ID
+        transcodeActivity?.SetTag(TracingConstants.Attributes.FfmpegProcessId, ffmpeg.Id);
+
+        const int bufferSize = 3840; // 20ms of audio at 48kHz stereo 16-bit
+        var buffer = new byte[bufferSize];
+        int bytesRead;
+        long totalBytesRead = 0;
+        var wasCancelled = false;
+
+        // Buffer for caching (only allocate if we're caching)
+        MemoryStream? cacheBuffer = shouldCache ? new MemoryStream() : null;
+
+        var playbackStartTime = Stopwatch.GetTimestamp();
+        var lastProgressBroadcast = playbackStartTime;
+        const long progressBroadcastIntervalTicks = TimeSpan.TicksPerSecond;
+
+        // Start child activity for audio streaming
+        using var streamActivity = BotActivitySource.StartSoundboardStreamActivity(
+            guildId: guildId,
+            soundId: sound.Id);
+
+        try
+        {
+            int bufferCount = 0;
+
+            while ((bytesRead = await ffmpeg.StandardOutput.BaseStream.ReadAsync(buffer, 0, bufferSize, cancellationToken)) > 0)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogDebug("Playback cancelled for sound {SoundName} in guild {GuildId}", sound.Name, guildId);
+                    wasCancelled = true;
+                    break;
+                }
+
+                await discord.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                totalBytesRead += bytesRead;
+                bufferCount++;
+
+                // Capture for cache if enabled
+                cacheBuffer?.Write(buffer, 0, bytesRead);
+
+                var currentTime = Stopwatch.GetTimestamp();
+                var elapsedSinceLastBroadcast = currentTime - lastProgressBroadcast;
+                if (elapsedSinceLastBroadcast >= progressBroadcastIntervalTicks && durationSeconds > 0)
+                {
+                    var elapsedTotalSeconds = Stopwatch.GetElapsedTime(playbackStartTime).TotalSeconds;
+                    var positionSeconds = Math.Min(elapsedTotalSeconds, durationSeconds);
+
+                    _ = _audioNotifier.NotifyPlaybackProgressAsync(
+                        guildId, sound.Id, positionSeconds, durationSeconds, cancellationToken);
+
+                    lastProgressBroadcast = currentTime;
+                }
+            }
+
+            await discord.FlushAsync(cancellationToken);
+
             // Record streaming metrics
             BotActivitySource.RecordAudioStreamMetrics(
                 streamActivity,
@@ -619,11 +755,15 @@ public class PlaybackService : IPlaybackService
         catch (OperationCanceledException)
         {
             wasCancelled = true;
+            cacheBuffer?.Dispose();
+            cacheBuffer = null; // Don't cache cancelled playbacks
             BotActivitySource.RecordException(streamActivity, new OperationCanceledException("Playback cancelled"));
             throw;
         }
         catch (Exception ex)
         {
+            cacheBuffer?.Dispose();
+            cacheBuffer = null; // Don't cache failed playbacks
             BotActivitySource.RecordException(streamActivity, ex);
             throw;
         }
@@ -662,8 +802,36 @@ public class PlaybackService : IPlaybackService
                 transcodeActivity?.SetTag("ffmpeg.filter_failed", true);
             }
 
+            cacheBuffer?.Dispose(); // Don't cache failed transcodes
             BotActivitySource.SetSuccess(transcodeActivity); // Mark as handled (not an unhandled error)
             return (false, filterFailed, wasCancelled);
+        }
+
+        // Cache the successfully transcoded audio (fire and forget)
+        if (cacheBuffer != null && !wasCancelled)
+        {
+            var pcmData = cacheBuffer.ToArray();
+            cacheBuffer.Dispose();
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var cached = await _soundCacheService.StoreAsync(sound.Id, filter, pcmData, sourceFileModifiedUtc);
+                    if (cached)
+                    {
+                        _logger.LogDebug("Cached transcoded audio for sound {SoundName} ({SizeBytes} bytes)", sound.Name, pcmData.Length);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to cache audio for sound {SoundName}", sound.Name);
+                }
+            }, CancellationToken.None);
+        }
+        else
+        {
+            cacheBuffer?.Dispose();
         }
 
         BotActivitySource.SetSuccess(transcodeActivity);
