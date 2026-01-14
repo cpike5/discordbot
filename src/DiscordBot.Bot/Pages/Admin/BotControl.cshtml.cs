@@ -57,12 +57,6 @@ public class BotControlModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnPostRestartBotAsync()
     {
-        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
-        {
-            _logger.LogWarning("Non-admin user {UserId} attempted to restart bot", User.Identity?.Name);
-            return Forbid();
-        }
-
         _logger.LogWarning("Bot restart requested by user {UserId}", User.Identity?.Name);
 
         try
@@ -96,12 +90,6 @@ public class BotControlModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnPostShutdownBotAsync()
     {
-        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
-        {
-            _logger.LogWarning("Non-admin user {UserId} attempted to shutdown bot", User.Identity?.Name);
-            return Forbid();
-        }
-
         _logger.LogCritical("Bot SHUTDOWN requested by user {UserId}", User.Identity?.Name);
 
         try

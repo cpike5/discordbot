@@ -89,12 +89,6 @@ public class SettingsModel : PageModel
     /// <param name="category">The category to save.</param>
     public async Task<IActionResult> OnPostSaveCategoryAsync(string category)
     {
-        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
-        {
-            _logger.LogWarning("Non-admin user {UserId} attempted to save settings", User.Identity?.Name);
-            return Forbid();
-        }
-
         _logger.LogInformation("Settings save requested for category {Category} by user {UserId}", category, User.Identity?.Name);
 
         try
@@ -179,12 +173,6 @@ public class SettingsModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnPostSaveAllAsync()
     {
-        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
-        {
-            _logger.LogWarning("Non-admin user {UserId} attempted to save all settings", User.Identity?.Name);
-            return Forbid();
-        }
-
         _logger.LogInformation("Save all settings requested by user {UserId}", User.Identity?.Name);
 
         try
@@ -270,12 +258,6 @@ public class SettingsModel : PageModel
     /// <param name="category">The category to reset.</param>
     public async Task<IActionResult> OnPostResetCategoryAsync(string category)
     {
-        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
-        {
-            _logger.LogWarning("Non-admin user {UserId} attempted to reset category {Category}", User.Identity?.Name, category);
-            return Forbid();
-        }
-
         _logger.LogWarning("Reset category {Category} requested by user {UserId}", category, User.Identity?.Name);
 
         try
@@ -359,12 +341,6 @@ public class SettingsModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnPostResetAllAsync()
     {
-        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
-        {
-            _logger.LogWarning("Non-admin user {UserId} attempted to reset all settings", User.Identity?.Name);
-            return Forbid();
-        }
-
         _logger.LogCritical("Reset ALL settings requested by user {UserId}", User.Identity?.Name);
 
         try
@@ -434,12 +410,6 @@ public class SettingsModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnPostSaveCommandModulesAsync()
     {
-        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
-        {
-            _logger.LogWarning("Non-admin user {UserId} attempted to save command module settings", User.Identity?.Name);
-            return Forbid();
-        }
-
         _logger.LogInformation("Command module settings save requested by user {UserId}", User.Identity?.Name);
 
         try
