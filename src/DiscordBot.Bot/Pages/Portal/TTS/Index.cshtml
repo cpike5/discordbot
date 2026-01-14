@@ -255,10 +255,21 @@
     /* ===============================================
        TTS Portal Styles (Authenticated View)
        =============================================== */
+    :root {
+        --portal-header-height: 106px; /* Header with nav tabs */
+    }
+
     * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+    }
+
+    /* Prevent body/html scroll - portal pages fill viewport exactly */
+    html.portal-page,
+    html.portal-page body {
+        overflow: hidden;
+        height: 100%;
     }
 
     /* Header */
@@ -337,34 +348,71 @@
         background-color: currentColor;
     }
 
-    /* Main layout */
+    /* Main layout - constrained to viewport height */
     .main-container {
         max-width: 1600px;
         margin: 0 auto;
         padding: 1.5rem;
+        height: calc(100vh - var(--portal-header-height));
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
 
     .portal-content {
         display: flex;
         gap: 1.5rem;
+        flex: 1 1 0; /* Grow, shrink, and use 0 basis to allow proper sizing */
+        min-height: 0; /* Critical: allows flex child to shrink below content size */
     }
 
-    /* Sidebar - Fixed width on LEFT */
+    /* Sidebar - Fixed width on LEFT with internal scrolling */
     .sidebar {
         width: 300px;
-        flex-shrink: 0;
-    }
-
-    .sidebar-panel {
+        flex: 0 0 300px;
+        min-height: 0;
         background-color: #262a2d;
         border: 1px solid #40444b;
         border-radius: 0.5rem;
         padding: 1.25rem;
-        margin-bottom: 1.5rem;
+        overflow-y: auto;
+        overflow-x: hidden;
+
+        /* Custom scrollbar - Firefox */
+        scrollbar-width: thin;
+        scrollbar-color: #40444b transparent;
+    }
+
+    /* Webkit scrollbar styling for sidebar */
+    .sidebar::-webkit-scrollbar {
+        width: 6px;
+        margin-right: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+        background: transparent;
+        margin: 6px 0; /* Add margin to keep scrollbar away from rounded corners */
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+        background: #40444b;
+        border-radius: 3px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb:hover {
+        background: #949ba4;
+    }
+
+    .sidebar-panel {
+        padding-bottom: 1.25rem;
+        margin-bottom: 1.25rem;
+        border-bottom: 1px solid #40444b;
     }
 
     .sidebar-panel:last-child {
         margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
     }
 
     .sidebar-title {
@@ -565,10 +613,14 @@
         font-size: 0.875rem;
     }
 
-    /* TTS Form Panel - Flexible on RIGHT */
+    /* TTS Form Panel - Flexible on RIGHT with internal scrolling */
     .tts-panel {
         flex: 1;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        max-height: 100%;
+        overflow: hidden;
     }
 
     .tts-form-wrapper {
@@ -576,10 +628,39 @@
         border: 1px solid #40444b;
         border-radius: 0.5rem;
         padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+
+        /* Custom scrollbar - Firefox */
+        scrollbar-width: thin;
+        scrollbar-color: #40444b transparent;
+    }
+
+    /* Webkit scrollbar styling for TTS form */
+    .tts-form-wrapper::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .tts-form-wrapper::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .tts-form-wrapper::-webkit-scrollbar-thumb {
+        background: #40444b;
+        border-radius: 3px;
+    }
+
+    .tts-form-wrapper::-webkit-scrollbar-thumb:hover {
+        background: #949ba4;
     }
 
     .form-group {
         margin-bottom: 1.5rem;
+        flex-shrink: 0;
     }
 
     .form-group:last-child {
@@ -904,12 +985,38 @@
 
     /* Responsive */
     @@media (max-width: 1023px) {
+        /* Allow normal scrolling on mobile/tablet */
+        html.portal-page,
+        html.portal-page body {
+            overflow: auto;
+            height: auto;
+        }
+
+        .main-container {
+            height: auto; /* Allow natural height on mobile */
+            min-height: calc(100vh - var(--portal-header-height));
+            overflow: visible;
+        }
+
         .portal-content {
             flex-direction: column;
+            overflow: visible;
         }
 
         .sidebar {
             width: 100%;
+            flex: none;
+            max-height: none;
+            overflow: visible;
+        }
+
+        .tts-panel {
+            max-height: none;
+            overflow: visible;
+        }
+
+        .tts-form-wrapper {
+            overflow: visible;
         }
 
         .form-row {

@@ -255,10 +255,21 @@
     /* ===============================================
        Soundboard Styles (Authenticated View)
        =============================================== */
+    :root {
+        --portal-header-height: 106px; /* Header with nav tabs */
+    }
+
     * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+    }
+
+    /* Prevent body/html scroll - portal pages fill viewport exactly */
+    html.portal-page,
+    html.portal-page body {
+        overflow: hidden;
+        height: 100%;
     }
 
     /* Header */
@@ -337,34 +348,71 @@
         background-color: currentColor;
     }
 
-    /* Main layout */
+    /* Main layout - constrained to viewport height */
     .main-container {
         max-width: 1600px;
         margin: 0 auto;
         padding: 1.5rem;
+        height: calc(100vh - var(--portal-header-height));
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
 
     .portal-content {
         display: flex;
         gap: 1.5rem;
+        flex: 1 1 0; /* Grow, shrink, and use 0 basis to allow proper sizing */
+        min-height: 0; /* Critical: allows flex child to shrink below content size */
     }
 
-    /* Sidebar - Fixed width on LEFT */
+    /* Sidebar - Fixed width on LEFT with internal scrolling */
     .sidebar {
         width: 300px;
-        flex-shrink: 0;
-    }
-
-    .sidebar-panel {
+        flex: 0 0 300px;
+        min-height: 0;
         background-color: #262a2d;
         border: 1px solid #40444b;
         border-radius: 0.5rem;
         padding: 1.25rem;
-        margin-bottom: 1.5rem;
+        overflow-y: auto;
+        overflow-x: hidden;
+
+        /* Custom scrollbar - Firefox */
+        scrollbar-width: thin;
+        scrollbar-color: #40444b transparent;
+    }
+
+    /* Webkit scrollbar styling for sidebar */
+    .sidebar::-webkit-scrollbar {
+        width: 6px;
+        margin-right: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+        background: transparent;
+        margin: 6px 0; /* Add margin to keep scrollbar away from rounded corners */
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+        background: #40444b;
+        border-radius: 3px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb:hover {
+        background: #949ba4;
+    }
+
+    .sidebar-panel {
+        padding-bottom: 1.25rem;
+        margin-bottom: 1.25rem;
+        border-bottom: 1px solid #40444b;
     }
 
     .sidebar-panel:last-child {
         margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
     }
 
     .sidebar-title {
@@ -828,10 +876,14 @@
         margin: 0.25rem 0;
     }
 
-    /* Sound Grid Panel - Flexible on RIGHT */
+    /* Sound Grid Panel - Flexible on RIGHT with internal scrolling */
     .sound-panel {
         flex: 1;
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        max-height: 100%;
+        overflow: hidden;
     }
 
     .sound-grid-wrapper {
@@ -839,11 +891,17 @@
         border: 1px solid #40444b;
         border-radius: 0.5rem;
         padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
     }
 
     .search-container {
         position: relative;
         margin-bottom: 1.5rem;
+        flex-shrink: 0; /* Keep search bar fixed at top */
     }
 
     .search-icon {
@@ -1013,11 +1071,38 @@
         }
     }
 
-    /* Sound Grid - 4 columns desktop, 2 columns mobile */
+    /* Sound Grid - 4 columns desktop, 2 columns mobile with internal scrolling */
     .sound-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 1rem;
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-height: 0;
+        align-content: start; /* Align items to top when grid doesn't fill space */
+
+        /* Custom scrollbar - Firefox */
+        scrollbar-width: thin;
+        scrollbar-color: #40444b transparent;
+    }
+
+    /* Webkit scrollbar styling for sound grid */
+    .sound-grid::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .sound-grid::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .sound-grid::-webkit-scrollbar-thumb {
+        background: #40444b;
+        border-radius: 3px;
+    }
+
+    .sound-grid::-webkit-scrollbar-thumb:hover {
+        background: #949ba4;
     }
 
     .sound-card {
@@ -1230,16 +1315,44 @@
 
     /* Responsive */
     @@media (max-width: 1023px) {
+        /* Allow normal scrolling on mobile/tablet */
+        html.portal-page,
+        html.portal-page body {
+            overflow: auto;
+            height: auto;
+        }
+
+        .main-container {
+            height: auto; /* Allow natural height on mobile */
+            min-height: calc(100vh - var(--portal-header-height));
+            overflow: visible;
+        }
+
         .portal-content {
             flex-direction: column;
+            overflow: visible;
         }
 
         .sidebar {
             width: 100%;
+            flex: none;
+            max-height: none;
+            overflow: visible;
+        }
+
+        .sound-panel {
+            max-height: none;
+            overflow: visible;
+        }
+
+        .sound-grid-wrapper {
+            overflow: visible;
         }
 
         .sound-grid {
             grid-template-columns: repeat(3, 1fr);
+            overflow: visible;
+            max-height: none;
         }
     }
 
