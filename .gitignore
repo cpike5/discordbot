@@ -438,4 +438,9 @@ api/.manifest
 
 # Sounds
 sounds
+
+# Audio cache (FFmpeg-processed PCM files)
 cache
+
+# Claude Code temp files
+tmpclaude-*-cwd
