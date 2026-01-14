@@ -189,7 +189,11 @@ try
 
     // Add Web API services
     builder.Services.AddControllers();
-    builder.Services.AddRazorPages();
+    builder.Services.AddRazorPages()
+        .AddMvcOptions(options =>
+        {
+            options.Filters.Add<DiscordBot.Bot.Filters.DashboardAnonymousRedirectFilter>();
+        });
     builder.Services.AddEndpointsApiExplorer();
 
     // Add SignalR for real-time dashboard updates
