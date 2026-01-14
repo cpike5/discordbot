@@ -438,3 +438,6 @@ api/.manifest
 
 # Sounds
 sounds
+
+# Audio cache (FFmpeg-processed PCM files)
+cache/
