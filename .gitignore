@@ -441,3 +441,6 @@ sounds
 
 # Audio cache (FFmpeg-processed PCM files)
 cache
+
+# Adding these temp files anthropic broke in CC
+tmpclaude-*-cwd
