@@ -1,6 +1,6 @@
 # Authorization Policies
 
-**Last Updated:** 2025-12-09
+**Last Updated:** 2026-01-15
 **Epic Reference:** [Epic 2: Authentication and Authorization](../archive/plans/epic-2-auth-architecture-plan.md) (archived)
 **Related Issues:** #65 (Authorization Policies)
 **Prerequisites:** [Identity Configuration](identity-configuration.md)
@@ -391,6 +391,216 @@ public class ConditionalActionModel : PageModel
     }
 }
 ```
+
+---
+
+## Portal Pages: AllowAnonymous with Manual Authorization
+
+Portal pages use a specialized authorization pattern that combines `[AllowAnonymous]` with manual authorization checks in the page handler. This pattern enables a landing page UX where unauthenticated users see a promotional page instead of being redirected to login.
+
+### Why This Pattern?
+
+Standard ASP.NET Core authorization redirects unauthenticated users to the login page. For portal pages, we want a different experience:
+
+| User State | Standard Behavior | Portal Behavior |
+|------------|-------------------|-----------------|
+| Unauthenticated | Redirect to login | Show landing page with login CTA |
+| Authenticated, not guild member | 403 Forbidden | 403 Forbidden |
+| Authenticated, guild member | Show content | Show full portal |
+
+### Security Considerations
+
+> **⚠️ Important:** This pattern requires careful implementation. Unlike declarative `[Authorize]` attributes, manual authorization checks can be bypassed if not properly implemented in every handler.
+
+**Risks:**
+- Manual checks are more error-prone than declarative attributes
+- New handlers (OnPostAsync, OnGetDownloadAsync, etc.) must include authorization checks
+- Code reviews should verify authorization is enforced consistently
+
+**Mitigations:**
+1. Use `PortalPageModelBase` which provides standardized authorization via `CheckPortalAuthorizationAsync()`
+2. All Portal pages must inherit from `PortalPageModelBase`
+3. Every handler must call `CheckPortalAuthorizationAsync()` before accessing protected resources
+
+### Implementation Pattern
+
+Portal pages follow this standardized implementation:
+
+```csharp
+using Microsoft.AspNetCore.Authorization;
+
+namespace DiscordBot.Bot.Pages.Portal.Feature;
+
+/// <summary>
+/// Portal page with landing page UX for unauthenticated users.
+/// </summary>
+[AllowAnonymous]  // Allows unauthenticated access to show landing page
+public class IndexModel : PortalPageModelBase
+{
+    public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        // 1. Perform authorization check FIRST
+        var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "Feature", cancellationToken);
+
+        // 2. Handle non-success results
+        var actionResult = GetAuthResultAction(authResult);
+        if (actionResult != null)
+        {
+            return actionResult;  // Returns NotFound or Forbid
+        }
+
+        // 3. For landing page, return early (no sensitive data loaded)
+        if (authResult == PortalAuthResult.ShowLandingPage)
+        {
+            return Page();
+        }
+
+        // 4. User is authorized - load protected resources
+        // ... load guild-specific data ...
+
+        return Page();
+    }
+}
+```
+
+### PortalPageModelBase
+
+The base class (`src/DiscordBot.Bot/Pages/Portal/PortalPageModelBase.cs`) provides:
+
+**Common Properties:**
+- `GuildId`, `GuildName`, `GuildIconUrl` - Guild information for display
+- `IsAuthenticated` - Whether user has logged in via Discord OAuth
+- `IsAuthorized` - Whether authenticated user is a guild member
+- `LoginUrl` - Pre-built login URL with return path
+
+**Authorization Results:**
+```csharp
+protected enum PortalAuthResult
+{
+    GuildNotFound,      // Return NotFound()
+    ShowLandingPage,    // User not authenticated - show landing
+    NotGuildMember,     // Return Forbid()
+    Authorized          // User can access protected content
+}
+```
+
+**Helper Methods:**
+- `CheckPortalAuthorizationAsync()` - Performs full authorization flow
+- `GetAuthResultAction()` - Converts auth result to IActionResult
+- `BuildVoiceChannelList()` - Helper for audio portal pages
+
+### Authorization Flow
+
+```
+Request to /Portal/Feature/{guildId}
+            │
+            ▼
+    ┌───────────────────┐
+    │ Guild exists in   │──No──► Return NotFound()
+    │ DB and Discord?   │
+    └───────────────────┘
+            │ Yes
+            ▼
+    ┌───────────────────┐
+    │ User              │──No──► Return Page()
+    │ authenticated?    │        (Landing page UX)
+    └───────────────────┘
+            │ Yes
+            ▼
+    ┌───────────────────┐
+    │ User has linked   │──No──► Return Page()
+    │ Discord account?  │        (Landing page UX)
+    └───────────────────┘
+            │ Yes
+            ▼
+    ┌───────────────────┐
+    │ User is member    │──No──► Return Forbid()
+    │ of guild?         │
+    └───────────────────┘
+            │ Yes
+            ▼
+    Load protected data and
+    return Page() (Full portal)
+```
+
+### Affected Pages
+
+Pages using this pattern:
+
+| Page | Location | Feature |
+|------|----------|---------|
+| Soundboard Portal | `Pages/Portal/Soundboard/Index.cshtml.cs` | Guild member soundboard access |
+| TTS Portal | `Pages/Portal/TTS/Index.cshtml.cs` | Guild member text-to-speech |
+| Public Leaderboard | `Pages/Guilds/PublicLeaderboard.cshtml.cs` | Public Rat Watch leaderboard |
+
+### Adding New Portal Pages
+
+When creating a new portal page:
+
+1. **Inherit from `PortalPageModelBase`:**
+   ```csharp
+   public class IndexModel : PortalPageModelBase
+   ```
+
+2. **Apply `[AllowAnonymous]` attribute:**
+   ```csharp
+   [AllowAnonymous]
+   public class IndexModel : PortalPageModelBase
+   ```
+
+3. **Call `CheckPortalAuthorizationAsync()` in every handler:**
+   ```csharp
+   public async Task<IActionResult> OnGetAsync(ulong guildId, ...)
+   {
+       var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "FeatureName", cancellationToken);
+       // Handle result...
+   }
+
+   public async Task<IActionResult> OnPostAsync(ulong guildId, ...)
+   {
+       var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "FeatureName", cancellationToken);
+       // Handle result - POST handlers should NOT return landing page
+       if (authResult != PortalAuthResult.Authorized)
+       {
+           return GetAuthResultAction(authResult) ?? Forbid();
+       }
+       // Process POST...
+   }
+   ```
+
+4. **Never load sensitive data before authorization check:**
+   ```csharp
+   // ❌ WRONG - loads data before authorization
+   public async Task<IActionResult> OnGetAsync(ulong guildId)
+   {
+       var sensitiveData = await _service.GetGuildDataAsync(guildId);
+       var (authResult, _) = await CheckPortalAuthorizationAsync(guildId, "Feature");
+       // ...
+   }
+
+   // ✓ CORRECT - authorization first, then load data
+   public async Task<IActionResult> OnGetAsync(ulong guildId)
+   {
+       var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "Feature");
+       if (authResult != PortalAuthResult.Authorized)
+       {
+           return GetAuthResultAction(authResult) ?? Page();
+       }
+       var sensitiveData = await _service.GetGuildDataAsync(guildId);
+       // ...
+   }
+   ```
+
+### Code Review Checklist
+
+When reviewing portal pages, verify:
+
+- [ ] Page inherits from `PortalPageModelBase`
+- [ ] `[AllowAnonymous]` attribute is applied
+- [ ] Every handler calls `CheckPortalAuthorizationAsync()` before accessing protected resources
+- [ ] POST handlers do not return landing page for unauthenticated users (return Forbid instead)
+- [ ] No sensitive data is loaded before authorization check completes
+- [ ] `GetAuthResultAction()` result is checked and returned when non-null
 
 ---
 
@@ -1221,6 +1431,7 @@ public class GuildAccessAuthorizationHandlerTests
 | GuildAccessHandler | `src/DiscordBot.Bot/Authorization/GuildAccessAuthorizationHandler.cs` | Authorization handler |
 | DiscordClaimsTransformation | `src/DiscordBot.Bot/Authorization/DiscordClaimsTransformation.cs` | Claims enrichment |
 | AuthorizeViewTagHelper | `src/DiscordBot.Bot/TagHelpers/AuthorizeTagHelper.cs` | Tag helpers |
+| PortalPageModelBase | `src/DiscordBot.Bot/Pages/Portal/PortalPageModelBase.cs` | Portal authorization base class |
 
 ### Configuration Files
 
@@ -1231,6 +1442,6 @@ public class GuildAccessAuthorizationHandlerTests
 
 ---
 
-**Last Updated:** 2025-12-09
+**Last Updated:** 2026-01-15
 **Maintained By:** Documentation Team
-**Related Issues:** [#65 - Authorization Policies](https://github.com/cpike5/discordbot/issues/65)
+**Related Issues:** [#65 - Authorization Policies](https://github.com/cpike5/discordbot/issues/65), [#1135 - Document AllowAnonymous pattern](https://github.com/cpike5/discordbot/issues/1135)
