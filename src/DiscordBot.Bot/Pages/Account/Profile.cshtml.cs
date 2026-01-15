@@ -40,6 +40,41 @@ public class ProfileModel : PageModel
     public string? Email { get; set; }
 
     /// <summary>
+    /// Whether the user has a linked Discord account.
+    /// </summary>
+    public bool HasDiscordLinked { get; set; }
+
+    /// <summary>
+    /// The user's Discord username if linked.
+    /// </summary>
+    public string? DiscordUsername { get; set; }
+
+    /// <summary>
+    /// The user's Discord ID if linked.
+    /// </summary>
+    public ulong? DiscordUserId { get; set; }
+
+    /// <summary>
+    /// The user's Discord avatar URL if linked.
+    /// </summary>
+    public string? DiscordAvatarUrl { get; set; }
+
+    /// <summary>
+    /// The user's highest role name (e.g., SuperAdmin, Admin, Moderator, Viewer).
+    /// </summary>
+    public string UserRole { get; set; } = "Viewer";
+
+    /// <summary>
+    /// The date the user account was created.
+    /// </summary>
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// The date of the user's last login.
+    /// </summary>
+    public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
     /// Available themes for selection.
     /// </summary>
     public SelectList AvailableThemes { get; set; } = null!;
@@ -90,6 +125,20 @@ public class ProfileModel : PageModel
 
         DisplayName = user.DisplayName ?? user.Email ?? "User";
         Email = user.Email;
+
+        // Discord account info
+        HasDiscordLinked = user.DiscordUserId.HasValue;
+        DiscordUsername = user.DiscordUsername;
+        DiscordUserId = user.DiscordUserId;
+        DiscordAvatarUrl = user.DiscordAvatarUrl;
+
+        // Account dates
+        CreatedAt = user.CreatedAt;
+        LastLoginAt = user.LastLoginAt;
+
+        // Get the user's highest role
+        var roles = await _userManager.GetRolesAsync(user);
+        UserRole = GetHighestRole(roles);
 
         await LoadThemeDataAsync(user.Id);
 
@@ -196,5 +245,17 @@ public class ProfileModel : PageModel
             StatusMessage = "Failed to load theme preferences.";
             IsSuccess = false;
         }
+    }
+
+    /// <summary>
+    /// Gets the highest role from the user's role list based on role hierarchy.
+    /// </summary>
+    private static string GetHighestRole(IList<string> roles)
+    {
+        // Role hierarchy: SuperAdmin > Admin > Moderator > Viewer
+        if (roles.Contains("SuperAdmin")) return "SuperAdmin";
+        if (roles.Contains("Admin")) return "Admin";
+        if (roles.Contains("Moderator")) return "Moderator";
+        return "Viewer";
     }
 }

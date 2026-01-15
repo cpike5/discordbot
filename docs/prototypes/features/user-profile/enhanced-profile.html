@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Profile - Discord Bot Admin UI</title>
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="../../css/main.css">
+
+  <!-- Tailwind CSS CDN with shared config -->
+  <script src="../../css/tailwind.config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = window.tailwindConfig;</script>
+
+  <style>
+    /* Avatar with initials */
+    .avatar-initials {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: white;
+      background: linear-gradient(135deg, #cb4e1b 0%, #098ecf 100%);
+    }
+
+    /* Role badge colors */
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .role-badge.superadmin {
+      background-color: #cb4e1b;
+      color: white;
+    }
+
+    .role-badge.admin {
+      background-color: #cb4e1b;
+      color: white;
+    }
+
+    .role-badge.moderator {
+      background-color: #098ecf;
+      color: white;
+    }
+
+    .role-badge.viewer {
+      background-color: #3f4447;
+      color: #d7d3d0;
+    }
+
+    /* Status badge for Discord link */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background-color: rgba(16, 185, 129, 0.1);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    /* Info list styling */
+    .info-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-label {
+      color: #a8a5a3;
+      font-size: 0.875rem;
+    }
+
+    .info-value {
+      color: #d7d3d0;
+      font-weight: 500;
+    }
+
+    /* Alert animations */
+    .alert-fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Form input styling */
+    .form-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      background-color: #1d2022;
+      border: 1px solid #3f4447;
+      border-radius: 0.375rem;
+      color: #d7d3d0;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #098ecf;
+      box-shadow: 0 0 0 2px rgba(9, 142, 207, 0.1);
+    }
+
+    /* Button styling */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: 0.375rem;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background-color: #cb4e1b;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #e5591f;
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      color: #d7d3d0;
+      border: 1px solid #3f4447;
+    }
+
+    .btn-secondary:hover {
+      background-color: #363a3e;
+      border-color: #3f4447;
+    }
+
+    .btn-small {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    /* Link button styling */
+    .link-button {
+      color: #098ecf;
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.2s;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0;
+    }
+
+    .link-button:hover {
+      color: #0ba3ea;
+    }
+
+    /* Two-column layout */
+    @media (min-width: 1024px) {
+      .profile-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+      }
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 1023px) {
+      .profile-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+
+  <!-- Page Container -->
+  <div class="min-h-screen p-4 lg:p-8">
+    <div class="max-w-6xl mx-auto">
+
+      <!-- Page Header -->
+      <div class="mb-8">
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Profile</h1>
+        <p class="mt-1 text-text-secondary">Manage your account and preferences</p>
+      </div>
+
+      <!-- Alert Area for Messages -->
+      <div id="alertContainer" class="mb-6"></div>
+
+      <!-- Main Content Grid: Two columns on desktop, single on mobile -->
+      <div class="profile-grid">
+
+        <!-- LEFT COLUMN: User Identity & Account Info -->
+        <div class="space-y-6">
+
+          <!-- User Identity Card -->
+          <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-6 py-6">
+              <!-- Avatar and Basic Info -->
+              <div class="flex flex-col items-center text-center mb-6">
+                <!-- Avatar -->
+                <div class="w-20 h-20 rounded-full avatar-initials mb-4">
+                  SJ
+                </div>
+                <!-- Display Name -->
+                <h2 class="text-xl font-bold text-text-primary">Sarah Johnson</h2>
+                <!-- Email -->
+                <p class="text-sm text-text-secondary mt-1">sarah.johnson@example.com</p>
+              </div>
+
+              <!-- Discord Link Status -->
+              <div class="border-t border-border-primary pt-6 pb-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-medium text-text-primary">Discord Account</p>
+                    <p class="text-sm text-text-secondary mt-1">@sjohns94</p>
+                    <p class="text-xs text-text-tertiary mt-1">ID: 123456789012345678</p>
+                  </div>
+                  <span class="status-badge">
+                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    Linked
+                  </span>
+                </div>
+              </div>
+
+              <!-- Role Badge and Account Dates -->
+              <div class="border-t border-border-primary pt-6">
+                <div class="space-y-3">
+                  <div>
+                    <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Access Level</p>
+                    <span class="role-badge admin">
+                      <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                      </svg>
+                      Administrator
+                    </span>
+                  </div>
+
+                  <div>
+                    <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Member Since</p>
+                    <p class="text-sm text-text-primary font-medium" id="memberSince"></p>
+                  </div>
+
+                  <div>
+                    <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Last Login</p>
+                    <p class="text-sm text-text-primary font-medium" id="lastLogin"></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="space-y-2">
+            <button class="w-full btn btn-secondary">
+              <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Privacy Settings
+            </button>
+            <button class="w-full btn btn-secondary">
+              <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Link Discord Account
+            </button>
+          </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: Theme & Quick Links -->
+        <div class="space-y-6">
+
+          <!-- Theme Preference Card -->
+          <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-border-primary">
+              <h3 class="text-lg font-semibold text-text-primary">Theme Preference</h3>
+            </div>
+            <div class="p-6">
+              <div class="space-y-4">
+                <div>
+                  <label for="themeSelect" class="block text-sm font-medium text-text-secondary mb-2">
+                    Choose your preferred color scheme
+                  </label>
+                  <select id="themeSelect" class="form-input">
+                    <option value="discord-dark" selected>Discord Dark</option>
+                    <option value="discord-light">Discord Light</option>
+                    <option value="system">System Default</option>
+                    <option value="high-contrast">High Contrast</option>
+                    <option value="purple-dusk">Purple Dusk</option>
+                  </select>
+                  <p class="text-xs text-text-tertiary mt-2">Your theme preference is synced across all devices</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+              <button class="btn btn-secondary btn-small">Cancel</button>
+              <button class="btn btn-primary btn-small" onclick="showAlert('success', 'Theme preference saved successfully')">
+                Save Preferences
+              </button>
+            </div>
+          </div>
+
+          <!-- Quick Links Card -->
+          <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-border-primary">
+              <h3 class="text-lg font-semibold text-text-primary">Quick Links</h3>
+            </div>
+            <div class="p-6 space-y-3">
+              <a href="#" class="link-button" onclick="event.preventDefault();">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Privacy & Consent
+              </a>
+              <a href="#" class="link-button" onclick="event.preventDefault();">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+                Change Password
+              </a>
+              <a href="#" class="link-button" onclick="event.preventDefault();">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Advanced Settings
+              </a>
+            </div>
+          </div>
+
+          <!-- Info Box -->
+          <div class="bg-info/10 border border-info/30 rounded-lg p-4">
+            <div class="flex gap-3">
+              <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+              </svg>
+              <div>
+                <p class="text-sm font-medium text-text-primary">Sync your preferences</p>
+                <p class="text-xs text-text-secondary mt-1">Your theme and notification settings will be automatically applied when you log in from any device.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JavaScript for Interactivity -->
+  <script>
+    // Format dates to local timezone
+    function formatDateToLocal(utcDate) {
+      return new Date(utcDate).toLocaleString('en-US', {
+        dateStyle: 'long',
+        timeStyle: 'short'
+      });
+    }
+
+    // Initialize page with sample data
+    function initializeProfile() {
+      // Set Member Since date (3 months ago)
+      const memberSince = new Date();
+      memberSince.setMonth(memberSince.getMonth() - 3);
+      document.getElementById('memberSince').textContent = formatDateToLocal(memberSince);
+
+      // Set Last Login date (today, 2 hours ago)
+      const lastLogin = new Date();
+      lastLogin.setHours(lastLogin.getHours() - 2);
+      document.getElementById('lastLogin').textContent = formatDateToLocal(lastLogin);
+    }
+
+    // Show alert messages
+    function showAlert(type, message) {
+      const container = document.getElementById('alertContainer');
+
+      // Create alert element
+      const alert = document.createElement('div');
+      alert.className = 'alert-fade-in';
+
+      // Set alert styling based on type
+      let bgColor, borderColor, icon;
+      if (type === 'success') {
+        bgColor = 'bg-success/10';
+        borderColor = 'border-success/30';
+        icon = '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />';
+      } else if (type === 'error') {
+        bgColor = 'bg-error/10';
+        borderColor = 'border-error/30';
+        icon = '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />';
+      } else {
+        bgColor = 'bg-info/10';
+        borderColor = 'border-info/30';
+        icon = '<path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />';
+      }
+
+      alert.innerHTML = `
+        <div class="${bgColor} border ${borderColor} rounded-lg p-4 flex items-start gap-3">
+          <svg class="w-5 h-5 text-${type === 'success' ? 'success' : type === 'error' ? 'error' : 'info'} flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            ${icon}
+          </svg>
+          <p class="text-sm text-text-primary">${message}</p>
+          <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-text-tertiary hover:text-text-secondary transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      `;
+
+      container.appendChild(alert);
+
+      // Auto-remove after 4 seconds
+      setTimeout(() => {
+        alert.style.animation = 'fadeIn 0.3s ease-out reverse';
+        setTimeout(() => alert.remove(), 300);
+      }, 4000);
+    }
+
+    // Handle theme selection
+    document.getElementById('themeSelect').addEventListener('change', function() {
+      console.log('Theme changed to:', this.value);
+      // In real implementation, this would save to backend
+    });
+
+    // Initialize page on load
+    window.addEventListener('load', initializeProfile);
+  </script>
+
+</body>
+</html>
