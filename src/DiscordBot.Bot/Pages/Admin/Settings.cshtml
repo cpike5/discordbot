@@ -119,6 +119,20 @@
             </svg>
             Advanced
         </button>
+        @if (Model.IsSuperAdmin)
+        {
+            <button class="settings-tab @(Model.ViewModel.ActiveCategory == "Appearance" ? "active" : "")"
+                    role="tab"
+                    aria-selected="@(Model.ViewModel.ActiveCategory == "Appearance" ? "true" : "false")"
+                    aria-controls="appearance-settings"
+                    data-tab="Appearance"
+                    onclick="window.settingsManager?.switchTab('Appearance')">
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+                Appearance
+            </button>
+        }
     </div>
 </div>
 
@@ -455,6 +469,85 @@
             </div>
         </div>
     </section>
+
+    <!-- Appearance Settings (SuperAdmin only) -->
+    @if (Model.IsSuperAdmin)
+    {
+        <section id="appearance-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "Appearance" ? "active" : "")" role="tabpanel" aria-labelledby="appearance-tab">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+                <div class="px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-lg font-semibold text-text-primary">Appearance Settings</h2>
+                    <p class="text-sm text-text-secondary mt-1">Configure the default theme for your application</p>
+                </div>
+                <div class="p-6">
+                    <div class="max-w-md">
+                        <label for="SelectedThemeId" class="block text-sm font-semibold text-text-primary mb-2">Default Theme</label>
+                        <select id="SelectedThemeId" name="SelectedThemeId" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-colors">
+                            @foreach (var theme in Model.AvailableThemes)
+                            {
+                                if (theme.Selected)
+                                {
+                                    <option value="@theme.Value" selected>@theme.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@theme.Value">@theme.Text</option>
+                                }
+                            }
+                        </select>
+                        <p class="text-xs text-text-secondary mt-2">This will be the default theme for all users who haven't set a personal preference.</p>
+                    </div>
+                </div>
+                <div class="px-6 py-4 border-t border-border-primary">
+                    <div class="flex justify-end gap-3">
+                        <button type="button"
+                                onclick="window.settingsManager?.resetAppearance()"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                            Reset
+                        </button>
+                        <button type="button"
+                                onclick="window.settingsManager?.saveAppearance()"
+                                class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                            Save Changes
+                        </button>
+                    </div>
+                    <!-- Category Inline Alerts -->
+                    <div id="saveSuccessAlert-Appearance" class="hidden mt-4 bg-success/10 border border-success/30 rounded-lg p-4">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold text-success">Changes saved successfully</p>
+                                <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+                            </div>
+                            <button type="button" onclick="this.closest('[id^=saveSuccessAlert]').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="saveErrorAlert-Appearance" class="hidden mt-4 bg-error/10 border border-error/30 rounded-lg p-4">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold text-error">Failed to save changes</p>
+                                <p class="inline-alert-message text-sm text-text-secondary mt-1"></p>
+                            </div>
+                            <button type="button" onclick="this.closest('[id^=saveErrorAlert]').classList.add('hidden')" class="text-text-secondary hover:text-text-primary transition-colors" aria-label="Dismiss">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
 </form>
 
 <!-- Danger Zone -->
