@@ -56,6 +56,9 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<CommandModuleConfiguration> CommandModuleConfigurations => Set<CommandModuleConfiguration>();
     public DbSet<UserActivityEvent> UserActivityEvents => Set<UserActivityEvent>();
     public DbSet<Theme> Themes => Set<Theme>();
+    public DbSet<AssistantGuildSettings> AssistantGuildSettings => Set<AssistantGuildSettings>();
+    public DbSet<AssistantUsageMetrics> AssistantUsageMetrics => Set<AssistantUsageMetrics>();
+    public DbSet<AssistantInteractionLog> AssistantInteractionLogs => Set<AssistantInteractionLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

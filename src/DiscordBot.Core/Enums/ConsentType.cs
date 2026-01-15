@@ -8,10 +8,11 @@ public enum ConsentType
     /// <summary>
     /// Consent for logging user messages and interactions.
     /// </summary>
-    MessageLogging = 1
+    MessageLogging = 1,
 
-    // Future consent types can be added here:
-    // Analytics = 2,
-    // LLMInteraction = 3,
-    // etc.
+    /// <summary>
+    /// Consent for using the AI assistant feature.
+    /// Required before users can interact with the bot's AI capabilities.
+    /// </summary>
+    AssistantUsage = 2
 }
