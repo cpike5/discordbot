@@ -75,6 +75,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGuildTtsSettingsRepository, GuildTtsSettingsRepository>();
         services.AddScoped<ICommandModuleConfigurationRepository, CommandModuleConfigurationRepository>();
         services.AddScoped<IUserActivityEventRepository, UserActivityEventRepository>();
+        services.AddScoped<IThemeRepository, ThemeRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests

@@ -43,6 +43,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IUserPurgeService, UserPurgeService>();
         services.AddScoped<IUserDataExportService, UserDataExportService>();
         services.AddScoped<IBulkPurgeService, BulkPurgeService>();
+        services.AddScoped<IThemeService, ThemeService>();
 
         // Metrics update background services
         services.AddHostedService<MetricsUpdateService>();
