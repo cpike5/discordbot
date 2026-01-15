@@ -192,6 +192,10 @@ public class ThemeControllerTests
             .Setup(s => s.SetUserThemeAsync("user123", 2, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        _mockThemeService
+            .Setup(s => s.GetThemeByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_purpleDuskTheme);
+
         var request = new SetUserThemeDto { ThemeId = 2 };
 
         // Act
@@ -199,6 +203,64 @@ public class ThemeControllerTests
 
         // Assert
         result.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task SetUserTheme_SetsCookie_WhenSuccessful()
+    {
+        // Arrange
+        SetupAuthenticatedUser("user123");
+
+        _mockThemeService
+            .Setup(s => s.SetUserThemeAsync("user123", 2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _mockThemeService
+            .Setup(s => s.GetThemeByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_purpleDuskTheme);
+
+        var request = new SetUserThemeDto { ThemeId = 2 };
+
+        // Act
+        var result = await _controller.SetUserTheme(request);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+
+        // Verify cookie was set
+        var setCookieHeader = _controller.Response.Headers["Set-Cookie"].ToString();
+        setCookieHeader.Should().Contain("theme-preference=purple-dusk");
+        setCookieHeader.Should().Contain("path=/");
+        setCookieHeader.Should().Contain("samesite=lax");
+    }
+
+    [Fact]
+    public async Task SetUserTheme_ReturnsThemeKeyInResponse_WhenSuccessful()
+    {
+        // Arrange
+        SetupAuthenticatedUser("user123");
+
+        _mockThemeService
+            .Setup(s => s.SetUserThemeAsync("user123", 2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _mockThemeService
+            .Setup(s => s.GetThemeByIdAsync(2, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_purpleDuskTheme);
+
+        var request = new SetUserThemeDto { ThemeId = 2 };
+
+        // Act
+        var result = await _controller.SetUserTheme(request);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = result as OkObjectResult;
+
+        // Use dynamic to check anonymous type properties
+        dynamic responseValue = okResult!.Value!;
+        string themeKey = responseValue.themeKey;
+        themeKey.Should().Be("purple-dusk");
     }
 
     [Fact]
@@ -246,6 +308,10 @@ public class ThemeControllerTests
             .Setup(s => s.SetUserThemeAsync("user123", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        _mockThemeService
+            .Setup(s => s.GetDefaultThemeAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_discordDarkTheme);
+
         var request = new SetUserThemeDto { ThemeId = null };
 
         // Act
@@ -256,6 +322,35 @@ public class ThemeControllerTests
         _mockThemeService.Verify(
             s => s.SetUserThemeAsync("user123", null, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task SetUserTheme_DeletesCookie_WhenClearingPreference()
+    {
+        // Arrange
+        SetupAuthenticatedUser("user123");
+
+        _mockThemeService
+            .Setup(s => s.SetUserThemeAsync("user123", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _mockThemeService
+            .Setup(s => s.GetDefaultThemeAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_discordDarkTheme);
+
+        var request = new SetUserThemeDto { ThemeId = null };
+
+        // Act
+        var result = await _controller.SetUserTheme(request);
+
+        // Assert
+        result.Should().BeOfType<OkObjectResult>();
+
+        // Verify the response includes the default theme key
+        var okResult = result as OkObjectResult;
+        dynamic responseValue = okResult!.Value!;
+        string themeKey = responseValue.themeKey;
+        themeKey.Should().Be("discord-dark");
     }
 
     #endregion

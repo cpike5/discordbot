@@ -70,10 +70,11 @@ public class ThemeController : ControllerBase
 
     /// <summary>
     /// Sets the current user's theme preference.
+    /// Also sets a cookie for server-side rendering on subsequent page loads.
     /// </summary>
     /// <param name="request">The theme to set.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Success status.</returns>
+    /// <returns>Success status with theme key.</returns>
     [HttpPost("user")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -96,7 +97,35 @@ public class ThemeController : ControllerBase
 
         if (success)
         {
-            return Ok(new { Message = request.ThemeId.HasValue
+            // Get the theme key for the response and cookie
+            string themeKey;
+            if (request.ThemeId.HasValue)
+            {
+                var theme = await _themeService.GetThemeByIdAsync(request.ThemeId.Value, cancellationToken);
+                themeKey = theme?.ThemeKey ?? "discord-dark";
+
+                // Set cookie for SSR on next page load
+                Response.Cookies.Append(IThemeService.ThemePreferenceCookieName, themeKey, new CookieOptions
+                {
+                    Path = "/",
+                    MaxAge = TimeSpan.FromDays(365),
+                    SameSite = SameSiteMode.Lax,
+                    IsEssential = true // Functional cookie, not subject to consent
+                });
+
+                _logger.LogDebug("Set theme preference cookie: {ThemeKey}", themeKey);
+            }
+            else
+            {
+                // Clear the cookie when preference is cleared
+                Response.Cookies.Delete(IThemeService.ThemePreferenceCookieName);
+                var defaultTheme = await _themeService.GetDefaultThemeAsync(cancellationToken);
+                themeKey = defaultTheme.ThemeKey;
+
+                _logger.LogDebug("Cleared theme preference cookie, using default: {ThemeKey}", themeKey);
+            }
+
+            return Ok(new { themeKey, message = request.ThemeId.HasValue
                 ? "Theme preference updated successfully"
                 : "Theme preference cleared" });
         }
