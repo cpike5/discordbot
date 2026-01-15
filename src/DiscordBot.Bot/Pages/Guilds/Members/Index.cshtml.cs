@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Members;
 /// Page model for displaying the guild member directory with search, filter, sort, and pagination.
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly IGuildMemberService _memberService;

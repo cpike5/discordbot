@@ -15,6 +15,7 @@ namespace DiscordBot.Bot.Pages.Guilds.ScheduledMessages;
 /// Page model for editing an existing scheduled message.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class EditModel : PageModel
 {
     private readonly IScheduledMessageService _scheduledMessageService;

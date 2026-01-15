@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Analytics;
 /// Displays activity metrics, charts, and leaderboards for a specific guild.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly IServerAnalyticsService _analyticsService;

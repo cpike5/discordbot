@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 /// Displays a filterable, sortable, paginated list of all Rat Watch incidents for a guild.
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
+[Authorize(Policy = "GuildAccess")]
 public class IncidentsModel : PageModel
 {
     private readonly IRatWatchService _ratWatchService;

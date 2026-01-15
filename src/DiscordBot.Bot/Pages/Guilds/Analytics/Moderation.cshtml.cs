@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Analytics;
 /// Displays moderation metrics, trends, case distribution, and repeat offender tracking.
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
+[Authorize(Policy = "GuildAccess")]
 public class ModerationModel : PageModel
 {
     private readonly IModerationAnalyticsService _analyticsService;

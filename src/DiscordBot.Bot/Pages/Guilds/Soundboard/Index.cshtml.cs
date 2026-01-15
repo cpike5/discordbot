@@ -15,6 +15,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Soundboard;
 /// Displays sounds, statistics, and settings for a guild's soundboard.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly ISoundService _soundService;

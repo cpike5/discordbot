@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds.ScheduledMessages;
 /// Displays all scheduled messages for a guild with pagination support.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly IScheduledMessageService _scheduledMessageService;

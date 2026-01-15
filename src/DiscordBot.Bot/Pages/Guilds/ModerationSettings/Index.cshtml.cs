@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Pages.Guilds.ModerationSettings;
 /// Allows administrators to configure auto-moderation settings for a guild.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly IGuildModerationConfigService _configService;

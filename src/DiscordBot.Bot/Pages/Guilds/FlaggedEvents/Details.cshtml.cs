@@ -11,6 +11,7 @@ namespace DiscordBot.Bot.Pages.Guilds.FlaggedEvents;
 /// Displays full event details, evidence, and action panel.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class DetailsModel : PageModel
 {
     private readonly IFlaggedEventService _flaggedEventService;

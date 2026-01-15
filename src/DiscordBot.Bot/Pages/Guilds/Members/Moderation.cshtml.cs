@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Members;
 /// Page model for displaying a user's moderation profile with cases, notes, tags, and flagged events.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class ModerationModel : PageModel
 {
     private readonly IGuildService _guildService;
