@@ -1061,7 +1061,7 @@
   /* Dashboard Redesign - Enhanced Navbar */
   .navbar-redesign {
     height: var(--navbar-height);
-    background: linear-gradient(180deg, #262a2d 0%, #262a2d 100%);
+    background-color: var(--color-bg-secondary);
     border-bottom: 1px solid var(--color-border-primary);
     backdrop-filter: blur(8px);
   }
