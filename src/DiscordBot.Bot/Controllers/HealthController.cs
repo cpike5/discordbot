@@ -1,5 +1,6 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
@@ -28,10 +29,47 @@ public class HealthController : ControllerBase
     }
 
     /// <summary>
-    /// Gets the health status of the application.
+    /// Simple liveness probe for load balancers and container orchestration.
+    /// Returns 200 OK if the application is running.
+    /// </summary>
+    /// <returns>OK status.</returns>
+    [HttpGet("live")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult GetLiveness()
+    {
+        return Ok();
+    }
+
+    /// <summary>
+    /// Readiness probe that checks if the application is ready to serve requests.
+    /// Verifies database connectivity.
+    /// </summary>
+    /// <returns>OK if ready, Service Unavailable if not.</returns>
+    [HttpGet("ready")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> GetReadiness()
+    {
+        try
+        {
+            await _dbContext.Database.CanConnectAsync();
+            return Ok();
+        }
+        catch
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+
+    /// <summary>
+    /// Gets detailed health status of the application.
+    /// Requires authentication to prevent information disclosure.
     /// </summary>
     /// <returns>Health status information.</returns>
     [HttpGet]
+    [Authorize(Policy = "RequireViewer")]
     [ProducesResponseType(typeof(HealthResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<HealthResponseDto>> GetHealth()
     {

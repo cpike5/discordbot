@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DiscordBot.Bot.Controllers;
@@ -10,6 +11,7 @@ namespace DiscordBot.Bot.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = "RequireModerator")]
 public class CommandLogsController : ControllerBase
 {
     private readonly ICommandLogService _commandLogService;

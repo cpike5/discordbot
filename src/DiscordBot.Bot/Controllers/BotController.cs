@@ -190,6 +190,7 @@ public class BotController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Accepted response.</returns>
     [HttpPost("restart")]
+    [Authorize(Policy = "RequireAdmin")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Restart(CancellationToken cancellationToken)
@@ -221,6 +222,7 @@ public class BotController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Accepted response.</returns>
     [HttpPost("shutdown")]
+    [Authorize(Policy = "RequireSuperAdmin")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> Shutdown(CancellationToken cancellationToken)
     {

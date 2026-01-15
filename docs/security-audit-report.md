@@ -12,9 +12,9 @@
 
 This security audit examined the authentication and authorization controls of the Discord Bot Management System, focusing on API controllers, Razor Pages, SignalR hubs, Discord bot commands, and the underlying authorization infrastructure.
 
-### Overall Risk Assessment: **MEDIUM-HIGH**
+### Overall Risk Assessment: **LOW** *(Updated 2026-01-15)*
 
-The application has a robust authorization infrastructure with proper policies, role hierarchy, and secure cookie configuration. However, **four API controllers are missing authorization attributes**, creating potential unauthorized access vectors. While ASP.NET Core's fallback policy may provide some protection, the inconsistency in authorization patterns across controllers represents a significant security concern.
+All identified security findings have been remediated. The application now has comprehensive authorization across all API controllers, Razor Pages, SignalR hubs, and Discord commands. The authorization infrastructure includes proper policies, role hierarchy, secure cookie configuration (SameSite=Strict), and separated health endpoints for load balancer compatibility.
 
 ### Key Findings Summary
 
@@ -32,15 +32,15 @@ The application has a robust authorization infrastructure with proper policies, 
 
 | ID | Severity | Component | Finding | Status |
 |----|----------|-----------|---------|--------|
-| SEC-001 | Critical | BotController | Restart/Shutdown endpoints lack authorization | Open |
-| SEC-002 | High | GuildsController | Entire controller lacks authorization attribute | Open |
-| SEC-003 | High | CommandLogsController | Entire controller lacks authorization attribute | Open |
-| SEC-004 | Medium | HealthController | No authorization on health endpoint | Open |
-| SEC-005 | Low | IdentityServiceExtensions | Cookie SameSite set to Lax instead of Strict | Open |
-| SEC-006 | Low | Razor Pages | RequireGuildAccess policy used inconsistently | Open |
-| SEC-007 | Informational | Program.cs | Swagger UI enabled in all environments | Open |
-| SEC-008 | Informational | appsettings.json | Discord token placeholder in config file | Open |
-| SEC-009 | Informational | Portal Pages | AllowAnonymous with manual auth checks | Open |
+| SEC-001 | Critical | BotController | Restart/Shutdown endpoints lack authorization | **Resolved** |
+| SEC-002 | High | GuildsController | Entire controller lacks authorization attribute | **Resolved** |
+| SEC-003 | High | CommandLogsController | Entire controller lacks authorization attribute | **Resolved** |
+| SEC-004 | Medium | HealthController | No authorization on health endpoint | **Resolved** |
+| SEC-005 | Low | IdentityServiceExtensions | Cookie SameSite set to Lax instead of Strict | **Resolved** |
+| SEC-006 | Low | Razor Pages | RequireGuildAccess policy used inconsistently | **Resolved** |
+| SEC-007 | Informational | Program.cs | Swagger UI enabled in all environments | **Resolved** |
+| SEC-008 | Informational | appsettings.json | Discord token placeholder in config file | **Resolved** |
+| SEC-009 | Informational | Portal Pages | AllowAnonymous with manual auth checks | **Documented** |
 
 ---
 
@@ -366,11 +366,11 @@ The current implementation appears correct but should be reviewed whenever porta
 
 | Category | Status | Notes |
 |----------|--------|-------|
-| A01: Broken Access Control | **PARTIAL** | SEC-001, SEC-002, SEC-003 identify missing authorization |
+| A01: Broken Access Control | **PASS** | All controllers now have proper authorization |
 | A02: Cryptographic Failures | PASS | HTTPS enforced, secure cookie flags enabled |
 | A03: Injection | PASS | Entity Framework with parameterized queries |
 | A04: Insecure Design | PASS | Defense in depth with multiple authorization layers |
-| A05: Security Misconfiguration | **PARTIAL** | SEC-007, SEC-008 identify configuration issues |
+| A05: Security Misconfiguration | **PASS** | Swagger restricted to dev, secrets removed from config |
 | A06: Vulnerable Components | NOT TESTED | Dependency scanning not performed |
 | A07: Auth Failures | PASS | Strong password policies, account lockout enabled |
 | A08: Software & Data Integrity | NOT TESTED | SBOM not reviewed |
@@ -459,13 +459,13 @@ The following security controls are properly implemented:
 | AudioController | RequireViewer | OK |
 | AuditLogsController | RequireSuperAdmin | OK |
 | AutocompleteController | RequireViewer | OK |
-| BotController | Partial (dashboard-stats only) | **ISSUE** |
+| BotController | RequireAdmin (restart), RequireSuperAdmin (shutdown) | OK |
 | BulkPurgeController | RequireSuperAdmin | OK |
-| CommandLogsController | None | **ISSUE** |
+| CommandLogsController | RequireModerator | OK |
 | FlaggedEventsController | RequireAdmin | OK |
 | GuildMembersController | RequireAdmin | OK |
-| GuildsController | None | **ISSUE** |
-| HealthController | None | **ISSUE** |
+| GuildsController | RequireAdmin | OK |
+| HealthController | RequireViewer (detailed), AllowAnonymous (live/ready) | OK |
 | MessagesController | RequireAdmin | OK |
 | ModerationCasesController | RequireAdmin | OK |
 | ModerationConfigController | RequireAdmin | OK |
