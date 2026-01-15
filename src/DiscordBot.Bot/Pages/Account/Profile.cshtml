@@ -6,8 +6,8 @@
 
 <!-- Page Header -->
 <div class="mb-8">
-    <h1 class="text-3xl font-bold text-text-primary mb-2">Profile</h1>
-    <p class="text-text-secondary">Manage your personal preferences</p>
+    <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Profile</h1>
+    <p class="mt-1 text-text-secondary">Manage your account and preferences</p>
 </div>
 
 <!-- Status Message -->
@@ -39,95 +39,236 @@
     </div>
 }
 
-<!-- User Info Card -->
-<div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg mb-6">
-    <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-lg">
-            @(string.Join("", Model.DisplayName.Split(' ').Take(2).Select(w => w.FirstOrDefault())).ToUpper())
-        </div>
-        <div>
-            <h2 class="text-lg font-semibold text-text-primary">@Model.DisplayName</h2>
-            @if (!string.IsNullOrEmpty(Model.Email))
-            {
-                <p class="text-sm text-text-secondary">@Model.Email</p>
-            }
-        </div>
-    </div>
-</div>
+<!-- Main Content Grid: Two columns on desktop, single on mobile -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-<!-- Theme Preferences Card -->
-<div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg">
-    <div class="px-6 py-4 border-b border-border-primary">
-        <h3 class="text-lg font-semibold text-text-primary">Theme Preferences</h3>
-        <p class="text-sm text-text-secondary mt-1">Choose your preferred color scheme</p>
-    </div>
+    <!-- LEFT COLUMN: User Identity & Account Info -->
+    <div class="space-y-6">
 
-    <form method="post" class="p-6">
-        @Html.AntiForgeryToken()
+        <!-- User Identity Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-6 py-6">
+                <!-- Avatar and Basic Info -->
+                <div class="flex flex-col items-center text-center mb-6">
+                    <!-- Avatar -->
+                    @if (!string.IsNullOrEmpty(Model.DiscordAvatarUrl))
+                    {
+                        <img src="@Model.DiscordAvatarUrl" alt="@Model.DisplayName" class="w-20 h-20 rounded-full mb-4" />
+                    }
+                    else
+                    {
+                        <div class="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-4" style="background: linear-gradient(135deg, var(--color-accent-orange, #cb4e1b) 0%, var(--color-accent-blue, #098ecf) 100%);">
+                            @(string.Join("", Model.DisplayName.Split(' ').Take(2).Select(w => w.FirstOrDefault())).ToUpper())
+                        </div>
+                    }
+                    <!-- Display Name -->
+                    <h2 class="text-xl font-bold text-text-primary">@Model.DisplayName</h2>
+                    <!-- Email -->
+                    @if (!string.IsNullOrEmpty(Model.Email))
+                    {
+                        <p class="text-sm text-text-secondary mt-1">@Model.Email</p>
+                    }
+                </div>
 
-        <div class="space-y-4">
-            <!-- Theme Selector -->
-            <div>
-                <label for="SelectedThemeId" class="block text-sm font-medium text-text-primary mb-2">
-                    Theme Preference
-                </label>
-                <select asp-for="SelectedThemeId"
-                        asp-items="Model.AvailableThemes"
-                        class="w-full max-w-md px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-text-primary text-sm focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
-                        required>
-                    <option value="">Select a theme...</option>
-                </select>
-                <span asp-validation-for="SelectedThemeId" class="text-sm text-error mt-1"></span>
-                <p class="text-xs text-text-tertiary mt-2">
-                    Choose your preferred color scheme for the admin interface.
-                </p>
-            </div>
-
-            <!-- Current Theme Info -->
-            @if (!string.IsNullOrEmpty(Model.CurrentThemeName))
-            {
-                <div class="p-4 bg-bg-primary rounded-lg border border-border-secondary">
-                    <div class="flex items-center gap-2 mb-1">
-                        <span class="text-sm font-medium text-text-primary">Current theme:</span>
-                        <span class="text-sm text-text-secondary">@Model.CurrentThemeName</span>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-text-tertiary">Source:</span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium @GetSourceBadgeClasses(Model.CurrentThemeSource)">
-                            @Model.CurrentThemeSource.ToString()
-                        </span>
+                <!-- Discord Link Status -->
+                <div class="border-t border-border-primary pt-6 pb-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-text-primary">Discord Account</p>
+                            @if (Model.HasDiscordLinked)
+                            {
+                                <p class="text-sm text-text-secondary mt-1">@@@Model.DiscordUsername</p>
+                                <p class="text-xs text-text-tertiary mt-1">ID: @Model.DiscordUserId</p>
+                            }
+                            else
+                            {
+                                <p class="text-sm text-text-tertiary mt-1">Not linked</p>
+                            }
+                        </div>
+                        @if (Model.HasDiscordLinked)
+                        {
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-success/10 text-success border border-success/30">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                Linked
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-warning/10 text-warning border border-warning/30">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                Not Linked
+                            </span>
+                        }
                     </div>
                 </div>
-            }
 
-            <!-- Submit Button -->
-            <div class="pt-4">
-                <button type="submit"
-                        class="inline-flex items-center justify-center gap-2 py-2.5 px-6 text-sm font-semibold text-white bg-accent-purple border border-accent-purple rounded-md transition-colors hover:bg-accent-purple-hover hover:border-accent-purple-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-purple focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Save Preferences
-                </button>
+                <!-- Role Badge and Account Dates -->
+                <div class="border-t border-border-primary pt-6">
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Access Level</p>
+                            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold @GetRoleBadgeClasses(Model.UserRole)">
+                                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                    <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                                </svg>
+                                @GetRoleDisplayName(Model.UserRole)
+                            </span>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Member Since</p>
+                            <p class="text-sm text-text-primary font-medium">
+                                <time datetime="@Model.CreatedAt.ToString("O")">@Model.CreatedAt.ToString("MMMM d, yyyy")</time>
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Last Login</p>
+                            <p class="text-sm text-text-primary font-medium">
+                                @if (Model.LastLoginAt.HasValue)
+                                {
+                                    <time datetime="@Model.LastLoginAt.Value.ToString("O")">@FormatLastLogin(Model.LastLoginAt.Value)</time>
+                                }
+                                else
+                                {
+                                    <span class="text-text-tertiary">Never</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </form>
-</div>
 
-<!-- Additional Info -->
-<div class="mt-6 p-4 bg-info-bg border border-info-border rounded-md">
-    <div class="flex items-start gap-3">
-        <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-        </svg>
-        <div class="text-sm text-info">
-            <p class="font-semibold mb-1">About Theme Preferences</p>
-            <p class="text-info/90">
-                Your theme preference is saved to your account and will be applied across all devices when you're signed in.
-                If you haven't set a preference, the system default theme will be used.
-            </p>
+        <!-- Action Buttons -->
+        <div class="space-y-2">
+            <a asp-page="/Account/Privacy" class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Privacy Settings
+            </a>
+            @if (!Model.HasDiscordLinked)
+            {
+                <a asp-page="/Account/LinkDiscord" class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-tertiary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    Link Discord Account
+                </a>
+            }
         </div>
+
     </div>
+
+    <!-- RIGHT COLUMN: Theme & Quick Links -->
+    <div class="space-y-6">
+
+        <!-- Theme Preference Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden shadow-lg">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Theme Preference</h3>
+                <p class="text-sm text-text-secondary mt-1">Choose your preferred color scheme</p>
+            </div>
+
+            <form method="post" class="p-6">
+                @Html.AntiForgeryToken()
+
+                <div class="space-y-4">
+                    <!-- Theme Selector -->
+                    <div>
+                        <label for="SelectedThemeId" class="block text-sm font-medium text-text-primary mb-2">
+                            Color Scheme
+                        </label>
+                        <select asp-for="SelectedThemeId"
+                                asp-items="Model.AvailableThemes"
+                                class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-text-primary text-sm focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                                required>
+                            <option value="">Select a theme...</option>
+                        </select>
+                        <span asp-validation-for="SelectedThemeId" class="text-sm text-error mt-1"></span>
+                        <p class="text-xs text-text-tertiary mt-2">
+                            Your theme preference is synced across all devices.
+                        </p>
+                    </div>
+
+                    <!-- Current Theme Info -->
+                    @if (!string.IsNullOrEmpty(Model.CurrentThemeName))
+                    {
+                        <div class="p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="text-sm font-medium text-text-primary">Current theme:</span>
+                                <span class="text-sm text-text-secondary">@Model.CurrentThemeName</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-text-tertiary">Source:</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium @GetSourceBadgeClasses(Model.CurrentThemeSource)">
+                                    @Model.CurrentThemeSource.ToString()
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-border-primary">
+                    <a asp-page="/Account/Profile" class="inline-flex items-center justify-center py-2 px-4 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-tertiary">
+                        Cancel
+                    </a>
+                    <button type="submit"
+                            class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-accent-purple border border-accent-purple rounded-md transition-colors hover:bg-accent-purple-hover hover:border-accent-purple-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-purple focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Preferences
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Quick Links Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Quick Links</h3>
+            </div>
+            <div class="p-6 space-y-3">
+                <a asp-page="/Account/Privacy" class="flex items-center gap-2 text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Privacy & Consent
+                </a>
+                @if (!Model.HasDiscordLinked)
+                {
+                    <a asp-page="/Account/LinkDiscord" class="flex items-center gap-2 text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                        Link Discord Account
+                    </a>
+                }
+            </div>
+        </div>
+
+        <!-- Info Box -->
+        <div class="p-4 bg-info-bg border border-info-border rounded-lg">
+            <div class="flex gap-3">
+                <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                    <p class="text-sm font-medium text-info">Sync your preferences</p>
+                    <p class="text-xs text-info/90 mt-1">Your theme and notification settings will be automatically applied when you log in from any device.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
 </div>
 
 @functions {
@@ -140,5 +281,40 @@
             DiscordBot.Core.DTOs.ThemeSource.System => "bg-bg-tertiary text-text-secondary border border-border-primary",
             _ => "bg-bg-tertiary text-text-secondary border border-border-primary"
         };
+    }
+
+    private string GetRoleBadgeClasses(string role)
+    {
+        return role switch
+        {
+            "SuperAdmin" => "bg-accent-orange text-white",
+            "Admin" => "bg-accent-orange text-white",
+            "Moderator" => "bg-accent-blue text-white",
+            _ => "bg-bg-tertiary text-text-secondary"
+        };
+    }
+
+    private string GetRoleDisplayName(string role)
+    {
+        return role switch
+        {
+            "SuperAdmin" => "Super Administrator",
+            "Admin" => "Administrator",
+            "Moderator" => "Moderator",
+            _ => "Viewer"
+        };
+    }
+
+    private string FormatLastLogin(DateTime lastLogin)
+    {
+        var now = DateTime.UtcNow;
+        var diff = now - lastLogin;
+
+        if (diff.TotalMinutes < 1) return "Just now";
+        if (diff.TotalHours < 1) return $"{(int)diff.TotalMinutes} minutes ago";
+        if (diff.TotalDays < 1) return $"{(int)diff.TotalHours} hours ago";
+        if (diff.TotalDays < 7) return $"{(int)diff.TotalDays} days ago";
+
+        return lastLogin.ToString("MMMM d, yyyy 'at' h:mm tt");
     }
 }
