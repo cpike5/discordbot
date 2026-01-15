@@ -8,6 +8,7 @@ using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.Services;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace DiscordBot.Bot.Pages.Admin;
 
@@ -20,6 +21,8 @@ public class SettingsModel : PageModel
 {
     private readonly ISettingsService _settingsService;
     private readonly ICommandModuleConfigurationService _commandModuleConfigurationService;
+    private readonly IThemeService _themeService;
+    private readonly IAuthorizationService _authorizationService;
     private readonly IAuditLogQueue _auditLogQueue;
     private readonly ILogger<SettingsModel> _logger;
 
@@ -57,16 +60,41 @@ public class SettingsModel : PageModel
     public Dictionary<string, bool> CommandModules { get; set; } = new();
 
     /// <summary>
+    /// Form property for the selected default theme ID.
+    /// </summary>
+    [BindProperty]
+    public int? SelectedThemeId { get; set; }
+
+    /// <summary>
+    /// Gets whether the current user is a SuperAdmin (can access Appearance tab).
+    /// </summary>
+    public bool IsSuperAdmin { get; private set; }
+
+    /// <summary>
+    /// Gets the list of available themes for the dropdown.
+    /// </summary>
+    public IReadOnlyList<SelectListItem> AvailableThemes { get; private set; } = new List<SelectListItem>();
+
+    /// <summary>
+    /// Gets the current default theme.
+    /// </summary>
+    public ThemeDto? CurrentDefaultTheme { get; private set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="SettingsModel"/> class.
     /// </summary>
     public SettingsModel(
         ISettingsService settingsService,
         ICommandModuleConfigurationService commandModuleConfigurationService,
+        IThemeService themeService,
+        IAuthorizationService authorizationService,
         IAuditLogQueue auditLogQueue,
         ILogger<SettingsModel> logger)
     {
         _settingsService = settingsService;
         _commandModuleConfigurationService = commandModuleConfigurationService;
+        _themeService = themeService;
+        _authorizationService = authorizationService;
         _auditLogQueue = auditLogQueue;
         _logger = logger;
     }
@@ -79,8 +107,20 @@ public class SettingsModel : PageModel
     {
         _logger.LogDebug("Settings page accessed by user {UserId}", User.Identity?.Name);
 
+        // Check if user is SuperAdmin for Appearance tab access
+        var authResult = await _authorizationService.AuthorizeAsync(User, "RequireSuperAdmin");
+        IsSuperAdmin = authResult.Succeeded;
+
         ActiveCategory = category ?? "General";
+
+        // If user requested Appearance tab but isn't SuperAdmin, redirect to General
+        if (ActiveCategory == "Appearance" && !IsSuperAdmin)
+        {
+            ActiveCategory = "General";
+        }
+
         await LoadViewModelAsync();
+        await LoadThemeDataAsync();
     }
 
     /// <summary>
@@ -554,5 +594,243 @@ public class SettingsModel : PageModel
 
         _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, CommandModules={ModuleCount}, RestartPending={RestartPending}",
             generalSettings.Count, featuresSettings.Count, advancedSettings.Count, allModules.Count, isRestartPending);
+    }
+
+    /// <summary>
+    /// Loads theme data for the Appearance tab.
+    /// </summary>
+    private async Task LoadThemeDataAsync()
+    {
+        if (!IsSuperAdmin) return;
+
+        try
+        {
+            // Get available themes and current default
+            var themes = await _themeService.GetActiveThemesAsync();
+            CurrentDefaultTheme = await _themeService.GetDefaultThemeAsync();
+
+            AvailableThemes = themes.Select(t => new SelectListItem
+            {
+                Value = t.Id.ToString(),
+                Text = t.DisplayName,
+                Selected = t.Id == CurrentDefaultTheme?.Id
+            }).ToList();
+
+            SelectedThemeId = CurrentDefaultTheme?.Id;
+
+            _logger.LogDebug("Loaded {ThemeCount} themes for Appearance tab, current default: {DefaultTheme}",
+                themes.Count, CurrentDefaultTheme?.DisplayName ?? "none");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading theme data for Appearance tab");
+            AvailableThemes = new List<SelectListItem>();
+        }
+    }
+
+    /// <summary>
+    /// Handles POST requests to save appearance settings (SuperAdmin only).
+    /// </summary>
+    public async Task<IActionResult> OnPostSaveAppearanceAsync()
+    {
+        _logger.LogInformation("Appearance settings save requested by user {UserId}", User.Identity?.Name);
+
+        // Verify SuperAdmin authorization
+        var authResult = await _authorizationService.AuthorizeAsync(User, "RequireSuperAdmin");
+        if (!authResult.Succeeded)
+        {
+            _logger.LogWarning("Unauthorized attempt to save appearance settings by user {UserId}", User.Identity?.Name);
+            return new ForbidResult();
+        }
+
+        try
+        {
+            var userId = User.Identity?.Name ?? "Unknown";
+
+            if (!SelectedThemeId.HasValue)
+            {
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "No theme selected."
+                })
+                {
+                    StatusCode = 400
+                };
+            }
+
+            // Get theme info for audit logging
+            var selectedTheme = await _themeService.GetThemeByIdAsync(SelectedThemeId.Value);
+            if (selectedTheme == null)
+            {
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "Selected theme not found."
+                })
+                {
+                    StatusCode = 400
+                };
+            }
+
+            var previousDefault = await _themeService.GetDefaultThemeAsync();
+
+            var success = await _themeService.SetDefaultThemeAsync(SelectedThemeId.Value);
+
+            if (success)
+            {
+                _logger.LogInformation("Default theme changed from {OldTheme} to {NewTheme} by user {UserId}",
+                    previousDefault?.DisplayName ?? "none", selectedTheme.DisplayName, userId);
+
+                // Audit log the theme change
+                _auditLogQueue.Enqueue(new AuditLogCreateDto
+                {
+                    Category = AuditLogCategory.Configuration,
+                    Action = AuditLogAction.SettingChanged,
+                    ActorType = AuditLogActorType.User,
+                    ActorId = userId,
+                    Details = JsonSerializer.Serialize(new
+                    {
+                        SettingsCategory = "Appearance",
+                        Change = new
+                        {
+                            Key = "DefaultTheme",
+                            DisplayName = "Default Theme",
+                            OldValue = previousDefault?.DisplayName ?? "Discord Dark",
+                            NewValue = selectedTheme.DisplayName
+                        }
+                    })
+                });
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    message = $"Default theme updated. New users will see {selectedTheme.DisplayName} theme.",
+                    themeName = selectedTheme.DisplayName
+                });
+            }
+            else
+            {
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "Failed to update default theme."
+                })
+                {
+                    StatusCode = 400
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while saving appearance settings, requested by {UserId}",
+                User.Identity?.Name);
+
+            return new JsonResult(new
+            {
+                success = false,
+                message = "An error occurred while saving appearance settings. Please check logs for details."
+            })
+            {
+                StatusCode = 500
+            };
+        }
+    }
+
+    /// <summary>
+    /// Handles POST requests to reset appearance settings to default (SuperAdmin only).
+    /// </summary>
+    public async Task<IActionResult> OnPostResetAppearanceAsync()
+    {
+        _logger.LogWarning("Appearance settings reset requested by user {UserId}", User.Identity?.Name);
+
+        // Verify SuperAdmin authorization
+        var authResult = await _authorizationService.AuthorizeAsync(User, "RequireSuperAdmin");
+        if (!authResult.Succeeded)
+        {
+            _logger.LogWarning("Unauthorized attempt to reset appearance settings by user {UserId}", User.Identity?.Name);
+            return new ForbidResult();
+        }
+
+        try
+        {
+            var userId = User.Identity?.Name ?? "Unknown";
+
+            // Get the system default (Discord Dark, ID 1)
+            var systemDefault = await _themeService.GetThemeByIdAsync(1);
+            if (systemDefault == null)
+            {
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "System default theme not found."
+                })
+                {
+                    StatusCode = 500
+                };
+            }
+
+            var previousDefault = await _themeService.GetDefaultThemeAsync();
+
+            var success = await _themeService.SetDefaultThemeAsync(1);
+
+            if (success)
+            {
+                _logger.LogInformation("Default theme reset from {OldTheme} to {NewTheme} by user {UserId}",
+                    previousDefault?.DisplayName ?? "none", systemDefault.DisplayName, userId);
+
+                // Audit log the reset
+                _auditLogQueue.Enqueue(new AuditLogCreateDto
+                {
+                    Category = AuditLogCategory.Configuration,
+                    Action = AuditLogAction.SettingChanged,
+                    ActorType = AuditLogActorType.User,
+                    ActorId = userId,
+                    Details = JsonSerializer.Serialize(new
+                    {
+                        SettingsCategory = "Appearance",
+                        Operation = "Reset",
+                        Change = new
+                        {
+                            Key = "DefaultTheme",
+                            DisplayName = "Default Theme",
+                            OldValue = previousDefault?.DisplayName ?? "Discord Dark",
+                            NewValue = systemDefault.DisplayName
+                        }
+                    })
+                });
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    message = $"Default theme reset to {systemDefault.DisplayName}."
+                });
+            }
+            else
+            {
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = "Failed to reset default theme."
+                })
+                {
+                    StatusCode = 400
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Exception occurred while resetting appearance settings, requested by {UserId}",
+                User.Identity?.Name);
+
+            return new JsonResult(new
+            {
+                success = false,
+                message = "An error occurred while resetting appearance settings. Please check logs for details."
+            })
+            {
+                StatusCode = 500
+            };
+        }
     }
 }

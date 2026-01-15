@@ -613,6 +613,135 @@
     }
 
     /**
+     * Save appearance settings (default theme)
+     */
+    async function saveAppearance() {
+        const formData = new FormData();
+
+        // Add the anti-forgery token
+        const form = document.getElementById('settingsForm');
+        const token = form?.querySelector('input[name="__RequestVerificationToken"]');
+        if (token) {
+            formData.append('__RequestVerificationToken', token.value);
+        }
+
+        // Get the selected theme ID
+        const themeSelect = document.getElementById('SelectedThemeId');
+        if (themeSelect) {
+            formData.append('SelectedThemeId', themeSelect.value);
+        }
+
+        // Get the save button from the event
+        const saveButton = event?.target;
+
+        // Hide any existing inline alerts for Appearance
+        hideInlineAlerts('Appearance');
+
+        // Show loading state
+        setButtonLoading(saveButton);
+
+        try {
+            const response = await fetch('?handler=SaveAppearance', {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': token?.value || ''
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Show success button state
+                setButtonSuccess(saveButton);
+
+                // Show inline success alert
+                showInlineSuccess(data.message, 'Appearance');
+
+                // Show toast
+                window.quickActions?.showToast(data.message, 'success');
+                isDirty = false;
+            } else {
+                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to save appearance settings.';
+
+                // Show error button state (allows retry)
+                setButtonError(saveButton);
+
+                // Show inline error alert
+                showInlineError(errorMsg, 'Appearance');
+
+                // Show toast with longer duration for errors
+                window.quickActions?.showToast(errorMsg, 'error');
+            }
+        } catch (error) {
+            console.error('Save appearance error:', error);
+            const errorMsg = 'An error occurred while saving appearance settings.';
+
+            // Show error button state
+            setButtonError(saveButton);
+
+            // Show inline error alert
+            showInlineError(errorMsg, 'Appearance');
+
+            // Show toast
+            window.quickActions?.showToast(errorMsg, 'error');
+        }
+    }
+
+    /**
+     * Reset appearance settings to default
+     */
+    async function resetAppearance() {
+        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+
+        // Get the reset button from the event
+        const resetButton = event?.target;
+
+        // Hide any existing inline alerts for Appearance
+        hideInlineAlerts('Appearance');
+
+        try {
+            const response = await fetch('?handler=ResetAppearance', {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': token,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Show inline success alert
+                showInlineSuccess(data.message, 'Appearance');
+
+                // Show toast
+                window.quickActions?.showToast(data.message, 'success');
+
+                // Reload page to show updated default theme selection
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to reset appearance settings.';
+
+                // Show inline error alert
+                showInlineError(errorMsg, 'Appearance');
+
+                // Show toast
+                window.quickActions?.showToast(errorMsg, 'error');
+            }
+        } catch (error) {
+            console.error('Reset appearance error:', error);
+            const errorMsg = 'An error occurred while resetting appearance settings.';
+
+            // Show inline error alert
+            showInlineError(errorMsg, 'Appearance');
+
+            // Show toast
+            window.quickActions?.showToast(errorMsg, 'error');
+        }
+    }
+
+    /**
      * Track form changes to set dirty flag
      */
     function trackFormChanges() {
@@ -665,6 +794,8 @@
         saveCategory,
         saveAllSettings,
         saveCommandModules,
+        saveAppearance,
+        resetAppearance,
         showResetCategoryModal,
         showResetAllModal
     };
