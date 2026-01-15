@@ -9,6 +9,10 @@ namespace DiscordBot.Core.Interfaces;
 public interface IThemeService
 {
     /// <summary>
+    /// Cookie name used for theme preference persistence.
+    /// </summary>
+    const string ThemePreferenceCookieName = "theme-preference";
+    /// <summary>
     /// Gets all active themes available for selection.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -55,4 +59,20 @@ public interface IThemeService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if successful, false if theme not found.</returns>
     Task<bool> SetDefaultThemeAsync(int themeId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a theme by its ID.
+    /// </summary>
+    /// <param name="themeId">The theme ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The theme DTO if found, otherwise null.</returns>
+    Task<ThemeDto?> GetThemeByIdAsync(int themeId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the current theme key for server-side rendering.
+    /// Checks: authenticated user preference > cookie > system default.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The theme key to use for rendering.</returns>
+    Task<string> GetCurrentThemeKeyAsync(CancellationToken cancellationToken = default);
 }

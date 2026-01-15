@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using FluentAssertions;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +23,7 @@ public class ThemeServiceTests : IDisposable
     private readonly Mock<IThemeRepository> _mockThemeRepository;
     private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly Mock<UserManager<ApplicationUser>> _mockUserManager;
+    private readonly Mock<IHttpContextAccessor> _mockHttpContextAccessor;
     private readonly Mock<ILogger<ThemeService>> _mockLogger;
     private readonly BotDbContext _dbContext;
     private readonly ThemeService _service;
@@ -69,7 +72,12 @@ public class ThemeServiceTests : IDisposable
         // Setup mocks
         _mockThemeRepository = new Mock<IThemeRepository>();
         _mockSettingsService = new Mock<ISettingsService>();
+        _mockHttpContextAccessor = new Mock<IHttpContextAccessor>();
         _mockLogger = new Mock<ILogger<ThemeService>>();
+
+        // Setup default HttpContext (anonymous user, no cookies)
+        var httpContext = new DefaultHttpContext();
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
 
         // Setup UserManager mock
         var userStore = new Mock<IUserStore<ApplicationUser>>();
@@ -115,6 +123,7 @@ public class ThemeServiceTests : IDisposable
             _mockSettingsService.Object,
             _mockUserManager.Object,
             _dbContext,
+            _mockHttpContextAccessor.Object,
             _mockLogger.Object);
     }
 
@@ -543,6 +552,147 @@ public class ThemeServiceTests : IDisposable
 
         // Assert
         result.Should().BeFalse();
+    }
+
+    #endregion
+
+    #region GetThemeByIdAsync Tests
+
+    [Fact]
+    public async Task GetThemeByIdAsync_ReturnsTheme_WhenExists()
+    {
+        // Act
+        var result = await _service.GetThemeByIdAsync(1);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.Id.Should().Be(1);
+        result.ThemeKey.Should().Be("discord-dark");
+    }
+
+    [Fact]
+    public async Task GetThemeByIdAsync_ReturnsNull_WhenNotExists()
+    {
+        // Arrange
+        _mockThemeRepository
+            .Setup(r => r.GetByIdAsync(999, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Theme?)null);
+
+        // Act
+        var result = await _service.GetThemeByIdAsync(999);
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    #endregion
+
+    #region GetCurrentThemeKeyAsync Tests
+
+    [Fact]
+    public async Task GetCurrentThemeKeyAsync_ReturnsUserPreference_WhenAuthenticated()
+    {
+        // Arrange - setup authenticated user with theme preference
+        var user = new ApplicationUser
+        {
+            Id = "auth-user-1",
+            Email = "auth@example.com",
+            PreferredThemeId = 2,
+            PreferredTheme = _purpleDuskTheme
+        };
+
+        _dbContext.Set<ApplicationUser>().Add(user);
+        await _dbContext.SaveChangesAsync();
+
+        // Setup authenticated HttpContext
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "auth-user-1") };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+        var httpContext = new DefaultHttpContext { User = principal };
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        // Act
+        var result = await _service.GetCurrentThemeKeyAsync();
+
+        // Assert
+        result.Should().Be("purple-dusk");
+    }
+
+    [Fact]
+    public async Task GetCurrentThemeKeyAsync_ReturnsCookieValue_ForAnonymousUser()
+    {
+        // Arrange - setup anonymous user with cookie
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers["Cookie"] = "theme-preference=purple-dusk";
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        // Act
+        var result = await _service.GetCurrentThemeKeyAsync();
+
+        // Assert
+        result.Should().Be("purple-dusk");
+    }
+
+    [Fact]
+    public async Task GetCurrentThemeKeyAsync_ReturnsDefault_WhenCookieThemeInvalid()
+    {
+        // Arrange - setup anonymous user with invalid cookie
+        var httpContext = new DefaultHttpContext();
+        httpContext.Request.Headers["Cookie"] = "theme-preference=nonexistent-theme";
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        _mockThemeRepository
+            .Setup(r => r.GetByKeyAsync("nonexistent-theme", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Theme?)null);
+
+        // Act
+        var result = await _service.GetCurrentThemeKeyAsync();
+
+        // Assert
+        result.Should().Be("discord-dark");
+    }
+
+    [Fact]
+    public async Task GetCurrentThemeKeyAsync_ReturnsDefault_WhenNoCookieAndAnonymous()
+    {
+        // Arrange - anonymous user with no cookie
+        var httpContext = new DefaultHttpContext();
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        // Act
+        var result = await _service.GetCurrentThemeKeyAsync();
+
+        // Assert
+        result.Should().Be("discord-dark");
+    }
+
+    [Fact]
+    public async Task GetCurrentThemeKeyAsync_ReturnsDefault_WhenUserHasNoPreference()
+    {
+        // Arrange - authenticated user without theme preference
+        var user = new ApplicationUser
+        {
+            Id = "auth-user-2",
+            Email = "auth2@example.com",
+            PreferredThemeId = null,
+            PreferredTheme = null
+        };
+
+        _dbContext.Set<ApplicationUser>().Add(user);
+        await _dbContext.SaveChangesAsync();
+
+        // Setup authenticated HttpContext
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "auth-user-2") };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+        var httpContext = new DefaultHttpContext { User = principal };
+        _mockHttpContextAccessor.Setup(a => a.HttpContext).Returns(httpContext);
+
+        // Act
+        var result = await _service.GetCurrentThemeKeyAsync();
+
+        // Assert
+        result.Should().Be("discord-dark");
     }
 
     #endregion

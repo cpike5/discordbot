@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,6 +22,7 @@ public class ThemeService : IThemeService
     private readonly ISettingsService _settingsService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly BotDbContext _dbContext;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<ThemeService> _logger;
 
     public ThemeService(
@@ -27,12 +30,14 @@ public class ThemeService : IThemeService
         ISettingsService settingsService,
         UserManager<ApplicationUser> userManager,
         BotDbContext dbContext,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<ThemeService> logger)
     {
         _themeRepository = themeRepository;
         _settingsService = settingsService;
         _userManager = userManager;
         _dbContext = dbContext;
+        _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
 
@@ -229,6 +234,50 @@ public class ThemeService : IThemeService
         _logger.LogError("Failed to update default theme setting: {Errors}",
             string.Join(", ", updateResult.Errors));
         return false;
+    }
+
+    /// <inheritdoc />
+    public async Task<ThemeDto?> GetThemeByIdAsync(int themeId, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Fetching theme with ID {ThemeId}", themeId);
+
+        var theme = await _themeRepository.GetByIdAsync(themeId, cancellationToken);
+        return theme != null ? MapToDto(theme) : null;
+    }
+
+    /// <inheritdoc />
+    public async Task<string> GetCurrentThemeKeyAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting current theme key for SSR");
+
+        // 1. If user is authenticated, get from database
+        var userId = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrEmpty(userId))
+        {
+            var userTheme = await GetUserThemeAsync(userId, cancellationToken);
+            _logger.LogDebug("Authenticated user {UserId} theme: {ThemeKey}", userId, userTheme.Theme.ThemeKey);
+            return userTheme.Theme.ThemeKey;
+        }
+
+        // 2. Check cookie for anonymous users or as fallback
+        var cookieTheme = _httpContextAccessor.HttpContext?.Request.Cookies[IThemeService.ThemePreferenceCookieName];
+        if (!string.IsNullOrEmpty(cookieTheme))
+        {
+            // Validate the theme key exists and is active
+            var theme = await GetThemeByKeyAsync(cookieTheme, cancellationToken);
+            if (theme != null && theme.IsActive)
+            {
+                _logger.LogDebug("Using cookie theme preference: {ThemeKey}", cookieTheme);
+                return theme.ThemeKey;
+            }
+
+            _logger.LogDebug("Cookie theme '{CookieTheme}' is invalid or inactive, falling back to default", cookieTheme);
+        }
+
+        // 3. Return system default
+        var defaultTheme = await GetDefaultThemeAsync(cancellationToken);
+        _logger.LogDebug("Using system default theme: {ThemeKey}", defaultTheme.ThemeKey);
+        return defaultTheme.ThemeKey;
     }
 
     private static ThemeDto MapToDto(Theme theme)
