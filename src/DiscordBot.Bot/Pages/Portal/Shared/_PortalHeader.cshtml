@@ -8,8 +8,8 @@
 <style>
     /* Portal Header */
     .portal-header {
-        background-color: #1a1d23;
-        border-bottom: 1px solid #40444b;
+        background-color: var(--color-bg-secondary);
+        border-bottom: 1px solid var(--color-border-primary);
     }
 
     .portal-header .header-content {
@@ -37,7 +37,7 @@
         border-radius: 50%;
         flex-shrink: 0;
         overflow: hidden;
-        border: 2px solid #40444b;
+        border: 2px solid var(--color-border-primary);
     }
 
     .guild-icon img {
@@ -49,7 +49,7 @@
     .guild-icon-fallback {
         width: 100%;
         height: 100%;
-        background-color: #5865f2;
+        background-color: var(--color-discord);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -61,13 +61,13 @@
     .header-text h1 {
         font-size: 1.125rem;
         font-weight: bold;
-        color: #dbdee1;
+        color: var(--color-text-primary);
         margin: 0;
     }
 
     .header-text p {
         font-size: 0.875rem;
-        color: #949ba4;
+        color: var(--color-text-secondary);
         margin: 0;
     }
 
@@ -83,12 +83,12 @@
 
     .status-badge.online {
         background-color: rgba(87, 171, 90, 0.1);
-        color: #57ab5a;
+        color: var(--color-success);
     }
 
     .status-badge.offline {
         background-color: rgba(168, 165, 163, 0.1);
-        color: #949ba4;
+        color: var(--color-text-secondary);
     }
 
     .status-dot {
@@ -102,7 +102,7 @@
     .portal-nav {
         display: flex;
         gap: 0.5rem;
-        border-bottom: 2px solid #2b2f35;
+        border-bottom: 2px solid var(--color-border-secondary);
     }
 
     .portal-nav-link {
@@ -110,7 +110,7 @@
         align-items: center;
         gap: 0.5rem;
         padding: 0.75rem 1.25rem;
-        color: #949ba4;
+        color: var(--color-text-secondary);
         text-decoration: none;
         font-size: 0.875rem;
         font-weight: 500;
@@ -121,13 +121,13 @@
     }
 
     .portal-nav-link:hover {
-        color: #dbdee1;
-        background-color: rgba(255, 255, 255, 0.05);
+        color: var(--color-text-primary);
+        background-color: var(--color-bg-hover);
     }
 
     .portal-nav-link.active {
-        color: #5865f2;
-        border-bottom-color: #5865f2;
+        color: var(--color-discord);
+        border-bottom-color: var(--color-discord);
     }
 
     .portal-nav-link svg {
