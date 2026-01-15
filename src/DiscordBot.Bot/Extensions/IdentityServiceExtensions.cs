@@ -62,7 +62,7 @@ public static class IdentityServiceExtensions
         {
             options.Cookie.HttpOnly = true;
             options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.SameSite = SameSiteMode.Strict;
             options.ExpireTimeSpan = TimeSpan.FromDays(identityConfig.CookieExpireDays);
             options.SlidingExpiration = identityConfig.CookieSlidingExpiration;
             options.LoginPath = identityConfig.LoginPath;
