@@ -78,6 +78,9 @@ Tool implementations will:
 ## Future Features (Out of Scope for MVP)
 
 - Conversation history/context (multi-turn conversations)
+- **Multiple LLM provider support** (OpenAI, local models - architecture ready)
+- **Per-channel agent personalities** with custom prompts and tool whitelists
+- **Advanced tool providers** (moderation logs, bot configuration, permission checks)
 - Dedicated analytics dashboard showing usage trends, costs, popular questions
 - Per-guild custom prompts or personality customization
 - Slash command interface (e.g., `/ask <question>`)
@@ -107,6 +110,13 @@ Tool implementations will:
 - **Entity Framework Core** for database storage (existing pattern)
 - **Serilog** for logging (existing system)
 
+### LLM Provider Abstraction
+- **Abstraction Layer**: `ILlmClient`, `IAgentRunner` for provider-agnostic interface
+- **Initial Provider**: Anthropic Claude via Anthropic.SDK
+- **Future Providers**: OpenAI (GPT-4), local models (LLaMA, Mistral via Ollama)
+- **Tool System**: `IToolProvider` pattern for modular tool registration
+- See `docs/specs/llm-abstraction-architecture.md` for architecture details
+
 ### Database
 - New tables:
   - `AssistantGuildSettings` (guild configuration)
@@ -134,20 +144,23 @@ Tool implementations will:
 - Repository pattern for data access
 
 ### Tool Architecture
-- **Tool Service**: `IDocumentationToolService` provides tool implementations
-- **Tool Handlers**: Each tool is a method that returns documentation data
+- **Tool Provider Pattern**: `IToolProvider` interface groups related tools
+- **Tool Registry**: `IToolRegistry` manages providers with enable/disable
+- **Tool Definitions**: Static classes (e.g., `DocumentationTools`) define tool schemas
 - **Tool Execution Flow**:
   1. User mentions bot with question
-  2. Claude receives question + tool definitions
-  3. Claude decides which tool(s) to call
-  4. Bot executes tool, returns data to Claude
-  5. Claude formulates answer using tool data
-  6. Bot posts final response to Discord
+  2. AgentRunner receives question + tool definitions from registry
+  3. LLM decides which tool(s) to call
+  4. ToolRegistry routes execution to correct provider
+  5. Provider executes tool, returns data to LLM
+  6. LLM formulates answer using tool data
+  7. Bot posts final response to Discord
 - **Tool Data Sources**:
   - `docs/articles/*.md` files for feature documentation
   - `README.md` for command lists and overview
   - In-memory command metadata from Discord.NET registration
-  - Optionally: Live guild settings from database
+  - Discord API for user/guild info
+- See `docs/specs/assistant-tool-catalog.md` for full tool catalog
 
 ### Security
 - Agent prompt includes extensive security guidelines (prompt injection defense, jailbreak prevention, etc.)
@@ -399,6 +412,9 @@ Add section to existing guild settings page:
 | Minimal admin UI for MVP | Faster to ship, iterate based on usage |
 | Store in existing database | Consistent with other features |
 | Disabled by default | Safer rollout, opt-in per guild, explicit enablement |
+| LLM abstraction layer | Future-proof architecture, supports provider swapping, enables testing |
+| Tool provider pattern | Modular tools, enable/disable per agent, clear separation of concerns |
+| AgentRunner orchestration | Separates LLM calls from tool execution, testable agentic loop |
 
 ## Example Tool Flow
 
@@ -604,15 +620,17 @@ Users must explicitly consent before using the assistant feature:
 
 ## Next Steps After Requirements
 
-1. **Create GitHub issue** via `/create-issue` command
-2. **Generate implementation plan** via systems-architect agent
+1. **Review architecture specs**:
+   - `docs/specs/llm-abstraction-architecture.md` - LLM abstraction interfaces
+   - `docs/specs/assistant-tool-catalog.md` - Tool inventory and priorities
+2. **Create GitHub issues** via `/create-issue` command
 3. **Database migration design** (new tables for settings and metrics)
 4. **Agent prompt finalization** (finalize placeholders and security guidelines)
 5. **User Secrets configuration** (add Claude API key documentation to CLAUDE.md)
-6. **Begin implementation** (start with core service and API integration)
+6. **Begin implementation** (start with LLM abstraction layer, then tool providers)
 
 ---
 
-**Document Version**: 1.1
-**Last Updated**: 2026-01-12
+**Document Version**: 1.2
+**Last Updated**: 2026-01-15
 **Status**: Ready for implementation planning

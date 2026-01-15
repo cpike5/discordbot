@@ -66,6 +66,16 @@ Three-layer clean architecture:
 - Existing `UserConsent` entity and `IConsentService`
 - `/consent` command for opt-in/opt-out
 
+### LLM Abstraction Layer
+The assistant uses an abstracted LLM layer to support multiple providers:
+- **Abstraction Pattern**: `ILlmClient`, `IAgentRunner`, `IToolProvider`, `IToolRegistry` (see `docs/specs/llm-abstraction-architecture.md`)
+- **Initial Provider**: Anthropic Claude via Anthropic.SDK (implements `ILlmClient`)
+- **Future Providers**: OpenAI, local models (architecture ready, implementation deferred)
+- **Tool System**: Provider pattern for grouping related tools with enable/disable capability
+- **Agentic Loop**: Handled by `IAgentRunner` (orchestrates tool use cycles)
+- **Tool Registry**: Centralized tool management with runtime enable/disable
+- See `docs/specs/llm-abstraction-architecture.md` for detailed architecture and patterns
+
 ---
 
 ## 3. Database Design
@@ -473,6 +483,199 @@ public enum ConsentType
 
 ## 4. Interface Definitions
 
+### 4.0 LLM Abstraction Interfaces
+
+These interfaces provide provider-agnostic LLM functionality, supporting multiple backends (Anthropic, OpenAI, local models) with a unified interface.
+
+#### ILlmClient
+```csharp
+namespace DiscordBot.Core.Interfaces.LLM;
+
+/// <summary>
+/// Provider-agnostic interface for LLM completion calls.
+/// Abstracts differences between Anthropic, OpenAI, and other providers.
+/// </summary>
+public interface ILlmClient
+{
+    /// <summary>
+    /// Sends a completion request to the LLM provider.
+    /// </summary>
+    /// <param name="request">The completion request with messages, tools, and configuration.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>LLM response with content, stop reason, and token usage.</returns>
+    Task<LlmResponse> CompleteAsync(
+        LlmRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Provider name (e.g., "Anthropic", "OpenAI", "Local").
+    /// </summary>
+    string ProviderName { get; }
+
+    /// <summary>
+    /// Whether this provider supports tool use (function calling).
+    /// </summary>
+    bool SupportsToolUse { get; }
+
+    /// <summary>
+    /// Whether this provider supports prompt caching.
+    /// </summary>
+    bool SupportsPromptCaching { get; }
+}
+```
+
+#### IAgentRunner
+```csharp
+namespace DiscordBot.Core.Interfaces.LLM;
+
+/// <summary>
+/// Orchestrates the agentic loop (tool use cycles).
+/// Manages conversation history and iterates until a final response is generated.
+/// </summary>
+public interface IAgentRunner
+{
+    /// <summary>
+    /// Runs the agent with a user message, handling tool use cycles.
+    /// </summary>
+    /// <param name="userMessage">The user's input message.</param>
+    /// <param name="context">Agent context (tools, system prompt, configuration).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Final agent result with response text and token usage.</returns>
+    Task<AgentRunResult> RunAsync(
+        string userMessage,
+        AgentContext context,
+        CancellationToken cancellationToken = default);
+}
+```
+
+#### IToolProvider
+```csharp
+namespace DiscordBot.Core.Interfaces.LLM;
+
+/// <summary>
+/// Groups related tools for the agent.
+/// Implements the Provider pattern for tool organization and execution.
+/// </summary>
+public interface IToolProvider
+{
+    /// <summary>
+    /// Unique name for this provider (e.g., "Documentation", "UserGuildInfo").
+    /// Used for enable/disable management via IToolRegistry.
+    /// </summary>
+    string Name { get; }
+
+    /// <summary>
+    /// Human-readable description of what this provider does.
+    /// </summary>
+    string Description { get; }
+
+    /// <summary>
+    /// Gets all tools provided by this provider.
+    /// </summary>
+    /// <returns>Enumerable of tool definitions for use in LLM requests.</returns>
+    IEnumerable<LlmToolDefinition> GetTools();
+
+    /// <summary>
+    /// Executes a tool by name with the given input.
+    /// </summary>
+    /// <param name="toolName">Name of the tool to execute.</param>
+    /// <param name="input">Tool input as a JSON element.</param>
+    /// <param name="context">Tool execution context (user ID, guild ID, etc.).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Result of tool execution (success/error with data).</returns>
+    /// <exception cref="NotSupportedException">Thrown if tool is not supported by this provider.</exception>
+    Task<ToolExecutionResult> ExecuteToolAsync(
+        string toolName,
+        JsonElement input,
+        ToolContext context,
+        CancellationToken cancellationToken = default);
+}
+```
+
+#### IToolRegistry
+```csharp
+namespace DiscordBot.Core.Interfaces.LLM;
+
+/// <summary>
+/// Manages tool providers with enable/disable capability.
+/// Routes tool execution to the appropriate provider.
+/// </summary>
+public interface IToolRegistry
+{
+    /// <summary>
+    /// Registers a tool provider.
+    /// </summary>
+    /// <param name="provider">The tool provider to register.</param>
+    /// <param name="enabled">Whether the provider is initially enabled.</param>
+    void RegisterProvider(IToolProvider provider, bool enabled = true);
+
+    /// <summary>
+    /// Enables a provider by name.
+    /// </summary>
+    /// <param name="providerName">Name of the provider to enable.</param>
+    /// <exception cref="InvalidOperationException">Thrown if provider not found.</exception>
+    void EnableProvider(string providerName);
+
+    /// <summary>
+    /// Disables a provider by name.
+    /// </summary>
+    /// <param name="providerName">Name of the provider to disable.</param>
+    /// <exception cref="InvalidOperationException">Thrown if provider not found.</exception>
+    void DisableProvider(string providerName);
+
+    /// <summary>
+    /// Gets all tool definitions from enabled providers.
+    /// </summary>
+    /// <returns>Enumerable of tool definitions from enabled providers only.</returns>
+    IEnumerable<LlmToolDefinition> GetEnabledTools();
+
+    /// <summary>
+    /// Executes a tool through the appropriate enabled provider.
+    /// </summary>
+    /// <param name="toolName">Name of the tool to execute.</param>
+    /// <param name="input">Tool input as a JSON element.</param>
+    /// <param name="context">Tool execution context.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Result of tool execution.</returns>
+    /// <exception cref="NotSupportedException">Thrown if tool not found in any enabled provider.</exception>
+    Task<ToolExecutionResult> ExecuteToolAsync(
+        string toolName,
+        JsonElement input,
+        ToolContext context,
+        CancellationToken cancellationToken = default);
+}
+```
+
+#### IPromptTemplate
+```csharp
+namespace DiscordBot.Core.Interfaces.LLM;
+
+/// <summary>
+/// Loads and renders prompt templates with variable substitution.
+/// Supports caching for performance.
+/// </summary>
+public interface IPromptTemplate
+{
+    /// <summary>
+    /// Loads a prompt template from file.
+    /// </summary>
+    /// <param name="filePath">Relative or absolute path to template file.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Raw template content.</returns>
+    Task<string> LoadAsync(string filePath, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Renders a template with variable substitution.
+    /// </summary>
+    /// <param name="template">Template content with {{variable}} placeholders.</param>
+    /// <param name="variables">Dictionary of variable names and values.</param>
+    /// <returns>Rendered template.</returns>
+    string Render(string template, Dictionary<string, string> variables);
+}
+```
+
+---
+
 ### 4.1 Service Interfaces
 
 #### IAssistantService
@@ -580,60 +783,36 @@ public interface IAssistantService
 ---
 
 #### IDocumentationToolService
+**Note**: This service is replaced by `DocumentationToolProvider : IToolProvider` in the abstraction layer.
+The provider pattern (see `IToolProvider` in Section 4.0) is now the standard for tool implementations.
+This interface remains documented here for reference during migration.
+
 ```csharp
 namespace DiscordBot.Core.Interfaces;
 
 /// <summary>
-/// Service interface for documentation tool implementations.
-/// Provides Claude with access to bot documentation and command metadata.
+/// Legacy service interface - use DocumentationToolProvider : IToolProvider instead.
+/// Provided for backward compatibility during transition to abstraction layer.
 /// </summary>
+[Obsolete("Use DocumentationToolProvider : IToolProvider instead")]
 public interface IDocumentationToolService
 {
-    /// <summary>
-    /// Gets documentation for a specific feature.
-    /// </summary>
-    /// <param name="featureName">Name of the feature (e.g., "soundboard", "rat-watch").</param>
-    /// <param name="guildId">Guild ID for context (used for URL generation).</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Tool execution result with documentation content or error.</returns>
     Task<ToolExecutionResult> GetFeatureDocumentationAsync(
         string featureName,
         ulong guildId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Searches available commands by keyword.
-    /// </summary>
-    /// <param name="query">Search query.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Tool execution result with matching commands or error.</returns>
     Task<ToolExecutionResult> SearchCommandsAsync(
         string query,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets detailed information about a specific command.
-    /// </summary>
-    /// <param name="commandName">Name of the command (e.g., "ping", "rat-stats").</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Tool execution result with command details or error.</returns>
     Task<ToolExecutionResult> GetCommandDetailsAsync(
         string commandName,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Lists all available bot features.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Tool execution result with feature list or error.</returns>
     Task<ToolExecutionResult> ListFeaturesAsync(
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets the list of cached documentation files for prompt caching.
-    /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Dictionary mapping feature names to documentation content.</returns>
     Task<Dictionary<string, string>> GetCachedDocumentationAsync(
         CancellationToken cancellationToken = default);
 }
@@ -918,7 +1097,43 @@ public class ToolExecutionResult
 
 ## 5. Implementation Tasks by Phase
 
-### Phase 1: Core Infrastructure (2-3 hours)
+### Phase 1: Core Infrastructure & LLM Abstraction (4-5 hours)
+
+#### 1.0 Create LLM Abstraction Interfaces
+**Files to create:**
+- `src/DiscordBot.Core/Interfaces/LLM/ILlmClient.cs`
+- `src/DiscordBot.Core/Interfaces/LLM/IAgentRunner.cs`
+- `src/DiscordBot.Core/Interfaces/LLM/IToolProvider.cs`
+- `src/DiscordBot.Core/Interfaces/LLM/IToolRegistry.cs`
+- `src/DiscordBot.Core/Interfaces/LLM/IPromptTemplate.cs`
+
+**Pattern**: Follow section 4.0 interface definitions above. These form the foundation for provider-agnostic LLM support.
+
+#### 1.0a Create LLM DTOs
+**Files to create** in `src/DiscordBot.Core/DTOs/LLM/`:
+```
+LlmMessage.cs - Single message in conversation (role, content)
+LlmRequest.cs - Request to LLM (messages, tools, system prompt, model config)
+LlmResponse.cs - Response from LLM (content, stop reason, token usage, tool calls)
+LlmToolDefinition.cs - Tool schema (name, description, input schema, properties)
+LlmToolCall.cs - Tool call request from LLM (id, name, input)
+LlmToolResult.cs - Tool execution result
+LlmUsage.cs - Token usage (input, output, cached, cache_write, etc.)
+AgentContext.cs - Context for agent run (system prompt, tools, guild/user context)
+AgentRunResult.cs - Final result of agent run
+ToolContext.cs - Context for tool execution (user ID, guild ID, channel ID, etc.)
+
+Enums/
+  LlmRole.cs - Message role (User, Assistant, System)
+  LlmStopReason.cs - Why LLM stopped (EndTurn, ToolUse, MaxTokens, etc.)
+```
+
+**Implementation Notes**:
+- `LlmMessage` with properties: `Role`, `Content` (text), `ToolCalls` (optional)
+- `LlmRequest` with: `Messages`, `SystemPrompt`, `Tools`, `Model`, `MaxTokens`, `Temperature`, `CacheControl` (optional)
+- `LlmResponse` with: `Content` (text), `ToolCalls` (list), `StopReason`, `Usage`, `CacheInfo` (optional)
+- `AgentContext` with: `SystemPrompt`, `EnabledTools`, `GuildId`, `UserId`, `ChannelId`, `MaxToolCallsPerRun`
+- `ToolContext` with: `GuildId`, `UserId`, `ChannelId`, `MessageId` (for context in tool execution)
 
 #### 1.1 Update ConsentType Enum
 **File**: `src/DiscordBot.Core/Enums/ConsentType.cs`
@@ -987,31 +1202,93 @@ dotnet ef migrations add AddAssistantFeature --project ../DiscordBot.Infrastruct
 
 ---
 
-### Phase 2: Documentation Tools (3-4 hours)
+### Phase 2: Tool System & Providers (4-5 hours)
 
-#### 2.1 Implement DocumentationToolService
-**File**: `src/DiscordBot.Infrastructure/Services/DocumentationToolService.cs`
+#### 2.1 Implement ToolRegistry
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/ToolRegistry.cs`
+
+**Implements**: `IToolRegistry` interface
+
+**Dependencies**:
+- `ILogger<ToolRegistry>`
+
+**Implementation**:
+- Track registered providers in dictionary keyed by name
+- Maintain enabled/disabled state for each provider
+- `RegisterProvider()` - adds provider to registry
+- `EnableProvider() / DisableProvider()` - manages state
+- `GetEnabledTools()` - aggregates tools from enabled providers only
+- `ExecuteToolAsync()` - searches enabled providers in registration order, executes on first match
+- Throw `NotSupportedException` if tool not found in any enabled provider
+
+#### 2.2 Create DocumentationTools Static Class
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/Implementations/DocumentationTools.cs`
+
+**Static Tool Definitions**:
+Define 4 tools as static `LlmToolDefinition` objects with input schemas:
+- `get_feature_documentation` - Get docs for feature (input: feature_name, guild_id)
+- `search_commands` - Search commands (input: query)
+- `get_command_details` - Command details (input: command_name)
+- `list_features` - All available features (input: none)
+
+**Pattern**: Follow examples in `docs/specs/llm-abstraction-architecture.md` for defining tool schemas.
+
+**Static Execution Methods**:
+Each tool has corresponding execution method (e.g., `ExecuteGetFeatureDocumentation`):
+- Accept `JsonElement input` and `ToolContext context`
+- Return `string` (JSON serialized result or error)
+- Validate input, return error object on validation failure
+- Return success object with data
+
+#### 2.3 Implement DocumentationToolProvider
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/Providers/DocumentationToolProvider.cs`
+
+**Implements**: `IToolProvider` interface
 
 **Dependencies**:
 - `IOptions<AssistantOptions>` - for `DocumentationBasePath`, `ReadmePath`
 - `IOptions<ApplicationOptions>` - for base URL
-- `ILogger<DocumentationToolService>`
+- `ILogger<DocumentationToolProvider>`
+
+**Properties**:
+- `Name` = "Documentation"
+- `Description` = "Access bot documentation and command information"
 
 **Implementation**:
+- `GetTools()` - returns 4 tool definitions from DocumentationTools
+- `ExecuteToolAsync(toolName, input, context)` - routes to appropriate DocumentationTools method
 - Read markdown files from `docs/articles/`
 - Parse README.md for command lists
-- Generate guild-specific URLs using `{BASE_URL}/Portal/Soundboard/{GUILD_ID}` pattern
-- Handle file not found gracefully (return ToolExecutionResult with error)
-- Implement timeout via `CancellationTokenSource` (use `ToolExecutionTimeoutMs`)
+- Generate guild-specific URLs using `{BASE_URL}/Guilds/{context.GuildId}/...` pattern
+- Handle file not found gracefully (return ToolExecutionResult with error message)
+- Implement timeout via `CancellationToken`
 
-**Methods**:
-- `GetFeatureDocumentationAsync(featureName, guildId)` - reads `docs/articles/{featureName}.md`
-- `SearchCommandsAsync(query)` - searches README.md and returns matching commands
-- `GetCommandDetailsAsync(commandName)` - returns details for specific command
-- `ListFeaturesAsync()` - lists all `.md` files in `docs/articles/`
-- `GetCachedDocumentationAsync()` - loads files from `CachedDocumentationFiles` for prompt caching
+#### 2.4 Implement UserGuildInfoToolProvider
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/Providers/UserGuildInfoToolProvider.cs`
 
-#### 2.2 Create Repository Implementations
+**Implements**: `IToolProvider` interface
+
+**MVP Scope** (subset of tools):
+- `get_user_profile` - Get user info (username, avatar, roles in guild)
+- `get_guild_info` - Get guild info (name, member count, icon)
+- `get_user_roles` - List user's roles in guild
+
+**Dependencies**:
+- `IUserService` - for user info
+- `IGuildService` - for guild info
+- `ILogger<UserGuildInfoToolProvider>`
+
+**Properties**:
+- `Name` = "UserGuildInfo"
+- `Description` = "Get information about Discord users and guilds"
+
+**Implementation**:
+- Create static tools similar to DocumentationTools
+- Static execution methods validate input and fetch data via injected services
+- Return user/guild data as JSON
+- Handle not found gracefully
+
+#### 2.5 Create Repository Implementations
 **Files to create:**
 - `src/DiscordBot.Infrastructure/Repositories/AssistantGuildSettingsRepository.cs`
 - `src/DiscordBot.Infrastructure/Repositories/AssistantUsageMetricsRepository.cs`
@@ -1019,7 +1296,7 @@ dotnet ef migrations add AddAssistantFeature --project ../DiscordBot.Infrastruct
 
 **Pattern**: Inherit from `Repository<T>`, implement specialized methods
 
-#### 2.3 Implement AssistantGuildSettingsService
+#### 2.6 Implement AssistantGuildSettingsService
 **File**: `src/DiscordBot.Infrastructure/Services/AssistantGuildSettingsService.cs`
 
 **Dependencies**:
@@ -1032,126 +1309,222 @@ dotnet ef migrations add AddAssistantFeature --project ../DiscordBot.Infrastruct
 - `UpdateSettingsAsync()` - updates settings, sets `UpdatedAt = DateTime.UtcNow`
 - `EnableAsync()` / `DisableAsync()` - convenience methods
 
-#### 2.4 Unit Tests for DocumentationToolService
-**File**: `tests/DiscordBot.Infrastructure.Tests/Services/DocumentationToolServiceTests.cs`
+#### 2.7 Unit Tests for Tool Providers
+**Files to create:**
+- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/ToolRegistryTests.cs`
+- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/DocumentationToolProviderTests.cs`
+- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/UserGuildInfoToolProviderTests.cs`
 
-**Test cases**:
+**Test cases for DocumentationToolProvider**:
 - Successfully reads existing feature documentation
 - Returns error for non-existent feature
 - Generates correct guild-specific URLs
-- Handles timeout gracefully
 - Parses README.md correctly
 - Lists all features
-- Caches common documentation
+- Tool definitions have correct schemas
+
+**Test cases for ToolRegistry**:
+- Registers providers correctly
+- GetEnabledTools returns only enabled provider tools
+- ExecuteToolAsync routes to correct provider
+- Throws NotSupportedException for unknown tools
+- Enable/disable toggles work
 
 **Acceptance Criteria**:
 - [ ] All tool methods implemented
 - [ ] File reading works correctly
-- [ ] URL generation includes guild ID
-- [ ] Timeout handled properly
-- [ ] Unit tests pass with >90% coverage
+- [ ] URL generation includes guild context
+- [ ] Tool schemas match LlmToolDefinition
+- [ ] Unit tests pass with >85% coverage
 - [ ] Documentation files are readable
+- [ ] Tool execution returns JSON format
 
 ---
 
-### Phase 3: Claude Integration (4-5 hours)
+### Phase 3: LLM Integration (5-6 hours)
 
-#### 3.1 Implement AssistantService
+#### 3.1 Implement AnthropicLlmClient
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/AnthropicLlmClient.cs`
+
+**Implements**: `ILlmClient` interface
+
+**Dependencies**:
+- `AnthropicClient` from Anthropic.SDK
+- `ILogger<AnthropicLlmClient>`
+
+**Properties**:
+- `ProviderName` = "Anthropic"
+- `SupportsToolUse` = true
+- `SupportsPromptCaching` = true
+
+**Implementation**:
+- `CompleteAsync()` - translates `LlmRequest` to Anthropic `MessageCreateParams`
+- Call `_client.Messages.Create()`
+- Translate response to `LlmResponse`
+- Handle provider-specific token usage including cache metrics
+- Map Anthropic `StopReason` to `LlmStopReason` enum
+
+#### 3.2 Implement AnthropicMessageMapper
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/Anthropic/AnthropicMessageMapper.cs`
+
+**Static Mapper Class**:
+- `MapToLlmRequest(LlmRequest)` → `MessageCreateParams`
+- `MapFromAnthropicResponse(MessageCreateResponse)` → `LlmResponse`
+- Handle message role/content translation
+- Handle tool definitions and tool call mapping
+- Handle cache control headers
+- Handle usage information (including cached tokens)
+
+#### 3.3 Implement AgentRunner
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/AgentRunner.cs`
+
+**Implements**: `IAgentRunner` interface
+
+**Dependencies**:
+- `ILlmClient`
+- `IToolRegistry`
+- `ILogger<AgentRunner>`
+
+**Implementation**:
+- `RunAsync()` - orchestrates agentic loop
+- Initialize conversation with user message
+- Loop:
+  1. Call `ILlmClient.CompleteAsync()` with accumulated messages and enabled tools
+  2. If `StopReason == ToolUse`:
+     - Add assistant response to conversation history
+     - Execute all tool calls via `IToolRegistry.ExecuteToolAsync()`
+     - Add tool results to conversation history
+     - Continue loop (max iterations from context)
+  3. If `StopReason == EndTurn`:
+     - Extract final text response
+     - Return `AgentRunResult` with response, token usage, stop reason
+  4. On error: Return error result with exception details
+- Accumulate token usage across all iterations
+
+#### 3.4 Implement PromptTemplate
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/PromptTemplate.cs`
+
+**Implements**: `IPromptTemplate` interface
+
+**Dependencies**:
+- `ILogger<PromptTemplate>`
+
+**Implementation**:
+- `LoadAsync()` - load file from disk with caching (optional)
+- `Render()` - variable substitution using `{{variable}}` syntax
+- Support nested templates (optional for MVP)
+- Handle missing variables gracefully (replace with empty string or error)
+
+#### 3.5 Implement AssistantService
 **File**: `src/DiscordBot.Infrastructure/Services/AssistantService.cs`
 
 **Dependencies**:
+- `IAgentRunner` - for orchestrating agentic loop
+- `IToolRegistry` - for getting enabled tools
 - `IOptions<AssistantOptions>` - for all configuration
-- `IDocumentationToolService` - for tool execution
 - `IAssistantGuildSettingsService` - for guild settings
 - `IConsentService` - for consent checks
 - `IAssistantUsageMetricsRepository` - for metrics logging
 - `IAssistantInteractionLogRepository` - for interaction logging
 - `IMemoryCache` - for rate limiting (in-memory)
 - `ILogger<AssistantService>`
-- Anthropic SDK client (injected or created from options)
+- `IPromptTemplate` - for loading agent prompt
 
 **Implementation**:
 
-##### 3.1.1 AskQuestionAsync
+##### 3.5.1 AskQuestionAsync
 1. Validate question length (reject if > `MaxQuestionLength`)
 2. Check consent via `IConsentService.HasConsentAsync(userId, ConsentType.AssistantUsage)`
 3. Check rate limit via in-memory cache
-4. Load agent prompt from file (`AgentPromptPath`)
-5. Build Claude request:
-   - System prompt: Agent prompt + cached common docs (if `CacheCommonDocumentation` enabled)
-   - User message: Question
-   - Tools: Define 4 documentation tools
-   - Model, MaxTokens, Temperature from options
-   - Prompt caching: Mark system prompt with `cache_control: ephemeral`
-6. Execute Claude API call with timeout (`ApiTimeoutMs`)
-7. Handle tool calls:
-   - Execute tools via `IDocumentationToolService`
-   - Loop until Claude returns final response (max `MaxToolCallsPerQuestion`)
-8. Truncate response if > `MaxResponseLength`
-9. Calculate cost using token counts and pricing from options
-10. Log interaction via `IAssistantInteractionLogRepository`
-11. Update metrics via `IAssistantUsageMetricsRepository`
-12. Return `AssistantResponseResult`
+4. Check if assistant enabled for guild and channel
+5. Load agent prompt via `IPromptTemplate.LoadAsync()`
+6. Build `AgentContext`:
+   - `SystemPrompt`: Rendered agent prompt
+   - `EnabledTools`: Get from `IToolRegistry.GetEnabledTools()`
+   - `GuildId`, `UserId`, `ChannelId`: From request
+   - `MaxToolCallsPerRun`: From options
+7. Create `ToolContext` for tool execution with discord context
+8. Call `IAgentRunner.RunAsync(question, context)`
+9. Handle agentic loop result:
+   - If error: Log and return error result
+   - If success: Extract response text
+10. Truncate response if > `MaxResponseLength`
+11. Calculate cost using token usage and pricing from options
+12. Log interaction via `IAssistantInteractionLogRepository`
+13. Update metrics via `IAssistantUsageMetricsRepository`
+14. Return `AssistantResponseResult`
 
-##### 3.1.2 Rate Limiting
+##### 3.5.2 Rate Limiting
 - Cache key: `assistant_ratelimit:{guildId}:{userId}`
 - Cache value: List of timestamps (questions asked within window)
 - On check: Remove timestamps older than `RateLimitWindowMinutes`
-- If count >= `DefaultRateLimit` (or `RateLimitOverride`): Deny
+- If count >= `DefaultRateLimit` (or guild's `RateLimitOverride`): Deny
 - Store in `IMemoryCache` with sliding expiration of `RateLimitWindowMinutes`
 - Bypass for users with role >= `RateLimitBypassRole` (check via guild member roles)
 
-##### 3.1.3 Prompt Caching
-- If `EnablePromptCaching` is true:
-  - Mark system prompt content with `cache_control: { type: "ephemeral" }`
-  - Include cached docs from `GetCachedDocumentationAsync()` in system prompt
-  - Cache is valid for 5 minutes (Claude's cache TTL)
-  - Cache is shared globally across all requests
+##### 3.5.3 Prompt Caching
+- If `EnablePromptCaching` is true and `ILlmClient.SupportsPromptCaching`:
+  - Mark system prompt with cache control (provider-specific)
+  - Include cached documentation files in system prompt
+  - Cache hits reuse cached tokens at reduced cost
+  - Cache valid for provider-specific duration (5 min for Anthropic)
 - If caching disabled:
   - Send system prompt normally without cache control
-  - All docs fetched via tools only
+  - All docs fetched via tools on demand
 
-##### 3.1.4 Error Handling
-- API timeout: Retry up to `MaxRetryAttempts` with `RetryDelayMs` delay
-- API error (4xx/5xx): Return `ErrorMessage` to user, log error
-- Tool execution error: Continue with partial data, inform Claude tool failed
-- Empty response: Return `ErrorMessage` to user, log error
+##### 3.5.4 Error Handling
+- Validation errors: Return early with user-friendly message
+- Consent denied: Return rate limit-style message prompting `/consent`
+- Rate limited: Return message with retry time
+- Agent error: Log full error, return ErrorMessage from options
+- Empty response: Log and return ErrorMessage from options
+- Tool execution error: Agent continues with error context, returns best-effort response
 
-#### 3.2 Update ConsentService
-**File**: Check if `ConsentService` exists in Infrastructure, or if consent logic is elsewhere
+#### 3.6 Unit Tests for LLM Components
+**Files to create:**
+- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/AnthropicLlmClientTests.cs`
+- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/AnthropicMessageMapperTests.cs`
+- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/AgentRunnerTests.cs`
+- `tests/DiscordBot.Infrastructure.Tests/Services/AssistantServiceTests.cs`
 
-**Changes**:
-- Ensure `HasConsentAsync()` supports `ConsentType.AssistantUsage`
-- No changes needed if consent service is generic
+**Test cases for AnthropicLlmClient**:
+- Maps LlmRequest to MessageCreateParams correctly
+- Maps response back to LlmResponse with token usage
+- Handles tool use responses properly
+- Handles end-turn responses
+- Includes cache metrics when available
 
-#### 3.3 Unit Tests for AssistantService
-**File**: `tests/DiscordBot.Infrastructure.Tests/Services/AssistantServiceTests.cs`
+**Test cases for AgentRunner**:
+- Single-turn conversation (no tools) returns final response
+- Multi-turn conversation with tools executes correctly
+- Accumulates token usage across iterations
+- Respects max tool calls limit
+- Handles tool execution errors gracefully
 
-**Test cases**:
-- Successfully processes question and returns response
+**Test cases for AssistantService**:
+- Successfully processes question via agent runner
 - Rejects question when user lacks consent
-- Enforces rate limiting
+- Enforces rate limiting correctly
 - Bypasses rate limit for admins
 - Truncates long responses
-- Calculates cost correctly
-- Logs interactions
-- Updates metrics
-- Handles API errors gracefully
-- Executes tools correctly
-- Implements prompt caching
+- Calculates cost correctly from token usage
+- Logs interactions with full details
+- Updates metrics with aggregated data
+- Handles agent runner errors gracefully
+- Enables/disables per guild
 
-**Mock dependencies**: Claude API client, repositories, cache, consent service
+**Mock dependencies**: ILlmClient, IToolRegistry, repositories, cache, consent service, prompt template
 
 **Acceptance Criteria**:
-- [ ] All service methods implemented
-- [ ] Rate limiting works correctly
-- [ ] Consent checks functional
-- [ ] Claude API calls succeed
-- [ ] Tool execution works
-- [ ] Prompt caching implemented
-- [ ] Metrics and logging functional
+- [ ] All LLM abstraction interfaces implemented
+- [ ] Message mapping works bidirectionally
+- [ ] Agentic loop handles tool use cycles correctly
+- [ ] Assistant service delegates to agent runner
+- [ ] Rate limiting enforced and logged
+- [ ] Consent checks block non-consented users
+- [ ] Cost calculation uses actual token counts
 - [ ] Unit tests pass with >80% coverage
-- [ ] Integration test with real Claude API (optional)
+- [ ] No direct Anthropic SDK calls outside AnthropicLlmClient
 
 ---
 
@@ -1652,6 +2025,37 @@ dotnet ef database update --project ../DiscordBot.Infrastructure --startup-proje
 ### New Files to Create
 
 #### Core Layer (`src/DiscordBot.Core`)
+
+**LLM Abstraction Interfaces**:
+```
+Interfaces/LLM/
+  ILlmClient.cs
+  IAgentRunner.cs
+  IToolProvider.cs
+  IToolRegistry.cs
+  IPromptTemplate.cs
+```
+
+**LLM DTOs & Enums**:
+```
+DTOs/LLM/
+  LlmMessage.cs
+  LlmRequest.cs
+  LlmResponse.cs
+  LlmToolDefinition.cs
+  LlmToolCall.cs
+  LlmToolResult.cs
+  LlmUsage.cs
+  AgentContext.cs
+  AgentRunResult.cs
+  ToolContext.cs
+
+DTOs/LLM/Enums/
+  LlmRole.cs
+  LlmStopReason.cs
+```
+
+**Assistant Domain**:
 ```
 Entities/
   AssistantGuildSettings.cs
@@ -1665,11 +2069,11 @@ DTOs/
 
 Interfaces/
   IAssistantService.cs
-  IDocumentationToolService.cs
   IAssistantGuildSettingsService.cs
   IAssistantGuildSettingsRepository.cs
   IAssistantUsageMetricsRepository.cs
   IAssistantInteractionLogRepository.cs
+  IDocumentationToolService.cs (DEPRECATED - marked Obsolete)
 
 Configuration/
   AssistantOptions.cs (ALREADY EXISTS)
@@ -1679,11 +2083,33 @@ Enums/
 ```
 
 #### Infrastructure Layer (`src/DiscordBot.Infrastructure`)
+
+**LLM Abstraction Implementations**:
+```
+Services/LLM/
+  ToolRegistry.cs
+  AgentRunner.cs
+  PromptTemplate.cs
+
+Services/LLM/Implementations/
+  DocumentationTools.cs
+  UserGuildInfoTools.cs
+
+Services/LLM/Providers/
+  DocumentationToolProvider.cs
+  UserGuildInfoToolProvider.cs
+
+Services/LLM/Anthropic/
+  AnthropicLlmClient.cs
+  AnthropicMessageMapper.cs
+```
+
+**Assistant Service & Repositories**:
 ```
 Services/
   AssistantService.cs
-  DocumentationToolService.cs
   AssistantGuildSettingsService.cs
+  DocumentationToolService.cs (DEPRECATED - use DocumentationToolProvider instead)
 
 Repositories/
   AssistantGuildSettingsRepository.cs
@@ -1748,7 +2174,16 @@ docs/agents/
   assistant-agent.md (ALREADY EXISTS)
 ```
 
-**Total**: ~35 new files, ~10 files to update
+**Total**: ~50 new files, ~15 files to update
+
+**Summary by Type**:
+- LLM Abstraction Interfaces: 5 files
+- LLM DTOs & Enums: 12 files
+- Tool System (implementations & providers): 4 files
+- Assistant Service & Repositories: 7 files
+- Bot Integration (handlers, pages, etc): 8 files
+- Configuration Files: 3 files
+- Tests: 12 files (organized by layer)
 
 ---
 
@@ -1959,6 +2394,36 @@ See Phase 6.3 Manual Testing Checklist
 - Update ConsentModule in same commit
 - Test consent flow manually before deployment
 - Document consent requirement in Privacy page
+
+#### Risk: Abstraction Layer Complexity
+**Likelihood**: Medium
+**Impact**: Low-Medium
+**Mitigation**:
+- Keep interfaces simple and focused (5 core interfaces)
+- Thorough unit testing of each layer
+- Document abstraction boundaries clearly in specs
+- Use dependency injection to inject interfaces, reducing coupling
+- Implementation-agnostic tests (mock ILlmClient, etc)
+
+#### Risk: Provider-Specific Features Lost in Abstraction
+**Likelihood**: Low
+**Impact**: Medium
+**Mitigation**:
+- `ILlmClient` exposes capability flags: `SupportsToolUse`, `SupportsPromptCaching`
+- Provider-specific optimizations check capabilities at runtime
+- Fallback behaviors for missing features (e.g., no caching if provider doesn't support)
+- Anthropic-specific features use `AnthropicLlmClient` directly for advanced needs
+- Future provider implementations can selectively support subsets of features
+
+#### Risk: DTOs Mismatch Between Providers
+**Likelihood**: Low
+**Impact**: Medium
+**Mitigation**:
+- Define LLM DTOs as provider-agnostic baseline
+- Provider mappers (AnthropicMessageMapper) handle translation
+- Unit tests verify bidirectional mapping correctness
+- Document mapping assumptions and edge cases
+- Use discriminated unions or factory methods for provider-specific response variants
 
 ---
 
