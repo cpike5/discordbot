@@ -46,8 +46,12 @@
     /* Accent colors */
     --color-accent-blue: #098ecf;
     --color-accent-blue-hover: #0ba3ea;
+    --color-accent-blue-active: #0778ab;
+    --color-accent-blue-muted: rgba(9, 142, 207, 0.2);
     --color-accent-orange: #cb4e1b;
     --color-accent-orange-hover: #e5591f;
+    --color-accent-orange-active: #b3440f;
+    --color-accent-orange-muted: rgba(203, 78, 27, 0.2);
 
     /* Semantic colors */
     --color-success: #10b981;
@@ -68,6 +72,69 @@
     --z-fixed: 300;
     --z-popover: 350;
     --z-notification: 400;
+  }
+
+  /* ============================================
+     PURPLE DUSK THEME
+     Light theme with warm beige backgrounds
+     and purple/pink accent colors
+     ============================================ */
+  [data-theme="purple-dusk"] {
+    /* Background colors - warm beige palette */
+    --color-bg-primary: #E8E3DF;
+    --color-bg-secondary: #DAD4D0;
+    --color-bg-tertiary: #CCC5C0;
+    --color-bg-hover: #C0B8B2;
+
+    /* Text colors - deep purple palette */
+    --color-text-primary: #4F214A;
+    --color-text-secondary: #614978;
+    --color-text-tertiary: #887A99;
+    --color-text-placeholder: #9A8DA8;
+
+    /* Orange → Purple mapping (primary accent)
+       Maps existing accent-orange classes to purple */
+    --color-accent-orange: #614978;
+    --color-accent-orange-hover: #7A5C8F;
+    --color-accent-orange-active: #4F214A;
+    --color-accent-orange-muted: rgba(97, 73, 120, 0.2);
+
+    /* Blue → Pink mapping (secondary accent)
+       Maps existing accent-blue classes to pink */
+    --color-accent-blue: #D5345B;
+    --color-accent-blue-hover: #E5476D;
+    --color-accent-blue-active: #B82A4D;
+    --color-accent-blue-muted: rgba(213, 52, 91, 0.2);
+
+    /* Semantic colors - slightly adjusted for light background */
+    --color-success: #059669;
+    --color-warning: #D97706;
+    --color-error: #DC2626;
+    --color-info: #0891B2;
+
+    /* Border colors - light theme appropriate */
+    --color-border-primary: #C0B8B2;
+    --color-border-secondary: #DAD4D0;
+    --color-border-focus: #614978;
+
+    /* Discord brand colors remain consistent */
+    --color-discord: #5865F2;
+    --color-discord-hover: #4752C4;
+
+    /* Glass effect overrides for light theme */
+    --color-glass-bg: rgba(218, 212, 208, 0.6);
+    --color-glass-bg-hover: rgba(204, 197, 192, 0.7);
+    --color-glass-bg-active: rgba(192, 184, 178, 0.8);
+    --color-glass-border: rgba(192, 184, 178, 0.8);
+    --color-glass-border-hover: rgba(97, 73, 120, 0.5);
+
+    /* Status colors adjusted for light background */
+    --color-status-active: #059669;
+    --color-status-active-bg: rgba(5, 150, 105, 0.15);
+    --color-status-active-border: rgba(5, 150, 105, 0.35);
+    --color-status-inactive: #6B7280;
+    --color-status-inactive-bg: rgba(107, 114, 128, 0.15);
+    --color-status-inactive-border: rgba(107, 114, 128, 0.35);
   }
 
   /* Button base class */
@@ -163,7 +230,8 @@
     @apply cursor-pointer transition-all duration-200 ease-in-out;
   }
   .card-interactive:hover {
-    @apply border-accent-blue -translate-y-0.5 shadow-md shadow-accent-blue/15;
+    @apply border-accent-blue -translate-y-0.5 shadow-md;
+    box-shadow: 0 4px 6px -1px rgba(9, 142, 207, 0.15);
   }
 
   /* Enhanced Card - Dashboard Redesign */
@@ -369,7 +437,8 @@
     @apply text-text-primary bg-bg-hover;
   }
   .navbar-link.active {
-    @apply text-accent-orange bg-accent-orange/10;
+    @apply text-accent-orange;
+    background-color: var(--color-accent-orange-muted);
   }
 
   .navbar-actions {
@@ -393,7 +462,8 @@
     @apply text-text-primary bg-bg-hover;
   }
   .sidebar-link.active {
-    @apply text-text-primary bg-accent-orange/15 border-l-[3px] border-accent-orange;
+    @apply text-text-primary border-l-[3px] border-accent-orange;
+    background-color: rgba(203, 78, 27, 0.15);
   }
   .sidebar-link-disabled {
     @apply opacity-50 cursor-not-allowed;
@@ -595,7 +665,8 @@
 
   /* Sidebar mobile transform */
   .sidebar-overlay {
-    @apply fixed inset-0 bg-black/50 lg:hidden;
+    @apply fixed inset-0 lg:hidden;
+    background-color: rgba(0, 0, 0, 0.5);
     z-index: 299;
   }
 
@@ -768,7 +839,8 @@
 
   /* Connection Status Indicator */
   #connection-status[data-state="connected"] {
-    @apply bg-success/10 text-success;
+    @apply text-success;
+    background-color: rgba(16, 185, 129, 0.1);
   }
   #connection-status[data-state="connected"] .connection-dot {
     @apply bg-success;
@@ -781,7 +853,8 @@
 
   #connection-status[data-state="connecting"],
   #connection-status[data-state="reconnecting"] {
-    @apply bg-warning/10 text-warning;
+    @apply text-warning;
+    background-color: rgba(245, 158, 11, 0.1);
   }
   #connection-status[data-state="connecting"] .connection-dot,
   #connection-status[data-state="reconnecting"] .connection-dot {
@@ -790,7 +863,8 @@
   }
 
   #connection-status[data-state="disconnected"] {
-    @apply bg-error/10 text-error;
+    @apply text-error;
+    background-color: rgba(239, 68, 68, 0.1);
   }
   #connection-status[data-state="disconnected"] .connection-dot {
     @apply bg-error;
