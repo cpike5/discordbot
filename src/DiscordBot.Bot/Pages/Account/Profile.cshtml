@@ -1,0 +1,144 @@
+@page
+@model ProfileModel
+@{
+    ViewData["Title"] = "Profile";
+}
+
+<!-- Page Header -->
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-text-primary mb-2">Profile</h1>
+    <p class="text-text-secondary">Manage your personal preferences</p>
+</div>
+
+<!-- Status Message -->
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="mb-6 p-4 rounded-lg flex items-start gap-3 @(Model.IsSuccess ? "bg-success-bg border border-success-border" : "bg-error-bg border border-error-border")" role="alert">
+        @if (Model.IsSuccess)
+        {
+            <!-- Success Icon -->
+            <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+        }
+        else
+        {
+            <!-- Error Icon -->
+            <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+        }
+        <div>
+            <p class="text-sm font-semibold @(Model.IsSuccess ? "text-success" : "text-error")">
+                @(Model.IsSuccess ? "Success" : "Error")
+            </p>
+            <p class="text-sm @(Model.IsSuccess ? "text-success" : "text-error") mt-1">
+                @Model.StatusMessage
+            </p>
+        </div>
+    </div>
+}
+
+<!-- User Info Card -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg mb-6">
+    <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-semibold text-lg">
+            @(string.Join("", Model.DisplayName.Split(' ').Take(2).Select(w => w.FirstOrDefault())).ToUpper())
+        </div>
+        <div>
+            <h2 class="text-lg font-semibold text-text-primary">@Model.DisplayName</h2>
+            @if (!string.IsNullOrEmpty(Model.Email))
+            {
+                <p class="text-sm text-text-secondary">@Model.Email</p>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Theme Preferences Card -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg">
+    <div class="px-6 py-4 border-b border-border-primary">
+        <h3 class="text-lg font-semibold text-text-primary">Theme Preferences</h3>
+        <p class="text-sm text-text-secondary mt-1">Choose your preferred color scheme</p>
+    </div>
+
+    <form method="post" class="p-6">
+        @Html.AntiForgeryToken()
+
+        <div class="space-y-4">
+            <!-- Theme Selector -->
+            <div>
+                <label for="SelectedThemeId" class="block text-sm font-medium text-text-primary mb-2">
+                    Theme Preference
+                </label>
+                <select asp-for="SelectedThemeId"
+                        asp-items="Model.AvailableThemes"
+                        class="w-full max-w-md px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-text-primary text-sm focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                        required>
+                    <option value="">Select a theme...</option>
+                </select>
+                <span asp-validation-for="SelectedThemeId" class="text-sm text-error mt-1"></span>
+                <p class="text-xs text-text-tertiary mt-2">
+                    Choose your preferred color scheme for the admin interface.
+                </p>
+            </div>
+
+            <!-- Current Theme Info -->
+            @if (!string.IsNullOrEmpty(Model.CurrentThemeName))
+            {
+                <div class="p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-medium text-text-primary">Current theme:</span>
+                        <span class="text-sm text-text-secondary">@Model.CurrentThemeName</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-text-tertiary">Source:</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium @GetSourceBadgeClasses(Model.CurrentThemeSource)">
+                            @Model.CurrentThemeSource.ToString()
+                        </span>
+                    </div>
+                </div>
+            }
+
+            <!-- Submit Button -->
+            <div class="pt-4">
+                <button type="submit"
+                        class="inline-flex items-center justify-center gap-2 py-2.5 px-6 text-sm font-semibold text-white bg-accent-purple border border-accent-purple rounded-md transition-colors hover:bg-accent-purple-hover hover:border-accent-purple-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-purple focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Preferences
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Additional Info -->
+<div class="mt-6 p-4 bg-info-bg border border-info-border rounded-md">
+    <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+        </svg>
+        <div class="text-sm text-info">
+            <p class="font-semibold mb-1">About Theme Preferences</p>
+            <p class="text-info/90">
+                Your theme preference is saved to your account and will be applied across all devices when you're signed in.
+                If you haven't set a preference, the system default theme will be used.
+            </p>
+        </div>
+    </div>
+</div>
+
+@functions {
+    private string GetSourceBadgeClasses(DiscordBot.Core.DTOs.ThemeSource source)
+    {
+        return source switch
+        {
+            DiscordBot.Core.DTOs.ThemeSource.User => "bg-success-bg text-success border border-success-border",
+            DiscordBot.Core.DTOs.ThemeSource.Admin => "bg-info-bg text-info border border-info-border",
+            DiscordBot.Core.DTOs.ThemeSource.System => "bg-bg-tertiary text-text-secondary border border-border-primary",
+            _ => "bg-bg-tertiary text-text-secondary border border-border-primary"
+        };
+    }
+}

@@ -393,6 +393,7 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 | Error 404 | `/Error/404` | Not found error page |
 | Error 500 | `/Error/500` | Server error page |
 | Privacy | `/Account/Privacy` | Privacy information |
+| Profile | `/Account/Profile` | User profile and theme preferences |
 | Account Lockout | `/Account/Lockout` | Account lockout page |
 | Access Denied | `/Account/AccessDenied` | Access denied page |
 
