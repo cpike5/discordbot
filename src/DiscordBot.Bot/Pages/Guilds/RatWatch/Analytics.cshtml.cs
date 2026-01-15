@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 /// Displays analytics metrics, charts, and leaderboards for a specific guild.
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
+[Authorize(Policy = "GuildAccess")]
 public class AnalyticsModel : PageModel
 {
     private readonly IRatWatchRepository _ratWatchRepository;

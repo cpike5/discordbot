@@ -14,6 +14,7 @@ namespace DiscordBot.Bot.Pages.Guilds;
 /// Page model for displaying detailed guild information.
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
+[Authorize(Policy = "GuildAccess")]
 public class DetailsModel : PageModel
 {
     private readonly IGuildService _guildService;

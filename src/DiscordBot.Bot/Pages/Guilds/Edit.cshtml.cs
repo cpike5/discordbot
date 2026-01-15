@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds;
 /// Page model for editing guild settings.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class EditModel : PageModel
 {
     private readonly IGuildService _guildService;

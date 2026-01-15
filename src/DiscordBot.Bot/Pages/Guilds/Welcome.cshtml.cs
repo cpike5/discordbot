@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Pages.Guilds;
 /// Page model for managing welcome configuration for a guild.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class WelcomeModel : PageModel
 {
     private readonly IWelcomeService _welcomeService;

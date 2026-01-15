@@ -12,7 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Reminders;
 /// Page model for the Reminders admin page.
 /// Displays reminders for a guild with pagination and filtering.
 /// </summary>
-[Authorize(Policy = "RequireGuildAccess")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly IReminderRepository _reminderRepository;

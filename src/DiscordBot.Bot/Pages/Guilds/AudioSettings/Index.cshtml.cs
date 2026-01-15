@@ -14,6 +14,7 @@ namespace DiscordBot.Bot.Pages.Guilds.AudioSettings;
 /// Allows administrators to configure audio and soundboard settings for a guild.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly IGuildAudioSettingsService _audioSettingsService;

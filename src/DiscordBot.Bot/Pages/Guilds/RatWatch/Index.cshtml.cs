@@ -11,6 +11,7 @@ namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 /// Displays watches, settings, and leaderboard for a guild.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly IRatWatchService _ratWatchService;

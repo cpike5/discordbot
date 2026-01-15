@@ -17,6 +17,7 @@ namespace DiscordBot.Bot.Pages.Guilds.TextToSpeech;
 /// Displays TTS settings, statistics, and recent messages for a guild.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly ITtsHistoryService _ttsHistoryService;

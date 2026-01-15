@@ -12,6 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds.FlaggedEvents;
 /// Displays auto-detected moderation events with filtering and bulk actions.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
 public class IndexModel : PageModel
 {
     private readonly IFlaggedEventService _flaggedEventService;

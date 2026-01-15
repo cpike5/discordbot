@@ -11,6 +11,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Analytics;
 /// Displays engagement metrics, message trends, channel analytics, and new member retention.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
+[Authorize(Policy = "GuildAccess")]
 public class EngagementModel : PageModel
 {
     private readonly IEngagementAnalyticsService _engagementAnalyticsService;
