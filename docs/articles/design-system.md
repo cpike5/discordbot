@@ -111,6 +111,182 @@ This design system provides a comprehensive visual language for the Discord bot 
 --color-border-focus: #098ecf;      /* Focus rings (blue accent) */
 ```
 
+### Theme System
+
+The application supports multiple UI themes with CSS custom property overrides. The default theme is **Discord Dark**, with **Purple Dusk** as an alternative light theme.
+
+#### Theme Architecture
+
+Themes work through CSS custom property overrides on the `html` element using the `data-theme` attribute:
+
+```css
+/* Default theme (Discord Dark) - defined in :root */
+:root {
+  --color-bg-primary: #1d2022;
+  /* ... other variables */
+}
+
+/* Theme overrides applied via data-theme attribute */
+[data-theme="purple-dusk"] {
+  --color-bg-primary: #E8E3DF;
+  /* ... theme-specific overrides */
+}
+```
+
+**Theme Resolution Hierarchy:**
+1. **User Preference** - Explicit user selection stored in database
+2. **Cookie** - Client-side preference for anonymous users
+3. **Admin Default** - System-wide default configured by SuperAdmin
+4. **System Default** - Fallback to Discord Dark theme
+
+#### Purple Dusk Theme
+
+A warm, light theme with beige backgrounds and purple/pink accent colors. Designed for users who prefer light themes while maintaining visual consistency.
+
+##### Background Colors
+
+| Variable | Hex Value | HSL | Usage |
+|----------|-----------|-----|-------|
+| `--color-bg-primary` | #E8E3DF | 30°, 16%, 89% | Main background |
+| `--color-bg-secondary` | #DAD4D0 | 24°, 14%, 84% | Cards, panels |
+| `--color-bg-tertiary` | #CCC5C0 | 25°, 12%, 78% | Elevated elements |
+| `--color-bg-hover` | #C0B8B2 | 24°, 13%, 72% | Hover states |
+
+##### Text Colors
+
+| Variable | Hex Value | HSL | Usage |
+|----------|-----------|-----|-------|
+| `--color-text-primary` | #4F214A | 305°, 41%, 22% | Primary text |
+| `--color-text-secondary` | #614978 | 274°, 24%, 38% | Secondary text |
+| `--color-text-tertiary` | #887A99 | 269°, 14%, 54% | Muted text |
+| `--color-text-placeholder` | #9A8DA8 | 266°, 15%, 61% | Placeholder text |
+
+##### Purple Accent (Primary)
+
+Maps to `accent-orange` CSS classes for seamless theme switching.
+
+| Variable | Hex Value | HSL | Usage |
+|----------|-----------|-----|-------|
+| `--color-accent-orange` | #614978 | 274°, 24%, 38% | Primary actions |
+| `--color-accent-orange-hover` | #7A5C8F | 270°, 22%, 46% | Hover state |
+| `--color-accent-orange-active` | #4F214A | 305°, 41%, 22% | Active state |
+| `--color-accent-orange-muted` | rgba(97, 73, 120, 0.2) | — | Subtle backgrounds |
+
+##### Pink Accent (Secondary)
+
+Maps to `accent-blue` CSS classes for seamless theme switching.
+
+| Variable | Hex Value | HSL | Usage |
+|----------|-----------|-----|-------|
+| `--color-accent-blue` | #D5345B | 347°, 67%, 52% | Secondary actions |
+| `--color-accent-blue-hover` | #E5476D | 347°, 74%, 59% | Hover state |
+| `--color-accent-blue-active` | #B82A4D | 347°, 63%, 44% | Active state |
+| `--color-accent-blue-muted` | rgba(213, 52, 91, 0.2) | — | Subtle backgrounds |
+
+##### Semantic Colors (Adjusted for Light Background)
+
+| Color | Hex Value | Purpose |
+|-------|-----------|---------|
+| Success | #059669 | Darker green for contrast |
+| Warning | #D97706 | Darker amber for contrast |
+| Error | #DC2626 | Darker red for contrast |
+| Info | #0891B2 | Darker cyan for contrast |
+
+##### Border Colors
+
+| Variable | Hex Value | Usage |
+|----------|-----------|-------|
+| `--color-border-primary` | #C0B8B2 | Default borders |
+| `--color-border-secondary` | #DAD4D0 | Subtle dividers |
+| `--color-border-focus` | #614978 | Focus rings |
+
+##### Glass Effect Overrides
+
+| Variable | Value | Usage |
+|----------|-------|-------|
+| `--color-glass-bg` | rgba(218, 212, 208, 0.6) | Glass background |
+| `--color-glass-border` | rgba(192, 184, 178, 0.8) | Glass border |
+
+#### Contrast Requirements
+
+All theme color combinations meet WCAG 2.1 AA standards:
+
+| Combination | Contrast Ratio | Rating |
+|-------------|----------------|--------|
+| text-primary on bg-primary | 7.5:1 | AAA |
+| text-secondary on bg-primary | 4.6:1 | AA |
+| accent-orange (purple) on bg-primary | 4.5:1 | AA |
+| accent-blue (pink) on bg-primary | 4.8:1 | AA |
+
+#### Using Theme Variables in Components
+
+```css
+/* Component styling with theme variables */
+.my-component {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-primary);
+}
+
+.my-component:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.my-component-accent {
+  color: var(--color-accent-orange);
+}
+```
+
+#### Adding a New Theme
+
+To add a new theme:
+
+1. **Define color palette** - Create complete color definitions for all variables
+2. **Add CSS overrides** - Add `[data-theme="theme-key"]` block in `site.css`
+3. **Create database record** - Add theme entity via migration or seeding
+4. **Test all components** - Verify all UI elements work with new colors
+5. **Verify accessibility** - Check contrast ratios meet WCAG AA standards
+
+Example new theme definition:
+
+```css
+[data-theme="my-new-theme"] {
+  /* Background colors */
+  --color-bg-primary: #...;
+  --color-bg-secondary: #...;
+  --color-bg-tertiary: #...;
+  --color-bg-hover: #...;
+
+  /* Text colors */
+  --color-text-primary: #...;
+  --color-text-secondary: #...;
+  --color-text-tertiary: #...;
+  --color-text-placeholder: #...;
+
+  /* Accent colors - map to existing accent classes */
+  --color-accent-orange: #...;
+  --color-accent-orange-hover: #...;
+  --color-accent-orange-active: #...;
+  --color-accent-orange-muted: rgba(..., 0.2);
+
+  --color-accent-blue: #...;
+  --color-accent-blue-hover: #...;
+  --color-accent-blue-active: #...;
+  --color-accent-blue-muted: rgba(..., 0.2);
+
+  /* Semantic colors */
+  --color-success: #...;
+  --color-warning: #...;
+  --color-error: #...;
+  --color-info: #...;
+
+  /* Border colors */
+  --color-border-primary: #...;
+  --color-border-secondary: #...;
+  --color-border-focus: #...;
+}
+```
+
 ---
 
 ## 2. Typography

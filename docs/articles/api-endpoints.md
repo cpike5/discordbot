@@ -109,6 +109,10 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/autocomplete/guilds` | GET | Search guilds by name |
 | `/api/autocomplete/channels` | GET | Search channels by name within a guild |
 | `/api/autocomplete/commands` | GET | Search registered commands by name |
+| `/api/theme/available` | GET | List all active themes |
+| `/api/theme/current` | GET | Get user's current effective theme |
+| `/api/theme/user` | POST | Set user's theme preference |
+| `/api/theme/default` | POST | Set system default theme (SuperAdmin) |
 
 ---
 
@@ -4074,6 +4078,191 @@ Id,DiscordMessageId,AuthorId,AuthorUsername,ChannelId,ChannelName,GuildId,GuildN
   "traceId": "00-abc123-def456-00"
 }
 ```
+
+---
+
+## Theme API Endpoints
+
+The Theme API enables theme preference management for users and administrators. Themes are applied via CSS custom properties with a `data-theme` attribute on the HTML element.
+
+**Authentication:** All theme endpoints require authentication.
+
+### GET /api/theme/available
+
+Returns all active themes available for selection.
+
+**Authorization:** Authenticated users
+
+**Response: 200 OK**
+
+```json
+[
+  {
+    "id": 1,
+    "themeKey": "discord-dark",
+    "displayName": "Discord Dark",
+    "description": "Default dark theme inspired by Discord's interface",
+    "colorDefinition": "{\"bgPrimary\":\"#1d2022\",\"bgSecondary\":\"#262a2d\",...}",
+    "isActive": true
+  },
+  {
+    "id": 2,
+    "themeKey": "purple-dusk",
+    "displayName": "Purple Dusk",
+    "description": "Light theme with warm beige backgrounds and purple/pink accents",
+    "colorDefinition": "{\"bgPrimary\":\"#E8E3DF\",\"bgSecondary\":\"#DAD4D0\",...}",
+    "isActive": true
+  }
+]
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Unique theme identifier |
+| `themeKey` | string | Programmatic key for the theme (e.g., "discord-dark") |
+| `displayName` | string | Human-readable theme name |
+| `description` | string? | Optional description of the theme |
+| `colorDefinition` | string | JSON object with color palette definitions |
+| `isActive` | boolean | Whether the theme is available for selection |
+
+---
+
+### GET /api/theme/current
+
+Returns the current user's effective theme with its source.
+
+**Authorization:** Authenticated users
+
+**Response: 200 OK**
+
+```json
+{
+  "theme": {
+    "id": 1,
+    "themeKey": "discord-dark",
+    "displayName": "Discord Dark",
+    "description": "Default dark theme inspired by Discord's interface",
+    "colorDefinition": "{...}",
+    "isActive": true
+  },
+  "source": "User"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `theme` | ThemeDto | The effective theme |
+| `source` | string | Source of the theme preference |
+
+**Source Values:**
+
+| Value | Description |
+|-------|-------------|
+| `User` | User explicitly selected this theme |
+| `Admin` | Theme is the admin-configured default |
+| `System` | Theme is the system-wide fallback default |
+
+**Response: 401 Unauthorized**
+
+Returned when the request is not authenticated.
+
+---
+
+### POST /api/theme/user
+
+Sets the current user's theme preference. Also sets a cookie for server-side rendering on subsequent page loads.
+
+**Authorization:** Authenticated users
+
+**Request Body:**
+
+```json
+{
+  "themeId": 2
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `themeId` | integer? | No | Theme ID to set, or null to clear preference |
+
+**Response: 200 OK**
+
+```json
+{
+  "themeKey": "purple-dusk",
+  "message": "Theme preference updated successfully"
+}
+```
+
+**Response: 200 OK (clearing preference)**
+
+When `themeId` is null, clears the user's preference and returns the default theme:
+
+```json
+{
+  "themeKey": "discord-dark",
+  "message": "Theme preference cleared"
+}
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "statusCode": 400,
+  "message": "Theme not found or not available"
+}
+```
+
+**Response: 401 Unauthorized**
+
+Returned when the request is not authenticated.
+
+---
+
+### POST /api/theme/default
+
+Sets the system default theme. Only SuperAdmins can modify the default theme.
+
+**Authorization:** SuperAdmin only
+
+**Request Body:**
+
+```json
+{
+  "themeId": 1
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `themeId` | integer | Yes | Theme ID to set as system default |
+
+**Response: 200 OK**
+
+```json
+{
+  "message": "System default theme updated successfully"
+}
+```
+
+**Response: 400 Bad Request**
+
+```json
+{
+  "statusCode": 400,
+  "message": "Theme not found or not available"
+}
+```
+
+**Response: 403 Forbidden**
+
+Returned when the user does not have SuperAdmin role.
 
 ---
 
