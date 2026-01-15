@@ -154,6 +154,17 @@ public static class SettingDefinitions
             requiresRestart: false,
             description: "Number of days to retain audit log entries before deletion",
             validation: new { min = 1, max = 365 }
+        ),
+
+        // Appearance Category
+        new(
+            key: "Appearance:DefaultThemeId",
+            displayName: "Default Theme",
+            category: SettingCategory.Appearance,
+            dataType: SettingDataType.Integer,
+            defaultValue: "",
+            requiresRestart: false,
+            description: "Default theme for new users and anonymous visitors (leave empty for Discord Dark)"
         )
     };
 

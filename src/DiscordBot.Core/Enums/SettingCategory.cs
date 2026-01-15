@@ -23,5 +23,10 @@ public enum SettingCategory
     /// <summary>
     /// Advanced/technical settings (debug mode, caching, data retention).
     /// </summary>
-    Advanced
+    Advanced,
+
+    /// <summary>
+    /// Appearance settings (themes, UI preferences).
+    /// </summary>
+    Appearance
 }
