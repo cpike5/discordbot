@@ -1,9 +1,20 @@
+@inject DiscordBot.Core.Interfaces.IThemeService ThemeService
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="@(await ThemeService.GetCurrentThemeKeyAsync())">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Discord Bot Admin</title>
+    <!-- Blocking theme application script - runs before first paint to prevent flash -->
+    <script>
+        (function() {
+            try {
+                var match = document.cookie.match(/theme-preference=([^;]+)/);
+                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
+                if (theme) document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
     <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
@@ -70,6 +81,8 @@
     <script src="~/js/search.js" asp-append-version="true"></script>
     <!-- Preview Popup Module -->
     <script src="~/js/preview-popup.js" asp-append-version="true"></script>
+    <!-- Theme Manager Module -->
+    <script src="~/js/theme.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>

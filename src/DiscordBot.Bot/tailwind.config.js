@@ -8,68 +8,68 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Background layers
+        // Background layers - mapped to CSS variables for theme support
         bg: {
-          primary: '#1d2022',
-          secondary: '#262a2d',
-          tertiary: '#2f3336',
-          hover: '#363a3e',
+          primary: 'var(--color-bg-primary)',
+          secondary: 'var(--color-bg-secondary)',
+          tertiary: 'var(--color-bg-tertiary)',
+          hover: 'var(--color-bg-hover)',
         },
-        // Text colors
+        // Text colors - mapped to CSS variables for theme support
         text: {
-          primary: '#d7d3d0',
-          secondary: '#a8a5a3',
-          tertiary: '#7a7876',
-          placeholder: '#8a8886',
-          inverse: '#1d2022',
+          primary: 'var(--color-text-primary)',
+          secondary: 'var(--color-text-secondary)',
+          tertiary: 'var(--color-text-tertiary)',
+          placeholder: 'var(--color-text-placeholder)',
+          inverse: '#1d2022', // Kept static for specific use cases
         },
-        // Brand accent colors
+        // Brand accent colors - mapped to CSS variables for theme support
         accent: {
           orange: {
-            DEFAULT: '#cb4e1b',
-            hover: '#e5591f',
-            active: '#b04517',
-            muted: '#cb4e1b33',
+            DEFAULT: 'var(--color-accent-orange)',
+            hover: 'var(--color-accent-orange-hover)',
+            active: 'var(--color-accent-orange-active)',
+            muted: 'var(--color-accent-orange-muted)',
           },
           blue: {
-            DEFAULT: '#098ecf',
-            hover: '#0ba3ea',
-            active: '#0879b3',
-            muted: '#098ecf33',
+            DEFAULT: 'var(--color-accent-blue)',
+            hover: 'var(--color-accent-blue-hover)',
+            active: 'var(--color-accent-blue-active)',
+            muted: 'var(--color-accent-blue-muted)',
           },
         },
-        // Semantic colors
+        // Semantic colors - mapped to CSS variables for theme support
         success: {
-          DEFAULT: '#10b981',
+          DEFAULT: 'var(--color-success)',
           bg: '#10b98120',
           border: '#10b98150',
         },
         warning: {
-          DEFAULT: '#f59e0b',
+          DEFAULT: 'var(--color-warning)',
           bg: '#f59e0b20',
           border: '#f59e0b50',
         },
         error: {
-          DEFAULT: '#ef4444',
+          DEFAULT: 'var(--color-error)',
           hover: '#dc2626',
           bg: '#ef444420',
           border: '#ef444450',
         },
         info: {
-          DEFAULT: '#06b6d4',
+          DEFAULT: 'var(--color-info)',
           bg: '#06b6d420',
           border: '#06b6d450',
         },
-        // Border colors
+        // Border colors - mapped to CSS variables for theme support
         border: {
-          primary: '#3f4447',
-          secondary: '#2f3336',
-          focus: '#098ecf',
+          primary: 'var(--color-border-primary)',
+          secondary: 'var(--color-border-secondary)',
+          focus: 'var(--color-border-focus)',
         },
         // Discord brand color
         discord: {
-          DEFAULT: '#5865F2',
-          hover: '#4752C4',
+          DEFAULT: 'var(--color-discord)',
+          hover: 'var(--color-discord-hover)',
         },
       },
       fontFamily: {
