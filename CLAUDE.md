@@ -169,7 +169,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 
 | Doc | Purpose |
 |-----|---------|
-| [design-system.md](docs/articles/design-system.md) | UI tokens, color palette, component specs |
+| [design-system.md](docs/articles/design-system.md) | UI tokens, color palette, theming, component specs |
 | [commands-page.md](docs/articles/commands-page.md) | Commands page feature and metadata service |
 | [command-configuration.md](docs/articles/command-configuration.md) | Command module enable/disable configuration |
 | [settings-page.md](docs/articles/settings-page.md) | Settings page, configuration management, real-time updates |
