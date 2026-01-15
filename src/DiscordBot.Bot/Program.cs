@@ -262,13 +262,16 @@ try
     // Enable static file serving for wwwroot
     app.UseStaticFiles();
 
-    // Enable Swagger in all environments for now (can be restricted to Development later)
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
+    // Enable Swagger only in development environment
+    if (app.Environment.IsDevelopment())
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Discord Bot Management API v1");
-        c.RoutePrefix = "swagger";
-    });
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Discord Bot Management API v1");
+            c.RoutePrefix = "swagger";
+        });
+    }
 
     // Enable authentication and authorization middleware
     app.UseAuthentication();
