@@ -55,6 +55,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<GuildTtsSettings> GuildTtsSettings => Set<GuildTtsSettings>();
     public DbSet<CommandModuleConfiguration> CommandModuleConfigurations => Set<CommandModuleConfiguration>();
     public DbSet<UserActivityEvent> UserActivityEvents => Set<UserActivityEvent>();
+    public DbSet<Theme> Themes => Set<Theme>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

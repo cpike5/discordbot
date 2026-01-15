@@ -47,4 +47,15 @@ public class ApplicationUser : IdentityUser
     /// Null if the user hasn't authenticated with Discord OAuth.
     /// </summary>
     public DiscordOAuthToken? DiscordOAuthToken { get; set; }
+
+    /// <summary>
+    /// Foreign key to the user's preferred theme.
+    /// Null indicates the user uses the system default theme.
+    /// </summary>
+    public int? PreferredThemeId { get; set; }
+
+    /// <summary>
+    /// Navigation property for the user's preferred theme.
+    /// </summary>
+    public Theme? PreferredTheme { get; set; }
 }
