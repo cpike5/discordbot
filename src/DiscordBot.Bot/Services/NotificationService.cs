@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Hubs;
 using DiscordBot.Core.Authorization;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -5,6 +6,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -19,17 +21,20 @@ public class NotificationService : INotificationService
     private readonly INotificationRepository _repository;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly BotDbContext _dbContext;
+    private readonly IHubContext<DashboardHub> _hubContext;
     private readonly ILogger<NotificationService> _logger;
 
     public NotificationService(
         INotificationRepository repository,
         UserManager<ApplicationUser> userManager,
         BotDbContext dbContext,
+        IHubContext<DashboardHub> hubContext,
         ILogger<NotificationService> logger)
     {
         _repository = repository;
         _userManager = userManager;
         _dbContext = dbContext;
+        _hubContext = hubContext;
         _logger = logger;
     }
 
@@ -71,6 +76,9 @@ public class NotificationService : INotificationService
         _logger.LogInformation(
             "Created notification {NotificationId} for user {UserId}: {Title}",
             notification.Id, userId, title);
+
+        // Broadcast notification to the user via SignalR
+        await BroadcastNotificationToUserAsync(userId, notification, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -121,6 +129,12 @@ public class NotificationService : INotificationService
         _logger.LogInformation(
             "Created {Count} notifications for admins: {Title}",
             notifications.Count, title);
+
+        // Broadcast notifications to each admin user via SignalR
+        foreach (var notification in notifications)
+        {
+            await BroadcastNotificationToUserAsync(notification.UserId, notification, cancellationToken);
+        }
     }
 
     /// <inheritdoc/>
@@ -170,6 +184,12 @@ public class NotificationService : INotificationService
         _logger.LogInformation(
             "Created {Count} notifications for guild {GuildId} admins: {Title}",
             notifications.Count, guildId, title);
+
+        // Broadcast notifications to each guild admin user via SignalR
+        foreach (var notification in notifications)
+        {
+            await BroadcastNotificationToUserAsync(notification.UserId, notification, cancellationToken);
+        }
     }
 
     /// <inheritdoc/>
@@ -323,5 +343,49 @@ public class NotificationService : INotificationService
             return $"{(int)(diff.TotalDays / 7)} week{((int)(diff.TotalDays / 7) == 1 ? "" : "s")} ago";
 
         return createdAt.ToString("MMM d, yyyy");
+    }
+
+    /// <summary>
+    /// Broadcasts a notification and updated count to a specific user via SignalR.
+    /// </summary>
+    /// <param name="userId">The user ID to broadcast to.</param>
+    /// <param name="notification">The notification entity to broadcast.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task BroadcastNotificationToUserAsync(
+        string userId,
+        UserNotification notification,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Map the entity to DTO for transmission
+            var notificationDto = MapToDto(notification);
+
+            // Get updated summary for the user
+            var summary = await _repository.GetUserNotificationSummaryAsync(userId, cancellationToken);
+
+            // Broadcast both the new notification and the updated count
+            await _hubContext.Clients
+                .User(userId)
+                .SendAsync(DashboardHub.OnNotificationReceived, notificationDto, cancellationToken);
+
+            await _hubContext.Clients
+                .User(userId)
+                .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            _logger.LogDebug(
+                "Broadcast notification {NotificationId} to user {UserId}",
+                notification.Id,
+                userId);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't fail the notification creation if broadcast fails
+            _logger.LogWarning(
+                ex,
+                "Failed to broadcast notification {NotificationId} to user {UserId}",
+                notification.Id,
+                userId);
+        }
     }
 }

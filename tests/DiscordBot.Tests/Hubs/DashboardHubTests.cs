@@ -5,6 +5,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.Security.Claims;
@@ -30,6 +31,8 @@ public class DashboardHubTests
     private readonly Mock<IAudioService> _mockAudioService;
     private readonly Mock<IPlaybackService> _mockPlaybackService;
     private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IServiceProvider> _mockServiceProvider;
+    private readonly Mock<INotificationService> _mockNotificationService;
     private readonly Mock<ILogger<DashboardHub>> _mockLogger;
     private readonly Mock<IGroupManager> _mockGroupManager;
     private readonly Mock<HubCallerContext> _mockContext;
@@ -50,9 +53,19 @@ public class DashboardHubTests
         _mockAudioService = new Mock<IAudioService>();
         _mockPlaybackService = new Mock<IPlaybackService>();
         _mockDiscordClient = new Mock<DiscordSocketClient>();
+        _mockServiceProvider = new Mock<IServiceProvider>();
+        _mockNotificationService = new Mock<INotificationService>();
         _mockLogger = new Mock<ILogger<DashboardHub>>();
         _mockGroupManager = new Mock<IGroupManager>();
         _mockContext = new Mock<HubCallerContext>();
+
+        // Setup service provider to return notification service via scope
+        var mockServiceScope = new Mock<IServiceScope>();
+        var mockServiceScopeFactory = new Mock<IServiceScopeFactory>();
+        mockServiceScope.Setup(x => x.ServiceProvider).Returns(_mockServiceProvider.Object);
+        mockServiceScopeFactory.Setup(x => x.CreateScope()).Returns(mockServiceScope.Object);
+        _mockServiceProvider.Setup(x => x.GetService(typeof(IServiceScopeFactory))).Returns(mockServiceScopeFactory.Object);
+        _mockServiceProvider.Setup(x => x.GetService(typeof(INotificationService))).Returns(_mockNotificationService.Object);
 
         _hub = new DashboardHub(
             _mockBotService.Object,
@@ -68,13 +81,15 @@ public class DashboardHubTests
             _mockAudioService.Object,
             _mockPlaybackService.Object,
             _mockDiscordClient.Object,
+            _mockServiceProvider.Object,
             _mockLogger.Object);
 
         // Setup hub context with mocked group manager
         _mockContext.Setup(c => c.ConnectionId).Returns("test-connection-id-123");
         _mockContext.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
-            new Claim(ClaimTypes.Name, "testuser")
+            new Claim(ClaimTypes.Name, "testuser"),
+            new Claim(ClaimTypes.NameIdentifier, "test-user-id-123")
         }, "TestAuth")));
 
         _hub.Context = _mockContext.Object;
@@ -1085,5 +1100,264 @@ public class DashboardHubTests
         result.TotalCommands24h.Should().Be(100);
         result.AvgResponseTimeMs.Should().Be(50.0);
         result.ErrorRate.Should().Be(1.0);
+    }
+
+    // ============================================================================
+    // Notification Methods Tests
+    // ============================================================================
+
+    [Fact]
+    public async Task GetNotificationSummary_ShouldReturnSummary()
+    {
+        // Arrange
+        var expectedSummary = new NotificationSummaryDto
+        {
+            TotalUnread = 5,
+            PerformanceAlertCount = 2,
+            BotStatusCount = 1,
+            GuildEventCount = 1,
+            CommandErrorCount = 1,
+            CriticalCount = 1,
+            WarningCount = 2
+        };
+
+        _mockNotificationService
+            .Setup(s => s.GetSummaryAsync("test-user-id-123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedSummary);
+
+        // Act
+        var result = await _hub.GetNotificationSummary();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.TotalUnread.Should().Be(5);
+        result.PerformanceAlertCount.Should().Be(2);
+        result.CriticalCount.Should().Be(1);
+
+        _mockNotificationService.Verify(
+            s => s.GetSummaryAsync("test-user-id-123", It.IsAny<CancellationToken>()),
+            Times.Once,
+            "Should call notification service with user ID");
+    }
+
+    [Fact]
+    public async Task GetNotificationSummary_WithNoAuthenticatedUser_ShouldReturnEmptySummary()
+    {
+        // Arrange
+        var anonymousContext = new Mock<HubCallerContext>();
+        anonymousContext.Setup(c => c.ConnectionId).Returns("anonymous-connection");
+        anonymousContext.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity())); // Not authenticated
+
+        _hub.Context = anonymousContext.Object;
+
+        // Act
+        var result = await _hub.GetNotificationSummary();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.TotalUnread.Should().Be(0);
+
+        _mockNotificationService.Verify(
+            s => s.GetSummaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Should not call notification service for unauthenticated user");
+    }
+
+    [Fact]
+    public async Task GetNotifications_ShouldReturnNotifications()
+    {
+        // Arrange
+        var expectedNotifications = new List<UserNotificationDto>
+        {
+            new() { Id = Guid.NewGuid(), Title = "Test Alert 1", Message = "Test message 1" },
+            new() { Id = Guid.NewGuid(), Title = "Test Alert 2", Message = "Test message 2" }
+        };
+
+        _mockNotificationService
+            .Setup(s => s.GetUserNotificationsAsync("test-user-id-123", 15, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedNotifications);
+
+        // Act
+        var result = await _hub.GetNotifications();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().HaveCount(2);
+
+        _mockNotificationService.Verify(
+            s => s.GetUserNotificationsAsync("test-user-id-123", 15, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "Should call notification service with default limit");
+    }
+
+    [Fact]
+    public async Task GetNotifications_WithCustomLimit_ShouldPassLimit()
+    {
+        // Arrange
+        _mockNotificationService
+            .Setup(s => s.GetUserNotificationsAsync("test-user-id-123", 10, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<UserNotificationDto>());
+
+        // Act
+        await _hub.GetNotifications(limit: 10);
+
+        // Assert
+        _mockNotificationService.Verify(
+            s => s.GetUserNotificationsAsync("test-user-id-123", 10, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "Should pass custom limit to notification service");
+    }
+
+    [Fact]
+    public async Task GetNotifications_WithNoAuthenticatedUser_ShouldReturnEmpty()
+    {
+        // Arrange
+        var anonymousContext = new Mock<HubCallerContext>();
+        anonymousContext.Setup(c => c.ConnectionId).Returns("anonymous-connection");
+        anonymousContext.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity())); // Not authenticated
+
+        _hub.Context = anonymousContext.Object;
+
+        // Act
+        var result = await _hub.GetNotifications();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().BeEmpty();
+
+        _mockNotificationService.Verify(
+            s => s.GetUserNotificationsAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Should not call notification service for unauthenticated user");
+    }
+
+    [Fact]
+    public async Task MarkNotificationRead_ShouldCallService()
+    {
+        // Arrange
+        var notificationId = Guid.NewGuid();
+
+        // Act
+        await _hub.MarkNotificationRead(notificationId);
+
+        // Assert
+        _mockNotificationService.Verify(
+            s => s.MarkAsReadAsync("test-user-id-123", notificationId, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "Should call notification service to mark notification as read");
+    }
+
+    [Fact]
+    public async Task MarkNotificationRead_WithNoAuthenticatedUser_ShouldNotCallService()
+    {
+        // Arrange
+        var anonymousContext = new Mock<HubCallerContext>();
+        anonymousContext.Setup(c => c.ConnectionId).Returns("anonymous-connection");
+        anonymousContext.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity())); // Not authenticated
+
+        _hub.Context = anonymousContext.Object;
+        var notificationId = Guid.NewGuid();
+
+        // Act
+        await _hub.MarkNotificationRead(notificationId);
+
+        // Assert
+        _mockNotificationService.Verify(
+            s => s.MarkAsReadAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Should not call notification service for unauthenticated user");
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_ShouldCallService()
+    {
+        // Act
+        await _hub.MarkAllNotificationsRead();
+
+        // Assert
+        _mockNotificationService.Verify(
+            s => s.MarkAllAsReadAsync("test-user-id-123", It.IsAny<CancellationToken>()),
+            Times.Once,
+            "Should call notification service to mark all notifications as read");
+    }
+
+    [Fact]
+    public async Task MarkAllNotificationsRead_WithNoAuthenticatedUser_ShouldNotCallService()
+    {
+        // Arrange
+        var anonymousContext = new Mock<HubCallerContext>();
+        anonymousContext.Setup(c => c.ConnectionId).Returns("anonymous-connection");
+        anonymousContext.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity())); // Not authenticated
+
+        _hub.Context = anonymousContext.Object;
+
+        // Act
+        await _hub.MarkAllNotificationsRead();
+
+        // Assert
+        _mockNotificationService.Verify(
+            s => s.MarkAllAsReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Should not call notification service for unauthenticated user");
+    }
+
+    [Fact]
+    public async Task DismissNotification_ShouldCallService()
+    {
+        // Arrange
+        var notificationId = Guid.NewGuid();
+
+        // Act
+        await _hub.DismissNotification(notificationId);
+
+        // Assert
+        _mockNotificationService.Verify(
+            s => s.DismissAsync("test-user-id-123", notificationId, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "Should call notification service to dismiss notification");
+    }
+
+    [Fact]
+    public async Task DismissNotification_WithNoAuthenticatedUser_ShouldNotCallService()
+    {
+        // Arrange
+        var anonymousContext = new Mock<HubCallerContext>();
+        anonymousContext.Setup(c => c.ConnectionId).Returns("anonymous-connection");
+        anonymousContext.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity())); // Not authenticated
+
+        _hub.Context = anonymousContext.Object;
+        var notificationId = Guid.NewGuid();
+
+        // Act
+        await _hub.DismissNotification(notificationId);
+
+        // Assert
+        _mockNotificationService.Verify(
+            s => s.DismissAsync(It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "Should not call notification service for unauthenticated user");
+    }
+
+    [Fact]
+    public async Task GetNotificationSummary_ShouldLogDebugMessage()
+    {
+        // Arrange
+        _mockNotificationService
+            .Setup(s => s.GetSummaryAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NotificationSummaryDto());
+
+        // Act
+        await _hub.GetNotificationSummary();
+
+        // Assert
+        _mockLogger.Verify(
+            l => l.Log(
+                LogLevel.Debug,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Notification summary requested")),
+                It.IsAny<Exception>(),
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Once,
+            "Should log debug message when notification summary is requested");
     }
 }
