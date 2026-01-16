@@ -66,14 +66,6 @@ public class AssistantMessageHandler
             return;
         }
 
-        // Check if globally enabled
-        if (!_options.GloballyEnabled)
-        {
-            _logger.LogDebug("Assistant feature is globally disabled, ignoring mention in guild {GuildId}",
-                guildChannel.Guild.Id);
-            return;
-        }
-
         var guildId = guildChannel.Guild.Id;
         var channelId = message.Channel.Id;
         var userId = message.Author.Id;
@@ -102,6 +94,20 @@ public class AssistantMessageHandler
             using var scope = _scopeFactory.CreateScope();
             var assistantService = scope.ServiceProvider.GetRequiredService<IAssistantService>();
             var consentRepository = scope.ServiceProvider.GetRequiredService<IUserConsentRepository>();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+
+            // Check if globally enabled (runtime setting with fallback to config)
+            var globallyEnabled = await settingsService.GetSettingValueAsync<bool?>("Assistant:GloballyEnabled")
+                ?? _options.GloballyEnabled;
+            if (!globallyEnabled)
+            {
+                _logger.LogDebug("Assistant feature is globally disabled, ignoring mention in guild {GuildId}",
+                    guildId);
+                activity?.SetTag("assistant.globally_enabled", false);
+                BotActivitySource.SetSuccess(activity);
+                return;
+            }
+            activity?.SetTag("assistant.globally_enabled", true);
 
             // Check if enabled for guild
             if (!await assistantService.IsEnabledForGuildAsync(guildId))
