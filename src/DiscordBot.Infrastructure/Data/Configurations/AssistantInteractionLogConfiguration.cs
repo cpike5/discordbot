@@ -104,15 +104,16 @@ public class AssistantInteractionLogConfiguration : IEntityTypeConfiguration<Ass
         builder.HasIndex(l => l.Timestamp)
             .HasDatabaseName("IX_AssistantInteractionLogs_Timestamp");
 
-        // Relationships with SetNull on delete for both User and Guild
+        // Cascade delete - logs are deleted when parent user or guild is deleted
+        // This matches the pattern in AssistantGuildSettings and AssistantUsageMetrics
         builder.HasOne(l => l.User)
             .WithMany()
             .HasForeignKey(l => l.UserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(l => l.Guild)
             .WithMany()
             .HasForeignKey(l => l.GuildId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -14,6 +14,7 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
 {
     private readonly ILogger<AssistantGuildSettingsService> _logger;
     private readonly IAssistantGuildSettingsRepository _repository;
+    private readonly ISettingsService _settingsService;
     private readonly IOptions<AssistantOptions> _assistantOptions;
 
     /// <summary>
@@ -21,14 +22,17 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
     /// </summary>
     /// <param name="logger">Logger for diagnostic output.</param>
     /// <param name="repository">Repository for guild settings data access.</param>
+    /// <param name="settingsService">Settings service for runtime configuration.</param>
     /// <param name="assistantOptions">Assistant configuration options.</param>
     public AssistantGuildSettingsService(
         ILogger<AssistantGuildSettingsService> logger,
         IAssistantGuildSettingsRepository repository,
+        ISettingsService settingsService,
         IOptions<AssistantOptions> assistantOptions)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _assistantOptions = assistantOptions ?? throw new ArgumentNullException(nameof(assistantOptions));
     }
 
@@ -144,8 +148,11 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
         ulong guildId,
         CancellationToken cancellationToken = default)
     {
-        // Check global setting first
-        if (!_assistantOptions.Value.GloballyEnabled)
+        // Check global setting first (runtime setting with fallback to config)
+        var globallyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Assistant:GloballyEnabled", cancellationToken)
+            ?? _assistantOptions.Value.GloballyEnabled;
+
+        if (!globallyEnabled)
         {
             return false;
         }

@@ -16,6 +16,12 @@ namespace DiscordBot.Infrastructure.Services;
 /// Service implementation for AI assistant operations.
 /// Handles rate limiting, consent checking, and delegates to the agent runner for LLM interactions.
 /// </summary>
+/// <remarks>
+/// Error Handling Strategy:
+/// - Top-level errors: Catch, log, record to APM, return friendly error result (graceful degradation)
+/// - Side-effect operations (metrics, logging): Catch, log, record to APM, swallow (user experience unaffected)
+/// - Cancellation: Return early without error logging
+/// </remarks>
 public class AssistantService : IAssistantService
 {
     private readonly ILogger<AssistantService> _logger;
@@ -28,6 +34,7 @@ public class AssistantService : IAssistantService
     private readonly IAssistantUsageMetricsRepository _metricsRepository;
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
     private readonly IMemoryCache _cache;
+    private readonly ISettingsService _settingsService;
     private readonly AssistantOptions _options;
 
     private const string RateLimitCacheKeyPrefix = "assistant_ratelimit:";
@@ -46,6 +53,7 @@ public class AssistantService : IAssistantService
         IAssistantUsageMetricsRepository metricsRepository,
         IAssistantInteractionLogRepository interactionLogRepository,
         IMemoryCache cache,
+        ISettingsService settingsService,
         IOptions<AssistantOptions> options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -58,6 +66,7 @@ public class AssistantService : IAssistantService
         _metricsRepository = metricsRepository ?? throw new ArgumentNullException(nameof(metricsRepository));
         _interactionLogRepository = interactionLogRepository ?? throw new ArgumentNullException(nameof(interactionLogRepository));
         _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -197,6 +206,15 @@ public class AssistantService : IAssistantService
 
             return result;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Expected cancellation, not an error
+            stopwatch.Stop();
+            _logger.LogDebug(
+                "Assistant question processing cancelled for user {UserId} in guild {GuildId}",
+                userId, guildId);
+            return AssistantResponseResult.ErrorResult("Request was cancelled.");
+        }
         catch (Exception ex)
         {
             stopwatch.Stop();
@@ -221,8 +239,11 @@ public class AssistantService : IAssistantService
         ulong guildId,
         CancellationToken cancellationToken = default)
     {
-        // Check global setting first
-        if (!_options.GloballyEnabled)
+        // Check global setting first (runtime setting with fallback to config)
+        var globallyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Assistant:GloballyEnabled", cancellationToken)
+            ?? _options.GloballyEnabled;
+
+        if (!globallyEnabled)
         {
             return false;
         }

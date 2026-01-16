@@ -92,7 +92,13 @@ public class AssistantMessageHandler
 
             // Create scope to access scoped services from singleton
             using var scope = _scopeFactory.CreateScope();
-            var assistantService = scope.ServiceProvider.GetRequiredService<IAssistantService>();
+            var assistantService = scope.ServiceProvider.GetService<IAssistantService>();
+            if (assistantService is null)
+            {
+                _logger.LogDebug("IAssistantService not registered (API key not configured), ignoring mention in guild {GuildId}", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return;
+            }
             var consentRepository = scope.ServiceProvider.GetRequiredService<IUserConsentRepository>();
             var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
 

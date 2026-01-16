@@ -17,6 +17,7 @@ public class AssistantGuildSettingsServiceTests
 {
     private readonly Mock<ILogger<AssistantGuildSettingsService>> _mockLogger;
     private readonly Mock<IAssistantGuildSettingsRepository> _mockRepository;
+    private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly AssistantOptions _assistantOptions;
     private readonly AssistantGuildSettingsService _service;
 
@@ -30,6 +31,7 @@ public class AssistantGuildSettingsServiceTests
     {
         _mockLogger = new Mock<ILogger<AssistantGuildSettingsService>>();
         _mockRepository = new Mock<IAssistantGuildSettingsRepository>();
+        _mockSettingsService = new Mock<ISettingsService>();
 
         _assistantOptions = new AssistantOptions
         {
@@ -41,9 +43,17 @@ public class AssistantGuildSettingsServiceTests
         var mockOptions = new Mock<IOptions<AssistantOptions>>();
         mockOptions.Setup(o => o.Value).Returns(_assistantOptions);
 
+        // Default setup - return null to fall back to options
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                "Assistant:GloballyEnabled",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((bool?)null);
+
         _service = new AssistantGuildSettingsService(
             _mockLogger.Object,
             _mockRepository.Object,
+            _mockSettingsService.Object,
             mockOptions.Object);
     }
 
@@ -131,9 +141,17 @@ public class AssistantGuildSettingsServiceTests
         var mockOptions = new Mock<IOptions<AssistantOptions>>();
         mockOptions.Setup(o => o.Value).Returns(_assistantOptions);
 
+        var mockSettingsService = new Mock<ISettingsService>();
+        mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                "Assistant:GloballyEnabled",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((bool?)null);
+
         var service = new AssistantGuildSettingsService(
             _mockLogger.Object,
             _mockRepository.Object,
+            mockSettingsService.Object,
             mockOptions.Object);
 
         _mockRepository
@@ -502,9 +520,17 @@ public class AssistantGuildSettingsServiceTests
         var mockOptions = new Mock<IOptions<AssistantOptions>>();
         mockOptions.Setup(o => o.Value).Returns(_assistantOptions);
 
+        var mockSettingsService = new Mock<ISettingsService>();
+        mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                "Assistant:GloballyEnabled",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((bool?)null);
+
         var service = new AssistantGuildSettingsService(
             _mockLogger.Object,
             _mockRepository.Object,
+            mockSettingsService.Object,
             mockOptions.Object);
 
         // Act
@@ -517,6 +543,27 @@ public class AssistantGuildSettingsServiceTests
             r => r.GetByGuildIdAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
             Times.Never,
             "should not query repository when globally disabled");
+    }
+
+    [Fact]
+    public async Task IsEnabledAsync_RespectsRuntimeSetting_WhenOverrideSet()
+    {
+        // Arrange - options says enabled, runtime setting says disabled
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                "Assistant:GloballyEnabled",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _service.IsEnabledAsync(TestGuildId);
+
+        // Assert
+        result.Should().BeFalse();
+        _mockRepository.Verify(
+            r => r.GetByGuildIdAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "should not query repository when runtime globally disabled");
     }
 
     [Fact]
@@ -847,7 +894,7 @@ public class AssistantGuildSettingsServiceTests
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentNullException>(
-            () => new AssistantGuildSettingsService(null!, _mockRepository.Object, mockOptions.Object));
+            () => new AssistantGuildSettingsService(null!, _mockRepository.Object, _mockSettingsService.Object, mockOptions.Object));
         ex.ParamName.Should().Be("logger");
     }
 
@@ -860,8 +907,21 @@ public class AssistantGuildSettingsServiceTests
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentNullException>(
-            () => new AssistantGuildSettingsService(_mockLogger.Object, null!, mockOptions.Object));
+            () => new AssistantGuildSettingsService(_mockLogger.Object, null!, _mockSettingsService.Object, mockOptions.Object));
         ex.ParamName.Should().Be("repository");
+    }
+
+    [Fact]
+    public void Constructor_ThrowsArgumentNullException_WhenSettingsServiceIsNull()
+    {
+        // Arrange
+        var mockOptions = new Mock<IOptions<AssistantOptions>>();
+        mockOptions.Setup(o => o.Value).Returns(_assistantOptions);
+
+        // Act & Assert
+        var ex = Assert.Throws<ArgumentNullException>(
+            () => new AssistantGuildSettingsService(_mockLogger.Object, _mockRepository.Object, null!, mockOptions.Object));
+        ex.ParamName.Should().Be("settingsService");
     }
 
     [Fact]
@@ -869,7 +929,7 @@ public class AssistantGuildSettingsServiceTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentNullException>(
-            () => new AssistantGuildSettingsService(_mockLogger.Object, _mockRepository.Object, null!));
+            () => new AssistantGuildSettingsService(_mockLogger.Object, _mockRepository.Object, _mockSettingsService.Object, null!));
         ex.ParamName.Should().Be("assistantOptions");
     }
 
