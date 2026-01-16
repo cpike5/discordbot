@@ -221,6 +221,12 @@ public class ElasticApmTransactionFilter
             return true;
         }
 
+        // Background service execution cycles - high frequency, sample at low rate
+        if (type == "background" || name.StartsWith("background.", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         return false;
     }
 }

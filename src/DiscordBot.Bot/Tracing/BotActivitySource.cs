@@ -1,8 +1,78 @@
 using System.Diagnostics;
 using Elastic.Apm;
+using Elastic.Apm.Api;
 using OpenTelemetry.Trace;
 
 namespace DiscordBot.Bot.Tracing;
+
+/// <summary>
+/// Represents both an OpenTelemetry Activity and Elastic APM Transaction
+/// for background service operations. Implements IDisposable to ensure
+/// proper cleanup of both resources.
+/// </summary>
+public sealed class BackgroundServiceActivityScope : IDisposable
+{
+    /// <summary>
+    /// Gets the OpenTelemetry Activity for distributed tracing.
+    /// </summary>
+    public Activity? Activity { get; }
+
+    /// <summary>
+    /// Gets the Elastic APM Transaction for APM visibility.
+    /// </summary>
+    public ITransaction? ApmTransaction { get; }
+
+    private bool _disposed;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BackgroundServiceActivityScope"/> class.
+    /// </summary>
+    /// <param name="activity">The OpenTelemetry activity.</param>
+    /// <param name="apmTransaction">The Elastic APM transaction.</param>
+    public BackgroundServiceActivityScope(Activity? activity, ITransaction? apmTransaction)
+    {
+        Activity = activity;
+        ApmTransaction = apmTransaction;
+    }
+
+    /// <summary>
+    /// Marks both the Activity and APM Transaction as successful.
+    /// </summary>
+    public void SetSuccess()
+    {
+        BotActivitySource.SetSuccess(Activity);
+        if (ApmTransaction != null)
+        {
+            ApmTransaction.Outcome = Outcome.Success;
+        }
+    }
+
+    /// <summary>
+    /// Records an exception on both the Activity and APM Transaction.
+    /// </summary>
+    /// <param name="ex">The exception to record.</param>
+    public void RecordException(Exception ex)
+    {
+        BotActivitySource.RecordException(Activity, ex);
+        if (ApmTransaction != null)
+        {
+            ApmTransaction.CaptureException(ex);
+            ApmTransaction.Outcome = Outcome.Failure;
+        }
+    }
+
+    /// <summary>
+    /// Disposes both the Activity and APM Transaction.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        Activity?.Dispose();
+        ApmTransaction?.End();
+    }
+}
 
 /// <summary>
 /// Provides the ActivitySource for Discord bot tracing.
@@ -289,6 +359,39 @@ public static class BotActivitySource
         }
 
         return activity;
+    }
+
+    /// <summary>
+    /// Starts an activity and APM transaction for a background service execution cycle.
+    /// Returns a scope that manages both resources and should be disposed when the cycle completes.
+    /// </summary>
+    /// <param name="serviceName">The name of the background service.</param>
+    /// <param name="executionCycle">The current execution cycle number.</param>
+    /// <param name="correlationId">Optional correlation ID for the execution.</param>
+    /// <param name="asRootSpan">Whether to create an independent root span (default: true).</param>
+    /// <returns>A scope containing both the Activity and APM Transaction.</returns>
+    public static BackgroundServiceActivityScope StartBackgroundServiceActivityWithApm(
+        string serviceName,
+        int executionCycle,
+        string? correlationId = null,
+        bool asRootSpan = true)
+    {
+        // Create OpenTelemetry Activity (existing logic)
+        var activity = StartBackgroundServiceActivity(serviceName, executionCycle, correlationId, asRootSpan);
+
+        // Create APM Transaction for Elastic APM visibility
+        var transactionName = $"background.service.{serviceName}";
+        var apmTransaction = Agent.Tracer.StartTransaction(transactionName, "background");
+
+        // Set labels matching Activity tags for consistent filtering
+        apmTransaction.SetLabel("service.name", serviceName);
+        apmTransaction.SetLabel("execution.cycle", executionCycle);
+        if (!string.IsNullOrEmpty(correlationId))
+        {
+            apmTransaction.SetLabel("correlation_id", correlationId);
+        }
+
+        return new BackgroundServiceActivityScope(activity, apmTransaction);
     }
 
     /// <summary>
