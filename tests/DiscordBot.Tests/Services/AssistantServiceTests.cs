@@ -29,6 +29,7 @@ public class AssistantServiceTests
     private readonly Mock<IAssistantGuildSettingsService> _mockGuildSettingsService;
     private readonly Mock<IAssistantUsageMetricsRepository> _mockMetricsRepository;
     private readonly Mock<IAssistantInteractionLogRepository> _mockInteractionLogRepository;
+    private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly IMemoryCache _cache;
     private readonly AssistantOptions _options;
     private readonly AssistantService _service;
@@ -51,6 +52,7 @@ public class AssistantServiceTests
         _mockGuildSettingsService = new Mock<IAssistantGuildSettingsService>();
         _mockMetricsRepository = new Mock<IAssistantUsageMetricsRepository>();
         _mockInteractionLogRepository = new Mock<IAssistantInteractionLogRepository>();
+        _mockSettingsService = new Mock<ISettingsService>();
         _cache = new MemoryCache(new MemoryCacheOptions());
 
         _options = new AssistantOptions
@@ -75,6 +77,13 @@ public class AssistantServiceTests
         var mockOptions = new Mock<IOptions<AssistantOptions>>();
         mockOptions.Setup(o => o.Value).Returns(_options);
 
+        // Default setup - return null to fall back to options
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                "Assistant:GloballyEnabled",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((bool?)null);
+
         _service = new AssistantService(
             _mockLogger.Object,
             _mockAgentRunner.Object,
@@ -86,6 +95,7 @@ public class AssistantServiceTests
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object,
             _cache,
+            _mockSettingsService.Object,
             mockOptions.Object);
 
         // Default setup for guild service - returns a test guild
@@ -404,6 +414,14 @@ public class AssistantServiceTests
         var mockOptions = new Mock<IOptions<AssistantOptions>>();
         mockOptions.Setup(o => o.Value).Returns(options);
 
+        // Settings service returns null (falls back to options)
+        var mockSettingsService = new Mock<ISettingsService>();
+        mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                "Assistant:GloballyEnabled",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((bool?)null);
+
         var service = new AssistantService(
             _mockLogger.Object,
             _mockAgentRunner.Object,
@@ -415,6 +433,7 @@ public class AssistantServiceTests
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object,
             _cache,
+            mockSettingsService.Object,
             mockOptions.Object);
 
         // Act
@@ -426,6 +445,27 @@ public class AssistantServiceTests
             s => s.IsEnabledAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
             Times.Never,
             "should not check guild settings when globally disabled");
+    }
+
+    [Fact]
+    public async Task IsEnabledForGuildAsync_RespectsRuntimeSetting_WhenOverrideSet()
+    {
+        // Arrange - options says enabled, runtime setting says disabled
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                "Assistant:GloballyEnabled",
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _service.IsEnabledForGuildAsync(TestGuildId);
+
+        // Assert
+        result.Should().BeFalse();
+        _mockGuildSettingsService.Verify(
+            s => s.IsEnabledAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "should not check guild settings when runtime globally disabled");
     }
 
     [Fact]
