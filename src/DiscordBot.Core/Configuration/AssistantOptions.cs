@@ -98,9 +98,9 @@ public class AssistantOptions
     /// <summary>
     /// Gets or sets the maximum number of tokens for Claude's response.
     /// Controls response length and API costs.
-    /// Default is 1024 tokens (~750 words).
+    /// Default is 512 tokens (~375 words) to encourage concise responses.
     /// </summary>
-    public int MaxTokens { get; set; } = 1024;
+    public int MaxTokens { get; set; } = 512;
 
     /// <summary>
     /// Gets or sets the temperature for Claude's responses (0.0 to 1.0).
