@@ -2228,6 +2228,8 @@ Performance metrics configuration is managed through the `PerformanceMetricsOpti
 |----------|------|---------|-------------|
 | `LatencyRetentionHours` | int | 24 | Hours of latency history to retain in circular buffer |
 | `LatencySampleIntervalSeconds` | int | 30 | Interval between latency samples |
+| `CpuSampleIntervalSeconds` | int | 5 | Interval between CPU samples |
+| `CpuRetentionHours` | int | 24 | Hours of CPU history to retain in memory |
 | `ConnectionEventRetentionDays` | int | 30 | Days of connection events to retain |
 | `CommandAggregationCacheTtlMinutes` | int | 5 | Cache TTL for aggregated command metrics |
 | `SlowQueryThresholdMs` | int | 100 | Threshold for flagging slow database queries |
