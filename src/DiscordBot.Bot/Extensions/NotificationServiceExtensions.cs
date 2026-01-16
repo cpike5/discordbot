@@ -21,7 +21,7 @@ public static class NotificationServiceExtensions
     {
         // Bind options
         services.Configure<NotificationRetentionOptions>(
-            configuration.GetSection("NotificationRetention"));
+            configuration.GetSection(NotificationRetentionOptions.SectionName));
 
         services.Configure<NotificationOptions>(
             configuration.GetSection(NotificationOptions.SectionName));
