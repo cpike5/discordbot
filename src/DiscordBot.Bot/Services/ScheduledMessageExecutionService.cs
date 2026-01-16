@@ -116,6 +116,7 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
             var executionTimeout = TimeSpan.FromSeconds(_options.Value.ExecutionTimeoutSeconds);
 
             // Execute messages concurrently with semaphore and timeout protection
+            // Pass the already-loaded entity directly to avoid N+1 query pattern
             var executionTasks = messageList.Select(async message =>
             {
                 await semaphore.WaitAsync(stoppingToken);
@@ -124,7 +125,7 @@ public class ScheduledMessageExecutionService : MonitoredBackgroundService
                     using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
                     cts.CancelAfter(executionTimeout);
 
-                    await service.ExecuteScheduledMessageAsync(message.Id, cts.Token);
+                    await service.ExecuteScheduledMessageAsync(message, cts.Token);
                 }
                 catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
                 {

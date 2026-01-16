@@ -442,114 +442,147 @@ public class ScheduledMessageService : IScheduledMessageService
                 return false;
             }
 
-            try
-            {
-                // Get the Discord channel
-                var channel = _client.GetChannel(message.ChannelId) as IMessageChannel;
-                if (channel == null)
-                {
-                    _logger.LogError("Channel {ChannelId} not found for scheduled message {MessageId}",
-                        message.ChannelId, id);
-                    BotActivitySource.SetSuccess(activity);
-                    return false;
-                }
-
-                // Store the original scheduled time BEFORE updating it
-                // This is used to calculate the next execution time to prevent drift
-                var originalScheduledTime = message.NextExecutionAt;
-
-                // Send the message to Discord
-                await channel.SendMessageAsync(message.Content);
-
-                _logger.LogInformation("Scheduled message {MessageId} sent successfully to channel {ChannelId}",
-                    id, message.ChannelId);
-
-                // Audit log
-                try
-                {
-                    _auditLogService.CreateBuilder()
-                        .ForCategory(AuditLogCategory.Message)
-                        .WithAction(AuditLogAction.CommandExecuted)
-                        .BySystem()
-                        .InGuild(message.GuildId)
-                        .OnTarget("ScheduledMessage", id.ToString())
-                        .WithDetails(new
-                        {
-                            title = message.Title,
-                            channelId = message.ChannelId,
-                            guildId = message.GuildId,
-                            action = "message_executed"
-                        })
-                        .Enqueue();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to log audit entry for scheduled message execution {MessageId}", id);
-                }
-
-                // Update execution state
-                message.LastExecutedAt = DateTime.UtcNow;
-
-                // Calculate next execution time or disable if OneTime
-                if (message.Frequency == ScheduleFrequency.Once)
-                {
-                    message.IsEnabled = false;
-                    message.NextExecutionAt = null;
-                    _logger.LogInformation("Scheduled message {MessageId} disabled after one-time execution", id);
-                }
-                else
-                {
-                    // Use the ORIGINAL scheduled time as the base for calculating the next execution,
-                    // NOT the actual execution time. This prevents time drift when execution is
-                    // slightly early or late (e.g., scheduled for 10:58 but runs at 10:56).
-                    var baseTime = originalScheduledTime ?? message.LastExecutedAt;
-
-                    var nextExecution = await CalculateNextExecutionAsync(
-                        message.Frequency,
-                        message.CronExpression,
-                        baseTime);
-
-                    // If the calculated next time is in the past (e.g., we missed executions),
-                    // keep adding intervals until we get a future time
-                    while (nextExecution.HasValue && nextExecution.Value <= DateTime.UtcNow)
-                    {
-                        nextExecution = await CalculateNextExecutionAsync(
-                            message.Frequency,
-                            message.CronExpression,
-                            nextExecution.Value);
-                    }
-
-                    if (nextExecution.HasValue)
-                    {
-                        message.NextExecutionAt = nextExecution.Value;
-                        _logger.LogDebug("Next execution for message {MessageId} scheduled at {NextExecution}",
-                            id, nextExecution.Value);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to calculate next execution for message {MessageId}, disabling", id);
-                        message.IsEnabled = false;
-                        message.NextExecutionAt = null;
-                    }
-                }
-
-                message.UpdatedAt = DateTime.UtcNow;
-                await _repository.UpdateAsync(message, cancellationToken);
-
-                BotActivitySource.SetSuccess(activity);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to execute scheduled message {MessageId}", id);
-                BotActivitySource.RecordException(activity, ex);
-                return false;
-            }
+            var result = await ExecuteScheduledMessageCoreAsync(message, cancellationToken);
+            BotActivitySource.SetSuccess(activity);
+            return result;
         }
         catch (Exception ex)
         {
             BotActivitySource.RecordException(activity, ex);
             throw;
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> ExecuteScheduledMessageAsync(ScheduledMessage message, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+
+        using var activity = BotActivitySource.StartServiceActivity(
+            "scheduled_message",
+            "execute",
+            entityId: message.Id.ToString());
+
+        try
+        {
+            _logger.LogInformation("Executing scheduled message {MessageId}", message.Id);
+            var result = await ExecuteScheduledMessageCoreAsync(message, cancellationToken);
+            BotActivitySource.SetSuccess(activity);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Core execution logic for scheduled messages.
+    /// </summary>
+    private async Task<bool> ExecuteScheduledMessageCoreAsync(ScheduledMessage message, CancellationToken cancellationToken)
+    {
+        var id = message.Id;
+
+        try
+        {
+            // Get the Discord channel
+            var channel = _client.GetChannel(message.ChannelId) as IMessageChannel;
+            if (channel == null)
+            {
+                _logger.LogError("Channel {ChannelId} not found for scheduled message {MessageId}",
+                    message.ChannelId, id);
+                return false;
+            }
+
+            // Store the original scheduled time BEFORE updating it
+            // This is used to calculate the next execution time to prevent drift
+            var originalScheduledTime = message.NextExecutionAt;
+
+            // Send the message to Discord
+            await channel.SendMessageAsync(message.Content);
+
+            _logger.LogInformation("Scheduled message {MessageId} sent successfully to channel {ChannelId}",
+                id, message.ChannelId);
+
+            // Audit log
+            try
+            {
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.Message)
+                    .WithAction(AuditLogAction.CommandExecuted)
+                    .BySystem()
+                    .InGuild(message.GuildId)
+                    .OnTarget("ScheduledMessage", id.ToString())
+                    .WithDetails(new
+                    {
+                        title = message.Title,
+                        channelId = message.ChannelId,
+                        guildId = message.GuildId,
+                        action = "message_executed"
+                    })
+                    .Enqueue();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to log audit entry for scheduled message execution {MessageId}", id);
+            }
+
+            // Update execution state
+            message.LastExecutedAt = DateTime.UtcNow;
+
+            // Calculate next execution time or disable if OneTime
+            if (message.Frequency == ScheduleFrequency.Once)
+            {
+                message.IsEnabled = false;
+                message.NextExecutionAt = null;
+                _logger.LogInformation("Scheduled message {MessageId} disabled after one-time execution", id);
+            }
+            else
+            {
+                // Use the ORIGINAL scheduled time as the base for calculating the next execution,
+                // NOT the actual execution time. This prevents time drift when execution is
+                // slightly early or late (e.g., scheduled for 10:58 but runs at 10:56).
+                var baseTime = originalScheduledTime ?? message.LastExecutedAt;
+
+                var nextExecution = await CalculateNextExecutionAsync(
+                    message.Frequency,
+                    message.CronExpression,
+                    baseTime);
+
+                // If the calculated next time is in the past (e.g., we missed executions),
+                // keep adding intervals until we get a future time
+                while (nextExecution.HasValue && nextExecution.Value <= DateTime.UtcNow)
+                {
+                    nextExecution = await CalculateNextExecutionAsync(
+                        message.Frequency,
+                        message.CronExpression,
+                        nextExecution.Value);
+                }
+
+                if (nextExecution.HasValue)
+                {
+                    message.NextExecutionAt = nextExecution.Value;
+                    _logger.LogDebug("Next execution for message {MessageId} scheduled at {NextExecution}",
+                        id, nextExecution.Value);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to calculate next execution for message {MessageId}, disabling", id);
+                    message.IsEnabled = false;
+                    message.NextExecutionAt = null;
+                }
+            }
+
+            message.UpdatedAt = DateTime.UtcNow;
+            await _repository.UpdateAsync(message, cancellationToken);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to execute scheduled message {MessageId}", id);
+            return false;
         }
     }
 
