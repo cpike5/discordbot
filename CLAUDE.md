@@ -145,6 +145,8 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 | `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (use user secrets for DefaultAdmin) |
 | `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
 | `ModerationOptions` | `Moderation` | Moderation system settings |
+| `NotificationOptions` | `Notification` | Admin notification toggles and deduplication settings |
+| `NotificationRetentionOptions` | `NotificationRetention` | Notification cleanup policies (dismissed, read, unread retention) |
 | `ObservabilityOptions` | `Observability` | External observability tool URLs (Kibana, Seq) |
 | `PerformanceAlertOptions` | `PerformanceAlerts` | Alert thresholds and notification settings |
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | SignalR broadcast intervals for real-time metrics |
@@ -216,6 +218,7 @@ Reference these docs for detailed specifications (build and serve locally with `
 | [scheduled-messages.md](docs/articles/scheduled-messages.md) | Scheduled/recurring message system |
 | [audit-log-system.md](docs/articles/audit-log-system.md) | Audit logging with fluent builder API |
 | [signalr-realtime.md](docs/articles/signalr-realtime.md) | SignalR real-time updates and DashboardHub |
+| [notification-system.md](docs/articles/notification-system.md) | Admin notifications, SignalR broadcasting, creating notifications from services |
 | [welcome-system.md](docs/articles/welcome-system.md) | Welcome message configuration and delivery |
 | [consent-privacy.md](docs/articles/consent-privacy.md) | User consent and privacy management |
 | [database-schema.md](docs/articles/database-schema.md) | Entity relationships and database structure |
