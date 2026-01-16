@@ -234,6 +234,23 @@ public static class OpenTelemetryExtensions
     }
 
     /// <summary>
+    /// Adds all observability services: OpenTelemetry metrics, tracing, and Elastic APM.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The application configuration.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddObservability(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddOpenTelemetryMetrics(configuration);
+        services.AddOpenTelemetryTracing(configuration);
+        services.AddElasticApmWithPrioritySampling(configuration);
+
+        return services;
+    }
+
+    /// <summary>
     /// Gets the assembly version from the informational version attribute or falls back to assembly version.
     /// </summary>
     /// <returns>The service version string.</returns>
