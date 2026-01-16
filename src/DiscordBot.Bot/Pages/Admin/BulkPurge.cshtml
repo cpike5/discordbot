@@ -75,6 +75,12 @@
                         </label>
                     }
                 </div>
+                @if (ViewData.ModelState["EntityType"]?.Errors.Count > 0)
+                {
+                    <p class="mt-2 text-sm text-error">
+                        @ViewData.ModelState["EntityType"]?.Errors[0].ErrorMessage
+                    </p>
+                }
             </div>
 
             <!-- Date Range -->
