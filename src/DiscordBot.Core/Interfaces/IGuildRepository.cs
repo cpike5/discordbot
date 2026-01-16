@@ -23,7 +23,9 @@ public interface IGuildRepository : IRepository<Guild>
     Task<Guild?> GetWithCommandLogsAsync(ulong discordId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Updates the guild's active status.
+    /// Updates the guild's active status and LeftAt timestamp.
+    /// When isActive is false, sets LeftAt to the current UTC time.
+    /// When isActive is true, clears LeftAt to null.
     /// </summary>
     Task SetActiveStatusAsync(ulong discordId, bool isActive, CancellationToken cancellationToken = default);
 

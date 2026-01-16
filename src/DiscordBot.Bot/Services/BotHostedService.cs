@@ -503,6 +503,9 @@ public class BotHostedService : IHostedService
         // Broadcast guild activity update (fire-and-forget, failure tolerant)
         _ = BroadcastGuildActivityAsync(guild, "BotJoined");
 
+        // Update guild active status in database (fire-and-forget, failure tolerant)
+        _ = UpdateGuildActiveStatusAsync(guild.Id, isActive: true);
+
         return Task.CompletedTask;
     }
 
@@ -517,7 +520,31 @@ public class BotHostedService : IHostedService
         // Broadcast guild activity update (fire-and-forget, failure tolerant)
         _ = BroadcastGuildActivityAsync(guild, "BotLeft");
 
+        // Update guild active status and LeftAt timestamp in database (fire-and-forget, failure tolerant)
+        _ = UpdateGuildActiveStatusAsync(guild.Id, isActive: false);
+
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Updates guild active status in the database.
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    private async Task UpdateGuildActiveStatusAsync(ulong guildId, bool isActive)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var guildRepository = scope.ServiceProvider.GetRequiredService<IGuildRepository>();
+            await guildRepository.SetActiveStatusAsync(guildId, isActive);
+
+            _logger.LogDebug("Updated guild {GuildId} active status to {IsActive}", guildId, isActive);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't throw - this is fire-and-forget
+            _logger.LogWarning(ex, "Failed to update guild {GuildId} active status to {IsActive}, but continuing normal operation", guildId, isActive);
+        }
     }
 
     /// <summary>

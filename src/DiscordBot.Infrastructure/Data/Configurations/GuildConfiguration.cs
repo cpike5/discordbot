@@ -31,6 +31,9 @@ public class GuildConfiguration : IEntityTypeConfiguration<Guild>
             .IsRequired()
             .HasDefaultValue(true);
 
+        builder.Property(g => g.LeftAt)
+            .IsRequired(false);
+
         builder.Property(g => g.Prefix)
             .HasMaxLength(10);
 
@@ -39,5 +42,8 @@ public class GuildConfiguration : IEntityTypeConfiguration<Guild>
 
         // Index for active guild queries
         builder.HasIndex(g => g.IsActive);
+
+        // Index for guild leave tracking queries
+        builder.HasIndex(g => g.LeftAt);
     }
 }
