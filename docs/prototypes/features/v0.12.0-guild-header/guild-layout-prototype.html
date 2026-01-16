@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guild Layout Standardization - Prototype</title>
+    <link rel="stylesheet" href="../../css/tokens.css">
+    <link rel="stylesheet" href="../../css/base.css">
+    <link rel="stylesheet" href="../../css/utilities.css">
+    <style>
+        body {
+            background: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            font-family: var(--font-sans);
+            padding: 2rem;
+        }
+
+        .prototype-header {
+            max-width: 1280px;
+            margin: 0 auto 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .prototype-header h1 {
+            font-size: var(--text-3xl);
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .prototype-header p {
+            color: var(--color-text-secondary);
+            font-size: var(--text-sm);
+        }
+
+        .page-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        /* ==========================================
+           BREADCRUMB STYLES
+           ========================================== */
+        .breadcrumb-nav {
+            margin-bottom: 1.5rem;
+        }
+
+        .breadcrumb-list {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: var(--text-sm);
+        }
+
+        .breadcrumb-link {
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+
+        .breadcrumb-link:hover {
+            color: var(--color-accent-blue);
+        }
+
+        .breadcrumb-separator {
+            color: var(--color-text-tertiary);
+        }
+
+        .breadcrumb-current {
+            color: var(--color-text-primary);
+            font-weight: 500;
+        }
+
+        /* ==========================================
+           GUILD HEADER STYLES
+           ========================================== */
+        .guild-header {
+            margin-bottom: 2rem;
+        }
+
+        .guild-header-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .guild-header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .guild-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 9999px;
+            flex-shrink: 0;
+        }
+
+        .guild-icon-fallback {
+            width: 48px;
+            height: 48px;
+            border-radius: 9999px;
+            background: linear-gradient(135deg, var(--color-accent-blue), var(--color-accent-orange));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: var(--text-lg);
+            flex-shrink: 0;
+        }
+
+        .guild-header-text h1 {
+            font-size: var(--text-2xl);
+            font-weight: bold;
+            color: var(--color-text-primary);
+            margin: 0;
+        }
+
+        .guild-header-text p {
+            margin-top: 0.25rem;
+            font-size: var(--text-sm);
+            color: var(--color-text-secondary);
+        }
+
+        .guild-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            font-size: var(--text-sm);
+            font-weight: 500;
+            border-radius: var(--radius-lg);
+            text-decoration: none;
+            transition: all var(--transition-fast);
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--color-accent-orange);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--color-accent-orange-hover);
+        }
+
+        .btn-secondary {
+            background: var(--color-bg-secondary);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border-primary);
+        }
+
+        .btn-secondary:hover {
+            color: var(--color-accent-blue);
+            border-color: var(--color-border-focus);
+        }
+
+        .btn svg {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        /* ==========================================
+           GUILD NAVIGATION TABS (DESKTOP)
+           ========================================== */
+        .guild-nav-container {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .guild-nav-tabs {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.25rem;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: var(--radius-xl);
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .guild-nav-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .guild-nav-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            font-size: var(--text-sm);
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            background: transparent;
+            border-radius: var(--radius-lg);
+            text-decoration: none;
+            white-space: nowrap;
+            transition: all 0.15s ease-out;
+        }
+
+        .guild-nav-tab:hover {
+            color: var(--color-text-primary);
+            background: var(--color-bg-hover);
+        }
+
+        .guild-nav-tab.active {
+            color: var(--color-text-primary);
+            background: var(--color-bg-tertiary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .guild-nav-tab .tab-icon {
+            width: 1.125rem;
+            height: 1.125rem;
+            flex-shrink: 0;
+        }
+
+        .guild-nav-tab.active .tab-icon {
+            color: var(--color-accent-blue);
+        }
+
+        /* ==========================================
+           GUILD NAVIGATION DROPDOWN (MOBILE)
+           ========================================== */
+        .guild-nav-dropdown {
+            position: relative;
+            display: none;
+        }
+
+        .guild-nav-dropdown-button {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: var(--text-sm);
+            font-weight: 500;
+            color: var(--color-text-primary);
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: var(--radius-xl);
+            transition: all var(--transition-fast);
+            cursor: pointer;
+        }
+
+        .guild-nav-dropdown-button:hover {
+            border-color: var(--color-border-focus);
+        }
+
+        .guild-nav-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 0.5rem;
+            background: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            z-index: var(--z-dropdown);
+        }
+
+        .guild-nav-dropdown-menu.hidden {
+            display: none;
+        }
+
+        .guild-nav-dropdown-item {
+            display: block;
+            padding: 0.75rem 1rem;
+            font-size: var(--text-sm);
+            color: var(--color-text-primary);
+            text-decoration: none;
+            transition: background var(--transition-fast);
+        }
+
+        .guild-nav-dropdown-item:hover {
+            background: var(--color-bg-hover);
+        }
+
+        .guild-nav-dropdown-item.active {
+            background: var(--color-bg-hover);
+            font-weight: 600;
+        }
+
+        /* ==========================================
+           PAGE CONTENT AREA
+           ========================================== */
+        .page-content {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+        }
+
+        .page-content h2 {
+            font-size: var(--text-xl);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .page-content p {
+            color: var(--color-text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ==========================================
+           RESPONSIVE BEHAVIOR
+           ========================================== */
+        @media (min-width: 640px) {
+            .guild-header-content {
+                flex-direction: row;
+                align-items: flex-start;
+                justify-content: space-between;
+            }
+
+            .guild-header-actions {
+                flex-wrap: nowrap;
+            }
+        }
+
+        @media (max-width: 639px) {
+            .guild-nav-tabs {
+                display: none;
+            }
+
+            .guild-nav-dropdown {
+                display: block;
+            }
+
+            .guild-nav-tab {
+                padding: 0.5rem 0.875rem;
+                font-size: 0.8125rem;
+            }
+
+            .guild-nav-tab .tab-icon {
+                width: 1rem;
+                height: 1rem;
+            }
+        }
+
+        /* ==========================================
+           DEMO CONTROLS
+           ========================================== */
+        .demo-controls {
+            max-width: 1280px;
+            margin: 0 auto 2rem;
+            padding: 1rem;
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: var(--radius-lg);
+        }
+
+        .demo-controls h3 {
+            font-size: var(--text-sm);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--color-accent-blue);
+        }
+
+        .demo-controls-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .demo-controls button {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .demo-controls button:hover {
+            color: var(--color-accent-blue);
+            border-color: var(--color-border-focus);
+        }
+
+        .demo-controls button.active {
+            background: var(--color-accent-blue);
+            color: white;
+            border-color: var(--color-accent-blue);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Prototype Header -->
+    <div class="prototype-header">
+        <h1>Guild Layout Standardization Prototype</h1>
+        <p>v0.12.0 - Standardized header, breadcrumbs, and navigation for all guild pages</p>
+    </div>
+
+    <!-- Demo Controls -->
+    <div class="demo-controls">
+        <h3>Switch Active Tab (Desktop View)</h3>
+        <div class="demo-controls-buttons">
+            <button onclick="setActiveTab('overview')" class="active" id="tab-overview">Overview</button>
+            <button onclick="setActiveTab('members')" id="tab-members">Members</button>
+            <button onclick="setActiveTab('moderation')" id="tab-moderation">Moderation</button>
+            <button onclick="setActiveTab('messages')" id="tab-messages">Messages</button>
+            <button onclick="setActiveTab('audio')" id="tab-audio">Audio</button>
+            <button onclick="setActiveTab('ratwatch')" id="tab-ratwatch">Rat Watch</button>
+            <button onclick="setActiveTab('reminders')" id="tab-reminders">Reminders</button>
+            <button onclick="setActiveTab('welcome')" id="tab-welcome">Welcome</button>
+            <button onclick="setActiveTab('assistant')" id="tab-assistant">Assistant</button>
+        </div>
+    </div>
+
+    <!-- Page Container -->
+    <div class="page-container">
+
+        <!-- Breadcrumb Navigation -->
+        <nav aria-label="Breadcrumb" class="breadcrumb-nav">
+            <ol class="breadcrumb-list">
+                <li>
+                    <a href="#" class="breadcrumb-link">Home</a>
+                </li>
+                <li class="breadcrumb-separator">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li>
+                    <a href="#" class="breadcrumb-link">Servers</a>
+                </li>
+                <li class="breadcrumb-separator">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li>
+                    <a href="#" class="breadcrumb-link">My Gaming Server</a>
+                </li>
+                <li class="breadcrumb-separator">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </li>
+                <li>
+                    <span class="breadcrumb-current" id="breadcrumb-current">Overview</span>
+                </li>
+            </ol>
+        </nav>
+
+        <!-- Guild Header -->
+        <div class="guild-header">
+            <div class="guild-header-content">
+                <!-- Left: Icon + Title + Description -->
+                <div class="guild-header-left">
+                    <!-- Guild Icon (can swap between img and fallback) -->
+                    <div class="guild-icon-fallback" id="guild-icon">
+                        MG
+                    </div>
+
+                    <!-- Title + Description -->
+                    <div class="guild-header-text">
+                        <h1 id="page-title">Overview</h1>
+                        <p id="page-description">Overview and settings for this server</p>
+                    </div>
+                </div>
+
+                <!-- Right: Action Buttons -->
+                <div class="guild-header-actions">
+                    <button class="btn btn-primary">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Settings
+                    </button>
+                    <button class="btn btn-secondary">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Sync Guild
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guild Navigation Bar -->
+        <div class="guild-nav-container" id="guildNavContainer">
+            <!-- Desktop: Horizontal tabs -->
+            <nav class="guild-nav-tabs" id="guildNavTabs" role="tablist" aria-label="Guild sections">
+                <!-- Overview -->
+                <a href="#" class="guild-nav-tab active" data-tab="overview" role="tab" aria-selected="true">
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                    </svg>
+                    <span>Overview</span>
+                </a>
+
+                <!-- Members -->
+                <a href="#" class="guild-nav-tab" data-tab="members" role="tab" aria-selected="false">
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span>Members</span>
+                </a>
+
+                <!-- Moderation -->
+                <a href="#" class="guild-nav-tab" data-tab="moderation" role="tab" aria-selected="false">
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span>Moderation</span>
+                </a>
+
+                <!-- Messages -->
+                <a href="#" class="guild-nav-tab" data-tab="messages" role="tab" aria-selected="false">
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    <span>Messages</span>
+                </a>
+
+                <!-- Audio -->
+                <a href="#" class="guild-nav-tab" data-tab="audio" role="tab" aria-selected="false">
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                    <span>Audio</span>
+                </a>
+
+                <!-- Rat Watch -->
+                <a href="#" class="guild-nav-tab" data-tab="ratwatch" role="tab" aria-selected="false">
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span>Rat Watch</span>
+                </a>
+
+                <!-- Reminders -->
+                <a href="#" class="guild-nav-tab" data-tab="reminders" role="tab" aria-selected="false">
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <span>Reminders</span>
+                </a>
+
+                <!-- Welcome -->
+                <a href="#" class="guild-nav-tab" data-tab="welcome" role="tab" aria-selected="false">
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    </svg>
+                    <span>Welcome</span>
+                </a>
+
+                <!-- Assistant -->
+                <a href="#" class="guild-nav-tab" data-tab="assistant" role="tab" aria-selected="false">
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <span>Assistant</span>
+                </a>
+            </nav>
+
+            <!-- Mobile: Dropdown -->
+            <div class="guild-nav-dropdown">
+                <button type="button"
+                        id="guildNavDropdownToggle"
+                        class="guild-nav-dropdown-button"
+                        aria-haspopup="listbox"
+                        aria-expanded="false">
+                    <span id="guildNavSelectedText">Overview</span>
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="guildNavDropdownMenu"
+                     class="guild-nav-dropdown-menu hidden"
+                     role="listbox">
+                    <a href="#" class="guild-nav-dropdown-item active" data-tab="overview">Overview</a>
+                    <a href="#" class="guild-nav-dropdown-item" data-tab="members">Members</a>
+                    <a href="#" class="guild-nav-dropdown-item" data-tab="moderation">Moderation</a>
+                    <a href="#" class="guild-nav-dropdown-item" data-tab="messages">Messages</a>
+                    <a href="#" class="guild-nav-dropdown-item" data-tab="audio">Audio</a>
+                    <a href="#" class="guild-nav-dropdown-item" data-tab="ratwatch">Rat Watch</a>
+                    <a href="#" class="guild-nav-dropdown-item" data-tab="reminders">Reminders</a>
+                    <a href="#" class="guild-nav-dropdown-item" data-tab="welcome">Welcome</a>
+                    <a href="#" class="guild-nav-dropdown-item" data-tab="assistant">Assistant</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Page Content Area -->
+        <div class="page-content">
+            <h2>Page Content</h2>
+            <p>This is where the page-specific content would appear. The standardized layout provides consistent navigation and context across all guild pages.</p>
+            <br>
+            <p><strong>Key Features:</strong></p>
+            <ul style="color: var(--color-text-secondary); line-height: 1.8; margin-top: 0.5rem; margin-left: 1.5rem;">
+                <li>Consistent breadcrumb navigation showing page hierarchy</li>
+                <li>Guild header with icon, title, description, and action buttons</li>
+                <li>Horizontal tab navigation (desktop) or dropdown (mobile)</li>
+                <li>Active tab indicator with icon color change</li>
+                <li>Fully responsive design</li>
+            </ul>
+        </div>
+
+    </div>
+
+    <script>
+        // Tab content configuration
+        const tabContent = {
+            overview: {
+                title: 'Overview',
+                description: 'Overview and settings for this server',
+                breadcrumb: 'Overview'
+            },
+            members: {
+                title: 'Members',
+                description: 'Browse and manage members for My Gaming Server',
+                breadcrumb: 'Members'
+            },
+            moderation: {
+                title: 'Moderation',
+                description: 'Configure auto-moderation rules and settings',
+                breadcrumb: 'Moderation'
+            },
+            messages: {
+                title: 'Scheduled Messages',
+                description: 'Create and manage scheduled messages',
+                breadcrumb: 'Messages'
+            },
+            audio: {
+                title: 'Audio',
+                description: 'Manage audio settings and soundboard',
+                breadcrumb: 'Audio'
+            },
+            ratwatch: {
+                title: 'Rat Watch',
+                description: 'View and manage Rat Watch incidents',
+                breadcrumb: 'Rat Watch'
+            },
+            reminders: {
+                title: 'Reminders',
+                description: 'Manage member reminders for this server',
+                breadcrumb: 'Reminders'
+            },
+            welcome: {
+                title: 'Welcome Settings',
+                description: 'Configure automatic welcome messages',
+                breadcrumb: 'Welcome Settings'
+            },
+            assistant: {
+                title: 'AI Assistant',
+                description: 'Configure AI assistant settings and behavior',
+                breadcrumb: 'Assistant'
+            }
+        };
+
+        // Set active tab
+        function setActiveTab(tabId) {
+            // Update desktop tabs
+            document.querySelectorAll('.guild-nav-tab').forEach(tab => {
+                if (tab.dataset.tab === tabId) {
+                    tab.classList.add('active');
+                    tab.setAttribute('aria-selected', 'true');
+                } else {
+                    tab.classList.remove('active');
+                    tab.setAttribute('aria-selected', 'false');
+                }
+            });
+
+            // Update mobile dropdown items
+            document.querySelectorAll('.guild-nav-dropdown-item').forEach(item => {
+                if (item.dataset.tab === tabId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            // Update mobile dropdown button text
+            const selectedText = document.getElementById('guildNavSelectedText');
+            if (selectedText && tabContent[tabId]) {
+                selectedText.textContent = tabContent[tabId].title;
+            }
+
+            // Update demo controls
+            document.querySelectorAll('.demo-controls button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            const controlBtn = document.getElementById(`tab-${tabId}`);
+            if (controlBtn) {
+                controlBtn.classList.add('active');
+            }
+
+            // Update page content
+            const content = tabContent[tabId];
+            if (content) {
+                document.getElementById('page-title').textContent = content.title;
+                document.getElementById('page-description').textContent = content.description;
+                document.getElementById('breadcrumb-current').textContent = content.breadcrumb;
+            }
+
+            // Close mobile dropdown if open
+            const dropdownMenu = document.getElementById('guildNavDropdownMenu');
+            if (dropdownMenu) {
+                dropdownMenu.classList.add('hidden');
+            }
+        }
+
+        // Mobile dropdown toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropdownToggle = document.getElementById('guildNavDropdownToggle');
+            const dropdownMenu = document.getElementById('guildNavDropdownMenu');
+
+            if (dropdownToggle && dropdownMenu) {
+                dropdownToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const isHidden = dropdownMenu.classList.toggle('hidden');
+                    dropdownToggle.setAttribute('aria-expanded', !isHidden);
+                });
+
+                // Close on click outside
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.guild-nav-dropdown')) {
+                        dropdownMenu.classList.add('hidden');
+                        dropdownToggle.setAttribute('aria-expanded', 'false');
+                    }
+                });
+            }
+
+            // Desktop tab click handlers
+            document.querySelectorAll('.guild-nav-tab').forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tabId = this.dataset.tab;
+                    if (tabId) {
+                        setActiveTab(tabId);
+                    }
+                });
+            });
+
+            // Mobile dropdown item click handlers
+            document.querySelectorAll('.guild-nav-dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tabId = this.dataset.tab;
+                    if (tabId) {
+                        setActiveTab(tabId);
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
