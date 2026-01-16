@@ -387,4 +387,60 @@ public class UserPurgeServiceTests : IDisposable
     }
 
     #endregion
+
+    #region CanPurgeUserAsync Tests
+
+    [Fact]
+    public async Task CanPurgeUserAsync_ReturnsTrue_WhenNoLinkedApplicationUser()
+    {
+        // Arrange
+        var discordUserId = 678901234UL;
+
+        // Add a Discord User without a linked ApplicationUser
+        var user = new User { Id = discordUserId };
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var (canPurge, blockingReason) = await _service.CanPurgeUserAsync(discordUserId);
+
+        // Assert
+        canPurge.Should().BeTrue();
+        blockingReason.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CanPurgeUserAsync_ReturnsTrue_WhenLinkedApplicationUserHasNoAdminRole()
+    {
+        // Arrange
+        var discordUserId = 789012345UL;
+
+        // Add a Discord User
+        var user = new User { Id = discordUserId };
+        _context.Users.Add(user);
+
+        // Add a linked ApplicationUser
+        var applicationUser = new ApplicationUser
+        {
+            Id = Guid.NewGuid().ToString(),
+            UserName = "testuser",
+            Email = "test@example.com",
+            DiscordUserId = discordUserId
+        };
+        _context.Set<ApplicationUser>().Add(applicationUser);
+        await _context.SaveChangesAsync();
+
+        // UserManager mock returns empty roles (no admin)
+        _userManagerMock.Setup(m => m.GetRolesAsync(It.Is<ApplicationUser>(u => u.DiscordUserId == discordUserId)))
+            .ReturnsAsync(new List<string> { "Viewer" });
+
+        // Act
+        var (canPurge, blockingReason) = await _service.CanPurgeUserAsync(discordUserId);
+
+        // Assert
+        canPurge.Should().BeTrue();
+        blockingReason.Should().BeNull();
+    }
+
+    #endregion
 }
