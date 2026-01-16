@@ -312,7 +312,7 @@ const PreviewPopup = (() => {
                     ${metaItems}
                 </div>
             </div>
-            <div class="preview-footer flex gap-2 p-3 border-t border-border-secondary bg-bg-secondary">
+            <div class="preview-footer flex items-center gap-2 p-3 border-t border-border-secondary bg-bg-secondary flex-wrap">
                 <a href="${profileUrl}" class="flex-1 min-w-0 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors text-center whitespace-nowrap">
                     View Profile
                 </a>
@@ -384,7 +384,7 @@ const PreviewPopup = (() => {
                     ${metaItems}
                 </div>
             </div>
-            <div class="preview-footer flex gap-2 p-3 border-t border-border-secondary bg-bg-secondary">
+            <div class="preview-footer flex items-center gap-2 p-3 border-t border-border-secondary bg-bg-secondary flex-wrap">
                 <a href="/Guilds/Details?id=${data.guildId}" class="flex-1 min-w-0 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors text-center whitespace-nowrap">
                     View Guild
                 </a>

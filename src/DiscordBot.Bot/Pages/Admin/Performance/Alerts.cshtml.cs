@@ -14,6 +14,7 @@ namespace DiscordBot.Bot.Pages.Admin.Performance;
 public class AlertsModel : PageModel
 {
     private readonly IPerformanceAlertService _alertService;
+    private readonly IAuthorizationService _authorizationService;
     private readonly ILogger<AlertsModel> _logger;
 
     /// <summary>
@@ -25,18 +26,21 @@ public class AlertsModel : PageModel
     /// Gets a value indicating whether the current user can edit alert settings.
     /// Only Admin and SuperAdmin roles can modify alert configurations.
     /// </summary>
-    public bool CanEdit => User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+    public bool CanEdit { get; private set; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AlertsModel"/> class.
     /// </summary>
     /// <param name="alertService">The performance alert service.</param>
+    /// <param name="authorizationService">The authorization service.</param>
     /// <param name="logger">The logger.</param>
     public AlertsModel(
         IPerformanceAlertService alertService,
+        IAuthorizationService authorizationService,
         ILogger<AlertsModel> logger)
     {
         _alertService = alertService;
+        _authorizationService = authorizationService;
         _logger = logger;
     }
 
@@ -47,6 +51,11 @@ public class AlertsModel : PageModel
     public async Task OnGetAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Alerts page accessed by user {UserId}", User.Identity?.Name);
+
+        // Check if user has Admin permission using policy-based authorization
+        var authResult = await _authorizationService.AuthorizeAsync(User, "RequireAdmin");
+        CanEdit = authResult.Succeeded;
+
         await LoadViewModelAsync(cancellationToken);
     }
 
