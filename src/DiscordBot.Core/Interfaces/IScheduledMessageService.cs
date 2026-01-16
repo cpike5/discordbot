@@ -1,4 +1,5 @@
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Core.Interfaces;
@@ -75,6 +76,16 @@ public interface IScheduledMessageService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if execution was successful, false if the message was not found or execution failed.</returns>
     Task<bool> ExecuteScheduledMessageAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Executes a scheduled message immediately by sending it to Discord and updating its state.
+    /// Updates LastExecutedAt and NextExecutionAt. Disables the message if frequency is Once.
+    /// This overload accepts a pre-loaded entity to avoid redundant database queries.
+    /// </summary>
+    /// <param name="message">The scheduled message entity to execute (must be a tracked entity for updates).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if execution was successful, false if execution failed.</returns>
+    Task<bool> ExecuteScheduledMessageAsync(ScheduledMessage message, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Validates a cron expression for correctness.
