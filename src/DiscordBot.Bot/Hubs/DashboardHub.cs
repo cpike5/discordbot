@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
@@ -42,6 +43,27 @@ public class DashboardHub : Hub
     /// </summary>
     public const string BulkPurgeGroupName = "bulk-purge";
 
+    // Notification event names
+    /// <summary>
+    /// Event name for when a new notification is received by a user.
+    /// </summary>
+    public const string OnNotificationReceived = "OnNotificationReceived";
+
+    /// <summary>
+    /// Event name for when the notification count changes for a user.
+    /// </summary>
+    public const string OnNotificationCountChanged = "OnNotificationCountChanged";
+
+    /// <summary>
+    /// Event name for when a single notification is marked as read.
+    /// </summary>
+    public const string OnNotificationMarkedRead = "OnNotificationMarkedRead";
+
+    /// <summary>
+    /// Event name for when all notifications are marked as read.
+    /// </summary>
+    public const string OnAllNotificationsRead = "OnAllNotificationsRead";
+
     /// <summary>
     /// Tracing attribute for SignalR connection ID.
     /// </summary>
@@ -60,6 +82,7 @@ public class DashboardHub : Hub
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
     private readonly DiscordSocketClient _discordClient;
+    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DashboardHub> _logger;
 
     /// <summary>
@@ -78,6 +101,7 @@ public class DashboardHub : Hub
     /// <param name="audioService">The audio service for voice connection status.</param>
     /// <param name="playbackService">The playback service for audio playback status.</param>
     /// <param name="discordClient">The Discord client for channel name resolution.</param>
+    /// <param name="serviceProvider">The service provider for creating scopes to resolve scoped services.</param>
     /// <param name="logger">The logger.</param>
     public DashboardHub(
         IBotService botService,
@@ -93,6 +117,7 @@ public class DashboardHub : Hub
         IAudioService audioService,
         IPlaybackService playbackService,
         DiscordSocketClient discordClient,
+        IServiceProvider serviceProvider,
         ILogger<DashboardHub> logger)
     {
         _botService = botService;
@@ -108,6 +133,7 @@ public class DashboardHub : Hub
         _audioService = audioService;
         _playbackService = playbackService;
         _discordClient = discordClient;
+        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -1078,6 +1104,263 @@ public class DashboardHub : Hub
             BotActivitySource.RecordException(activity, ex);
             throw;
         }
+    }
+
+    // ============================================================================
+    // Notification Methods
+    // ============================================================================
+
+    /// <summary>
+    /// Gets the notification summary (unread count by type) for the current user.
+    /// </summary>
+    /// <returns>The notification summary for the current user, or an empty summary if user is not authenticated.</returns>
+    public async Task<NotificationSummaryDto> GetNotificationSummary()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_notification_summary");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
+            {
+                _logger.LogDebug("GetNotificationSummary called with no authenticated user");
+                return new NotificationSummaryDto();
+            }
+
+            _logger.LogDebug(
+                "Notification summary requested by client: ConnectionId={ConnectionId}, UserId={UserId}",
+                Context.ConnectionId,
+                userId);
+
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            var summary = await notificationService.GetSummaryAsync(userId);
+
+            _logger.LogTrace(
+                "Notification summary retrieved: UserId={UserId}, TotalUnread={TotalUnread}",
+                userId,
+                summary.TotalUnread);
+
+            BotActivitySource.SetSuccess(activity);
+            return summary;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets recent notifications for the current user.
+    /// </summary>
+    /// <param name="limit">Maximum number of notifications to return (default: 15, max: 100).</param>
+    /// <returns>The notifications for the current user, or empty if user is not authenticated.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when limit is negative or exceeds 100.</exception>
+    public async Task<IEnumerable<UserNotificationDto>> GetNotifications(int limit = 15)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(limit);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100);
+
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "get_notifications");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag("limit", limit);
+
+        try
+        {
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
+            {
+                _logger.LogDebug("GetNotifications called with no authenticated user");
+                return [];
+            }
+
+            _logger.LogDebug(
+                "Notifications requested by client: ConnectionId={ConnectionId}, UserId={UserId}, Limit={Limit}",
+                Context.ConnectionId,
+                userId,
+                limit);
+
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            var notifications = await notificationService.GetUserNotificationsAsync(userId, limit);
+
+            _logger.LogTrace(
+                "Notifications retrieved: UserId={UserId}, Count={Count}",
+                userId,
+                notifications.Count());
+
+            BotActivitySource.SetSuccess(activity);
+            return notifications;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Marks a notification as read.
+    /// </summary>
+    /// <param name="notificationId">The notification ID to mark as read.</param>
+    public async Task MarkNotificationRead(Guid notificationId)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "mark_notification_read");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag("notification_id", notificationId.ToString());
+
+        try
+        {
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
+            {
+                _logger.LogDebug("MarkNotificationRead called with no authenticated user");
+                return;
+            }
+
+            _logger.LogDebug(
+                "Mark notification read requested: ConnectionId={ConnectionId}, UserId={UserId}, NotificationId={NotificationId}",
+                Context.ConnectionId,
+                userId,
+                notificationId);
+
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            await notificationService.MarkAsReadAsync(userId, notificationId);
+
+            _logger.LogTrace(
+                "Notification marked as read: UserId={UserId}, NotificationId={NotificationId}",
+                userId,
+                notificationId);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Marks all notifications as read for the current user.
+    /// </summary>
+    public async Task MarkAllNotificationsRead()
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "mark_all_notifications_read");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+
+        try
+        {
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
+            {
+                _logger.LogDebug("MarkAllNotificationsRead called with no authenticated user");
+                return;
+            }
+
+            _logger.LogDebug(
+                "Mark all notifications read requested: ConnectionId={ConnectionId}, UserId={UserId}",
+                Context.ConnectionId,
+                userId);
+
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            await notificationService.MarkAllAsReadAsync(userId);
+
+            _logger.LogTrace("All notifications marked as read: UserId={UserId}", userId);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Dismisses (soft deletes) a notification.
+    /// </summary>
+    /// <param name="notificationId">The notification ID to dismiss.</param>
+    public async Task DismissNotification(Guid notificationId)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "dashboard_hub",
+            "dismiss_notification");
+
+        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        activity?.SetTag("notification_id", notificationId.ToString());
+
+        try
+        {
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
+            {
+                _logger.LogDebug("DismissNotification called with no authenticated user");
+                return;
+            }
+
+            _logger.LogDebug(
+                "Dismiss notification requested: ConnectionId={ConnectionId}, UserId={UserId}, NotificationId={NotificationId}",
+                Context.ConnectionId,
+                userId,
+                notificationId);
+
+            await using var scope = _serviceProvider.CreateAsyncScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            await notificationService.DismissAsync(userId, notificationId);
+
+            _logger.LogTrace(
+                "Notification dismissed: UserId={UserId}, NotificationId={NotificationId}",
+                userId,
+                notificationId);
+
+            BotActivitySource.SetSuccess(activity);
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    // ============================================================================
+    // Private Helpers
+    // ============================================================================
+
+    /// <summary>
+    /// Gets the authenticated user ID from the SignalR context.
+    /// </summary>
+    /// <returns>The user ID if authenticated, null otherwise.</returns>
+    private string? GetAuthenticatedUserId()
+    {
+        var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        return string.IsNullOrEmpty(userId) ? null : userId;
     }
 
     /// <summary>
