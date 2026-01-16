@@ -355,8 +355,7 @@ public class UserPurgeService : IUserPurgeService
             };
 
             // Check for linked ApplicationUser
-            var applicationUser = await _dbContext.Users
-                .OfType<ApplicationUser>()
+            var applicationUser = await _dbContext.Set<ApplicationUser>()
                 .FirstOrDefaultAsync(u => u.DiscordUserId == discordUserId, cancellationToken);
 
             if (applicationUser != null)
@@ -404,8 +403,7 @@ public class UserPurgeService : IUserPurgeService
             _logger.LogDebug("Checking if Discord user {DiscordUserId} can be purged", discordUserId);
 
             // Check if user has a linked ApplicationUser account
-            var applicationUser = await _dbContext.Users
-                .OfType<ApplicationUser>()
+            var applicationUser = await _dbContext.Set<ApplicationUser>()
                 .FirstOrDefaultAsync(u => u.DiscordUserId == discordUserId, cancellationToken);
 
             if (applicationUser == null)
