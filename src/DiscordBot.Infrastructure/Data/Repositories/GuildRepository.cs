@@ -44,10 +44,15 @@ public class GuildRepository : Repository<Guild>, IGuildRepository
     {
         _logger.LogInformation("Setting guild {GuildId} active status to {IsActive}", discordId, isActive);
 
+        // When setting inactive, record LeftAt timestamp; when setting active, clear it
+        DateTime? leftAt = isActive ? null : DateTime.UtcNow;
+
         await DbSet
             .Where(g => g.Id == discordId)
             .ExecuteUpdateAsync(
-                setters => setters.SetProperty(g => g.IsActive, isActive),
+                setters => setters
+                    .SetProperty(g => g.IsActive, isActive)
+                    .SetProperty(g => g.LeftAt, leftAt),
                 cancellationToken);
     }
 
@@ -92,13 +97,12 @@ public class GuildRepository : Repository<Guild>, IGuildRepository
     {
         _logger.LogDebug("Retrieving guild leave count since {Since}", since);
 
-        // For guilds that left, we track them by checking IsActive = false and assuming
-        // the last update time (which we don't track currently). This is a limitation
-        // and should ideally track a LeftAt field in the future.
-        // For now, we return 0 as we don't have a reliable way to track this without schema changes.
-        // TODO: Add LeftAt or LastModifiedAt column to Guild table for accurate tracking.
+        var count = await DbSet
+            .AsNoTracking()
+            .Where(g => g.LeftAt != null && g.LeftAt >= since)
+            .CountAsync(cancellationToken);
 
-        _logger.LogWarning("Guild leave tracking requires schema changes (LeftAt field) - returning 0 for now");
-        return 0;
+        _logger.LogDebug("Found {Count} guilds left since {Since}", count, since);
+        return count;
     }
 }

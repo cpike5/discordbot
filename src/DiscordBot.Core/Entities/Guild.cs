@@ -26,6 +26,11 @@ public class Guild
     public bool IsActive { get; set; } = true;
 
     /// <summary>
+    /// Timestamp when the bot left this guild. Null if currently active.
+    /// </summary>
+    public DateTime? LeftAt { get; set; }
+
+    /// <summary>
     /// Optional custom command prefix for text commands.
     /// Null uses the default prefix.
     /// </summary>

@@ -244,15 +244,17 @@ public class GuildRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task SetActiveStatusAsync_UpdatesStatus()
+    public async Task SetActiveStatusAsync_WhenSetToInactive_UpdatesStatusAndSetsLeftAt()
     {
         // Arrange
+        var beforeUpdate = DateTime.UtcNow;
         var guild = new Guild
         {
             Id = 123456789,
             Name = "Test Guild",
             JoinedAt = DateTime.UtcNow,
-            IsActive = true
+            IsActive = true,
+            LeftAt = null
         };
         await _context.Guilds.AddAsync(guild);
         await _context.SaveChangesAsync();
@@ -266,6 +268,35 @@ public class GuildRepositoryTests : IDisposable
         var updatedGuild = await _context.Guilds.FindAsync(123456789UL);
         updatedGuild.Should().NotBeNull();
         updatedGuild!.IsActive.Should().BeFalse();
+        updatedGuild.LeftAt.Should().NotBeNull();
+        updatedGuild.LeftAt!.Value.Should().BeOnOrAfter(beforeUpdate);
+    }
+
+    [Fact]
+    public async Task SetActiveStatusAsync_WhenSetToActive_UpdatesStatusAndClearsLeftAt()
+    {
+        // Arrange
+        var guild = new Guild
+        {
+            Id = 123456789,
+            Name = "Test Guild",
+            JoinedAt = DateTime.UtcNow,
+            IsActive = false,
+            LeftAt = DateTime.UtcNow.AddDays(-1)
+        };
+        await _context.Guilds.AddAsync(guild);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await _repository.SetActiveStatusAsync(123456789, true);
+
+        // Assert
+        // Detach the tracked entity and reload from database to see ExecuteUpdateAsync changes
+        _context.Entry(guild).State = Microsoft.EntityFrameworkCore.EntityState.Detached;
+        var updatedGuild = await _context.Guilds.FindAsync(123456789UL);
+        updatedGuild.Should().NotBeNull();
+        updatedGuild!.IsActive.Should().BeTrue();
+        updatedGuild.LeftAt.Should().BeNull();
     }
 
     [Fact]
@@ -472,7 +503,51 @@ public class GuildRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task GetLeftCountAsync_ReturnsZero()
+    public async Task GetLeftCountAsync_ReturnsCorrectCount()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var startOfToday = now.Date;
+
+        var activeGuild = new Guild
+        {
+            Id = 111111111,
+            Name = "Active Guild",
+            JoinedAt = now.AddDays(-10),
+            IsActive = true,
+            LeftAt = null
+        };
+
+        var inactiveGuildLeftToday = new Guild
+        {
+            Id = 222222222,
+            Name = "Left Today",
+            JoinedAt = now.AddDays(-5),
+            IsActive = false,
+            LeftAt = startOfToday.AddHours(2)
+        };
+
+        var inactiveGuildLeftLastWeek = new Guild
+        {
+            Id = 333333333,
+            Name = "Left Last Week",
+            JoinedAt = now.AddDays(-15),
+            IsActive = false,
+            LeftAt = now.AddDays(-7)
+        };
+
+        await _context.Guilds.AddRangeAsync(activeGuild, inactiveGuildLeftToday, inactiveGuildLeftLastWeek);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetLeftCountAsync(startOfToday);
+
+        // Assert
+        count.Should().Be(1, "only one guild left today (guild 222222222)");
+    }
+
+    [Fact]
+    public async Task GetLeftCountAsync_WithNoRecentLeaves_ReturnsZero()
     {
         // Arrange
         var now = DateTime.UtcNow;
@@ -482,24 +557,70 @@ public class GuildRepositoryTests : IDisposable
             Id = 111111111,
             Name = "Active Guild",
             JoinedAt = now.AddDays(-10),
-            IsActive = true
+            IsActive = true,
+            LeftAt = null
         };
 
-        var inactiveGuild = new Guild
+        var inactiveGuildNoLeftAt = new Guild
         {
             Id = 222222222,
-            Name = "Inactive Guild",
+            Name = "Inactive But No LeftAt",
             JoinedAt = now.AddDays(-5),
-            IsActive = false
+            IsActive = false,
+            LeftAt = null
         };
 
-        await _context.Guilds.AddRangeAsync(activeGuild, inactiveGuild);
+        await _context.Guilds.AddRangeAsync(activeGuild, inactiveGuildNoLeftAt);
         await _context.SaveChangesAsync();
 
         // Act
         var count = await _repository.GetLeftCountAsync(now.Date);
 
         // Assert
-        count.Should().Be(0, "GetLeftCountAsync currently returns 0 as it requires schema changes to track LeftAt");
+        count.Should().Be(0, "no guilds have LeftAt set today");
+    }
+
+    [Fact]
+    public async Task GetLeftCountAsync_WithCustomDateRange_ReturnsCorrectCount()
+    {
+        // Arrange
+        var now = DateTime.UtcNow;
+        var sevenDaysAgo = now.AddDays(-7);
+
+        var guildLeftRecently = new Guild
+        {
+            Id = 111111111,
+            Name = "Left 2 Days Ago",
+            JoinedAt = now.AddDays(-30),
+            IsActive = false,
+            LeftAt = now.AddDays(-2)
+        };
+
+        var guildLeftThisWeek = new Guild
+        {
+            Id = 222222222,
+            Name = "Left 5 Days Ago",
+            JoinedAt = now.AddDays(-20),
+            IsActive = false,
+            LeftAt = now.AddDays(-5)
+        };
+
+        var guildLeftLongAgo = new Guild
+        {
+            Id = 333333333,
+            Name = "Left 10 Days Ago",
+            JoinedAt = now.AddDays(-40),
+            IsActive = false,
+            LeftAt = now.AddDays(-10)
+        };
+
+        await _context.Guilds.AddRangeAsync(guildLeftRecently, guildLeftThisWeek, guildLeftLongAgo);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _repository.GetLeftCountAsync(sevenDaysAgo);
+
+        // Assert
+        count.Should().Be(2, "two guilds left in the last 7 days");
     }
 }
