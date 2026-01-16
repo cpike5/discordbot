@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DiscordBot.Core.DTOs;
 
 /// <summary>
@@ -7,7 +9,9 @@ public class GuildRoleDto
 {
     /// <summary>
     /// Gets or sets the Discord role snowflake ID.
+    /// Serialized as a string to prevent JavaScript precision loss for 64-bit integers.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong Id { get; set; }
 
     /// <summary>
