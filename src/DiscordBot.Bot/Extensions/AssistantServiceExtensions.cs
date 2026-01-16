@@ -1,7 +1,10 @@
 using Anthropic;
 using Anthropic.Core;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Infrastructure.Data.Repositories;
+using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Infrastructure.Services.LLM.Anthropic;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
@@ -16,7 +19,7 @@ namespace DiscordBot.Bot.Extensions;
 public static class AssistantServiceExtensions
 {
     /// <summary>
-    /// Adds AI assistant services including LLM client, agent runner, and tool registry.
+    /// Adds AI assistant services including LLM client, agent runner, tool registry, and assistant service.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configuration">The configuration.</param>
@@ -26,6 +29,8 @@ public static class AssistantServiceExtensions
         IConfiguration configuration)
     {
         // Register configuration
+        services.Configure<AssistantOptions>(
+            configuration.GetSection(AssistantOptions.SectionName));
         services.Configure<AnthropicOptions>(
             configuration.GetSection(AnthropicOptions.SectionName));
 
@@ -48,14 +53,29 @@ public static class AssistantServiceExtensions
             services.AddSingleton<ILlmClient, AnthropicLlmClient>();
         }
 
-        // Register tool registry as singleton (manages tool providers)
-        services.AddSingleton<IToolRegistry, ToolRegistry>();
+        // Register prompt template service
+        services.AddSingleton<IPromptTemplate, PromptTemplate>();
 
-        // Register built-in tool providers
-        services.AddSingleton<IToolProvider, DocumentationToolProvider>();
+        // Register built-in tool providers (scoped to support scoped dependencies like ICommandMetadataService)
+        services.AddScoped<IToolProvider, DocumentationToolProvider>();
+
+        // Register tool registry as scoped (auto-registers injected IToolProvider instances)
+        services.AddScoped<IToolRegistry, ToolRegistry>();
 
         // Register agent runner (depends on ILlmClient and ILogger)
         services.AddScoped<IAgentRunner, AgentRunner>();
+
+        // Register assistant repositories
+        services.AddScoped<IAssistantUsageMetricsRepository, AssistantUsageMetricsRepository>();
+        services.AddScoped<IAssistantInteractionLogRepository, AssistantInteractionLogRepository>();
+        services.AddScoped<IAssistantGuildSettingsRepository, AssistantGuildSettingsRepository>();
+        services.AddScoped<AssistantGuildSettingsRepository>();
+
+        // Register assistant guild settings service
+        services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
+
+        // Register the main assistant service
+        services.AddScoped<IAssistantService, AssistantService>();
 
         return services;
     }
