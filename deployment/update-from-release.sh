@@ -216,13 +216,22 @@ run_migrations() {
     # Build connection string for the production database
     local connection_string="Data Source=$DB_PATH"
 
-    # Check if there are any migrations
-    if ! dotnet ef migrations list \
+    # Check if there are any pending migrations
+    log_info "Checking for pending migrations..."
+    local migration_output
+    if ! migration_output=$(ConnectionStrings__DefaultConnection="$connection_string" \
+        dotnet ef migrations list \
         --project src/DiscordBot.Infrastructure \
         --startup-project src/DiscordBot.Bot \
-        --no-build \
-        &>/dev/null; then
+        --no-build 2>&1); then
         log_warn "Could not list migrations - skipping migration step"
+        log_info "Migration check output: $migration_output"
+        return 0
+    fi
+
+    # Check if there are any pending migrations (marked with "(Pending)")
+    if ! echo "$migration_output" | grep -q "(Pending)"; then
+        log_info "No pending migrations found"
         return 0
     fi
 
