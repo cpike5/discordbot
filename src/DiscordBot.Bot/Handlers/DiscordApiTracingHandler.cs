@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Interfaces;
 using Elastic.Apm;
 using Elastic.Apm.Api;
 
@@ -10,18 +11,24 @@ namespace DiscordBot.Bot.Handlers;
 /// <summary>
 /// Delegating handler that enriches HTTP client spans with Discord-specific
 /// attributes including rate limit information and retry tracking.
+/// Also records request latency to the API request tracker for metrics.
 /// </summary>
 public class DiscordApiTracingHandler : DelegatingHandler
 {
     private readonly ILogger<DiscordApiTracingHandler> _logger;
+    private readonly IApiRequestTracker? _apiRequestTracker;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DiscordApiTracingHandler"/> class.
     /// </summary>
     /// <param name="logger">The logger.</param>
-    public DiscordApiTracingHandler(ILogger<DiscordApiTracingHandler> logger)
+    /// <param name="apiRequestTracker">The API request tracker for latency metrics (optional).</param>
+    public DiscordApiTracingHandler(
+        ILogger<DiscordApiTracingHandler> logger,
+        IApiRequestTracker? apiRequestTracker = null)
     {
         _logger = logger;
+        _apiRequestTracker = apiRequestTracker;
     }
 
     /// <inheritdoc/>
@@ -45,6 +52,9 @@ public class DiscordApiTracingHandler : DelegatingHandler
             ApiConstants.TypeExternal,
             ApiConstants.SubtypeHttp);
 
+        // Start timing for latency tracking
+        var stopwatch = Stopwatch.StartNew();
+
         try
         {
             // Set initial span labels
@@ -52,6 +62,11 @@ public class DiscordApiTracingHandler : DelegatingHandler
             apmSpan?.SetLabel(TracingConstants.Attributes.DiscordApiMethod, method);
 
             var (response, attemptCount) = await SendWithRetryAsync(request, cancellationToken, activity);
+
+            stopwatch.Stop();
+
+            // Record latency to API tracker for metrics dashboard
+            _apiRequestTracker?.RecordRequest("Discord.REST", (int)stopwatch.ElapsedMilliseconds);
 
             // Set response status on activity
             activity?.SetTag(TracingConstants.Attributes.DiscordApiResponseStatus, (int)response.StatusCode);
@@ -93,6 +108,11 @@ public class DiscordApiTracingHandler : DelegatingHandler
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+
+            // Still record latency for failed requests
+            _apiRequestTracker?.RecordRequest("Discord.REST", (int)stopwatch.ElapsedMilliseconds);
+
             BotActivitySource.RecordException(activity, ex);
             apmSpan?.CaptureException(ex);
             if (apmSpan != null)
