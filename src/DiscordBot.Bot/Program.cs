@@ -165,6 +165,9 @@ try
     // Voice and audio
     builder.Services.AddVoiceSupport(builder.Configuration);
 
+    // AI Assistant (LLM integration)
+    builder.Services.AddAssistant(builder.Configuration);
+
     // Analytics and metrics
     builder.Services.AddAnalytics(builder.Configuration);
 
