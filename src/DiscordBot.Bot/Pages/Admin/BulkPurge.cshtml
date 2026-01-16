@@ -62,7 +62,7 @@
                             BulkPurgeEntityType.ModerationCases => "Moderation case records",
                             _ => ""
                         };
-                        <label class="entity-type-card block cursor-pointer border-2 rounded-lg p-4 transition-all @(isSelected ? "border-primary bg-primary/10" : "border-border-primary bg-bg-primary hover:border-border-focus hover:bg-bg-tertiary")">
+                        <label class="entity-type-card block cursor-pointer border-2 rounded-lg p-4 transition-all @(isSelected ? "border-accent-orange bg-accent-orange-muted" : "border-border-primary bg-bg-primary hover:border-border-focus hover:bg-bg-tertiary")">
                             <input type="radio"
                                    name="EntityType"
                                    value="@entityType"
@@ -307,11 +307,11 @@
         card.addEventListener('click', function() {
             // Remove selected styles from all cards
             document.querySelectorAll('.entity-type-card').forEach(c => {
-                c.classList.remove('border-primary', 'bg-primary/10');
+                c.classList.remove('border-accent-orange', 'bg-accent-orange-muted');
                 c.classList.add('border-border-primary', 'bg-bg-primary', 'hover:border-border-focus', 'hover:bg-bg-tertiary');
             });
             // Add selected styles to clicked card
-            this.classList.add('border-primary', 'bg-primary/10');
+            this.classList.add('border-accent-orange', 'bg-accent-orange-muted');
             this.classList.remove('border-border-primary', 'bg-bg-primary', 'hover:border-border-focus', 'hover:bg-bg-tertiary');
             this.querySelector('input[type="radio"]').checked = true;
         });
