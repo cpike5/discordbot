@@ -458,13 +458,13 @@ const NotificationBell = (function () {
                  data-read="${isRead}"
                  tabindex="0">
                 <div class="notification-icon ${iconClass}">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         ${iconSvg}
                     </svg>
                 </div>
                 <div class="notification-content">
-                    <div class="notification-title">${title}</div>
-                    <div class="notification-message">${message}</div>
+                    <p class="notification-title">${title}</p>
+                    <p class="notification-message">${message}</p>
                     <div class="notification-meta">
                         <span class="notification-timestamp" title="${escapeAttr(notification.createdAt || '')}">${timeAgo}</span>
                         <span class="notification-type-badge">${typeDisplay}</span>
@@ -477,7 +477,7 @@ const NotificationBell = (function () {
                         aria-label="Mark as read"
                         title="Mark as read"
                         ${isRead ? 'style="display: none;"' : ''}>
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                     </button>
@@ -486,7 +486,7 @@ const NotificationBell = (function () {
                         class="notification-action-btn"
                         aria-label="Dismiss notification"
                         title="Dismiss">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>

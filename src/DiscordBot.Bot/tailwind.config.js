@@ -4,6 +4,7 @@ module.exports = {
     "./Pages/**/*.{razor,cshtml}",
     "./Components/**/*.{razor,cshtml}",
     "./wwwroot/**/*.html",
+    "./wwwroot/**/*.js",
   ],
   theme: {
     extend: {
