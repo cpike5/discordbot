@@ -20,7 +20,7 @@ public class ToolRegistryTests
     public ToolRegistryTests()
     {
         _mockLogger = new Mock<ILogger<ToolRegistry>>();
-        _registry = new ToolRegistry(_mockLogger.Object);
+        _registry = new ToolRegistry(_mockLogger.Object, Enumerable.Empty<IToolProvider>());
     }
 
     #region Registration Tests
@@ -72,6 +72,23 @@ public class ToolRegistryTests
     {
         // Act & Assert
         Assert.Throws<ArgumentNullException>(() => _registry.RegisterProvider(null!));
+    }
+
+    [Fact]
+    public void Constructor_AutoRegistersInjectedProviders()
+    {
+        // Arrange
+        var provider1 = CreateMockProvider("Provider1", "Description 1", "tool1");
+        var provider2 = CreateMockProvider("Provider2", "Description 2", "tool2");
+        var providers = new[] { provider1.Object, provider2.Object };
+
+        // Act
+        var registry = new ToolRegistry(_mockLogger.Object, providers);
+
+        // Assert
+        registry.IsProviderRegistered("Provider1").Should().BeTrue();
+        registry.IsProviderRegistered("Provider2").Should().BeTrue();
+        registry.GetEnabledTools().Should().HaveCount(2);
     }
 
     #endregion

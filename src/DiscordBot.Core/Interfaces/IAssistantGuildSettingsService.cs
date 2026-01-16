@@ -50,4 +50,36 @@ public interface IAssistantGuildSettingsService
     Task DisableAsync(
         ulong guildId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if the assistant is enabled for a guild.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if enabled globally and for the guild.</returns>
+    Task<bool> IsEnabledAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a channel is allowed for the assistant in a guild.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="channelId">Discord channel ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if the channel is allowed (or no restrictions are set).</returns>
+    Task<bool> IsChannelAllowedAsync(
+        ulong guildId,
+        ulong channelId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the rate limit for a guild (guild override or global default).
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The rate limit value.</returns>
+    Task<int> GetRateLimitAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default);
 }

@@ -19,9 +19,16 @@ public class ToolRegistry : IToolRegistry
     /// Initializes a new instance of the ToolRegistry.
     /// </summary>
     /// <param name="logger">Logger for diagnostic output.</param>
-    public ToolRegistry(ILogger<ToolRegistry> logger)
+    /// <param name="toolProviders">Tool providers to register automatically.</param>
+    public ToolRegistry(ILogger<ToolRegistry> logger, IEnumerable<IToolProvider> toolProviders)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        // Auto-register all injected providers
+        foreach (var provider in toolProviders)
+        {
+            RegisterProvider(provider);
+        }
     }
 
     /// <inheritdoc />
