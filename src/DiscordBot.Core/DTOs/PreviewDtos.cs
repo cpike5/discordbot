@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DiscordBot.Core.DTOs;
 
 /// <summary>
@@ -7,7 +9,9 @@ public record UserPreviewDto
 {
     /// <summary>
     /// Discord user snowflake ID.
+    /// Serialized as a string to prevent JavaScript precision loss for 64-bit integers.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong UserId { get; init; }
 
     /// <summary>
@@ -58,7 +62,9 @@ public record GuildPreviewDto
 {
     /// <summary>
     /// Discord guild snowflake ID.
+    /// Serialized as a string to prevent JavaScript precision loss for 64-bit integers.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; init; }
 
     /// <summary>
