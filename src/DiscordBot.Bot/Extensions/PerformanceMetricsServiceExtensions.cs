@@ -92,6 +92,9 @@ public static class PerformanceMetricsServiceExtensions
         // Performance metrics broadcast service
         services.AddHostedService<PerformanceMetricsBroadcastService>();
 
+        // CPU sampling background service
+        services.AddHostedService<CpuSamplingService>();
+
         return services;
     }
 }

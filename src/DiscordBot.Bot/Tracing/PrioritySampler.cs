@@ -217,6 +217,12 @@ public class PrioritySampler : Sampler
             return true;
         }
 
+        // Background service execution cycles - high frequency, sample at low rate
+        if (spanName.StartsWith("background.", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         return false;
     }
 }
