@@ -282,8 +282,8 @@ public class NotificationService : INotificationService
 
         await _repository.MarkAsReadAsync(notificationId, cancellationToken);
 
-        // Broadcast updated count to the user
-        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        // Broadcast the individual read event and updated count to the user
+        await BroadcastNotificationMarkedReadAsync(userId, notificationId, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -437,8 +437,47 @@ public class NotificationService : INotificationService
     }
 
     /// <summary>
+    /// Broadcasts the notification-marked-read event and updated count to a specific user via SignalR.
+    /// </summary>
+    /// <param name="userId">The user ID to broadcast to.</param>
+    /// <param name="notificationId">The notification ID that was marked as read.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task BroadcastNotificationMarkedReadAsync(
+        string userId,
+        Guid notificationId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var summary = await _repository.GetUserNotificationSummaryAsync(userId, cancellationToken);
+
+            // Broadcast the individual notification marked as read
+            await _hubContext.Clients
+                .User(userId)
+                .SendAsync(DashboardHub.OnNotificationMarkedRead, new { notificationId }, cancellationToken);
+
+            // Also broadcast updated count
+            await _hubContext.Clients
+                .User(userId)
+                .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            _logger.LogDebug(
+                "Broadcast notification {NotificationId} marked as read to user {UserId}",
+                notificationId,
+                userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to broadcast notification marked as read to user {UserId}",
+                userId);
+        }
+    }
+
+    /// <summary>
     /// Broadcasts an updated notification count to a specific user via SignalR.
-    /// Used when a notification is marked as read or dismissed.
+    /// Used when a notification is dismissed.
     /// </summary>
     /// <param name="userId">The user ID to broadcast to.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

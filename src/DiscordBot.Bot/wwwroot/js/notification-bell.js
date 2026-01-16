@@ -11,6 +11,7 @@ const NotificationBell = (function () {
     let isOpen = false;
     let isLoading = false;
     let hasLoaded = false;
+    let isInitialized = false;
 
     // DOM elements (cached after init)
     let bellButton = null;
@@ -52,6 +53,12 @@ const NotificationBell = (function () {
      * Called automatically when the DashboardHub connects.
      */
     function init() {
+        // Prevent double initialization
+        if (isInitialized) {
+            console.log('[NotificationBell] Already initialized, skipping');
+            return;
+        }
+
         // Cache DOM elements
         bellButton = document.getElementById('notificationBellButton');
         badge = document.getElementById('notificationBadge');
@@ -64,6 +71,8 @@ const NotificationBell = (function () {
             return;
         }
 
+        isInitialized = true;
+
         // Register SignalR event handlers
         registerSignalRHandlers();
 
@@ -72,6 +81,9 @@ const NotificationBell = (function () {
 
         // Setup click outside handler
         document.addEventListener('click', handleClickOutside);
+
+        // Setup delegated event handlers for notification items
+        setupDelegatedEventHandlers();
 
         // Fetch initial notification summary when DashboardHub connects
         if (DashboardHub.isConnected()) {
@@ -117,6 +129,66 @@ const NotificationBell = (function () {
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault();
                 navigateItems(event.key === 'ArrowDown' ? 1 : -1);
+            }
+        });
+    }
+
+    /**
+     * Sets up delegated event handlers for notification items.
+     * This prevents XSS risks from inline event handlers.
+     */
+    function setupDelegatedEventHandlers() {
+        if (!notificationList) return;
+
+        // Handle clicks on notification items and action buttons
+        notificationList.addEventListener('click', (event) => {
+            const target = event.target;
+
+            // Check for mark-read button
+            const markReadBtn = target.closest('[data-action="mark-read"]');
+            if (markReadBtn) {
+                event.stopPropagation();
+                const notificationId = markReadBtn.closest('.notification-item')?.dataset.notificationId;
+                if (notificationId) {
+                    markAsRead(notificationId);
+                }
+                return;
+            }
+
+            // Check for dismiss button
+            const dismissBtn = target.closest('[data-action="dismiss"]');
+            if (dismissBtn) {
+                event.stopPropagation();
+                const notificationId = dismissBtn.closest('.notification-item')?.dataset.notificationId;
+                if (notificationId) {
+                    dismiss(notificationId);
+                }
+                return;
+            }
+
+            // Check for notification item click
+            const item = target.closest('.notification-item');
+            if (item) {
+                const notificationId = item.dataset.notificationId;
+                const linkUrl = item.dataset.linkUrl;
+                if (notificationId) {
+                    handleItemClick(notificationId, linkUrl);
+                }
+            }
+        });
+
+        // Handle keyboard events on notification items
+        notificationList.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                const item = event.target.closest('.notification-item');
+                if (item && event.target === item) {
+                    event.preventDefault();
+                    const notificationId = item.dataset.notificationId;
+                    const linkUrl = item.dataset.linkUrl;
+                    if (notificationId) {
+                        handleItemClick(notificationId, linkUrl);
+                    }
+                }
             }
         });
     }
@@ -239,22 +311,46 @@ const NotificationBell = (function () {
     }
 
     /**
+     * Shows a toast notification for errors.
+     * @param {string} message - The error message
+     */
+    function showErrorToast(message) {
+        // Use the global Toast module if available
+        if (typeof Toast !== 'undefined' && Toast.show) {
+            Toast.show(message, 'error');
+        } else {
+            console.error('[NotificationBell]', message);
+        }
+    }
+
+    /**
      * Marks a notification as read.
      * @param {string} notificationId - The notification GUID
      */
     async function markAsRead(notificationId) {
+        // Optimistic update
+        const notification = notifications.find(n => n.id === notificationId);
+        const previousState = notification?.isRead;
+
+        if (notification) {
+            notification.isRead = true;
+            render();
+            updateBadgeFromLocal();
+        }
+
         try {
             await DashboardHub.invoke('MarkNotificationRead', notificationId);
+        } catch (error) {
+            console.error('[NotificationBell] Failed to mark notification as read:', error);
 
-            // Update local state
-            const notification = notifications.find(n => n.id === notificationId);
-            if (notification) {
-                notification.isRead = true;
+            // Revert optimistic update
+            if (notification && previousState !== undefined) {
+                notification.isRead = previousState;
                 render();
                 updateBadgeFromLocal();
             }
-        } catch (error) {
-            console.error('[NotificationBell] Failed to mark notification as read:', error);
+
+            showErrorToast('Failed to mark notification as read');
         }
     }
 
@@ -262,15 +358,28 @@ const NotificationBell = (function () {
      * Marks all notifications as read.
      */
     async function markAllAsRead() {
+        // Store previous state for potential rollback
+        const previousStates = notifications.map(n => ({ id: n.id, isRead: n.isRead }));
+
+        // Optimistic update
+        notifications.forEach(n => n.isRead = true);
+        render();
+        updateBadge(0);
+
         try {
             await DashboardHub.invoke('MarkAllNotificationsRead');
-
-            // Update local state
-            notifications.forEach(n => n.isRead = true);
-            render();
-            updateBadge(0);
         } catch (error) {
             console.error('[NotificationBell] Failed to mark all as read:', error);
+
+            // Revert optimistic update
+            previousStates.forEach(ps => {
+                const n = notifications.find(notif => notif.id === ps.id);
+                if (n) n.isRead = ps.isRead;
+            });
+            render();
+            updateBadgeFromLocal();
+
+            showErrorToast('Failed to mark all notifications as read');
         }
     }
 
@@ -279,19 +388,33 @@ const NotificationBell = (function () {
      * @param {string} notificationId - The notification GUID
      */
     async function dismiss(notificationId) {
+        // Store notification for potential rollback
+        const notificationIndex = notifications.findIndex(n => n.id === notificationId);
+        const removedNotification = notifications[notificationIndex];
+        const wasUnread = removedNotification?.isRead === false;
+
+        // Optimistic update
+        notifications = notifications.filter(n => n.id !== notificationId);
+        render();
+        if (wasUnread) {
+            updateBadgeFromLocal();
+        }
+
         try {
             await DashboardHub.invoke('DismissNotification', notificationId);
-
-            // Remove from local state
-            const wasUnread = notifications.find(n => n.id === notificationId)?.isRead === false;
-            notifications = notifications.filter(n => n.id !== notificationId);
-            render();
-
-            if (wasUnread) {
-                updateBadgeFromLocal();
-            }
         } catch (error) {
             console.error('[NotificationBell] Failed to dismiss notification:', error);
+
+            // Revert optimistic update
+            if (removedNotification) {
+                notifications.splice(notificationIndex, 0, removedNotification);
+                render();
+                if (wasUnread) {
+                    updateBadgeFromLocal();
+                }
+            }
+
+            showErrorToast('Failed to dismiss notification');
         }
     }
 
@@ -311,6 +434,7 @@ const NotificationBell = (function () {
 
     /**
      * Renders a single notification item.
+     * Uses data attributes instead of inline event handlers to prevent XSS.
      * @param {Object} notification - The notification object
      * @returns {string} HTML string for the notification item
      */
@@ -324,17 +448,15 @@ const NotificationBell = (function () {
         const message = escapeHtml(notification.message || '');
         const typeDisplay = escapeHtml(notification.typeDisplay || '');
         const timeAgo = escapeHtml(notification.timeAgo || '');
-
-        const linkUrl = notification.linkUrl || '#';
+        const escapedLinkUrl = escapeAttr(notification.linkUrl || '');
 
         return `
             <div class="notification-item"
                  role="listitem"
                  data-notification-id="${notification.id}"
+                 data-link-url="${escapedLinkUrl}"
                  data-read="${isRead}"
-                 tabindex="0"
-                 onclick="NotificationBell.handleItemClick(event, '${notification.id}', '${escapeHtml(linkUrl)}')"
-                 onkeydown="NotificationBell.handleItemKeydown(event, '${notification.id}', '${escapeHtml(linkUrl)}')">
+                 tabindex="0">
                 <div class="notification-icon ${iconClass}">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         ${iconSvg}
@@ -344,25 +466,23 @@ const NotificationBell = (function () {
                     <div class="notification-title">${title}</div>
                     <div class="notification-message">${message}</div>
                     <div class="notification-meta">
-                        <span class="notification-timestamp" title="${notification.createdAt}">${timeAgo}</span>
+                        <span class="notification-timestamp" title="${escapeAttr(notification.createdAt || '')}">${timeAgo}</span>
                         <span class="notification-type-badge">${typeDisplay}</span>
                     </div>
                 </div>
                 <div class="notification-actions">
                     <button
-                        onclick="event.stopPropagation(); NotificationBell.toggleRead('${notification.id}')"
+                        data-action="mark-read"
                         class="notification-action-btn"
-                        aria-label="${isRead ? 'Mark as unread' : 'Mark as read'}"
-                        title="${isRead ? 'Mark as unread' : 'Mark as read'}">
-                        <svg class="w-4 h-4 notification-unread-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        aria-label="Mark as read"
+                        title="Mark as read"
+                        ${isRead ? 'style="display: none;"' : ''}>
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        <svg class="w-4 h-4 notification-read-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 19v-8.93a2 2 0 01.89-1.664l7-4.666a2 2 0 012.22 0l7 4.666A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5M3 10l6.75 4.5M21 10l-6.75 4.5m0 0l-1.14.76a2 2 0 01-2.22 0l-1.14-.76" />
                         </svg>
                     </button>
                     <button
-                        onclick="event.stopPropagation(); NotificationBell.dismiss('${notification.id}')"
+                        data-action="dismiss"
                         class="notification-action-btn"
                         aria-label="Dismiss notification"
                         title="Dismiss">
@@ -461,7 +581,7 @@ const NotificationBell = (function () {
     }
 
     /**
-     * Escapes HTML special characters.
+     * Escapes HTML special characters in text content.
      * @param {string} str - The string to escape
      * @returns {string} The escaped string
      */
@@ -470,6 +590,21 @@ const NotificationBell = (function () {
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
+    }
+
+    /**
+     * Escapes special characters for use in HTML attributes.
+     * @param {string} str - The string to escape
+     * @returns {string} The escaped string
+     */
+    function escapeAttr(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
     }
 
     // =========================================================================
@@ -540,48 +675,16 @@ const NotificationBell = (function () {
 
     /**
      * Handles click on a notification item.
-     * @param {Event} event - The click event
      * @param {string} notificationId - The notification ID
      * @param {string} linkUrl - The link URL
      */
-    function handleItemClick(event, notificationId, linkUrl) {
+    function handleItemClick(notificationId, linkUrl) {
         // Mark as read
         markAsRead(notificationId);
 
         // Navigate if link exists
-        if (linkUrl && linkUrl !== '#') {
+        if (linkUrl && linkUrl !== '#' && linkUrl !== '') {
             window.location.href = linkUrl;
-        }
-    }
-
-    /**
-     * Handles keydown on a notification item.
-     * @param {KeyboardEvent} event - The keyboard event
-     * @param {string} notificationId - The notification ID
-     * @param {string} linkUrl - The link URL
-     */
-    function handleItemKeydown(event, notificationId, linkUrl) {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            handleItemClick(event, notificationId, linkUrl);
-        }
-    }
-
-    /**
-     * Toggles the read state of a notification.
-     * @param {string} notificationId - The notification ID
-     */
-    async function toggleRead(notificationId) {
-        const notification = notifications.find(n => n.id === notificationId);
-        if (!notification) return;
-
-        if (notification.isRead) {
-            // Mark as unread - not supported by backend currently, just update local state
-            notification.isRead = false;
-            render();
-            updateBadgeFromLocal();
-        } else {
-            await markAsRead(notificationId);
         }
     }
 
@@ -601,9 +704,6 @@ const NotificationBell = (function () {
         markAsRead,
         markAllAsRead,
         dismiss,
-        toggleRead,
-        handleItemClick,
-        handleItemKeydown,
         refresh: loadNotifications
     };
 })();
