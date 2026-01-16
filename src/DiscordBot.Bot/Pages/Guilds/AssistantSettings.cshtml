@@ -1,0 +1,305 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.AssistantSettingsModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"Assistant Settings - {Model.Guild.Name}";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            <li>
+                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <a asp-page="Details" asp-route-id="@Model.Guild.Id" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.Guild.Name</a>
+            </li>
+            <li class="text-text-tertiary">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </li>
+            <li>
+                <span class="text-text-primary font-medium">Assistant Settings</span>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-4">
+            @if (!string.IsNullOrEmpty(Model.Guild.IconUrl))
+            {
+                <img src="@Model.Guild.IconUrl" alt="@Model.Guild.Name" class="w-12 h-12 rounded-full flex-shrink-0" />
+            }
+            else
+            {
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                    @(Model.Guild.Name.Length >= 2 ? Model.Guild.Name[..2].ToUpper() : Model.Guild.Name.ToUpper())
+                </div>
+            }
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">AI Assistant Settings</h1>
+                <p class="mt-1 text-sm text-text-secondary">Configure the AI assistant for @Model.Guild.Name</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Status Warning -->
+    @if (!Model.GloballyEnabled)
+    {
+        <div class="mb-6">
+            @{
+                var globalDisabledAlert = new AlertViewModel {
+                    Variant = AlertVariant.Warning,
+                    Message = "The AI assistant is globally disabled. Guild-level settings will take effect once the feature is enabled globally."
+                };
+            }
+            <partial name="Shared/Components/_Alert" model="globalDisabledAlert" />
+        </div>
+    }
+
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Success,
+                Message = Model.SuccessMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="mb-6">
+            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+                Variant = AlertVariant.Error,
+                Message = Model.ErrorMessage,
+                IsDismissible = true
+            }" />
+        </div>
+    }
+
+    <form method="post">
+        <input type="hidden" name="Input.GuildId" value="@Model.Input.GuildId" />
+        <div asp-validation-summary="ModelOnly" class="text-error text-sm mb-4"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Configuration Form Column -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Enable Assistant Toggle -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label for="Input_IsEnabled" class="text-sm font-semibold text-text-primary">Enable AI Assistant</label>
+                            <p class="text-xs text-text-secondary mt-1">Allow users to ask questions by mentioning the bot</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input asp-for="Input.IsEnabled"
+                                   onchange="toggleAssistantEnabled()"
+                                   class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Main Configuration Form -->
+                <div id="assistant-config-form" class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6 @(!Model.Input.IsEnabled ? "form-section-disabled" : "")">
+                    <!-- Channel Selection -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-2">Allowed Channels</label>
+                        <p class="text-xs text-text-secondary mb-3">Select channels where the assistant can respond. Leave empty to allow all channels.</p>
+
+                        <div class="max-h-64 overflow-y-auto border border-border-primary rounded-md bg-bg-primary">
+                            @if (Model.AvailableChannels.Any())
+                            {
+                                @foreach (var channel in Model.AvailableChannels)
+                                {
+                                    var prefix = channel.Type switch
+                                    {
+                                        "Announcement" => "megaphone",
+                                        _ => "hashtag"
+                                    };
+                                    <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover cursor-pointer border-b border-border-secondary last:border-b-0">
+                                        <input type="checkbox"
+                                               name="Input.AllowedChannelIds"
+                                               value="@channel.Id"
+                                               checked="@channel.IsSelected"
+                                               class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange focus:ring-offset-bg-primary" />
+                                        <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            @if (prefix == "megaphone")
+                                            {
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                                            }
+                                            else
+                                            {
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                            }
+                                        </svg>
+                                        <span class="text-sm text-text-primary">@channel.Name</span>
+                                        <span class="text-xs text-text-tertiary">@channel.Type</span>
+                                    </label>
+                                }
+                            }
+                            else
+                            {
+                                <div class="px-4 py-6 text-center text-text-secondary text-sm">
+                                    No text channels available
+                                </div>
+                            }
+                        </div>
+                        <p class="text-xs text-text-tertiary mt-2">
+                            @Model.AvailableChannels.Count(c => c.IsSelected) of @Model.AvailableChannels.Count channels selected
+                        </p>
+                    </div>
+
+                    <!-- Rate Limit Override -->
+                    <div>
+                        <label for="Input_RateLimitOverride" class="block text-sm font-medium text-text-primary mb-2">Rate Limit Override</label>
+                        <div class="relative max-w-xs">
+                            <input type="number"
+                                   asp-for="Input.RateLimitOverride"
+                                   placeholder="@Model.DefaultRateLimit (default)"
+                                   min="1"
+                                   max="100"
+                                   class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20" />
+                        </div>
+                        <p class="text-xs text-text-secondary mt-1">
+                            Maximum questions per user per @Model.RateLimitWindowMinutes minute window. Leave empty to use the default (@Model.DefaultRateLimit).
+                        </p>
+                        <span asp-validation-for="Input.RateLimitOverride" class="text-error text-xs"></span>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button type="submit"
+                            class="btn btn-primary inline-flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Save Settings
+                    </button>
+                    <a asp-page="Details" asp-route-id="@Model.Guild.Id"
+                       class="btn btn-secondary inline-flex items-center justify-center gap-2">
+                        Cancel
+                    </a>
+                    <a asp-page="AssistantMetrics" asp-route-guildId="@Model.Guild.Id"
+                       class="btn btn-glass inline-flex items-center justify-center gap-2 ml-auto">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        View Metrics
+                    </a>
+                </div>
+            </div>
+
+            <!-- Help Panel Column -->
+            <div class="space-y-6">
+                <!-- How It Works -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h3 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                            <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            How It Works
+                        </h3>
+                    </div>
+                    <div class="p-6 space-y-4 text-sm text-text-secondary">
+                        <p>
+                            When enabled, users can ask questions by mentioning the bot:
+                        </p>
+                        <div class="bg-bg-primary border border-border-primary rounded-md p-3 font-mono text-xs">
+                            <span class="text-accent-blue">@@BotName</span> How do I use the soundboard?
+                        </div>
+                        <p>
+                            The bot uses AI to answer questions about its features and commands.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Consent Notice -->
+                <div class="bg-info-bg border border-info-border rounded-lg p-4">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        <div class="text-sm text-info">
+                            <p class="font-semibold mb-1">User Consent Required</p>
+                            <p class="text-info/90">
+                                Users must grant consent via <code class="px-1 py-0.5 bg-info/20 rounded font-mono text-xs">/consent</code> before using the assistant. Questions and responses are logged for debugging.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rate Limiting Info -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-text-primary mb-2">Rate Limiting</h4>
+                    <p class="text-xs text-text-secondary">
+                        Rate limits prevent API cost abuse. Each user can ask @Model.DefaultRateLimit questions per @Model.RateLimitWindowMinutes minutes (by default).
+                        Admins can bypass this limit.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <style>
+        .form-section-disabled {
+            position: relative;
+        }
+
+        .form-section-disabled::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-color: rgba(29, 32, 34, 0.6);
+            border-radius: 0.5rem;
+            pointer-events: none;
+        }
+
+        .form-section-disabled > * {
+            pointer-events: none;
+        }
+    </style>
+
+    <script>
+        function toggleAssistantEnabled() {
+            const checkbox = document.getElementById('Input_IsEnabled');
+            const configForm = document.getElementById('assistant-config-form');
+
+            if (checkbox.checked) {
+                configForm.classList.remove('form-section-disabled');
+            } else {
+                configForm.classList.add('form-section-disabled');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleAssistantEnabled();
+        });
+    </script>
+}
