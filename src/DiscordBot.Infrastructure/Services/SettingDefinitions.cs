@@ -133,6 +133,15 @@ public static class SettingDefinitions
             requiresRestart: false,
             description: "Enable or disable all audio features globally (soundboard, TTS, voice commands)"
         ),
+        new(
+            key: "Assistant:GloballyEnabled",
+            displayName: "AI Assistant",
+            category: SettingCategory.Features,
+            dataType: SettingDataType.Boolean,
+            defaultValue: "false",
+            requiresRestart: false,
+            description: "Enable or disable the AI assistant feature globally (responds to @bot mentions)"
+        ),
 
         // Advanced Category
         new(
