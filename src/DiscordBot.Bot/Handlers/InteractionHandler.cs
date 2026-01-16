@@ -6,10 +6,12 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Elastic.Apm;
 using Elastic.Apm.Api;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Handlers;
@@ -30,6 +32,8 @@ public class InteractionHandler
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly BotMetrics _botMetrics;
     private readonly ICommandModuleConfigurationService _commandModuleConfigService;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly NotificationOptions _notificationOptions;
 
     // AsyncLocal storage for tracking execution context across async calls
     private static readonly AsyncLocal<ExecutionContext> _executionContext = new();
@@ -43,7 +47,9 @@ public class InteractionHandler
         ICommandExecutionLogger commandExecutionLogger,
         IDashboardUpdateService dashboardUpdateService,
         BotMetrics botMetrics,
-        ICommandModuleConfigurationService commandModuleConfigService)
+        ICommandModuleConfigurationService commandModuleConfigService,
+        IServiceScopeFactory scopeFactory,
+        IOptions<NotificationOptions> notificationOptions)
     {
         _client = client;
         _interactionService = interactionService;
@@ -54,6 +60,8 @@ public class InteractionHandler
         _dashboardUpdateService = dashboardUpdateService;
         _botMetrics = botMetrics;
         _commandModuleConfigService = commandModuleConfigService;
+        _scopeFactory = scopeFactory;
+        _notificationOptions = notificationOptions.Value;
     }
 
     /// <summary>
@@ -473,6 +481,12 @@ public class InteractionHandler
                     executionTimeMs,
                     correlationId);
 
+                // Create admin notification for unhandled exceptions only
+                if (result.Error == InteractionCommandError.Exception)
+                {
+                    _ = CreateCommandErrorNotificationAsync(fullCommandName, context, result.ErrorReason, correlationId);
+                }
+
                 // Handle different error types with appropriate user messages
                 try
                 {
@@ -541,6 +555,53 @@ public class InteractionHandler
         {
             // Log but don't throw - this is fire-and-forget
             _logger.LogWarning(ex, "Failed to broadcast command executed update for {CommandName}, but continuing normal operation", commandName);
+        }
+    }
+
+    /// <summary>
+    /// Creates an admin notification for command errors (unhandled exceptions).
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    private async Task CreateCommandErrorNotificationAsync(
+        string commandName,
+        IInteractionContext context,
+        string? errorReason,
+        string correlationId)
+    {
+        if (!_notificationOptions.EnableCommandErrors)
+        {
+            _logger.LogDebug("Command error notifications are disabled, skipping notification for command {CommandName}", commandName);
+            return;
+        }
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            var title = $"Command Error: /{commandName}";
+            var guildInfo = context.Guild != null
+                ? $"Guild: {context.Guild.Name} ({context.Guild.Id})"
+                : "DM";
+            var message = $"Command /{commandName} threw an exception. User: {context.User.Username} ({context.User.Id}). {guildInfo}. Error: {errorReason ?? "Unknown"}. Correlation ID: {correlationId}";
+
+            var deduplicationWindow = TimeSpan.FromMinutes(_notificationOptions.DuplicateSuppressionMinutes);
+
+            await notificationService.CreateForAllAdminsAsync(
+                Core.Enums.NotificationType.CommandError,
+                title,
+                message,
+                linkUrl: "/CommandLogs",
+                relatedEntityType: "Command",
+                relatedEntityId: commandName,
+                deduplicationWindow: deduplicationWindow);
+
+            _logger.LogDebug("Created command error notification for {CommandName}, correlation ID: {CorrelationId}", commandName, correlationId);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't throw - this is fire-and-forget
+            _logger.LogWarning(ex, "Failed to create command error notification for {CommandName}, but continuing normal operation", commandName);
         }
     }
 

@@ -232,4 +232,35 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
 
         _logger.LogInformation("Added {Count} notifications in bulk", notificationList.Count);
     }
+
+    /// <inheritdoc/>
+    public async Task<bool> HasRecentNotificationAsync(
+        NotificationType type,
+        string? relatedEntityType,
+        string? relatedEntityId,
+        TimeSpan window,
+        CancellationToken cancellationToken = default)
+    {
+        var cutoff = DateTime.UtcNow - window;
+
+        _logger.LogDebug(
+            "Checking for recent notification: Type={Type}, EntityType={EntityType}, EntityId={EntityId}, Window={Window}",
+            type, relatedEntityType, relatedEntityId, window);
+
+        var exists = await DbSet
+            .AsNoTracking()
+            .AnyAsync(n =>
+                n.Type == type &&
+                n.RelatedEntityType == relatedEntityType &&
+                n.RelatedEntityId == relatedEntityId &&
+                n.CreatedAt >= cutoff &&
+                n.DismissedAt == null,
+                cancellationToken);
+
+        _logger.LogDebug(
+            "Recent notification check result: {Exists} for Type={Type}, EntityType={EntityType}, EntityId={EntityId}",
+            exists, type, relatedEntityType, relatedEntityId);
+
+        return exists;
+    }
 }

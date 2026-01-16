@@ -20,6 +20,7 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
     private readonly IPerformanceNotifier _performanceNotifier;
     private readonly ILogger<AlertMonitoringService> _logger;
     private readonly PerformanceAlertOptions _options;
+    private readonly NotificationOptions _notificationOptions;
 
     // Track breach counts per metric in memory
     private readonly ConcurrentDictionary<string, int> _breachCounts = new();
@@ -46,12 +47,14 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
         IServiceProvider serviceProvider,
         IPerformanceNotifier performanceNotifier,
         ILogger<AlertMonitoringService> logger,
-        IOptions<PerformanceAlertOptions> options)
+        IOptions<PerformanceAlertOptions> options,
+        IOptions<NotificationOptions> notificationOptions)
     {
         _serviceProvider = serviceProvider;
         _performanceNotifier = performanceNotifier;
         _logger = logger;
         _options = options.Value;
+        _notificationOptions = notificationOptions.Value;
     }
 
     /// <summary>
@@ -286,6 +289,9 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
                 var dto = MapToIncidentDto(createdIncident);
                 await _performanceNotifier.BroadcastAlertTriggeredAsync(dto, cancellationToken);
 
+                // Create admin notification (fire-and-forget)
+                _ = CreateAlertNotificationAsync(createdIncident, isResolved: false, cancellationToken);
+
                 // Reset breach count after creating incident
                 _breachCounts.TryRemove(config.MetricName, out _);
             }
@@ -334,6 +340,9 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
                 // Broadcast via SignalR using the notifier
                 var dto = MapToIncidentDto(resolvedIncident);
                 await _performanceNotifier.BroadcastAlertResolvedAsync(dto, cancellationToken);
+
+                // Create admin notification for resolution (fire-and-forget)
+                _ = CreateAlertNotificationAsync(resolvedIncident, isResolved: true, cancellationToken);
 
                 // Reset normal count after resolving
                 _normalCounts.TryRemove(config.MetricName, out _);
@@ -502,6 +511,72 @@ public class AlertMonitoringService : BackgroundService, IBackgroundServiceHealt
             Notes = incident.Notes,
             DurationSeconds = durationSeconds
         };
+    }
+
+    /// <summary>
+    /// Creates an admin notification for a performance alert incident.
+    /// Uses fire-and-forget pattern with error handling to avoid blocking the main flow.
+    /// </summary>
+    private async Task CreateAlertNotificationAsync(
+        PerformanceIncident incident,
+        bool isResolved,
+        CancellationToken cancellationToken)
+    {
+        if (!_notificationOptions.EnablePerformanceAlerts)
+        {
+            _logger.LogDebug("Performance alert notifications are disabled, skipping notification for {MetricName}", incident.MetricName);
+            return;
+        }
+
+        // Skip Info severity alerts for notifications
+        if (!isResolved && incident.Severity == AlertSeverity.Info)
+        {
+            _logger.LogDebug("Skipping notification for Info severity alert: {MetricName}", incident.MetricName);
+            return;
+        }
+
+        // For resolved notifications, only notify if it was Critical severity
+        if (isResolved && incident.Severity != AlertSeverity.Critical)
+        {
+            _logger.LogDebug("Skipping resolution notification for non-Critical severity alert: {MetricName}", incident.MetricName);
+            return;
+        }
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            var title = isResolved
+                ? $"{incident.MetricName} Resolved"
+                : $"{incident.MetricName} Alert";
+
+            var deduplicationWindow = TimeSpan.FromMinutes(_notificationOptions.DuplicateSuppressionMinutes);
+
+            await notificationService.CreateForAllAdminsAsync(
+                NotificationType.PerformanceAlert,
+                title,
+                incident.Message,
+                linkUrl: "/Admin/Performance/Alerts",
+                severity: incident.Severity,
+                relatedEntityType: "PerformanceIncident",
+                relatedEntityId: incident.Id.ToString(),
+                deduplicationWindow: deduplicationWindow,
+                cancellationToken: cancellationToken);
+
+            _logger.LogDebug(
+                "Created {Status} notification for performance incident {IncidentId} ({MetricName})",
+                isResolved ? "resolution" : "alert",
+                incident.Id,
+                incident.MetricName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to create notification for performance incident {IncidentId}",
+                incident.Id);
+        }
     }
 
     #region IMetricsProvider Implementation

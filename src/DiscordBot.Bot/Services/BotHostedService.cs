@@ -44,7 +44,9 @@ public class BotHostedService : IHostedService
     private readonly IConnectionStateService? _connectionStateService;
     private readonly ILatencyHistoryService? _latencyHistoryService;
     private readonly IApiRequestTracker? _apiRequestTracker;
+    private readonly NotificationOptions _notificationOptions;
     private static readonly DateTime _startTime = DateTime.UtcNow;
+    private bool _initialConnectionComplete;
 
     public BotHostedService(
         DiscordSocketClient client,
@@ -69,6 +71,7 @@ public class BotHostedService : IHostedService
         ILogger<BotHostedService> logger,
         IHostApplicationLifetime lifetime,
         IHostEnvironment environment,
+        IOptions<NotificationOptions> notificationOptions,
         IConnectionStateService? connectionStateService = null,
         ILatencyHistoryService? latencyHistoryService = null,
         IApiRequestTracker? apiRequestTracker = null)
@@ -98,6 +101,7 @@ public class BotHostedService : IHostedService
         _connectionStateService = connectionStateService;
         _latencyHistoryService = latencyHistoryService;
         _apiRequestTracker = apiRequestTracker;
+        _notificationOptions = notificationOptions.Value;
     }
 
     /// <summary>
@@ -349,6 +353,19 @@ public class BotHostedService : IHostedService
                 })
             });
 
+            // Create admin notification for reconnection (skip initial startup)
+            if (_initialConnectionComplete)
+            {
+                _ = CreateBotStatusNotificationAsync(
+                    "Bot Connected",
+                    $"Bot reconnected to Discord. Latency: {_client.Latency}ms, Guilds: {_client.Guilds.Count}",
+                    isConnected: true);
+            }
+            else
+            {
+                _initialConnectionComplete = true;
+            }
+
             BotActivitySource.SetSuccess(activity);
         }
         catch (Exception ex)
@@ -426,6 +443,12 @@ public class BotHostedService : IHostedService
                     ExceptionType = exception?.GetType().Name
                 })
             });
+
+            // Create admin notification for disconnection
+            var disconnectMessage = exception != null
+                ? $"Bot disconnected from Discord. Reason: {exception.Message}"
+                : "Bot disconnected from Discord.";
+            _ = CreateBotStatusNotificationAsync("Bot Disconnected", disconnectMessage, isConnected: false);
         }
         catch (Exception ex)
         {
@@ -506,6 +529,13 @@ public class BotHostedService : IHostedService
         // Update guild active status in database (fire-and-forget, failure tolerant)
         _ = UpdateGuildActiveStatusAsync(guild.Id, isActive: true);
 
+        // Create admin notification for guild join
+        _ = CreateGuildEventNotificationAsync(
+            guild.Id,
+            $"Bot Joined {guild.Name}",
+            $"Bot was added to guild '{guild.Name}' ({guild.Id}). Members: {guild.MemberCount}",
+            isJoined: true);
+
         return Task.CompletedTask;
     }
 
@@ -522,6 +552,13 @@ public class BotHostedService : IHostedService
 
         // Update guild active status and LeftAt timestamp in database (fire-and-forget, failure tolerant)
         _ = UpdateGuildActiveStatusAsync(guild.Id, isActive: false);
+
+        // Create admin notification for guild leave
+        _ = CreateGuildEventNotificationAsync(
+            guild.Id,
+            $"Bot Left {guild.Name}",
+            $"Bot was removed from guild '{guild.Name}' ({guild.Id}).",
+            isJoined: false);
 
         return Task.CompletedTask;
     }
@@ -569,6 +606,87 @@ public class BotHostedService : IHostedService
         {
             // Log but don't throw - this is fire-and-forget
             _logger.LogWarning(ex, "Failed to broadcast guild activity update for {GuildId}, but continuing normal operation", guild.Id);
+        }
+    }
+
+    /// <summary>
+    /// Creates an admin notification for bot status changes (connected/disconnected).
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    /// <param name="title">The notification title.</param>
+    /// <param name="message">The notification message.</param>
+    /// <param name="isConnected">True if this is a connection event, false if disconnection.</param>
+    private async Task CreateBotStatusNotificationAsync(string title, string message, bool isConnected)
+    {
+        if (!_notificationOptions.EnableBotStatusChanges)
+        {
+            _logger.LogDebug("Bot status notifications are disabled, skipping notification");
+            return;
+        }
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            var deduplicationWindow = TimeSpan.FromMinutes(_notificationOptions.DuplicateSuppressionMinutes);
+
+            await notificationService.CreateForAllAdminsAsync(
+                NotificationType.BotStatus,
+                title,
+                message,
+                linkUrl: "/Admin/Performance",
+                relatedEntityType: "BotStatus",
+                relatedEntityId: isConnected ? "connected" : "disconnected",
+                deduplicationWindow: deduplicationWindow);
+
+            _logger.LogDebug("Created bot status notification: {Title}", title);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't throw - this is fire-and-forget
+            _logger.LogWarning(ex, "Failed to create bot status notification, but continuing normal operation");
+        }
+    }
+
+    /// <summary>
+    /// Creates an admin notification for guild events (joined/left).
+    /// Fire-and-forget with internal error handling.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="title">The notification title.</param>
+    /// <param name="message">The notification message.</param>
+    /// <param name="isJoined">True if this is a join event, false if leave event.</param>
+    private async Task CreateGuildEventNotificationAsync(ulong guildId, string title, string message, bool isJoined)
+    {
+        if (!_notificationOptions.EnableGuildEvents)
+        {
+            _logger.LogDebug("Guild event notifications are disabled, skipping notification for guild {GuildId}", guildId);
+            return;
+        }
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+            var deduplicationWindow = TimeSpan.FromMinutes(_notificationOptions.DuplicateSuppressionMinutes);
+
+            await notificationService.CreateForAllAdminsAsync(
+                NotificationType.GuildEvent,
+                title,
+                message,
+                linkUrl: $"/Guilds/Details?id={guildId}",
+                relatedEntityType: "Guild",
+                relatedEntityId: $"{guildId}:{(isJoined ? "joined" : "left")}",
+                deduplicationWindow: deduplicationWindow);
+
+            _logger.LogDebug("Created guild event notification for guild {GuildId}: {Title}", guildId, title);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't throw - this is fire-and-forget
+            _logger.LogWarning(ex, "Failed to create guild event notification for guild {GuildId}, but continuing normal operation", guildId);
         }
     }
 

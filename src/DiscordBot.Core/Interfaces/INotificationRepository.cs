@@ -1,5 +1,6 @@
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Core.Interfaces;
 
@@ -92,5 +93,22 @@ public interface INotificationRepository : IRepository<UserNotification>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task AddRangeAsync(
         IEnumerable<UserNotification> notifications,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a recent notification with the same type and related entity exists.
+    /// Used for duplicate suppression to avoid spamming notifications.
+    /// </summary>
+    /// <param name="type">The notification type.</param>
+    /// <param name="relatedEntityType">The related entity type name.</param>
+    /// <param name="relatedEntityId">The related entity ID.</param>
+    /// <param name="window">The time window to check.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if a matching notification exists within the window; otherwise, false.</returns>
+    Task<bool> HasRecentNotificationAsync(
+        NotificationType type,
+        string? relatedEntityType,
+        string? relatedEntityId,
+        TimeSpan window,
         CancellationToken cancellationToken = default);
 }

@@ -82,7 +82,7 @@ public class NotificationService : INotificationService
     }
 
     /// <inheritdoc/>
-    public async Task CreateForAllAdminsAsync(
+    public async Task<bool> CreateForAllAdminsAsync(
         NotificationType type,
         string title,
         string message,
@@ -90,11 +90,29 @@ public class NotificationService : INotificationService
         AlertSeverity? severity = null,
         string? relatedEntityType = null,
         string? relatedEntityId = null,
+        TimeSpan? deduplicationWindow = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogDebug(
             "Creating notification for all admins: Type={Type}, Title={Title}",
             type, title);
+
+        // Check for duplicate if deduplication window is specified
+        if (deduplicationWindow.HasValue &&
+            !string.IsNullOrEmpty(relatedEntityType) &&
+            !string.IsNullOrEmpty(relatedEntityId))
+        {
+            var hasDuplicate = await _repository.HasRecentNotificationAsync(
+                type, relatedEntityType, relatedEntityId, deduplicationWindow.Value, cancellationToken);
+
+            if (hasDuplicate)
+            {
+                _logger.LogDebug(
+                    "Suppressing duplicate notification: Type={Type}, EntityType={EntityType}, EntityId={EntityId}",
+                    type, relatedEntityType, relatedEntityId);
+                return false;
+            }
+        }
 
         // Get all users in SuperAdmin or Admin roles
         var superAdmins = await _userManager.GetUsersInRoleAsync(Roles.SuperAdmin);
@@ -134,10 +152,12 @@ public class NotificationService : INotificationService
         var broadcastTasks = notifications.Select(n =>
             BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken));
         await Task.WhenAll(broadcastTasks);
+
+        return true;
     }
 
     /// <inheritdoc/>
-    public async Task CreateForGuildAdminsAsync(
+    public async Task<bool> CreateForGuildAdminsAsync(
         ulong guildId,
         NotificationType type,
         string title,
@@ -145,11 +165,29 @@ public class NotificationService : INotificationService
         string? linkUrl = null,
         string? relatedEntityType = null,
         string? relatedEntityId = null,
+        TimeSpan? deduplicationWindow = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogDebug(
             "Creating notification for guild {GuildId} admins: Type={Type}, Title={Title}",
             guildId, type, title);
+
+        // Check for duplicate if deduplication window is specified
+        if (deduplicationWindow.HasValue &&
+            !string.IsNullOrEmpty(relatedEntityType) &&
+            !string.IsNullOrEmpty(relatedEntityId))
+        {
+            var hasDuplicate = await _repository.HasRecentNotificationAsync(
+                type, relatedEntityType, relatedEntityId, deduplicationWindow.Value, cancellationToken);
+
+            if (hasDuplicate)
+            {
+                _logger.LogDebug(
+                    "Suppressing duplicate notification for guild {GuildId}: Type={Type}, EntityType={EntityType}, EntityId={EntityId}",
+                    guildId, type, relatedEntityType, relatedEntityId);
+                return false;
+            }
+        }
 
         // Get users with admin-level access to this guild
         var guildAdminUserIds = await _dbContext.UserGuildAccess
@@ -188,6 +226,8 @@ public class NotificationService : INotificationService
         var broadcastTasks = notifications.Select(n =>
             BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken));
         await Task.WhenAll(broadcastTasks);
+
+        return true;
     }
 
     /// <inheritdoc/>
