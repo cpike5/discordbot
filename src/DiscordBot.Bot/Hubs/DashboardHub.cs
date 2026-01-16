@@ -1125,8 +1125,8 @@ public class DashboardHub : Hub
 
         try
         {
-            var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
             {
                 _logger.LogDebug("GetNotificationSummary called with no authenticated user");
                 return new NotificationSummaryDto();
@@ -1137,7 +1137,7 @@ public class DashboardHub : Hub
                 Context.ConnectionId,
                 userId);
 
-            using var scope = _serviceProvider.CreateScope();
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             var summary = await notificationService.GetSummaryAsync(userId);
@@ -1160,10 +1160,14 @@ public class DashboardHub : Hub
     /// <summary>
     /// Gets recent notifications for the current user.
     /// </summary>
-    /// <param name="limit">Maximum number of notifications to return (default: 15).</param>
+    /// <param name="limit">Maximum number of notifications to return (default: 15, max: 100).</param>
     /// <returns>The notifications for the current user, or empty if user is not authenticated.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when limit is negative or exceeds 100.</exception>
     public async Task<IEnumerable<UserNotificationDto>> GetNotifications(int limit = 15)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(limit);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100);
+
         using var activity = BotActivitySource.StartServiceActivity(
             "dashboard_hub",
             "get_notifications");
@@ -1174,8 +1178,8 @@ public class DashboardHub : Hub
 
         try
         {
-            var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
             {
                 _logger.LogDebug("GetNotifications called with no authenticated user");
                 return [];
@@ -1187,7 +1191,7 @@ public class DashboardHub : Hub
                 userId,
                 limit);
 
-            using var scope = _serviceProvider.CreateScope();
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             var notifications = await notificationService.GetUserNotificationsAsync(userId, limit);
@@ -1223,8 +1227,8 @@ public class DashboardHub : Hub
 
         try
         {
-            var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
             {
                 _logger.LogDebug("MarkNotificationRead called with no authenticated user");
                 return;
@@ -1236,7 +1240,7 @@ public class DashboardHub : Hub
                 userId,
                 notificationId);
 
-            using var scope = _serviceProvider.CreateScope();
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             await notificationService.MarkAsReadAsync(userId, notificationId);
@@ -1269,8 +1273,8 @@ public class DashboardHub : Hub
 
         try
         {
-            var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
             {
                 _logger.LogDebug("MarkAllNotificationsRead called with no authenticated user");
                 return;
@@ -1281,7 +1285,7 @@ public class DashboardHub : Hub
                 Context.ConnectionId,
                 userId);
 
-            using var scope = _serviceProvider.CreateScope();
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             await notificationService.MarkAllAsReadAsync(userId);
@@ -1313,8 +1317,8 @@ public class DashboardHub : Hub
 
         try
         {
-            var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
+            var userId = GetAuthenticatedUserId();
+            if (userId == null)
             {
                 _logger.LogDebug("DismissNotification called with no authenticated user");
                 return;
@@ -1326,7 +1330,7 @@ public class DashboardHub : Hub
                 userId,
                 notificationId);
 
-            using var scope = _serviceProvider.CreateScope();
+            await using var scope = _serviceProvider.CreateAsyncScope();
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             await notificationService.DismissAsync(userId, notificationId);
@@ -1348,6 +1352,16 @@ public class DashboardHub : Hub
     // ============================================================================
     // Private Helpers
     // ============================================================================
+
+    /// <summary>
+    /// Gets the authenticated user ID from the SignalR context.
+    /// </summary>
+    /// <returns>The user ID if authenticated, null otherwise.</returns>
+    private string? GetAuthenticatedUserId()
+    {
+        var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+        return string.IsNullOrEmpty(userId) ? null : userId;
+    }
 
     /// <summary>
     /// Gets the group name for a guild.

@@ -130,11 +130,10 @@ public class NotificationService : INotificationService
             "Created {Count} notifications for admins: {Title}",
             notifications.Count, title);
 
-        // Broadcast notifications to each admin user via SignalR
-        foreach (var notification in notifications)
-        {
-            await BroadcastNotificationToUserAsync(notification.UserId, notification, cancellationToken);
-        }
+        // Broadcast notifications to each admin user via SignalR (in parallel)
+        var broadcastTasks = notifications.Select(n =>
+            BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken));
+        await Task.WhenAll(broadcastTasks);
     }
 
     /// <inheritdoc/>
@@ -185,11 +184,10 @@ public class NotificationService : INotificationService
             "Created {Count} notifications for guild {GuildId} admins: {Title}",
             notifications.Count, guildId, title);
 
-        // Broadcast notifications to each guild admin user via SignalR
-        foreach (var notification in notifications)
-        {
-            await BroadcastNotificationToUserAsync(notification.UserId, notification, cancellationToken);
-        }
+        // Broadcast notifications to each guild admin user via SignalR (in parallel)
+        var broadcastTasks = notifications.Select(n =>
+            BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken));
+        await Task.WhenAll(broadcastTasks);
     }
 
     /// <inheritdoc/>
@@ -243,6 +241,9 @@ public class NotificationService : INotificationService
         }
 
         await _repository.MarkAsReadAsync(notificationId, cancellationToken);
+
+        // Broadcast updated count to the user
+        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -253,6 +254,9 @@ public class NotificationService : INotificationService
         _logger.LogDebug("Marking all notifications as read for user {UserId}", userId);
 
         await _repository.MarkAllAsReadAsync(userId, cancellationToken);
+
+        // Broadcast updated count and all-read event to the user
+        await BroadcastAllNotificationsReadAsync(userId, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -282,6 +286,9 @@ public class NotificationService : INotificationService
         }
 
         await _repository.DismissAsync(notificationId, cancellationToken);
+
+        // Broadcast updated count to the user
+        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
     }
 
     /// <summary>
@@ -385,6 +392,72 @@ public class NotificationService : INotificationService
                 ex,
                 "Failed to broadcast notification {NotificationId} to user {UserId}",
                 notification.Id,
+                userId);
+        }
+    }
+
+    /// <summary>
+    /// Broadcasts an updated notification count to a specific user via SignalR.
+    /// Used when a notification is marked as read or dismissed.
+    /// </summary>
+    /// <param name="userId">The user ID to broadcast to.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task BroadcastNotificationCountChangedAsync(
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var summary = await _repository.GetUserNotificationSummaryAsync(userId, cancellationToken);
+
+            await _hubContext.Clients
+                .User(userId)
+                .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            _logger.LogDebug(
+                "Broadcast notification count change to user {UserId}: TotalUnread={TotalUnread}",
+                userId,
+                summary.TotalUnread);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to broadcast notification count change to user {UserId}",
+                userId);
+        }
+    }
+
+    /// <summary>
+    /// Broadcasts the all-notifications-read event and updated count to a specific user via SignalR.
+    /// </summary>
+    /// <param name="userId">The user ID to broadcast to.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task BroadcastAllNotificationsReadAsync(
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var summary = await _repository.GetUserNotificationSummaryAsync(userId, cancellationToken);
+
+            await _hubContext.Clients
+                .User(userId)
+                .SendAsync(DashboardHub.OnAllNotificationsRead, cancellationToken);
+
+            await _hubContext.Clients
+                .User(userId)
+                .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            _logger.LogDebug(
+                "Broadcast all notifications read to user {UserId}",
+                userId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Failed to broadcast all notifications read to user {UserId}",
                 userId);
         }
     }
