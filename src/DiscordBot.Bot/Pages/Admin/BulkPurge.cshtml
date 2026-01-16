@@ -62,13 +62,13 @@
                             BulkPurgeEntityType.ModerationCases => "Moderation case records",
                             _ => ""
                         };
-                        <label class="entity-type-card @(isSelected ? "selected" : "")">
+                        <label class="entity-type-card block cursor-pointer border-2 rounded-lg p-4 transition-all @(isSelected ? "border-primary bg-primary/10" : "border-border-primary bg-bg-primary hover:border-border-focus hover:bg-bg-tertiary")">
                             <input type="radio"
                                    name="EntityType"
                                    value="@entityType"
                                    class="hidden"
                                    @(isSelected ? "checked" : "") />
-                            <div class="card-content">
+                            <div class="flex flex-col">
                                 <span class="font-medium text-text-primary">@entityType</span>
                                 <span class="text-xs text-text-secondary mt-1">@description</span>
                             </div>
@@ -305,39 +305,20 @@
     // Entity type card selection
     document.querySelectorAll('.entity-type-card').forEach(card => {
         card.addEventListener('click', function() {
-            document.querySelectorAll('.entity-type-card').forEach(c => c.classList.remove('selected'));
-            this.classList.add('selected');
+            // Remove selected styles from all cards
+            document.querySelectorAll('.entity-type-card').forEach(c => {
+                c.classList.remove('border-primary', 'bg-primary/10');
+                c.classList.add('border-border-primary', 'bg-bg-primary', 'hover:border-border-focus', 'hover:bg-bg-tertiary');
+            });
+            // Add selected styles to clicked card
+            this.classList.add('border-primary', 'bg-primary/10');
+            this.classList.remove('border-border-primary', 'bg-bg-primary', 'hover:border-border-focus', 'hover:bg-bg-tertiary');
             this.querySelector('input[type="radio"]').checked = true;
         });
     });
 </script>
 
 <style>
-    .entity-type-card {
-        display: block;
-        cursor: pointer;
-        border: 2px solid var(--border-primary);
-        border-radius: 0.5rem;
-        padding: 1rem;
-        background: var(--bg-primary);
-        transition: all 0.2s;
-    }
-
-    .entity-type-card:hover {
-        border-color: var(--border-focus);
-        background: var(--bg-tertiary);
-    }
-
-    .entity-type-card.selected {
-        border-color: var(--primary);
-        background: var(--primary-bg);
-    }
-
-    .entity-type-card .card-content {
-        display: flex;
-        flex-direction: column;
-    }
-
     .btn-error {
         display: inline-flex;
         align-items: center;
