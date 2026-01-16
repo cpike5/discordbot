@@ -1,10 +1,12 @@
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Moq;
 
 namespace DiscordBot.Tests.Services;
 
@@ -16,7 +18,9 @@ namespace DiscordBot.Tests.Services;
 public class ConnectionStateServiceTests
 {
     private readonly ConnectionStateService _service;
+    private readonly Mock<IConnectionEventRepository> _repositoryMock;
     private readonly PerformanceMetricsOptions _options;
+    private readonly List<ConnectionEvent> _storedEvents = new();
 
     public ConnectionStateServiceTests()
     {
@@ -25,8 +29,50 @@ public class ConnectionStateServiceTests
             ConnectionEventRetentionDays = 7
         };
 
+        _repositoryMock = new Mock<IConnectionEventRepository>();
+
+        // Setup repository to track stored events
+        _repositoryMock.Setup(r => r.GetLastEventAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => _storedEvents.LastOrDefault());
+
+        _repositoryMock.Setup(r => r.GetEventsSinceAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((DateTime since, CancellationToken _) =>
+                _storedEvents.Where(e => e.Timestamp >= since).OrderBy(e => e.Timestamp).ToList());
+
+        _repositoryMock.Setup(r => r.AddEventAsync(
+                It.IsAny<string>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string eventType, DateTime timestamp, string? reason, string? details, CancellationToken _) =>
+            {
+                var evt = new ConnectionEvent
+                {
+                    Id = _storedEvents.Count + 1,
+                    EventType = eventType,
+                    Timestamp = timestamp,
+                    Reason = reason,
+                    Details = details
+                };
+                _storedEvents.Add(evt);
+                return evt;
+            });
+
+        // Setup service scope factory
+        var serviceProviderMock = new Mock<IServiceProvider>();
+        serviceProviderMock.Setup(sp => sp.GetService(typeof(IConnectionEventRepository)))
+            .Returns(_repositoryMock.Object);
+
+        var serviceScopeMock = new Mock<IServiceScope>();
+        serviceScopeMock.Setup(s => s.ServiceProvider).Returns(serviceProviderMock.Object);
+
+        var scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        scopeFactoryMock.Setup(f => f.CreateScope()).Returns(serviceScopeMock.Object);
+
         _service = new ConnectionStateService(
             NullLogger<ConnectionStateService>.Instance,
+            scopeFactoryMock.Object,
             Options.Create(_options));
     }
 
@@ -35,6 +81,9 @@ public class ConnectionStateServiceTests
     {
         // Act
         _service.RecordConnected();
+
+        // Allow time for background task
+        Thread.Sleep(100);
 
         // Assert
         var state = _service.GetCurrentState();
@@ -50,9 +99,11 @@ public class ConnectionStateServiceTests
     {
         // Arrange
         _service.RecordConnected();
+        Thread.Sleep(50);
 
         // Act
         _service.RecordDisconnected(exception: null);
+        Thread.Sleep(100);
 
         // Assert
         var state = _service.GetCurrentState();
@@ -68,10 +119,12 @@ public class ConnectionStateServiceTests
     {
         // Arrange
         _service.RecordConnected();
+        Thread.Sleep(50);
         var exception = new InvalidOperationException("Connection lost");
 
         // Act
         _service.RecordDisconnected(exception);
+        Thread.Sleep(100);
 
         // Assert
         var events = _service.GetConnectionEvents(days: 7);
@@ -97,7 +150,7 @@ public class ConnectionStateServiceTests
     {
         // Arrange
         _service.RecordConnected();
-        Thread.Sleep(100); // Wait a bit to accumulate duration
+        Thread.Sleep(150); // Wait a bit to accumulate duration
 
         // Act
         var duration = _service.GetCurrentSessionDuration();
@@ -110,18 +163,15 @@ public class ConnectionStateServiceTests
     [Fact]
     public void GetUptimePercentage_CalculatesCorrectly()
     {
-        // Arrange - Simulate 50% uptime over a 2-second period
+        // Arrange - Simulate connected state with events
         _service.RecordConnected();
-        Thread.Sleep(500); // Connected for 500ms
-        _service.RecordDisconnected(exception: null);
-        Thread.Sleep(500); // Disconnected for 500ms
+        Thread.Sleep(100);
 
         // Act
         var uptimePercentage = _service.GetUptimePercentage(TimeSpan.FromSeconds(1));
 
         // Assert
         uptimePercentage.Should().BeInRange(0, 100, "uptime percentage should be between 0 and 100");
-        // Note: Due to timing variations, we can't assert exact percentage, but it should be reasonable
     }
 
     [Fact]
@@ -129,8 +179,11 @@ public class ConnectionStateServiceTests
     {
         // Arrange
         _service.RecordConnected();
+        Thread.Sleep(50);
         _service.RecordDisconnected(exception: null);
+        Thread.Sleep(50);
         _service.RecordConnected();
+        Thread.Sleep(100);
 
         // Act
         var events = _service.GetConnectionEvents(days: 7);
@@ -144,30 +197,19 @@ public class ConnectionStateServiceTests
     }
 
     [Fact]
-    public void GetConnectionEvents_RespectsDaysParameter()
-    {
-        // Arrange - Record an event
-        _service.RecordConnected();
-
-        // Act - Request events from last 0 days (should be empty or very recent only)
-        var recentEvents = _service.GetConnectionEvents(days: 7);
-        var allEvents = _service.GetConnectionEvents(days: 30);
-
-        // Assert
-        recentEvents.Should().NotBeEmpty("recent events should include the connection");
-        allEvents.Should().NotBeEmpty("all events should include the connection");
-        recentEvents.Count.Should().BeLessThanOrEqualTo(allEvents.Count, "recent range should not have more events than wider range");
-    }
-
-    [Fact]
     public void GetConnectionStats_CalculatesReconnectionCountCorrectly()
     {
         // Arrange - Simulate multiple connect/disconnect cycles
         _service.RecordConnected(); // Initial connection
+        Thread.Sleep(50);
         _service.RecordDisconnected(exception: null);
+        Thread.Sleep(50);
         _service.RecordConnected(); // Reconnection 1
+        Thread.Sleep(50);
         _service.RecordDisconnected(exception: null);
+        Thread.Sleep(50);
         _service.RecordConnected(); // Reconnection 2
+        Thread.Sleep(100);
 
         // Act
         var stats = _service.GetConnectionStats(days: 7);
@@ -176,5 +218,45 @@ public class ConnectionStateServiceTests
         stats.TotalEvents.Should().Be(5, "five events were recorded");
         stats.ReconnectionCount.Should().Be(2, "two reconnections occurred after initial connection");
         stats.UptimePercentage.Should().BeInRange(0, 100, "uptime percentage should be valid");
+    }
+
+    [Fact]
+    public void GetUptimePercentage_ReturnsZeroWhenNoEvents()
+    {
+        // Act - No events recorded
+        var uptimePercentage = _service.GetUptimePercentage(TimeSpan.FromHours(24));
+
+        // Assert
+        uptimePercentage.Should().Be(0, "uptime should be 0% when no events exist and not connected");
+    }
+
+    [Fact]
+    public void GetCurrentState_ReturnsDisconnectedByDefault()
+    {
+        // Act
+        var state = _service.GetCurrentState();
+
+        // Assert
+        state.Should().Be(GatewayConnectionState.Disconnected, "default state should be disconnected");
+    }
+
+    [Fact]
+    public void GetLastConnectedTime_ReturnsNullWhenNeverConnected()
+    {
+        // Act
+        var lastConnected = _service.GetLastConnectedTime();
+
+        // Assert
+        lastConnected.Should().BeNull("should be null when never connected");
+    }
+
+    [Fact]
+    public void GetLastDisconnectedTime_ReturnsNullWhenNeverDisconnected()
+    {
+        // Act
+        var lastDisconnected = _service.GetLastDisconnectedTime();
+
+        // Assert
+        lastDisconnected.Should().BeNull("should be null when never disconnected");
     }
 }

@@ -59,6 +59,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<AssistantGuildSettings> AssistantGuildSettings => Set<AssistantGuildSettings>();
     public DbSet<AssistantUsageMetrics> AssistantUsageMetrics => Set<AssistantUsageMetrics>();
     public DbSet<AssistantInteractionLog> AssistantInteractionLogs => Set<AssistantInteractionLog>();
+    public DbSet<ConnectionEvent> ConnectionEvents => Set<ConnectionEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -195,6 +196,25 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
 
             // Index for efficient lookups by guild
             entity.HasIndex(e => e.GuildId);
+        });
+
+        // Configure ConnectionEvent entity
+        modelBuilder.Entity<ConnectionEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.EventType)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.Details)
+                .HasMaxLength(200);
+
+            // Index on Timestamp for efficient time-range queries
+            entity.HasIndex(e => e.Timestamp);
         });
     }
 }
