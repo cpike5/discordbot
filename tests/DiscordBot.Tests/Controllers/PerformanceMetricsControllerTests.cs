@@ -18,6 +18,7 @@ public class PerformanceMetricsControllerTests
 {
     private readonly Mock<IConnectionStateService> _mockConnectionStateService;
     private readonly Mock<ILatencyHistoryService> _mockLatencyHistoryService;
+    private readonly Mock<ICpuHistoryService> _mockCpuHistoryService;
     private readonly Mock<ICommandPerformanceAggregator> _mockCommandPerformanceAggregator;
     private readonly Mock<IApiRequestTracker> _mockApiRequestTracker;
     private readonly Mock<IDatabaseMetricsCollector> _mockDatabaseMetricsCollector;
@@ -31,6 +32,7 @@ public class PerformanceMetricsControllerTests
     {
         _mockConnectionStateService = new Mock<IConnectionStateService>();
         _mockLatencyHistoryService = new Mock<ILatencyHistoryService>();
+        _mockCpuHistoryService = new Mock<ICpuHistoryService>();
         _mockCommandPerformanceAggregator = new Mock<ICommandPerformanceAggregator>();
         _mockApiRequestTracker = new Mock<IApiRequestTracker>();
         _mockDatabaseMetricsCollector = new Mock<IDatabaseMetricsCollector>();
@@ -42,6 +44,7 @@ public class PerformanceMetricsControllerTests
         _controller = new PerformanceMetricsController(
             _mockConnectionStateService.Object,
             _mockLatencyHistoryService.Object,
+            _mockCpuHistoryService.Object,
             _mockCommandPerformanceAggregator.Object,
             _mockApiRequestTracker.Object,
             _mockDatabaseMetricsCollector.Object,

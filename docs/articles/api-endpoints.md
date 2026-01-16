@@ -22,6 +22,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/metrics` | GET | OpenTelemetry metrics (Prometheus format) |
 | `/api/metrics/health` | GET | Overall bot health status |
 | `/api/metrics/health/latency` | GET | Latency history with statistics |
+| `/api/metrics/health/cpu` | GET | CPU usage history with statistics |
 | `/api/metrics/health/connections` | GET | Connection event history |
 | `/api/metrics/commands/performance` | GET | Aggregated command performance metrics |
 | `/api/metrics/commands/slowest` | GET | Slowest commands by execution time |
@@ -242,7 +243,7 @@ The Performance Metrics API provides structured JSON endpoints for monitoring bo
 
 #### GET /api/metrics/health
 
-Returns overall bot health status including uptime, latency, and connection state.
+Returns overall bot health status including uptime, latency, CPU usage, and connection state.
 
 **Response: 200 OK**
 
@@ -250,7 +251,8 @@ Returns overall bot health status including uptime, latency, and connection stat
 {
   "status": "Healthy",
   "uptime": "2.15:34:22",
-  "latency": 45,
+  "latencyMs": 45,
+  "cpuUsagePercent": 12.5,
   "connectionState": "Connected",
   "timestamp": "2024-12-08T15:30:00Z"
 }
@@ -262,7 +264,8 @@ Returns overall bot health status including uptime, latency, and connection stat
 |-------|------|-------------|
 | `status` | string | Overall health status (Healthy, Degraded, Unhealthy) |
 | `uptime` | string | Bot uptime in TimeSpan format (d.hh:mm:ss) |
-| `latency` | int | Current gateway latency in milliseconds |
+| `latencyMs` | int | Current gateway latency in milliseconds |
+| `cpuUsagePercent` | double | Current CPU usage percentage (0-100) |
 | `connectionState` | string | Discord gateway connection state |
 | `timestamp` | string | ISO 8601 timestamp of the response |
 
@@ -326,6 +329,65 @@ GET /api/metrics/health/latency?hours=48
 | `statistics.p95` | double | 95th percentile latency |
 | `statistics.p99` | double | 99th percentile latency |
 | `timeRange` | object | Time range parameters of the query |
+
+---
+
+#### GET /api/metrics/health/cpu
+
+Returns CPU usage history with samples and statistical analysis.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `hours` | int | No | 24 | 1-720 | Time range for CPU history |
+
+**Example Request:**
+
+```bash
+GET /api/metrics/health/cpu?hours=24
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "samples": [
+    {
+      "timestamp": "2024-12-08T15:30:00Z",
+      "cpuPercent": 12.5
+    },
+    {
+      "timestamp": "2024-12-08T15:29:55Z",
+      "cpuPercent": 10.2
+    }
+  ],
+  "statistics": {
+    "average": 11.3,
+    "min": 2.1,
+    "max": 45.6,
+    "p50": 10.5,
+    "p95": 35.2,
+    "p99": 42.1,
+    "sampleCount": 17280
+  }
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `samples` | array | CPU samples with timestamp and percentage |
+| `samples[].timestamp` | string | ISO 8601 timestamp when sample was recorded |
+| `samples[].cpuPercent` | double | CPU usage percentage (0-100) |
+| `statistics.average` | double | Average CPU usage percentage |
+| `statistics.min` | double | Minimum CPU usage observed |
+| `statistics.max` | double | Maximum CPU usage observed |
+| `statistics.p50` | double | 50th percentile (median) CPU usage |
+| `statistics.p95` | double | 95th percentile CPU usage |
+| `statistics.p99` | double | 99th percentile CPU usage |
+| `statistics.sampleCount` | int | Number of samples in the time range |
 
 ---
 

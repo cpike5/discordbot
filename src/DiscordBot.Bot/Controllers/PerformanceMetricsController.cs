@@ -16,6 +16,7 @@ public class PerformanceMetricsController : ControllerBase
 {
     private readonly IConnectionStateService _connectionStateService;
     private readonly ILatencyHistoryService _latencyHistoryService;
+    private readonly ICpuHistoryService _cpuHistoryService;
     private readonly ICommandPerformanceAggregator _commandPerformanceAggregator;
     private readonly IApiRequestTracker _apiRequestTracker;
     private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
@@ -29,6 +30,7 @@ public class PerformanceMetricsController : ControllerBase
     /// </summary>
     /// <param name="connectionStateService">The connection state service.</param>
     /// <param name="latencyHistoryService">The latency history service.</param>
+    /// <param name="cpuHistoryService">The CPU history service.</param>
     /// <param name="commandPerformanceAggregator">The command performance aggregator.</param>
     /// <param name="apiRequestTracker">The API request tracker.</param>
     /// <param name="databaseMetricsCollector">The database metrics collector.</param>
@@ -39,6 +41,7 @@ public class PerformanceMetricsController : ControllerBase
     public PerformanceMetricsController(
         IConnectionStateService connectionStateService,
         ILatencyHistoryService latencyHistoryService,
+        ICpuHistoryService cpuHistoryService,
         ICommandPerformanceAggregator commandPerformanceAggregator,
         IApiRequestTracker apiRequestTracker,
         IDatabaseMetricsCollector databaseMetricsCollector,
@@ -49,6 +52,7 @@ public class PerformanceMetricsController : ControllerBase
     {
         _connectionStateService = connectionStateService;
         _latencyHistoryService = latencyHistoryService;
+        _cpuHistoryService = cpuHistoryService;
         _commandPerformanceAggregator = commandPerformanceAggregator;
         _apiRequestTracker = apiRequestTracker;
         _databaseMetricsCollector = databaseMetricsCollector;
@@ -78,6 +82,7 @@ public class PerformanceMetricsController : ControllerBase
             var connectionState = _connectionStateService.GetCurrentState();
             var sessionDuration = _connectionStateService.GetCurrentSessionDuration();
             var currentLatency = _latencyHistoryService.GetCurrentLatency();
+            var currentCpu = _cpuHistoryService.GetCurrentCpu();
             var overallStatus = _backgroundServiceHealthRegistry.GetOverallStatus();
 
             var health = new PerformanceHealthDto
@@ -85,12 +90,13 @@ public class PerformanceMetricsController : ControllerBase
                 Status = overallStatus,
                 Uptime = sessionDuration,
                 LatencyMs = currentLatency,
+                CpuUsagePercent = currentCpu,
                 ConnectionState = connectionState.ToString(),
                 Timestamp = DateTime.UtcNow
             };
 
-            _logger.LogTrace("Performance health retrieved: Status={Status}, Uptime={Uptime}, Latency={LatencyMs}ms",
-                health.Status, health.Uptime, health.LatencyMs);
+            _logger.LogTrace("Performance health retrieved: Status={Status}, Uptime={Uptime}, Latency={LatencyMs}ms, CPU={CpuPercent}%",
+                health.Status, health.Uptime, health.LatencyMs, health.CpuUsagePercent);
 
             return Ok(health);
         }
@@ -157,6 +163,62 @@ public class PerformanceMetricsController : ControllerBase
             return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorDto
             {
                 Message = "Failed to retrieve latency history",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status500InternalServerError,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+    }
+
+    /// <summary>
+    /// Gets CPU usage history with statistical analysis.
+    /// </summary>
+    /// <param name="hours">Number of hours of history to retrieve (1-720, default: 24).</param>
+    /// <returns>CPU history with samples and statistics.</returns>
+    [HttpGet("health/cpu")]
+    [ProducesResponseType(typeof(CpuHistoryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status500InternalServerError)]
+    public ActionResult<CpuHistoryDto> GetCpuHistory([FromQuery] int hours = 24)
+    {
+        try
+        {
+            if (hours < 1 || hours > 720)
+            {
+                _logger.LogWarning("Invalid hours parameter for CPU history: {Hours}", hours);
+
+                return BadRequest(new ApiErrorDto
+                {
+                    Message = "Invalid hours parameter",
+                    Detail = "Hours must be between 1 and 720 (30 days).",
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    TraceId = HttpContext.GetCorrelationId()
+                });
+            }
+
+            _logger.LogDebug("CPU history requested for {Hours} hours", hours);
+
+            var samples = _cpuHistoryService.GetSamples(hours);
+            var statistics = _cpuHistoryService.GetStatistics(hours);
+
+            var history = new CpuHistoryDto
+            {
+                Samples = samples,
+                Statistics = statistics
+            };
+
+            _logger.LogTrace("Retrieved {SampleCount} CPU samples, avg {AvgPercent}%",
+                statistics.SampleCount, statistics.Average);
+
+            return Ok(history);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve CPU history for {Hours} hours", hours);
+
+            return StatusCode(StatusCodes.Status500InternalServerError, new ApiErrorDto
+            {
+                Message = "Failed to retrieve CPU history",
                 Detail = ex.Message,
                 StatusCode = StatusCodes.Status500InternalServerError,
                 TraceId = HttpContext.GetCorrelationId()

@@ -25,6 +25,11 @@ public record PerformanceHealthDto
     public int LatencyMs { get; set; }
 
     /// <summary>
+    /// Gets or sets the current CPU usage percentage (0-100).
+    /// </summary>
+    public double CpuUsagePercent { get; set; }
+
+    /// <summary>
     /// Gets or sets the current connection state.
     /// </summary>
     public string ConnectionState { get; set; } = string.Empty;
