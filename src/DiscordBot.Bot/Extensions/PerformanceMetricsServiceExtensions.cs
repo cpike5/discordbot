@@ -44,6 +44,10 @@ public static class PerformanceMetricsServiceExtensions
         services.AddSingleton<ILatencyHistoryService>(sp => sp.GetRequiredService<LatencyHistoryService>());
         services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<LatencyHistoryService>());
 
+        services.AddSingleton<CpuHistoryService>();
+        services.AddSingleton<ICpuHistoryService>(sp => sp.GetRequiredService<CpuHistoryService>());
+        services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<CpuHistoryService>());
+
         services.AddSingleton<ApiRequestTracker>();
         services.AddSingleton<IApiRequestTracker>(sp => sp.GetRequiredService<ApiRequestTracker>());
         services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<ApiRequestTracker>());
