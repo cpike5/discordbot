@@ -149,7 +149,6 @@ public class IndexModel : PageModel
                 MemoryUsagePercent = memoryUsagePercent,
                 MemoryUsageFormatted = $"{workingSetMB} MB / {maxMemoryMB} MB",
                 CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
-                DatabaseConnectionsFormatted = "8 / 20", // Placeholder - would need actual DB pool metrics
                 ApiRateLimitFormatted = $"{totalApiRequests} / {apiLimit} requests",
                 ApiRateLimitPercent = apiUsagePercent
             };
@@ -180,7 +179,6 @@ public class IndexModel : PageModel
                 OverallStatus = "Critical",
                 Uptime30DaysPercent = 0,
                 MemoryUsageFormatted = "Unknown",
-                DatabaseConnectionsFormatted = "Unknown",
                 ApiRateLimitFormatted = "Unknown"
             };
 

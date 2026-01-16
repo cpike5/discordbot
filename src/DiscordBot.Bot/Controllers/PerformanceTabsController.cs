@@ -260,7 +260,6 @@ public class PerformanceTabsController : Controller
             MemoryUsagePercent = memoryUsagePercent,
             MemoryUsageFormatted = $"{workingSetMB} MB / {maxMemoryMB} MB",
             CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
-            DatabaseConnectionsFormatted = "8 / 20",
             ApiRateLimitFormatted = $"{totalApiRequests} / {apiLimit} requests",
             ApiRateLimitPercent = apiUsagePercent
         };

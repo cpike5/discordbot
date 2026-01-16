@@ -78,11 +78,6 @@ public record PerformanceOverviewViewModel
     public double CpuUsagePercent { get; init; }
 
     /// <summary>
-    /// Gets the database connection count (e.g., "8 / 20").
-    /// </summary>
-    public string DatabaseConnectionsFormatted { get; init; } = string.Empty;
-
-    /// <summary>
     /// Gets the API rate limit usage (e.g., "45 / 50 requests").
     /// </summary>
     public string ApiRateLimitFormatted { get; init; } = string.Empty;
