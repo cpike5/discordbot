@@ -29,6 +29,9 @@ public static class NotificationServiceExtensions
         // Notification service (scoped for per-request)
         services.AddScoped<INotificationService, NotificationService>();
 
+        // Background retention cleanup service
+        services.AddHostedService<NotificationRetentionService>();
+
         return services;
     }
 }

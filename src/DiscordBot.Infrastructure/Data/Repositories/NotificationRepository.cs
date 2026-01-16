@@ -181,36 +181,105 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
     }
 
     /// <inheritdoc/>
-    public async Task<int> CleanupOldNotificationsAsync(
-        int daysToKeep,
+    public async Task<int> DeleteDismissedOlderThanAsync(
+        DateTime cutoff,
+        int batchSize,
         CancellationToken cancellationToken = default)
     {
-        var cutoffDate = DateTime.UtcNow.AddDays(-daysToKeep);
-        _logger.LogInformation(
-            "Cleaning up notifications dismissed before {CutoffDate}",
-            cutoffDate);
+        _logger.LogDebug(
+            "Deleting dismissed notifications older than {Cutoff} (batch size: {BatchSize})",
+            cutoff, batchSize);
 
-        var notificationsToDelete = await DbSet
-            .Where(n => n.DismissedAt != null && n.DismissedAt < cutoffDate)
+        // Get the IDs of dismissed records to delete
+        var idsToDelete = await DbSet
+            .AsNoTracking()
+            .Where(n => n.DismissedAt != null && n.DismissedAt < cutoff)
+            .OrderBy(n => n.DismissedAt)
+            .Take(batchSize)
+            .Select(n => n.Id)
             .ToListAsync(cancellationToken);
 
-        var count = notificationsToDelete.Count;
-
-        if (count > 0)
+        if (idsToDelete.Count == 0)
         {
-            DbSet.RemoveRange(notificationsToDelete);
-            await Context.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Deleted {Count} notifications dismissed before {CutoffDate}",
-                count, cutoffDate);
-        }
-        else
-        {
-            _logger.LogDebug("No old notifications found to clean up");
+            _logger.LogDebug("No dismissed notifications found older than {Cutoff}", cutoff);
+            return 0;
         }
 
-        return count;
+        // Delete the batch
+        var deleted = await DbSet
+            .Where(n => idsToDelete.Contains(n.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogDebug("Deleted {Count} dismissed notifications", deleted);
+        return deleted;
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteReadOlderThanAsync(
+        DateTime cutoff,
+        int batchSize,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Deleting read notifications older than {Cutoff} (batch size: {BatchSize})",
+            cutoff, batchSize);
+
+        // Get the IDs of read (but not dismissed) records to delete
+        var idsToDelete = await DbSet
+            .AsNoTracking()
+            .Where(n => n.IsRead && n.DismissedAt == null && n.CreatedAt < cutoff)
+            .OrderBy(n => n.CreatedAt)
+            .Take(batchSize)
+            .Select(n => n.Id)
+            .ToListAsync(cancellationToken);
+
+        if (idsToDelete.Count == 0)
+        {
+            _logger.LogDebug("No read notifications found older than {Cutoff}", cutoff);
+            return 0;
+        }
+
+        // Delete the batch
+        var deleted = await DbSet
+            .Where(n => idsToDelete.Contains(n.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogDebug("Deleted {Count} read notifications", deleted);
+        return deleted;
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteUnreadOlderThanAsync(
+        DateTime cutoff,
+        int batchSize,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Deleting unread notifications older than {Cutoff} (batch size: {BatchSize})",
+            cutoff, batchSize);
+
+        // Get the IDs of unread (and not dismissed) records to delete
+        var idsToDelete = await DbSet
+            .AsNoTracking()
+            .Where(n => !n.IsRead && n.DismissedAt == null && n.CreatedAt < cutoff)
+            .OrderBy(n => n.CreatedAt)
+            .Take(batchSize)
+            .Select(n => n.Id)
+            .ToListAsync(cancellationToken);
+
+        if (idsToDelete.Count == 0)
+        {
+            _logger.LogDebug("No unread notifications found older than {Cutoff}", cutoff);
+            return 0;
+        }
+
+        // Delete the batch
+        var deleted = await DbSet
+            .Where(n => idsToDelete.Contains(n.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogDebug("Deleted {Count} unread notifications", deleted);
+        return deleted;
     }
 
     /// <inheritdoc/>
