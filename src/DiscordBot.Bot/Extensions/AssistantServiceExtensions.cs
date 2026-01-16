@@ -38,7 +38,17 @@ public static class AssistantServiceExtensions
         // Get API key from configuration
         var apiKey = configuration.GetValue<string>("Anthropic:ApiKey");
 
-        // Only register Anthropic services if API key is configured
+        // Register assistant repositories (always needed for settings management)
+        services.AddScoped<IAssistantUsageMetricsRepository, AssistantUsageMetricsRepository>();
+        services.AddScoped<IAssistantInteractionLogRepository, AssistantInteractionLogRepository>();
+        services.AddScoped<IAssistantGuildSettingsRepository, AssistantGuildSettingsRepository>();
+        services.AddScoped<AssistantGuildSettingsRepository>();
+
+        // Register assistant guild settings service (always needed for admin UI)
+        services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
+
+        // Only register LLM-dependent services if API key is configured
+        // This prevents DI validation failures when running migrations without API key
         if (!string.IsNullOrEmpty(apiKey))
         {
             // Register Anthropic client as singleton (thread-safe, expensive to create)
@@ -52,32 +62,23 @@ public static class AssistantServiceExtensions
 
             // Register LLM client implementation
             services.AddSingleton<ILlmClient, AnthropicLlmClient>();
+
+            // Register prompt template service
+            services.AddSingleton<IPromptTemplate, PromptTemplate>();
+
+            // Register built-in tool providers (scoped to support scoped dependencies like ICommandMetadataService)
+            services.AddScoped<IToolProvider, DocumentationToolProvider>();
+            services.AddScoped<IToolProvider, UserGuildInfoToolProvider>();
+
+            // Register tool registry as scoped (auto-registers injected IToolProvider instances)
+            services.AddScoped<IToolRegistry, ToolRegistry>();
+
+            // Register agent runner (depends on ILlmClient and ILogger)
+            services.AddScoped<IAgentRunner, AgentRunner>();
+
+            // Register the main assistant service
+            services.AddScoped<IAssistantService, AssistantService>();
         }
-
-        // Register prompt template service
-        services.AddSingleton<IPromptTemplate, PromptTemplate>();
-
-        // Register built-in tool providers (scoped to support scoped dependencies like ICommandMetadataService)
-        services.AddScoped<IToolProvider, DocumentationToolProvider>();
-        services.AddScoped<IToolProvider, UserGuildInfoToolProvider>();
-
-        // Register tool registry as scoped (auto-registers injected IToolProvider instances)
-        services.AddScoped<IToolRegistry, ToolRegistry>();
-
-        // Register agent runner (depends on ILlmClient and ILogger)
-        services.AddScoped<IAgentRunner, AgentRunner>();
-
-        // Register assistant repositories
-        services.AddScoped<IAssistantUsageMetricsRepository, AssistantUsageMetricsRepository>();
-        services.AddScoped<IAssistantInteractionLogRepository, AssistantInteractionLogRepository>();
-        services.AddScoped<IAssistantGuildSettingsRepository, AssistantGuildSettingsRepository>();
-        services.AddScoped<AssistantGuildSettingsRepository>();
-
-        // Register assistant guild settings service
-        services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
-
-        // Register the main assistant service
-        services.AddScoped<IAssistantService, AssistantService>();
 
         return services;
     }

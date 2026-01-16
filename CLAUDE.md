@@ -91,8 +91,8 @@ The AI assistant feature uses Anthropic's Claude API. Configure via User Secrets
 
 ```bash
 cd src/DiscordBot.Bot
-dotnet user-secrets set "Assistant:ApiKey" "your-anthropic-api-key"
-dotnet user-secrets set "Assistant:Model" "claude-sonnet-4-20250514"  # Optional, defaults to claude-sonnet-4-20250514
+dotnet user-secrets set "Anthropic:ApiKey" "your-anthropic-api-key"
+dotnet user-secrets set "Anthropic:DefaultModel" "claude-sonnet-4-20250514"  # Optional, defaults to claude-sonnet-4-20250514
 ```
 
 #### Anthropic Console Setup
@@ -101,7 +101,7 @@ dotnet user-secrets set "Assistant:Model" "claude-sonnet-4-20250514"  # Optional
 2. Create or select an organization
 3. Go to API Keys section
 4. Create a new API key
-5. Copy the key to user secrets as `Assistant:ApiKey`
+5. Copy the key to user secrets as `Anthropic:ApiKey`
 
 **Note:** The AI assistant requires users to grant consent via `/consent grant type:assistant` before responding to their questions. See [assistant-implementation-plan.md](docs/requirements/assistant-implementation-plan.md) for detailed feature documentation.
 
