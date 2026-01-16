@@ -169,6 +169,125 @@ public class PageMetadataService : IPageMetadataService
                 IconName = "trophy",
                 Keywords = new[] { "leaderboard", "rankings", "top users", "rat watch" }
             },
+            new()
+            {
+                Name = "Soundboard",
+                Route = "/Guilds/Soundboard",
+                Description = "Guild soundboard management",
+                Section = "Guild",
+                IconName = "speaker-wave",
+                Keywords = new[] { "sounds", "audio", "soundboard", "sound effects" }
+            },
+            new()
+            {
+                Name = "Audio Settings",
+                Route = "/Guilds/AudioSettings",
+                Description = "Guild audio configuration",
+                Section = "Guild",
+                IconName = "musical-note",
+                Keywords = new[] { "audio", "voice", "settings", "audio config" }
+            },
+            new()
+            {
+                Name = "Text-to-Speech",
+                Route = "/Guilds/TextToSpeech",
+                Description = "Guild TTS message management",
+                Section = "Guild",
+                IconName = "microphone",
+                Keywords = new[] { "tts", "text to speech", "voice", "speech" }
+            },
+            new()
+            {
+                Name = "Assistant Settings",
+                Route = "/Guilds/AssistantSettings",
+                Description = "AI assistant configuration",
+                Section = "Guild",
+                IconName = "cpu-chip",
+                Keywords = new[] { "ai", "assistant", "claude", "bot settings" }
+            },
+            new()
+            {
+                Name = "Assistant Metrics",
+                Route = "/Guilds/AssistantMetrics",
+                Description = "AI assistant usage metrics",
+                Section = "Guild",
+                IconName = "chart-bar",
+                Keywords = new[] { "ai metrics", "assistant stats", "usage", "analytics" }
+            },
+            new()
+            {
+                Name = "Flagged Events",
+                Route = "/Guilds/FlaggedEvents",
+                Description = "Auto-moderation flagged content",
+                Section = "Guild",
+                IconName = "flag",
+                Keywords = new[] { "flagged", "auto-mod", "violations", "moderation" }
+            },
+            new()
+            {
+                Name = "Flagged Event Details",
+                Route = "/Guilds/FlaggedEvents/Details",
+                Description = "View flagged event details",
+                Section = "Guild",
+                IconName = "document-magnifying-glass",
+                Keywords = new[] { "flagged details", "event details", "violation" }
+            },
+            new()
+            {
+                Name = "Guild Analytics",
+                Route = "/Guilds/Analytics",
+                Description = "Guild analytics overview",
+                Section = "Guild",
+                IconName = "chart-pie",
+                Keywords = new[] { "analytics", "stats", "guild metrics", "overview" }
+            },
+            new()
+            {
+                Name = "Guild Engagement Analytics",
+                Route = "/Guilds/Analytics/Engagement",
+                Description = "Member engagement metrics",
+                Section = "Guild",
+                IconName = "users",
+                Keywords = new[] { "engagement", "activity", "member analytics", "participation" }
+            },
+            new()
+            {
+                Name = "Guild Moderation Analytics",
+                Route = "/Guilds/Analytics/Moderation",
+                Description = "Moderation activity analytics",
+                Section = "Guild",
+                IconName = "shield-check",
+                Keywords = new[] { "moderation stats", "mod analytics", "enforcement" }
+            },
+            new()
+            {
+                Name = "Member Moderation",
+                Route = "/Guilds/Members/Moderation",
+                Description = "Member moderation history",
+                Section = "Guild",
+                IconName = "user-minus",
+                Keywords = new[] { "member history", "user moderation", "warnings", "actions" }
+            },
+
+            // Portal Pages (Member Access)
+            new()
+            {
+                Name = "TTS Portal",
+                Route = "/Portal/TTS",
+                Description = "Text-to-speech message composer",
+                Section = "Portal",
+                IconName = "microphone",
+                Keywords = new[] { "tts", "portal", "voice", "speech composer" }
+            },
+            new()
+            {
+                Name = "Portal Soundboard",
+                Route = "/Portal/Soundboard",
+                Description = "Member soundboard access",
+                Section = "Portal",
+                IconName = "speaker-wave",
+                Keywords = new[] { "sounds", "portal", "soundboard", "play sounds" }
+            },
 
             // Admin Pages (RequireAdmin policy)
             new()
@@ -245,6 +364,16 @@ public class PageMetadataService : IPageMetadataService
             // Performance/Monitoring Pages (Admin+)
             new()
             {
+                Name = "Performance Dashboard",
+                Route = "/Admin/Performance",
+                Description = "Performance overview dashboard",
+                Section = "Performance",
+                IconName = "chart-bar-square",
+                RequiredPolicy = "RequireAdmin",
+                Keywords = new[] { "performance", "overview", "dashboard", "monitoring" }
+            },
+            new()
+            {
                 Name = "Health Metrics",
                 Route = "/Admin/Performance/HealthMetrics",
                 Description = "Bot health metrics dashboard",
@@ -282,6 +411,16 @@ public class PageMetadataService : IPageMetadataService
                 IconName = "bell-alert",
                 RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "incidents", "thresholds", "alerts", "notifications" }
+            },
+            new()
+            {
+                Name = "API Metrics",
+                Route = "/Admin/Performance/ApiMetrics",
+                Description = "Discord API usage and rate limits",
+                Section = "Performance",
+                IconName = "globe-alt",
+                RequiredPolicy = "RequireAdmin",
+                Keywords = new[] { "api", "rate limits", "discord api", "api metrics" }
             },
 
             // SuperAdmin Pages (RequireSuperAdmin policy)
@@ -325,6 +464,16 @@ public class PageMetadataService : IPageMetadataService
                 RequiredPolicy = "RequireSuperAdmin",
                 Keywords = new[] { "edit user", "modify user", "user settings" }
             },
+            new()
+            {
+                Name = "User Purge",
+                Route = "/Admin/UserPurge",
+                Description = "Purge user data (GDPR)",
+                Section = "Admin",
+                IconName = "trash",
+                RequiredPolicy = "RequireSuperAdmin",
+                Keywords = new[] { "gdpr", "purge", "delete data", "user purge", "privacy" }
+            },
 
             // Account Pages (Public/Authenticated)
             new()
@@ -344,6 +493,24 @@ public class PageMetadataService : IPageMetadataService
                 Section = "Account",
                 IconName = "link",
                 Keywords = new[] { "oauth", "discord", "link account", "connect" }
+            },
+            new()
+            {
+                Name = "Profile",
+                Route = "/Account/Profile",
+                Description = "User profile and theme preferences",
+                Section = "Account",
+                IconName = "user-circle",
+                Keywords = new[] { "profile", "preferences", "theme", "account settings" }
+            },
+            new()
+            {
+                Name = "Privacy",
+                Route = "/Account/Privacy",
+                Description = "Privacy information and settings",
+                Section = "Account",
+                IconName = "shield-check",
+                Keywords = new[] { "privacy", "data", "gdpr", "consent" }
             },
 
             // Development Pages
