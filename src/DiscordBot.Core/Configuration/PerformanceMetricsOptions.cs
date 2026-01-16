@@ -66,4 +66,16 @@ public class PerformanceMetricsOptions
     /// Default is 100.
     /// </summary>
     public int MaxApiCategories { get; set; } = 100;
+
+    /// <summary>
+    /// Gets or sets the interval (in seconds) at which CPU samples are recorded.
+    /// Default is 5 seconds.
+    /// </summary>
+    public int CpuSampleIntervalSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// Gets or sets the duration (in hours) for which CPU history is retained in memory.
+    /// Default is 24 hours.
+    /// </summary>
+    public int CpuRetentionHours { get; set; } = 24;
 }
