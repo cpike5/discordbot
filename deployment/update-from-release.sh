@@ -9,6 +9,7 @@
 # Features:
 #   - Automatic database migrations with rollback on failure
 #   - Native audio library (libsodium, libopus) deployment for Discord voice
+#   - AI assistant system prompt and documentation deployment
 #   - Configuration file preservation
 #   - Automatic backup and rollback on deployment failure
 #   - SQLite database backup (when applicable)
@@ -16,6 +17,7 @@
 # Configuration (edit variables in script):
 #   - APP_DIR: Deployment directory (default: /opt/discordbot)
 #   - DB_PATH: SQLite database path (default: /var/discordbot/discordbot.db)
+#   - ASSISTANT_DIR: AI assistant files directory (default: /var/lib/discordbot/assistant)
 #   - LIBSODIUM_PATH: Path to libsodium.so on your system
 #   - LIBOPUS_PATH: Path to libopus.so on your system
 #
@@ -35,6 +37,11 @@ BACKUP_DIR="/opt/discordbot-backups"
 REPO_URL="https://github.com/cpike5/discordbot.git"
 SERVICE_NAME="discordbot"
 MAX_BACKUPS=5
+
+# AI Assistant configuration
+ASSISTANT_DIR="/var/lib/discordbot/assistant"
+ASSISTANT_SYSTEM_PROMPT="$ASSISTANT_DIR/system-prompt.md"
+ASSISTANT_DOCS_DIR="$ASSISTANT_DIR/docs"
 
 # Database configuration (adjust for your setup)
 # For SQLite (default):
@@ -145,6 +152,50 @@ copy_audio_libraries() {
     if [ $copied -eq 0 ]; then
         log_warn "No audio libraries copied - check LIBSODIUM_PATH and LIBOPUS_PATH in script configuration"
     fi
+}
+
+# Deploy AI assistant files (system prompt and documentation)
+deploy_assistant_files() {
+    local temp_dir="$1"
+
+    log_info "Deploying AI assistant files..."
+
+    # Create assistant directory if it doesn't exist
+    if [ ! -d "$ASSISTANT_DIR" ]; then
+        log_info "Creating assistant directory: $ASSISTANT_DIR"
+        mkdir -p "$ASSISTANT_DIR"
+    fi
+
+    # Create docs subdirectory
+    if [ ! -d "$ASSISTANT_DOCS_DIR" ]; then
+        mkdir -p "$ASSISTANT_DOCS_DIR"
+    fi
+
+    # Deploy system prompt from docs/agents/assistant-agent.md
+    local source_prompt="$temp_dir/discordbot/docs/agents/assistant-agent.md"
+    if [ -f "$source_prompt" ]; then
+        cp "$source_prompt" "$ASSISTANT_SYSTEM_PROMPT"
+        log_success "Deployed system prompt: $ASSISTANT_SYSTEM_PROMPT"
+    else
+        log_warn "Assistant agent file not found: $source_prompt"
+    fi
+
+    # Deploy documentation articles from docs/articles/
+    local source_docs="$temp_dir/discordbot/docs/articles"
+    if [ -d "$source_docs" ]; then
+        # Clear existing docs and copy fresh
+        rm -rf "${ASSISTANT_DOCS_DIR:?}"/*
+        cp -r "$source_docs"/* "$ASSISTANT_DOCS_DIR/"
+        local doc_count
+        doc_count=$(find "$ASSISTANT_DOCS_DIR" -name "*.md" | wc -l)
+        log_success "Deployed $doc_count documentation files to: $ASSISTANT_DOCS_DIR"
+    else
+        log_warn "Documentation directory not found: $source_docs"
+    fi
+
+    # Set ownership
+    chown -R discordbot:discordbot "$ASSISTANT_DIR"
+    log_info "Set ownership of assistant files to discordbot:discordbot"
 }
 
 # Run database migrations
@@ -318,6 +369,9 @@ deploy_release() {
     # Copy native audio libraries for Discord.NET voice support
     copy_audio_libraries
 
+    # Deploy AI assistant files (system prompt and documentation)
+    deploy_assistant_files "$temp_dir"
+
     # Write version file
     echo "$target_version" > "$APP_DIR/version.txt"
 
@@ -485,6 +539,9 @@ deploy_dev() {
 
     # Copy native audio libraries for Discord.NET voice support
     copy_audio_libraries
+
+    # Deploy AI assistant files (system prompt and documentation)
+    deploy_assistant_files "$temp_dir"
 
     # Write version file
     echo "$dev_version" > "$APP_DIR/version.txt"
