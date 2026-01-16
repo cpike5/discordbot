@@ -463,4 +463,30 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
         _logger.LogInformation("Deleted {Count} notifications", deleted);
         return deleted;
     }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Guid>> GetOwnedNotificationIdsAsync(
+        string userId,
+        IEnumerable<Guid> notificationIds,
+        CancellationToken cancellationToken = default)
+    {
+        var idList = notificationIds.ToList();
+        if (idList.Count == 0) return Array.Empty<Guid>();
+
+        _logger.LogDebug(
+            "Checking ownership of {Count} notifications for user {UserId}",
+            idList.Count, userId);
+
+        var ownedIds = await DbSet
+            .AsNoTracking()
+            .Where(n => idList.Contains(n.Id) && n.UserId == userId)
+            .Select(n => n.Id)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug(
+            "User {UserId} owns {OwnedCount} of {RequestedCount} notifications",
+            userId, ownedIds.Count, idList.Count);
+
+        return ownedIds;
+    }
 }

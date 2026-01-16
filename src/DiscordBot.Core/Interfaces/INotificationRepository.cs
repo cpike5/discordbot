@@ -185,4 +185,17 @@ public interface INotificationRepository : IRepository<UserNotification>
     Task<int> DeleteMultipleAsync(
         IEnumerable<Guid> ids,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the IDs of notifications owned by a specific user from a given set of IDs.
+    /// Used for validating ownership before bulk operations.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID.</param>
+    /// <param name="notificationIds">The notification IDs to check.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of notification IDs that belong to the user.</returns>
+    Task<IReadOnlyList<Guid>> GetOwnedNotificationIdsAsync(
+        string userId,
+        IEnumerable<Guid> notificationIds,
+        CancellationToken cancellationToken = default);
 }

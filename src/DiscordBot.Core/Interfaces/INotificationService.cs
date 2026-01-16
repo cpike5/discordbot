@@ -168,7 +168,8 @@ public interface INotificationService
     /// <param name="userId">The ApplicationUser ID (for ownership validation).</param>
     /// <param name="notificationId">The notification ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task MarkAsUnreadAsync(
+    /// <returns>True if successful; false if notification not found or not owned by user.</returns>
+    Task<bool> MarkAsUnreadAsync(
         string userId,
         Guid notificationId,
         CancellationToken cancellationToken = default);
@@ -180,7 +181,8 @@ public interface INotificationService
     /// <param name="userId">The ApplicationUser ID (for ownership validation).</param>
     /// <param name="notificationId">The notification ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task DeleteAsync(
+    /// <returns>True if successful; false if notification not found or not owned by user.</returns>
+    Task<bool> DeleteAsync(
         string userId,
         Guid notificationId,
         CancellationToken cancellationToken = default);

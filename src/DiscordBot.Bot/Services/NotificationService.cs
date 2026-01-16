@@ -572,12 +572,8 @@ public class NotificationService : INotificationService
 
         if (idList.Count == 0) return;
 
-        // Validate ownership of all notifications
-        var ownedIds = await _dbContext.UserNotifications
-            .AsNoTracking()
-            .Where(n => idList.Contains(n.Id) && n.UserId == userId)
-            .Select(n => n.Id)
-            .ToListAsync(cancellationToken);
+        // Validate ownership of all notifications via repository
+        var ownedIds = await _repository.GetOwnedNotificationIdsAsync(userId, idList, cancellationToken);
 
         if (ownedIds.Count != idList.Count)
         {
@@ -594,7 +590,7 @@ public class NotificationService : INotificationService
     }
 
     /// <inheritdoc/>
-    public async Task MarkAsUnreadAsync(
+    public async Task<bool> MarkAsUnreadAsync(
         string userId,
         Guid notificationId,
         CancellationToken cancellationToken = default)
@@ -605,7 +601,7 @@ public class NotificationService : INotificationService
         if (notification == null)
         {
             _logger.LogWarning("Notification {NotificationId} not found", notificationId);
-            return;
+            return false;
         }
 
         if (notification.UserId != userId)
@@ -613,15 +609,16 @@ public class NotificationService : INotificationService
             _logger.LogWarning(
                 "User {UserId} attempted to mark notification {NotificationId} owned by {OwnerId} as unread",
                 userId, notificationId, notification.UserId);
-            return;
+            return false;
         }
 
         await _repository.MarkAsUnreadAsync(notificationId, cancellationToken);
         await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        return true;
     }
 
     /// <inheritdoc/>
-    public async Task DeleteAsync(
+    public async Task<bool> DeleteAsync(
         string userId,
         Guid notificationId,
         CancellationToken cancellationToken = default)
@@ -632,7 +629,7 @@ public class NotificationService : INotificationService
         if (notification == null)
         {
             _logger.LogWarning("Notification {NotificationId} not found", notificationId);
-            return;
+            return false;
         }
 
         if (notification.UserId != userId)
@@ -640,11 +637,12 @@ public class NotificationService : INotificationService
             _logger.LogWarning(
                 "User {UserId} attempted to delete notification {NotificationId} owned by {OwnerId}",
                 userId, notificationId, notification.UserId);
-            return;
+            return false;
         }
 
         await _repository.DeleteAsync(notificationId, cancellationToken);
         await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        return true;
     }
 
     /// <inheritdoc/>
@@ -658,12 +656,8 @@ public class NotificationService : INotificationService
 
         if (idList.Count == 0) return 0;
 
-        // Validate ownership
-        var ownedIds = await _dbContext.UserNotifications
-            .AsNoTracking()
-            .Where(n => idList.Contains(n.Id) && n.UserId == userId)
-            .Select(n => n.Id)
-            .ToListAsync(cancellationToken);
+        // Validate ownership via repository
+        var ownedIds = await _repository.GetOwnedNotificationIdsAsync(userId, idList, cancellationToken);
 
         if (ownedIds.Count == 0) return 0;
 

@@ -539,19 +539,25 @@
 @section Scripts {
     <script src="~/js/notification-history.js" asp-append-version="true"></script>
     <script>
+        const FILTER_PANEL_KEY = 'notificationHistoryFilterExpanded';
+
         function toggleFilterPanel() {
             const content = document.getElementById('filterContent');
             const chevron = document.getElementById('filterChevron');
             const toggle = document.getElementById('filterToggle');
 
-            if (content.style.maxHeight === '0px') {
-                content.style.maxHeight = '1000px';
-                chevron.style.transform = 'rotate(0deg)';
-                toggle.setAttribute('aria-expanded', 'true');
-            } else {
+            const isExpanded = content.style.maxHeight !== '0px';
+
+            if (isExpanded) {
                 content.style.maxHeight = '0px';
                 chevron.style.transform = 'rotate(-90deg)';
                 toggle.setAttribute('aria-expanded', 'false');
+                localStorage.setItem(FILTER_PANEL_KEY, 'false');
+            } else {
+                content.style.maxHeight = '1000px';
+                chevron.style.transform = 'rotate(0deg)';
+                toggle.setAttribute('aria-expanded', 'true');
+                localStorage.setItem(FILTER_PANEL_KEY, 'true');
             }
         }
 
@@ -580,5 +586,19 @@
             // Submit the form
             document.getElementById('filterForm').submit();
         }
+
+        // Restore filter panel state on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedState = localStorage.getItem(FILTER_PANEL_KEY);
+            if (savedState === 'false') {
+                const content = document.getElementById('filterContent');
+                const chevron = document.getElementById('filterChevron');
+                const toggle = document.getElementById('filterToggle');
+
+                content.style.maxHeight = '0px';
+                chevron.style.transform = 'rotate(-90deg)';
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        });
     </script>
 }

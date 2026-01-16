@@ -31,8 +31,7 @@ public class NotificationsController : ControllerBase
         _logger = logger;
     }
 
-    private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)
-        ?? throw new UnauthorizedAccessException("User ID not found in claims");
+    private string? GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
 
     /// <summary>
     /// Gets paginated notifications with optional filtering.
@@ -50,6 +49,7 @@ public class NotificationsController : ControllerBase
     /// <returns>Paginated list of notifications.</returns>
     [HttpGet]
     [ProducesResponseType(typeof(PaginatedResponseDto<UserNotificationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<PaginatedResponseDto<UserNotificationDto>>> GetNotifications(
         [FromQuery] NotificationType? type = null,
         [FromQuery] bool? isRead = null,
@@ -63,6 +63,9 @@ public class NotificationsController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
         _logger.LogDebug("User {UserId} requesting notifications: Type={Type}, IsRead={IsRead}, Page={Page}",
             userId, type, isRead, page);
 
@@ -90,13 +93,17 @@ public class NotificationsController : ControllerBase
     /// </summary>
     /// <param name="id">The notification ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>No content on success.</returns>
+    /// <returns>No content on success; 404 if not found or not owned.</returns>
     [HttpPost("{id:guid}/read")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> MarkAsRead(Guid id, CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
         _logger.LogDebug("User {UserId} marking notification {NotificationId} as read", userId, id);
 
         await _notificationService.MarkAsReadAsync(userId, id, cancellationToken);
@@ -108,17 +115,21 @@ public class NotificationsController : ControllerBase
     /// </summary>
     /// <param name="id">The notification ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>No content on success.</returns>
+    /// <returns>No content on success; 404 if not found or not owned.</returns>
     [HttpPost("{id:guid}/unread")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> MarkAsUnread(Guid id, CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
         _logger.LogDebug("User {UserId} marking notification {NotificationId} as unread", userId, id);
 
-        await _notificationService.MarkAsUnreadAsync(userId, id, cancellationToken);
-        return NoContent();
+        var success = await _notificationService.MarkAsUnreadAsync(userId, id, cancellationToken);
+        return success ? NoContent() : NotFound();
     }
 
     /// <summary>
@@ -129,11 +140,15 @@ public class NotificationsController : ControllerBase
     /// <returns>No content on success.</returns>
     [HttpPost("mark-read")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> MarkMultipleAsRead(
         [FromBody] IEnumerable<Guid> ids,
         CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
         var idList = ids.ToList();
         _logger.LogDebug("User {UserId} marking {Count} notifications as read", userId, idList.Count);
 
@@ -148,9 +163,13 @@ public class NotificationsController : ControllerBase
     /// <returns>No content on success.</returns>
     [HttpPost("mark-all-read")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> MarkAllAsRead(CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
         _logger.LogDebug("User {UserId} marking all notifications as read", userId);
 
         await _notificationService.MarkAllAsReadAsync(userId, cancellationToken);
@@ -162,17 +181,21 @@ public class NotificationsController : ControllerBase
     /// </summary>
     /// <param name="id">The notification ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>No content on success.</returns>
+    /// <returns>No content on success; 404 if not found or not owned.</returns>
     [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
         _logger.LogDebug("User {UserId} deleting notification {NotificationId}", userId, id);
 
-        await _notificationService.DeleteAsync(userId, id, cancellationToken);
-        return NoContent();
+        var success = await _notificationService.DeleteAsync(userId, id, cancellationToken);
+        return success ? NoContent() : NotFound();
     }
 
     /// <summary>
@@ -183,11 +206,15 @@ public class NotificationsController : ControllerBase
     /// <returns>Number of notifications deleted.</returns>
     [HttpPost("delete")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<int>> DeleteMultiple(
         [FromBody] IEnumerable<Guid> ids,
         CancellationToken cancellationToken = default)
     {
         var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
         var idList = ids.ToList();
         _logger.LogDebug("User {UserId} deleting {Count} notifications", userId, idList.Count);
 
