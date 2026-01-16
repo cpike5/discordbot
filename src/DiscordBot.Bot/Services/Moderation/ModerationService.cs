@@ -58,7 +58,10 @@ public class ModerationService : IModerationService
                 Duration = dto.Duration,
                 CreatedAt = now,
                 ExpiresAt = dto.Duration.HasValue ? now.Add(dto.Duration.Value) : null,
-                RelatedFlaggedEventId = dto.RelatedFlaggedEventId
+                RelatedFlaggedEventId = dto.RelatedFlaggedEventId,
+                ContextMessageId = dto.ContextMessageId,
+                ContextChannelId = dto.ContextChannelId,
+                ContextMessageContent = dto.ContextMessageContent
             };
 
             await _caseRepository.AddAsync(moderationCase, ct);
@@ -458,7 +461,10 @@ public class ModerationService : IModerationService
             Duration = moderationCase.Duration,
             CreatedAt = moderationCase.CreatedAt,
             ExpiresAt = moderationCase.ExpiresAt,
-            RelatedFlaggedEventId = moderationCase.RelatedFlaggedEventId
+            RelatedFlaggedEventId = moderationCase.RelatedFlaggedEventId,
+            ContextMessageId = moderationCase.ContextMessageId,
+            ContextChannelId = moderationCase.ContextChannelId,
+            ContextMessageContent = moderationCase.ContextMessageContent
         };
     }
 
