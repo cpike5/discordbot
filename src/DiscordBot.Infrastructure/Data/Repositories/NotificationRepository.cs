@@ -332,4 +332,135 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
 
         return exists;
     }
+
+    /// <inheritdoc/>
+    public async Task<(IReadOnlyList<UserNotification> Items, int TotalCount)> GetUserNotificationsPagedAsync(
+        string userId,
+        NotificationQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Retrieving paged notifications for user {UserId}: Type={Type}, IsRead={IsRead}, Page={Page}",
+            userId, query.Type, query.IsRead, query.Page);
+
+        var baseQuery = DbSet
+            .AsNoTracking()
+            .Include(n => n.Guild)
+            .Where(n => n.UserId == userId && n.DismissedAt == null);
+
+        // Apply filters
+        if (query.Type.HasValue)
+            baseQuery = baseQuery.Where(n => n.Type == query.Type.Value);
+
+        if (query.IsRead.HasValue)
+            baseQuery = baseQuery.Where(n => n.IsRead == query.IsRead.Value);
+
+        if (query.Severity.HasValue)
+            baseQuery = baseQuery.Where(n => n.Severity == query.Severity.Value);
+
+        if (query.StartDate.HasValue)
+            baseQuery = baseQuery.Where(n => n.CreatedAt >= query.StartDate.Value);
+
+        if (query.EndDate.HasValue)
+            baseQuery = baseQuery.Where(n => n.CreatedAt <= query.EndDate.Value);
+
+        if (query.GuildId.HasValue)
+            baseQuery = baseQuery.Where(n => n.GuildId == query.GuildId.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var term = query.SearchTerm.ToLower();
+            baseQuery = baseQuery.Where(n =>
+                n.Title.ToLower().Contains(term) ||
+                n.Message.ToLower().Contains(term));
+        }
+
+        // Get total count
+        var totalCount = await baseQuery.CountAsync(cancellationToken);
+
+        // Apply pagination
+        var items = await baseQuery
+            .OrderByDescending(n => n.CreatedAt)
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug(
+            "Retrieved {Count} of {Total} notifications for user {UserId}",
+            items.Count, totalCount, userId);
+
+        return (items, totalCount);
+    }
+
+    /// <inheritdoc/>
+    public async Task MarkMultipleAsReadAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken = default)
+    {
+        var idList = ids.ToList();
+        if (idList.Count == 0) return;
+
+        _logger.LogDebug("Marking {Count} notifications as read", idList.Count);
+
+        var now = DateTime.UtcNow;
+        var updated = await DbSet
+            .Where(n => idList.Contains(n.Id) && !n.IsRead)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(n => n.IsRead, true)
+                    .SetProperty(n => n.ReadAt, now),
+                cancellationToken);
+
+        _logger.LogDebug("Marked {Count} notifications as read", updated);
+    }
+
+    /// <inheritdoc/>
+    public async Task MarkAsUnreadAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Marking notification {NotificationId} as unread", id);
+
+        var updated = await DbSet
+            .Where(n => n.Id == id && n.IsRead)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(n => n.IsRead, false)
+                    .SetProperty(n => n.ReadAt, (DateTime?)null),
+                cancellationToken);
+
+        _logger.LogDebug("Marked notification {NotificationId} as unread (affected: {Count})", id, updated);
+    }
+
+    /// <inheritdoc/>
+    public async Task DeleteAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Deleting notification {NotificationId}", id);
+
+        var deleted = await DbSet
+            .Where(n => n.Id == id)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogDebug("Deleted notification {NotificationId} (affected: {Count})", id, deleted);
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteMultipleAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken = default)
+    {
+        var idList = ids.ToList();
+        if (idList.Count == 0) return 0;
+
+        _logger.LogDebug("Deleting {Count} notifications", idList.Count);
+
+        var deleted = await DbSet
+            .Where(n => idList.Contains(n.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogInformation("Deleted {Count} notifications", deleted);
+        return deleted;
+    }
 }
