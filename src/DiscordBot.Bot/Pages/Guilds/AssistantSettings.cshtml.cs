@@ -21,6 +21,7 @@ public class AssistantSettingsModel : PageModel
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IOptions<AssistantOptions> _assistantOptions;
+    private readonly ISettingsService _globalSettingsService;
     private readonly ILogger<AssistantSettingsModel> _logger;
 
     public AssistantSettingsModel(
@@ -28,12 +29,14 @@ public class AssistantSettingsModel : PageModel
         IGuildService guildService,
         DiscordSocketClient discordClient,
         IOptions<AssistantOptions> assistantOptions,
+        ISettingsService globalSettingsService,
         ILogger<AssistantSettingsModel> logger)
     {
         _settingsService = settingsService;
         _guildService = guildService;
         _discordClient = discordClient;
         _assistantOptions = assistantOptions;
+        _globalSettingsService = globalSettingsService;
         _logger = logger;
     }
 
@@ -145,7 +148,9 @@ public class AssistantSettingsModel : PageModel
         // Load configuration defaults
         DefaultRateLimit = _assistantOptions.Value.DefaultRateLimit;
         RateLimitWindowMinutes = _assistantOptions.Value.RateLimitWindowMinutes;
-        GloballyEnabled = _assistantOptions.Value.GloballyEnabled;
+
+        // Read GloballyEnabled from settings service (respects runtime changes from Settings page)
+        GloballyEnabled = await _globalSettingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", cancellationToken);
 
         // Populate form
         Input = new InputModel
@@ -254,6 +259,8 @@ public class AssistantSettingsModel : PageModel
 
         DefaultRateLimit = _assistantOptions.Value.DefaultRateLimit;
         RateLimitWindowMinutes = _assistantOptions.Value.RateLimitWindowMinutes;
-        GloballyEnabled = _assistantOptions.Value.GloballyEnabled;
+
+        // Read GloballyEnabled from settings service (respects runtime changes from Settings page)
+        GloballyEnabled = await _globalSettingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", cancellationToken);
     }
 }
