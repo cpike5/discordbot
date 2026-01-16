@@ -75,14 +75,39 @@ public interface INotificationRepository : IRepository<UserNotification>
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Deletes notifications that were dismissed more than the specified number of days ago.
-    /// Used for retention cleanup.
+    /// Deletes dismissed notifications older than the cutoff date in batches.
     /// </summary>
-    /// <param name="daysToKeep">Number of days to keep dismissed notifications.</param>
+    /// <param name="cutoff">The cutoff date; notifications dismissed before this date will be deleted.</param>
+    /// <param name="batchSize">Maximum number of records to delete in this batch.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The number of notifications deleted.</returns>
-    Task<int> CleanupOldNotificationsAsync(
-        int daysToKeep,
+    /// <returns>The number of notifications deleted in this batch.</returns>
+    Task<int> DeleteDismissedOlderThanAsync(
+        DateTime cutoff,
+        int batchSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes read (but not dismissed) notifications older than the cutoff date in batches.
+    /// </summary>
+    /// <param name="cutoff">The cutoff date; read notifications created before this date will be deleted.</param>
+    /// <param name="batchSize">Maximum number of records to delete in this batch.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of notifications deleted in this batch.</returns>
+    Task<int> DeleteReadOlderThanAsync(
+        DateTime cutoff,
+        int batchSize,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes unread (and not dismissed) notifications older than the cutoff date in batches.
+    /// </summary>
+    /// <param name="cutoff">The cutoff date; unread notifications created before this date will be deleted.</param>
+    /// <param name="batchSize">Maximum number of records to delete in this batch.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of notifications deleted in this batch.</returns>
+    Task<int> DeleteUnreadOlderThanAsync(
+        DateTime cutoff,
+        int batchSize,
         CancellationToken cancellationToken = default);
 
     /// <summary>
