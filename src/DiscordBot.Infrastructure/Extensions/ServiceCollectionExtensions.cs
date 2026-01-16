@@ -77,6 +77,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserActivityEventRepository, UserActivityEventRepository>();
         services.AddScoped<IThemeRepository, ThemeRepository>();
         services.AddScoped<IConnectionEventRepository, ConnectionEventRepository>();
+        services.AddScoped<INotificationRepository, NotificationRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests
