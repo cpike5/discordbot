@@ -136,4 +136,53 @@ public interface INotificationRepository : IRepository<UserNotification>
         string? relatedEntityId,
         TimeSpan window,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves paginated notifications for a user with filtering.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID.</param>
+    /// <param name="query">Query parameters including filters and pagination.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Tuple of notification list and total count.</returns>
+    Task<(IReadOnlyList<UserNotification> Items, int TotalCount)> GetUserNotificationsPagedAsync(
+        string userId,
+        NotificationQueryDto query,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marks multiple notifications as read.
+    /// </summary>
+    /// <param name="ids">The notification IDs to mark as read.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task MarkMultipleAsReadAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marks a notification as unread.
+    /// </summary>
+    /// <param name="id">The notification ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task MarkAsUnreadAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes a notification.
+    /// </summary>
+    /// <param name="id">The notification ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task DeleteAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes multiple notifications.
+    /// </summary>
+    /// <param name="ids">The notification IDs to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of notifications deleted.</returns>
+    Task<int> DeleteMultipleAsync(
+        IEnumerable<Guid> ids,
+        CancellationToken cancellationToken = default);
 }

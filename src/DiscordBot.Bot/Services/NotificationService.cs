@@ -540,4 +540,142 @@ public class NotificationService : INotificationService
                 userId);
         }
     }
+
+    /// <inheritdoc/>
+    public async Task<PaginatedResponseDto<UserNotificationDto>> GetUserNotificationsPagedAsync(
+        string userId,
+        NotificationQueryDto query,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Getting paged notifications for user {UserId}", userId);
+
+        var (items, totalCount) = await _repository.GetUserNotificationsPagedAsync(
+            userId, query, cancellationToken);
+
+        return new PaginatedResponseDto<UserNotificationDto>
+        {
+            Items = items.Select(MapToDto).ToList(),
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalCount = totalCount
+        };
+    }
+
+    /// <inheritdoc/>
+    public async Task MarkMultipleAsReadAsync(
+        string userId,
+        IEnumerable<Guid> notificationIds,
+        CancellationToken cancellationToken = default)
+    {
+        var idList = notificationIds.ToList();
+        _logger.LogDebug("Marking {Count} notifications as read for user {UserId}", idList.Count, userId);
+
+        if (idList.Count == 0) return;
+
+        // Validate ownership of all notifications
+        var ownedIds = await _dbContext.UserNotifications
+            .AsNoTracking()
+            .Where(n => idList.Contains(n.Id) && n.UserId == userId)
+            .Select(n => n.Id)
+            .ToListAsync(cancellationToken);
+
+        if (ownedIds.Count != idList.Count)
+        {
+            _logger.LogWarning(
+                "User {UserId} attempted to mark notifications they don't own. Requested: {Requested}, Owned: {Owned}",
+                userId, idList.Count, ownedIds.Count);
+        }
+
+        if (ownedIds.Count > 0)
+        {
+            await _repository.MarkMultipleAsReadAsync(ownedIds, cancellationToken);
+            await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        }
+    }
+
+    /// <inheritdoc/>
+    public async Task MarkAsUnreadAsync(
+        string userId,
+        Guid notificationId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Marking notification {NotificationId} as unread for user {UserId}", notificationId, userId);
+
+        var notification = await _repository.GetByIdAsync(notificationId, cancellationToken);
+        if (notification == null)
+        {
+            _logger.LogWarning("Notification {NotificationId} not found", notificationId);
+            return;
+        }
+
+        if (notification.UserId != userId)
+        {
+            _logger.LogWarning(
+                "User {UserId} attempted to mark notification {NotificationId} owned by {OwnerId} as unread",
+                userId, notificationId, notification.UserId);
+            return;
+        }
+
+        await _repository.MarkAsUnreadAsync(notificationId, cancellationToken);
+        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task DeleteAsync(
+        string userId,
+        Guid notificationId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Deleting notification {NotificationId} for user {UserId}", notificationId, userId);
+
+        var notification = await _repository.GetByIdAsync(notificationId, cancellationToken);
+        if (notification == null)
+        {
+            _logger.LogWarning("Notification {NotificationId} not found", notificationId);
+            return;
+        }
+
+        if (notification.UserId != userId)
+        {
+            _logger.LogWarning(
+                "User {UserId} attempted to delete notification {NotificationId} owned by {OwnerId}",
+                userId, notificationId, notification.UserId);
+            return;
+        }
+
+        await _repository.DeleteAsync(notificationId, cancellationToken);
+        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteMultipleAsync(
+        string userId,
+        IEnumerable<Guid> notificationIds,
+        CancellationToken cancellationToken = default)
+    {
+        var idList = notificationIds.ToList();
+        _logger.LogDebug("Deleting {Count} notifications for user {UserId}", idList.Count, userId);
+
+        if (idList.Count == 0) return 0;
+
+        // Validate ownership
+        var ownedIds = await _dbContext.UserNotifications
+            .AsNoTracking()
+            .Where(n => idList.Contains(n.Id) && n.UserId == userId)
+            .Select(n => n.Id)
+            .ToListAsync(cancellationToken);
+
+        if (ownedIds.Count == 0) return 0;
+
+        if (ownedIds.Count != idList.Count)
+        {
+            _logger.LogWarning(
+                "User {UserId} attempted to delete notifications they don't own. Requested: {Requested}, Owned: {Owned}",
+                userId, idList.Count, ownedIds.Count);
+        }
+
+        var deleted = await _repository.DeleteMultipleAsync(ownedIds, cancellationToken);
+        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        return deleted;
+    }
 }

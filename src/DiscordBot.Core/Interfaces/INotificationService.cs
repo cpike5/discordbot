@@ -136,4 +136,65 @@ public interface INotificationService
         string userId,
         Guid notificationId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves paginated notifications for a user with filtering.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID.</param>
+    /// <param name="query">Query parameters including filters and pagination.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Paginated response with notification DTOs.</returns>
+    Task<PaginatedResponseDto<UserNotificationDto>> GetUserNotificationsPagedAsync(
+        string userId,
+        NotificationQueryDto query,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marks multiple notifications as read for a user.
+    /// Validates ownership of each notification.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID (for ownership validation).</param>
+    /// <param name="notificationIds">The notification IDs to mark as read.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task MarkMultipleAsReadAsync(
+        string userId,
+        IEnumerable<Guid> notificationIds,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Marks a notification as unread for a user.
+    /// Validates that the notification belongs to the specified user.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID (for ownership validation).</param>
+    /// <param name="notificationId">The notification ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task MarkAsUnreadAsync(
+        string userId,
+        Guid notificationId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes a notification for a user.
+    /// Validates that the notification belongs to the specified user.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID (for ownership validation).</param>
+    /// <param name="notificationId">The notification ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task DeleteAsync(
+        string userId,
+        Guid notificationId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes multiple notifications for a user.
+    /// Validates ownership of each notification.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID (for ownership validation).</param>
+    /// <param name="notificationIds">The notification IDs to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of notifications deleted.</returns>
+    Task<int> DeleteMultipleAsync(
+        string userId,
+        IEnumerable<Guid> notificationIds,
+        CancellationToken cancellationToken = default);
 }
