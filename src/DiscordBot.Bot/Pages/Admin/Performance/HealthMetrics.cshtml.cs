@@ -15,6 +15,7 @@ public class HealthMetricsModel : PageModel
 {
     private readonly IConnectionStateService _connectionStateService;
     private readonly ILatencyHistoryService _latencyHistoryService;
+    private readonly ICpuHistoryService _cpuHistoryService;
     private readonly IMemoryDiagnosticsService _memoryDiagnosticsService;
     private readonly ILogger<HealthMetricsModel> _logger;
 
@@ -28,16 +29,19 @@ public class HealthMetricsModel : PageModel
     /// </summary>
     /// <param name="connectionStateService">The connection state service.</param>
     /// <param name="latencyHistoryService">The latency history service.</param>
+    /// <param name="cpuHistoryService">The CPU history service.</param>
     /// <param name="memoryDiagnosticsService">The memory diagnostics service.</param>
     /// <param name="logger">The logger.</param>
     public HealthMetricsModel(
         IConnectionStateService connectionStateService,
         ILatencyHistoryService latencyHistoryService,
+        ICpuHistoryService cpuHistoryService,
         IMemoryDiagnosticsService memoryDiagnosticsService,
         ILogger<HealthMetricsModel> logger)
     {
         _connectionStateService = connectionStateService;
         _latencyHistoryService = latencyHistoryService;
+        _cpuHistoryService = cpuHistoryService;
         _memoryDiagnosticsService = memoryDiagnosticsService;
         _logger = logger;
     }
@@ -124,7 +128,7 @@ public class HealthMetricsModel : PageModel
                 MaxAllocatedMemoryMB = maxAllocatedMemoryMB,
                 MemoryUtilizationPercent = memoryUtilizationPercent,
                 Gen2Collections = gen2Collections,
-                CpuUsagePercent = 0, // TODO: CPU calculation requires time delta, will be handled via JavaScript/SignalR
+                CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
                 ThreadCount = threadCount,
                 MemoryDiagnostics = memoryDiagnostics
             };
