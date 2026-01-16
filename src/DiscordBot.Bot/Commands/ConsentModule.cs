@@ -93,8 +93,8 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
             var successEmbed = new EmbedBuilder()
                 .WithTitle("✅ Consent Granted")
                 .WithDescription($"You have opted in to **{GetConsentTypeName(type).ToLower()}**. " +
-                               "Your messages in DMs with this bot and in mutual servers may now be logged.\n\n" +
-                               "You can revoke consent at any time with `/consent revoke`.")
+                               $"{GetConsentGrantDescription(type)}\n\n" +
+                               $"You can revoke consent at any time with `/consent revoke {type}`.")
                 .WithColor(Color.Green)
                 .WithCurrentTimestamp()
                 .Build();
@@ -177,9 +177,9 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
             var successEmbed = new EmbedBuilder()
                 .WithTitle("✅ Consent Revoked")
                 .WithDescription($"You have opted out of **{GetConsentTypeName(type).ToLower()}**. " +
-                               "Your messages will no longer be logged.\n\n" +
-                               "**Note:** Previously logged messages are retained per our data retention policy.\n" +
-                               "Use `/consent delete-data` to request deletion of your data.")
+                               $"{GetConsentRevokeDescription(type)}\n\n" +
+                               "**Note:** Previously logged data is retained per our data retention policy.\n" +
+                               "Use `/privacy` for more information about data handling.")
                 .WithColor(Color.Green)
                 .WithCurrentTimestamp()
                 .Build();
@@ -306,7 +306,42 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
         return type switch
         {
             ConsentType.MessageLogging => "Message Logging",
+            ConsentType.AssistantUsage => "AI Assistant Usage",
             _ => type.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Gets a user-friendly description for a consent type when granting.
+    /// </summary>
+    /// <param name="type">The consent type.</param>
+    /// <returns>A user-friendly description.</returns>
+    private static string GetConsentGrantDescription(ConsentType type)
+    {
+        return type switch
+        {
+            ConsentType.MessageLogging =>
+                "Your messages in DMs with this bot and in mutual servers may now be logged.",
+            ConsentType.AssistantUsage =>
+                "You can now mention the bot to ask questions. Your questions and responses will be processed by Claude AI and logged for quality purposes.",
+            _ => "Your consent has been recorded."
+        };
+    }
+
+    /// <summary>
+    /// Gets a user-friendly description for a consent type when revoking.
+    /// </summary>
+    /// <param name="type">The consent type.</param>
+    /// <returns>A user-friendly description.</returns>
+    private static string GetConsentRevokeDescription(ConsentType type)
+    {
+        return type switch
+        {
+            ConsentType.MessageLogging =>
+                "Your messages will no longer be logged.",
+            ConsentType.AssistantUsage =>
+                "You will no longer be able to use the AI assistant feature by mentioning the bot.",
+            _ => "Your consent has been revoked."
         };
     }
 }

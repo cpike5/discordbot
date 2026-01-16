@@ -83,6 +83,9 @@ public static class DiscordServiceExtensions
         // Register VoiceStateHandler for real-time voice channel member count updates
         services.AddSingleton<VoiceStateHandler>();
 
+        // Register AssistantMessageHandler for AI assistant mentions
+        services.AddSingleton<AssistantMessageHandler>();
+
         // Register member sync services
         services.AddSingleton<IMemberSyncQueue, MemberSyncQueue>();
         services.AddHostedService<MemberSyncService>();
