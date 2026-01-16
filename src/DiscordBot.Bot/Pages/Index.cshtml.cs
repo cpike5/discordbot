@@ -24,6 +24,7 @@ public class IndexModel : PageModel
     private readonly IAuditLogService _auditLogService;
     private readonly IVersionService _versionService;
     private readonly IRatWatchService _ratWatchService;
+    private readonly IConnectionStateService _connectionStateService;
 
     public BotStatusViewModel BotStatus { get; private set; } = default!;
     public GuildStatsViewModel GuildStats { get; private set; } = default!;
@@ -45,7 +46,8 @@ public class IndexModel : PageModel
         ICommandLogService commandLogService,
         IAuditLogService auditLogService,
         IVersionService versionService,
-        IRatWatchService ratWatchService)
+        IRatWatchService ratWatchService,
+        IConnectionStateService connectionStateService)
     {
         _logger = logger;
         _botService = botService;
@@ -54,6 +56,7 @@ public class IndexModel : PageModel
         _auditLogService = auditLogService;
         _versionService = versionService;
         _ratWatchService = ratWatchService;
+        _connectionStateService = connectionStateService;
     }
 
     public async Task<IActionResult> OnGetAsync()
@@ -189,6 +192,10 @@ public class IndexModel : PageModel
         var guildList = guilds.ToList();
         var activeUsers = guildList.Where(g => g.IsActive).Sum(g => g.MemberCount ?? 0);
 
+        // Get real uptime percentage from ConnectionStateService (24 hour period)
+        var uptime24h = _connectionStateService.GetUptimePercentage(TimeSpan.FromHours(24));
+        var uptimeDisplay = $"{uptime24h:F1}%";
+
         // SVG icon paths matching the prototype design
         const string serverIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01\" />";
         const string usersIcon = "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z\" />";
@@ -200,7 +207,7 @@ public class IndexModel : PageModel
             new() { Title = "Total Servers", Value = guildList.Count.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "this week", AccentColor = CardAccent.Blue, IconSvg = serverIcon, ShowSparkline = false },
             new() { Title = "Active Users", Value = activeUsers.ToString("N0"), DataAttribute = "data-active-users", TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "today", AccentColor = CardAccent.Success, IconSvg = usersIcon, ShowSparkline = false },
             new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), DataAttribute = "data-total-commands", TrendValue = "0%", TrendDirection = TrendDirection.Neutral, TrendLabel = "vs yesterday", AccentColor = CardAccent.Orange, IconSvg = commandIcon, ShowSparkline = false },
-            new() { Title = "Uptime", Value = "99.9%", DataAttribute = "data-messages-processed", TrendValue = "", TrendDirection = TrendDirection.Up, TrendLabel = "stable", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
+            new() { Title = "Uptime", Value = uptimeDisplay, DataAttribute = "data-uptime-24h", TrendValue = "", TrendDirection = TrendDirection.Up, TrendLabel = "last 24h", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
         };
     }
 

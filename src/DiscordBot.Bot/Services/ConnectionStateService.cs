@@ -7,99 +7,151 @@ namespace DiscordBot.Bot.Services;
 
 /// <summary>
 /// Service for tracking Discord gateway connection state changes and calculating uptime metrics.
-/// Thread-safe singleton service that maintains connection event history.
+/// Thread-safe singleton service that persists connection events to the database.
 /// </summary>
 public class ConnectionStateService : IConnectionStateService
 {
     private readonly ILogger<ConnectionStateService> _logger;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly PerformanceMetricsOptions _options;
     private readonly object _lock = new();
 
-    private readonly List<ConnectionEvent> _connectionEvents = new();
+    // In-memory state for fast access to current session info
     private DateTime? _lastConnectedTime;
     private DateTime? _lastDisconnectedTime;
     private GatewayConnectionState _currentState = GatewayConnectionState.Disconnected;
-    private long _totalUptimeMs;
-    private readonly DateTime _serviceStartTime;
+    private bool _initialized;
 
     public ConnectionStateService(
         ILogger<ConnectionStateService> logger,
+        IServiceScopeFactory scopeFactory,
         IOptions<PerformanceMetricsOptions> options)
     {
         _logger = logger;
+        _scopeFactory = scopeFactory;
         _options = options.Value;
-        _serviceStartTime = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Initializes the service by checking for ungraceful shutdowns.
+    /// Called on first connection event.
+    /// </summary>
+    private async Task InitializeAsync()
+    {
+        if (_initialized) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IConnectionEventRepository>();
+
+            var lastEvent = await repository.GetLastEventAsync();
+
+            if (lastEvent != null)
+            {
+                _logger.LogInformation(
+                    "Found last connection event: {EventType} at {Timestamp}",
+                    lastEvent.EventType, lastEvent.Timestamp);
+
+                // If last event was "Connected", the process crashed without recording a disconnect
+                if (lastEvent.EventType == "Connected")
+                {
+                    _logger.LogWarning(
+                        "Detected ungraceful shutdown - last event was Connected at {Timestamp}. Recording implicit disconnect.",
+                        lastEvent.Timestamp);
+
+                    // Record an implicit disconnect slightly after the last connected event
+                    await repository.AddEventAsync(
+                        "Disconnected",
+                        lastEvent.Timestamp.AddSeconds(1),
+                        reason: "Implicit - process terminated unexpectedly",
+                        details: "UngracefulShutdown");
+                }
+            }
+
+            _initialized = true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initialize ConnectionStateService");
+            // Still mark as initialized to prevent repeated failures
+            _initialized = true;
+        }
     }
 
     /// <inheritdoc/>
     public void RecordConnected()
     {
+        var now = DateTime.UtcNow;
+
         lock (_lock)
         {
-            var now = DateTime.UtcNow;
-
-            // If we were previously connected, calculate uptime of that session
-            if (_lastConnectedTime.HasValue && _currentState == GatewayConnectionState.Connected)
-            {
-                var sessionDuration = (now - _lastConnectedTime.Value).TotalMilliseconds;
-                _totalUptimeMs += (long)sessionDuration;
-            }
-
             _lastConnectedTime = now;
             _currentState = GatewayConnectionState.Connected;
-
-            var evt = new ConnectionEvent
-            {
-                EventType = "Connected",
-                Timestamp = now,
-                Reason = null,
-                Details = null
-            };
-
-            _connectionEvents.Add(evt);
-            CleanupOldEvents();
-
-            _logger.LogInformation("Gateway connected at {Timestamp}", now);
         }
+
+        // Fire-and-forget persistence to avoid blocking the bot
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await InitializeAsync();
+
+                using var scope = _scopeFactory.CreateScope();
+                var repository = scope.ServiceProvider.GetRequiredService<IConnectionEventRepository>();
+
+                await repository.AddEventAsync("Connected", now);
+
+                _logger.LogInformation("Gateway connected at {Timestamp}", now);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist Connected event");
+            }
+        });
     }
 
     /// <inheritdoc/>
     public void RecordDisconnected(Exception? exception)
     {
+        var now = DateTime.UtcNow;
+
         lock (_lock)
         {
-            var now = DateTime.UtcNow;
-
-            // Calculate uptime for the session that just ended
-            if (_lastConnectedTime.HasValue && _currentState == GatewayConnectionState.Connected)
-            {
-                var sessionDuration = (now - _lastConnectedTime.Value).TotalMilliseconds;
-                _totalUptimeMs += (long)sessionDuration;
-            }
-
             _lastDisconnectedTime = now;
             _currentState = GatewayConnectionState.Disconnected;
-
-            var evt = new ConnectionEvent
-            {
-                EventType = "Disconnected",
-                Timestamp = now,
-                Reason = exception?.Message,
-                Details = exception?.GetType().Name
-            };
-
-            _connectionEvents.Add(evt);
-            CleanupOldEvents();
-
-            if (exception != null)
-            {
-                _logger.LogWarning(exception, "Gateway disconnected at {Timestamp}", now);
-            }
-            else
-            {
-                _logger.LogInformation("Gateway disconnected at {Timestamp}", now);
-            }
         }
+
+        // Fire-and-forget persistence to avoid blocking the bot
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await InitializeAsync();
+
+                using var scope = _scopeFactory.CreateScope();
+                var repository = scope.ServiceProvider.GetRequiredService<IConnectionEventRepository>();
+
+                await repository.AddEventAsync(
+                    "Disconnected",
+                    now,
+                    reason: exception?.Message,
+                    details: exception?.GetType().Name);
+
+                if (exception != null)
+                {
+                    _logger.LogWarning(exception, "Gateway disconnected at {Timestamp}", now);
+                }
+                else
+                {
+                    _logger.LogInformation("Gateway disconnected at {Timestamp}", now);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to persist Disconnected event");
+            }
+        });
     }
 
     /// <inheritdoc/>
@@ -146,52 +198,105 @@ public class ConnectionStateService : IConnectionStateService
     /// <inheritdoc/>
     public double GetUptimePercentage(TimeSpan period)
     {
-        lock (_lock)
+        try
         {
+            using var scope = _scopeFactory.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IConnectionEventRepository>();
+
             var now = DateTime.UtcNow;
             var periodStart = now - period;
 
-            // Get total uptime in the period
-            long uptimeInPeriod = 0;
+            // Get events from database
+            var events = repository.GetEventsSinceAsync(periodStart).GetAwaiter().GetResult();
 
-            // Add current session uptime if connected
-            if (_currentState == GatewayConnectionState.Connected && _lastConnectedTime.HasValue)
+            return CalculateUptimeFromEvents(events, periodStart, now);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to calculate uptime percentage");
+            return 0.0;
+        }
+    }
+
+    /// <summary>
+    /// Calculates uptime percentage from a list of connection events.
+    /// </summary>
+    private double CalculateUptimeFromEvents(
+        IReadOnlyList<Core.Entities.ConnectionEvent> events,
+        DateTime periodStart,
+        DateTime now)
+    {
+        if (events.Count == 0)
+        {
+            // No events in period - check current state
+            lock (_lock)
             {
-                var sessionStart = _lastConnectedTime.Value > periodStart ? _lastConnectedTime.Value : periodStart;
-                uptimeInPeriod += (long)(now - sessionStart).TotalMilliseconds;
-            }
-
-            // Add completed session uptimes within the period
-            for (int i = 0; i < _connectionEvents.Count - 1; i++)
-            {
-                var current = _connectionEvents[i];
-                var next = _connectionEvents[i + 1];
-
-                // If this is a connected event followed by a disconnected event
-                if (current.EventType == "Connected" && next.EventType == "Disconnected")
+                if (_currentState == GatewayConnectionState.Connected && _lastConnectedTime.HasValue)
                 {
-                    if (next.Timestamp >= periodStart && current.Timestamp <= now)
-                    {
-                        var sessionStart = current.Timestamp > periodStart ? current.Timestamp : periodStart;
-                        var sessionEnd = next.Timestamp < now ? next.Timestamp : now;
-                        uptimeInPeriod += (long)(sessionEnd - sessionStart).TotalMilliseconds;
-                    }
+                    // Currently connected, but no events in period means connected before period start
+                    return 100.0;
                 }
             }
-
-            var periodMs = period.TotalMilliseconds;
-            return periodMs > 0 ? (uptimeInPeriod / periodMs) * 100.0 : 0.0;
+            return 0.0;
         }
+
+        long uptimeMs = 0;
+        var eventsList = events.OrderBy(e => e.Timestamp).ToList();
+
+        // Handle case where first event in period is a disconnect (was connected before period start)
+        if (eventsList[0].EventType == "Disconnected")
+        {
+            // Connected from period start until first disconnect
+            uptimeMs += (long)(eventsList[0].Timestamp - periodStart).TotalMilliseconds;
+        }
+
+        // Process event pairs
+        for (int i = 0; i < eventsList.Count - 1; i++)
+        {
+            var current = eventsList[i];
+            var next = eventsList[i + 1];
+
+            if (current.EventType == "Connected" && next.EventType == "Disconnected")
+            {
+                var sessionStart = current.Timestamp > periodStart ? current.Timestamp : periodStart;
+                var sessionEnd = next.Timestamp < now ? next.Timestamp : now;
+                if (sessionEnd > sessionStart)
+                {
+                    uptimeMs += (long)(sessionEnd - sessionStart).TotalMilliseconds;
+                }
+            }
+        }
+
+        // Handle current session if connected
+        var lastEvent = eventsList.LastOrDefault();
+        if (lastEvent?.EventType == "Connected")
+        {
+            lock (_lock)
+            {
+                if (_currentState == GatewayConnectionState.Connected)
+                {
+                    var sessionStart = lastEvent.Timestamp > periodStart ? lastEvent.Timestamp : periodStart;
+                    uptimeMs += (long)(now - sessionStart).TotalMilliseconds;
+                }
+            }
+        }
+
+        var periodMs = (now - periodStart).TotalMilliseconds;
+        return periodMs > 0 ? (uptimeMs / periodMs) * 100.0 : 0.0;
     }
 
     /// <inheritdoc/>
     public IReadOnlyList<ConnectionEventDto> GetConnectionEvents(int days = 7)
     {
-        lock (_lock)
+        try
         {
-            var cutoff = DateTime.UtcNow.AddDays(-days);
-            return _connectionEvents
-                .Where(e => e.Timestamp >= cutoff)
+            using var scope = _scopeFactory.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IConnectionEventRepository>();
+
+            var since = DateTime.UtcNow.AddDays(-days);
+            var events = repository.GetEventsSinceAsync(since).GetAwaiter().GetResult();
+
+            return events
                 .Select(e => new ConnectionEventDto
                 {
                     EventType = e.EventType,
@@ -201,27 +306,36 @@ public class ConnectionStateService : IConnectionStateService
                 })
                 .ToList();
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get connection events");
+            return Array.Empty<ConnectionEventDto>();
+        }
     }
 
     /// <inheritdoc/>
     public ConnectionStatsDto GetConnectionStats(int days = 7)
     {
-        lock (_lock)
+        try
         {
-            var cutoff = DateTime.UtcNow.AddDays(-days);
-            var eventsInPeriod = _connectionEvents.Where(e => e.Timestamp >= cutoff).ToList();
+            using var scope = _scopeFactory.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IConnectionEventRepository>();
 
-            var totalEvents = eventsInPeriod.Count;
-            var reconnectionCount = eventsInPeriod.Count(e => e.EventType == "Connected") - 1; // First connect doesn't count as reconnect
+            var since = DateTime.UtcNow.AddDays(-days);
+            var events = repository.GetEventsSinceAsync(since).GetAwaiter().GetResult();
+            var eventsList = events.OrderBy(e => e.Timestamp).ToList();
+
+            var totalEvents = eventsList.Count;
+            var reconnectionCount = eventsList.Count(e => e.EventType == "Connected") - 1;
             if (reconnectionCount < 0) reconnectionCount = 0;
 
             // Calculate average session duration
             var sessionDurations = new List<TimeSpan>();
-            for (int i = 0; i < eventsInPeriod.Count - 1; i++)
+            for (int i = 0; i < eventsList.Count - 1; i++)
             {
-                if (eventsInPeriod[i].EventType == "Connected" && eventsInPeriod[i + 1].EventType == "Disconnected")
+                if (eventsList[i].EventType == "Connected" && eventsList[i + 1].EventType == "Disconnected")
                 {
-                    sessionDurations.Add(eventsInPeriod[i + 1].Timestamp - eventsInPeriod[i].Timestamp);
+                    sessionDurations.Add(eventsList[i + 1].Timestamp - eventsList[i].Timestamp);
                 }
             }
 
@@ -239,25 +353,10 @@ public class ConnectionStateService : IConnectionStateService
                 UptimePercentage = uptimePercentage
             };
         }
-    }
-
-    /// <summary>
-    /// Removes connection events older than the configured retention period.
-    /// </summary>
-    private void CleanupOldEvents()
-    {
-        var cutoff = DateTime.UtcNow.AddDays(-_options.ConnectionEventRetentionDays);
-        _connectionEvents.RemoveAll(e => e.Timestamp < cutoff);
-    }
-
-    /// <summary>
-    /// Internal class for storing connection events.
-    /// </summary>
-    private class ConnectionEvent
-    {
-        public required string EventType { get; init; }
-        public required DateTime Timestamp { get; init; }
-        public string? Reason { get; init; }
-        public string? Details { get; init; }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get connection stats");
+            return new ConnectionStatsDto();
+        }
     }
 }
