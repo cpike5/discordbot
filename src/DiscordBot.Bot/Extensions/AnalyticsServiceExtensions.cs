@@ -1,5 +1,7 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Moderation;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,6 +14,8 @@ public static class AnalyticsServiceExtensions
 {
     /// <summary>
     /// Adds analytics aggregation and retention services to the service collection.
+    /// Registers IServerAnalyticsService, IModerationAnalyticsService, and IEngagementAnalyticsService
+    /// along with background aggregation and retention services.
     /// </summary>
     /// <param name="services">The service collection to add services to.</param>
     /// <param name="configuration">The application configuration.</param>
@@ -23,6 +27,11 @@ public static class AnalyticsServiceExtensions
             configuration.GetSection(AnalyticsRetentionOptions.SectionName));
         services.Configure<HistoricalMetricsOptions>(
             configuration.GetSection(HistoricalMetricsOptions.SectionName));
+
+        // Register analytics services
+        services.AddScoped<IServerAnalyticsService, ServerAnalyticsService>();
+        services.AddScoped<IModerationAnalyticsService, ModerationAnalyticsService>();
+        services.AddScoped<IEngagementAnalyticsService, EngagementAnalyticsService>();
 
         // Analytics aggregation background services
         services.AddHostedService<MemberActivityAggregationService>();

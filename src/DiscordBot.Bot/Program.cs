@@ -1,11 +1,9 @@
 using DiscordBot.Bot.Extensions;
-using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Infrastructure.Extensions;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.OpenApi.Models;
 using Elastic.Apm.NetCoreAll;
 using Elastic.Apm.SerilogEnricher;
 using Elastic.Serilog.Sinks;
@@ -97,12 +95,8 @@ try
     // Add Infrastructure services (database and repositories)
     builder.Services.AddInfrastructure(builder.Configuration);
 
-    // Add OpenTelemetry metrics and tracing
-    builder.Services.AddOpenTelemetryMetrics(builder.Configuration);
-    builder.Services.AddOpenTelemetryTracing(builder.Configuration);
-
-    // Add Elastic APM with priority-based sampling
-    builder.Services.AddElasticApmWithPrioritySampling(builder.Configuration);
+    // Add observability (OpenTelemetry metrics, tracing, and Elastic APM)
+    builder.Services.AddObservability(builder.Configuration);
 
     // Configure forwarded headers for reverse proxy (nginx, Cloudflare, etc.)
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -184,51 +178,14 @@ try
     // Web API & SignalR
     // ==========================================
 
-    // Add HttpClient for Discord API calls with tracing handler
-    builder.Services.AddTransient<DiscordApiTracingHandler>();
-    builder.Services.AddHttpClient("Discord", client =>
-    {
-        client.BaseAddress = new Uri("https://discord.com/api/v10/");
-        client.DefaultRequestHeaders.Add("User-Agent", "DiscordBot-Admin");
-    })
-    .AddHttpMessageHandler<DiscordApiTracingHandler>();
-
-    // Add Web API services
-    builder.Services.AddControllers();
-    builder.Services.AddRazorPages()
-        .AddMvcOptions(options =>
-        {
-            options.Filters.Add<DiscordBot.Bot.Filters.DashboardAnonymousRedirectFilter>();
-        });
-    builder.Services.AddEndpointsApiExplorer();
+    // Add Web API services (controllers, Razor Pages, HttpClient)
+    builder.Services.AddWebServices();
 
     // Add SignalR for real-time dashboard updates
-    builder.Services.AddSignalR(options =>
-    {
-        options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
-        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
-        options.HandshakeTimeout = TimeSpan.FromSeconds(15);
-    });
+    builder.Services.AddSignalRServices(builder.Environment);
 
     // Configure Swagger/OpenAPI
-    builder.Services.AddSwaggerGen(c =>
-    {
-        c.SwaggerDoc("v1", new OpenApiInfo
-        {
-            Title = "Discord Bot Management API",
-            Version = "v1",
-            Description = "API for managing the Discord bot, including guild settings, bot status, and command logs."
-        });
-
-        // Include XML comments for Swagger documentation
-        var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-        if (File.Exists(xmlPath))
-        {
-            c.IncludeXmlComments(xmlPath);
-        }
-    });
+    builder.Services.AddSwaggerDocumentation();
 
     var app = builder.Build();
 
