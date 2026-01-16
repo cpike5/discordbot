@@ -24,6 +24,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
     private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
     private readonly IInstrumentedCache _instrumentedCache;
+    private readonly ICpuHistoryService _cpuHistoryService;
     private readonly IOptions<PerformanceBroadcastOptions> _options;
 
     /// <inheritdoc />
@@ -44,6 +45,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         IDatabaseMetricsCollector databaseMetricsCollector,
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
         IInstrumentedCache instrumentedCache,
+        ICpuHistoryService cpuHistoryService,
         IOptions<PerformanceBroadcastOptions> options,
         ILogger<PerformanceMetricsBroadcastService> logger)
         : base(serviceProvider, logger)
@@ -56,6 +58,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         _databaseMetricsCollector = databaseMetricsCollector;
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
         _instrumentedCache = instrumentedCache;
+        _cpuHistoryService = cpuHistoryService;
         _options = options;
     }
 
@@ -354,9 +357,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
 
         var gen2Collections = GC.CollectionCount(2);
 
-        // CPU usage calculation would require tracking over time
-        // This can be enhanced later with a proper CPU monitoring service
-        var cpuUsagePercent = 0.0;
+        var cpuUsagePercent = _cpuHistoryService.GetCurrentCpu();
 
         return new HealthMetricsUpdateDto
         {

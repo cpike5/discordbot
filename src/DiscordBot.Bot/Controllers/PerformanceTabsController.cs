@@ -26,6 +26,7 @@ public class PerformanceTabsController : Controller
     private readonly IInstrumentedCache _instrumentedCache;
     private readonly IPerformanceAlertService _alertService;
     private readonly IMemoryDiagnosticsService _memoryDiagnosticsService;
+    private readonly ICpuHistoryService _cpuHistoryService;
     private readonly ILogger<PerformanceTabsController> _logger;
 
     /// <summary>
@@ -41,6 +42,7 @@ public class PerformanceTabsController : Controller
         IInstrumentedCache instrumentedCache,
         IPerformanceAlertService alertService,
         IMemoryDiagnosticsService memoryDiagnosticsService,
+        ICpuHistoryService cpuHistoryService,
         ILogger<PerformanceTabsController> logger)
     {
         _connectionStateService = connectionStateService;
@@ -52,6 +54,7 @@ public class PerformanceTabsController : Controller
         _instrumentedCache = instrumentedCache;
         _alertService = alertService;
         _memoryDiagnosticsService = memoryDiagnosticsService;
+        _cpuHistoryService = cpuHistoryService;
         _logger = logger;
     }
 
@@ -256,7 +259,7 @@ public class PerformanceTabsController : Controller
             MemoryUsageMB = workingSetMB,
             MemoryUsagePercent = memoryUsagePercent,
             MemoryUsageFormatted = $"{workingSetMB} MB / {maxMemoryMB} MB",
-            CpuUsagePercent = 0,
+            CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
             DatabaseConnectionsFormatted = "8 / 20",
             ApiRateLimitFormatted = $"{totalApiRequests} / {apiLimit} requests",
             ApiRateLimitPercent = apiUsagePercent
@@ -327,7 +330,7 @@ public class PerformanceTabsController : Controller
             MaxAllocatedMemoryMB = maxAllocatedMemoryMB,
             MemoryUtilizationPercent = memoryUtilizationPercent,
             Gen2Collections = gen2Collections,
-            CpuUsagePercent = 0,
+            CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
             ThreadCount = threadCount,
             MemoryDiagnostics = memoryDiagnostics
         };

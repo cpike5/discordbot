@@ -55,6 +55,7 @@ public class DashboardHub : Hub
     private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
     private readonly IInstrumentedCache _instrumentedCache;
+    private readonly ICpuHistoryService _cpuHistoryService;
     private readonly IPerformanceSubscriptionTracker _subscriptionTracker;
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
@@ -72,6 +73,7 @@ public class DashboardHub : Hub
     /// <param name="databaseMetricsCollector">The database metrics collector service.</param>
     /// <param name="backgroundServiceHealthRegistry">The background service health registry.</param>
     /// <param name="instrumentedCache">The instrumented cache service.</param>
+    /// <param name="cpuHistoryService">The CPU history service for CPU usage metrics.</param>
     /// <param name="subscriptionTracker">The performance subscription tracker.</param>
     /// <param name="audioService">The audio service for voice connection status.</param>
     /// <param name="playbackService">The playback service for audio playback status.</param>
@@ -86,6 +88,7 @@ public class DashboardHub : Hub
         IDatabaseMetricsCollector databaseMetricsCollector,
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
         IInstrumentedCache instrumentedCache,
+        ICpuHistoryService cpuHistoryService,
         IPerformanceSubscriptionTracker subscriptionTracker,
         IAudioService audioService,
         IPlaybackService playbackService,
@@ -100,6 +103,7 @@ public class DashboardHub : Hub
         _databaseMetricsCollector = databaseMetricsCollector;
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
         _instrumentedCache = instrumentedCache;
+        _cpuHistoryService = cpuHistoryService;
         _subscriptionTracker = subscriptionTracker;
         _audioService = audioService;
         _playbackService = playbackService;
@@ -734,9 +738,7 @@ public class DashboardHub : Hub
 
             var gen2Collections = GC.CollectionCount(2);
 
-            // CPU usage calculation would require tracking over time, so we'll use 0 for now
-            // This can be enhanced later with a proper CPU monitoring service
-            var cpuUsagePercent = 0.0;
+            var cpuUsagePercent = _cpuHistoryService.GetCurrentCpu();
 
             var metrics = new HealthMetricsUpdateDto
             {

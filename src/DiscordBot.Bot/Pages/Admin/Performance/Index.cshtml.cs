@@ -20,6 +20,7 @@ public class IndexModel : PageModel
     private readonly IApiRequestTracker _apiRequestTracker;
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
     private readonly IPerformanceAlertService _alertService;
+    private readonly ICpuHistoryService _cpuHistoryService;
     private readonly ILogger<IndexModel> _logger;
 
     /// <summary>
@@ -49,6 +50,7 @@ public class IndexModel : PageModel
         IApiRequestTracker apiRequestTracker,
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
         IPerformanceAlertService alertService,
+        ICpuHistoryService cpuHistoryService,
         ILogger<IndexModel> logger)
     {
         _connectionStateService = connectionStateService;
@@ -57,6 +59,7 @@ public class IndexModel : PageModel
         _apiRequestTracker = apiRequestTracker;
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
         _alertService = alertService;
+        _cpuHistoryService = cpuHistoryService;
         _logger = logger;
     }
 
@@ -145,7 +148,7 @@ public class IndexModel : PageModel
                 MemoryUsageMB = workingSetMB,
                 MemoryUsagePercent = memoryUsagePercent,
                 MemoryUsageFormatted = $"{workingSetMB} MB / {maxMemoryMB} MB",
-                CpuUsagePercent = 0, // CPU requires time delta, will be handled via JavaScript
+                CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
                 DatabaseConnectionsFormatted = "8 / 20", // Placeholder - would need actual DB pool metrics
                 ApiRateLimitFormatted = $"{totalApiRequests} / {apiLimit} requests",
                 ApiRateLimitPercent = apiUsagePercent

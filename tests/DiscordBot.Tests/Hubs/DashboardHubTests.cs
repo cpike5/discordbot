@@ -25,6 +25,7 @@ public class DashboardHubTests
     private readonly Mock<IDatabaseMetricsCollector> _mockDatabaseMetricsCollector;
     private readonly Mock<IBackgroundServiceHealthRegistry> _mockBackgroundServiceHealthRegistry;
     private readonly Mock<IInstrumentedCache> _mockInstrumentedCache;
+    private readonly Mock<ICpuHistoryService> _mockCpuHistoryService;
     private readonly Mock<IPerformanceSubscriptionTracker> _mockSubscriptionTracker;
     private readonly Mock<IAudioService> _mockAudioService;
     private readonly Mock<IPlaybackService> _mockPlaybackService;
@@ -44,6 +45,7 @@ public class DashboardHubTests
         _mockDatabaseMetricsCollector = new Mock<IDatabaseMetricsCollector>();
         _mockBackgroundServiceHealthRegistry = new Mock<IBackgroundServiceHealthRegistry>();
         _mockInstrumentedCache = new Mock<IInstrumentedCache>();
+        _mockCpuHistoryService = new Mock<ICpuHistoryService>();
         _mockSubscriptionTracker = new Mock<IPerformanceSubscriptionTracker>();
         _mockAudioService = new Mock<IAudioService>();
         _mockPlaybackService = new Mock<IPlaybackService>();
@@ -61,6 +63,7 @@ public class DashboardHubTests
             _mockDatabaseMetricsCollector.Object,
             _mockBackgroundServiceHealthRegistry.Object,
             _mockInstrumentedCache.Object,
+            _mockCpuHistoryService.Object,
             _mockSubscriptionTracker.Object,
             _mockAudioService.Object,
             _mockPlaybackService.Object,

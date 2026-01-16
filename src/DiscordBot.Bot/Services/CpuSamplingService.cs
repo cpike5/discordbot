@@ -56,6 +56,12 @@ public class CpuSamplingService : MonitoredBackgroundService
         // Initialize baseline for delta calculation
         InitializeBaseline();
 
+        // Wait a brief moment then take initial sample so we have data immediately
+        await Task.Delay(100, stoppingToken);
+        var initialCpu = SampleCpuUsage();
+        _cpuHistoryService.RecordSample(initialCpu);
+        _logger.LogDebug("Initial CPU sample recorded: {Cpu:F1}%", initialCpu);
+
         using var timer = new PeriodicTimer(sampleInterval);
         var executionCycle = 0;
 

@@ -27,6 +27,7 @@ public class PerformanceMetricsBroadcastServiceTests
     private readonly Mock<IDatabaseMetricsCollector> _mockDatabaseMetricsCollector;
     private readonly Mock<IBackgroundServiceHealthRegistry> _mockBackgroundServiceHealthRegistry;
     private readonly Mock<IInstrumentedCache> _mockInstrumentedCache;
+    private readonly Mock<ICpuHistoryService> _mockCpuHistoryService;
     private readonly Mock<ILogger<PerformanceMetricsBroadcastService>> _mockLogger;
 
     public PerformanceMetricsBroadcastServiceTests()
@@ -40,6 +41,7 @@ public class PerformanceMetricsBroadcastServiceTests
         _mockDatabaseMetricsCollector = new Mock<IDatabaseMetricsCollector>();
         _mockBackgroundServiceHealthRegistry = new Mock<IBackgroundServiceHealthRegistry>();
         _mockInstrumentedCache = new Mock<IInstrumentedCache>();
+        _mockCpuHistoryService = new Mock<ICpuHistoryService>();
         _mockLogger = new Mock<ILogger<PerformanceMetricsBroadcastService>>();
 
         // Default setup for metrics services
@@ -54,6 +56,7 @@ public class PerformanceMetricsBroadcastServiceTests
             .Returns(Array.Empty<BackgroundServiceHealthDto>());
         _mockInstrumentedCache.Setup(x => x.GetStatistics())
             .Returns(Array.Empty<CacheStatisticsDto>());
+        _mockCpuHistoryService.Setup(x => x.GetCurrentCpu()).Returns(0.0);
     }
 
     private PerformanceMetricsBroadcastService CreateService(PerformanceBroadcastOptions? options = null)
@@ -76,6 +79,7 @@ public class PerformanceMetricsBroadcastServiceTests
             _mockDatabaseMetricsCollector.Object,
             _mockBackgroundServiceHealthRegistry.Object,
             _mockInstrumentedCache.Object,
+            _mockCpuHistoryService.Object,
             Options.Create(options),
             _mockLogger.Object);
     }
