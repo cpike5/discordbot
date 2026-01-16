@@ -1,7 +1,6 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
-using DiscordBot.Infrastructure.Data.Repositories;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -14,7 +13,7 @@ namespace DiscordBot.Infrastructure.Services;
 public class AssistantGuildSettingsService : IAssistantGuildSettingsService
 {
     private readonly ILogger<AssistantGuildSettingsService> _logger;
-    private readonly AssistantGuildSettingsRepository _repository;
+    private readonly IAssistantGuildSettingsRepository _repository;
     private readonly IOptions<AssistantOptions> _assistantOptions;
 
     /// <summary>
@@ -25,7 +24,7 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
     /// <param name="assistantOptions">Assistant configuration options.</param>
     public AssistantGuildSettingsService(
         ILogger<AssistantGuildSettingsService> logger,
-        AssistantGuildSettingsRepository repository,
+        IAssistantGuildSettingsRepository repository,
         IOptions<AssistantOptions> assistantOptions)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
