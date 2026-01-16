@@ -67,6 +67,24 @@ public class ModerationCase
     public Guid? RelatedFlaggedEventId { get; set; }
 
     /// <summary>
+    /// Discord message snowflake ID that triggered this case (e.g., via context menu action).
+    /// Null if the case was not created from a message context.
+    /// </summary>
+    public ulong? ContextMessageId { get; set; }
+
+    /// <summary>
+    /// Discord channel snowflake ID where the context message was posted.
+    /// Null if the case was not created from a message context.
+    /// </summary>
+    public ulong? ContextChannelId { get; set; }
+
+    /// <summary>
+    /// Cached content of the message that triggered this case.
+    /// Truncated to 500 characters for storage. Null if the case was not created from a message context.
+    /// </summary>
+    public string? ContextMessageContent { get; set; }
+
+    /// <summary>
     /// Navigation property for the guild this case belongs to.
     /// </summary>
     public Guild? Guild { get; set; }

@@ -32,6 +32,237 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
     }
 
     /// <summary>
+    /// Message context menu command to warn a user about a specific message.
+    /// </summary>
+    [MessageCommand("Warn User")]
+    public async Task WarnUserMessageAsync(IMessage message)
+    {
+        var targetUser = message.Author;
+        var userId = Context.User.Id;
+
+        _logger.LogInformation(
+            "Warn User message command executed by {ModeratorUsername} (ID: {ModeratorId}) for message {MessageId} by {TargetUsername} (ID: {TargetId}) in guild {GuildName} (ID: {GuildId})",
+            Context.User.Username,
+            userId,
+            message.Id,
+            targetUser.Username,
+            targetUser.Id,
+            Context.Guild.Name,
+            Context.Guild.Id);
+
+        // Prevent warning bots (with admin exception for testing)
+        if (targetUser.IsBot)
+        {
+            var guildUser = Context.User as SocketGuildUser;
+            var isAdmin = guildUser?.GuildPermissions.Administrator ?? false;
+            if (!isAdmin)
+            {
+                var errorEmbed = new EmbedBuilder()
+                    .WithTitle("❌ Cannot Warn Bot")
+                    .WithDescription("You cannot warn a bot user.")
+                    .WithColor(Color.Red)
+                    .WithCurrentTimestamp()
+                    .Build();
+
+                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                _logger.LogDebug("User {UserId} attempted to warn bot {BotId}", userId, targetUser.Id);
+                return;
+            }
+        }
+
+        // Prevent self-warning
+        if (targetUser.Id == userId)
+        {
+            var errorEmbed = new EmbedBuilder()
+                .WithTitle("❌ Cannot Warn Yourself")
+                .WithDescription("You cannot warn yourself.")
+                .WithColor(Color.Red)
+                .WithCurrentTimestamp()
+                .Build();
+
+            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            _logger.LogDebug("User {UserId} attempted to warn themselves", userId);
+            return;
+        }
+
+        // Build modal with custom ID: handler:action:messageId:targetUserId:channelId
+        var modalId = $"warnuser:submit:{message.Id}:{targetUser.Id}:{message.Channel.Id}";
+
+        var modal = new ModalBuilder()
+            .WithTitle("Warn User")
+            .WithCustomId(modalId)
+            .AddTextInput(
+                "Reason (optional)",
+                "reason",
+                TextInputStyle.Paragraph,
+                "Enter the reason for this warning...",
+                maxLength: 500,
+                required: false)
+            .Build();
+
+        await RespondWithModalAsync(modal);
+        _logger.LogDebug("Warn User modal displayed to moderator {ModeratorId}", userId);
+    }
+
+    /// <summary>
+    /// Modal handler for Warn User context menu command.
+    /// </summary>
+    [ModalInteraction("warnuser:submit:*:*:*")]
+    public async Task HandleWarnUserModalAsync(string messageId, string targetUserId, string channelId, WarnUserModal modal)
+    {
+        _logger.LogInformation(
+            "Warn User modal submitted by {ModeratorUsername} (ID: {ModeratorId}) for message {MessageId}, target user {TargetId}",
+            Context.User.Username,
+            Context.User.Id,
+            messageId,
+            targetUserId);
+
+        // Parse IDs
+        if (!ulong.TryParse(messageId, out var parsedMessageId) ||
+            !ulong.TryParse(targetUserId, out var parsedTargetUserId) ||
+            !ulong.TryParse(channelId, out var parsedChannelId))
+        {
+            await RespondAsync("Failed to parse message or user identifiers.", ephemeral: true);
+            _logger.LogError("Failed to parse IDs from modal: messageId={MessageId}, targetUserId={TargetId}, channelId={ChannelId}",
+                messageId, targetUserId, channelId);
+            return;
+        }
+
+        await DeferAsync(ephemeral: false);
+
+        try
+        {
+            // Fetch the message to get its content and construct jump URL
+            var channel = await Context.Client.GetChannelAsync(parsedChannelId) as IMessageChannel;
+            if (channel == null)
+            {
+                await FollowupAsync("Could not access the channel where the message was posted.", ephemeral: true);
+                _logger.LogWarning("Could not resolve channel {ChannelId}", parsedChannelId);
+                return;
+            }
+
+            var message = await channel.GetMessageAsync(parsedMessageId);
+            if (message == null)
+            {
+                await FollowupAsync("Could not find the original message. It may have been deleted.", ephemeral: true);
+                _logger.LogWarning("Could not resolve message {MessageId} in channel {ChannelId}", parsedMessageId, parsedChannelId);
+                return;
+            }
+
+            // Truncate message content to 500 characters
+            var messageContent = message.Content;
+            if (messageContent.Length > 500)
+            {
+                messageContent = messageContent.Substring(0, 497) + "...";
+            }
+
+            var messageJumpUrl = message.GetJumpUrl();
+
+            // Fetch target user
+            var targetUser = await Context.Client.GetUserAsync(parsedTargetUserId);
+            if (targetUser == null)
+            {
+                await FollowupAsync("Could not find the target user.", ephemeral: true);
+                _logger.LogWarning("Could not resolve target user {UserId}", parsedTargetUserId);
+                return;
+            }
+
+            // Create moderation case with message context
+            var createDto = new ModerationCaseCreateDto
+            {
+                GuildId = Context.Guild.Id,
+                TargetUserId = parsedTargetUserId,
+                ModeratorUserId = Context.User.Id,
+                Type = CaseType.Warn,
+                Reason = string.IsNullOrWhiteSpace(modal.Reason) ? null : modal.Reason,
+                ContextMessageId = parsedMessageId,
+                ContextChannelId = parsedChannelId,
+                ContextMessageContent = messageContent
+            };
+
+            var caseDto = await _moderationService.CreateCaseAsync(createDto);
+
+            _logger.LogInformation(
+                "Warning issued via message context: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}, message {MessageId}",
+                caseDto.CaseNumber,
+                parsedTargetUserId,
+                Context.User.Id,
+                parsedMessageId);
+
+            // Try to DM the user about the warning
+            try
+            {
+                var dmEmbedBuilder = new EmbedBuilder()
+                    .WithTitle($"⚠️ Warning in {Context.Guild.Name}")
+                    .WithDescription("You have received a formal warning regarding a message you posted.")
+                    .AddField("Case Number", $"#{caseDto.CaseNumber}", inline: true)
+                    .AddField("Moderator", Context.User.Username, inline: true)
+                    .WithColor(Color.Gold)
+                    .WithCurrentTimestamp();
+
+                if (!string.IsNullOrWhiteSpace(modal.Reason))
+                {
+                    dmEmbedBuilder.AddField("Reason", modal.Reason, inline: false);
+                }
+
+                // Add message context
+                if (!string.IsNullOrWhiteSpace(messageContent))
+                {
+                    dmEmbedBuilder.AddField("Your Message", $">>> {messageContent}", inline: false);
+                }
+
+                dmEmbedBuilder.AddField("Message Link", $"[Jump to Message]({messageJumpUrl})", inline: false);
+
+                await targetUser.SendMessageAsync(embed: dmEmbedBuilder.Build());
+                _logger.LogDebug("Warning DM sent successfully to user {UserId}", parsedTargetUserId);
+            }
+            catch (Exception dmEx)
+            {
+                _logger.LogWarning(dmEx, "Failed to send warning DM to user {UserId}", parsedTargetUserId);
+            }
+
+            // Send confirmation embed in channel
+            var confirmEmbedBuilder = new EmbedBuilder()
+                .WithTitle("⚠️ Warning Issued")
+                .WithColor(Color.Gold)
+                .AddField("User", $"{targetUser.Mention} ({targetUser.Id})", inline: true)
+                .AddField("Case", $"#{caseDto.CaseNumber}", inline: true)
+                .AddField("Moderator", Context.User.Mention, inline: true)
+                .WithCurrentTimestamp();
+
+            if (!string.IsNullOrWhiteSpace(modal.Reason))
+            {
+                confirmEmbedBuilder.AddField("Reason", modal.Reason, inline: false);
+            }
+
+            // Add message context preview
+            if (!string.IsNullOrWhiteSpace(messageContent))
+            {
+                confirmEmbedBuilder.AddField("Message Context", $">>> {messageContent}", inline: false);
+            }
+
+            confirmEmbedBuilder.AddField("Message Link", $"[Jump to Message]({messageJumpUrl})", inline: false);
+
+            await FollowupAsync(embed: confirmEmbedBuilder.Build());
+
+            _logger.LogDebug("Warn User command completed successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to warn user {UserId} via message context", parsedTargetUserId);
+
+            var errorEmbed = new EmbedBuilder()
+                .WithTitle("❌ Error")
+                .WithDescription($"Failed to issue warning: {ex.Message}")
+                .WithColor(Color.Red)
+                .WithCurrentTimestamp()
+                .Build();
+
+            await FollowupAsync(embed: errorEmbed, ephemeral: true);
+        }
+    }
+
+    /// <summary>
     /// Issue a formal warning to a user.
     /// </summary>
     [SlashCommand("warn", "Issue a formal warning to a user")]
@@ -831,4 +1062,16 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         CaseType.Unban => Color.Green,
         _ => Color.Blue
     };
+}
+
+/// <summary>
+/// Modal data for Warn User context menu command.
+/// </summary>
+public class WarnUserModal : IModal
+{
+    public string Title => "Warn User";
+
+    [InputLabel("Reason (optional)")]
+    [ModalTextInput("reason", TextInputStyle.Paragraph, "Enter the reason for this warning...", maxLength: 500)]
+    public string? Reason { get; set; }
 }

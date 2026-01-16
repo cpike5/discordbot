@@ -135,6 +135,21 @@ public class ModerationCaseDto
     /// Gets or sets the ID of the related flagged event that triggered this case.
     /// </summary>
     public Guid? RelatedFlaggedEventId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Discord message snowflake ID that triggered this case.
+    /// </summary>
+    public ulong? ContextMessageId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the Discord channel snowflake ID where the context message was posted.
+    /// </summary>
+    public ulong? ContextChannelId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the cached content of the message that triggered this case.
+    /// </summary>
+    public string? ContextMessageContent { get; set; }
 }
 
 /// <summary>
@@ -176,6 +191,21 @@ public class ModerationCaseCreateDto
     /// Gets or sets the optional ID of the related flagged event that triggered this case.
     /// </summary>
     public Guid? RelatedFlaggedEventId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional Discord message snowflake ID that triggered this case.
+    /// </summary>
+    public ulong? ContextMessageId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional Discord channel snowflake ID where the context message was posted.
+    /// </summary>
+    public ulong? ContextChannelId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional cached content of the message that triggered this case.
+    /// </summary>
+    public string? ContextMessageContent { get; set; }
 }
 
 /// <summary>
