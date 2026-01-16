@@ -417,7 +417,10 @@
                                     <span class="inline-flex items-center justify-center w-8 h-8 rounded-full @rankBadgeClass font-bold text-sm">@rank</span>
                                 </td>
                                 <td class="px-5 py-4">
-                                    <p class="font-medium text-text-primary">@user.Username</p>
+                                    <span class="preview-trigger font-medium text-text-primary"
+                                          data-preview-type="user"
+                                          data-user-id="@user.UserId"
+                                          data-context-guild-id="@Model.ViewModel.GuildId">@user.Username</span>
                                 </td>
                                 <td class="px-5 py-4 text-text-primary font-medium">@user.MessageCount.ToString("N0")</td>
                                 <td class="px-5 py-4 text-text-secondary">@user.UniqueChannels</td>
