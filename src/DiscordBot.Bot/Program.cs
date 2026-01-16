@@ -157,6 +157,9 @@ try
     builder.Services.AddMessageLogging(builder.Configuration);
     builder.Services.AddAuditLogging(builder.Configuration);
 
+    // Notifications
+    builder.Services.AddNotificationServices(builder.Configuration);
+
     // Scheduled operations
     builder.Services.AddScheduledMessages(builder.Configuration);
     builder.Services.AddRatWatch(builder.Configuration);

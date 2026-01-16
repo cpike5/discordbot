@@ -116,10 +116,7 @@ public class NotificationService : INotificationService
             RelatedEntityId = relatedEntityId
         }).ToList();
 
-        foreach (var notification in notifications)
-        {
-            await _repository.AddAsync(notification, cancellationToken);
-        }
+        await _repository.AddRangeAsync(notifications, cancellationToken);
 
         _logger.LogInformation(
             "Created {Count} notifications for admins: {Title}",
@@ -168,10 +165,7 @@ public class NotificationService : INotificationService
             RelatedEntityId = relatedEntityId
         }).ToList();
 
-        foreach (var notification in notifications)
-        {
-            await _repository.AddAsync(notification, cancellationToken);
-        }
+        await _repository.AddRangeAsync(notifications, cancellationToken);
 
         _logger.LogInformation(
             "Created {Count} notifications for guild {GuildId} admins: {Title}",

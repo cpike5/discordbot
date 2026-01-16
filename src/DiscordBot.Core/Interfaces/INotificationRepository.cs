@@ -77,10 +77,20 @@ public interface INotificationRepository : IRepository<UserNotification>
     /// Deletes notifications that were dismissed more than the specified number of days ago.
     /// Used for retention cleanup.
     /// </summary>
-    /// <param name="daysToKeep">Number of days to keep dismissed notifications (default: 30).</param>
+    /// <param name="daysToKeep">Number of days to keep dismissed notifications.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of notifications deleted.</returns>
     Task<int> CleanupOldNotificationsAsync(
-        int daysToKeep = 30,
+        int daysToKeep,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds multiple notifications in a single database operation.
+    /// More efficient than calling AddAsync multiple times.
+    /// </summary>
+    /// <param name="notifications">The notifications to add.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task AddRangeAsync(
+        IEnumerable<UserNotification> notifications,
         CancellationToken cancellationToken = default);
 }
