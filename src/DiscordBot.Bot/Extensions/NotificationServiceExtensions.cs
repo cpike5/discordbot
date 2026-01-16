@@ -23,6 +23,9 @@ public static class NotificationServiceExtensions
         services.Configure<NotificationRetentionOptions>(
             configuration.GetSection("NotificationRetention"));
 
+        services.Configure<NotificationOptions>(
+            configuration.GetSection(NotificationOptions.SectionName));
+
         // Notification service (scoped for per-request)
         services.AddScoped<INotificationService, NotificationService>();
 
