@@ -182,7 +182,7 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
 
     /// <inheritdoc/>
     public async Task<int> CleanupOldNotificationsAsync(
-        int daysToKeep = 30,
+        int daysToKeep,
         CancellationToken cancellationToken = default)
     {
         var cutoffDate = DateTime.UtcNow.AddDays(-daysToKeep);
@@ -211,5 +211,25 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
         }
 
         return count;
+    }
+
+    /// <inheritdoc/>
+    public async Task AddRangeAsync(
+        IEnumerable<UserNotification> notifications,
+        CancellationToken cancellationToken = default)
+    {
+        var notificationList = notifications.ToList();
+        if (notificationList.Count == 0)
+        {
+            _logger.LogDebug("AddRangeAsync called with empty collection, skipping");
+            return;
+        }
+
+        _logger.LogDebug("Adding {Count} notifications in bulk", notificationList.Count);
+
+        await DbSet.AddRangeAsync(notificationList, cancellationToken);
+        await Context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Added {Count} notifications in bulk", notificationList.Count);
     }
 }
