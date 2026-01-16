@@ -21,6 +21,7 @@ public class MetricsCollectionService : MonitoredBackgroundService
     private IDatabaseMetricsCollector? _databaseMetricsCollector;
     private IInstrumentedCache? _instrumentedCache;
     private IBackgroundServiceHealthRegistry? _healthRegistry;
+    private ICpuHistoryService? _cpuHistoryService;
 
     // Track last cleanup time to schedule periodic cleanup
     private DateTime? _lastCleanup;
@@ -52,6 +53,7 @@ public class MetricsCollectionService : MonitoredBackgroundService
         _databaseMetricsCollector = _serviceProvider.GetRequiredService<IDatabaseMetricsCollector>();
         _instrumentedCache = _serviceProvider.GetRequiredService<IInstrumentedCache>();
         _healthRegistry = _serviceProvider.GetRequiredService<IBackgroundServiceHealthRegistry>();
+        _cpuHistoryService = _serviceProvider.GetRequiredService<ICpuHistoryService>();
     }
 
     /// <inheritdoc/>
@@ -177,18 +179,22 @@ public class MetricsCollectionService : MonitoredBackgroundService
         snapshot.ServicesRunningCount = services.Count(s => s.Status == "Running");
         snapshot.ServicesErrorCount = services.Count(s => s.Status == "Error" || s.Status == "Unhealthy");
 
+        // Collect CPU metrics
+        snapshot.CpuUsagePercent = _cpuHistoryService!.GetCurrentCpu();
+
         // Persist snapshot to database using scoped repository
         using var scope = _serviceProvider.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<IMetricSnapshotRepository>();
 
         await repository.AddAsync(snapshot, cancellationToken);
 
-        _logger.LogTrace("Collected metric snapshot: DB {DbAvg}ms, Memory {Memory}MB, Cache {CacheHit:F1}%, Services {Running}/{Total}",
+        _logger.LogTrace("Collected metric snapshot: DB {DbAvg}ms, Memory {Memory}MB, Cache {CacheHit:F1}%, Services {Running}/{Total}, CPU {CpuPercent:F1}%",
             snapshot.DatabaseAvgQueryTimeMs,
             snapshot.WorkingSetMB,
             snapshot.CacheHitRatePercent,
             snapshot.ServicesRunningCount,
-            snapshot.ServicesTotalCount);
+            snapshot.ServicesTotalCount,
+            snapshot.CpuUsagePercent);
     }
 
     /// <summary>

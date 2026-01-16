@@ -105,4 +105,11 @@ public class MetricSnapshot
     /// Total registered background services.
     /// </summary>
     public int ServicesTotalCount { get; set; }
+
+    // ===== CPU Metrics =====
+
+    /// <summary>
+    /// CPU usage percentage at snapshot time (0-100).
+    /// </summary>
+    public double CpuUsagePercent { get; set; }
 }
