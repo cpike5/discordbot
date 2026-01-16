@@ -109,6 +109,13 @@ public class BulkPurgeModel : PageModel
 
     private BulkPurgeCriteriaDto? BuildCriteria()
     {
+        // Validate entity type is selected (enum starts at 1, default 0 is invalid)
+        if (!Enum.IsDefined(typeof(BulkPurgeEntityType), EntityType))
+        {
+            ModelState.AddModelError(nameof(EntityType), "Please select an entity type.");
+            return null;
+        }
+
         // Validate date range
         if (StartDate.HasValue && EndDate.HasValue && StartDate.Value > EndDate.Value)
         {
