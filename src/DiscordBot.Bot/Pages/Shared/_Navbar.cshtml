@@ -121,13 +121,14 @@
         </div>
 
         <!-- Footer -->
+        @* TODO: Create /Admin/Notifications page (issue #XXX) *@
         <div class="notification-dropdown-footer">
-          <a href="/Admin/Notifications" class="notification-view-all">
-            View all notifications
+          <button onclick="NotificationBell.close()" class="notification-view-all" title="Full notification center coming soon">
+            Close
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
-          </a>
+          </button>
         </div>
       </div>
 
