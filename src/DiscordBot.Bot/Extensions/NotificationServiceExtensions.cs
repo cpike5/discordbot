@@ -21,13 +21,16 @@ public static class NotificationServiceExtensions
     {
         // Bind options
         services.Configure<NotificationRetentionOptions>(
-            configuration.GetSection("NotificationRetention"));
+            configuration.GetSection(NotificationRetentionOptions.SectionName));
 
         services.Configure<NotificationOptions>(
             configuration.GetSection(NotificationOptions.SectionName));
 
         // Notification service (scoped for per-request)
         services.AddScoped<INotificationService, NotificationService>();
+
+        // Background retention cleanup service
+        services.AddHostedService<NotificationRetentionService>();
 
         return services;
     }
