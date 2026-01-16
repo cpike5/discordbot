@@ -309,6 +309,53 @@ else
         </div>
     }
 
+    <!-- AI Assistant Disclosure -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+            <div>
+                <h3 class="text-lg font-semibold text-text-primary">AI Assistant</h3>
+                <p class="text-sm text-text-secondary mt-1">Information about AI-powered features</p>
+            </div>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                <div class="w-12 h-12 rounded-full bg-accent-blue/10 border border-accent-blue/20 flex items-center justify-center flex-shrink-0">
+                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-base font-semibold text-text-primary mb-1">Powered by Claude AI</h4>
+                    <p class="text-sm text-text-secondary mb-3">
+                        This bot uses Claude, an AI assistant by Anthropic, to answer questions about bot features.
+                        When you ask the bot a question (by mentioning it), your question is sent to Claude's API for processing.
+                    </p>
+                    <div class="space-y-2 text-sm text-text-secondary">
+                        <p><strong class="text-text-primary">Data Processed:</strong> Your question text and Discord user ID (for rate limiting)</p>
+                        <p><strong class="text-text-primary">Data Retained:</strong> Questions and responses are logged for debugging and usage metrics (30-day retention)</p>
+                        <p><strong class="text-text-primary">Third Party:</strong> Questions are processed by Anthropic's Claude API (<a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer" class="text-accent-blue hover:underline">Anthropic Privacy Policy</a>)</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-warning-bg border border-warning-border rounded-md">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-warning flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    <div class="text-sm text-warning">
+                        <p class="font-semibold mb-1">Consent Required</p>
+                        <p class="text-warning/90">
+                            You must grant consent via <code class="px-1.5 py-0.5 bg-warning/20 rounded font-mono text-xs">/consent grant type:assistant</code> before using the AI assistant.
+                            The assistant will not respond to your questions until consent is granted.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Additional Info -->
     <div class="mt-6 p-4 bg-info-bg border border-info-border rounded-md">
         <div class="flex items-start gap-3">

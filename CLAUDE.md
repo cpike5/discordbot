@@ -85,6 +85,26 @@ dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
 
 See [Identity Configuration](docs/articles/identity-configuration.md) for detailed authentication setup and troubleshooting.
 
+### Claude API Configuration (AI Assistant)
+
+The AI assistant feature uses Anthropic's Claude API. Configure via User Secrets:
+
+```bash
+cd src/DiscordBot.Bot
+dotnet user-secrets set "Assistant:ApiKey" "your-anthropic-api-key"
+dotnet user-secrets set "Assistant:Model" "claude-sonnet-4-20250514"  # Optional, defaults to claude-sonnet-4-20250514
+```
+
+#### Anthropic Console Setup
+
+1. Go to https://console.anthropic.com
+2. Create or select an organization
+3. Go to API Keys section
+4. Create a new API key
+5. Copy the key to user secrets as `Assistant:ApiKey`
+
+**Note:** The AI assistant requires users to grant consent via `/consent grant type:assistant` before responding to their questions. See [assistant-implementation-plan.md](docs/requirements/assistant-implementation-plan.md) for detailed feature documentation.
+
 ### Azure Speech Configuration (TTS)
 
 Azure Cognitive Services Speech is used for text-to-speech functionality. Configure via User Secrets:
@@ -113,6 +133,7 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 |--------------|---------------------|---------|
 | `ApplicationOptions` | `Application` | App metadata (title, base URL, version) |
 | `AnalyticsRetentionOptions` | `AnalyticsRetention` | Analytics data retention settings |
+| `AssistantOptions` | `Assistant` | AI assistant settings (use user secrets for ApiKey) |
 | `AuditLogRetentionOptions` | `AuditLogRetention` | Audit log cleanup settings |
 | `AutoModerationOptions` | `AutoModeration` | Auto-moderation rules and thresholds |
 | `AzureSpeechOptions` | `AzureSpeech` | Azure TTS service settings (use user secrets for SubscriptionKey) |
@@ -363,6 +384,8 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 | Reminders | `/Guilds/{guildId:long}/Reminders` | Guild reminders management |
 | Soundboard | `/Guilds/Soundboard/{guildId:long}` | Guild soundboard management |
 | Audio Settings | `/Guilds/AudioSettings/{guildId:long}` | Guild audio configuration |
+| Assistant Settings | `/Guilds/AssistantSettings/{guildId:long}` | AI assistant configuration |
+| Assistant Metrics | `/Guilds/AssistantMetrics/{guildId:long}` | AI assistant usage metrics |
 | Text-to-Speech | `/Guilds/TextToSpeech/{guildId:long}` | Guild TTS message management |
 | TTS Portal | `/Portal/TTS/{guildId:long}` | TTS message composer for guild members (OAuth required) |
 | Public Leaderboard | `/Guilds/{guildId:long}/Leaderboard` | Public Rat Watch leaderboard (no auth) |
