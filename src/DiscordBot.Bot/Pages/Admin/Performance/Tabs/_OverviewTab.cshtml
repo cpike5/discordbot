@@ -218,10 +218,10 @@
             <div class="progress-labeled">
                 <div class="progress-header">
                     <span class="progress-label">CPU</span>
-                    <span class="progress-value" id="overviewCpuUsageText">0%</span>
+                    <span class="progress-value" id="overviewCpuUsageText">@Model.CpuUsagePercent.ToString("F1")%</span>
                 </div>
                 <div class="progress-bar-container">
-                    <div class="progress-bar-fill progress-bar-healthy" id="overviewCpuProgressBar" style="width: 0%;"></div>
+                    <div class="progress-bar-fill @(Model.CpuUsagePercent < 50 ? "progress-bar-healthy" : Model.CpuUsagePercent < 80 ? "progress-bar-warning" : "progress-bar-error")" id="overviewCpuProgressBar" style="width: @Model.CpuUsagePercent.ToString("F0")%;"></div>
                 </div>
             </div>
 
