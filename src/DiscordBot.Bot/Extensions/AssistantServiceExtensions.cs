@@ -8,6 +8,7 @@ using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Infrastructure.Services.LLM.Anthropic;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
+using DiscordBot.Bot.Services.LLM.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -58,6 +59,7 @@ public static class AssistantServiceExtensions
 
         // Register built-in tool providers (scoped to support scoped dependencies like ICommandMetadataService)
         services.AddScoped<IToolProvider, DocumentationToolProvider>();
+        services.AddScoped<IToolProvider, UserGuildInfoToolProvider>();
 
         // Register tool registry as scoped (auto-registers injected IToolProvider instances)
         services.AddScoped<IToolRegistry, ToolRegistry>();

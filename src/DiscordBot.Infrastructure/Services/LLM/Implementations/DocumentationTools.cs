@@ -62,7 +62,7 @@ public static class DocumentationTools
         return new LlmToolDefinition
         {
             Name = GetFeatureDocumentation,
-            Description = "Retrieves comprehensive documentation for a specific bot feature. Returns markdown content including overview, configuration, usage instructions, and examples. Use this when users ask about how to use specific features.",
+            Description = "Retrieves comprehensive documentation for a bot feature including ALL related commands, configuration options, usage instructions, and examples. This is the BEST tool for 'how do I use X' questions - use it FIRST before search_commands. Feature names: soundboard, rat-watch, tts, reminder, member-directory, moderation, welcome, scheduled-messages, consent, privacy, commands, settings, audio, performance, audit.",
             InputSchema = schema.RootElement.Clone()
         };
     }
@@ -95,7 +95,7 @@ public static class DocumentationTools
         return new LlmToolDefinition
         {
             Name = SearchCommands,
-            Description = "Searches available slash commands by keyword. Returns matching commands with their descriptions, parameters, and permission requirements. Use this when users ask what commands are available or search for specific functionality.",
+            Description = "Searches available slash commands by keyword. Returns matching commands with their descriptions and parameters. IMPORTANT: For feature questions like 'how do I use X', prefer get_feature_documentation instead - it provides comprehensive guides. Only use search_commands when listing available commands or when you need to find a specific command name. Never call this multiple times for the same topic.",
             InputSchema = schema.RootElement.Clone()
         };
     }

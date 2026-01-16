@@ -25,6 +25,7 @@ public class AssistantServiceTests
     private readonly Mock<IToolRegistry> _mockToolRegistry;
     private readonly Mock<IPromptTemplate> _mockPromptTemplate;
     private readonly Mock<IConsentService> _mockConsentService;
+    private readonly Mock<IGuildService> _mockGuildService;
     private readonly Mock<IAssistantGuildSettingsService> _mockGuildSettingsService;
     private readonly Mock<IAssistantUsageMetricsRepository> _mockMetricsRepository;
     private readonly Mock<IAssistantInteractionLogRepository> _mockInteractionLogRepository;
@@ -46,6 +47,7 @@ public class AssistantServiceTests
         _mockToolRegistry = new Mock<IToolRegistry>();
         _mockPromptTemplate = new Mock<IPromptTemplate>();
         _mockConsentService = new Mock<IConsentService>();
+        _mockGuildService = new Mock<IGuildService>();
         _mockGuildSettingsService = new Mock<IAssistantGuildSettingsService>();
         _mockMetricsRepository = new Mock<IAssistantUsageMetricsRepository>();
         _mockInteractionLogRepository = new Mock<IAssistantInteractionLogRepository>();
@@ -79,11 +81,17 @@ public class AssistantServiceTests
             _mockToolRegistry.Object,
             _mockPromptTemplate.Object,
             _mockConsentService.Object,
+            _mockGuildService.Object,
             _mockGuildSettingsService.Object,
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object,
             _cache,
             mockOptions.Object);
+
+        // Default setup for guild service - returns a test guild
+        _mockGuildService
+            .Setup(g => g.GetGuildByIdAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildDto { Id = TestGuildId, Name = "Test Guild" });
 
         // Default setup for prompt template
         _mockPromptTemplate
@@ -402,6 +410,7 @@ public class AssistantServiceTests
             _mockToolRegistry.Object,
             _mockPromptTemplate.Object,
             _mockConsentService.Object,
+            _mockGuildService.Object,
             _mockGuildSettingsService.Object,
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object,

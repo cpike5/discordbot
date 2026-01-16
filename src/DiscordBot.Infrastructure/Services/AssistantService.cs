@@ -23,6 +23,7 @@ public class AssistantService : IAssistantService
     private readonly IToolRegistry _toolRegistry;
     private readonly IPromptTemplate _promptTemplate;
     private readonly IConsentService _consentService;
+    private readonly IGuildService _guildService;
     private readonly IAssistantGuildSettingsService _guildSettingsService;
     private readonly IAssistantUsageMetricsRepository _metricsRepository;
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
@@ -40,6 +41,7 @@ public class AssistantService : IAssistantService
         IToolRegistry toolRegistry,
         IPromptTemplate promptTemplate,
         IConsentService consentService,
+        IGuildService guildService,
         IAssistantGuildSettingsService guildSettingsService,
         IAssistantUsageMetricsRepository metricsRepository,
         IAssistantInteractionLogRepository interactionLogRepository,
@@ -51,6 +53,7 @@ public class AssistantService : IAssistantService
         _toolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
         _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
         _consentService = consentService ?? throw new ArgumentNullException(nameof(consentService));
+        _guildService = guildService ?? throw new ArgumentNullException(nameof(guildService));
         _guildSettingsService = guildSettingsService ?? throw new ArgumentNullException(nameof(guildSettingsService));
         _metricsRepository = metricsRepository ?? throw new ArgumentNullException(nameof(metricsRepository));
         _interactionLogRepository = interactionLogRepository ?? throw new ArgumentNullException(nameof(interactionLogRepository));
@@ -141,8 +144,11 @@ public class AssistantService : IAssistantService
                 MaxToolCallIterations = _options.MaxToolCallsPerQuestion
             };
 
+            // Format user message with guild context as documented
+            var formattedMessage = await FormatUserMessageAsync(guildId, question, cancellationToken);
+
             // Run the agent
-            var agentResult = await _agentRunner.RunAsync(question, context, cancellationToken);
+            var agentResult = await _agentRunner.RunAsync(formattedMessage, context, cancellationToken);
 
             stopwatch.Stop();
             var latencyMs = (int)stopwatch.ElapsedMilliseconds;
@@ -331,6 +337,33 @@ public class AssistantService : IAssistantService
         }
 
         return _promptTemplate.Render(template, variables);
+    }
+
+    /// <summary>
+    /// Formats the user message with guild context as documented in the agent prompt.
+    /// Format: {GUILD_ID}\n{GUILD_NAME}\n---\n{USER_MESSAGE}
+    /// </summary>
+    private async Task<string> FormatUserMessageAsync(
+        ulong guildId,
+        string question,
+        CancellationToken cancellationToken)
+    {
+        var guildName = "Unknown Guild";
+
+        try
+        {
+            var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+            if (guild != null)
+            {
+                guildName = guild.Name;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get guild name for {GuildId}", guildId);
+        }
+
+        return $"{guildId}\n{guildName}\n---\n{question}";
     }
 
     private string TruncateResponse(string response)

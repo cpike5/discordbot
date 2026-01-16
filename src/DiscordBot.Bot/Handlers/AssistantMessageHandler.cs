@@ -38,14 +38,33 @@ public class AssistantMessageHandler
     /// <param name="message">The received message.</param>
     public async Task HandleMessageReceivedAsync(SocketMessage message)
     {
+        _logger.LogDebug("AssistantMessageHandler received message {MessageId} from {Author} in {Channel}",
+            message.Id, message.Author.Username, message.Channel.Name);
+
         // Ignore bot messages
-        if (message.Author.IsBot) return;
+        if (message.Author.IsBot)
+        {
+            _logger.LogDebug("Ignoring message {MessageId} - author is bot", message.Id);
+            return;
+        }
 
         // Ignore DMs (guild-only feature)
-        if (message.Channel is not SocketGuildChannel guildChannel) return;
+        if (message.Channel is not SocketGuildChannel guildChannel)
+        {
+            _logger.LogDebug("Ignoring message {MessageId} - not a guild channel", message.Id);
+            return;
+        }
 
         // Check if bot is mentioned
-        if (!message.MentionedUsers.Any(u => u.Id == _client.CurrentUser.Id)) return;
+        var mentionedUserIds = message.MentionedUsers.Select(u => u.Id).ToList();
+        _logger.LogDebug("Message {MessageId} content: \"{Content}\". Mentions {Count} users: [{UserIds}]. Bot ID is {BotId}",
+            message.Id, message.Content, mentionedUserIds.Count, string.Join(", ", mentionedUserIds), _client.CurrentUser.Id);
+
+        if (!message.MentionedUsers.Any(u => u.Id == _client.CurrentUser.Id))
+        {
+            _logger.LogDebug("Ignoring message {MessageId} - bot not mentioned", message.Id);
+            return;
+        }
 
         // Check if globally enabled
         if (!_options.GloballyEnabled)

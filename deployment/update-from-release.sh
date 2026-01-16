@@ -155,6 +155,16 @@ run_migrations() {
 
     cd "$temp_dir/discordbot"
 
+    # Build the project first (required for EF migrations)
+    log_info "Building project for migrations..."
+    if ! dotnet build src/DiscordBot.Bot/DiscordBot.Bot.csproj -c Release --no-restore -v q; then
+        log_warn "Build failed - skipping migration step"
+        return 0
+    fi
+
+    # Build connection string for the production database
+    local connection_string="Data Source=$DB_PATH"
+
     # Check if there are any migrations
     if ! dotnet ef migrations list \
         --project src/DiscordBot.Infrastructure \
@@ -165,8 +175,18 @@ run_migrations() {
         return 0
     fi
 
-    log_info "Applying database migrations..."
-    if dotnet ef database update \
+    # Ensure database directory exists
+    local db_dir
+    db_dir=$(dirname "$DB_PATH")
+    if [ ! -d "$db_dir" ]; then
+        log_info "Creating database directory: $db_dir"
+        mkdir -p "$db_dir"
+        chown discordbot:discordbot "$db_dir"
+    fi
+
+    log_info "Applying database migrations to $DB_PATH..."
+    if ConnectionStrings__DefaultConnection="$connection_string" \
+        dotnet ef database update \
         --project src/DiscordBot.Infrastructure \
         --startup-project src/DiscordBot.Bot \
         --no-build; then
