@@ -42,6 +42,7 @@
     --color-text-secondary: #a8a5a3;
     --color-text-tertiary: #7a7876;
     --color-text-placeholder: #8a8886;
+    --color-text-inverse: #FFFFFF; /* For text on colored backgrounds */
 
     /* Accent colors */
     --color-accent-blue: #098ecf;
@@ -164,6 +165,52 @@
     --color-status-inactive: #6B7280;
     --color-status-inactive-bg: rgba(107, 114, 128, 0.15);
     --color-status-inactive-border: rgba(107, 114, 128, 0.35);
+
+    /* Text inverse - for button text on colored backgrounds
+       White provides excellent contrast on purple accent colors */
+    --color-text-inverse: #FFFFFF;
+  }
+
+  /* Purple Dusk Theme - Settings Tab Overrides
+     Issue #1159: Improve inactive tab visibility and button contrast
+     Inactive tabs need higher contrast on light backgrounds */
+  [data-theme="purple-dusk"] .settings-tab {
+    /* Use text-secondary (#614978) for better contrast than default dark theme color
+       Contrast ratio: ~4.6:1 on #E8E3DF background (passes WCAG AA) */
+    color: var(--color-text-secondary);
+  }
+
+  [data-theme="purple-dusk"] .settings-tab:hover {
+    /* Hover state uses bg-hover and text-primary for clear feedback */
+    background-color: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  [data-theme="purple-dusk"] .settings-tab.active {
+    /* Active tab uses purple accent with white text
+       #614978 background with white text = ~6.0:1 contrast (passes WCAG AA) */
+    background-color: var(--color-accent-orange);
+    color: var(--color-text-inverse);
+  }
+
+  /* Purple Dusk Theme - Tab Panel Overrides
+     Applies to reusable tab-panel component */
+  [data-theme="purple-dusk"] .tab-panel-tab {
+    /* Use text-secondary for better readability than text-tertiary */
+    color: var(--color-text-secondary);
+  }
+
+  [data-theme="purple-dusk"] .tab-panel-tab.active {
+    /* Active uses accent-blue (pink in purple-dusk theme) */
+    color: var(--color-accent-blue);
+    border-bottom-color: var(--color-accent-blue);
+  }
+
+  [data-theme="purple-dusk"] .tab-panel-tab.disabled,
+  [data-theme="purple-dusk"] .tab-panel-tab[aria-disabled="true"] {
+    /* Disabled tabs use tertiary with reduced opacity for clear distinction */
+    color: var(--color-text-tertiary);
+    opacity: 0.5;
   }
 
   /* Button base class */

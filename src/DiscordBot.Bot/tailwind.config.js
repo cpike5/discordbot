@@ -21,7 +21,7 @@ module.exports = {
           secondary: 'var(--color-text-secondary)',
           tertiary: 'var(--color-text-tertiary)',
           placeholder: 'var(--color-text-placeholder)',
-          inverse: '#1d2022', // Kept static for specific use cases
+          inverse: 'var(--color-text-inverse, #FFFFFF)', // Theme-aware: white on colored backgrounds
         },
         // Brand accent colors - mapped to CSS variables for theme support
         accent: {
