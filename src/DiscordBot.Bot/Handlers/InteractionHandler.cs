@@ -593,7 +593,7 @@ public class InteractionHandler
                 message,
                 linkUrl: "/CommandLogs",
                 relatedEntityType: "Command",
-                relatedEntityId: $"{commandName}:{correlationId}",
+                relatedEntityId: commandName,
                 deduplicationWindow: deduplicationWindow);
 
             _logger.LogDebug("Created command error notification for {CommandName}, correlation ID: {CorrelationId}", commandName, correlationId);

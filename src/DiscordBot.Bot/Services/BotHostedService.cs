@@ -358,7 +358,8 @@ public class BotHostedService : IHostedService
             {
                 _ = CreateBotStatusNotificationAsync(
                     "Bot Connected",
-                    $"Bot reconnected to Discord. Latency: {_client.Latency}ms, Guilds: {_client.Guilds.Count}");
+                    $"Bot reconnected to Discord. Latency: {_client.Latency}ms, Guilds: {_client.Guilds.Count}",
+                    isConnected: true);
             }
             else
             {
@@ -447,7 +448,7 @@ public class BotHostedService : IHostedService
             var disconnectMessage = exception != null
                 ? $"Bot disconnected from Discord. Reason: {exception.Message}"
                 : "Bot disconnected from Discord.";
-            _ = CreateBotStatusNotificationAsync("Bot Disconnected", disconnectMessage);
+            _ = CreateBotStatusNotificationAsync("Bot Disconnected", disconnectMessage, isConnected: false);
         }
         catch (Exception ex)
         {
@@ -532,7 +533,8 @@ public class BotHostedService : IHostedService
         _ = CreateGuildEventNotificationAsync(
             guild.Id,
             $"Bot Joined {guild.Name}",
-            $"Bot was added to guild '{guild.Name}' ({guild.Id}). Members: {guild.MemberCount}");
+            $"Bot was added to guild '{guild.Name}' ({guild.Id}). Members: {guild.MemberCount}",
+            isJoined: true);
 
         return Task.CompletedTask;
     }
@@ -555,7 +557,8 @@ public class BotHostedService : IHostedService
         _ = CreateGuildEventNotificationAsync(
             guild.Id,
             $"Bot Left {guild.Name}",
-            $"Bot was removed from guild '{guild.Name}' ({guild.Id}).");
+            $"Bot was removed from guild '{guild.Name}' ({guild.Id}).",
+            isJoined: false);
 
         return Task.CompletedTask;
     }
@@ -610,7 +613,10 @@ public class BotHostedService : IHostedService
     /// Creates an admin notification for bot status changes (connected/disconnected).
     /// Fire-and-forget with internal error handling.
     /// </summary>
-    private async Task CreateBotStatusNotificationAsync(string title, string message)
+    /// <param name="title">The notification title.</param>
+    /// <param name="message">The notification message.</param>
+    /// <param name="isConnected">True if this is a connection event, false if disconnection.</param>
+    private async Task CreateBotStatusNotificationAsync(string title, string message, bool isConnected)
     {
         if (!_notificationOptions.EnableBotStatusChanges)
         {
@@ -631,7 +637,7 @@ public class BotHostedService : IHostedService
                 message,
                 linkUrl: "/Admin/Performance",
                 relatedEntityType: "BotStatus",
-                relatedEntityId: title.Contains("Connected") ? "connected" : "disconnected",
+                relatedEntityId: isConnected ? "connected" : "disconnected",
                 deduplicationWindow: deduplicationWindow);
 
             _logger.LogDebug("Created bot status notification: {Title}", title);
@@ -647,7 +653,11 @@ public class BotHostedService : IHostedService
     /// Creates an admin notification for guild events (joined/left).
     /// Fire-and-forget with internal error handling.
     /// </summary>
-    private async Task CreateGuildEventNotificationAsync(ulong guildId, string title, string message)
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="title">The notification title.</param>
+    /// <param name="message">The notification message.</param>
+    /// <param name="isJoined">True if this is a join event, false if leave event.</param>
+    private async Task CreateGuildEventNotificationAsync(ulong guildId, string title, string message, bool isJoined)
     {
         if (!_notificationOptions.EnableGuildEvents)
         {
@@ -661,7 +671,6 @@ public class BotHostedService : IHostedService
             var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
             var deduplicationWindow = TimeSpan.FromMinutes(_notificationOptions.DuplicateSuppressionMinutes);
-            var eventType = title.Contains("Joined") ? "joined" : "left";
 
             await notificationService.CreateForAllAdminsAsync(
                 NotificationType.GuildEvent,
@@ -669,7 +678,7 @@ public class BotHostedService : IHostedService
                 message,
                 linkUrl: $"/Guilds/Details?id={guildId}",
                 relatedEntityType: "Guild",
-                relatedEntityId: $"{guildId}:{eventType}",
+                relatedEntityId: $"{guildId}:{(isJoined ? "joined" : "left")}",
                 deduplicationWindow: deduplicationWindow);
 
             _logger.LogDebug("Created guild event notification for guild {GuildId}: {Title}", guildId, title);
