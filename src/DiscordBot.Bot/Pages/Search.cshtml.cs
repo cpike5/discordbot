@@ -107,7 +107,15 @@ public class SearchModel : PageModel
 
             Pages = unifiedResult.Pages.Items,
             TotalPages = unifiedResult.Pages.TotalCount,
-            PagesViewAllUrl = unifiedResult.Pages.ViewAllUrl
+            PagesViewAllUrl = unifiedResult.Pages.ViewAllUrl,
+
+            Reminders = unifiedResult.Reminders.Items,
+            TotalReminders = unifiedResult.Reminders.TotalCount,
+            RemindersViewAllUrl = unifiedResult.Reminders.ViewAllUrl,
+
+            ScheduledMessages = unifiedResult.ScheduledMessages.Items,
+            TotalScheduledMessages = unifiedResult.ScheduledMessages.TotalCount,
+            ScheduledMessagesViewAllUrl = unifiedResult.ScheduledMessages.ViewAllUrl
         };
 
         _logger.LogInformation("Search completed. Found {TotalResults} total results across all categories",

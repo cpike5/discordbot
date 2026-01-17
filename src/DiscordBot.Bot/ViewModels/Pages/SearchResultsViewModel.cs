@@ -109,6 +109,36 @@ public class SearchResultsViewModel
     public string? PagesViewAllUrl { get; set; }
 
     /// <summary>
+    /// Gets or sets the reminder search results (Admin+ only).
+    /// </summary>
+    public IReadOnlyList<SearchResultItemDto> Reminders { get; set; } = Array.Empty<SearchResultItemDto>();
+
+    /// <summary>
+    /// Gets or sets the total number of reminders matching the search.
+    /// </summary>
+    public int TotalReminders { get; set; }
+
+    /// <summary>
+    /// Gets the "View all" URL for reminders category.
+    /// </summary>
+    public string? RemindersViewAllUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets the scheduled message search results (Admin+ only).
+    /// </summary>
+    public IReadOnlyList<SearchResultItemDto> ScheduledMessages { get; set; } = Array.Empty<SearchResultItemDto>();
+
+    /// <summary>
+    /// Gets or sets the total number of scheduled messages matching the search.
+    /// </summary>
+    public int TotalScheduledMessages { get; set; }
+
+    /// <summary>
+    /// Gets the "View all" URL for scheduled messages category.
+    /// </summary>
+    public string? ScheduledMessagesViewAllUrl { get; set; }
+
+    /// <summary>
     /// Gets whether there are any search results across all categories.
     /// </summary>
     public bool HasResults =>
@@ -118,7 +148,9 @@ public class SearchResultsViewModel
         Commands.Any() ||
         AuditLogs.Any() ||
         MessageLogs.Any() ||
-        Pages.Any();
+        Pages.Any() ||
+        Reminders.Any() ||
+        ScheduledMessages.Any();
 }
 
 /// <summary>

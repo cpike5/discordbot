@@ -3,7 +3,9 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
@@ -22,6 +24,7 @@ public class SearchService : ISearchService
     private readonly ICommandMetadataService _commandMetadataService;
     private readonly IAuditLogService _auditLogService;
     private readonly IMessageLogService _messageLogService;
+    private readonly BotDbContext _dbContext;
     private readonly IAuthorizationService _authorizationService;
     private readonly IMemoryCache _cache;
     private readonly CachingOptions _cachingOptions;
@@ -39,6 +42,7 @@ public class SearchService : ISearchService
         ICommandMetadataService commandMetadataService,
         IAuditLogService auditLogService,
         IMessageLogService messageLogService,
+        BotDbContext dbContext,
         IAuthorizationService authorizationService,
         IMemoryCache cache,
         IOptions<CachingOptions> cachingOptions,
@@ -51,6 +55,7 @@ public class SearchService : ISearchService
         _commandMetadataService = commandMetadataService;
         _auditLogService = auditLogService;
         _messageLogService = messageLogService;
+        _dbContext = dbContext;
         _authorizationService = authorizationService;
         _cache = cache;
         _cachingOptions = cachingOptions.Value;
@@ -107,7 +112,9 @@ public class SearchService : ISearchService
             Commands = categoryResults.FirstOrDefault(r => r.Category == SearchCategory.Commands) ?? CreateEmptyResult(SearchCategory.Commands),
             AuditLogs = categoryResults.FirstOrDefault(r => r.Category == SearchCategory.AuditLogs) ?? CreateEmptyResult(SearchCategory.AuditLogs),
             MessageLogs = categoryResults.FirstOrDefault(r => r.Category == SearchCategory.MessageLogs) ?? CreateEmptyResult(SearchCategory.MessageLogs),
-            Pages = categoryResults.FirstOrDefault(r => r.Category == SearchCategory.Pages) ?? CreateEmptyResult(SearchCategory.Pages)
+            Pages = categoryResults.FirstOrDefault(r => r.Category == SearchCategory.Pages) ?? CreateEmptyResult(SearchCategory.Pages),
+            Reminders = categoryResults.FirstOrDefault(r => r.Category == SearchCategory.Reminders) ?? CreateEmptyResult(SearchCategory.Reminders),
+            ScheduledMessages = categoryResults.FirstOrDefault(r => r.Category == SearchCategory.ScheduledMessages) ?? CreateEmptyResult(SearchCategory.ScheduledMessages)
         };
 
         // Cache the result
@@ -170,6 +177,8 @@ public class SearchService : ISearchService
                 SearchCategory.AuditLogs when canViewAdminCategories => await SearchAuditLogsAsync(searchTerm, maxResults, cancellationToken),
                 SearchCategory.MessageLogs when canViewAdminCategories => await SearchMessageLogsAsync(searchTerm, maxResults, cancellationToken),
                 SearchCategory.Pages => await SearchPagesAsync(searchTerm, maxResults, user, cancellationToken),
+                SearchCategory.Reminders when canViewAdminCategories => await SearchRemindersAsync(searchTerm, maxResults, cancellationToken),
+                SearchCategory.ScheduledMessages when canViewAdminCategories => await SearchScheduledMessagesAsync(searchTerm, maxResults, cancellationToken),
                 _ => CreateEmptyResult(category)
             };
         }
@@ -582,6 +591,159 @@ public class SearchService : ISearchService
         };
     }
 
+    private async Task<SearchCategoryResult> SearchRemindersAsync(string searchTerm, int maxResults, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Searching reminders for term: {SearchTerm}", searchTerm);
+
+        var searchLower = searchTerm.ToLowerInvariant();
+
+        // Query reminders from DbContext with filtering applied in SQL
+        var allReminders = await _dbContext.Reminders
+            .AsNoTracking()
+            .Where(r => EF.Functions.Like(r.Message.ToLower(), $"%{searchLower}%") ||
+                       r.UserId.ToString().Contains(searchTerm))
+            .ToListAsync(cancellationToken);
+
+        // Filter and score reminders
+        var items = allReminders
+            .Select(r => new
+            {
+                Reminder = r,
+                Score = CalculateRelevanceScore(r.Message, searchLower) +
+                        CalculateRelevanceScore(r.UserId.ToString(), searchLower) / 2
+            })
+            .Where(x => x.Score > 0)
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Reminder.CreatedAt)
+            .Take(maxResults)
+            .Select(x => new SearchResultItemDto
+            {
+                Id = x.Reminder.Id.ToString(),
+                Title = x.Reminder.Message.Length > 50
+                    ? x.Reminder.Message.Substring(0, 47) + "..."
+                    : x.Reminder.Message,
+                Subtitle = $"User ID: {x.Reminder.UserId}",
+                Description = x.Reminder.Status == ReminderStatus.Pending
+                    ? $"Triggers {GetRelativeTime(x.Reminder.TriggerAt)}"
+                    : $"Status: {x.Reminder.Status}",
+                BadgeText = x.Reminder.Status.ToString(),
+                BadgeVariant = x.Reminder.Status switch
+                {
+                    ReminderStatus.Pending => "warning",
+                    ReminderStatus.Delivered => "success",
+                    ReminderStatus.Failed => "danger",
+                    ReminderStatus.Cancelled => "secondary",
+                    _ => "secondary"
+                },
+                Url = $"/Guilds/{x.Reminder.GuildId}/Reminders",
+                RelevanceScore = x.Score,
+                Timestamp = x.Reminder.CreatedAt,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["GuildId"] = x.Reminder.GuildId.ToString(),
+                    ["UserId"] = x.Reminder.UserId.ToString(),
+                    ["Status"] = x.Reminder.Status.ToString()
+                }
+            })
+            .ToList();
+
+        var totalCount = allReminders.Count(r =>
+            CalculateRelevanceScore(r.Message, searchLower) +
+            CalculateRelevanceScore(r.UserId.ToString(), searchLower) / 2 > 0);
+
+        return new SearchCategoryResult
+        {
+            Category = SearchCategory.Reminders,
+            DisplayName = "Reminders",
+            Items = items,
+            TotalCount = totalCount,
+            HasMore = totalCount > maxResults,
+            ViewAllUrl = null // No single "view all" page for reminders (they're guild-specific)
+        };
+    }
+
+    private async Task<SearchCategoryResult> SearchScheduledMessagesAsync(string searchTerm, int maxResults, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Searching scheduled messages for term: {SearchTerm}", searchTerm);
+
+        var searchLower = searchTerm.ToLowerInvariant();
+
+        // Query scheduled messages from DbContext
+        var allMessages = await _dbContext.ScheduledMessages
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        // Filter and score scheduled messages
+        var items = allMessages
+            .Select(m => new
+            {
+                Message = m,
+                Score = CalculateRelevanceScore(m.Content, searchLower) +
+                        CalculateRelevanceScore(m.Title, searchLower) +
+                        CalculateRelevanceScore(m.ChannelId.ToString(), searchLower) / 2
+            })
+            .Where(x => x.Score > 0)
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Message.CreatedAt)
+            .Take(maxResults)
+            .Select(x => new SearchResultItemDto
+            {
+                Id = x.Message.Id.ToString(),
+                Title = x.Message.Content.Length > 50
+                    ? x.Message.Content.Substring(0, 47) + "..."
+                    : x.Message.Content,
+                Subtitle = $"Channel ID: {x.Message.ChannelId}",
+                Description = x.Message.NextExecutionAt.HasValue
+                    ? $"Next: {x.Message.NextExecutionAt.Value:MMM d, yyyy h:mm tt} UTC"
+                    : $"Frequency: {x.Message.Frequency}",
+                BadgeText = x.Message.IsEnabled ? "Active" : "Disabled",
+                BadgeVariant = x.Message.IsEnabled ? "success" : "secondary",
+                Url = $"/Guilds/ScheduledMessages/Edit/{x.Message.GuildId}/{x.Message.Id}",
+                RelevanceScore = x.Score,
+                Timestamp = x.Message.CreatedAt,
+                Metadata = new Dictionary<string, string>
+                {
+                    ["GuildId"] = x.Message.GuildId.ToString(),
+                    ["ChannelId"] = x.Message.ChannelId.ToString(),
+                    ["Frequency"] = x.Message.Frequency.ToString(),
+                    ["IsEnabled"] = x.Message.IsEnabled.ToString()
+                }
+            })
+            .ToList();
+
+        var totalCount = allMessages.Count(m =>
+            CalculateRelevanceScore(m.Content, searchLower) +
+            CalculateRelevanceScore(m.Title, searchLower) +
+            CalculateRelevanceScore(m.ChannelId.ToString(), searchLower) / 2 > 0);
+
+        return new SearchCategoryResult
+        {
+            Category = SearchCategory.ScheduledMessages,
+            DisplayName = "Scheduled Messages",
+            Items = items,
+            TotalCount = totalCount,
+            HasMore = totalCount > maxResults,
+            ViewAllUrl = null // No single "view all" page for scheduled messages (they're guild-specific)
+        };
+    }
+
+    private string GetRelativeTime(DateTime futureTime)
+    {
+        var now = DateTime.UtcNow;
+        var diff = futureTime - now;
+
+        if (diff.TotalMinutes < 1)
+            return "in less than a minute";
+        if (diff.TotalMinutes < 60)
+            return $"in {Math.Floor(diff.TotalMinutes)} minute{(Math.Floor(diff.TotalMinutes) != 1 ? "s" : "")}";
+        if (diff.TotalHours < 24)
+            return $"in {Math.Floor(diff.TotalHours)} hour{(Math.Floor(diff.TotalHours) != 1 ? "s" : "")}";
+        if (diff.TotalDays < 7)
+            return $"in {Math.Floor(diff.TotalDays)} day{(Math.Floor(diff.TotalDays) != 1 ? "s" : "")}";
+
+        return $"on {futureTime:MMM d, yyyy}";
+    }
+
     private string GetSectionBadgeVariant(string? section)
     {
         return section switch
@@ -657,6 +819,8 @@ public class SearchService : ISearchService
             categories.Add(SearchCategory.Users);
             categories.Add(SearchCategory.AuditLogs);
             categories.Add(SearchCategory.MessageLogs);
+            categories.Add(SearchCategory.Reminders);
+            categories.Add(SearchCategory.ScheduledMessages);
         }
 
         // Pages are always searchable (filtered by authorization in SearchPagesAsync)
@@ -676,6 +840,8 @@ public class SearchService : ISearchService
             SearchCategory.Users => true,
             SearchCategory.AuditLogs => true,
             SearchCategory.MessageLogs => true,
+            SearchCategory.Reminders => true,
+            SearchCategory.ScheduledMessages => true,
             _ => false
         };
     }
@@ -710,6 +876,8 @@ public class SearchService : ISearchService
             SearchCategory.AuditLogs => "Audit Logs",
             SearchCategory.MessageLogs => "Message Logs",
             SearchCategory.Pages => "Pages",
+            SearchCategory.Reminders => "Reminders",
+            SearchCategory.ScheduledMessages => "Scheduled Messages",
             _ => category.ToString()
         };
     }
@@ -728,6 +896,8 @@ public class SearchService : ISearchService
             SearchCategory.AuditLogs => "/Admin/AuditLogs",
             SearchCategory.MessageLogs => "/Admin/MessageLogs",
             SearchCategory.Pages => null,
+            SearchCategory.Reminders => null, // Guild-specific, no global view
+            SearchCategory.ScheduledMessages => null, // Guild-specific, no global view
             _ => null
         };
     }

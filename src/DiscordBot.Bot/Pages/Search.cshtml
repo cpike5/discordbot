@@ -28,7 +28,9 @@
                                              Model.ViewModel.Commands.Count +
                                              Model.ViewModel.AuditLogs.Count +
                                              Model.ViewModel.MessageLogs.Count +
-                                             Model.ViewModel.Pages.Count;
+                                             Model.ViewModel.Pages.Count +
+                                             Model.ViewModel.Reminders.Count +
+                                             Model.ViewModel.ScheduledMessages.Count;
                         }
                         Found @totalResults result@(totalResults != 1 ? "s" : "") for <span class="font-semibold text-text-primary">"@Model.ViewModel.SearchTerm"</span>
                     </p>
@@ -627,6 +629,145 @@
                                     @if (!string.IsNullOrEmpty(msg.Subtitle))
                                     {
                                         <p class="text-sm text-text-secondary"><highlight text="@msg.Subtitle" search-term="@Model.ViewModel.SearchTerm" /></p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(msg.Description))
+                                    {
+                                        <p class="text-xs text-text-tertiary">@msg.Description</p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Reminders Section (Admin+ only) -->
+            @if (Model.ViewModel.CanViewUsers && Model.ViewModel.Reminders.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                                <h2 class="text-lg font-semibold text-text-primary">Reminders</h2>
+                                @{
+                                    var remindersCountBadge = new BadgeViewModel
+                                    {
+                                        Text = Model.ViewModel.Reminders.Count.ToString(),
+                                        Variant = BadgeVariant.Default,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="remindersCountBadge" />
+                            </div>
+                            @if (Model.ViewModel.TotalReminders > Model.ViewModel.Reminders.Count && !string.IsNullOrEmpty(Model.ViewModel.RemindersViewAllUrl))
+                            {
+                                <a href="@Model.ViewModel.RemindersViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @Model.ViewModel.TotalReminders results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Reminder Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var reminder in Model.ViewModel.Reminders)
+                        {
+                            <a href="@reminder.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-semibold text-text-primary text-sm"><highlight text="@reminder.Title" search-term="@Model.ViewModel.SearchTerm" max-length="50" /></span>
+                                        @if (!string.IsNullOrEmpty(reminder.BadgeText))
+                                        {
+                                            var reminderBadgeVariant = reminder.BadgeVariant switch
+                                            {
+                                                "warning" => BadgeVariant.Warning,
+                                                "success" => BadgeVariant.Success,
+                                                "danger" => BadgeVariant.Error,
+                                                "secondary" => BadgeVariant.Default,
+                                                _ => BadgeVariant.Default
+                                            };
+                                            var reminderBadge = new BadgeViewModel
+                                            {
+                                                Text = reminder.BadgeText,
+                                                Variant = reminderBadgeVariant,
+                                                Size = BadgeSize.Small
+                                            };
+                                            <partial name="Shared/Components/_Badge" model="reminderBadge" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(reminder.Subtitle))
+                                    {
+                                        <p class="text-sm text-text-secondary">@reminder.Subtitle</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(reminder.Description))
+                                    {
+                                        <p class="text-xs text-text-tertiary">@reminder.Description</p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Scheduled Messages Section (Admin+ only) -->
+            @if (Model.ViewModel.CanViewUsers && Model.ViewModel.ScheduledMessages.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <h2 class="text-lg font-semibold text-text-primary">Scheduled Messages</h2>
+                                @{
+                                    var scheduledMessagesCountBadge = new BadgeViewModel
+                                    {
+                                        Text = Model.ViewModel.ScheduledMessages.Count.ToString(),
+                                        Variant = BadgeVariant.Default,
+                                        Size = BadgeSize.Small
+                                    };
+                                }
+                                <partial name="Shared/Components/_Badge" model="scheduledMessagesCountBadge" />
+                            </div>
+                            @if (Model.ViewModel.TotalScheduledMessages > Model.ViewModel.ScheduledMessages.Count && !string.IsNullOrEmpty(Model.ViewModel.ScheduledMessagesViewAllUrl))
+                            {
+                                <a href="@Model.ViewModel.ScheduledMessagesViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @Model.ViewModel.TotalScheduledMessages results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Scheduled Message Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var msg in Model.ViewModel.ScheduledMessages)
+                        {
+                            <a href="@msg.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-semibold text-text-primary text-sm"><highlight text="@msg.Title" search-term="@Model.ViewModel.SearchTerm" max-length="50" /></span>
+                                        @if (!string.IsNullOrEmpty(msg.BadgeText))
+                                        {
+                                            var scheduledMsgBadgeVariant = msg.BadgeVariant == "success" ? BadgeVariant.Success : BadgeVariant.Default;
+                                            var scheduledMsgBadge = new BadgeViewModel
+                                            {
+                                                Text = msg.BadgeText,
+                                                Variant = scheduledMsgBadgeVariant,
+                                                Size = BadgeSize.Small
+                                            };
+                                            <partial name="Shared/Components/_Badge" model="scheduledMsgBadge" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(msg.Subtitle))
+                                    {
+                                        <p class="text-sm text-text-secondary">@msg.Subtitle</p>
                                     }
                                     @if (!string.IsNullOrEmpty(msg.Description))
                                     {
