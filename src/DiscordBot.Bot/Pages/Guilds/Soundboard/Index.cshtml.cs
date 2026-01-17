@@ -183,7 +183,7 @@ public class IndexModel : PageModel
                 {
                     new() { Label = "Home", Url = "/" },
                     new() { Label = "Servers", Url = "/Guilds" },
-                    new() { Label = guild.Name, Url = $"/Guilds/Details?id={guild.Id}" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
                     new() { Label = "Audio", IsCurrent = true }
                 }
             };

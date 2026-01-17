@@ -334,7 +334,7 @@ public class IndexModel : PageModel
                 MemberCount = guild.MemberCount ?? 0,
                 Status = status,
                 CommandsToday = commandsToday,
-                DetailUrl = $"/Guilds/Details?id={guild.Id}"
+                DetailUrl = $"/Guilds/Details/{guild.Id}"
             };
         })
         .OrderByDescending(s => s.CommandsToday)

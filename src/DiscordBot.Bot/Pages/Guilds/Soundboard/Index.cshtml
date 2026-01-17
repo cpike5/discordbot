@@ -3,7 +3,7 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = $"Audio - {Model.ViewModel.GuildName}";
-    Layout = "_GuildLayout.cshtml";
+    Layout = "_GuildLayout";
 }
 
 <!-- Audio Tabs Navigation -->
@@ -397,7 +397,6 @@
             </div>
         </div>
     </div>
-</div>
 
 <!-- Delete Confirmation Modal -->
 <div id="delete-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="delete-modal-title">

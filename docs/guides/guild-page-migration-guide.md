@@ -32,9 +32,11 @@ In your page's `.cshtml` file, update the Layout reference:
 
 ```razor
 @{
-    Layout = "_GuildLayout.cshtml";
+    Layout = "_GuildLayout";
 }
 ```
+
+> **IMPORTANT**: Use `"_GuildLayout"` without the `.cshtml` extension. ASP.NET Core searches `/Pages/Shared/` for layouts specified without the extension. Including `.cshtml` causes the framework to search relative to the current page's folder, which fails.
 
 ### 2. Add ViewModel Properties to PageModel
 
@@ -538,6 +540,57 @@ public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken can
 ```
 
 ## Troubleshooting
+
+### Issue: Layout Not Found
+
+**Symptom**: `InvalidOperationException: The layout view '_GuildLayout.cshtml' could not be located.`
+
+**Solution**: Remove the `.cshtml` extension from the Layout reference:
+
+```razor
+// Wrong - searches relative to current folder
+Layout = "_GuildLayout.cshtml";
+
+// Correct - searches in /Pages/Shared/
+Layout = "_GuildLayout";
+```
+
+### Issue: Extra Closing Tags Causing Rendering Issues
+
+**Symptom**: Page content appears malformed, or elements appear in wrong positions.
+
+**Solution**: The `_GuildLayout.cshtml` already wraps page content in a container div. Do NOT add an extra closing `</div>` at the end of your page content. Your page should have balanced opening/closing tags for its own content only:
+
+```razor
+@* WRONG - extra </div> at end *@
+<div class="my-content">
+    ...
+</div>
+</div>  @* This extra tag breaks the layout *@
+
+@* CORRECT - balanced tags *@
+<div class="my-content">
+    ...
+</div>
+```
+
+### Issue: @section Scripts or Styles Not Rendering
+
+**Symptom**: Error "sections have been defined but have not been rendered", or scripts/styles not loading.
+
+**Solution**: The `_GuildLayout.cshtml` properly passes through sections to `_Layout.cshtml`. Child pages can define `@section Styles` and `@section Scripts` normally:
+
+```razor
+@section Styles {
+    <link rel="stylesheet" href="~/css/my-page.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/my-page-script.js"></script>
+}
+```
+
+The layout includes `guild-nav.js` automatically, so you don't need to add it in your page.
 
 ### Issue: Active Tab Not Highlighting
 

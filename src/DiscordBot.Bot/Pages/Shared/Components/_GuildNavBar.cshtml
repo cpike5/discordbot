@@ -11,8 +11,7 @@
         {
             var isActive = Model.ActiveTab == tab.Id;
 
-            <a asp-page="@tab.PageName"
-               asp-route-guildId="@Model.GuildId"
+            <a href="@tab.GetUrl(Model.GuildId)"
                class="guild-nav-tab @(isActive ? "active" : "")"
                role="tab"
                aria-selected="@(isActive ? "true" : "false")">
@@ -53,8 +52,7 @@
             {
                 var isActive = Model.ActiveTab == tab.Id;
 
-                <a asp-page="@tab.PageName"
-                   asp-route-guildId="@Model.GuildId"
+                <a href="@tab.GetUrl(Model.GuildId)"
                    class="guild-nav-dropdown-item @(isActive ? "active" : "")">
                     @tab.Label
                 </a>

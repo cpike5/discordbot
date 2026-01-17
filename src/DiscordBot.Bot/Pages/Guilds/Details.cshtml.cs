@@ -165,33 +165,33 @@ public class DetailsModel : PageModel
     /// </summary>
     public int RemindersFailed { get; set; }
 
-    public async Task<IActionResult> OnGetAsync(ulong id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("User accessing guild details page for guild {GuildId}", id);
+        _logger.LogInformation("User accessing guild details page for guild {GuildId}", guildId);
 
         // Fetch guild data
-        var guild = await _guildService.GetGuildByIdAsync(id, cancellationToken);
+        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
         if (guild == null)
         {
-            _logger.LogWarning("Guild {GuildId} not found", id);
+            _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound();
         }
 
         // Fetch recent command activity for this guild
         var commandQuery = new CommandLogQueryDto
         {
-            GuildId = id,
+            GuildId = guildId,
             Page = 1,
             PageSize = RecentCommandsLimit
         };
         var recentCommandsResponse = await _commandLogService.GetLogsAsync(commandQuery, cancellationToken);
 
         // Fetch welcome configuration status
-        var welcomeConfig = await _welcomeService.GetConfigurationAsync(id, cancellationToken);
+        var welcomeConfig = await _welcomeService.GetConfigurationAsync(guildId, cancellationToken);
         WelcomeEnabled = welcomeConfig?.IsEnabled ?? false;
 
         // Fetch scheduled messages summary
-        var (scheduledMessages, totalCount) = await _scheduledMessageService.GetByGuildIdAsync(id, 1, 100, cancellationToken);
+        var (scheduledMessages, totalCount) = await _scheduledMessageService.GetByGuildIdAsync(guildId, 1, 100, cancellationToken);
         var messagesList = scheduledMessages.ToList();
 
         ScheduledMessagesTotal = totalCount;
@@ -211,10 +211,10 @@ public class DetailsModel : PageModel
         }
 
         // Fetch Rat Watch summary
-        var ratWatchSettings = await _ratWatchService.GetGuildSettingsAsync(id, cancellationToken);
+        var ratWatchSettings = await _ratWatchService.GetGuildSettingsAsync(guildId, cancellationToken);
         RatWatchEnabled = ratWatchSettings.IsEnabled;
 
-        var (ratWatches, ratWatchTotalCount) = await _ratWatchService.GetByGuildAsync(id, 1, 100, cancellationToken);
+        var (ratWatches, ratWatchTotalCount) = await _ratWatchService.GetByGuildAsync(guildId, 1, 100, cancellationToken);
         var ratWatchList = ratWatches.ToList();
 
         RatWatchTotal = ratWatchTotalCount;
@@ -222,7 +222,7 @@ public class DetailsModel : PageModel
         RatWatchCompleted = ratWatchList.Count(w => w.Status == RatWatchStatus.Guilty || w.Status == RatWatchStatus.NotGuilty);
 
         // Get leaderboard for top rat
-        var leaderboard = await _ratWatchService.GetLeaderboardAsync(id, 1, cancellationToken);
+        var leaderboard = await _ratWatchService.GetLeaderboardAsync(guildId, 1, cancellationToken);
         var topRat = leaderboard.FirstOrDefault();
         if (topRat != null)
         {
@@ -232,14 +232,14 @@ public class DetailsModel : PageModel
 
         // Fetch reminder stats
         var (remindersTotal, remindersPending, remindersDeliveredToday, remindersFailed) =
-            await _reminderRepository.GetGuildStatsAsync(id, cancellationToken);
+            await _reminderRepository.GetGuildStatsAsync(guildId, cancellationToken);
         RemindersTotal = remindersTotal;
         RemindersPending = remindersPending;
         RemindersDeliveredToday = remindersDeliveredToday;
         RemindersFailed = remindersFailed;
 
         _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}",
-            id, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal);
+            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);
@@ -310,17 +310,17 @@ public class DetailsModel : PageModel
     /// <summary>
     /// Handles POST request to sync a single guild from Discord.
     /// </summary>
-    public async Task<IActionResult> OnPostSyncAsync(ulong id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostSyncAsync(ulong guildId, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("User requesting sync for guild {GuildId}", id);
+        _logger.LogInformation("User requesting sync for guild {GuildId}", guildId);
 
         try
         {
-            var success = await _guildService.SyncGuildAsync(id, cancellationToken);
+            var success = await _guildService.SyncGuildAsync(guildId, cancellationToken);
 
             if (success)
             {
-                _logger.LogInformation("Successfully synced guild {GuildId}", id);
+                _logger.LogInformation("Successfully synced guild {GuildId}", guildId);
 
                 // Check if this is an AJAX request
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
@@ -329,11 +329,11 @@ public class DetailsModel : PageModel
                 }
 
                 SuccessMessage = "Guild synced successfully";
-                return RedirectToPage(new { id });
+                return RedirectToPage(new { guildId });
             }
             else
             {
-                _logger.LogWarning("Failed to sync guild {GuildId} - guild not found in Discord", id);
+                _logger.LogWarning("Failed to sync guild {GuildId} - guild not found in Discord", guildId);
 
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
@@ -341,12 +341,12 @@ public class DetailsModel : PageModel
                 }
 
                 SuccessMessage = null;
-                return RedirectToPage(new { id });
+                return RedirectToPage(new { guildId });
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error syncing guild {GuildId}", id);
+            _logger.LogError(ex, "Error syncing guild {GuildId}", guildId);
 
             if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
             {
@@ -354,7 +354,7 @@ public class DetailsModel : PageModel
             }
 
             SuccessMessage = null;
-            return RedirectToPage(new { id });
+            return RedirectToPage(new { guildId });
         }
     }
 }

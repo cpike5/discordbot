@@ -676,7 +676,7 @@ public class BotHostedService : IHostedService
                 NotificationType.GuildEvent,
                 title,
                 message,
-                linkUrl: $"/Guilds/Details?id={guildId}",
+                linkUrl: $"/Guilds/Details/{guildId}",
                 relatedEntityType: "Guild",
                 relatedEntityId: $"{guildId}:{(isJoined ? "joined" : "left")}",
                 deduplicationWindow: deduplicationWindow);

@@ -1,9 +1,9 @@
-@page
+@page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Guilds.DetailsModel
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = Model.ViewModel.Name;
-    Layout = "_GuildLayout.cshtml";
+    Layout = "_GuildLayout";
     var guild = Model.ViewModel;
 
     // Define tabs for the tab panel
@@ -650,7 +650,6 @@
             }
         </div>
     </div>
-</div>
 
 <!-- Toast Container -->
 <partial name="Shared/Components/_ToastContainer" />
