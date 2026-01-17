@@ -4,51 +4,13 @@
 @using DiscordBot.Bot.ViewModels.Pages
 @{
     ViewData["Title"] = $"Members - {Model.Guild?.Name}";
+    Layout = "_GuildLayout";
     var startItem = Model.ViewModel.TotalCount > 0 ? (Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1 : 0;
     var endItem = Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount);
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
-        <ol class="flex items-center gap-2">
-            <li><a asp-page="/Guilds/Index" class="hover:text-text-primary transition-colors">Servers</a></li>
-            <li aria-hidden="true">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li><a asp-page="/Guilds/Details" asp-route-guildId="@Model.GuildId" class="hover:text-text-primary transition-colors">@Model.Guild?.Name</a></li>
-            <li aria-hidden="true">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li class="text-text-primary font-medium" aria-current="page">Members</li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div class="flex items-center gap-3">
-            <h1 class="text-h1 text-text-primary">Members</h1>
-            @{
-                var totalMemberBadge = new BadgeViewModel { Text = Model.TotalMemberCount.ToString("N0"), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium };
-            }
-            <partial name="Shared/Components/_Badge" model="totalMemberBadge" />
-        </div>
-        <div class="flex items-center gap-3">
-            <a asp-page-handler="Export" asp-route-guildId="@Model.GuildId" class="btn btn-primary" title="Export member list to CSV">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Export CSV
-            </a>
-        </div>
-    </div>
-
-    <!-- Filter Panel -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+<!-- Filter Panel -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
         <!-- Filter Toggle Header -->
         <button type="button" id="filterToggle" class="w-full flex items-center justify-between px-5 py-4 text-left" aria-expanded="@(Model.HasActiveFilters ? "true" : "false")" aria-controls="filterContent">
             <div class="flex items-center gap-3">
@@ -496,14 +458,13 @@
         </div>
     }
 
-    <!-- Results Summary -->
-    @if (Model.ViewModel.TotalCount > 0)
-    {
-        <div class="mt-4 text-sm text-text-secondary">
-            Showing @startItem to @endItem of @Model.ViewModel.TotalCount.ToString("N0") members
-        </div>
-    }
-</div>
+<!-- Results Summary -->
+@if (Model.ViewModel.TotalCount > 0)
+{
+    <div class="mt-4 text-sm text-text-secondary">
+        Showing @startItem to @endItem of @Model.ViewModel.TotalCount.ToString("N0") members
+    </div>
+}
 
 <!-- Member Detail Modal -->
 <partial name="Guilds/Members/_MemberDetailModal" />

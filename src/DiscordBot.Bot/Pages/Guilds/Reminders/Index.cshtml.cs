@@ -1,4 +1,6 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -36,6 +38,21 @@ public class IndexModel : PageModel
     /// View model for display properties.
     /// </summary>
     public RemindersIndexViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Success message from TempData.
@@ -86,6 +103,34 @@ public class IndexModel : PageModel
             _logger.LogWarning("Guild {GuildId} not found", ulongGuildId);
             return NotFound();
         }
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                new() { Label = "Reminders", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Reminders",
+            PageDescription = "View and manage scheduled reminders for this server"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "reminders",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
 
         // Get reminders with pagination and filtering
         var (reminders, totalCount) = await _reminderRepository.GetByGuildAsync(

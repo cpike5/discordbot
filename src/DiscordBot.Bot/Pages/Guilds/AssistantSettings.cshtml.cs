@@ -1,4 +1,6 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -47,6 +49,10 @@ public class AssistantSettingsModel : PageModel
     /// Guild information for display.
     /// </summary>
     public GuildViewModel Guild { get; set; } = new();
+
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+    public GuildHeaderViewModel Header { get; set; } = new();
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// List of available text channels in the guild.
@@ -136,6 +142,44 @@ public class AssistantSettingsModel : PageModel
             Id = guild.Id,
             Name = guild.Name,
             IconUrl = guild.IconUrl
+        };
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                new() { Label = "AI Assistant Settings", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "AI Assistant Settings",
+            PageDescription = $"Configure AI assistant for {guild.Name}",
+            Actions = new List<HeaderAction>
+            {
+                new()
+                {
+                    Label = "View Metrics",
+                    Url = $"/Guilds/AssistantMetrics/{guildId}",
+                    Style = HeaderActionStyle.Link,
+                    Icon = "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                }
+            }
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "assistant",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
         };
 
         // Get assistant settings

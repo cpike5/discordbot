@@ -3,63 +3,10 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = $"Assistant Settings - {Model.Guild.Name}";
+    Layout = "_GuildLayout";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm">
-            <li>
-                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="Details" asp-route-guildId="@Model.Guild.Id" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.Guild.Name</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <span class="text-text-primary font-medium">Assistant Settings</span>
-            </li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="mb-8">
-        <div class="flex items-center gap-4">
-            @if (!string.IsNullOrEmpty(Model.Guild.IconUrl))
-            {
-                <img src="@Model.Guild.IconUrl" alt="@Model.Guild.Name" class="w-12 h-12 rounded-full flex-shrink-0" />
-            }
-            else
-            {
-                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                    @(Model.Guild.Name.Length >= 2 ? Model.Guild.Name[..2].ToUpper() : Model.Guild.Name.ToUpper())
-                </div>
-            }
-            <div>
-                <h1 class="text-2xl font-bold text-text-primary">AI Assistant Settings</h1>
-                <p class="mt-1 text-sm text-text-secondary">Configure the AI assistant for @Model.Guild.Name</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- Global Status Warning -->
+<!-- Global Status Warning -->
     @if (!Model.GloballyEnabled)
     {
         <div class="mb-6">

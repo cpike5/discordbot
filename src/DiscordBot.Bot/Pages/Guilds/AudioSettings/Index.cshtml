@@ -3,43 +3,10 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = $"Audio - {Model.GuildName}";
+    Layout = "_GuildLayout";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
-        <ol class="flex items-center gap-2">
-            <li><a asp-page="/Index" class="hover:text-text-primary transition-colors">Home</a></li>
-            <li aria-hidden="true">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li><a asp-page="/Guilds/Index" class="hover:text-text-primary transition-colors">Servers</a></li>
-            <li aria-hidden="true">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li><a asp-page="/Guilds/Details" asp-route-guildId="@Model.GuildId" class="hover:text-text-primary transition-colors">@Model.GuildName</a></li>
-            <li aria-hidden="true">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li class="text-text-primary font-medium" aria-current="page">Audio</li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-text-primary">Audio</h1>
-            <p class="text-sm text-text-secondary mt-1">Manage audio settings and soundboard for @Model.GuildName</p>
-        </div>
-    </div>
-
-    <!-- Audio Tabs Navigation -->
+<!-- Audio Tabs Navigation -->
     <partial name="Shared/Components/_AudioTabs" model='new AudioTabsViewModel {
         GuildId = Model.GuildId,
         ActiveTab = "settings",
@@ -349,7 +316,6 @@
             Reset to Defaults
         </button>
     </div>
-</div>
 </div>
 
 <!-- Hidden form with anti-forgery token -->

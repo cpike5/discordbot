@@ -1,4 +1,6 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -36,6 +38,10 @@ public class IndexModel : PageModel
     /// View model for display properties.
     /// </summary>
     public ScheduledMessageListViewModel ViewModel { get; set; } = new();
+
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+    public GuildHeaderViewModel Header { get; set; } = new();
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Success message from TempData.
@@ -77,6 +83,44 @@ public class IndexModel : PageModel
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound();
         }
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                new() { Label = "Scheduled Messages", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Scheduled Messages",
+            PageDescription = "Manage scheduled and recurring messages",
+            Actions = new List<HeaderAction>
+            {
+                new()
+                {
+                    Label = "Create New",
+                    Url = $"/Guilds/ScheduledMessages/Create/{guildId}",
+                    Style = HeaderActionStyle.Primary,
+                    Icon = "M12 4v16m8-8H4"
+                }
+            }
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "messages",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
 
         // Get paginated scheduled messages
         var (messages, totalCount) = await _scheduledMessageService.GetByGuildIdAsync(
