@@ -1,4 +1,6 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -40,6 +42,21 @@ public class WelcomeModel : PageModel
     /// View model for display-only properties (guild info, available channels).
     /// </summary>
     public WelcomeConfigurationViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Error message to display on the page.
@@ -135,6 +152,34 @@ public class WelcomeModel : PageModel
             IncludeAvatar = welcomeConfig.IncludeAvatar,
             UseEmbed = welcomeConfig.UseEmbed,
             EmbedColor = welcomeConfig.EmbedColor
+        };
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details?id={guild.Id}" },
+                new() { Label = "Welcome Settings", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Welcome Settings",
+            PageDescription = $"Configure automatic welcome messages for {guild.Name}"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "welcome",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
         };
 
         return Page();
