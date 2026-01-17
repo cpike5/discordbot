@@ -1,0 +1,31 @@
+@model DiscordBot.Bot.ViewModels.Components.GuildBreadcrumbViewModel
+
+@if (Model.Items?.Any() == true)
+{
+    <nav aria-label="Breadcrumb" class="mb-6">
+        <ol class="flex items-center gap-2 text-sm">
+            @foreach (var item in Model.Items)
+            {
+                <li class="flex items-center gap-2">
+                    @if (!item.IsCurrent && !string.IsNullOrEmpty(item.Url))
+                    {
+                        <a href="@item.Url" class="text-text-secondary hover:text-accent-blue transition-colors">
+                            @item.Label
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="text-text-primary font-medium">@item.Label</span>
+                    }
+
+                    @if (!item.IsCurrent)
+                    {
+                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    }
+                </li>
+            }
+        </ol>
+    </nav>
+}

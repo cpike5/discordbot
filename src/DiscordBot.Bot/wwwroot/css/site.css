@@ -3282,3 +3282,152 @@
     transition: none;
   }
 }
+
+/* ============================================
+   GUILD NAVIGATION COMPONENTS
+   ============================================ */
+
+/* Guild Navigation Tabs (Desktop) */
+.guild-nav-container {
+  position: relative;
+}
+
+.guild-nav-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.guild-nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.guild-nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease-out;
+}
+
+.guild-nav-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.guild-nav-tab:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: 2px;
+}
+
+.guild-nav-tab.active {
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.guild-nav-tab .tab-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+}
+
+.guild-nav-tab.active .tab-icon {
+  color: var(--color-accent-blue);
+}
+
+/* Guild Navigation Dropdown (Mobile) */
+.guild-nav-dropdown {
+  position: relative;
+}
+
+.guild-nav-dropdown-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 0.75rem;
+  transition: all 0.15s ease-out;
+}
+
+.guild-nav-dropdown-button:hover {
+  border-color: var(--color-border-focus);
+}
+
+.guild-nav-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 0.5rem;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  z-index: var(--z-popover);
+}
+
+.guild-nav-dropdown-item {
+  display: block;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition: background 0.15s ease-out;
+}
+
+.guild-nav-dropdown-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.guild-nav-dropdown-item:focus-visible {
+  outline: 2px solid var(--color-accent-blue);
+  outline-offset: -2px;
+}
+
+.guild-nav-dropdown-item.active {
+  background: var(--color-bg-hover);
+  font-weight: 600;
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .guild-nav-tab {
+    padding: 0.5rem 0.875rem;
+    font-size: 0.8125rem;
+  }
+
+  .guild-nav-tab .tab-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .guild-nav-tab,
+  .guild-nav-dropdown-button,
+  .guild-nav-dropdown-item {
+    transition: none;
+  }
+}
