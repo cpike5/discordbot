@@ -1,0 +1,24 @@
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    Layout = "_Layout.cshtml";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    @await Html.PartialAsync("Components/_GuildBreadcrumb", (GuildBreadcrumbViewModel)Model.Breadcrumb)
+
+    <!-- Guild Header -->
+    @await Html.PartialAsync("Components/_GuildHeader", (GuildHeaderViewModel)Model.Header)
+
+    <!-- Guild Navigation Bar -->
+    @await Html.PartialAsync("Components/_GuildNavBar", (GuildNavBarViewModel)Model.Navigation)
+
+    <!-- Page Content -->
+    <div class="guild-page-content">
+        @RenderBody()
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/guild-nav.js" asp-append-version="true"></script>
+}

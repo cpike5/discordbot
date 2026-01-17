@@ -1,0 +1,64 @@
+@model DiscordBot.Bot.ViewModels.Components.GuildNavBarViewModel
+@{
+    var orderedTabs = Model.Tabs.OrderBy(t => t.Order).ToList();
+    var activeTab = orderedTabs.FirstOrDefault(t => t.Id == Model.ActiveTab);
+}
+
+<div class="guild-nav-container mb-6" id="guildNavContainer">
+    <!-- Desktop: Horizontal tabs -->
+    <nav class="guild-nav-tabs hidden sm:flex" id="guildNavTabs" role="tablist" aria-label="Guild sections">
+        @foreach (var tab in orderedTabs)
+        {
+            var isActive = Model.ActiveTab == tab.Id;
+
+            <a asp-page="@tab.PageName"
+               asp-route-guildId="@Model.GuildId"
+               class="guild-nav-tab @(isActive ? "active" : "")"
+               role="tab"
+               aria-selected="@(isActive ? "true" : "false")">
+                @if (isActive && !string.IsNullOrEmpty(tab.IconSolid))
+                {
+                    <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="@tab.IconSolid" />
+                    </svg>
+                }
+                else if (!string.IsNullOrEmpty(tab.IconOutline))
+                {
+                    <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconOutline" />
+                    </svg>
+                }
+                <span>@tab.Label</span>
+            </a>
+        }
+    </nav>
+
+    <!-- Mobile: Dropdown -->
+    <div class="guild-nav-dropdown sm:hidden">
+        <button type="button"
+                id="guildNavDropdownToggle"
+                class="guild-nav-dropdown-button"
+                aria-haspopup="true"
+                aria-expanded="false">
+            <span id="guildNavSelectedText">@(activeTab?.Label ?? "Navigation")</span>
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+        <div id="guildNavDropdownMenu"
+             class="hidden guild-nav-dropdown-menu"
+             role="region"
+             aria-label="Guild navigation menu">
+            @foreach (var tab in orderedTabs)
+            {
+                var isActive = Model.ActiveTab == tab.Id;
+
+                <a asp-page="@tab.PageName"
+                   asp-route-guildId="@Model.GuildId"
+                   class="guild-nav-dropdown-item @(isActive ? "active" : "")">
+                    @tab.Label
+                </a>
+            }
+        </div>
+    </div>
+</div>

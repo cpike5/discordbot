@@ -1,0 +1,86 @@
+@model DiscordBot.Bot.ViewModels.Components.GuildHeaderViewModel
+@{
+    var hasActions = Model.Actions?.Any() == true;
+}
+
+<div class="mb-8">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <!-- Left: Icon + Title + Description -->
+        <div class="flex items-center gap-4">
+            <!-- Guild Icon -->
+            @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
+            {
+                <img src="@Model.GuildIconUrl"
+                     alt="@Model.GuildName"
+                     class="w-12 h-12 rounded-full flex-shrink-0" />
+            }
+            else
+            {
+                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                    @(Model.GuildName.Length >= 2 ? Model.GuildName[..2].ToUpper() : Model.GuildName.ToUpper())
+                </div>
+            }
+
+            <!-- Title + Description -->
+            <div>
+                <h1 class="text-2xl font-bold text-text-primary">@Model.PageTitle</h1>
+                @if (!string.IsNullOrEmpty(Model.PageDescription))
+                {
+                    <p class="mt-1 text-sm text-text-secondary">@Model.PageDescription</p>
+                }
+            </div>
+        </div>
+
+        <!-- Right: Action Buttons -->
+        @if (hasActions)
+        {
+            <div class="flex items-center gap-2">
+                @foreach (var action in Model.Actions!)
+                {
+                    @if (action.Style == DiscordBot.Bot.ViewModels.Components.HeaderActionStyle.Primary)
+                    {
+                        <a href="@action.Url"
+                           @(action.OpenInNewTab ? "target=\"_blank\" rel=\"noopener noreferrer\"" : "")
+                           class="px-4 py-2 bg-accent-orange text-white font-medium text-sm rounded-lg hover:bg-accent-orange-hover transition-colors inline-flex items-center gap-2">
+                            @if (!string.IsNullOrEmpty(action.Icon))
+                            {
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
+                                </svg>
+                            }
+                            <span>@action.Label</span>
+                        </a>
+                    }
+                    else if (action.Style == DiscordBot.Bot.ViewModels.Components.HeaderActionStyle.Secondary)
+                    {
+                        <a href="@action.Url"
+                           @(action.OpenInNewTab ? "target=\"_blank\" rel=\"noopener noreferrer\"" : "")
+                           class="px-3 py-2 text-sm font-medium text-text-secondary hover:text-accent-blue bg-bg-secondary border border-border-primary rounded-lg hover:border-border-focus transition-colors inline-flex items-center gap-2">
+                            @if (!string.IsNullOrEmpty(action.Icon))
+                            {
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
+                                </svg>
+                            }
+                            <span>@action.Label</span>
+                        </a>
+                    }
+                    else if (action.Style == DiscordBot.Bot.ViewModels.Components.HeaderActionStyle.Link)
+                    {
+                        <a href="@action.Url"
+                           @(action.OpenInNewTab ? "target=\"_blank\" rel=\"noopener noreferrer\"" : "")
+                           class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors inline-flex items-center gap-1">
+                            @if (!string.IsNullOrEmpty(action.Icon))
+                            {
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.Icon" />
+                                </svg>
+                            }
+                            <span>@action.Label</span>
+                        </a>
+                    }
+                }
+            </div>
+        }
+    </div>
+</div>
