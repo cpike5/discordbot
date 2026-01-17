@@ -38,5 +38,15 @@ public enum SearchCategory
     /// <summary>
     /// Admin UI page search results.
     /// </summary>
-    Pages
+    Pages,
+
+    /// <summary>
+    /// Reminder search results.
+    /// </summary>
+    Reminders,
+
+    /// <summary>
+    /// Scheduled message search results.
+    /// </summary>
+    ScheduledMessages
 }

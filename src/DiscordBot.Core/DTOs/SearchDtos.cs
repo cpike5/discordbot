@@ -71,6 +71,16 @@ public class UnifiedSearchResultDto
     public SearchCategoryResult Pages { get; set; } = new();
 
     /// <summary>
+    /// Gets or sets the results for the Reminders category.
+    /// </summary>
+    public SearchCategoryResult Reminders { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the results for the ScheduledMessages category.
+    /// </summary>
+    public SearchCategoryResult ScheduledMessages { get; set; } = new();
+
+    /// <summary>
     /// Gets a value indicating whether any results were found across all categories.
     /// </summary>
     public bool HasResults =>
@@ -80,7 +90,9 @@ public class UnifiedSearchResultDto
         Commands.Items.Count > 0 ||
         AuditLogs.Items.Count > 0 ||
         MessageLogs.Items.Count > 0 ||
-        Pages.Items.Count > 0;
+        Pages.Items.Count > 0 ||
+        Reminders.Items.Count > 0 ||
+        ScheduledMessages.Items.Count > 0;
 
     /// <summary>
     /// Gets the total number of results across all categories.
@@ -92,7 +104,9 @@ public class UnifiedSearchResultDto
         Commands.Items.Count +
         AuditLogs.Items.Count +
         MessageLogs.Items.Count +
-        Pages.Items.Count;
+        Pages.Items.Count +
+        Reminders.Items.Count +
+        ScheduledMessages.Items.Count;
 }
 
 /// <summary>
