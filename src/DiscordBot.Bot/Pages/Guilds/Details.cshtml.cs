@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -49,6 +51,21 @@ public class DetailsModel : PageModel
     /// Gets the view model containing guild details.
     /// </summary>
     public GuildDetailViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Gets whether welcome messages are enabled for this guild.
@@ -229,6 +246,63 @@ public class DetailsModel : PageModel
 
         // TODO: Set CanEdit based on user's guild-specific permissions
         // For now, all moderators can view but edit capability depends on future authorization
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = guild.Name,
+            PageDescription = $"ID: {guild.Id}",
+            Actions = ViewModel.CanEdit ? new List<HeaderAction>
+            {
+                new()
+                {
+                    Label = "Active",
+                    Url = "#",
+                    Style = HeaderActionStyle.Secondary
+                },
+                new()
+                {
+                    Label = "Sync",
+                    Url = "#",
+                    Icon = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+                    Style = HeaderActionStyle.Secondary
+                },
+                new()
+                {
+                    Label = "Members",
+                    Url = $"/Guilds/Members?guildId={guild.Id}",
+                    Icon = "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+                    Style = HeaderActionStyle.Secondary
+                },
+                new()
+                {
+                    Label = "Edit Settings",
+                    Url = $"/Guilds/Edit?id={guild.Id}",
+                    Icon = "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
+                    Style = HeaderActionStyle.Primary
+                }
+            } : null
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "overview",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
 
         return Page();
     }

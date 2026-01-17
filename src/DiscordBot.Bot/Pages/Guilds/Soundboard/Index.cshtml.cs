@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -57,6 +58,21 @@ public class IndexModel : PageModel
     /// View model for display properties.
     /// </summary>
     public SoundboardIndexViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// View model for the voice channel control panel.
@@ -159,6 +175,45 @@ public class IndexModel : PageModel
 
             // Build voice channel panel view model
             VoiceChannelPanel = BuildVoiceChannelPanelViewModel(guildId);
+
+            // Populate guild layout ViewModels
+            Breadcrumb = new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details?id={guild.Id}" },
+                    new() { Label = "Audio", IsCurrent = true }
+                }
+            };
+
+            Header = new GuildHeaderViewModel
+            {
+                GuildId = guild.Id,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                PageTitle = "Audio",
+                PageDescription = $"Manage audio settings and soundboard for {guild.Name}",
+                Actions = IsMemberPortalEnabled ? new List<HeaderAction>
+                {
+                    new()
+                    {
+                        Label = "Open Member Portal",
+                        Url = $"/Portal/Soundboard/{guildId}",
+                        Icon = "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
+                        Style = HeaderActionStyle.Secondary,
+                        OpenInNewTab = true
+                    }
+                } : null
+            };
+
+            Navigation = new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "audio",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            };
 
             return Page();
         }
