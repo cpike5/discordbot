@@ -1,4 +1,6 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -42,6 +44,10 @@ public class IndexModel : PageModel
         _settingsService = settingsService;
         _logger = logger;
     }
+
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+    public GuildHeaderViewModel Header { get; set; } = new();
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the guild ID from the route.
@@ -105,6 +111,35 @@ public class IndexModel : PageModel
         }
 
         GuildName = guild.Name;
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                new() { Label = "Audio", Url = $"/Guilds/Soundboard/{guild.Id}" },
+                new() { Label = "Settings", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Audio",
+            PageDescription = $"Configure audio settings for {guild.Name}"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "audio",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
 
         // Load audio settings
         Settings = await _audioSettingsService.GetSettingsAsync(GuildId, cancellationToken);

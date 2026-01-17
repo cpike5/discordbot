@@ -1,4 +1,6 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -103,6 +105,21 @@ public class IndexModel : PageModel
     public GuildDto? Guild { get; set; }
 
     /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
+
+    /// <summary>
     /// Available roles for the filter dropdown.
     /// </summary>
     public List<GuildRoleDto> AvailableRoles { get; set; } = new();
@@ -152,6 +169,44 @@ public class IndexModel : PageModel
             _logger.LogWarning("Guild {GuildId} not found", GuildId);
             return NotFound();
         }
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = Guild.Name, Url = $"/Guilds/Details/{Guild.Id}" },
+                new() { Label = "Members", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = Guild.Id,
+            GuildName = Guild.Name,
+            GuildIconUrl = Guild.IconUrl,
+            PageTitle = "Members",
+            PageDescription = $"Manage members for {Guild.Name}",
+            Actions = new List<HeaderAction>
+            {
+                new()
+                {
+                    Label = "Export CSV",
+                    Url = $"/Guilds/{Guild.Id}/Members?handler=Export",
+                    Icon = "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
+                    Style = HeaderActionStyle.Secondary
+                }
+            }
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = Guild.Id,
+            ActiveTab = "members",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
 
         // Get available roles from Discord
         var discordGuild = _discordClient.GetGuild(GuildId);

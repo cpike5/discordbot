@@ -4,61 +4,10 @@
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Scheduled Messages - {Model.ViewModel.GuildName}";
+    Layout = "_GuildLayout";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm">
-            <li>
-                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Details" asp-route-guildId="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <span class="text-text-primary font-medium">Scheduled Messages</span>
-            </li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-text-primary">Scheduled Messages</h1>
-            <p class="mt-1 text-sm text-text-secondary">Manage automated messages to be sent at scheduled times</p>
-        </div>
-        <a
-            asp-page="Create"
-            asp-route-guildId="@Model.ViewModel.GuildId"
-            class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
-        >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            Create New
-        </a>
-    </div>
-
-    <!-- Success Message -->
+<!-- Success Message -->
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {
         <div class="mb-6">
@@ -318,7 +267,6 @@
             </a>
         </div>
     }
-</div>
 
 <!-- Delete Confirmation Modal -->
 <div id="delete-modal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">

@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -35,6 +37,10 @@ public class IndexModel : PageModel
     /// View model for display properties.
     /// </summary>
     public RatWatchIndexViewModel ViewModel { get; set; } = new();
+
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+    public GuildHeaderViewModel Header { get; set; } = new();
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Success message from TempData.
@@ -77,8 +83,37 @@ public class IndexModel : PageModel
             return NotFound();
         }
 
-        // Get Rat Watch settings
+        // Get Rat Watch settings first
         var settings = await _ratWatchService.GetGuildSettingsAsync(guildId, cancellationToken);
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                new() { Label = "Rat Watch", IsCurrent = true }
+            }
+        };
+
+        var statusDescription = settings.IsEnabled ? "Enabled" : "Disabled";
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Rat Watch",
+            PageDescription = $"Manage accountability trackers and view the hall of shame ({statusDescription})"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "ratwatch",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
 
         // Get paginated watches
         var (watches, totalCount) = await _ratWatchService.GetByGuildAsync(

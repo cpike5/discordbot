@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
@@ -56,6 +57,10 @@ public class IndexModel : PageModel
     /// View model for display properties.
     /// </summary>
     public TtsIndexViewModel ViewModel { get; set; } = new();
+
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+    public GuildHeaderViewModel Header { get; set; } = new();
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// View model for the voice channel control panel.
@@ -116,6 +121,49 @@ public class IndexModel : PageModel
             // Get audio settings to check if member portal is enabled
             var audioSettings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
             IsMemberPortalEnabled = audioSettings.EnableMemberPortal;
+
+            // Populate guild layout ViewModels
+            Breadcrumb = new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                    new() { Label = "Audio", Url = $"/Guilds/Soundboard/{guild.Id}" },
+                    new() { Label = "TTS", IsCurrent = true }
+                }
+            };
+
+            var headerActions = new List<HeaderAction>();
+            if (IsMemberPortalEnabled)
+            {
+                headerActions.Add(new()
+                {
+                    Label = "Open Member Portal",
+                    Url = $"/Portal/TTS/{guildId}",
+                    Style = HeaderActionStyle.Secondary,
+                    Icon = "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
+                    OpenInNewTab = true
+                });
+            }
+
+            Header = new GuildHeaderViewModel
+            {
+                GuildId = guild.Id,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                PageTitle = "Audio",
+                PageDescription = $"Manage audio settings and TTS for {guild.Name}",
+                Actions = headerActions
+            };
+
+            Navigation = new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "audio",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            };
 
             // Get TTS statistics
             var stats = await _ttsHistoryService.GetStatsAsync(guildId, cancellationToken);

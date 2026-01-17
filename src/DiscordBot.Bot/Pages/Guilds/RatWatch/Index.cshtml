@@ -4,67 +4,10 @@
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Rat Watch - {Model.ViewModel.GuildName}";
+    Layout = "_GuildLayout";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm">
-            <li>
-                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Details" asp-route-guildId="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <span class="text-text-primary font-medium">Rat Watch</span>
-            </li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-text-primary">Rat Watch</h1>
-            <p class="mt-1 text-sm text-text-secondary">Manage accountability trackers and view the hall of shame</p>
-        </div>
-        <div class="flex items-center gap-3">
-            @if (Model.ViewModel.IsEnabled)
-            {
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-success/20 text-success">
-                    <span class="w-1.5 h-1.5 rounded-full bg-success mr-1.5"></span>
-                    Enabled
-                </span>
-            }
-            else
-            {
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-error/20 text-error">
-                    <span class="w-1.5 h-1.5 rounded-full bg-error mr-1.5"></span>
-                    Disabled
-                </span>
-            }
-        </div>
-    </div>
-
-    <!-- Success Message -->
+<!-- Success Message -->
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {
         <div class="mb-6">
@@ -549,7 +492,6 @@
             }' />
         </div>
     }
-</div>
 
 <!-- Cancel Confirmation Modal -->
 <div id="cancel-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="modal-title">
