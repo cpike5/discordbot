@@ -133,14 +133,17 @@ The application uses the `IOptions<T>` pattern for strongly-typed configuration.
 |--------------|---------------------|---------|
 | `ApplicationOptions` | `Application` | App metadata (title, base URL, version) |
 | `AnalyticsRetentionOptions` | `AnalyticsRetention` | Analytics data retention settings |
-| `AssistantOptions` | `Assistant` | AI assistant settings (use user secrets for ApiKey) |
+| `AnthropicOptions` | `Anthropic` | Anthropic Claude API configuration (API key, model, retries, timeout, prompt caching - use user secrets for ApiKey) |
+| `AssistantOptions` | `Assistant` | AI assistant settings (Claude API integration, rate limiting, prompt caching - use user secrets for ApiKey) |
 | `AuditLogRetentionOptions` | `AuditLogRetention` | Audit log cleanup settings |
+| `AudioCacheOptions` | `AudioCache` | Audio PCM cache settings (cache size, TTL, cleanup intervals) |
 | `AutoModerationOptions` | `AutoModeration` | Auto-moderation rules and thresholds |
 | `AzureSpeechOptions` | `AzureSpeech` | Azure TTS service settings (use user secrets for SubscriptionKey) |
 | `BackgroundServicesOptions` | `BackgroundServices` | Background task intervals and delays |
 | `CachingOptions` | `Caching` | Cache duration settings for various services |
 | `DatabaseSettings` | `Database` | Query performance logging (slow query threshold, parameter logging) |
 | `DiscordOAuthOptions` | `Discord:OAuth` | OAuth client credentials (use user secrets) |
+| `GuildMembershipCacheOptions` | `GuildMembershipCache` | Guild membership cache duration settings |
 | `HistoricalMetricsOptions` | `HistoricalMetrics` | Historical metrics collection (sample interval, retention) |
 | `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (use user secrets for DefaultAdmin) |
 | `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup settings |
@@ -278,18 +281,18 @@ All HTML prototypes are located in `docs/prototypes/`. Open them directly in a b
 - Slash commands only (no prefix commands)
 - `InteractionHandler` discovers and registers command modules from assembly
 - Command modules inherit from `InteractionModuleBase<SocketInteractionContext>`
-- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`, `RequireGuildActive`, `RequireModerationEnabled`, `RequireModerator`, `RequireAudioEnabled`, `RequireVoiceChannel`, `RequireTtsEnabled`
+- Precondition attributes for permission checks: `RequireAdminAttribute`, `RequireOwnerAttribute`, `RateLimitAttribute`, `RequireRatWatchEnabledAttribute`, `RequireGuildActive`, `RequireModerationEnabled`, `RequireModerator`, `RequireAudioEnabled`, `RequireVoiceChannel`, `RequireTtsEnabled`, `RequireKickMembersAttribute`, `RequireBanMembersAttribute`
 
 **Command Modules:**
 | Module | Commands |
 |--------|----------|
 | `GeneralModule` | `/ping` |
-| `AdminModule` | `/admin info`, `/admin kick`, `/admin ban` |
-| `VerifyAccountModule` | `/verify` |
+| `AdminModule` | `/status`, `/guilds`, `/shutdown` |
+| `VerifyAccountModule` | `/verify-account` |
 | `RatWatchModule` | Rat Watch (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard`, `/rat-settings` |
-| `ScheduleModule` | `/schedule-message create/list/delete/edit` |
-| `WelcomeModule` | `/welcome setup/test/disable` |
-| `ReminderModule` | `/remind set/list/delete` |
+| `ScheduleModule` | `/schedule-list`, `/schedule-create`, `/schedule-delete`, `/schedule-toggle`, `/schedule-run` |
+| `WelcomeModule` | `/welcome show`, `/welcome enable`, `/welcome disable`, `/welcome channel`, `/welcome message`, `/welcome test` |
+| `ReminderModule` | `/remind set`, `/remind list`, `/remind cancel` |
 | `UtilityModule` | `/userinfo`, `/serverinfo`, `/roleinfo` |
 | `ModerationActionModule` | `/warn`, `/kick`, `/ban`, `/mute`, `/purge` |
 | `ModerationHistoryModule` | `/mod-history` |

@@ -20,7 +20,7 @@ The project has grown significantly with v0.3.0 features (audit logging, schedul
 |------|--------|-----------------|
 | README.md | **Needs Update** | Add v0.3.0 features (audit logs, scheduled messages, welcome system) |
 | ROADMAP.md | **Needs Update** | Move completed v0.3.0 features, update in-progress items |
-| CLAUDE.md | **Current** | Recently updated, verify configuration options table |
+| CLAUDE.md | **Updated** | Configuration options table verified and completed; command modules and precondition attributes updated (Issue #1095) |
 
 ### 1.2 Getting Started (docs/articles/)
 
@@ -63,7 +63,7 @@ The project has grown significantly with v0.3.0 features (audit logging, schedul
 | admin-commands.md | **Review** | Verify all admin commands documented |
 | commands-page.md | **Current** | Recently updated Dec 25 |
 | commands-page-design.md | **Current** | Recently updated Dec 24 |
-| bot-verification.md | **Review** | Verify verification flow accurate |
+| bot-verification.md | **Current** | Verified - correctly uses `/verify-account` command (Issue #1095) |
 
 ### 1.7 Operations & Monitoring (docs/articles/)
 
@@ -81,7 +81,7 @@ The project has grown significantly with v0.3.0 features (audit logging, schedul
 
 | File | Status | Action Required |
 |------|--------|-----------------|
-| permissions.md | **Review** | Verify precondition attributes documented |
+| permissions.md | **Updated** | Precondition attributes verified and expanded to include RequireKickMembersAttribute and RequireBanMembersAttribute (Issue #1095) |
 | issue-tracking-process.md | **Current** | Recently updated Dec 24 |
 | versioning-strategy.md | **Review** | Verify release process |
 | index.md | **Needs Update** | Update documentation index/TOC |
@@ -139,13 +139,14 @@ The project has grown significantly with v0.3.0 features (audit logging, schedul
 
 ### 3.1 Missing Feature Documentation (HIGH PRIORITY)
 
-| Missing Doc | Feature | Priority |
-|-------------|---------|----------|
-| **audit-log-system.md** | Audit log fluent API, categories, retention | High |
-| **scheduled-messages.md** | Schedule commands, frequencies, timezone handling | High |
-| **welcome-system.md** | Welcome configuration, role assignment, message templates | High |
-| **consent-privacy.md** | GDPR compliance, consent types, data handling | Medium |
-| **message-logging.md** | Message log capture, retention, privacy considerations | Medium |
+| Missing Doc | Feature | Priority | Status |
+|-------------|---------|----------|--------|
+| **audit-log-system.md** | Audit log fluent API, categories, retention | High | Exists |
+| **scheduled-messages.md** | Schedule commands, frequencies, timezone handling | High | Exists |
+| **welcome-system.md** | Welcome configuration, role assignment, message templates | High | Exists |
+| **consent-privacy.md** | GDPR compliance, consent types, data handling | Medium | Exists |
+| **message-logging.md** | Message log capture, retention, privacy considerations | Medium | Needs verification |
+| **command-module-configuration.md** | Command module enable/disable configuration (Issue #1082) | High | **Created** |
 
 ### 3.2 Missing Operational Documentation (MEDIUM PRIORITY)
 
