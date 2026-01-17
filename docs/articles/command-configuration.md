@@ -11,6 +11,8 @@ The Command Module Configuration feature provides:
 - Protection for core modules that cannot be disabled
 - Restart notification when changes require a bot restart
 
+**Note:** This document covers the end-user feature and UI workflows. For technical implementation details, API reference, and programmatic usage, see [Command Module Configuration Technical Reference](command-module-configuration.md).
+
 ## Accessing the Feature
 
 **URL:** `/Admin/Settings` (Commands tab)
