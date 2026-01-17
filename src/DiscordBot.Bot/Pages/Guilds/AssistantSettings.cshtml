@@ -26,7 +26,7 @@
                 </svg>
             </li>
             <li>
-                <a asp-page="Details" asp-route-id="@Model.Guild.Id" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.Guild.Name</a>
+                <a asp-page="Details" asp-route-guildId="@Model.Guild.Id" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.Guild.Name</a>
             </li>
             <li class="text-text-tertiary">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -197,7 +197,7 @@
                         </svg>
                         Save Settings
                     </button>
-                    <a asp-page="Details" asp-route-id="@Model.Guild.Id"
+                    <a asp-page="Details" asp-route-guildId="@Model.Guild.Id"
                        class="btn btn-secondary inline-flex items-center justify-center gap-2">
                         Cancel
                     </a>

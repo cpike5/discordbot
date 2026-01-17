@@ -152,7 +152,7 @@
                     {
                         @foreach (var guild in Model.ViewModel.Guilds)
                         {
-                            var detailsUrl = Url.Page("Details", new { id = guild.Id });
+                            var detailsUrl = Url.Page("Details", new { guildId = guild.Id });
                             <tr class="hover:bg-bg-hover transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
                                 onclick="if (!event.target.closest('button, a')) window.location.href='@detailsUrl'"
                                 tabindex="0"
@@ -215,7 +215,7 @@
                                             </svg>
                                             <span class="sync-text sr-only">Sync</span>
                                         </button>
-                                        <a asp-page="Details" asp-route-id="@guild.Id" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" title="View Details">
+                                        <a asp-page="Details" asp-route-guildId="@guild.Id" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" title="View Details">
                                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -323,7 +323,7 @@
                             </svg>
                             <span class="sync-text">Sync</span>
                         </button>
-                        <a asp-page="Details" asp-route-id="@guild.Id" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+                        <a asp-page="Details" asp-route-guildId="@guild.Id" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />

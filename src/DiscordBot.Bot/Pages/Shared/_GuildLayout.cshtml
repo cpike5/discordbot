@@ -1,6 +1,6 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
-    Layout = "_Layout.cshtml";
+    Layout = "_Layout";
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -19,6 +19,11 @@
     </div>
 </div>
 
+@section Styles {
+    @await RenderSectionAsync("Styles", required: false)
+}
+
 @section Scripts {
     <script src="~/js/guild-nav.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 }

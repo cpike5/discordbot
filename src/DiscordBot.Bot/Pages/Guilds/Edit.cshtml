@@ -26,7 +26,7 @@
                 </svg>
             </li>
             <li>
-                <a asp-page="Details" asp-route-id="@Model.ViewModel.Id" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.Name</a>
+                <a asp-page="Details" asp-route-guildId="@Model.ViewModel.Id" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.Name</a>
             </li>
             <li class="text-text-tertiary">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -165,7 +165,7 @@
 
         <!-- Form Actions -->
         <div class="flex items-center justify-end gap-4">
-            <a asp-page="Details" asp-route-id="@Model.ViewModel.Id" class="btn btn-secondary">
+            <a asp-page="Details" asp-route-guildId="@Model.ViewModel.Id" class="btn btn-secondary">
                 Cancel
             </a>
             <button type="submit" class="btn btn-primary">

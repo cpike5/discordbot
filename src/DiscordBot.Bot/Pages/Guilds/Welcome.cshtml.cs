@@ -102,31 +102,31 @@ public class WelcomeModel : PageModel
         public string? EmbedColor { get; set; }
     }
 
-    public async Task<IActionResult> OnGetAsync(ulong id, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("User accessing welcome configuration page for guild {GuildId}", id);
+        _logger.LogInformation("User accessing welcome configuration page for guild {GuildId}", guildId);
 
         // Get guild info from service
-        var guild = await _guildService.GetGuildByIdAsync(id, cancellationToken);
+        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
         if (guild == null)
         {
-            _logger.LogWarning("Guild {GuildId} not found", id);
+            _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound();
         }
 
         // Get welcome configuration (may be null if not configured yet)
-        var welcomeConfig = await _welcomeService.GetConfigurationAsync(id, cancellationToken);
+        var welcomeConfig = await _welcomeService.GetConfigurationAsync(guildId, cancellationToken);
 
         // Get available text channels from Discord
-        AvailableChannels = GetTextChannels(id);
+        AvailableChannels = GetTextChannels(guildId);
 
         // If no configuration exists, create default values
         if (welcomeConfig == null)
         {
-            _logger.LogDebug("No welcome configuration found for guild {GuildId}, using defaults", id);
+            _logger.LogDebug("No welcome configuration found for guild {GuildId}, using defaults", guildId);
             welcomeConfig = new WelcomeConfigurationDto
             {
-                GuildId = id,
+                GuildId = guildId,
                 IsEnabled = false,
                 WelcomeMessage = "Welcome to {server}, {user}! You are member #{memberCount}.",
                 IncludeAvatar = true,
@@ -161,7 +161,7 @@ public class WelcomeModel : PageModel
             {
                 new() { Label = "Home", Url = "/" },
                 new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, Url = $"/Guilds/Details?id={guild.Id}" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
                 new() { Label = "Welcome Settings", IsCurrent = true }
             }
         };
@@ -243,7 +243,7 @@ public class WelcomeModel : PageModel
         _logger.LogInformation("Successfully updated welcome configuration for guild {GuildId}", Input.GuildId);
         SuccessMessage = "Welcome configuration saved successfully.";
 
-        return RedirectToPage("Welcome", new { id = Input.GuildId });
+        return RedirectToPage("Welcome", new { guildId = Input.GuildId });
     }
 
     /// <summary>

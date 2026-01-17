@@ -385,7 +385,7 @@ const PreviewPopup = (() => {
                 </div>
             </div>
             <div class="preview-footer flex items-center gap-2 p-3 border-t border-border-secondary bg-bg-secondary flex-wrap">
-                <a href="/Guilds/Details?id=${data.guildId}" class="flex-1 min-w-0 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors text-center whitespace-nowrap">
+                <a href="/Guilds/Details/${data.guildId}" class="flex-1 min-w-0 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors text-center whitespace-nowrap">
                     View Guild
                 </a>
                 <a href="/Guilds/Edit/${data.guildId}" class="flex-1 min-w-0 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors text-center whitespace-nowrap">

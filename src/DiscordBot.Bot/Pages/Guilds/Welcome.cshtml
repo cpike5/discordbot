@@ -1,10 +1,10 @@
-@page "{id:long}"
+@page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Guilds.WelcomeModel
 @using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Bot.ViewModels.Pages
 @{
     ViewData["Title"] = $"Welcome Settings - {Model.ViewModel.GuildName}";
-    Layout = "_GuildLayout.cshtml";
+    Layout = "_GuildLayout";
 }
 
 <!-- Success Message -->
@@ -266,7 +266,7 @@
                         </svg>
                         Save Configuration
                     </button>
-                    <a asp-page="Details" asp-route-id="@Model.ViewModel.GuildId"
+                    <a asp-page="Details" asp-route-guildId="@Model.ViewModel.GuildId"
                        class="btn btn-secondary inline-flex items-center justify-center gap-2">
                         Cancel
                     </a>
@@ -324,7 +324,6 @@
             </div>
         </div>
     </form>
-</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

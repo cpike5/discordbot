@@ -40,7 +40,7 @@ public abstract class GuildPageModelBase : PageModel
             {
                 new() { Label = "Home", Url = "/" },
                 new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guildName, Url = $"/Guilds/Details?id={guildId}", IsCurrent = true }
+                new() { Label = guildName, Url = $"/Guilds/Details/{guildId}", IsCurrent = true }
             }
         };
     }
@@ -60,7 +60,7 @@ public abstract class GuildPageModelBase : PageModel
             {
                 new() { Label = "Home", Url = "/" },
                 new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guildName, Url = $"/Guilds/Details?id={guildId}" },
+                new() { Label = guildName, Url = $"/Guilds/Details/{guildId}" },
                 new() { Label = pageName, IsCurrent = true }
             }
         };

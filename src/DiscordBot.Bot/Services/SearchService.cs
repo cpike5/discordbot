@@ -221,7 +221,7 @@ public class SearchService : ISearchService
                 IconUrl = x.Guild.IconUrl,
                 BadgeText = x.Guild.IsActive ? "Active" : "Inactive",
                 BadgeVariant = x.Guild.IsActive ? "success" : "secondary",
-                Url = $"/Guilds/Details?id={x.Guild.Id}",
+                Url = $"/Guilds/Details/{x.Guild.Id}",
                 RelevanceScore = x.Score,
                 Timestamp = x.Guild.JoinedAt,
                 Metadata = new Dictionary<string, string>

@@ -43,6 +43,11 @@ public record GuildNavItem
     public string PageName { get; init; } = string.Empty;
 
     /// <summary>
+    /// URL pattern with {guildId} placeholder (e.g., "/Guilds/Details/{guildId}").
+    /// </summary>
+    public string UrlPattern { get; init; } = string.Empty;
+
+    /// <summary>
     /// SVG path for outline icon (used when tab is not active).
     /// </summary>
     public string? IconOutline { get; init; }
@@ -56,4 +61,9 @@ public record GuildNavItem
     /// Display order for the tab.
     /// </summary>
     public int Order { get; init; }
+
+    /// <summary>
+    /// Gets the URL for this tab with the specified guild ID.
+    /// </summary>
+    public string GetUrl(ulong guildId) => UrlPattern.Replace("{guildId}", guildId.ToString());
 }
