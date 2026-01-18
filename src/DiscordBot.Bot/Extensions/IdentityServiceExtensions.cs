@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -99,34 +100,34 @@ public static class IdentityServiceExtensions
     }
 
     /// <summary>
-    /// Adds Discord OAuth authentication if configured.
+    /// Adds Discord OAuth authentication.
     /// </summary>
     private static IServiceCollection AddDiscordOAuth(this IServiceCollection services, IConfiguration configuration)
     {
-        // Load Discord OAuth configuration
-        var oauthOptions = configuration
-            .GetSection(DiscordOAuthOptions.SectionName)
-            .Get<DiscordOAuthOptions>() ?? new DiscordOAuthOptions();
+        // Register DiscordOAuthOptions with validation
+        services.AddOptions<DiscordOAuthOptions>()
+            .Bind(configuration.GetSection(DiscordOAuthOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
-        // Add Discord OAuth authentication (only if configured)
-        var isDiscordOAuthConfigured = !string.IsNullOrEmpty(oauthOptions.ClientId) && !string.IsNullOrEmpty(oauthOptions.ClientSecret);
+        // Add Discord OAuth authentication with minimal initial config
+        services.AddAuthentication()
+            .AddDiscord(_ => { });
 
-        if (isDiscordOAuthConfigured)
-        {
-            services.AddAuthentication()
-                .AddDiscord(options =>
-                {
-                    options.ClientId = oauthOptions.ClientId!;
-                    options.ClientSecret = oauthOptions.ClientSecret!;
-                    options.Scope.Add("identify");
-                    options.Scope.Add("email");
-                    options.Scope.Add("guilds"); // Required for fetching user's guild list
-                    options.SaveTokens = true;
-                });
-        }
+        // Configure Discord authentication options using validated DiscordOAuthOptions via DI
+        services.AddOptions<DiscordAuthenticationOptions>(DiscordAuthenticationDefaults.AuthenticationScheme)
+            .Configure<IOptions<DiscordOAuthOptions>>((discordOptions, oauthOptions) =>
+            {
+                discordOptions.ClientId = oauthOptions.Value.ClientId;
+                discordOptions.ClientSecret = oauthOptions.Value.ClientSecret;
+                discordOptions.Scope.Add("identify");
+                discordOptions.Scope.Add("email");
+                discordOptions.Scope.Add("guilds"); // Required for fetching user's guild list
+                discordOptions.SaveTokens = true;
+            });
 
-        // Register whether Discord OAuth is configured for UI to consume
-        services.AddSingleton(new DiscordOAuthSettings { IsConfigured = isDiscordOAuthConfigured });
+        // Register that Discord OAuth is configured for UI to consume
+        services.AddSingleton(new DiscordOAuthSettings { IsConfigured = true });
 
         return services;
     }
