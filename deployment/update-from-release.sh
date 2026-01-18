@@ -110,6 +110,62 @@ check_privileges() {
     fi
 }
 
+# Check required dependencies are available
+check_dependencies() {
+    local missing=()
+
+    if ! command -v dotnet &> /dev/null; then
+        missing+=("dotnet")
+    fi
+
+    if ! command -v git &> /dev/null; then
+        missing+=("git")
+    fi
+
+    if ! command -v npm &> /dev/null; then
+        missing+=("npm")
+        log_warn "npm not found in PATH. This is often caused by running with sudo."
+        log_warn "Try: sudo env \"PATH=\$PATH\" $0 $*"
+        log_warn "Or create symlinks: sudo ln -s \$(which npm) /usr/local/bin/npm"
+    fi
+
+    if ! command -v node &> /dev/null; then
+        missing+=("node")
+    fi
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        log_error "Missing required dependencies: ${missing[*]}"
+        exit 1
+    fi
+
+    log_info "All dependencies found"
+}
+
+# Create discordbot system user if it doesn't exist
+ensure_discordbot_user() {
+    if id "discordbot" &>/dev/null; then
+        log_info "User 'discordbot' already exists"
+    else
+        log_info "Creating system user 'discordbot'..."
+
+        # Create system user with no login shell and no home directory
+        useradd --system --no-create-home --shell /usr/sbin/nologin discordbot
+
+        log_success "Created system user 'discordbot'"
+    fi
+
+    # Ensure required directories exist with correct ownership
+    local dirs=("$APP_DIR" "$BACKUP_DIR" "$(dirname "$DB_PATH")" "$ASSISTANT_DIR")
+
+    for dir in "${dirs[@]}"; do
+        if [ ! -d "$dir" ]; then
+            log_info "Creating directory: $dir"
+            mkdir -p "$dir"
+        fi
+        chown discordbot:discordbot "$dir"
+    done
+}
+
 # Cleanup old backups, keeping only the most recent ones
 cleanup_old_backups() {
     log_info "Cleaning up old backups (keeping last $MAX_BACKUPS)..."
@@ -275,6 +331,8 @@ deploy_release() {
     local temp_dir="/tmp/discordbot-deploy-$$"
 
     check_privileges
+    check_dependencies
+    ensure_discordbot_user
 
     # Get current version
     current_version=$(get_current_version)
@@ -457,6 +515,8 @@ deploy_dev() {
     local dev_version
 
     check_privileges
+    check_dependencies
+    ensure_discordbot_user
 
     # Get current version
     current_version=$(get_current_version)
