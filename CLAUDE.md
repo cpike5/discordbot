@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Discord bot management system built with .NET 8 and Discord.NET. Combines a Discord bot hosted service with a Web API and Razor Pages admin UI for management.
 
-**Current version:** v0.11.0. Version is centralized in `Directory.Build.props` at solution root. See [versioning-strategy.md](docs/articles/versioning-strategy.md) for release process.
+**Current version:** v0.12.0-dev (pre-release). Version is centralized in `Directory.Build.props` at solution root. See [versioning-strategy.md](docs/articles/versioning-strategy.md) for release process.
 
 ## Prerequisites
 
