@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -37,6 +39,21 @@ public class AssistantMetricsModel : PageModel
     /// Guild information for display.
     /// </summary>
     public GuildViewModel Guild { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Daily metrics for the last 30 days.
@@ -145,6 +162,39 @@ public class AssistantMetricsModel : PageModel
             // Calculate success rate
             var totalRequests = TotalQuestions + TotalFailedRequests;
             SuccessRate = totalRequests > 0 ? (double)TotalQuestions / totalRequests * 100 : 100;
+        }
+
+        // Populate guild layout ViewModels
+        var guildDto = await _guildService.GetGuildByIdAsync(GuildId, cancellationToken);
+        if (guildDto != null)
+        {
+            Breadcrumb = new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guildDto.Name, Url = $"/Guilds/Details/{GuildId}" },
+                    new() { Label = "Assistant", Url = $"/Guilds/AssistantSettings/{GuildId}" },
+                    new() { Label = "Metrics", IsCurrent = true }
+                }
+            };
+
+            Header = new GuildHeaderViewModel
+            {
+                GuildId = guildDto.Id,
+                GuildName = guildDto.Name,
+                GuildIconUrl = guildDto.IconUrl,
+                PageTitle = "Assistant Usage Metrics",
+                PageDescription = $"AI assistant usage statistics for {guildDto.Name}"
+            };
+
+            Navigation = new GuildNavBarViewModel
+            {
+                GuildId = guildDto.Id,
+                ActiveTab = "assistant",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            };
         }
 
         return Page();

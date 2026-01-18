@@ -1,4 +1,6 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -37,6 +39,21 @@ public class ModerationModel : PageModel
     /// The moderation analytics view model with all chart data and metrics.
     /// </summary>
     public ModerationAnalyticsViewModel ViewModel { get; private set; } = new();
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Start date filter (bound from query string).
@@ -123,6 +140,35 @@ public class ModerationModel : PageModel
             _logger.LogInformation(
                 "Moderation analytics loaded successfully for guild {GuildId}. Total cases: {TotalCases}, Avg cases/day: {CasesPerDay:F1}",
                 guildId, summary.TotalCases, summary.CasesPerDay);
+
+            // Populate guild layout ViewModels
+            Breadcrumb = new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
+                    new() { Label = "Analytics", Url = $"/Guilds/Analytics/{guildId}" },
+                    new() { Label = "Moderation", IsCurrent = true }
+                }
+            };
+
+            Header = new GuildHeaderViewModel
+            {
+                GuildId = guild.Id,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                PageTitle = "Moderation Analytics",
+                PageDescription = $"Moderation metrics and trends for {guild.Name}"
+            };
+
+            Navigation = new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "overview",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            };
         }
         catch (Exception ex)
         {

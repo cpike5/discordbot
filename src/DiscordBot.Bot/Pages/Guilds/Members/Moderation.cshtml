@@ -3,39 +3,14 @@
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"{Model.ViewModel.DisplayName} - Moderation";
+    Layout = "_GuildLayout";
 }
 
 @section Styles {
     <link rel="stylesheet" href="~/css/moderation.css" asp-append-version="true" />
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav class="text-sm text-text-secondary mb-6" aria-label="Breadcrumb">
-        <ol class="flex items-center gap-2">
-            <li><a asp-page="/Guilds/Index" class="hover:text-text-primary transition-colors">Servers</a></li>
-            <li aria-hidden="true">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li><a asp-page="/Guilds/Details" asp-route-guildId="@Model.GuildId" class="hover:text-text-primary transition-colors">@Model.ViewModel.GuildName</a></li>
-            <li aria-hidden="true">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li><a asp-page="/Guilds/Members/Index" asp-route-guildId="@Model.GuildId" class="hover:text-text-primary transition-colors">Members</a></li>
-            <li aria-hidden="true">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li class="text-text-primary font-medium" aria-current="page">@Model.ViewModel.DisplayName - Moderation</li>
-        </ol>
-    </nav>
-
-    <!-- User Header -->
+<!-- User Header (breadcrumb/header/nav now in layout) -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
         <div class="flex flex-col md:flex-row md:items-start gap-6">
             <!-- Avatar and Basic Info -->
@@ -371,7 +346,6 @@
             </div>
         </div>
     </div>
-</div>
 
 @section Scripts {
     <script src="~/js/user-moderation-profile.js"></script>

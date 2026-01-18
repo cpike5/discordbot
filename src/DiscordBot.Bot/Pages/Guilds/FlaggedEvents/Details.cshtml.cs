@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -37,6 +39,21 @@ public class DetailsModel : PageModel
     /// The guild name for display.
     /// </summary>
     public string GuildName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// The flagged event details.
@@ -106,6 +123,36 @@ public class DetailsModel : PageModel
 
         _logger.LogDebug("Retrieved flagged event {EventId} details with {HistoryCount} user history items",
             id, UserHistory.Count());
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
+                new() { Label = "Moderation", Url = $"/Guilds/{guildId}/FlaggedEvents" },
+                new() { Label = "Flagged Events", Url = $"/Guilds/{guildId}/FlaggedEvents" },
+                new() { Label = "Details", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Flagged Event Details",
+            PageDescription = $"Event details for {guild.Name}"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "moderation",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
 
         return Page();
     }
