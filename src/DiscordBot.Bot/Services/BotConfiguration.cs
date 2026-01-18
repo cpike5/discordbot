@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
@@ -14,6 +16,7 @@ public class BotConfiguration
     /// Discord bot token for authentication.
     /// Should be stored in user secrets for security.
     /// </summary>
+    [Required(ErrorMessage = "Discord:Token is required. Set it via environment variable Discord__Token or user secrets.")]
     public string Token { get; set; } = string.Empty;
 
     /// <summary>

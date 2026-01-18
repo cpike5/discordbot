@@ -23,8 +23,11 @@ public static class DiscordServiceExtensions
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddDiscordBot(this IServiceCollection services, IConfiguration configuration)
     {
-        // Bind BotConfiguration from configuration
-        services.Configure<BotConfiguration>(configuration.GetSection(BotConfiguration.SectionName));
+        // Bind BotConfiguration from configuration with validation
+        services.AddOptions<BotConfiguration>()
+            .Bind(configuration.GetSection(BotConfiguration.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         // Register DiscordSocketClient as singleton with configuration
         services.AddSingleton(provider =>
