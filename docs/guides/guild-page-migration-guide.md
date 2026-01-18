@@ -788,3 +788,13 @@ Actions = canManageSoundboard ? new List<HeaderAction>
     }
 } : null
 ```
+
+## Migration Summary
+
+| Metric | Value |
+|--------|-------|
+| Pages Migrated | 20+ |
+| Completion Date | January 2026 |
+| Epic Issue | #1189 |
+
+All guild management pages have been migrated to use the shared layout system.
