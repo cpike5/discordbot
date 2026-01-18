@@ -5,75 +5,10 @@
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Rat Watch Incidents - {Model.ViewModel.GuildName}";
+    Layout = "_GuildLayout";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm">
-            <li>
-                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Details" asp-route-guildId="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/RatWatch/Index" asp-route-guildId="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">Rat Watch</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <span class="text-text-primary font-medium">Incidents</span>
-            </li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-text-primary">Rat Watch</h1>
-            <p class="mt-1 text-sm text-text-secondary">Browse and search incidents for @Model.ViewModel.GuildName</p>
-        </div>
-    </div>
-
-    <!-- Navigation Tabs -->
-    <div class="flex items-center gap-1 mb-6 border-b border-border-primary">
-        <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId"
-           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
-            Settings
-        </a>
-        <a asp-page="Analytics" asp-route-guildId="@Model.ViewModel.GuildId"
-           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
-            Analytics
-        </a>
-        <a asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId"
-           class="px-4 py-3 text-sm font-medium border-b-2 border-accent-orange text-text-primary">
-            Incidents
-        </a>
-    </div>
-
-    <!-- Filter Panel -->
+<!-- Filter Panel -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
         <button type="button"
                 id="filterToggle"
@@ -447,7 +382,6 @@
             </div>
         </div>
     </div>
-</div>
 
 <!-- Embedded incident data for CSV export -->
 @if (Model.ViewModel.TotalCount > 0)

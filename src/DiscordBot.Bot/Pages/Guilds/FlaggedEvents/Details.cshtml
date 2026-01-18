@@ -4,87 +4,34 @@
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Flagged Event Details - {Model.GuildName}";
+    Layout = "_GuildLayout";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm">
-            <li>
-                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Details" asp-route-guildId="@Model.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.GuildName</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/FlaggedEvents/Index" asp-route-guildId="@Model.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">Flagged Events</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <span class="text-text-primary font-medium">Event Details</span>
-            </li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div class="flex items-center gap-3">
-            <a asp-page="/Guilds/FlaggedEvents/Index" asp-route-guildId="@Model.GuildId" class="text-text-secondary hover:text-text-primary transition-colors">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-            </a>
-            <h1 class="text-2xl font-bold text-text-primary">Flagged Event Details</h1>
-        </div>
+<!-- Success Message -->
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+            Variant = AlertVariant.Success,
+            Message = Model.SuccessMessage,
+            IsDismissible = true
+        }" />
     </div>
+}
 
-    <!-- Success Message -->
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                Variant = AlertVariant.Success,
-                Message = Model.SuccessMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+            Variant = AlertVariant.Error,
+            Message = Model.ErrorMessage,
+            IsDismissible = true
+        }" />
+    </div>
+}
 
-    <!-- Error Message -->
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                Variant = AlertVariant.Error,
-                Message = Model.ErrorMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Main Content Column -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Event Summary Card -->

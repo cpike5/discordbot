@@ -3,62 +3,10 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = $"Edit {Model.ViewModel.Name}";
+    Layout = "_GuildLayout";
 }
 
-<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm">
-            <li>
-                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="Details" asp-route-guildId="@Model.ViewModel.Id" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.Name</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <span class="text-text-primary font-medium">Edit Settings</span>
-            </li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="mb-8">
-        <div class="flex items-center gap-4">
-            @if (!string.IsNullOrEmpty(Model.ViewModel.IconUrl))
-            {
-                <img src="@Model.ViewModel.IconUrl" alt="@Model.ViewModel.Name" class="w-12 h-12 rounded-full flex-shrink-0" />
-            }
-            else
-            {
-                <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                    @(Model.ViewModel.Name.Length >= 2 ? Model.ViewModel.Name[..2].ToUpper() : Model.ViewModel.Name.ToUpper())
-                </div>
-            }
-            <div>
-                <h1 class="text-2xl font-bold text-text-primary">Edit Settings</h1>
-                <p class="mt-1 text-sm text-text-secondary">Configure bot settings for @Model.ViewModel.Name</p>
-            </div>
-        </div>
-    </div>
-
+<div class="max-w-3xl mx-auto">
     <!-- Success Message -->
     @if (!string.IsNullOrEmpty(Model.SuccessMessage))
     {

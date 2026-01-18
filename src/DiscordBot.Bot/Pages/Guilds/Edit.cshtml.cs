@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -28,6 +30,21 @@ public class EditModel : PageModel
         _audioSettingsService = audioSettingsService;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     [BindProperty]
     public InputModel Input { get; set; } = new();
@@ -110,6 +127,34 @@ public class EditModel : PageModel
             AudioSettingsLoaded = false;
         }
 
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{id}" },
+                new() { Label = "Edit Settings", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Edit Settings",
+            PageDescription = $"Configure bot settings for {guild.Name}"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "overview",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
+
         return Page();
     }
 
@@ -124,6 +169,7 @@ public class EditModel : PageModel
                 Input.GuildId,
                 string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
 
+            await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
@@ -143,6 +189,7 @@ public class EditModel : PageModel
         {
             _logger.LogWarning("Failed to update guild {GuildId} - guild not found", Input.GuildId);
             ErrorMessage = "Guild not found. It may have been removed.";
+            await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
@@ -163,6 +210,7 @@ public class EditModel : PageModel
         {
             _logger.LogError(ex, "Failed to update audio settings for guild {GuildId}", Input.GuildId);
             ErrorMessage = "Guild settings saved, but audio settings failed to update. Please try again.";
+            await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
@@ -171,6 +219,42 @@ public class EditModel : PageModel
         SuccessMessage = "Guild settings saved successfully.";
 
         return RedirectToPage("Details", new { id = Input.GuildId });
+    }
+
+    /// <summary>
+    /// Helper method to populate layout ViewModels for OnPostAsync.
+    /// </summary>
+    private async Task PopulateLayoutViewModelsAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+        if (guild == null) return;
+
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
+                new() { Label = "Edit Settings", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Edit Settings",
+            PageDescription = $"Configure bot settings for {guild.Name}"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "overview",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
     }
 
     private async Task LoadViewModelAsync(ulong guildId, CancellationToken cancellationToken)

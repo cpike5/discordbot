@@ -1,5 +1,7 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -60,6 +62,21 @@ public class ModerationModel : PageModel
     /// The view model containing all moderation profile data.
     /// </summary>
     public UserModerationProfileViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -126,6 +143,36 @@ public class ModerationModel : PageModel
 
         _logger.LogInformation("Loaded moderation profile for user {UserId} in guild {GuildId}: {CaseCount} cases, {NoteCount} notes, {TagCount} tags, {FlagCount} flags",
             UserId, GuildId, ViewModel.Cases.Count, ViewModel.Notes.Count, ViewModel.Tags.Count, ViewModel.FlaggedEvents.Count);
+
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildId}" },
+                new() { Label = "Members", Url = $"/Guilds/{GuildId}/Members" },
+                new() { Label = member.DisplayName, Url = $"/Guilds/{GuildId}/Members/{UserId}/Moderation" },
+                new() { Label = "Moderation", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = $"Moderation Profile: {member.DisplayName}",
+            PageDescription = $"Moderation history and profile for {member.DisplayName}"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "members",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
 
         return Page();
     }

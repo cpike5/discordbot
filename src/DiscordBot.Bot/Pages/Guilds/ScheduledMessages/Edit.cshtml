@@ -5,87 +5,22 @@
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Edit Scheduled Message - {Model.ViewModel.GuildName}";
+    Layout = "_GuildLayout";
 }
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb Navigation -->
-    <nav aria-label="Breadcrumb" class="mb-6">
-        <ol class="flex items-center gap-2 text-sm">
-            <li>
-                <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Servers</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="/Guilds/Details" asp-route-guildId="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">@Model.ViewModel.GuildName</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId" class="text-text-secondary hover:text-accent-blue transition-colors">Scheduled Messages</a>
-            </li>
-            <li class="text-text-tertiary">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-            </li>
-            <li>
-                <span class="text-text-primary font-medium">Edit</span>
-            </li>
-        </ol>
-    </nav>
-
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-text-primary">Edit Scheduled Message</h1>
-            <p class="mt-1 text-sm text-text-secondary">
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold @Model.GetStatusBadgeClass() mr-2">
-                    <span class="w-1.5 h-1.5 rounded-full @Model.GetStatusDotClass() mr-1.5"></span>
-                    @Model.GetStatusDisplay()
-                </span>
-                Created <span data-utc="@Model.CreatedAtUtcIso" data-format="date">...</span> &bull; Last modified <span data-utc="@Model.UpdatedAtUtcIso" data-format="date">...</span>
-            </p>
-        </div>
-        <button
-            type="button"
-            onclick="showDeleteModal()"
-            class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-error bg-error/10 border border-error/30 rounded-md hover:bg-error/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
-        >
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            Delete
-        </button>
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+            Variant = AlertVariant.Error,
+            Message = Model.ErrorMessage,
+            IsDismissible = true
+        }" />
     </div>
+}
 
-    <!-- Error Message -->
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                Variant = AlertVariant.Error,
-                Message = Model.ErrorMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
-
-    <form method="post">
+<form method="post">
         <input type="hidden" name="Input.GuildId" value="@Model.Input.GuildId" />
         <input type="hidden" name="Input.UserTimezone" id="Input_UserTimezone" value="" />
         <div asp-validation-summary="ModelOnly" class="text-error text-sm mb-4"></div>

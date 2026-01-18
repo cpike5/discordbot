@@ -1,4 +1,6 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -34,6 +36,21 @@ public class CreateModel : PageModel
         _discordClient = discordClient;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Guild layout breadcrumb ViewModel.
+    /// </summary>
+    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout header ViewModel.
+    /// </summary>
+    public GuildHeaderViewModel Header { get; set; } = new();
+
+    /// <summary>
+    /// Guild layout navigation ViewModel.
+    /// </summary>
+    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     [BindProperty]
     public InputModel Input { get; set; } = new();
@@ -147,6 +164,35 @@ public class CreateModel : PageModel
             NextExecutionAt = null // JavaScript will set this
         };
 
+        // Populate guild layout ViewModels
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
+                new() { Label = "Messages", Url = $"/Guilds/ScheduledMessages/{guildId}" },
+                new() { Label = "Create", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Create Scheduled Message",
+            PageDescription = $"Schedule a new automated message for {guild.Name}"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "messages",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
+
         return Page();
     }
 
@@ -160,6 +206,7 @@ public class CreateModel : PageModel
                 Input.GuildId,
                 string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
 
+            await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
@@ -168,6 +215,7 @@ public class CreateModel : PageModel
         if (!Input.ChannelId.HasValue)
         {
             ModelState.AddModelError("Input.ChannelId", "A channel must be selected.");
+            await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
@@ -186,6 +234,7 @@ public class CreateModel : PageModel
             if (!isValid)
             {
                 ModelState.AddModelError("Input.CronExpression", errorMessage ?? "Invalid cron expression.");
+                await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
                 await LoadViewModelAsync(Input.GuildId, cancellationToken);
                 return Page();
             }
@@ -195,6 +244,7 @@ public class CreateModel : PageModel
         if (!Input.NextExecutionAt.HasValue)
         {
             ModelState.AddModelError("Input.NextExecutionAt", "Next execution time is required.");
+            await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
@@ -238,9 +288,47 @@ public class CreateModel : PageModel
         {
             _logger.LogError(ex, "Failed to create scheduled message for guild {GuildId}", Input.GuildId);
             ErrorMessage = "An error occurred while creating the scheduled message. Please try again.";
+            await PopulateLayoutViewModelsAsync(Input.GuildId, cancellationToken);
             await LoadViewModelAsync(Input.GuildId, cancellationToken);
             return Page();
         }
+    }
+
+    /// <summary>
+    /// Helper method to populate layout ViewModels for OnPostAsync.
+    /// </summary>
+    private async Task PopulateLayoutViewModelsAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+        if (guild == null) return;
+
+        Breadcrumb = new GuildBreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
+                new() { Label = "Messages", Url = $"/Guilds/ScheduledMessages/{guildId}" },
+                new() { Label = "Create", IsCurrent = true }
+            }
+        };
+
+        Header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = "Create Scheduled Message",
+            PageDescription = $"Schedule a new automated message for {guild.Name}"
+        };
+
+        Navigation = new GuildNavBarViewModel
+        {
+            GuildId = guild.Id,
+            ActiveTab = "messages",
+            Tabs = GuildNavigationConfig.GetTabs().ToList()
+        };
     }
 
     /// <summary>
