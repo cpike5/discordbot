@@ -40,7 +40,15 @@ public class AudioCacheCleanupService : BackgroundService
             _options.CleanupIntervalMinutes);
 
         // Initial delay to allow system to stabilize
-        await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+        try
+        {
+            await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("Audio cache cleanup service stopped during initial delay");
+            return;
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {
