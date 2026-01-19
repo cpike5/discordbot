@@ -85,6 +85,14 @@
     <script src="~/js/preview-popup.js" asp-append-version="true"></script>
     <!-- Theme Manager Module -->
     <script src="~/js/theme.js" asp-append-version="true"></script>
+    <!-- Global SignalR connection for notifications (idempotent - safe to call on all pages) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof DashboardHub !== 'undefined') {
+                DashboardHub.connect();
+            }
+        });
+    </script>
 
     @await RenderSectionAsync("Scripts", required: false)
 </body>
