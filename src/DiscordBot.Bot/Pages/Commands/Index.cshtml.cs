@@ -1,5 +1,6 @@
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +16,7 @@ public class IndexModel : PageModel
 {
     private readonly ICommandMetadataService _commandMetadataService;
     private readonly ICommandRegistrationService _commandRegistrationService;
+    private readonly IGuildService _guildService;
     private readonly ILogger<IndexModel> _logger;
 
     /// <summary>
@@ -22,14 +24,17 @@ public class IndexModel : PageModel
     /// </summary>
     /// <param name="commandMetadataService">The command metadata service.</param>
     /// <param name="commandRegistrationService">The command registration service.</param>
+    /// <param name="guildService">The guild service.</param>
     /// <param name="logger">The logger.</param>
     public IndexModel(
         ICommandMetadataService commandMetadataService,
         ICommandRegistrationService commandRegistrationService,
+        IGuildService guildService,
         ILogger<IndexModel> logger)
     {
         _commandMetadataService = commandMetadataService;
         _commandRegistrationService = commandRegistrationService;
+        _guildService = guildService;
         _logger = logger;
     }
 
@@ -75,6 +80,29 @@ public class IndexModel : PageModel
     public ulong? GuildId { get; set; }
 
     /// <summary>
+    /// Gets or sets the search term for filtering command logs.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? SearchTerm { get; set; }
+
+    /// <summary>
+    /// Gets or sets the command name for filtering command logs.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public string? CommandName { get; set; }
+
+    /// <summary>
+    /// Gets or sets the status filter for command logs (true=success, false=failure, null=all).
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public bool? StatusFilter { get; set; }
+
+    /// <summary>
+    /// Gets the list of available guilds for filtering.
+    /// </summary>
+    public IReadOnlyList<GuildDto> AvailableGuilds { get; private set; } = Array.Empty<GuildDto>();
+
+    /// <summary>
     /// Gets the clear commands confirmation modal configuration.
     /// </summary>
     public ConfirmationModalViewModel ClearCommandsModal { get; private set; } = null!;
@@ -87,8 +115,16 @@ public class IndexModel : PageModel
     {
         _logger.LogInformation("User accessing commands page");
 
-        // Set default date range for Logs/Analytics tabs (last 7 days)
-        if (!StartDate.HasValue && !EndDate.HasValue)
+        // Load available guilds for filter dropdown
+        AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
+
+        // Apply default date range (last 7 days) when no shared filters are active.
+        // Note: This differs from CommandLogs page which defaults to "Today".
+        // The requirements for issue #1220 explicitly specify "Last 7 days when page first loads".
+        // We only check shared filters (StartDate, EndDate, GuildId) here to avoid conflicts
+        // between tabs. The Execution Logs and Analytics tabs have additional filters
+        // (SearchTerm, CommandName, StatusFilter) that should not affect date range defaults.
+        if (!StartDate.HasValue && !EndDate.HasValue && !GuildId.HasValue)
         {
             EndDate = DateTime.UtcNow.Date;
             StartDate = EndDate.Value.AddDays(-7);
