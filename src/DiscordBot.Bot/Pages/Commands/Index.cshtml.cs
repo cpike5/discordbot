@@ -34,9 +34,52 @@ public class IndexModel : PageModel
     }
 
     /// <summary>
-    /// Gets the view model containing command list data.
+    /// Gets or sets the active tab identifier.
     /// </summary>
-    public CommandsListViewModel ViewModel { get; private set; } = new();
+    [BindProperty(SupportsGet = true)]
+    public string ActiveTab { get; set; } = "command-list";
+
+    /// <summary>
+    /// Gets the view model containing command list data for the Command List tab.
+    /// </summary>
+    public CommandsListViewModel CommandList { get; private set; } = new();
+
+    /// <summary>
+    /// Gets the view model containing command list data.
+    /// BACKWARD COMPATIBILITY: This property is maintained for the existing view.
+    /// It will be removed in issue #1227 when the view is refactored.
+    /// </summary>
+    public CommandsListViewModel ViewModel => CommandList;
+
+    /// <summary>
+    /// Gets the view model containing command logs data for the Execution Logs tab.
+    /// This will be populated by AJAX calls in a future update.
+    /// </summary>
+    public CommandLogListViewModel CommandLogs { get; private set; } = new();
+
+    /// <summary>
+    /// Gets the view model containing analytics data for the Analytics tab.
+    /// This will be populated by AJAX calls in a future update.
+    /// </summary>
+    public CommandAnalyticsViewModel CommandAnalytics { get; private set; } = new();
+
+    /// <summary>
+    /// Gets or sets the start date for filtering command logs and analytics.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public DateTime? StartDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the end date for filtering command logs and analytics.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public DateTime? EndDate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the guild ID for filtering command logs and analytics.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public ulong? GuildId { get; set; }
 
     /// <summary>
     /// Gets the clear commands confirmation modal configuration.
@@ -51,14 +94,26 @@ public class IndexModel : PageModel
     {
         _logger.LogInformation("User accessing commands page");
 
-        var modules = await _commandMetadataService.GetAllModulesAsync(cancellationToken);
+        // Set default date range for Logs/Analytics tabs (last 7 days)
+        if (!StartDate.HasValue && !EndDate.HasValue)
+        {
+            EndDate = DateTime.UtcNow.Date;
+            StartDate = EndDate.Value.AddDays(-7);
+        }
 
-        ViewModel = CommandsListViewModel.FromDtos(modules);
+        // Load Command List data (always loaded for first tab)
+        var modules = await _commandMetadataService.GetAllModulesAsync(cancellationToken);
+        CommandList = CommandsListViewModel.FromDtos(modules);
 
         _logger.LogDebug(
             "Loaded {ModuleCount} modules with {CommandCount} total commands",
-            ViewModel.ModuleCount,
-            ViewModel.TotalCommandCount);
+            CommandList.ModuleCount,
+            CommandList.TotalCommandCount);
+
+        // Initialize placeholder ViewModels for other tabs
+        // These will be populated by AJAX calls in issue #1221
+        CommandLogs = new CommandLogListViewModel();
+        CommandAnalytics = new CommandAnalyticsViewModel();
 
         // Initialize modal
         ClearCommandsModal = new ConfirmationModalViewModel
