@@ -33,9 +33,9 @@
             button.setAttribute('aria-expanded', 'false');
         }
 
-        // Persist state in localStorage
+        // Persist state in localStorage (shared across all filter panels on Commands page)
         try {
-            localStorage.setItem(`filterPanel-${filterId}-expanded`, newExpandedState.toString());
+            localStorage.setItem('commandsPage-filterPanel-expanded', newExpandedState.toString());
         } catch (e) {
             console.warn('Failed to save filter panel state:', e);
         }
@@ -259,12 +259,12 @@
 
             if (!content || !chevron || !button) return;
 
-            // Check localStorage for saved state (persists between tabs)
+            // Check localStorage for saved state (shared across Analytics and Execution Logs tabs)
             let shouldExpand = false;
             try {
-                const savedState = localStorage.getItem(`filterPanel-${filterId}-expanded`);
+                const savedState = localStorage.getItem('commandsPage-filterPanel-expanded');
                 if (savedState !== null) {
-                    // Use saved state
+                    // Use saved state (shared across both tabs)
                     shouldExpand = savedState === 'true';
                 } else {
                     // No saved state - expand if filters are active
