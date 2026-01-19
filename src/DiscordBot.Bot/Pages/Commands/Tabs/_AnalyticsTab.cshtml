@@ -1,0 +1,326 @@
+@* AJAX-loaded partial view for Analytics tab. *@
+@* Requires JavaScript initialization after load for Chart.js. *@
+@* Dependencies: window.CommandTabs (for filter state management) *@
+@model DiscordBot.Bot.ViewModels.Pages.CommandAnalyticsViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+<!-- Summary Stats Row -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+    <!-- Total Commands -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-text-secondary">Total Commands</p>
+                <p class="mt-2 text-3xl font-bold text-text-primary">@Model.TotalCommands.ToString("N0")</p>
+            </div>
+            <div class="p-3 bg-accent-blue/10 rounded-lg">
+                <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Rate -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-text-secondary">Success Rate</p>
+                <p class="mt-2 text-3xl font-bold @(Model.SuccessRate >= 95 ? "text-success" : Model.SuccessRate >= 80 ? "text-warning" : "text-error")">
+                    @Model.SuccessRate.ToString("F1")%
+                </p>
+            </div>
+            <div class="p-3 @(Model.SuccessRate >= 95 ? "bg-success/10" : Model.SuccessRate >= 80 ? "bg-warning/10" : "bg-error/10") rounded-lg">
+                <svg class="w-6 h-6 @(Model.SuccessRate >= 95 ? "text-success" : Model.SuccessRate >= 80 ? "text-warning" : "text-error")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Avg Response Time -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-text-secondary">Avg Response Time</p>
+                <p class="mt-2 text-3xl font-bold text-text-primary">@Model.AvgResponseTimeMs.ToString("F0") <span class="text-lg text-text-tertiary">ms</span></p>
+            </div>
+            <div class="p-3 bg-accent-orange/10 rounded-lg">
+                <svg class="w-6 h-6 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unique Commands -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm font-medium text-text-secondary">Unique Commands</p>
+                <p class="mt-2 text-3xl font-bold text-text-primary">@Model.UniqueCommands</p>
+            </div>
+            <div class="p-3 bg-info/10 rounded-lg">
+                <svg class="w-6 h-6 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                </svg>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+    <!-- Usage Over Time Chart -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-accent-blue/10 rounded-lg">
+                    <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-text-primary">Usage Over Time</h2>
+            </div>
+        </div>
+        <div class="p-5">
+            @if (Model.UsageOverTime.Any())
+            {
+                <div style="position: relative; min-height: 300px; max-height: 400px;">
+                    <canvas id="usageOverTimeChart" aria-label="Line chart showing command usage over time" role="img"></canvas>
+                </div>
+            }
+            else
+            {
+                <div class="py-12 text-center">
+                    <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                    </svg>
+                    <p class="text-text-secondary font-medium">No usage data available</p>
+                    <p class="text-sm text-text-tertiary mt-1">Data will appear here once commands are executed</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Top Commands Chart -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-accent-orange/10 rounded-lg">
+                    <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-text-primary">Top Commands</h2>
+            </div>
+        </div>
+        <div class="p-5">
+            @if (Model.TopCommands.Any())
+            {
+                <div style="position: relative; min-height: 300px; max-height: 400px;">
+                    <canvas id="topCommandsChart" aria-label="Horizontal bar chart showing top commands by usage" role="img"></canvas>
+                </div>
+            }
+            else
+            {
+                <div class="py-12 text-center">
+                    <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p class="text-text-secondary font-medium">No command data available</p>
+                    <p class="text-sm text-text-tertiary mt-1">Commands will appear here once they are executed</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Success Rate Chart -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-success/10 rounded-lg">
+                    <svg class="w-5 h-5 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-text-primary">Success Rate</h2>
+            </div>
+        </div>
+        <div class="p-5">
+            @if (Model.TotalCommands > 0)
+            {
+                <div style="position: relative; min-height: 300px; max-height: 400px;">
+                    <canvas id="successRateChart" aria-label="Doughnut chart showing success vs failure rate" role="img"></canvas>
+                </div>
+            }
+            else
+            {
+                <div class="py-12 text-center">
+                    <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p class="text-text-secondary font-medium">No data available</p>
+                    <p class="text-sm text-text-tertiary mt-1">Success rate will be calculated once commands are executed</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Response Time Chart -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-border-primary">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-info/10 rounded-lg">
+                    <svg class="w-5 h-5 text-info" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-text-primary">Response Time by Command</h2>
+            </div>
+        </div>
+        <div class="p-5">
+            @if (Model.PerformanceData.Any())
+            {
+                <div style="position: relative; min-height: 300px; max-height: 400px;">
+                    <canvas id="responseTimeChart" aria-label="Horizontal bar chart showing average response time by command" role="img"></canvas>
+                </div>
+            }
+            else
+            {
+                <div class="py-12 text-center">
+                    <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p class="text-text-secondary font-medium">No performance data available</p>
+                    <p class="text-sm text-text-tertiary mt-1">Response times will appear here once commands are executed</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js and Analytics Initialization (inline scripts for AJAX-loaded content) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    (function() {
+        // Chart data passed from server
+        const analyticsData = {
+            usageOverTime: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.UsageOverTime)),
+            topCommands: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TopCommands)),
+            successRateData: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.SuccessRateData)),
+            performanceData: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.PerformanceData))
+        };
+
+        // Initialize charts immediately (partial is already in DOM when script runs)
+        function initializeCharts() {
+            // Usage Over Time Chart
+            if (analyticsData.usageOverTime && analyticsData.usageOverTime.length > 0) {
+                const usageCtx = document.getElementById('usageOverTimeChart');
+                if (usageCtx) {
+                    new Chart(usageCtx, {
+                        type: 'line',
+                        data: {
+                            labels: analyticsData.usageOverTime.map(d => d.date),
+                            datasets: [{
+                                label: 'Commands Executed',
+                                data: analyticsData.usageOverTime.map(d => d.count),
+                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            },
+                            scales: {
+                                y: { beginAtZero: true }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Top Commands Chart
+            if (analyticsData.topCommands && Object.keys(analyticsData.topCommands).length > 0) {
+                const topCtx = document.getElementById('topCommandsChart');
+                if (topCtx) {
+                    const commands = Object.keys(analyticsData.topCommands);
+                    const counts = Object.values(analyticsData.topCommands);
+                    new Chart(topCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: commands,
+                            datasets: [{
+                                label: 'Executions',
+                                data: counts,
+                                backgroundColor: 'rgba(251, 146, 60, 0.8)'
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Success Rate Chart
+            if (analyticsData.successRateData && (analyticsData.successRateData.successCount > 0 || analyticsData.successRateData.failureCount > 0)) {
+                const successCtx = document.getElementById('successRateChart');
+                if (successCtx) {
+                    new Chart(successCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Success', 'Failed'],
+                            datasets: [{
+                                data: [analyticsData.successRateData.successCount, analyticsData.successRateData.failureCount],
+                                backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(239, 68, 68, 0.8)']
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                }
+            }
+
+            // Response Time Chart
+            if (analyticsData.performanceData && analyticsData.performanceData.length > 0) {
+                const perfCtx = document.getElementById('responseTimeChart');
+                if (perfCtx) {
+                    new Chart(perfCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: analyticsData.performanceData.map(d => d.commandName),
+                            datasets: [{
+                                label: 'Avg Response (ms)',
+                                data: analyticsData.performanceData.map(d => d.avgResponseTimeMs),
+                                backgroundColor: 'rgba(6, 182, 212, 0.8)'
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false }
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        // Run initialization
+        initializeCharts();
+    })();
+</script>

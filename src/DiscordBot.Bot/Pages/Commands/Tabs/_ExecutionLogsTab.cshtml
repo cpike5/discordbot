@@ -1,0 +1,290 @@
+@* AJAX-loaded partial view for Execution Logs tab. *@
+@* Requires JavaScript initialization after load. *@
+@* Dependencies: window.CommandTabs (for pagination, filtering, and state management) *@
+@model DiscordBot.Bot.ViewModels.Pages.CommandLogListViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@{
+    var guilds = ViewData["AvailableGuilds"] as IReadOnlyList<GuildDto> ?? Array.Empty<GuildDto>();
+    var startItem = Model.TotalCount > 0 ? (Model.CurrentPage - 1) * Model.PageSize + 1 : 0;
+    var endItem = Math.Min(Model.CurrentPage * Model.PageSize, Model.TotalCount);
+}
+
+<!-- Results Summary and Actions -->
+<div class="flex items-center justify-between mb-4">
+    @if (Model.TotalCount > 0)
+    {
+        <div class="text-sm text-text-secondary">
+            Showing <span class="font-semibold text-text-primary">@startItem</span> to <span class="font-semibold text-text-primary">@endItem</span> of <span class="font-semibold text-text-primary">@Model.TotalCount</span> results
+        </div>
+    }
+    else
+    {
+        <div></div>
+    }
+    @if (Model.Filters.HasActiveFilters)
+    {
+        <button type="button" onclick="window.CommandTabs?.clearExecutionLogsFilters()" class="btn btn-secondary btn-sm">
+            <svg class="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Clear Filters
+        </button>
+    }
+</div>
+
+<!-- Desktop Table -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-bg-tertiary">
+                <tr>
+                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                        Timestamp
+                    </th>
+                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                        Command
+                    </th>
+                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">
+                        Server
+                    </th>
+                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                        User
+                    </th>
+                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">
+                        Duration (ms)
+                    </th>
+                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                        Status
+                    </th>
+                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">
+                        Actions
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-border-primary">
+                @if (Model.Logs.Any())
+                {
+                    @foreach (var log in Model.Logs)
+                    {
+                        <tr class="hover:bg-bg-hover/50 transition-colors">
+                            <!-- Timestamp -->
+                            <td class="px-6 py-4 text-text-secondary text-sm whitespace-nowrap">
+                                <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-seconds"></span>
+                            </td>
+                            <!-- Command -->
+                            <td class="px-6 py-4">
+                                <span class="font-mono text-sm text-accent-blue">/@log.CommandName</span>
+                            </td>
+                            <!-- Server (desktop only) -->
+                            <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                                @if (log.GuildId.HasValue)
+                                {
+                                    <span class="preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                                }
+                                else
+                                {
+                                    @log.GuildName
+                                }
+                            </td>
+                            <!-- User -->
+                            <td class="px-6 py-4 text-text-secondary text-sm">
+                                <span class="preview-trigger" data-preview-type="user" data-user-id="@log.UserId" data-context-guild-id="@log.GuildId">@log.Username</span>
+                            </td>
+                            <!-- Duration (xl screens only) -->
+                            <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell">
+                                @log.ResponseTimeMs
+                            </td>
+                            <!-- Status -->
+                            <td class="px-6 py-4">
+                                @if (log.Success)
+                                {
+                                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                                        Text = "Success",
+                                        Variant = BadgeVariant.Success,
+                                        Size = BadgeSize.Small
+                                    })" />
+                                }
+                                else
+                                {
+                                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                                        Text = "Failed",
+                                        Variant = BadgeVariant.Error,
+                                        Size = BadgeSize.Small
+                                    })" />
+                                }
+                                @if (!string.IsNullOrEmpty(log.ErrorMessage))
+                                {
+                                    <div class="mt-1 text-xs text-error truncate max-w-xs" title="@log.ErrorMessage">
+                                        @log.ErrorMessage
+                                    </div>
+                                }
+                            </td>
+                            <!-- Actions -->
+                            <td class="px-6 py-4">
+                                <a href="/CommandLogs/Details/@log.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                                    View
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="7" class="px-6 py-12 text-center">
+                            @{
+                                var emptyState = new EmptyStateViewModel
+                                {
+                                    Type = EmptyStateType.NoResults,
+                                    Title = "No command logs found",
+                                    Description = Model.Filters.HasActiveFilters
+                                        ? "Try adjusting your filters or date range."
+                                        : "Command logs will appear here once commands are executed."
+                                };
+                            }
+                            <partial name="Shared/Components/_EmptyState" model="emptyState" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Mobile Card View -->
+<div class="md:hidden space-y-4">
+    @if (Model.Logs.Any())
+    {
+        @foreach (var log in Model.Logs)
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 space-y-3">
+                <!-- Command and Status -->
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex-1 min-w-0">
+                        <span class="font-mono text-sm text-accent-blue">/@log.CommandName</span>
+                        <div class="text-xs text-text-tertiary mt-1">
+                            <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-seconds"></span>
+                        </div>
+                    </div>
+                    @if (log.Success)
+                    {
+                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                            Text = "Success",
+                            Variant = BadgeVariant.Success,
+                            Size = BadgeSize.Small
+                        })" />
+                    }
+                    else
+                    {
+                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                            Text = "Failed",
+                            Variant = BadgeVariant.Error,
+                            Size = BadgeSize.Small
+                        })" />
+                    }
+                </div>
+
+                <!-- User and Server -->
+                <div class="text-sm text-text-secondary space-y-1">
+                    <div>
+                        <span class="font-medium text-text-primary">User:</span>
+                        <span class="preview-trigger" data-preview-type="user" data-user-id="@log.UserId" data-context-guild-id="@log.GuildId">@log.Username</span>
+                    </div>
+                    <div>
+                        <span class="font-medium text-text-primary">Server:</span>
+                        @if (log.GuildId.HasValue)
+                        {
+                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                        }
+                        else
+                        {
+                            @log.GuildName
+                        }
+                    </div>
+                    <div>
+                        <span class="font-medium text-text-primary">Duration:</span> @log.ResponseTimeMs ms
+                    </div>
+                </div>
+
+                <!-- Error Message (if any) -->
+                @if (!string.IsNullOrEmpty(log.ErrorMessage))
+                {
+                    <div class="text-xs text-error bg-error/10 border border-error/20 rounded px-2 py-1.5">
+                        @log.ErrorMessage
+                    </div>
+                }
+
+                <!-- Action Button -->
+                <div>
+                    <a href="/CommandLogs/Details/@log.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                        View Details →
+                    </a>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
+            @{
+                var emptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoResults,
+                    Title = "No command logs found",
+                    Description = Model.Filters.HasActiveFilters
+                        ? "Try adjusting your filters or date range."
+                        : "Command logs will appear here once commands are executed."
+                };
+            }
+            <partial name="Shared/Components/_EmptyState" model="emptyState" />
+        </div>
+    }
+</div>
+
+<!-- Pagination -->
+@if (Model.TotalPages > 1)
+{
+    <div class="mt-6 flex items-center justify-between">
+        <div class="text-sm text-text-secondary">
+            Page @Model.CurrentPage of @Model.TotalPages
+        </div>
+        <div class="flex items-center gap-2">
+            <!-- Previous Button -->
+            <button type="button"
+                    onclick="window.CommandTabs?.loadExecutionLogsPage(@(Model.CurrentPage - 1))"
+                    disabled="@(!Model.HasPreviousPage)"
+                    class="px-3 py-2 text-sm font-medium bg-bg-secondary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+
+            <!-- Page Numbers -->
+            @{
+                var startPage = Math.Max(1, Model.CurrentPage - 2);
+                var endPage = Math.Min(Model.TotalPages, Model.CurrentPage + 2);
+            }
+            @for (var i = startPage; i <= endPage; i++)
+            {
+                var pageNum = i;
+                var isActive = pageNum == Model.CurrentPage;
+                <button type="button"
+                        onclick="window.CommandTabs?.loadExecutionLogsPage(@pageNum)"
+                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors @(isActive ? "bg-accent-blue text-white" : "bg-bg-secondary border border-border-primary text-text-primary hover:bg-bg-hover")">
+                    @pageNum
+                </button>
+            }
+
+            <!-- Next Button -->
+            <button type="button"
+                    onclick="window.CommandTabs?.loadExecutionLogsPage(@(Model.CurrentPage + 1))"
+                    disabled="@(!Model.HasNextPage)"
+                    class="px-3 py-2 text-sm font-medium bg-bg-secondary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
+    </div>
+}
