@@ -347,6 +347,7 @@
         togglePanel,
         setPreset,
         preserveHashAndSubmit,
-        clearFiltersAndReload
+        clearFiltersAndReload,
+        initFilterPanels: init  // Expose init for re-initialization after AJAX loads
     };
 })();

@@ -546,6 +546,14 @@
                 window.Autocomplete.init();
             }
 
+            // Re-initialize filter panels after AJAX load (fixes scrollHeight calculation)
+            if (window.DateRangeFilter && window.DateRangeFilter.initFilterPanels) {
+                // Small delay to ensure DOM is painted
+                requestAnimationFrame(function() {
+                    window.DateRangeFilter.initFilterPanels();
+                });
+            }
+
             // Initialize analytics charts if on analytics tab
             // Use requestAnimationFrame to ensure DOM is painted before initializing charts
             if (tabId === 'analytics') {
