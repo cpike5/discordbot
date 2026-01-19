@@ -196,6 +196,172 @@
 
     <!-- Tab 2: Execution Logs -->
     <div data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" hidden>
+        @{
+            // Calculate active filter count for Execution Logs (includes all 6 filters)
+            var logsActiveFilterCount = 0;
+            if (Model.StartDate.HasValue) logsActiveFilterCount++;
+            if (Model.EndDate.HasValue) logsActiveFilterCount++;
+            if (Model.GuildId.HasValue) logsActiveFilterCount++;
+            if (!string.IsNullOrWhiteSpace(Model.SearchTerm)) logsActiveFilterCount++;
+            if (!string.IsNullOrWhiteSpace(Model.CommandName)) logsActiveFilterCount++;
+            if (Model.StatusFilter.HasValue) logsActiveFilterCount++;
+
+            var logsHasActiveFilters = logsActiveFilterCount > 0;
+
+            // Quick filter detection for Execution Logs
+            var today = DateTime.UtcNow.Date;
+            var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                         Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
+            var is7Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                         Model.StartDate.Value.Date == today.AddDays(-7) && Model.EndDate.Value.Date == today;
+            var is30Days = Model.StartDate.HasValue && Model.EndDate.HasValue &&
+                          Model.StartDate.Value.Date == today.AddDays(-30) && Model.EndDate.Value.Date == today;
+
+            // Command autocomplete ViewModel
+            var commandAutocomplete = new AutocompleteInputViewModel
+            {
+                Id = "CommandName",
+                Name = "CommandName",
+                Label = "Command",
+                Placeholder = "Search by command name...",
+                Endpoint = "/api/autocomplete/commands",
+                InitialValue = Model.CommandName,
+                InitialDisplayText = Model.CommandName,
+                NoResultsMessage = "No commands found"
+            };
+        }
+
+        <!-- Filter Panel -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6" data-filter-panel="executionLogsFilter" data-has-active-filters="@logsHasActiveFilters.ToString().ToLower()">
+            <button type="button"
+                    id="executionLogsFilter-toggle"
+                    class="w-full flex items-center justify-between px-5 py-4 text-left"
+                    aria-expanded="@logsHasActiveFilters.ToString().ToLower()"
+                    aria-controls="executionLogsFilter-content"
+                    onclick="window.DateRangeFilter?.togglePanel('executionLogsFilter')">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span class="text-lg font-semibold text-text-primary">Filters</span>
+                    @if (logsHasActiveFilters)
+                    {
+                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel { Text = $"{logsActiveFilterCount} active", Variant = BadgeVariant.Orange, Size = BadgeSize.Small })" />
+                    }
+                </div>
+                <svg id="executionLogsFilter-chevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+
+            <div id="executionLogsFilter-content" class="overflow-hidden transition-all duration-300" style="max-height: 0;">
+                <div class="border-t border-border-primary p-6">
+                    <form method="get" id="executionLogsFilterForm" onsubmit="window.DateRangeFilter?.preserveHashAndSubmit(this); return false;">
+                        <input type="hidden" name="ActiveTab" value="execution-logs" />
+
+                        <!-- Quick Date Presets -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button"
+                                        onclick="window.DateRangeFilter?.setPreset('executionLogsFilter', 'today')"
+                                        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors border @(isToday ? "bg-accent-blue text-white border-accent-blue" : "bg-bg-tertiary text-text-secondary border-border-primary hover:bg-bg-hover")">
+                                    Today
+                                </button>
+                                <button type="button"
+                                        onclick="window.DateRangeFilter?.setPreset('executionLogsFilter', '7days')"
+                                        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors border @(is7Days ? "bg-accent-blue text-white border-accent-blue" : "bg-bg-tertiary text-text-secondary border-border-primary hover:bg-bg-hover")">
+                                    Last 7 Days
+                                </button>
+                                <button type="button"
+                                        onclick="window.DateRangeFilter?.setPreset('executionLogsFilter', '30days')"
+                                        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors border @(is30Days ? "bg-accent-blue text-white border-accent-blue" : "bg-bg-tertiary text-text-secondary border-border-primary hover:bg-bg-hover")">
+                                    Last 30 Days
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Filter Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-4">
+                            <!-- Start Date -->
+                            <div>
+                                <label for="logs-StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+                                <input type="date" id="logs-StartDate" name="StartDate"
+                                       value="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                                       class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                            </div>
+
+                            <!-- End Date -->
+                            <div>
+                                <label for="logs-EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+                                <input type="date" id="logs-EndDate" name="EndDate"
+                                       value="@Model.EndDate?.ToString("yyyy-MM-dd")"
+                                       class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                            </div>
+
+                            <!-- Guild -->
+                            <div>
+                                <label for="logs-GuildId" class="block text-sm font-medium text-text-primary mb-1">Server</label>
+                                <select id="logs-GuildId" name="GuildId"
+                                        class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors">
+                                    <option value="">All Servers</option>
+                                    @foreach (var guild in Model.AvailableGuilds)
+                                    {
+                                        <option value="@guild.Id" selected="@(Model.GuildId == guild.Id)">@guild.Name</option>
+                                    }
+                                </select>
+                            </div>
+
+                            <!-- Command Name (Autocomplete) -->
+                            <div>
+                                <partial name="Shared/Components/_AutocompleteInput" model="commandAutocomplete" />
+                            </div>
+
+                            <!-- Status Filter -->
+                            <div>
+                                <label for="logs-StatusFilter" class="block text-sm font-medium text-text-primary mb-1">Status</label>
+                                <select id="logs-StatusFilter" name="StatusFilter"
+                                        class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors">
+                                    <option value="">All Statuses</option>
+                                    <option value="true" selected="@(Model.StatusFilter == true)">Success</option>
+                                    <option value="false" selected="@(Model.StatusFilter == false)">Failure</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Search Input (Full Width) -->
+                        <div class="mb-4">
+                            <label for="logs-SearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                            <input type="text" id="logs-SearchTerm" name="SearchTerm"
+                                   value="@Model.SearchTerm"
+                                   placeholder="Search in user names, command names, parameters..."
+                                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                        </div>
+
+                        <!-- Filter Actions -->
+                        <div class="flex items-center gap-3">
+                            <button type="submit" class="btn btn-primary">
+                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                                Apply Filters
+                            </button>
+                            @if (logsHasActiveFilters)
+                            {
+                                <a href="@Url.Page("Index", new { ActiveTab = "execution-logs" })" class="btn btn-secondary">
+                                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Clear Filters
+                                </a>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Placeholder Content -->
         <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
             <p class="text-text-secondary">Execution logs will be loaded here...</p>
         </div>
@@ -203,6 +369,124 @@
 
     <!-- Tab 3: Analytics -->
     <div data-tab-panel-for="commandTabs" data-tab-id="analytics" role="tabpanel" aria-labelledby="commandTabs-tab-analytics" hidden>
+        @{
+            // Calculate active filter count for Analytics (only 3 filters)
+            var analyticsActiveFilterCount = 0;
+            if (Model.StartDate.HasValue) analyticsActiveFilterCount++;
+            if (Model.EndDate.HasValue) analyticsActiveFilterCount++;
+            if (Model.GuildId.HasValue) analyticsActiveFilterCount++;
+
+            var analyticsHasActiveFilters = analyticsActiveFilterCount > 0;
+
+            // Reuse quick filter detection from above (already calculated)
+        }
+
+        <!-- Filter Panel -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6" data-filter-panel="analyticsFilter" data-has-active-filters="@analyticsHasActiveFilters.ToString().ToLower()">
+            <button type="button"
+                    id="analyticsFilter-toggle"
+                    class="w-full flex items-center justify-between px-5 py-4 text-left"
+                    aria-expanded="@analyticsHasActiveFilters.ToString().ToLower()"
+                    aria-controls="analyticsFilter-content"
+                    onclick="window.DateRangeFilter?.togglePanel('analyticsFilter')">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span class="text-lg font-semibold text-text-primary">Filters</span>
+                    @if (analyticsHasActiveFilters)
+                    {
+                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel { Text = $"{analyticsActiveFilterCount} active", Variant = BadgeVariant.Orange, Size = BadgeSize.Small })" />
+                    }
+                </div>
+                <svg id="analyticsFilter-chevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+
+            <div id="analyticsFilter-content" class="overflow-hidden transition-all duration-300" style="max-height: 0;">
+                <div class="border-t border-border-primary p-6">
+                    <form method="get" id="analyticsFilterForm" onsubmit="window.DateRangeFilter?.preserveHashAndSubmit(this); return false;">
+                        <input type="hidden" name="ActiveTab" value="analytics" />
+
+                        <!-- Quick Date Presets -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button"
+                                        onclick="window.DateRangeFilter?.setPreset('analyticsFilter', 'today')"
+                                        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors border @(isToday ? "bg-accent-blue text-white border-accent-blue" : "bg-bg-tertiary text-text-secondary border-border-primary hover:bg-bg-hover")">
+                                    Today
+                                </button>
+                                <button type="button"
+                                        onclick="window.DateRangeFilter?.setPreset('analyticsFilter', '7days')"
+                                        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors border @(is7Days ? "bg-accent-blue text-white border-accent-blue" : "bg-bg-tertiary text-text-secondary border-border-primary hover:bg-bg-hover")">
+                                    Last 7 Days
+                                </button>
+                                <button type="button"
+                                        onclick="window.DateRangeFilter?.setPreset('analyticsFilter', '30days')"
+                                        class="px-4 py-2 text-sm font-medium rounded-lg transition-colors border @(is30Days ? "bg-accent-blue text-white border-accent-blue" : "bg-bg-tertiary text-text-secondary border-border-primary hover:bg-bg-hover")">
+                                    Last 30 Days
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Filter Grid (3 columns on xl) -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                            <!-- Start Date -->
+                            <div>
+                                <label for="analytics-StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+                                <input type="date" id="analytics-StartDate" name="StartDate"
+                                       value="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                                       class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                            </div>
+
+                            <!-- End Date -->
+                            <div>
+                                <label for="analytics-EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+                                <input type="date" id="analytics-EndDate" name="EndDate"
+                                       value="@Model.EndDate?.ToString("yyyy-MM-dd")"
+                                       class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                            </div>
+
+                            <!-- Guild -->
+                            <div>
+                                <label for="analytics-GuildId" class="block text-sm font-medium text-text-primary mb-1">Server</label>
+                                <select id="analytics-GuildId" name="GuildId"
+                                        class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors">
+                                    <option value="">All Servers</option>
+                                    @foreach (var guild in Model.AvailableGuilds)
+                                    {
+                                        <option value="@guild.Id" selected="@(Model.GuildId == guild.Id)">@guild.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Filter Actions -->
+                        <div class="flex items-center gap-3">
+                            <button type="submit" class="btn btn-primary">
+                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                </svg>
+                                Apply Filters
+                            </button>
+                            @if (analyticsHasActiveFilters)
+                            {
+                                <a href="@Url.Page("Index", new { ActiveTab = "analytics" })" class="btn btn-secondary">
+                                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                    Clear Filters
+                                </a>
+                            }
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Placeholder Content -->
         <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
             <p class="text-text-secondary">Analytics will be loaded here...</p>
         </div>
@@ -223,6 +507,8 @@
     <script src="~/js/quick-actions.js"></script>
     <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script src="~/js/command-tabs.js" asp-append-version="true"></script>
+    <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
+    <script src="~/js/autocomplete.js" asp-append-version="true"></script>
     <script>
         function toggleModule(moduleId) {
             const commandsContainer = document.getElementById('commands-' + moduleId);
