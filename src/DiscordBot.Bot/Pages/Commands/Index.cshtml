@@ -195,7 +195,7 @@
     </div>
 
     <!-- Tab 2: Execution Logs -->
-    <div data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" hidden>
+    <div id="commandTabs-panel-execution-logs" data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" hidden>
         @{
             // Calculate active filter count for Execution Logs (includes all 6 filters)
             var logsActiveFilterCount = 0;
@@ -362,13 +362,15 @@
         </div>
 
         <!-- Placeholder Content -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
-            <p class="text-text-secondary">Execution logs will be loaded here...</p>
+        <div data-results>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+                <p class="text-text-secondary">Execution logs will be loaded here...</p>
+            </div>
         </div>
     </div>
 
     <!-- Tab 3: Analytics -->
-    <div data-tab-panel-for="commandTabs" data-tab-id="analytics" role="tabpanel" aria-labelledby="commandTabs-tab-analytics" hidden>
+    <div id="commandTabs-panel-analytics" data-tab-panel-for="commandTabs" data-tab-id="analytics" role="tabpanel" aria-labelledby="commandTabs-tab-analytics" hidden>
         @{
             // Calculate active filter count for Analytics (only 3 filters)
             var analyticsActiveFilterCount = 0;
@@ -487,8 +489,10 @@
         </div>
 
         <!-- Placeholder Content -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
-            <p class="text-text-secondary">Analytics will be loaded here...</p>
+        <div data-results>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+                <p class="text-text-secondary">Analytics will be loaded here...</p>
+            </div>
         </div>
     </div>
 </div>
