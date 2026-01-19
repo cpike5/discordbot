@@ -546,6 +546,13 @@
                         console.error('Failed to load tab:', tabId, error);
                     }
                 });
+
+                // Load the initially active tab if it's not the command-list (which is server-rendered)
+                var activeTabId = window.CommandTabLoader.getActiveTab();
+                if (activeTabId && activeTabId !== 'command-list' && !window.CommandTabLoader.isTabLoaded(activeTabId)) {
+                    console.log('Loading initial active tab:', activeTabId);
+                    window.CommandTabLoader.reloadTab(activeTabId);
+                }
             }
 
             // Initialize filter handlers for execution logs
