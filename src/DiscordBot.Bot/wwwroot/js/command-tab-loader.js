@@ -61,14 +61,20 @@
 
         // Determine initial active tab
         const activeTab = state.tabContainer.querySelector('[role="tab"][aria-selected="true"]');
-        if (activeTab) {
+        if (activeTab && activeTab.dataset && activeTab.dataset.tabId) {
             const tabId = activeTab.dataset.tabId;
             state.activeTabId = tabId;
 
             // Check if tab is already loaded (server-rendered)
-            const panel = document.getElementById(activeTab.getAttribute('aria-controls'));
-            if (panel && panel.dataset.loaded === 'true') {
-                state.loadedTabs.add(tabId);
+            const ariaControls = activeTab.getAttribute('aria-controls');
+            if (ariaControls) {
+                const panel = document.getElementById(ariaControls);
+                if (panel && panel.dataset.loaded === 'true') {
+                    state.loadedTabs.add(tabId);
+                } else if (tabId !== 'command-list') {
+                    // Tab is active but not loaded - load it immediately
+                    loadTabContent(tabId);
+                }
             }
         }
     }
@@ -133,9 +139,11 @@
             state.callbacks.onLoadStart(tabId);
         }
 
+        // Build API URL (declare here so it's in scope for error handling)
+        var apiUrl = '';
+
         try {
-            // Build API URL
-            const apiUrl = buildApiUrl(tabId, filters);
+            apiUrl = buildApiUrl(tabId, filters);
 
             const response = await fetch(apiUrl, {
                 method: 'GET',
@@ -155,8 +163,22 @@
             var contentContainer = panel.querySelector('[data-tab-content]');
             var target = contentContainer || panel;
 
-            // Update content
+            // Update content - innerHTML doesn't execute scripts, so we need to handle them
             target.innerHTML = html;
+
+            // Extract and execute script tags (innerHTML doesn't execute them)
+            var scripts = target.querySelectorAll('script');
+            for (var i = 0; i < scripts.length; i++) {
+                var oldScript = scripts[i];
+                var newScript = document.createElement('script');
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            }
+
             panel.dataset.loaded = 'true';
             state.loadedTabs.add(tabId);
 
@@ -172,7 +194,7 @@
                 return;
             }
 
-            console.error('CommandTabLoader: Failed to load tab content:', error);
+            console.error('CommandTabLoader: Failed to load tab "' + tabId + '" from ' + apiUrl + ':', error);
 
             // Show error in panel (CSP-compliant)
             panel.innerHTML =
@@ -235,13 +257,22 @@
             return queryString ? baseUrl + '?' + queryString : baseUrl;
         }
 
-        // Otherwise, try to get filters from form
-        const filterForm = document.getElementById('commandFilterForm');
+        // Map tab IDs to their corresponding filter form IDs
+        const formIdMap = {
+            'execution-logs': 'executionLogsFilterForm',
+            'analytics': 'analyticsFilterForm'
+        };
+
+        // Get the filter form for this specific tab
+        const formId = formIdMap[tabId];
+        if (!formId) {
+            // No filter form expected for this tab (e.g., command-list)
+            return baseUrl;
+        }
+
+        const filterForm = document.getElementById(formId);
         if (!filterForm) {
-            // Log warning if form was expected but not found
-            if (tabId === 'execution-logs') {
-                console.warn('CommandTabLoader: Filter form not found for logs tab');
-            }
+            console.warn('CommandTabLoader: Filter form "' + formId + '" not found for tab: ' + tabId);
             return baseUrl;
         }
 

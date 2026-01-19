@@ -200,8 +200,7 @@
     </div>
 </div>
 
-<!-- Chart.js and Analytics Initialization (inline scripts for AJAX-loaded content) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Analytics Chart Initialization (Chart.js already loaded in main page) -->
 <script>
     (function() {
         // Chart data passed from server
@@ -212,19 +211,37 @@
             performanceData: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.PerformanceData))
         };
 
-        // Initialize charts immediately (partial is already in DOM when script runs)
-        function initializeCharts() {
+        // Make chart initialization global and reusable
+        window.initializeAnalyticsCharts = function() {
+            // Check if Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded yet');
+                return;
+            }
+
+            // Destroy existing charts first if they exist
+            if (window.analyticsCharts) {
+                Object.values(window.analyticsCharts).forEach(chart => {
+                    if (chart && typeof chart.destroy === 'function') {
+                        chart.destroy();
+                    }
+                });
+            }
+            window.analyticsCharts = {};
+
             // Usage Over Time Chart
             if (analyticsData.usageOverTime && analyticsData.usageOverTime.length > 0) {
                 const usageCtx = document.getElementById('usageOverTimeChart');
                 if (usageCtx) {
-                    new Chart(usageCtx, {
+                    const labels = analyticsData.usageOverTime.map(d => d.Date);
+                    const data = analyticsData.usageOverTime.map(d => d.Count);
+                    window.analyticsCharts.usageOverTime = new Chart(usageCtx, {
                         type: 'line',
                         data: {
-                            labels: analyticsData.usageOverTime.map(d => d.date),
+                            labels: labels,
                             datasets: [{
                                 label: 'Commands Executed',
-                                data: analyticsData.usageOverTime.map(d => d.count),
+                                data: data,
                                 borderColor: 'rgb(59, 130, 246)',
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                 tension: 0.4
@@ -250,7 +267,7 @@
                 if (topCtx) {
                     const commands = Object.keys(analyticsData.topCommands);
                     const counts = Object.values(analyticsData.topCommands);
-                    new Chart(topCtx, {
+                    window.analyticsCharts.topCommands = new Chart(topCtx, {
                         type: 'bar',
                         data: {
                             labels: commands,
@@ -273,15 +290,15 @@
             }
 
             // Success Rate Chart
-            if (analyticsData.successRateData && (analyticsData.successRateData.successCount > 0 || analyticsData.successRateData.failureCount > 0)) {
+            if (analyticsData.successRateData && (analyticsData.successRateData.SuccessCount > 0 || analyticsData.successRateData.FailureCount > 0)) {
                 const successCtx = document.getElementById('successRateChart');
                 if (successCtx) {
-                    new Chart(successCtx, {
+                    window.analyticsCharts.successRate = new Chart(successCtx, {
                         type: 'doughnut',
                         data: {
                             labels: ['Success', 'Failed'],
                             datasets: [{
-                                data: [analyticsData.successRateData.successCount, analyticsData.successRateData.failureCount],
+                                data: [analyticsData.successRateData.SuccessCount, analyticsData.successRateData.FailureCount],
                                 backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(239, 68, 68, 0.8)']
                             }]
                         },
@@ -297,13 +314,13 @@
             if (analyticsData.performanceData && analyticsData.performanceData.length > 0) {
                 const perfCtx = document.getElementById('responseTimeChart');
                 if (perfCtx) {
-                    new Chart(perfCtx, {
+                    window.analyticsCharts.responseTime = new Chart(perfCtx, {
                         type: 'bar',
                         data: {
-                            labels: analyticsData.performanceData.map(d => d.commandName),
+                            labels: analyticsData.performanceData.map(d => d.CommandName),
                             datasets: [{
                                 label: 'Avg Response (ms)',
-                                data: analyticsData.performanceData.map(d => d.avgResponseTimeMs),
+                                data: analyticsData.performanceData.map(d => d.AvgResponseTimeMs),
                                 backgroundColor: 'rgba(6, 182, 212, 0.8)'
                             }]
                         },
@@ -318,9 +335,9 @@
                     });
                 }
             }
-        }
+        };
 
-        // Run initialization
-        initializeCharts();
+        // Don't auto-initialize - let the parent page call initializeAnalyticsCharts
+        // This prevents Chart.js timing issues when loaded via AJAX
     })();
 </script>
