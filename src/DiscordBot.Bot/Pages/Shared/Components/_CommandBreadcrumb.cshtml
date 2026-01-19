@@ -2,10 +2,20 @@
 
 <nav aria-label="Breadcrumb" class="mb-6">
     <ol class="flex items-center gap-2 text-sm">
-        <li><a href="/" class="text-text-secondary hover:text-text-primary">Home</a></li>
-        <li class="text-text-tertiary">/</li>
-        <li><a href="/Commands" class="text-text-secondary hover:text-text-primary">Commands</a></li>
-        <li class="text-text-tertiary">/</li>
-        <li class="text-text-primary font-medium">@Model.GetTabDisplayName()</li>
+        <li class="flex items-center gap-2">
+            <a href="/" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </li>
+        <li class="flex items-center gap-2">
+            <a href="/Commands" class="text-text-secondary hover:text-accent-blue transition-colors">Commands</a>
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </li>
+        <li>
+            <span class="text-text-primary font-medium" aria-current="page">@Model.GetTabDisplayName()</span>
+        </li>
     </ol>
 </nav>
