@@ -1,0 +1,9 @@
+@model DiscordBot.Bot.ViewModels.Components.CommandHeaderViewModel
+
+<div class="mb-6">
+    <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">@Model.Title</h1>
+    @if (!string.IsNullOrEmpty(Model.Subtitle))
+    {
+        <p class="text-sm text-text-secondary mt-1">@Model.Subtitle</p>
+    }
+</div>

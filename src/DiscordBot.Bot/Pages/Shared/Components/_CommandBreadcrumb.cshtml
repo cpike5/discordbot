@@ -1,0 +1,11 @@
+@model DiscordBot.Bot.ViewModels.Components.CommandBreadcrumbViewModel
+
+<nav aria-label="Breadcrumb" class="mb-6">
+    <ol class="flex items-center gap-2 text-sm">
+        <li><a href="/" class="text-text-secondary hover:text-text-primary">Home</a></li>
+        <li class="text-text-tertiary">/</li>
+        <li><a href="/Commands" class="text-text-secondary hover:text-text-primary">Commands</a></li>
+        <li class="text-text-tertiary">/</li>
+        <li class="text-text-primary font-medium">@Model.GetTabDisplayName()</li>
+    </ol>
+</nav>
