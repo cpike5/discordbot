@@ -151,8 +151,12 @@
 
             const html = await response.text();
 
-            // Update panel content
-            panel.innerHTML = html;
+            // Find results container or use panel
+            var resultsContainer = panel.querySelector('[data-results]');
+            var target = resultsContainer || panel;
+
+            // Update content
+            target.innerHTML = html;
             panel.dataset.loaded = 'true';
             state.loadedTabs.add(tabId);
 
