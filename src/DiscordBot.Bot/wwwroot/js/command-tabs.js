@@ -1,6 +1,8 @@
 /**
  * Command Tabs Module
  * Handles subtitle and breadcrumb updates for the Commands page tab switching.
+ * NOTE: This module is for the existing Commands page with TabPanel component.
+ * For Performance Dashboard unified command pages with AJAX, see command-filters.js and command-pagination.js
  */
 (function() {
     'use strict';
