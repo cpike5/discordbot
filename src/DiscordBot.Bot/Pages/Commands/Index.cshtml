@@ -638,9 +638,11 @@
                             window.UrlState.updateUrl(urlState, { replaceHistory: true });
                         }
 
-                        // Reload active tab with new page
+                        // Reload active tab with new page - include page in filters
                         if (window.CommandTabLoader) {
-                            window.CommandTabLoader.reloadActiveTab();
+                            const filters = window.CommandFilters ? window.CommandFilters.getFilters() : {};
+                            filters.page = page; // Add page to filters for API request
+                            window.CommandTabLoader.reloadActiveTab(filters);
                         }
                     }
                 });
