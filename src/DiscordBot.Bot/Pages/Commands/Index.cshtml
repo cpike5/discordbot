@@ -195,7 +195,7 @@
     </div>
 
     <!-- Tab 2: Execution Logs -->
-    <div id="commandTabs-panel-execution-logs" data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" data-loaded="true" hidden>
+    <div id="commandTabs-panel-execution-logs" data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" hidden>
         @{
             // Calculate active filter count for Execution Logs (includes all 6 filters)
             var logsActiveFilterCount = 0;
@@ -508,6 +508,7 @@
 }
 
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="~/js/quick-actions.js"></script>
     <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script src="~/js/command-tabs.js" asp-append-version="true"></script>
@@ -533,6 +534,29 @@
             }
         }
 
+        // Helper function to initialize tab-specific modules after AJAX load
+        function initializeTabSpecificModules(tabId) {
+            // Convert timestamps to local time
+            if (window.timezoneUtils && typeof window.timezoneUtils.convertDisplayTimes === 'function') {
+                window.timezoneUtils.convertDisplayTimes();
+            }
+
+            // Re-initialize autocomplete if present
+            if (window.Autocomplete && typeof window.Autocomplete.init === 'function') {
+                window.Autocomplete.init();
+            }
+
+            // Initialize analytics charts if on analytics tab
+            // Use requestAnimationFrame to ensure DOM is painted before initializing charts
+            if (tabId === 'analytics') {
+                requestAnimationFrame(function() {
+                    if (window.initializeAnalyticsCharts && typeof window.initializeAnalyticsCharts === 'function') {
+                        window.initializeAnalyticsCharts();
+                    }
+                });
+            }
+        }
+
         // Initialize AJAX modules when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize tab loader for AJAX content loading
@@ -552,10 +576,10 @@
                 });
             }
 
-            // Initialize filter handlers for execution logs
+            // Initialize filter handlers for both execution logs and analytics
             if (window.CommandFilters) {
                 window.CommandFilters.init({
-                    formId: 'executionLogsFilterForm',
+                    formSelector: '#executionLogsFilterForm, #analyticsFilterForm',
                     onFiltersApplied: function(filters) {
                         console.log('Filters applied:', filters);
                         // Reload active tab with filters
@@ -578,19 +602,6 @@
                         }
                     }
                 });
-            }
-
-            // Helper function to initialize tab-specific modules after AJAX load
-            function initializeTabSpecificModules(tabId) {
-                // Re-initialize autocomplete if present
-                if (window.Autocomplete && typeof window.Autocomplete.init === 'function') {
-                    window.Autocomplete.init();
-                }
-
-                // Initialize Chart.js charts for analytics tab
-                if (tabId === 'analytics' && typeof initializeCharts === 'function') {
-                    initializeCharts();
-                }
             }
         });
     </script>
