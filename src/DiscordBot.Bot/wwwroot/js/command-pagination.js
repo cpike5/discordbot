@@ -124,6 +124,19 @@
     }
 
     /**
+     * Set the current page number without triggering callbacks.
+     * Used for restoring state from URL without causing reload loops.
+     * @param {number} pageNumber - The page number to set
+     */
+    function setCurrentPage(pageNumber) {
+        if (isNaN(pageNumber) || pageNumber < 1) {
+            console.warn('CommandPagination: Invalid page number:', pageNumber);
+            return;
+        }
+        state.currentPage = pageNumber;
+    }
+
+    /**
      * Programmatically navigate to a specific page.
      * @param {number} pageNumber - The page number to navigate to
      */
@@ -324,6 +337,7 @@
     window.CommandPagination = {
         init: init,
         getCurrentPage: getCurrentPage,
+        setCurrentPage: setCurrentPage,
         goToPage: goToPage,
         goToFirstPage: goToFirstPage,
         goToLastPage: goToLastPage,

@@ -515,6 +515,7 @@
     <script src="~/js/command-tab-loader.js" asp-append-version="true"></script>
     <script src="~/js/command-filters.js" asp-append-version="true"></script>
     <script src="~/js/command-pagination.js" asp-append-version="true"></script>
+    <script src="~/js/url-state.js" asp-append-version="true"></script>
     <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
     <script src="~/js/autocomplete.js" asp-append-version="true"></script>
     <script>
@@ -567,6 +568,15 @@
 
         // Initialize AJAX modules when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize URL state management first (before other modules)
+            if (window.UrlState) {
+                window.UrlState.init({
+                    onStateRestore: function(urlState) {
+                        console.log('UrlState: State restored from URL:', urlState);
+                    }
+                });
+            }
+
             // Initialize tab loader for AJAX content loading
             if (window.CommandTabLoader) {
                 window.CommandTabLoader.init({
@@ -590,9 +600,25 @@
                     formSelector: '#executionLogsFilterForm, #analyticsFilterForm',
                     onFiltersApplied: function(filters) {
                         console.log('Filters applied:', filters);
+
+                        // Update URL with filter state (skip if restoring from URL to prevent loops)
+                        if (window.UrlState && !window.UrlState.isRestoringFromUrl()) {
+                            const currentPage = window.CommandPagination ? window.CommandPagination.getCurrentPage() : null;
+                            const urlState = window.UrlState.getStateForUrl(filters, currentPage);
+                            window.UrlState.updateUrl(urlState, { replaceHistory: true });
+                        }
+
                         // Reload active tab with filters
                         if (window.CommandTabLoader) {
                             window.CommandTabLoader.reloadActiveTab();
+                        }
+                    },
+                    onFiltersClear: function() {
+                        console.log('Filters cleared');
+
+                        // Clear URL parameters
+                        if (window.UrlState) {
+                            window.UrlState.clearUrl();
                         }
                     }
                 });
@@ -604,12 +630,49 @@
                     scrollBehavior: 'top',
                     onPageChange: function(page) {
                         console.log('Page changed to:', page);
-                        // Reload active tab with new page
+
+                        // Update URL with new page (skip if restoring from URL)
+                        if (window.UrlState && !window.UrlState.isRestoringFromUrl()) {
+                            const filters = window.CommandFilters ? window.CommandFilters.getFilters() : {};
+                            const urlState = window.UrlState.getStateForUrl(filters, page);
+                            window.UrlState.updateUrl(urlState, { replaceHistory: true });
+                        }
+
+                        // Reload active tab with new page - include page in filters
                         if (window.CommandTabLoader) {
-                            window.CommandTabLoader.reloadActiveTab();
+                            const filters = window.CommandFilters ? window.CommandFilters.getFilters() : {};
+                            filters.pageNumber = page; // Add page to filters for API request (backend expects 'pageNumber')
+                            window.CommandTabLoader.reloadActiveTab(filters);
                         }
                     }
                 });
+            }
+
+            // Restore state from URL after all modules are initialized
+            if (window.UrlState) {
+                const urlState = window.UrlState.restoreStateFromUrl();
+
+                // If URL had state, trigger a reload to apply it
+                if (Object.keys(urlState).length > 0 && window.CommandTabLoader) {
+                    // Use requestAnimationFrame to ensure DOM is fully ready
+                    // This is more reliable than setTimeout for DOM-related operations
+                    requestAnimationFrame(function() {
+                        // Double RAF ensures painting is complete
+                        requestAnimationFrame(function() {
+                            // Convert urlState to API parameter names (e.g., 'page' -> 'pageNumber')
+                            const apiFilters = {};
+                            for (const key in urlState) {
+                                if (key === 'page') {
+                                    apiFilters.pageNumber = urlState[key];
+                                } else {
+                                    apiFilters[key] = urlState[key];
+                                }
+                            }
+                            // Pass the converted filters to tab loader
+                            window.CommandTabLoader.reloadActiveTab(apiFilters);
+                        });
+                    });
+                }
             }
         });
     </script>

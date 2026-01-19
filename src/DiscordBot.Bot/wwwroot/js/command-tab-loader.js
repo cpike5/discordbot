@@ -242,21 +242,6 @@
         const apiRoute = apiRouteMap[tabId] || tabId;
         const baseUrl = '/api/commands/' + apiRoute;
 
-        // If filters provided, use them
-        if (filters) {
-            const params = new URLSearchParams();
-            for (const key in filters) {
-                if (filters.hasOwnProperty(key)) {
-                    const value = filters[key];
-                    if (value !== null && value !== undefined && value !== '') {
-                        params.append(key, value);
-                    }
-                }
-            }
-            const queryString = params.toString();
-            return queryString ? baseUrl + '?' + queryString : baseUrl;
-        }
-
         // Map tab IDs to their corresponding filter form IDs
         const formIdMap = {
             'execution-logs': 'executionLogsFilterForm',
@@ -265,25 +250,36 @@
 
         // Get the filter form for this specific tab
         const formId = formIdMap[tabId];
-        if (!formId) {
-            // No filter form expected for this tab (e.g., command-list)
-            return baseUrl;
-        }
-
-        const filterForm = document.getElementById(formId);
-        if (!filterForm) {
-            console.warn('CommandTabLoader: Filter form "' + formId + '" not found for tab: ' + tabId);
-            return baseUrl;
-        }
-
-        const formData = new FormData(filterForm);
         const params = new URLSearchParams();
 
-        for (const entry of formData.entries()) {
-            const key = entry[0];
-            const value = entry[1];
-            if (value && value.trim && value.trim()) {
-                params.append(key, value);
+        // If form exists, read its values first (as base)
+        if (formId) {
+            const filterForm = document.getElementById(formId);
+            if (filterForm) {
+                const formData = new FormData(filterForm);
+                for (const entry of formData.entries()) {
+                    const key = entry[0];
+                    const value = entry[1];
+                    if (value && value.trim && value.trim()) {
+                        params.append(key, value);
+                    }
+                }
+            } else {
+                console.warn('CommandTabLoader: Filter form "' + formId + '" not found for tab: ' + tabId);
+            }
+        }
+
+        // If filters provided, merge/override them (e.g., page parameter)
+        if (filters) {
+            for (const key in filters) {
+                if (filters.hasOwnProperty(key)) {
+                    const value = filters[key];
+                    if (value !== null && value !== undefined && value !== '') {
+                        // Remove existing param with this key and add new value
+                        params.delete(key);
+                        params.append(key, value);
+                    }
+                }
             }
         }
 
