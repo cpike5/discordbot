@@ -4,33 +4,75 @@
 @using DiscordBot.Bot.ViewModels.Pages
 @{
     ViewData["Title"] = "Commands";
+
+    // Define tabs for the tab panel
+    var tabs = new List<TabItemViewModel>
+    {
+        new TabItemViewModel { Id = "command-list", Label = "Command List" },
+        new TabItemViewModel { Id = "execution-logs", Label = "Execution Logs" },
+        new TabItemViewModel { Id = "analytics", Label = "Analytics" }
+    };
+
+    var tabPanel = new TabPanelViewModel
+    {
+        Id = "commandTabs",
+        Tabs = tabs,
+        ActiveTabId = Model.ActiveTab ?? "command-list",
+        NavigationMode = TabNavigationMode.InPage,
+        PersistenceMode = TabPersistenceMode.UrlHash
+    };
+
+    // Dynamic subtitle based on active tab
+    var subtitle = Model.ActiveTab switch
+    {
+        "execution-logs" => "Command execution history",
+        "analytics" => "Usage statistics and performance",
+        _ => "All registered slash commands"
+    };
+
+    var headerModel = new CommandHeaderViewModel
+    {
+        Title = "Commands",
+        Subtitle = subtitle,
+        ActiveTab = Model.ActiveTab ?? "command-list"
+    };
+
+    var breadcrumbModel = new CommandBreadcrumbViewModel
+    {
+        ActiveTab = Model.ActiveTab ?? "command-list"
+    };
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div class="flex items-center gap-3">
-            <h1 class="text-h1 text-text-primary">Commands</h1>
-            <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = Model.ViewModel.TotalCommandCount.ToString(), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
-        </div>
-        <div class="flex items-center gap-3">
-            <span class="text-sm text-text-secondary">
-                @Model.ViewModel.ModuleCount module@(Model.ViewModel.ModuleCount != 1 ? "s" : "") registered
-            </span>
-            @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
-            {
-                <button type="button"
-                        onclick="window.quickActions?.showConfirmationModal('clearCommandsModal')"
-                        class="flex items-center gap-2 px-4 py-2 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-lg transition-colors">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Clear & Re-register Globally
-                </button>
-            }
-        </div>
+    <!-- Breadcrumb -->
+    <partial name="Shared/Components/_CommandBreadcrumb" model="breadcrumbModel" />
+
+    <!-- Header -->
+    <partial name="Shared/Components/_CommandHeader" model="headerModel" />
+
+    <!-- Action Bar (Clear Commands button and module count) -->
+    <div class="flex items-center justify-between mb-6">
+        <span class="text-sm text-text-secondary">
+            @Model.ViewModel.ModuleCount module@(Model.ViewModel.ModuleCount != 1 ? "s" : "") registered
+        </span>
+        @if (User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))
+        {
+            <button type="button"
+                    onclick="window.quickActions?.showConfirmationModal('clearCommandsModal')"
+                    class="flex items-center gap-2 px-4 py-2 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-lg transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Clear & Re-register Globally
+            </button>
+        }
     </div>
 
+    <!-- Tab Panel Navigation -->
+    <partial name="Shared/Components/_TabPanel" model="tabPanel" />
+
+    <!-- Tab 1: Command List -->
+    <div data-tab-panel-for="commandTabs" data-tab-id="command-list" role="tabpanel" aria-labelledby="commandTabs-tab-command-list">
     @if (Model.ViewModel.HasModules)
     {
         <!-- Command Modules -->
@@ -150,6 +192,21 @@
             <partial name="Shared/Components/_EmptyState" model="emptyState" />
         </div>
     }
+    </div>
+
+    <!-- Tab 2: Execution Logs -->
+    <div data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" hidden>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+            <p class="text-text-secondary">Execution logs will be loaded here...</p>
+        </div>
+    </div>
+
+    <!-- Tab 3: Analytics -->
+    <div data-tab-panel-for="commandTabs" data-tab-id="analytics" role="tabpanel" aria-labelledby="commandTabs-tab-analytics" hidden>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+            <p class="text-text-secondary">Analytics will be loaded here...</p>
+        </div>
+    </div>
 </div>
 
 <!-- Modals -->
@@ -158,8 +215,13 @@
     <partial name="Shared/Components/_ConfirmationModal" model="Model.ClearCommandsModal" />
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
+}
+
 @section Scripts {
     <script src="~/js/quick-actions.js"></script>
+    <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script>
         function toggleModule(moduleId) {
             const commandsContainer = document.getElementById('commands-' + moduleId);
