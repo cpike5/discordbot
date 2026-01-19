@@ -19,17 +19,25 @@
         }
 
         const isExpanded = button.getAttribute('aria-expanded') === 'true';
+        const newExpandedState = !isExpanded;
 
-        if (isExpanded) {
-            // Collapse
-            panelContent.style.maxHeight = '0';
-            chevron.style.transform = 'rotate(-90deg)';
-            button.setAttribute('aria-expanded', 'false');
-        } else {
+        if (newExpandedState) {
             // Expand
             panelContent.style.maxHeight = panelContent.scrollHeight + 'px';
             chevron.style.transform = 'rotate(0deg)';
             button.setAttribute('aria-expanded', 'true');
+        } else {
+            // Collapse
+            panelContent.style.maxHeight = '0';
+            chevron.style.transform = 'rotate(-90deg)';
+            button.setAttribute('aria-expanded', 'false');
+        }
+
+        // Persist state in localStorage
+        try {
+            localStorage.setItem(`filterPanel-${filterId}-expanded`, newExpandedState.toString());
+        } catch (e) {
+            console.warn('Failed to save filter panel state:', e);
         }
     }
 
@@ -241,19 +249,41 @@
      * Initializes the date range filter on page load
      */
     function init() {
-        // Auto-expand panels if filters are active
+        // Initialize all filter panels
         document.querySelectorAll('[data-filter-panel]').forEach(panel => {
             const filterId = panel.getAttribute('data-filter-panel');
             const hasActiveFilters = panel.getAttribute('data-has-active-filters') === 'true';
+            const content = document.getElementById(`${filterId}-content`);
+            const chevron = document.getElementById(`${filterId}-chevron`);
+            const button = document.getElementById(`${filterId}-toggle`);
 
-            if (hasActiveFilters) {
-                const content = document.getElementById(`${filterId}-content`);
-                const button = document.getElementById(`${filterId}-toggle`);
+            if (!content || !chevron || !button) return;
 
-                if (content && button) {
-                    content.style.maxHeight = content.scrollHeight + 'px';
-                    button.setAttribute('aria-expanded', 'true');
+            // Check localStorage for saved state (persists between tabs)
+            let shouldExpand = false;
+            try {
+                const savedState = localStorage.getItem(`filterPanel-${filterId}-expanded`);
+                if (savedState !== null) {
+                    // Use saved state
+                    shouldExpand = savedState === 'true';
+                } else {
+                    // No saved state - expand if filters are active
+                    shouldExpand = hasActiveFilters;
                 }
+            } catch (e) {
+                // localStorage not available - just use active filters check
+                shouldExpand = hasActiveFilters;
+            }
+
+            // Apply the expansion state
+            if (shouldExpand) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                chevron.style.transform = 'rotate(0deg)';
+                button.setAttribute('aria-expanded', 'true');
+            } else {
+                content.style.maxHeight = '0';
+                chevron.style.transform = 'rotate(-90deg)';
+                button.setAttribute('aria-expanded', 'false');
             }
         });
     }
