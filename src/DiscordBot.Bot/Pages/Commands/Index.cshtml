@@ -362,10 +362,8 @@
         </div>
 
         <!-- Placeholder Content -->
-        <div data-results>
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
-                <p class="text-text-secondary">Execution logs will be loaded here...</p>
-            </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+            <p class="text-text-secondary">Execution logs will be loaded here...</p>
         </div>
     </div>
 
@@ -489,10 +487,8 @@
         </div>
 
         <!-- Placeholder Content -->
-        <div data-results>
-            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
-                <p class="text-text-secondary">Analytics will be loaded here...</p>
-            </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+            <p class="text-text-secondary">Analytics will be loaded here...</p>
         </div>
     </div>
 </div>
@@ -550,13 +546,6 @@
                         console.error('Failed to load tab:', tabId, error);
                     }
                 });
-
-                // Load the initially active tab if it's not the command-list (which is server-rendered)
-                var activeTabId = window.CommandTabLoader.getActiveTab();
-                if (activeTabId && activeTabId !== 'command-list' && !window.CommandTabLoader.isTabLoaded(activeTabId)) {
-                    console.log('Loading initial active tab:', activeTabId);
-                    window.CommandTabLoader.reloadTab(activeTabId);
-                }
             }
 
             // Initialize filter handlers for execution logs
