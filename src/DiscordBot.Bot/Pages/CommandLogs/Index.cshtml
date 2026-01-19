@@ -22,12 +22,34 @@
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    @{
+        var breadcrumbModel = new BreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Text = "Commands", Url = "/Commands" },
+                new() { Text = "Execution Logs", IsActive = true }
+            }
+        };
+    }
+    <partial name="Shared/Components/_Breadcrumb" model="breadcrumbModel" />
+
     <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div class="mb-6">
         <div class="flex items-center gap-3">
-            <h1 class="text-h1 text-text-primary">Command Logs</h1>
-            <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = Model.ViewModel.TotalCount.ToString(), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
+            <svg class="w-8 h-8 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Command Execution Logs</h1>
         </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex items-center justify-between mb-6">
+        <span class="text-sm text-text-secondary">
+            @Model.ViewModel.TotalCount.ToString() total logs
+        </span>
         <div class="flex items-center gap-3">
             <a asp-page="Analytics" class="btn btn-secondary">
                 <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -35,32 +57,32 @@
                 </svg>
                 Analytics
             </a>
-            <a asp-page-handler="Export"
-               asp-all-route-data="@(new Dictionary<string, string> {
-                   { "SearchTerm", Model.SearchTerm ?? "" },
-                   { "GuildId", Model.GuildId?.ToString() ?? "" },
-                   { "CommandName", Model.CommandName ?? "" },
-                   { "StartDate", Model.StartDate?.ToString("yyyy-MM-dd") ?? "" },
-                   { "EndDate", Model.EndDate?.ToString("yyyy-MM-dd") ?? "" },
-                   { "StatusFilter", Model.StatusFilter?.ToString() ?? "" }
-               })"
-               class="btn btn-primary">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                Export CSV
-            </a>
-            @if (Model.ViewModel.Filters.HasActiveFilters)
-            {
-                <a asp-page="Index" class="btn btn-secondary">
+                <a asp-page-handler="Export"
+                   asp-all-route-data="@(new Dictionary<string, string> {
+                       { "SearchTerm", Model.SearchTerm ?? "" },
+                       { "GuildId", Model.GuildId?.ToString() ?? "" },
+                       { "CommandName", Model.CommandName ?? "" },
+                       { "StartDate", Model.StartDate?.ToString("yyyy-MM-dd") ?? "" },
+                       { "EndDate", Model.EndDate?.ToString("yyyy-MM-dd") ?? "" },
+                       { "StatusFilter", Model.StatusFilter?.ToString() ?? "" }
+                   })"
+                   class="btn btn-secondary">
                     <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
-                    Clear Filters
+                    Export CSV
                 </a>
-            }
+                @if (Model.ViewModel.Filters.HasActiveFilters)
+                {
+                    <a asp-page="Index" class="btn btn-secondary">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear Filters
+                    </a>
+                }
+            </div>
         </div>
-    </div>
 
     <!-- Filter Panel -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
@@ -467,49 +489,7 @@
 @Html.Partial("~/Pages/Shared/Components/_CommandLogDetailsModal.cshtml")
 
 @section Scripts {
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
     <script src="~/js/autocomplete.js" asp-append-version="true"></script>
     <script src="~/js/command-log-modal.js" asp-append-version="true"></script>
-    <script>
-        function toggleFilterPanel() {
-            const content = document.getElementById('filterContent');
-            const chevron = document.getElementById('filterChevron');
-            const toggle = document.getElementById('filterToggle');
-
-            if (content.style.maxHeight === '0px') {
-                content.style.maxHeight = '1000px';
-                chevron.style.transform = 'rotate(0deg)';
-                toggle.setAttribute('aria-expanded', 'true');
-            } else {
-                content.style.maxHeight = '0px';
-                chevron.style.transform = 'rotate(-90deg)';
-                toggle.setAttribute('aria-expanded', 'false');
-            }
-        }
-
-        function setDatePreset(preset) {
-            const today = new Date();
-            const startDateInput = document.getElementById('StartDate');
-            const endDateInput = document.getElementById('EndDate');
-
-            let startDate = new Date();
-
-            switch(preset) {
-                case 'today':
-                    startDate = today;
-                    break;
-                case '7days':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30days':
-                    startDate.setDate(today.getDate() - 30);
-                    break;
-            }
-
-            startDateInput.value = startDate.toISOString().split('T')[0];
-            endDateInput.value = today.toISOString().split('T')[0];
-
-            // Auto-submit the form after setting the date preset
-            document.getElementById('filterForm').submit();
-        }
-    </script>
 }
