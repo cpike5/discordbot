@@ -151,9 +151,9 @@
 
             const html = await response.text();
 
-            // Find results container or use panel
-            var resultsContainer = panel.querySelector('[data-results]');
-            var target = resultsContainer || panel;
+            // Find content container or use panel
+            var contentContainer = panel.querySelector('[data-tab-content]');
+            var target = contentContainer || panel;
 
             // Update content
             target.innerHTML = html;
