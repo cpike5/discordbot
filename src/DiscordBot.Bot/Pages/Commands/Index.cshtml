@@ -348,12 +348,12 @@
                             </button>
                             @if (logsHasActiveFilters)
                             {
-                                <a href="@Url.Page("Index", new { ActiveTab = "execution-logs" })" class="btn btn-secondary">
+                                <button type="button" onclick="window.DateRangeFilter?.clearFiltersAndReload('executionLogsFilterForm')" class="btn btn-secondary">
                                     <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                     Clear Filters
-                                </a>
+                                </button>
                             }
                         </div>
                     </form>
@@ -475,12 +475,12 @@
                             </button>
                             @if (analyticsHasActiveFilters)
                             {
-                                <a href="@Url.Page("Index", new { ActiveTab = "analytics" })" class="btn btn-secondary">
+                                <button type="button" onclick="window.DateRangeFilter?.clearFiltersAndReload('analyticsFilterForm')" class="btn btn-secondary">
                                     <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                                     </svg>
                                     Clear Filters
-                                </a>
+                                </button>
                             }
                         </div>
                     </form>

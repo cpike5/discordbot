@@ -35,13 +35,25 @@
 
     /**
      * Sets a date preset and submits the form
-     * @param {string} filterId - The ID of the filter panel
+     * @param {string} filterId - The ID of the filter panel (e.g., 'analyticsFilter', 'executionLogsFilter')
      * @param {string} preset - The preset to apply ('today', '7days', '30days')
      */
     function setPreset(filterId, preset) {
-        const form = document.querySelector(`#${filterId}-content`).closest('form');
+        // Map filter panel IDs to form IDs
+        const formIdMap = {
+            'analyticsFilter': 'analyticsFilterForm',
+            'executionLogsFilter': 'executionLogsFilterForm'
+        };
+
+        const formId = formIdMap[filterId];
+        if (!formId) {
+            console.error('Unknown filter ID:', filterId);
+            return;
+        }
+
+        const form = document.getElementById(formId);
         if (!form) {
-            console.error('Filter form not found');
+            console.error('Filter form not found:', formId);
             return;
         }
 
@@ -96,6 +108,7 @@
 
     /**
      * Submits a form while preserving the URL hash
+     * Triggers AJAX reload of the active tab instead of full page navigation
      * @param {HTMLFormElement} form - The form to submit
      */
     function preserveHashAndSubmit(form) {
@@ -104,30 +117,41 @@
             return;
         }
 
-        // Get current hash
-        const currentHash = window.location.hash;
+        // Build filter object from form data
+        const formData = new FormData(form);
+        const filters = {};
 
-        // If there's a hash, add it to the form action
-        if (currentHash) {
-            const formAction = form.action || window.location.pathname;
-            const separator = formAction.includes('?') ? '&' : '?';
+        for (const [key, value] of formData.entries()) {
+            // Skip ActiveTab - it's for routing, not filtering
+            if (key !== 'ActiveTab' && value && value.trim && value.trim()) {
+                filters[key] = value;
+            }
+        }
 
-            // Build URL with query params
-            const formData = new FormData(form);
+        console.log('Applying filters:', filters);
+
+        // Trigger AJAX reload of active tab with filters
+        if (window.CommandTabLoader && typeof window.CommandTabLoader.reloadActiveTab === 'function') {
+            window.CommandTabLoader.reloadActiveTab(filters);
+        } else {
+            console.error('CommandTabLoader not available - falling back to full page reload');
+            // Fallback: update URL and reload page
+            const currentHash = window.location.hash;
             const params = new URLSearchParams();
 
-            for (const [key, value] of formData.entries()) {
-                if (value) {
-                    params.append(key, value);
-                }
+            // Add ActiveTab from form
+            const activeTab = formData.get('ActiveTab');
+            if (activeTab) {
+                params.append('ActiveTab', activeTab);
             }
 
-            // Set new action with hash
-            const newUrl = `${formAction}${params.toString() ? separator + params.toString() : ''}${currentHash}`;
+            // Add other filters
+            for (const key in filters) {
+                params.append(key, filters[key]);
+            }
+
+            const newUrl = window.location.pathname + '?' + params.toString() + currentHash;
             window.location.href = newUrl;
-        } else {
-            // No hash, submit normally
-            form.submit();
         }
     }
 
@@ -159,10 +183,46 @@
         init();
     }
 
+    /**
+     * Clears all filter inputs in a form and reloads the tab
+     * @param {string} formId - The ID of the filter form
+     */
+    function clearFiltersAndReload(formId) {
+        const form = document.getElementById(formId);
+        if (!form) {
+            console.error('Filter form not found:', formId);
+            return;
+        }
+
+        // Clear all inputs except ActiveTab
+        const inputs = form.querySelectorAll('input[type="date"], input[type="text"], select');
+        inputs.forEach(input => {
+            if (input.name !== 'ActiveTab') {
+                if (input.tagName === 'SELECT') {
+                    input.selectedIndex = 0;
+                } else {
+                    input.value = '';
+                }
+            }
+        });
+
+        // Reload tab with no filters
+        if (window.CommandTabLoader && typeof window.CommandTabLoader.reloadActiveTab === 'function') {
+            window.CommandTabLoader.reloadActiveTab({});
+        } else {
+            // Fallback: navigate to page without query params
+            const activeTab = form.querySelector('[name="ActiveTab"]');
+            const tabId = activeTab ? activeTab.value : '';
+            const newUrl = window.location.pathname + (tabId ? '?ActiveTab=' + tabId : '') + window.location.hash;
+            window.location.href = newUrl;
+        }
+    }
+
     // Expose public API
     window.DateRangeFilter = {
         togglePanel,
         setPreset,
-        preserveHashAndSubmit
+        preserveHashAndSubmit,
+        clearFiltersAndReload
     };
 })();
