@@ -588,8 +588,8 @@
                 }
 
                 // Initialize Chart.js charts for analytics tab
-                if (tabId === 'analytics' && typeof initializeAnalyticsCharts === 'function') {
-                    initializeAnalyticsCharts();
+                if (tabId === 'analytics' && typeof initializeCharts === 'function') {
+                    initializeCharts();
                 }
             }
         });
