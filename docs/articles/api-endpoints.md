@@ -67,6 +67,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/members` | GET | List guild members (filtered, paginated) |
 | `/api/guilds/{guildId}/members/{userId}` | GET | Get specific guild member by user ID |
 | `/api/guilds/{guildId}/members/export` | GET | Export guild members to CSV |
+| `/api/commands/list` | GET | Get command list tab (HTML partial) |
+| `/api/commands/logs` | GET | Get execution logs tab with filters (HTML partial) |
+| `/api/commands/analytics` | GET | Get analytics tab with charts (HTML partial) |
 | `/api/commandlogs` | GET | Query command logs (filtered, paginated) |
 | `/api/commandlogs/stats` | GET | Command usage statistics |
 | `/api/auditlogs` | GET | Query audit logs (filtered, paginated) |
@@ -2311,6 +2314,152 @@ UserId,Username,Discriminator,GlobalDisplayName,Nickname,AvatarHash,JoinedAt,Las
 - All filtering, searching, and sorting parameters are respected
 - Large exports may take time to generate
 - Role IDs and role names are comma-separated in the CSV
+
+---
+
+## Commands API
+
+The Commands API provides AJAX endpoints for loading command data into the Commands page tab system. All endpoints return HTML partial views (not JSON) for server-side rendering.
+
+**Authorization:** All endpoints require `RequireModerator` policy.
+
+---
+
+### GET /api/commands/list
+
+Returns the command list tab content as HTML partial view. Displays all registered slash commands with their modules, parameters, and preconditions.
+
+**Authorization:** `RequireModerator` policy
+
+**Produces:** `text/html`
+
+**Example Request:**
+
+```bash
+GET /api/commands/list
+```
+
+**Response: 200 OK**
+
+Returns HTML partial view (`_CommandListTab.cshtml`) containing:
+- Command modules (collapsible)
+- Command metadata (name, description)
+- Parameters with types
+- Precondition badges
+
+**Response: 500 Internal Server Error**
+
+Returns HTML error state with retry button if service fails.
+
+---
+
+### GET /api/commands/logs
+
+Returns filtered and paginated command execution logs as HTML partial view. Includes desktop table view and mobile card view with pagination controls.
+
+**Authorization:** `RequireModerator` policy
+
+**Produces:** `text/html`
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `startDate` | datetime? | null | Filter logs from this date (inclusive) |
+| `endDate` | datetime? | null | Filter logs to this date (inclusive) |
+| `guildId` | ulong? | null | Filter by guild ID |
+| `searchTerm` | string? | null | Multi-field search (command name, user, guild) |
+| `commandName` | string? | null | Filter by specific command name |
+| `statusFilter` | boolean? | null | If true, only show successful commands; if false, only failures |
+| `pageNumber` | integer | 1 | Page number (1-based, minimum: 1) |
+| `pageSize` | integer | 25 | Items per page (maximum: 100) |
+
+**Validation:**
+- `pageSize` is clamped to maximum of 100
+- `pageNumber` minimum is 1
+- Date range cannot exceed 90 days
+
+**Example Request:**
+
+```bash
+GET /api/commands/logs?startDate=2026-01-01&endDate=2026-01-18&guildId=123456789012345678&pageNumber=1&pageSize=25
+```
+
+**Response: 200 OK**
+
+Returns HTML partial view (`_ExecutionLogsTab.cshtml`) containing:
+- Results summary (showing X to Y of Z results)
+- Filter panel (date range, guild selector, search, command name, status)
+- Desktop table view (timestamp, command, server, user, duration, status, actions)
+- Mobile card view (responsive alternative)
+- Pagination controls (previous, page numbers, next)
+- Empty state (no logs found)
+- User/Guild preview popup support
+
+**Response: 400 Bad Request**
+
+Returns HTML error state if date range exceeds 90 days.
+
+**Response: 500 Internal Server Error**
+
+Returns HTML error state with retry button if service fails.
+
+---
+
+### GET /api/commands/analytics
+
+Returns command analytics data with charts and metrics as HTML partial view. Includes Chart.js visualizations for usage trends, top commands, success rates, and performance.
+
+**Authorization:** `RequireModerator` policy
+
+**Produces:** `text/html`
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `startDate` | datetime? | 30 days ago | Analytics start date (UTC) |
+| `endDate` | datetime? | today | Analytics end date (UTC) |
+| `guildId` | ulong? | null | Filter by specific guild ID |
+
+**Validation:**
+- Date range cannot exceed 90 days
+- Dates are normalized to start/end of day (UTC)
+
+**Example Request:**
+
+```bash
+GET /api/commands/analytics?startDate=2025-12-19&endDate=2026-01-18&guildId=123456789012345678
+```
+
+**Response: 200 OK**
+
+Returns HTML partial view (`_AnalyticsTab.cshtml`) containing:
+- Filter panel (date range, guild selector)
+- Summary metrics cards:
+  - Total commands executed
+  - Success rate percentage
+  - Average response time (ms)
+  - Unique commands count
+- Chart.js visualizations:
+  - Usage over time (line chart)
+  - Top commands (horizontal bar chart)
+  - Success rate (donut chart)
+  - Response time distribution (bar chart)
+- Empty state handling for each chart
+
+**Response: 400 Bad Request**
+
+Returns HTML error state if date range exceeds 90 days.
+
+**Response: 500 Internal Server Error**
+
+Returns HTML error state with retry button if service fails.
+
+**Notes:**
+- Chart.js 4.4.1 is loaded inline from CDN
+- Charts initialize automatically after partial loads
+- All data is serialized as JSON and passed to Chart.js
 
 ---
 
