@@ -507,6 +507,9 @@
     <script src="~/js/quick-actions.js"></script>
     <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script src="~/js/command-tabs.js" asp-append-version="true"></script>
+    <script src="~/js/command-tab-loader.js" asp-append-version="true"></script>
+    <script src="~/js/command-filters.js" asp-append-version="true"></script>
+    <script src="~/js/command-pagination.js" asp-append-version="true"></script>
     <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
     <script src="~/js/autocomplete.js" asp-append-version="true"></script>
     <script>
@@ -525,5 +528,61 @@
                 button.setAttribute('aria-expanded', 'false');
             }
         }
+
+        // Initialize AJAX modules when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize tab loader for AJAX content loading
+            if (window.CommandTabLoader) {
+                window.CommandTabLoader.init({
+                    onLoadStart: function(tabId) {
+                        console.log('Loading tab:', tabId);
+                    },
+                    onLoadComplete: function(tabId, content) {
+                        console.log('Tab loaded:', tabId);
+                        // Re-initialize filters and pagination after content loads
+                        initializeTabSpecificModules(tabId);
+                    },
+                    onError: function(tabId, error) {
+                        console.error('Failed to load tab:', tabId, error);
+                    }
+                });
+            }
+
+            // Initialize filter handlers for execution logs
+            if (window.CommandFilters) {
+                window.CommandFilters.init({
+                    formId: 'executionLogsFilterForm',
+                    onFiltersApplied: function(filters) {
+                        console.log('Filters applied:', filters);
+                        // Reload active tab with filters
+                        if (window.CommandTabLoader) {
+                            window.CommandTabLoader.reloadActiveTab();
+                        }
+                    }
+                });
+            }
+
+            // Initialize pagination
+            if (window.CommandPagination) {
+                window.CommandPagination.init({
+                    scrollBehavior: 'top',
+                    onPageChange: function(page) {
+                        console.log('Page changed to:', page);
+                        // Reload active tab with new page
+                        if (window.CommandTabLoader) {
+                            window.CommandTabLoader.reloadActiveTab();
+                        }
+                    }
+                });
+            }
+
+            // Helper function to initialize tab-specific modules after AJAX load
+            function initializeTabSpecificModules(tabId) {
+                // Re-initialize autocomplete if present
+                if (window.Autocomplete && typeof window.Autocomplete.init === 'function') {
+                    window.Autocomplete.init();
+                }
+            }
+        });
     </script>
 }
