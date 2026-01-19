@@ -195,7 +195,7 @@
     </div>
 
     <!-- Tab 2: Execution Logs -->
-    <div id="commandTabs-panel-execution-logs" data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" hidden>
+    <div id="commandTabs-panel-execution-logs" data-tab-panel-for="commandTabs" data-tab-id="execution-logs" role="tabpanel" aria-labelledby="commandTabs-tab-execution-logs" data-loaded="true" hidden>
         @{
             // Calculate active filter count for Execution Logs (includes all 6 filters)
             var logsActiveFilterCount = 0;
@@ -361,9 +361,11 @@
             </div>
         </div>
 
-        <!-- Placeholder Content -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
-            <p class="text-text-secondary">Execution logs will be loaded here...</p>
+        <!-- Content Container -->
+        <div data-tab-content>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+                <p class="text-text-secondary">Execution logs will be loaded here...</p>
+            </div>
         </div>
     </div>
 
@@ -486,9 +488,11 @@
             </div>
         </div>
 
-        <!-- Placeholder Content -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
-            <p class="text-text-secondary">Analytics will be loaded here...</p>
+        <!-- Content Container -->
+        <div data-tab-content>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+                <p class="text-text-secondary">Analytics will be loaded here...</p>
+            </div>
         </div>
     </div>
 </div>
