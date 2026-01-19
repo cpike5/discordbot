@@ -659,7 +659,8 @@
                     requestAnimationFrame(function() {
                         // Double RAF ensures painting is complete
                         requestAnimationFrame(function() {
-                            window.CommandTabLoader.reloadActiveTab();
+                            // Pass the urlState (including page parameter) to tab loader
+                            window.CommandTabLoader.reloadActiveTab(urlState);
                         });
                     });
                 }

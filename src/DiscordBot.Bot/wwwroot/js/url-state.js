@@ -286,8 +286,9 @@
             if (urlState.page && window.CommandPagination) {
                 const pageNum = parseInt(urlState.page, 10);
                 if (!isNaN(pageNum) && pageNum > 0) {
-                    // Just update internal state, don't trigger navigation yet
+                    // Update internal state without triggering reload
                     // Tab loader will handle the actual load with pagination
+                    window.CommandPagination.setCurrentPage(pageNum);
                 } else {
                     console.warn('UrlState: Invalid page number in URL:', urlState.page);
                 }
