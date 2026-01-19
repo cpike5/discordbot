@@ -42,14 +42,7 @@ public class IndexModel : PageModel
     /// <summary>
     /// Gets the view model containing command list data for the Command List tab.
     /// </summary>
-    public CommandsListViewModel CommandList { get; private set; } = new();
-
-    /// <summary>
-    /// Gets the view model containing command list data.
-    /// BACKWARD COMPATIBILITY: This property is maintained for the existing view.
-    /// It will be removed in issue #1227 when the view is refactored.
-    /// </summary>
-    public CommandsListViewModel ViewModel => CommandList;
+    public CommandsListViewModel ViewModel { get; private set; } = new();
 
     /// <summary>
     /// Gets the view model containing command logs data for the Execution Logs tab.
@@ -103,12 +96,12 @@ public class IndexModel : PageModel
 
         // Load Command List data (always loaded for first tab)
         var modules = await _commandMetadataService.GetAllModulesAsync(cancellationToken);
-        CommandList = CommandsListViewModel.FromDtos(modules);
+        ViewModel = CommandsListViewModel.FromDtos(modules);
 
         _logger.LogDebug(
             "Loaded {ModuleCount} modules with {CommandCount} total commands",
-            CommandList.ModuleCount,
-            CommandList.TotalCommandCount);
+            ViewModel.ModuleCount,
+            ViewModel.TotalCommandCount);
 
         // Initialize placeholder ViewModels for other tabs
         // These will be populated by AJAX calls in issue #1221
