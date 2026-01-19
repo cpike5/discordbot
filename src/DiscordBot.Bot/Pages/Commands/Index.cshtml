@@ -641,7 +641,7 @@
                         // Reload active tab with new page - include page in filters
                         if (window.CommandTabLoader) {
                             const filters = window.CommandFilters ? window.CommandFilters.getFilters() : {};
-                            filters.page = page; // Add page to filters for API request
+                            filters.pageNumber = page; // Add page to filters for API request (backend expects 'pageNumber')
                             window.CommandTabLoader.reloadActiveTab(filters);
                         }
                     }
@@ -659,8 +659,17 @@
                     requestAnimationFrame(function() {
                         // Double RAF ensures painting is complete
                         requestAnimationFrame(function() {
-                            // Pass the urlState (including page parameter) to tab loader
-                            window.CommandTabLoader.reloadActiveTab(urlState);
+                            // Convert urlState to API parameter names (e.g., 'page' -> 'pageNumber')
+                            const apiFilters = {};
+                            for (const key in urlState) {
+                                if (key === 'page') {
+                                    apiFilters.pageNumber = urlState[key];
+                                } else {
+                                    apiFilters[key] = urlState[key];
+                                }
+                            }
+                            // Pass the converted filters to tab loader
+                            window.CommandTabLoader.reloadActiveTab(apiFilters);
                         });
                     });
                 }

@@ -23,7 +23,7 @@
                 'CommandName': 'commandName',
                 'SearchTerm': 'searchTerm', // Changed from 'search' to match form field better
                 'StatusFilter': 'status',
-                'page': 'page',
+                'page': 'pageNumber', // Backend expects 'pageNumber' not 'page'
                 'pageSize': 'pageSize'
             },
             reverseMapping: {},
@@ -136,7 +136,9 @@
 
         // Add page if provided and not page 1
         if (currentPage && currentPage > 1) {
-            urlState.page = currentPage.toString();
+            // Use the mapped parameter name ('pageNumber' for backend compatibility)
+            const pageParam = state.config.paramMapping['page'] || 'page';
+            urlState[pageParam] = currentPage.toString();
         }
 
         return urlState;
@@ -163,7 +165,7 @@
                     continue;
                 }
                 // Skip page=1 (default page, no need to show in URL)
-                if (key === 'page' && (value === 1 || value === '1')) {
+                if (key === 'pageNumber' && (value === 1 || value === '1')) {
                     continue;
                 }
                 params.append(key, value);
