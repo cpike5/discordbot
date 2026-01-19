@@ -206,7 +206,7 @@
                             </div>
                             @if (Model.ViewModel.TotalCommandLogResults > Model.ViewModel.CommandLogResults.Count)
                             {
-                                <a asp-page="/CommandLogs/Index" asp-route-SearchTerm="@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                <a href="/Commands?tab=logs&SearchTerm=@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
                                     View all @Model.ViewModel.TotalCommandLogResults results →
                                 </a>
                             }

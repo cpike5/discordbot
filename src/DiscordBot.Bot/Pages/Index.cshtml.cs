@@ -242,7 +242,7 @@ public class IndexModel : PageModel
         _logger.LogDebug("Activity timeline built with {CommandCount} command logs and {RatWatchCount} Rat Watch events",
             recentLogs.Count(), ratWatchActivity.Count());
 
-        ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = "/CommandLogs", MaxHeight = "400px" };
+        ActivityTimeline = new ActivityFeedTimelineViewModel { Title = "Recent Activity", Items = items, ShowRefreshButton = true, ViewAllUrl = "/Commands?tab=logs", MaxHeight = "400px" };
     }
 
     private static ActivityItemType MapRatWatchStatusToActivityType(Core.Enums.RatWatchStatus status)

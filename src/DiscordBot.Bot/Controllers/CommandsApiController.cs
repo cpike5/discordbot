@@ -12,7 +12,7 @@ namespace DiscordBot.Bot.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/commands")]
-[Authorize(Policy = "RequireModerator")]
+[Authorize(Policy = "RequireViewer")]
 public class CommandsApiController : Controller
 {
     private const int MaxPageSize = 100;

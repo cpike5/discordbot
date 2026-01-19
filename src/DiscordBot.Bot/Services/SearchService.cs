@@ -297,7 +297,7 @@ public class SearchService : ISearchService
             Items = items,
             TotalCount = logs.TotalCount,
             HasMore = logs.TotalCount > maxResults,
-            ViewAllUrl = $"/CommandLogs?search={Uri.EscapeDataString(searchTerm)}"
+            ViewAllUrl = $"/Commands?tab=logs&search={Uri.EscapeDataString(searchTerm)}"
         };
     }
 
@@ -890,7 +890,7 @@ public class SearchService : ISearchService
         return category switch
         {
             SearchCategory.Guilds => "/Guilds",
-            SearchCategory.CommandLogs => "/CommandLogs",
+            SearchCategory.CommandLogs => "/Commands?tab=logs",
             SearchCategory.Users => "/Admin/Users",
             SearchCategory.Commands => "/Commands",
             SearchCategory.AuditLogs => "/Admin/AuditLogs",

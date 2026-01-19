@@ -591,7 +591,7 @@ public class InteractionHandler
                 Core.Enums.NotificationType.CommandError,
                 title,
                 message,
-                linkUrl: "/CommandLogs",
+                linkUrl: "/Commands?tab=logs",
                 relatedEntityType: "Command",
                 relatedEntityId: commandName,
                 deduplicationWindow: deduplicationWindow);
