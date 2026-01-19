@@ -1,0 +1,182 @@
+@* Command Log Details Content Partial *@
+@* Loaded via AJAX into the modal body *@
+@model DiscordBot.Bot.ViewModels.Components.CommandLogDetailsModalViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+<!-- Command Information -->
+<div class="mb-6">
+    <h3 class="text-lg font-semibold text-text-primary mb-3">Command Information</h3>
+    <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 space-y-3">
+        <div>
+            <div class="text-sm text-text-tertiary mb-1">Command</div>
+            <div class="text-lg font-mono text-accent-blue font-bold">@Model.FullCommandText</div>
+        </div>
+    </div>
+</div>
+
+<!-- Execution Details -->
+<div class="mb-6">
+    <h3 class="text-lg font-semibold text-text-primary mb-3">Execution Details</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Timestamp -->
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span class="text-sm text-text-tertiary font-medium">Executed At</span>
+            </div>
+            <p class="text-base font-semibold text-text-primary" data-utc="@Model.ExecutedAtUtcIso" data-format="datetime-seconds"></p>
+        </div>
+
+        <!-- Response Time -->
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-sm text-text-tertiary font-medium">Response Time</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <p class="text-base font-semibold text-text-primary">@Model.ResponseTimeMs ms</p>
+                @if (Model.ResponseTimeMs < 1000)
+                {
+                    <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
+                        Text = "Fast",
+                        Variant = BadgeVariant.Success,
+                        Size = BadgeSize.Small
+                    })" />
+                }
+                else if (Model.ResponseTimeMs < 3000)
+                {
+                    <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
+                        Text = "Normal",
+                        Variant = BadgeVariant.Blue,
+                        Size = BadgeSize.Small
+                    })" />
+                }
+                else
+                {
+                    <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
+                        Text = "Slow",
+                        Variant = BadgeVariant.Warning,
+                        Size = BadgeSize.Small
+                    })" />
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Information -->
+<div class="mb-6">
+    <h3 class="text-lg font-semibold text-text-primary mb-3">User Information</h3>
+    <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span class="text-sm text-text-tertiary font-medium">User</span>
+        </div>
+        <div class="preview-trigger cursor-pointer hover:underline" data-preview-type="user" data-user-id="'@Model.UserId'" data-context-guild-id="'@Model.GuildId'">
+            <p class="text-base font-semibold text-text-primary">@Model.Username</p>
+            <p class="text-xs text-text-tertiary font-mono mt-1">ID: @Model.UserId</p>
+        </div>
+    </div>
+</div>
+
+<!-- Guild/Server Information -->
+<div class="mb-6">
+    <h3 class="text-lg font-semibold text-text-primary mb-3">Server Information</h3>
+    <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-2">
+            <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+            </svg>
+            <span class="text-sm text-text-tertiary font-medium">Server</span>
+        </div>
+        @if (Model.GuildId.HasValue)
+        {
+            <div class="preview-trigger cursor-pointer hover:underline" data-preview-type="guild" data-guild-id="'@Model.GuildId'">
+                <p class="text-base font-semibold text-text-primary">@Model.GuildName</p>
+                <p class="text-xs text-text-tertiary font-mono mt-1">ID: @Model.GuildId</p>
+            </div>
+        }
+        else
+        {
+            <p class="text-base font-semibold text-text-primary">@Model.GuildName</p>
+        }
+    </div>
+</div>
+
+<!-- Parameters -->
+@if (Model.HasParameters)
+{
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold text-text-primary mb-3">Parameters</h3>
+        <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 overflow-x-auto">
+            <pre class="text-sm text-text-primary font-mono whitespace-pre-wrap">@Model.FormattedParameters</pre>
+        </div>
+    </div>
+}
+
+<!-- Status -->
+<div class="mb-6">
+    <h3 class="text-lg font-semibold text-text-primary mb-3">Status</h3>
+    <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+        @if (Model.IsSuccess)
+        {
+            <div class="flex items-center gap-2">
+                <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-lg font-semibold text-success">Success</span>
+            </div>
+        }
+        else
+        {
+            <div class="flex items-center gap-2">
+                <svg class="w-6 h-6 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-lg font-semibold text-error">Failed</span>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Error Details -->
+@if (Model.HasError)
+{
+    <div class="mb-6">
+        <h3 class="text-lg font-semibold text-text-primary mb-3">Error Details</h3>
+        <div class="bg-error/10 border border-error/20 rounded-lg p-4">
+            <div class="flex items-start gap-2">
+                <svg class="w-5 h-5 text-error mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="flex-1">
+                    <p class="text-sm font-semibold text-error mb-1">Error Message</p>
+                    <p class="text-sm text-error">@Model.ErrorMessage</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<script>
+    // Copy correlation ID to clipboard (CSP-compliant)
+    function copyCorrelationId(text) {
+        navigator.clipboard.writeText(text).then(function() {
+            // Show success feedback if ToastManager is available
+            if (window.ToastManager) {
+                window.ToastManager.show('success', 'Correlation ID copied to clipboard');
+            }
+        }).catch(function(err) {
+            console.error('Failed to copy correlation ID:', err);
+            if (window.ToastManager) {
+                window.ToastManager.show('error', 'Failed to copy to clipboard');
+            }
+        });
+    }
+</script>

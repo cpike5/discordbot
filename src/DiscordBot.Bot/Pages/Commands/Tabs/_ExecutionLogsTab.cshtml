@@ -122,9 +122,9 @@
                             </td>
                             <!-- Actions -->
                             <td class="px-6 py-4">
-                                <a href="/CommandLogs/Details/@log.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                                <button type="button" onclick="commandLogModal.open('@log.Id')" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
                                     View
-                                </a>
+                                </button>
                             </td>
                         </tr>
                     }
@@ -217,9 +217,9 @@
 
                 <!-- Action Button -->
                 <div>
-                    <a href="/CommandLogs/Details/@log.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                    <button type="button" onclick="commandLogModal.open('@log.Id')" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
                         View Details →
-                    </a>
+                    </button>
                 </div>
             </div>
         }
