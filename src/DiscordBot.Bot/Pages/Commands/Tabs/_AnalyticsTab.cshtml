@@ -92,11 +92,12 @@
             }
             else
             {
-                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="new EmptyStateViewModel {
-                    Type = EmptyStateType.NoData,
-                    Title = "No usage data available",
-                    Description = "Data will appear here once commands are executed"
-                }" />
+                var emptyState = new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No usage data available",
+                        Description = "Data will appear here once commands are executed"
+                    };
+                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState" />
             }
         </div>
     </div>
@@ -122,11 +123,12 @@
             }
             else
             {
-                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="new EmptyStateViewModel {
-                    Type = EmptyStateType.NoData,
-                    Title = "No command data available",
-                    Description = "Commands will appear here once they are executed"
-                }" />
+                var emptyState2 = new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No command data available",
+                        Description = "Commands will appear here once they are executed"
+                    };
+                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState2" />
             }
         </div>
     </div>
@@ -152,11 +154,12 @@
             }
             else
             {
-                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="new EmptyStateViewModel {
-                    Type = EmptyStateType.NoData,
-                    Title = "No data available",
-                    Description = "Success rate will be calculated once commands are executed"
-                }" />
+                var emptyState3 = new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No data available",
+                        Description = "Success rate will be calculated once commands are executed"
+                    };
+                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState3" />
             }
         </div>
     </div>
@@ -182,11 +185,12 @@
             }
             else
             {
-                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="new EmptyStateViewModel {
-                    Type = EmptyStateType.NoData,
-                    Title = "No performance data available",
-                    Description = "Response times will appear here once commands are executed"
-                }" />
+                var emptyState4 = new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No performance data available",
+                        Description = "Response times will appear here once commands are executed"
+                    };
+                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState4" />
             }
         </div>
     </div>

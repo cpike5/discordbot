@@ -6,19 +6,6 @@
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb -->
-    @{
-        var breadcrumbModel = new BreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Text = "Commands", Url = "/Commands" },
-                new() { Text = "Analytics", IsActive = true }
-            }
-        };
-    }
-    <partial name="Shared/Components/_Breadcrumb" model="breadcrumbModel" />
-
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div class="flex items-center gap-3">
@@ -268,11 +255,12 @@
                 }
                 else
                 {
-                    <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                    var emptyState1 = new EmptyStateViewModel {
                         Type = EmptyStateType.NoData,
                         Title = "No usage data available",
                         Description = "Chart data will appear once commands are executed"
-                    }" />
+                    };
+                    <partial name="Shared/Components/_EmptyState" model="emptyState1" />
                 }
             </div>
         </div>
@@ -298,11 +286,12 @@
                 }
                 else
                 {
-                    <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
-                        Type = EmptyStateType.NoData,
-                        Title = "No command data available",
-                        Description = "Commands will appear here once they are executed"
-                    }" />
+                    var emptyState2 = new EmptyStateViewModel {
+                            Type = EmptyStateType.NoData,
+                            Title = "No command data available",
+                            Description = "Commands will appear here once they are executed"
+                        };
+                    <partial name="Shared/Components/_EmptyState" model="emptyState2" />
                 }
             </div>
         </div>
@@ -328,11 +317,12 @@
                 }
                 else
                 {
-                    <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
-                        Type = EmptyStateType.NoData,
-                        Title = "No data available",
-                        Description = "Success rate will be calculated once commands are executed"
-                    }" />
+                    var emptyState3 = new EmptyStateViewModel {
+                            Type = EmptyStateType.NoData,
+                            Title = "No data available",
+                            Description = "Success rate will be calculated once commands are executed"
+                        };
+                    <partial name="Shared/Components/_EmptyState" model="emptyState3" />
                 }
             </div>
         </div>
@@ -358,11 +348,12 @@
                 }
                 else
                 {
-                    <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
-                        Type = EmptyStateType.NoData,
-                        Title = "No performance data available",
-                        Description = "Response time metrics will appear here once commands are executed"
-                    }" />
+                    var emptyState4 = new EmptyStateViewModel {
+                            Type = EmptyStateType.NoData,
+                            Title = "No performance data available",
+                            Description = "Response time metrics will appear here once commands are executed"
+                        };
+                    <partial name="Shared/Components/_EmptyState" model="emptyState4" />
                 }
             </div>
         </div>

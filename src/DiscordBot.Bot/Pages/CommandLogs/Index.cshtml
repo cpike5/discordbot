@@ -22,19 +22,6 @@
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb -->
-    @{
-        var breadcrumbModel = new BreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Text = "Commands", Url = "/Commands" },
-                new() { Text = "Execution Logs", IsActive = true }
-            }
-        };
-    }
-    <partial name="Shared/Components/_Breadcrumb" model="breadcrumbModel" />
-
     <!-- Page Header -->
     <div class="mb-6">
         <div class="flex items-center gap-3">
