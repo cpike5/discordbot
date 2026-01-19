@@ -586,6 +586,11 @@
                 if (window.Autocomplete && typeof window.Autocomplete.init === 'function') {
                     window.Autocomplete.init();
                 }
+
+                // Initialize Chart.js charts for analytics tab
+                if (tabId === 'analytics' && typeof initializeAnalyticsCharts === 'function') {
+                    initializeAnalyticsCharts();
+                }
             }
         });
     </script>
