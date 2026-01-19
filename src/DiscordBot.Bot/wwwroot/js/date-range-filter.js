@@ -275,7 +275,7 @@
                 shouldExpand = hasActiveFilters;
             }
 
-            // Apply the expansion state
+            // Apply the expansion state (ALWAYS set all properties to ensure consistency)
             if (shouldExpand) {
                 content.style.maxHeight = content.scrollHeight + 'px';
                 chevron.style.transform = 'rotate(0deg)';
@@ -294,6 +294,15 @@
     } else {
         init();
     }
+
+    // Re-initialize when switching tabs (to sync chevron state with localStorage)
+    document.addEventListener('tabchange', function(e) {
+        // Only re-init for Commands page tabs
+        if (e.detail && (e.detail.tabId === 'execution-logs' || e.detail.tabId === 'analytics')) {
+            // Small delay to ensure tab panel visibility is updated
+            requestAnimationFrame(init);
+        }
+    });
 
     /**
      * Clears all filter inputs in a form and reloads the tab
