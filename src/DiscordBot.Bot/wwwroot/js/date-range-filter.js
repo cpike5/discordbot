@@ -90,8 +90,42 @@
         startDateInput.value = formatDateForInput(startDate);
         endDateInput.value = formatDateForInput(today);
 
+        // Update button styling to show active preset
+        updatePresetButtonStyles(filterId, preset);
+
         // Submit the form while preserving hash
         preserveHashAndSubmit(form);
+    }
+
+    /**
+     * Updates the styling of preset buttons to highlight the active one
+     * @param {string} filterId - The filter panel ID
+     * @param {string|null} activePreset - The active preset ('today', '7days', '30days', or null for none)
+     */
+    function updatePresetButtonStyles(filterId, activePreset) {
+        const filterPanel = document.querySelector(`[data-filter-panel="${filterId}"]`);
+        if (!filterPanel) return;
+
+        const presetButtons = filterPanel.querySelectorAll('[onclick*="setPreset"]');
+
+        const activeClasses = ['bg-accent-blue', 'text-white', 'border-accent-blue'];
+        const inactiveClasses = ['bg-bg-tertiary', 'text-text-secondary', 'border-border-primary', 'hover:bg-bg-hover'];
+
+        presetButtons.forEach(button => {
+            const onclick = button.getAttribute('onclick');
+            const match = onclick.match(/setPreset\([^,]+,\s*'([^']+)'/);
+            const buttonPreset = match ? match[1] : null;
+
+            if (buttonPreset === activePreset) {
+                // Make active
+                button.classList.remove(...inactiveClasses);
+                button.classList.add(...activeClasses);
+            } else {
+                // Make inactive
+                button.classList.remove(...activeClasses);
+                button.classList.add(...inactiveClasses);
+            }
+        });
     }
 
     /**
@@ -104,6 +138,43 @@
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
+    }
+
+    /**
+     * Detects which preset (if any) matches the current date range
+     * @param {string} startDateStr - Start date in YYYY-MM-DD format
+     * @param {string} endDateStr - End date in YYYY-MM-DD format
+     * @returns {string|null} The matching preset ('today', '7days', '30days') or null
+     */
+    function detectActivePreset(startDateStr, endDateStr) {
+        if (!startDateStr || !endDateStr) return null;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const startDate = new Date(startDateStr + 'T00:00:00');
+        const endDate = new Date(endDateStr + 'T00:00:00');
+
+        // Check if it matches today
+        if (startDate.getTime() === today.getTime() && endDate.getTime() === today.getTime()) {
+            return 'today';
+        }
+
+        // Check if it matches 7 days
+        const sevenDaysAgo = new Date(today);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        if (startDate.getTime() === sevenDaysAgo.getTime() && endDate.getTime() === today.getTime()) {
+            return '7days';
+        }
+
+        // Check if it matches 30 days
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        if (startDate.getTime() === thirtyDaysAgo.getTime() && endDate.getTime() === today.getTime()) {
+            return '30days';
+        }
+
+        return null;
     }
 
     /**
@@ -129,6 +200,17 @@
         }
 
         console.log('Applying filters:', filters);
+
+        // Detect if the date range matches a preset and update button styling
+        const formToFilterMap = {
+            'analyticsFilterForm': 'analyticsFilter',
+            'executionLogsFilterForm': 'executionLogsFilter'
+        };
+        const filterId = formToFilterMap[form.id];
+        if (filterId) {
+            const activePreset = detectActivePreset(filters.StartDate, filters.EndDate);
+            updatePresetButtonStyles(filterId, activePreset);
+        }
 
         // Trigger AJAX reload of active tab with filters
         if (window.CommandTabLoader && typeof window.CommandTabLoader.reloadActiveTab === 'function') {
@@ -205,6 +287,18 @@
                 }
             }
         });
+
+        // Find the filter panel ID from the form ID
+        const formToFilterMap = {
+            'analyticsFilterForm': 'analyticsFilter',
+            'executionLogsFilterForm': 'executionLogsFilter'
+        };
+        const filterId = formToFilterMap[formId];
+
+        // Clear preset button styling
+        if (filterId) {
+            updatePresetButtonStyles(filterId, null);
+        }
 
         // Reload tab with no filters
         if (window.CommandTabLoader && typeof window.CommandTabLoader.reloadActiveTab === 'function') {
