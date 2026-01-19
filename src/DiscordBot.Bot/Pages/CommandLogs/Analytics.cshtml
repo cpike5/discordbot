@@ -6,27 +6,43 @@
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb -->
+    @{
+        var breadcrumbModel = new BreadcrumbViewModel
+        {
+            Items = new List<BreadcrumbItem>
+            {
+                new() { Text = "Commands", Url = "/Commands" },
+                new() { Text = "Analytics", IsActive = true }
+            }
+        };
+    }
+    <partial name="Shared/Components/_Breadcrumb" model="breadcrumbModel" />
+
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div class="flex items-center gap-3">
-            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Command Analytics</h1>
+            <svg class="w-8 h-8 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <div>
+                <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Command Analytics</h1>
+            </div>
             @{
-                var totalCommandsBadge = new BadgeViewModel {
-                    Text = Model.ViewModel.TotalCommands.ToString("N0"),
-                    Variant = BadgeVariant.Blue,
-                    Size = BadgeSize.Medium
-                };
+                var badge = new BadgeViewModel { Text = Model.ViewModel.TotalCommands.ToString("N0"), Variant = BadgeVariant.Blue, Size = BadgeSize.Small };
             }
-            <partial name="Shared/Components/_Badge" model="totalCommandsBadge" />
+            <partial name="Shared/Components/_Badge" model="badge" />
         </div>
-        <div class="flex items-center gap-3">
-            <a asp-page="/CommandLogs/Index" class="btn btn-secondary">
-                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                View Logs
-            </a>
-        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex items-center justify-end gap-3 mb-6">
+        <a asp-page="/CommandLogs/Index" class="btn btn-secondary">
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            View Logs
+        </a>
     </div>
 
     <!-- Display any errors -->
@@ -73,7 +89,7 @@
         </button>
 
         <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
-            <div class="border-t border-border-primary p-5">
+            <div class="border-t border-border-primary p-6">
                 <form method="get" id="filterForm">
                     <!-- Quick Date Presets -->
                     <div class="mb-4">
@@ -252,13 +268,11 @@
                 }
                 else
                 {
-                    <div class="py-12 text-center">
-                        <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                        </svg>
-                        <p class="text-text-secondary font-medium">No usage data available</p>
-                        <p class="text-sm text-text-tertiary mt-1">Data will appear here once commands are executed</p>
-                    </div>
+                    <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No usage data available",
+                        Description = "Chart data will appear once commands are executed"
+                    }" />
                 }
             </div>
         </div>
@@ -284,13 +298,11 @@
                 }
                 else
                 {
-                    <div class="py-12 text-center">
-                        <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                        <p class="text-text-secondary font-medium">No command data available</p>
-                        <p class="text-sm text-text-tertiary mt-1">Commands will appear here once they are executed</p>
-                    </div>
+                    <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No command data available",
+                        Description = "Commands will appear here once they are executed"
+                    }" />
                 }
             </div>
         </div>
@@ -316,13 +328,11 @@
                 }
                 else
                 {
-                    <div class="py-12 text-center">
-                        <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p class="text-text-secondary font-medium">No data available</p>
-                        <p class="text-sm text-text-tertiary mt-1">Success rate will be calculated once commands are executed</p>
-                    </div>
+                    <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No data available",
+                        Description = "Success rate will be calculated once commands are executed"
+                    }" />
                 }
             </div>
         </div>
@@ -348,13 +358,11 @@
                 }
                 else
                 {
-                    <div class="py-12 text-center">
-                        <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p class="text-text-secondary font-medium">No performance data available</p>
-                        <p class="text-sm text-text-tertiary mt-1">Response time metrics will appear here once commands are executed</p>
-                    </div>
+                    <partial name="Shared/Components/_EmptyState" model="new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No performance data available",
+                        Description = "Response time metrics will appear here once commands are executed"
+                    }" />
                 }
             </div>
         </div>
@@ -402,50 +410,8 @@
 @Html.Raw(chartDataJson)
     </script>
 
-    <!-- Filter Panel Toggle Script -->
-    <script>
-        function toggleFilterPanel() {
-            const content = document.getElementById('filterContent');
-            const chevron = document.getElementById('filterChevron');
-            const toggle = document.getElementById('filterToggle');
-
-            if (content.style.maxHeight === '0px') {
-                content.style.maxHeight = '1000px';
-                chevron.style.transform = 'rotate(0deg)';
-                toggle.setAttribute('aria-expanded', 'true');
-            } else {
-                content.style.maxHeight = '0px';
-                chevron.style.transform = 'rotate(-90deg)';
-                toggle.setAttribute('aria-expanded', 'false');
-            }
-        }
-
-        function setDatePreset(preset) {
-            const today = new Date();
-            const startDateInput = document.getElementById('StartDate');
-            const endDateInput = document.getElementById('EndDate');
-
-            let startDate = new Date();
-
-            switch(preset) {
-                case 'today':
-                    startDate = today;
-                    break;
-                case '7days':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30days':
-                    startDate.setDate(today.getDate() - 30);
-                    break;
-            }
-
-            startDateInput.value = startDate.toISOString().split('T')[0];
-            endDateInput.value = today.toISOString().split('T')[0];
-
-            // Auto-submit the form after setting dates
-            document.getElementById('filterForm').submit();
-        }
-    </script>
+    <!-- Shared Filter Panel Script -->
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
 
     <!-- Load Custom Analytics Chart Script -->
     <script src="~/js/command-analytics.js" asp-append-version="true"></script>
