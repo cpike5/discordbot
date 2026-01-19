@@ -246,6 +246,42 @@ public class CommandsApiController : Controller
         }
     }
 
+    /// <summary>
+    /// Gets the command log details content for the modal.
+    /// </summary>
+    /// <param name="id">The command log ID (GUID).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Partial view HTML for the command log details modal content.</returns>
+    [HttpGet("log-details/{id:guid}")]
+    [Produces("text/html")]
+    public async Task<IActionResult> GetLogDetails(Guid id, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Loading command log details for ID {LogId}", id);
+
+        try
+        {
+            var log = await _commandLogService.GetByIdAsync(id, cancellationToken);
+            if (log == null)
+            {
+                _logger.LogWarning("Command log not found: {LogId}", id);
+                return NotFound(CreateErrorHtml("Command log not found"));
+            }
+
+            var viewModel = ViewModels.Components.CommandLogDetailsModalViewModel.FromDto(log);
+
+            _logger.LogDebug(
+                "Loaded command log details: {Command}, Success={Success}",
+                viewModel.CommandName, viewModel.IsSuccess);
+
+            return PartialView("~/Pages/CommandLogs/_CommandLogDetailsContent.cshtml", viewModel);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load command log details for ID {LogId}", id);
+            return StatusCode(500, CreateErrorHtml("Failed to load command log details"));
+        }
+    }
+
     #region Helpers
 
     /// <summary>

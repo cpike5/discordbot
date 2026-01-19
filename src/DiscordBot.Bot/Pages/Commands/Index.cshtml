@@ -503,6 +503,9 @@
     <partial name="Shared/Components/_ConfirmationModal" model="Model.ClearCommandsModal" />
 }
 
+<!-- Command Log Details Modal -->
+@Html.Partial("~/Pages/Shared/Components/_CommandLogDetailsModal.cshtml")
+
 @section Styles {
     <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
 }
@@ -518,6 +521,7 @@
     <script src="~/js/url-state.js" asp-append-version="true"></script>
     <script src="~/js/date-range-filter.js" asp-append-version="true"></script>
     <script src="~/js/autocomplete.js" asp-append-version="true"></script>
+    <script src="~/js/command-log-modal.js" asp-append-version="true"></script>
     <script>
         function toggleModule(moduleId) {
             const commandsContainer = document.getElementById('commands-' + moduleId);
