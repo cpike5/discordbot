@@ -308,7 +308,7 @@
         persistActiveTab: function(panelId, tabId, mode) {
             switch (mode) {
                 case 'urlhash':
-                    const newHash = `${panelId}-${tabId}`;
+                    const newHash = tabId;
                     if (window.location.hash !== `#${newHash}`) {
                         history.replaceState(null, '', `#${newHash}`);
                     }
@@ -334,8 +334,9 @@
             switch (mode) {
                 case 'urlhash':
                     const hash = window.location.hash.slice(1);
-                    if (hash.startsWith(panelId + '-')) {
-                        return hash.substring(panelId.length + 1);
+                    // Return the hash directly (no longer using panelId prefix)
+                    if (hash) {
+                        return hash;
                     }
                     break;
 
