@@ -209,6 +209,7 @@
             var logsHasActiveFilters = logsActiveFilterCount > 0;
 
             // Quick filter detection for Execution Logs
+            // Only check preset matching if both dates are present (avoid false positives when dates are null)
             var today = DateTime.UtcNow.Date;
             var isToday = Model.StartDate.HasValue && Model.EndDate.HasValue &&
                          Model.StartDate.Value.Date == today && Model.EndDate.Value.Date == today;
@@ -539,6 +540,26 @@
             }
         }
 
+        // Helper function to apply default date filters if no filters are present
+        // Returns true if defaults were applied, false otherwise
+        function applyDefaultDateFilters() {
+            // Check if URL has any date parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasStartDate = urlParams.has('StartDate');
+            const hasEndDate = urlParams.has('EndDate');
+
+            // Only apply defaults if NO date parameters exist in URL
+            if (!hasStartDate && !hasEndDate) {
+                // Use the date-range-filter module to apply defaults
+                if (window.DateRangeFilter && typeof window.DateRangeFilter.applyDefaultFilterIfNeeded === 'function') {
+                    window.DateRangeFilter.applyDefaultFilterIfNeeded('executionLogsFilter');
+                    console.log('Applied default 7-day date filter to Execution Logs');
+                    return true;
+                }
+            }
+            return false;
+        }
+
         // Helper function to initialize tab-specific modules after AJAX load
         function initializeTabSpecificModules(tabId) {
             // Convert timestamps to local time
@@ -581,9 +602,31 @@
                 });
             }
 
+            // Apply default date filters BEFORE tab loader initialization
+            // This ensures the form has the correct values when the initial tab loads
+            const urlParams = new URLSearchParams(window.location.search);
+            const activeTab = urlParams.get('ActiveTab') || window.location.hash.replace('#', '') || 'command-list';
+            if (activeTab === 'execution-logs') {
+                const defaultsApplied = applyDefaultDateFilters();
+                if (defaultsApplied) {
+                    console.log('Default filters applied before initial tab load');
+                }
+            }
+
             // Initialize tab loader for AJAX content loading
             if (window.CommandTabLoader) {
                 window.CommandTabLoader.init({
+                    onTabChange: function(tabId, previousTabId) {
+                        console.log('Tab changed from', previousTabId, 'to', tabId);
+
+                        // Apply default filters when switching to execution-logs tab
+                        if (tabId === 'execution-logs') {
+                            const defaultsApplied = applyDefaultDateFilters();
+                            if (defaultsApplied) {
+                                console.log('Default filters applied after tab switch');
+                            }
+                        }
+                    },
                     onLoadStart: function(tabId) {
                         console.log('Loading tab:', tabId);
                     },

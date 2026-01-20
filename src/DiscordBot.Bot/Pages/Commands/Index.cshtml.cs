@@ -118,17 +118,9 @@ public class IndexModel : PageModel
         // Load available guilds for filter dropdown
         AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
 
-        // Apply default date range (last 7 days) when no shared filters are active.
-        // Note: This differs from CommandLogs page which defaults to "Today".
-        // The requirements for issue #1220 explicitly specify "Last 7 days when page first loads".
-        // We only check shared filters (StartDate, EndDate, GuildId) here to avoid conflicts
-        // between tabs. The Execution Logs and Analytics tabs have additional filters
-        // (SearchTerm, CommandName, StatusFilter) that should not affect date range defaults.
-        if (!StartDate.HasValue && !EndDate.HasValue && !GuildId.HasValue)
-        {
-            EndDate = DateTime.UtcNow.Date;
-            StartDate = EndDate.Value.AddDays(-7);
-        }
+        // Default date range (last 7 days) is applied client-side to ensure consistent timezone handling.
+        // The client-side filter buttons use local timezone, so defaults must be calculated there
+        // to match the behavior when users click "Last 7 Days" button.
 
         // Load Command List data (always loaded for first tab)
         var modules = await _commandMetadataService.GetAllModulesAsync(cancellationToken);
