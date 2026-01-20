@@ -99,7 +99,7 @@
                             <td class="px-6 py-4">
                                 @if (log.Success)
                                 {
-                                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                                    <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
                                         Text = "Success",
                                         Variant = BadgeVariant.Success,
                                         Size = BadgeSize.Small
@@ -107,7 +107,7 @@
                                 }
                                 else
                                 {
-                                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                                    <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
                                         Text = "Failed",
                                         Variant = BadgeVariant.Error,
                                         Size = BadgeSize.Small
@@ -122,9 +122,9 @@
                             </td>
                             <!-- Actions -->
                             <td class="px-6 py-4">
-                                <a href="/CommandLogs/Details/@log.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                                <button type="button" onclick="commandLogModal.open('@log.Id')" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
                                     View
-                                </a>
+                                </button>
                             </td>
                         </tr>
                     }
@@ -143,7 +143,7 @@
                                         : "Command logs will appear here once commands are executed."
                                 };
                             }
-                            <partial name="Shared/Components/_EmptyState" model="emptyState" />
+                            <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState" />
                         </td>
                     </tr>
                 }
@@ -169,7 +169,7 @@
                     </div>
                     @if (log.Success)
                     {
-                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                        <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
                             Text = "Success",
                             Variant = BadgeVariant.Success,
                             Size = BadgeSize.Small
@@ -177,7 +177,7 @@
                     }
                     else
                     {
-                        <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                        <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
                             Text = "Failed",
                             Variant = BadgeVariant.Error,
                             Size = BadgeSize.Small
@@ -217,9 +217,9 @@
 
                 <!-- Action Button -->
                 <div>
-                    <a href="/CommandLogs/Details/@log.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                    <button type="button" onclick="commandLogModal.open('@log.Id')" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
                         View Details →
-                    </a>
+                    </button>
                 </div>
             </div>
         }
@@ -237,7 +237,7 @@
                         : "Command logs will appear here once commands are executed."
                 };
             }
-            <partial name="Shared/Components/_EmptyState" model="emptyState" />
+            <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState" />
         </div>
     }
 </div>

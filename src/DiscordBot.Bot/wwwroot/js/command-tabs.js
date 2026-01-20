@@ -89,6 +89,25 @@
             if (breadcrumbElement.textContent !== newBreadcrumb) {
                 breadcrumbElement.textContent = newBreadcrumb;
             }
+        },
+
+        /**
+         * Load execution logs page (called from pagination buttons).
+         * @param {number} pageNumber - Page number to load
+         */
+        loadExecutionLogsPage: function(pageNumber) {
+            if (window.CommandPagination) {
+                window.CommandPagination.goToPage(pageNumber);
+            }
+        },
+
+        /**
+         * Clear execution logs filters (called from clear button).
+         */
+        clearExecutionLogsFilters: function() {
+            if (window.CommandFilters) {
+                window.CommandFilters.clearFilters();
+            }
         }
     };
 

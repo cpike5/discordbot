@@ -95,7 +95,7 @@
                                         <div class="flex flex-wrap gap-2 lg:flex-shrink-0">
                                             @foreach (var badge in command.PreconditionBadges)
                                             {
-                                                <partial name="Shared/Components/_Badge" model="badge" />
+                                                <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="badge" />
                                             }
                                         </div>
                                     }
@@ -120,6 +120,6 @@ else
                 Description = "The bot hasn't loaded any command modules yet. Commands will appear once the bot has connected to Discord."
             };
         }
-        <partial name="Shared/Components/_EmptyState" model="emptyState" />
+        <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState" />
     </div>
 }

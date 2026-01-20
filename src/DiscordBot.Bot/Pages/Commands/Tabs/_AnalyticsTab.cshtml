@@ -92,13 +92,12 @@
             }
             else
             {
-                <div class="py-12 text-center">
-                    <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-                    </svg>
-                    <p class="text-text-secondary font-medium">No usage data available</p>
-                    <p class="text-sm text-text-tertiary mt-1">Data will appear here once commands are executed</p>
-                </div>
+                var emptyState = new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No usage data available",
+                        Description = "Data will appear here once commands are executed"
+                    };
+                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState" />
             }
         </div>
     </div>
@@ -124,13 +123,12 @@
             }
             else
             {
-                <div class="py-12 text-center">
-                    <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <p class="text-text-secondary font-medium">No command data available</p>
-                    <p class="text-sm text-text-tertiary mt-1">Commands will appear here once they are executed</p>
-                </div>
+                var emptyState2 = new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No command data available",
+                        Description = "Commands will appear here once they are executed"
+                    };
+                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState2" />
             }
         </div>
     </div>
@@ -156,13 +154,12 @@
             }
             else
             {
-                <div class="py-12 text-center">
-                    <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p class="text-text-secondary font-medium">No data available</p>
-                    <p class="text-sm text-text-tertiary mt-1">Success rate will be calculated once commands are executed</p>
-                </div>
+                var emptyState3 = new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No data available",
+                        Description = "Success rate will be calculated once commands are executed"
+                    };
+                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState3" />
             }
         </div>
     </div>
@@ -188,20 +185,18 @@
             }
             else
             {
-                <div class="py-12 text-center">
-                    <svg class="w-12 h-12 mx-auto text-text-tertiary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p class="text-text-secondary font-medium">No performance data available</p>
-                    <p class="text-sm text-text-tertiary mt-1">Response times will appear here once commands are executed</p>
-                </div>
+                var emptyState4 = new EmptyStateViewModel {
+                        Type = EmptyStateType.NoData,
+                        Title = "No performance data available",
+                        Description = "Response times will appear here once commands are executed"
+                    };
+                <partial name="~/Pages/Shared/Components/_EmptyState.cshtml" model="emptyState4" />
             }
         </div>
     </div>
 </div>
 
-<!-- Chart.js and Analytics Initialization (inline scripts for AJAX-loaded content) -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Analytics Chart Initialization (Chart.js already loaded in main page) -->
 <script>
     (function() {
         // Chart data passed from server
@@ -212,19 +207,37 @@
             performanceData: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.PerformanceData))
         };
 
-        // Initialize charts immediately (partial is already in DOM when script runs)
-        function initializeCharts() {
+        // Make chart initialization global and reusable
+        window.initializeAnalyticsCharts = function() {
+            // Check if Chart.js is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js is not loaded yet');
+                return;
+            }
+
+            // Destroy existing charts first if they exist
+            if (window.analyticsCharts) {
+                Object.values(window.analyticsCharts).forEach(chart => {
+                    if (chart && typeof chart.destroy === 'function') {
+                        chart.destroy();
+                    }
+                });
+            }
+            window.analyticsCharts = {};
+
             // Usage Over Time Chart
             if (analyticsData.usageOverTime && analyticsData.usageOverTime.length > 0) {
                 const usageCtx = document.getElementById('usageOverTimeChart');
                 if (usageCtx) {
-                    new Chart(usageCtx, {
+                    const labels = analyticsData.usageOverTime.map(d => d.Date);
+                    const data = analyticsData.usageOverTime.map(d => d.Count);
+                    window.analyticsCharts.usageOverTime = new Chart(usageCtx, {
                         type: 'line',
                         data: {
-                            labels: analyticsData.usageOverTime.map(d => d.date),
+                            labels: labels,
                             datasets: [{
                                 label: 'Commands Executed',
-                                data: analyticsData.usageOverTime.map(d => d.count),
+                                data: data,
                                 borderColor: 'rgb(59, 130, 246)',
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                 tension: 0.4
@@ -250,7 +263,7 @@
                 if (topCtx) {
                     const commands = Object.keys(analyticsData.topCommands);
                     const counts = Object.values(analyticsData.topCommands);
-                    new Chart(topCtx, {
+                    window.analyticsCharts.topCommands = new Chart(topCtx, {
                         type: 'bar',
                         data: {
                             labels: commands,
@@ -273,15 +286,15 @@
             }
 
             // Success Rate Chart
-            if (analyticsData.successRateData && (analyticsData.successRateData.successCount > 0 || analyticsData.successRateData.failureCount > 0)) {
+            if (analyticsData.successRateData && (analyticsData.successRateData.SuccessCount > 0 || analyticsData.successRateData.FailureCount > 0)) {
                 const successCtx = document.getElementById('successRateChart');
                 if (successCtx) {
-                    new Chart(successCtx, {
+                    window.analyticsCharts.successRate = new Chart(successCtx, {
                         type: 'doughnut',
                         data: {
                             labels: ['Success', 'Failed'],
                             datasets: [{
-                                data: [analyticsData.successRateData.successCount, analyticsData.successRateData.failureCount],
+                                data: [analyticsData.successRateData.SuccessCount, analyticsData.successRateData.FailureCount],
                                 backgroundColor: ['rgba(34, 197, 94, 0.8)', 'rgba(239, 68, 68, 0.8)']
                             }]
                         },
@@ -297,13 +310,13 @@
             if (analyticsData.performanceData && analyticsData.performanceData.length > 0) {
                 const perfCtx = document.getElementById('responseTimeChart');
                 if (perfCtx) {
-                    new Chart(perfCtx, {
+                    window.analyticsCharts.responseTime = new Chart(perfCtx, {
                         type: 'bar',
                         data: {
-                            labels: analyticsData.performanceData.map(d => d.commandName),
+                            labels: analyticsData.performanceData.map(d => d.CommandName),
                             datasets: [{
                                 label: 'Avg Response (ms)',
-                                data: analyticsData.performanceData.map(d => d.avgResponseTimeMs),
+                                data: analyticsData.performanceData.map(d => d.AvgResponseTimeMs),
                                 backgroundColor: 'rgba(6, 182, 212, 0.8)'
                             }]
                         },
@@ -318,9 +331,9 @@
                     });
                 }
             }
-        }
+        };
 
-        // Run initialization
-        initializeCharts();
+        // Don't auto-initialize - let the parent page call initializeAnalyticsCharts
+        // This prevents Chart.js timing issues when loaded via AJAX
     })();
 </script>
