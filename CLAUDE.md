@@ -365,10 +365,8 @@ The `preview-popup.js` module is loaded globally via `_Layout.cshtml`. See exist
 |------|-------------|-------------|
 | Landing | `/landing` | Public landing page (no auth) |
 | Dashboard | `/` | Main dashboard with bot status, stats |
-| Commands | `/Commands` | Registered slash commands list |
-| Command Logs | `/CommandLogs` | Command execution history |
+| Commands | `/Commands` | Registered slash commands list (with tabs: overview, logs, analytics) |
 | Command Log Details | `/CommandLogs/{id:guid}` | Single command log entry |
-| Command Analytics | `/CommandLogs/Analytics` | Usage analytics and charts |
 | Guilds | `/Guilds` | Connected Discord servers list |
 | Guild Details | `/Guilds/Details?id={id}` | Single guild overview |
 | Guild Edit | `/Guilds/Edit/{id:long}` | Edit guild settings |

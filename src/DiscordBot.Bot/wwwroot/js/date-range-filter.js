@@ -305,6 +305,57 @@
     });
 
     /**
+     * Applies default filter (7 days) if no date range is currently set
+     * Does NOT submit the form - caller is responsible for that
+     * @param {string} filterId - The ID of the filter panel (e.g., 'analyticsFilter', 'executionLogsFilter')
+     */
+    function applyDefaultFilterIfNeeded(filterId) {
+        // Map filter panel IDs to form IDs
+        const formIdMap = {
+            'analyticsFilter': 'analyticsFilterForm',
+            'executionLogsFilter': 'executionLogsFilterForm'
+        };
+
+        const formId = formIdMap[filterId];
+        if (!formId) {
+            console.error('Unknown filter ID:', filterId);
+            return;
+        }
+
+        const form = document.getElementById(formId);
+        if (!form) {
+            console.error('Filter form not found:', formId);
+            return;
+        }
+
+        const startDateInput = form.querySelector('[name="StartDate"]');
+        const endDateInput = form.querySelector('[name="EndDate"]');
+
+        if (!startDateInput || !endDateInput) {
+            console.error('Date inputs not found');
+            return;
+        }
+
+        // Check if both date inputs are empty
+        if (!startDateInput.value && !endDateInput.value) {
+            console.log('No date filters set, applying default 7-day filter');
+
+            // Calculate 7-day date range
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            // Populate the input fields
+            startDateInput.value = formatDateForInput(sevenDaysAgo);
+            endDateInput.value = formatDateForInput(today);
+
+            // Update button styling to show 7-day preset as active
+            updatePresetButtonStyles(filterId, '7days');
+        }
+    }
+
+    /**
      * Clears all filter inputs in a form and reloads the tab
      * @param {string} formId - The ID of the filter form
      */
@@ -357,6 +408,7 @@
         setPreset,
         preserveHashAndSubmit,
         clearFiltersAndReload,
+        applyDefaultFilterIfNeeded,
         initFilterPanels: init  // Expose init for re-initialization after AJAX loads
     };
 })();

@@ -27,28 +27,10 @@ public class PageMetadataService : IPageMetadataService
             {
                 Name = "Commands",
                 Route = "/Commands",
-                Description = "View all registered slash commands",
+                Description = "View all registered slash commands, execution logs, and analytics",
                 Section = "Main",
                 IconName = "command-line",
-                Keywords = new[] { "slash", "bot commands", "commands", "slash commands" }
-            },
-            new()
-            {
-                Name = "Command Logs",
-                Route = "/CommandLogs",
-                Description = "Command execution history",
-                Section = "Main",
-                IconName = "document-text",
-                Keywords = new[] { "history", "execution", "logs", "command history" }
-            },
-            new()
-            {
-                Name = "Command Analytics",
-                Route = "/CommandLogs/Analytics",
-                Description = "Command usage analytics and charts",
-                Section = "Main",
-                IconName = "chart-bar",
-                Keywords = new[] { "usage", "stats", "charts", "analytics", "metrics" }
+                Keywords = new[] { "slash", "bot commands", "commands", "slash commands", "history", "execution", "logs", "command history", "usage", "stats", "charts", "analytics", "metrics" }
             },
             new()
             {
