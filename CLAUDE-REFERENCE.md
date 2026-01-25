@@ -2,7 +2,7 @@
 
 Auto-generated lookup tables for Discord bot management system. Regenerate with `/update-instructions tables`.
 
-**Last updated:** 2026-01-19
+**Last updated:** 2026-01-25
 
 ## Configuration Options
 
@@ -205,6 +205,7 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [razor-components.md](docs/articles/razor-components.md) | Razor component library |
 | [reminder-system.md](docs/articles/reminder-system.md) | Personal reminders with natural language parsing |
 | [repository-pattern.md](docs/articles/repository-pattern.md) | Repository pattern implementation |
+| [search.md](docs/articles/search.md) | Global search across portal data |
 | [requirements.md](docs/articles/requirements.md) | Project requirements |
 | [service-architecture.md](docs/articles/service-architecture.md) | Service interfaces, DI registration, lifetimes |
 | [scheduled-messages.md](docs/articles/scheduled-messages.md) | Scheduled/recurring messages |
