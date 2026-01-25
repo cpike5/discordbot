@@ -2,7 +2,7 @@
 
 Auto-generated lookup tables for Discord bot management system. Regenerate with `/update-instructions tables`.
 
-**Last updated:** 2026-01-19
+**Last updated:** 2026-01-25
 
 ## Configuration Options
 
@@ -169,6 +169,7 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [audio-dependencies.md](docs/articles/audio-dependencies.md) | FFmpeg, libsodium, libopus setup |
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access policies |
 | [autocomplete-component.md](docs/articles/autocomplete-component.md) | Autocomplete UI component |
+| [background-services.md](docs/articles/background-services.md) | Background hosted services, retention, aggregation |
 | [bot-performance-dashboard.md](docs/articles/bot-performance-dashboard.md) | Performance monitoring dashboard |
 | [bot-verification.md](docs/articles/bot-verification.md) | Bot verification process |
 | [command-configuration.md](docs/articles/command-configuration.md) | Command module enable/disable |
@@ -204,7 +205,9 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [razor-components.md](docs/articles/razor-components.md) | Razor component library |
 | [reminder-system.md](docs/articles/reminder-system.md) | Personal reminders with natural language parsing |
 | [repository-pattern.md](docs/articles/repository-pattern.md) | Repository pattern implementation |
+| [search.md](docs/articles/search.md) | Global search across portal data |
 | [requirements.md](docs/articles/requirements.md) | Project requirements |
+| [service-architecture.md](docs/articles/service-architecture.md) | Service interfaces, DI registration, lifetimes |
 | [scheduled-messages.md](docs/articles/scheduled-messages.md) | Scheduled/recurring messages |
 | [settings-page.md](docs/articles/settings-page.md) | Settings page and real-time updates |
 | [signalr-realtime.md](docs/articles/signalr-realtime.md) | SignalR real-time updates |

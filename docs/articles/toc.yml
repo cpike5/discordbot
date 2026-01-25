@@ -12,6 +12,10 @@
   items:
     - name: Database Schema
       href: database-schema.md
+    - name: Service Architecture
+      href: service-architecture.md
+    - name: Background Services
+      href: background-services.md
     - name: Repository Pattern
       href: repository-pattern.md
     - name: Design System
@@ -26,6 +30,10 @@
       href: interactive-components.md
     - name: SignalR Real-Time Dashboard
       href: signalr-realtime.md
+    - name: Search System
+      href: search.md
+    - name: Notification System
+      href: notification-system.md
 - name: Security & Authentication
   items:
     - name: Identity Configuration
@@ -44,6 +52,8 @@
       href: reminder-system.md
     - name: Permissions
       href: permissions.md
+    - name: AI Assistant
+      href: ai-assistant.md
 - name: Operations
   items:
     - name: Metrics

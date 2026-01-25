@@ -29,6 +29,7 @@ Stores Discord server (guild) metadata and bot-specific configuration.
 |--------|------|----------|---------|-------------|-------------|
 | Id | INTEGER (long) | No | - | PRIMARY KEY | Discord guild snowflake ID |
 | Name | TEXT | No | - | MaxLength: 100 | Display name of the guild |
+| IconUrl | TEXT | Yes | NULL | MaxLength: 500 | URL to guild's Discord icon/image |
 | JoinedAt | TEXT (DateTime) | No | - | - | Timestamp when bot joined the guild |
 | IsActive | INTEGER (bool) | No | true | - | Whether bot is currently active in guild |
 | Prefix | TEXT | Yes | NULL | MaxLength: 10 | Custom command prefix (optional) |
@@ -42,6 +43,7 @@ Stores Discord server (guild) metadata and bot-specific configuration.
 CREATE TABLE Guilds (
     Id INTEGER NOT NULL PRIMARY KEY,
     Name TEXT NOT NULL,
+    IconUrl TEXT,
     JoinedAt TEXT NOT NULL,
     IsActive INTEGER NOT NULL DEFAULT 1,
     Prefix TEXT,
@@ -62,6 +64,8 @@ Stores Discord user information and tracking metadata.
 | Id | INTEGER (long) | No | - | PRIMARY KEY | Discord user snowflake ID |
 | Username | TEXT | No | - | MaxLength: 32 | Discord username |
 | Discriminator | TEXT | No | "0" | MaxLength: 4 | Discord discriminator (legacy) |
+| AvatarUrl | TEXT | Yes | NULL | MaxLength: 500 | URL to user's Discord avatar |
+| IsBot | INTEGER (bool) | No | false | - | Whether user is a bot account |
 | FirstSeenAt | TEXT (DateTime) | No | - | - | Timestamp when user first interacted |
 | LastSeenAt | TEXT (DateTime) | No | - | - | Timestamp of most recent interaction |
 
@@ -74,6 +78,8 @@ CREATE TABLE Users (
     Id INTEGER NOT NULL PRIMARY KEY,
     Username TEXT NOT NULL,
     Discriminator TEXT NOT NULL DEFAULT '0',
+    AvatarUrl TEXT,
+    IsBot INTEGER NOT NULL DEFAULT 0,
     FirstSeenAt TEXT NOT NULL,
     LastSeenAt TEXT NOT NULL
 );
@@ -84,6 +90,8 @@ CREATE INDEX IX_Users_LastSeenAt ON Users (LastSeenAt);
 **Notes:**
 - `Discriminator` defaults to "0" for new Discord usernames (post-discriminator system)
 - Legacy usernames have 4-digit discriminators (e.g., "1234")
+- `AvatarUrl` is populated from Discord API and updated on user cache refresh
+- `IsBot` identifies bot accounts vs. human users
 
 ---
 
@@ -102,6 +110,7 @@ Audit log for command executions with performance metrics and error tracking.
 | ResponseTimeMs | INTEGER | No | - | - | Execution duration in milliseconds |
 | Success | INTEGER (bool) | No | - | - | Whether command completed successfully |
 | ErrorMessage | TEXT | Yes | NULL | MaxLength: 2000 | Error message if command failed |
+| CorrelationId | TEXT | Yes | NULL | MaxLength: 100 | Distributed tracing correlation ID |
 
 **Indexes:**
 - `IX_CommandLogs_GuildId` on `GuildId` - Query logs by guild
@@ -126,6 +135,7 @@ CREATE TABLE CommandLogs (
     ResponseTimeMs INTEGER NOT NULL,
     Success INTEGER NOT NULL,
     ErrorMessage TEXT,
+    CorrelationId TEXT,
     CONSTRAINT FK_CommandLogs_Guilds_GuildId FOREIGN KEY (GuildId)
         REFERENCES Guilds (Id) ON DELETE SET NULL,
     CONSTRAINT FK_CommandLogs_Users_UserId FOREIGN KEY (UserId)
@@ -137,6 +147,7 @@ CREATE INDEX IX_CommandLogs_UserId ON CommandLogs (UserId);
 CREATE INDEX IX_CommandLogs_CommandName ON CommandLogs (CommandName);
 CREATE INDEX IX_CommandLogs_ExecutedAt ON CommandLogs (ExecutedAt);
 CREATE INDEX IX_CommandLogs_Success ON CommandLogs (Success);
+CREATE INDEX IX_CommandLogs_CorrelationId ON CommandLogs (CorrelationId);
 ```
 
 ---
@@ -585,6 +596,964 @@ CREATE TABLE GuildRatWatchSettings (
 **Notes:**
 - Timezone must be a valid IANA timezone identifier
 - Default timezone is "Eastern Standard Time" for compatibility
+
+---
+
+## User & Identity Tables
+
+### ApplicationUser
+
+ASP.NET Core Identity user extended with Discord OAuth fields for web portal authentication and account linking.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | TEXT | No | - | PRIMARY KEY | Unique identity user identifier (GUID as string) |
+| UserName | TEXT | No | - | MaxLength: 256, UNIQUE | Username for login |
+| Email | TEXT | Yes | NULL | MaxLength: 256 | Email address |
+| NormalizedUserName | TEXT | No | - | MaxLength: 256, UNIQUE | Normalized username for queries |
+| NormalizedEmail | TEXT | Yes | NULL | MaxLength: 256 | Normalized email for queries |
+| PasswordHash | TEXT | Yes | NULL | - | Hashed password |
+| SecurityStamp | TEXT | Yes | NULL | - | Security timestamp for logout validation |
+| ConcurrencyStamp | TEXT | Yes | NULL | - | Row version for concurrency |
+| PhoneNumber | TEXT | Yes | NULL | - | Phone number (optional) |
+| PhoneNumberConfirmed | INTEGER (bool) | No | false | - | Whether phone is confirmed |
+| EmailConfirmed | INTEGER (bool) | No | false | - | Whether email is confirmed |
+| LockoutEnabled | INTEGER (bool) | No | true | - | Whether account can be locked |
+| LockoutEnd | TEXT (DateTime) | Yes | NULL | - | Lockout expiration timestamp |
+| AccessFailedCount | INTEGER | No | 0 | - | Failed login attempts |
+| DiscordUserId | INTEGER (long) | Yes | NULL | - | Linked Discord user ID |
+| DiscordAccessToken | TEXT | Yes | NULL | - | Discord OAuth access token |
+| DiscordRefreshToken | TEXT | Yes | NULL | - | Discord OAuth refresh token |
+| TwoFactorEnabled | INTEGER (bool) | No | false | - | Whether 2FA is enabled |
+
+**Indexes:**
+- `IX_AspNetUsers_NormalizedUserName` on `NormalizedUserName` - Username login lookup
+- `IX_AspNetUsers_NormalizedEmail` on `NormalizedEmail` - Email recovery lookup
+- `IX_AspNetUsers_DiscordUserId` on `DiscordUserId` - Link Discord users to accounts
+
+---
+
+### GuildMember
+
+Tracks guild membership and member-specific settings per guild.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique membership record ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild this membership belongs to |
+| UserId | INTEGER (long) | No | - | FOREIGN KEY → Users(Id) | User in the guild |
+| Nickname | TEXT | Yes | NULL | MaxLength: 32 | Member's guild nickname |
+| JoinedAt | TEXT (DateTime) | No | - | - | When user joined the guild |
+| Roles | TEXT (JSON) | Yes | NULL | - | JSON array of Discord role IDs |
+
+**Indexes:**
+- `IX_GuildMember_GuildId_UserId` on `(GuildId, UserId)` (UNIQUE) - One record per member per guild
+- `IX_GuildMember_UserId` on `UserId` - User's guild memberships
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+- `UserId` → `Users(Id)` with `ON DELETE CASCADE`
+
+---
+
+### UserGuildAccess
+
+Portal access levels and permissions for web UI by guild.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique access record ID |
+| UserId | TEXT | No | - | FOREIGN KEY → AspNetUsers(Id) | Portal user |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Target guild |
+| Role | INTEGER | No | - | Enum: AccessRole | Access level (SuperAdmin, Admin, Moderator, Viewer) |
+| AssignedAt | TEXT (DateTime) | No | - | - | When role was assigned |
+| AssignedBy | TEXT | Yes | NULL | - | Portal user ID who assigned role |
+
+**Indexes:**
+- `IX_UserGuildAccess_UserId_GuildId` on `(UserId, GuildId)` (UNIQUE) - One role per user per guild
+- `IX_UserGuildAccess_GuildId` on `GuildId` - All users with access to guild
+
+**Foreign Keys:**
+- `UserId` → `AspNetUsers(Id)` with `ON DELETE CASCADE`
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+**Enum Values (AccessRole):**
+- 0 = SuperAdmin (Full system access)
+- 1 = Admin (Guild administration)
+- 2 = Moderator (Moderation and logging)
+- 3 = Viewer (Read-only access)
+
+---
+
+### UserDiscordGuild
+
+User-guild relationships for portal membership verification and Discord permissions tracking.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique relationship record ID |
+| UserId | INTEGER (long) | No | - | FOREIGN KEY → Users(Id) | Discord user |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Discord guild |
+| IsOwner | INTEGER (bool) | No | false | - | Whether user owns the guild |
+| Permissions | TEXT (JSON) | Yes | NULL | - | JSON object of Discord permissions |
+| RefreshableAt | TEXT (DateTime) | No | - | - | When permissions data was last updated |
+
+**Indexes:**
+- `IX_UserDiscordGuild_UserId_GuildId` on `(UserId, GuildId)` (UNIQUE) - One record per user per guild
+- `IX_UserDiscordGuild_GuildId` on `GuildId` - All users in a guild
+
+**Foreign Keys:**
+- `UserId` → `Users(Id)` with `ON DELETE CASCADE`
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+## Moderation Tables
+
+### ModerationCase
+
+Records of moderation actions taken against users (bans, mutes, warns, etc.).
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique case identifier |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild where action occurred |
+| UserId | INTEGER (long) | No | - | - | User being moderated |
+| ModeratorId | INTEGER (long) | No | - | - | Moderator who took action |
+| CaseType | INTEGER | No | - | Enum: ModerationCaseType | Type of action (Warn, Mute, Ban, Kick, etc.) |
+| Reason | TEXT | Yes | NULL | MaxLength: 500 | Reason for moderation action |
+| Duration | INTEGER | Yes | NULL | - | Duration in minutes (NULL = permanent) |
+| CreatedAt | TEXT (DateTime) | No | - | - | When action was taken |
+| ExpiresAt | TEXT (DateTime) | Yes | NULL | - | When action expires (if temporary) |
+| IsActive | INTEGER (bool) | No | true | - | Whether action is currently active |
+
+**Indexes:**
+- `IX_ModerationCase_GuildId_UserId` on `(GuildId, UserId)` - User's moderation history in guild
+- `IX_ModerationCase_CreatedAt` on `CreatedAt` - Recent cases query
+- `IX_ModerationCase_ExpiresAt_IsActive` on `(ExpiresAt, IsActive)` - Expiration checks
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+**Enum Values (ModerationCaseType):**
+- 0 = Warn
+- 1 = Mute
+- 2 = Ban
+- 3 = Kick
+- 4 = Softban
+- 5 = TempBan
+- 6 = TempMute
+
+---
+
+### ModNote
+
+Moderator notes attached to users for communication and documentation.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique note identifier |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User the note is about |
+| ModeratorId | INTEGER (long) | No | - | - | Moderator who created note |
+| Content | TEXT | No | - | MaxLength: 2000 | Note content |
+| CreatedAt | TEXT (DateTime) | No | - | - | When note was created |
+| UpdatedAt | TEXT (DateTime) | No | - | - | When note was last updated |
+| IsPrivate | INTEGER (bool) | No | false | - | Whether note is private (not visible to user) |
+
+**Indexes:**
+- `IX_ModNote_GuildId_UserId` on `(GuildId, UserId)` - User's notes in guild
+- `IX_ModNote_CreatedAt` on `CreatedAt` - Recent notes query
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### ModTag
+
+Reusable tags for categorizing and marking users during moderation.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique tag identifier |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild this tag belongs to |
+| Name | TEXT | No | - | MaxLength: 50 | Tag name |
+| Description | TEXT | Yes | NULL | MaxLength: 200 | Tag description |
+| Color | TEXT | Yes | NULL | MaxLength: 7 | Hex color code (#RRGGBB) |
+| Category | TEXT | Yes | NULL | MaxLength: 50 | Tag category for grouping |
+| CreatedAt | TEXT (DateTime) | No | - | - | When tag was created |
+
+**Indexes:**
+- `IX_ModTag_GuildId` on `GuildId` - Guild's tags
+- `IX_ModTag_GuildId_Name` on `(GuildId, Name)` (UNIQUE) - Tag name uniqueness per guild
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### UserModTag
+
+Assignment of mod tags to users for tracking and categorization.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique assignment record ID |
+| UserId | INTEGER (long) | No | - | - | User tagged |
+| TagId | BLOB (Guid) | No | - | FOREIGN KEY → ModTag(Id) | The tag |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| AssignedBy | INTEGER (long) | No | - | - | Moderator who assigned tag |
+| AssignedAt | TEXT (DateTime) | No | - | - | When tag was assigned |
+
+**Indexes:**
+- `IX_UserModTag_UserId_GuildId` on `(UserId, GuildId)` - User's tags in guild
+- `IX_UserModTag_TagId` on `TagId` - Users with a specific tag
+
+**Foreign Keys:**
+- `TagId` → `ModTag(Id)` with `ON DELETE CASCADE`
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### GuildModerationConfig
+
+Per-guild moderation system configuration and settings.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| GuildId | INTEGER (long) | No | - | PRIMARY KEY, FOREIGN KEY → Guilds(Id) | Guild ID |
+| MuteRoleId | INTEGER (long) | Yes | NULL | - | Discord role ID for mutes |
+| LogChannelId | INTEGER (long) | Yes | NULL | - | Discord channel ID for mod logs |
+| AutoModEnabled | INTEGER (bool) | No | false | - | Whether auto-moderation is enabled |
+| RaidProtectionEnabled | INTEGER (bool) | No | false | - | Whether raid detection is enabled |
+| CreatedAt | TEXT (DateTime) | No | - | - | Configuration creation timestamp |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp |
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### FlaggedEvent
+
+Flagging system for suspicious or notable activity requiring moderator attention.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique flag identifier |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild where event occurred |
+| UserId | INTEGER (long) | No | - | - | User involved in flagged event |
+| EventType | TEXT | No | - | MaxLength: 50 | Type of event (Spam, RaidJoin, SuspiciousBehavior, etc.) |
+| Description | TEXT | No | - | MaxLength: 500 | Event description |
+| Status | INTEGER | No | 0 | Enum: FlaggedEventStatus | Current status (New, InProgress, Resolved, Dismissed) |
+| FlaggedAt | TEXT (DateTime) | No | - | - | When event was flagged |
+| ResolvedAt | TEXT (DateTime) | Yes | NULL | - | When issue was resolved |
+| ResolvedBy | INTEGER (long) | Yes | NULL | - | Moderator who resolved |
+
+**Indexes:**
+- `IX_FlaggedEvent_GuildId_Status` on `(GuildId, Status)` - Open flags per guild
+- `IX_FlaggedEvent_UserId` on `UserId` - User's flagged events
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### Watchlist
+
+Watchlist entries for tracking problematic users.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique watchlist entry ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User on watchlist |
+| Reason | TEXT | No | - | MaxLength: 500 | Reason for watchlist entry |
+| AddedBy | INTEGER (long) | No | - | - | Moderator who added entry |
+| AddedAt | TEXT (DateTime) | No | - | - | When entry was added |
+| ExpiresAt | TEXT (DateTime) | Yes | NULL | - | When watchlist entry expires (NULL = permanent) |
+
+**Indexes:**
+- `IX_Watchlist_GuildId_ExpiresAt` on `(GuildId, ExpiresAt)` - Active entries per guild
+- `IX_Watchlist_UserId` on `UserId` - User watchlist entries
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+## Audio & TTS Tables
+
+### Sound
+
+Soundboard entries - uploaded audio files for playback.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique sound identifier |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild this sound belongs to |
+| Name | TEXT | No | - | MaxLength: 100 | Sound name/alias |
+| FileName | TEXT | No | - | MaxLength: 255 | Original file name |
+| FilePath | TEXT | No | - | MaxLength: 500 | Path to audio file |
+| Duration | REAL | No | - | - | Duration in seconds |
+| FileSize | INTEGER | No | - | - | File size in bytes |
+| UploadedBy | INTEGER (long) | No | - | - | User who uploaded sound |
+| UploadedAt | TEXT (DateTime) | No | - | - | Upload timestamp |
+| PlayCount | INTEGER | No | 0 | - | Total times played |
+| IsActive | INTEGER (bool) | No | true | - | Whether sound is available |
+
+**Indexes:**
+- `IX_Sound_GuildId_IsActive` on `(GuildId, IsActive)` - Guild's active sounds
+- `IX_Sound_GuildId_Name` on `(GuildId, Name)` (UNIQUE) - Sound name lookup
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### SoundPlayLog
+
+Log of all sound playbacks for analytics and auditing.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique play log entry ID |
+| SoundId | BLOB (Guid) | No | - | FOREIGN KEY → Sound(Id) | Sound that was played |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who triggered playback |
+| ChannelId | INTEGER (long) | No | - | - | Voice channel where played |
+| PlayedAt | TEXT (DateTime) | No | - | - | Play timestamp |
+
+**Indexes:**
+- `IX_SoundPlayLog_SoundId` on `SoundId` - Play history per sound
+- `IX_SoundPlayLog_PlayedAt` on `PlayedAt` - Recent plays query
+
+**Foreign Keys:**
+- `SoundId` → `Sound(Id)` with `ON DELETE CASCADE`
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### GuildAudioSettings
+
+Per-guild audio and soundboard configuration.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| GuildId | INTEGER (long) | No | - | PRIMARY KEY, FOREIGN KEY → Guilds(Id) | Guild ID |
+| DefaultVolume | REAL | No | 0.5 | - | Default playback volume (0-1) |
+| MaxQueueSize | INTEGER | No | 50 | - | Maximum playback queue size |
+| AutoDisconnect | INTEGER | No | 300 | - | Auto-disconnect after N seconds (0 = disabled) |
+| DjRoleId | INTEGER (long) | Yes | NULL | - | Discord role ID with DJ permissions |
+| CreatedAt | TEXT (DateTime) | No | - | - | Configuration creation timestamp |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp |
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### TtsMessage
+
+Text-to-speech message history for auditing and analytics.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique TTS message ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who requested TTS |
+| Text | TEXT | No | - | MaxLength: 1000 | Text that was synthesized |
+| Voice | TEXT | No | - | MaxLength: 100 | Voice/speaker used |
+| Duration | REAL | No | - | - | Audio duration in seconds |
+| CreatedAt | TEXT (DateTime) | No | - | - | When message was synthesized |
+
+**Indexes:**
+- `IX_TtsMessage_GuildId_CreatedAt` on `(GuildId, CreatedAt)` - Guild TTS history
+- `IX_TtsMessage_UserId` on `UserId` - User's TTS messages
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### GuildTtsSettings
+
+Per-guild text-to-speech configuration.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| GuildId | INTEGER (long) | No | - | PRIMARY KEY, FOREIGN KEY → Guilds(Id) | Guild ID |
+| Enabled | INTEGER (bool) | No | true | - | Whether TTS feature is enabled |
+| DefaultVoice | TEXT | No | "en-US-JennyNeural" | MaxLength: 100 | Default voice name |
+| MaxLength | INTEGER | No | 200 | - | Maximum characters per TTS request |
+| RateLimitSeconds | INTEGER | No | 5 | - | Seconds between TTS requests per user |
+| CreatedAt | TEXT (DateTime) | No | - | - | Configuration creation timestamp |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp |
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+## Command Configuration Tables
+
+### CommandModuleConfiguration
+
+Per-guild enable/disable settings for command modules.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique configuration ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild this config applies to |
+| ModuleName | TEXT | No | - | MaxLength: 100 | Command module name |
+| IsEnabled | INTEGER (bool) | No | true | - | Whether module is enabled |
+| ConfiguredBy | TEXT | No | - | MaxLength: 450 | User ID who configured |
+| ConfiguredAt | TEXT (DateTime) | No | - | - | Configuration timestamp |
+
+**Indexes:**
+- `IX_CommandModuleConfiguration_GuildId_ModuleName` on `(GuildId, ModuleName)` (UNIQUE) - One config per module per guild
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### CommandRoleRestriction
+
+Role-based access control for individual commands.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique restriction ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild this applies to |
+| CommandName | TEXT | No | - | MaxLength: 100 | Command name/path |
+| RoleId | INTEGER (long) | No | - | - | Discord role ID |
+| IsAllowed | INTEGER (bool) | No | true | - | Whether role is allowed/denied |
+| ConfiguredAt | TEXT (DateTime) | No | - | - | Configuration timestamp |
+
+**Indexes:**
+- `IX_CommandRoleRestriction_GuildId_CommandName_RoleId` on `(GuildId, CommandName, RoleId)` (UNIQUE) - One restriction per role per command
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+## AI Assistant Tables
+
+### AssistantGuildSettings
+
+Per-guild AI assistant (LLM) configuration.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| GuildId | INTEGER (long) | No | - | PRIMARY KEY, FOREIGN KEY → Guilds(Id) | Guild ID |
+| Enabled | INTEGER (bool) | No | true | - | Whether assistant is enabled |
+| SystemPrompt | TEXT | Yes | NULL | MaxLength: 2000 | Custom system prompt |
+| MaxTokens | INTEGER | No | 1024 | - | Maximum response tokens |
+| Temperature | REAL | No | 0.7 | - | Response creativity (0-1) |
+| AllowedChannels | TEXT (JSON) | Yes | NULL | - | JSON array of allowed channel IDs (null = all) |
+| CreatedAt | TEXT (DateTime) | No | - | - | Configuration creation timestamp |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp |
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### AssistantUsageMetrics
+
+Daily usage metrics for AI assistant requests per guild and user.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique metric record ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User making requests |
+| Date | TEXT (Date) | No | - | - | Date of usage (YYYY-MM-DD) |
+| TokensUsed | INTEGER | No | 0 | - | Total tokens used that day |
+| RequestCount | INTEGER | No | 0 | - | Number of requests |
+| Cost | REAL | No | 0.0 | - | Estimated API cost in dollars |
+
+**Indexes:**
+- `IX_AssistantUsageMetrics_GuildId_Date` on `(GuildId, Date)` - Guild usage by date
+- `IX_AssistantUsageMetrics_UserId_Date` on `(UserId, Date)` - User usage by date
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### AssistantInteractionLog
+
+Detailed log of all AI assistant interactions for auditing and analysis.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique interaction ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who interacted |
+| Prompt | TEXT | No | - | - | User's prompt/request |
+| Response | TEXT | Yes | NULL | - | Assistant's response |
+| TokensUsed | INTEGER | No | 0 | - | Tokens used for request |
+| Duration | INTEGER | No | 0 | - | Response time in milliseconds |
+| Timestamp | TEXT (DateTime) | No | - | - | Interaction timestamp |
+
+**Indexes:**
+- `IX_AssistantInteractionLog_GuildId_Timestamp` on `(GuildId, Timestamp)` - Guild interactions by time
+- `IX_AssistantInteractionLog_UserId` on `UserId` - User interactions
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+## Analytics & Metrics Tables
+
+### MemberActivitySnapshot
+
+Aggregated member activity metrics (hourly, daily, weekly, monthly).
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique snapshot ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| Date | TEXT (DateTime) | No | - | - | Snapshot timestamp |
+| Granularity | INTEGER | No | - | Enum: Granularity | Time granularity (Hourly, Daily, Weekly, Monthly) |
+| ActiveMembers | INTEGER | No | 0 | - | Members with activity in period |
+| NewMembers | INTEGER | No | 0 | - | Members who joined in period |
+| LeftMembers | INTEGER | No | 0 | - | Members who left in period |
+| MessageCount | INTEGER | No | 0 | - | Total messages in period |
+
+**Indexes:**
+- `IX_MemberActivitySnapshot_GuildId_Date_Granularity` on `(GuildId, Date, Granularity)` - Guild snapshots
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### ChannelActivitySnapshot
+
+Per-channel activity aggregation.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique snapshot ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| ChannelId | INTEGER (long) | No | - | - | Discord channel ID |
+| Date | TEXT (DateTime) | No | - | - | Snapshot timestamp |
+| Granularity | INTEGER | No | - | Enum: Granularity | Time granularity |
+| MessageCount | INTEGER | No | 0 | - | Messages in period |
+| UniqueUsers | INTEGER | No | 0 | - | Unique users who posted |
+| AverageLength | REAL | No | 0.0 | - | Average message length |
+
+**Indexes:**
+- `IX_ChannelActivitySnapshot_GuildId_ChannelId_Date` on `(GuildId, ChannelId, Date)` - Channel snapshots
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### GuildMetricsSnapshot
+
+Guild-wide metrics aggregation.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique snapshot ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| Date | TEXT (DateTime) | No | - | - | Snapshot timestamp |
+| Granularity | INTEGER | No | - | Enum: Granularity | Time granularity |
+| TotalMembers | INTEGER | No | 0 | - | Total guild members |
+| OnlineMembers | INTEGER | No | 0 | - | Currently online members |
+| TotalChannels | INTEGER | No | 0 | - | Total guild channels |
+| CommandsExecuted | INTEGER | No | 0 | - | Commands executed in period |
+
+**Indexes:**
+- `IX_GuildMetricsSnapshot_GuildId_Date_Granularity` on `(GuildId, Date, Granularity)` - Guild metrics
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### MetricSnapshot
+
+Generic metric snapshots for arbitrary metrics and tags.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique metric record ID |
+| MetricName | TEXT | No | - | MaxLength: 100 | Metric name |
+| Value | REAL | No | - | - | Metric value |
+| Tags | TEXT (JSON) | Yes | NULL | - | JSON object of metric tags |
+| Timestamp | TEXT (DateTime) | No | - | - | Metric timestamp |
+| Granularity | INTEGER | No | - | Enum: Granularity | Time granularity |
+
+**Indexes:**
+- `IX_MetricSnapshot_MetricName_Timestamp` on `(MetricName, Timestamp)` - Metric queries by time
+
+---
+
+### PerformanceAlertConfig
+
+Configuration for performance monitoring alerts and thresholds.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique alert config ID |
+| MetricName | TEXT | No | - | MaxLength: 100 | Metric being monitored |
+| Threshold | REAL | No | - | - | Alert threshold value |
+| Operator | TEXT | No | - | MaxLength: 10 | Comparison operator (>, <, ==, etc.) |
+| Severity | INTEGER | No | 1 | Enum: Severity | Alert severity (0=Info, 1=Warning, 2=Critical) |
+| IsEnabled | INTEGER (bool) | No | true | - | Whether alert is active |
+| NotifyChannel | INTEGER (long) | Yes | NULL | - | Discord channel for notifications |
+| CreatedAt | TEXT (DateTime) | No | - | - | Configuration creation timestamp |
+
+**Indexes:**
+- `IX_PerformanceAlertConfig_IsEnabled` on `IsEnabled` - Active alerts lookup
+
+---
+
+### PerformanceIncident
+
+Performance incidents triggered by alert thresholds.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique incident ID |
+| AlertConfigId | BLOB (Guid) | No | - | FOREIGN KEY → PerformanceAlertConfig(Id) | Alert that triggered |
+| Value | REAL | No | - | - | Measured metric value |
+| Threshold | REAL | No | - | - | Threshold that was exceeded |
+| Status | INTEGER | No | 0 | Enum: IncidentStatus | Current status (Active, Resolved) |
+| StartedAt | TEXT (DateTime) | No | - | - | When incident started |
+| ResolvedAt | TEXT (DateTime) | Yes | NULL | - | When incident resolved |
+| Notes | TEXT | Yes | NULL | MaxLength: 500 | Incident notes |
+
+**Indexes:**
+- `IX_PerformanceIncident_Status_StartedAt` on `(Status, StartedAt)` - Active incidents
+
+**Foreign Keys:**
+- `AlertConfigId` → `PerformanceAlertConfig(Id)` with `ON DELETE CASCADE`
+
+---
+
+### UserActivityEvent
+
+Detailed user activity event logging for analytics and insights.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique event ID |
+| UserId | INTEGER (long) | No | - | - | User involved in event |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| EventType | TEXT | No | - | MaxLength: 100 | Type of event (MessageSent, CommandExecuted, VoiceJoin, etc.) |
+| Details | TEXT (JSON) | Yes | NULL | - | JSON details about the event |
+| Timestamp | TEXT (DateTime) | No | - | - | Event timestamp |
+
+**Indexes:**
+- `IX_UserActivityEvent_UserId_Timestamp` on `(UserId, Timestamp)` - User activity timeline
+- `IX_UserActivityEvent_GuildId_Timestamp` on `(GuildId, Timestamp)` - Guild activity timeline
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+## Other Tables
+
+### Reminder
+
+User reminders with temporal scheduling and recurrence support.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique reminder ID |
+| UserId | INTEGER (long) | No | - | - | User who created reminder |
+| GuildId | INTEGER (long) | Yes | NULL | FOREIGN KEY → Guilds(Id) | Guild context (NULL for DMs) |
+| ChannelId | INTEGER (long) | Yes | NULL | - | Discord channel for reminder |
+| Message | TEXT | No | - | MaxLength: 1000 | Reminder message |
+| RemindAt | TEXT (DateTime) | No | - | - | When to send reminder |
+| Status | INTEGER | No | 0 | Enum: ReminderStatus | Current status (Pending, Completed, Cancelled) |
+| CreatedAt | TEXT (DateTime) | No | - | - | When reminder was created |
+| Recurrence | TEXT | Yes | NULL | MaxLength: 100 | Recurrence pattern (cron or human-readable) |
+
+**Indexes:**
+- `IX_Reminder_UserId_Status` on `(UserId, Status)` - User's reminders
+- `IX_Reminder_RemindAt_Status` on `(RemindAt, Status)` - Reminders to execute
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE SET NULL`
+
+---
+
+### VerificationCode
+
+Email/phone verification codes for account security.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique code record ID |
+| UserId | TEXT | No | - | FOREIGN KEY → AspNetUsers(Id) | User being verified |
+| Code | TEXT | No | - | MaxLength: 10 | Verification code |
+| Type | TEXT | No | - | MaxLength: 50 | Code type (Email, SMS, etc.) |
+| ExpiresAt | TEXT (DateTime) | No | - | - | When code expires |
+| IsUsed | INTEGER (bool) | No | false | - | Whether code has been used |
+| CreatedAt | TEXT (DateTime) | No | - | - | Code creation timestamp |
+
+**Indexes:**
+- `IX_VerificationCode_UserId_Type` on `(UserId, Type)` - User's verification codes
+- `IX_VerificationCode_ExpiresAt` on `ExpiresAt` - Expired code cleanup
+
+**Foreign Keys:**
+- `UserId` → `AspNetUsers(Id)` with `ON DELETE CASCADE`
+
+---
+
+### ApplicationSetting
+
+Dynamic application-wide settings and configuration.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique setting ID |
+| Key | TEXT | No | - | MaxLength: 100, UNIQUE | Setting key/name |
+| Value | TEXT | No | - | - | Setting value |
+| Category | TEXT | Yes | NULL | MaxLength: 50 | Setting category |
+| DataType | TEXT | No | "string" | MaxLength: 50 | Value data type (string, int, bool, json, etc.) |
+| Description | TEXT | Yes | NULL | MaxLength: 500 | Setting description |
+| IsSecret | INTEGER (bool) | No | false | - | Whether value is sensitive |
+
+**Indexes:**
+- `IX_ApplicationSetting_Key` on `Key` - Setting lookup
+- `IX_ApplicationSetting_Category` on `Category` - Category queries
+
+---
+
+### UserNotification
+
+User notification queue for in-app and delivery notifications.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique notification ID |
+| UserId | TEXT | No | - | FOREIGN KEY → AspNetUsers(Id) | Recipient user |
+| Title | TEXT | No | - | MaxLength: 200 | Notification title |
+| Message | TEXT | No | - | MaxLength: 500 | Notification message |
+| Type | TEXT | No | "Info" | MaxLength: 50 | Notification type (Info, Warning, Error, Success) |
+| IsRead | INTEGER (bool) | No | false | - | Whether user has read notification |
+| CreatedAt | TEXT (DateTime) | No | - | - | Notification creation timestamp |
+| ReadAt | TEXT (DateTime) | Yes | NULL | - | When notification was read |
+| Link | TEXT | Yes | NULL | MaxLength: 500 | Optional link/action URL |
+
+**Indexes:**
+- `IX_UserNotification_UserId_IsRead` on `(UserId, IsRead)` - User's unread notifications
+- `IX_UserNotification_CreatedAt` on `CreatedAt` - Recent notifications query
+
+**Foreign Keys:**
+- `UserId` → `AspNetUsers(Id)` with `ON DELETE CASCADE`
+
+---
+
+### Theme
+
+UI theme customization and theming system.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | Auto-generated | PRIMARY KEY | Unique theme ID |
+| Name | TEXT | No | - | MaxLength: 100, UNIQUE | Theme name |
+| PrimaryColor | TEXT | No | - | MaxLength: 7 | Primary color hex code (#RRGGBB) |
+| SecondaryColor | TEXT | No | - | MaxLength: 7 | Secondary color hex code |
+| AccentColor | TEXT | No | - | MaxLength: 7 | Accent color hex code |
+| IsDefault | INTEGER (bool) | No | false | - | Whether this is the default theme |
+| CreatedBy | TEXT | Yes | NULL | MaxLength: 450 | User ID who created theme |
+| CreatedAt | TEXT (DateTime) | No | - | - | Theme creation timestamp |
+
+**Indexes:**
+- `IX_Theme_IsDefault` on `IsDefault` - Default theme lookup
+- `IX_Theme_Name` on `Name` - Theme lookup by name
+
+---
+
+### UserActivityLog
+
+Audit log of user actions for security and compliance.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique log entry ID |
+| UserId | TEXT | No | - | FOREIGN KEY → AspNetUsers(Id) | User who performed action |
+| Action | TEXT | No | - | MaxLength: 100 | Action performed |
+| Details | TEXT (JSON) | Yes | NULL | - | JSON action details |
+| Timestamp | TEXT (DateTime) | No | - | - | Action timestamp |
+| IpAddress | TEXT | Yes | NULL | MaxLength: 45 | IP address (IPv4/IPv6) |
+
+**Indexes:**
+- `IX_UserActivityLog_UserId_Timestamp` on `(UserId, Timestamp)` - User activity history
+- `IX_UserActivityLog_Timestamp` on `Timestamp` - Recent actions query
+
+**Foreign Keys:**
+- `UserId` → `AspNetUsers(Id)` with `ON DELETE CASCADE`
+
+---
+
+## Complete Entity Relationships
+
+### Full Entity Relationship Diagram
+
+```
+Core Entities
+├── Guild (1) ──────┬── CommandLogs (M)
+│                   ├── MessageLogs (M)
+│                   ├── AuditLogs (M)
+│                   ├── ScheduledMessages (M)
+│                   ├── WelcomeConfiguration (1)
+│                   ├── UserDiscordGuild (M)
+│                   ├── GuildMember (M)
+│                   │
+├── Moderation
+│                   ├── ModerationCase (M)
+│                   ├── ModNote (M)
+│                   ├── ModTag (M)
+│                   ├── GuildModerationConfig (1)
+│                   ├── FlaggedEvent (M)
+│                   ├── Watchlist (M)
+│                   │
+├── Audio/TTS
+│                   ├── Sound (M)
+│                   ├── GuildAudioSettings (1)
+│                   ├── GuildTtsSettings (1)
+│                   ├── TtsMessage (M)
+│                   │
+├── RatWatch System
+│                   ├── RatWatches (M)
+│                   ├── GuildRatWatchSettings (1)
+│                   │
+├── Configuration
+│                   ├── CommandModuleConfiguration (M)
+│                   ├── AssistantGuildSettings (1)
+│                   │
+├── Analytics
+│                   ├── MemberActivitySnapshot (M)
+│                   ├── ChannelActivitySnapshot (M)
+│                   ├── GuildMetricsSnapshot (M)
+│                   ├── UserActivityEvent (M)
+│                   │
+└── Performance
+                    ├── PerformanceAlertConfig (M)
+                    └── PerformanceIncident (M)
+
+User (Discord)
+    ├── GuildMember (M) - Guild memberships
+    ├── CommandLog (M) - Commands executed
+    ├── MessageLog (M) - Messages sent
+    ├── Reminder (M) - User reminders
+    ├── RatWatch (M) - As accused/initiator
+    ├── RatVote (M) - Votes cast
+    ├── UserModTag (M) - Applied tags
+    ├── TtsMessage (M) - TTS history
+    └── UserActivityEvent (M) - Activity log
+
+ApplicationUser (Identity)
+    ├── UserGuildAccess (M) - Portal roles per guild
+    ├── UserNotification (M) - Notifications
+    ├── VerificationCode (M) - Verification codes
+    └── UserActivityLog (M) - Action audit trail
+
+RatWatch System
+├── RatWatches (1) ─── RatVotes (M)
+└── RatWatches (1) ─── RatRecords (1)
+
+Sound
+    └── SoundPlayLog (M) - Play history
+
+PerformanceAlertConfig (1)
+    └── PerformanceIncident (M) - Triggered incidents
+```
+
+---
+
+## Enum Reference
+
+### Granularity
+
+Time granularity for aggregated metrics.
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | Hourly | Hourly aggregation |
+| 1 | Daily | Daily aggregation |
+| 2 | Weekly | Weekly aggregation |
+| 3 | Monthly | Monthly aggregation |
+
+### ReminderStatus
+
+Status values for reminders.
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | Pending | Reminder awaiting execution |
+| 1 | Completed | Reminder has been sent |
+| 2 | Cancelled | Reminder was cancelled by user |
+
+### FlaggedEventStatus
+
+Status values for flagged events.
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | New | Event flagged, not yet reviewed |
+| 1 | InProgress | Moderator is investigating |
+| 2 | Resolved | Issue has been addressed |
+| 3 | Dismissed | Flag was invalid |
+
+### ModerationCaseType
+
+Types of moderation actions.
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | Warn | User warning |
+| 1 | Mute | Temporary or permanent mute |
+| 2 | Ban | User ban from guild |
+| 3 | Kick | User removal from guild |
+| 4 | Softban | Ban and kick (removes messages) |
+| 5 | TempBan | Temporary ban |
+| 6 | TempMute | Temporary mute |
+
+### AccessRole
+
+Portal access roles for web UI.
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | SuperAdmin | Full system access |
+| 1 | Admin | Guild administration access |
+| 2 | Moderator | Moderation and logging access |
+| 3 | Viewer | Read-only access |
+
+### Severity
+
+Alert severity levels.
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | Info | Informational alert |
+| 1 | Warning | Warning-level alert |
+| 2 | Critical | Critical severity alert |
+
+### IncidentStatus
+
+Performance incident status.
+
+| Value | Name | Description |
+|-------|------|-------------|
+| 0 | Active | Incident currently occurring |
+| 1 | Resolved | Incident has been resolved |
 
 ---
 
@@ -1083,6 +2052,6 @@ All entities follow consistent patterns:
 
 ---
 
-*Document Version: 2.0*
+*Document Version: 3.0*
 *Created: December 2024*
-*Last Updated: December 30, 2024 - Added v0.3.0 entities (AuditLogs, ScheduledMessages, WelcomeConfigurations, MessageLogs, UserConsents, Rat Watch system)*
+*Last Updated: January 25, 2026 - Added v0.12.1 entities: User & Identity (ApplicationUser, GuildMember, UserGuildAccess, UserDiscordGuild), Moderation (ModerationCase, ModNote, ModTag, UserModTag, GuildModerationConfig, FlaggedEvent, Watchlist), Audio & TTS (Sound, SoundPlayLog, GuildAudioSettings, TtsMessage, GuildTtsSettings), Command Configuration (CommandModuleConfiguration, CommandRoleRestriction), AI Assistant (AssistantGuildSettings, AssistantUsageMetrics, AssistantInteractionLog), Analytics (MemberActivitySnapshot, ChannelActivitySnapshot, GuildMetricsSnapshot, MetricSnapshot, UserActivityEvent), Performance (PerformanceAlertConfig, PerformanceIncident), Other (Reminder, VerificationCode, ApplicationSetting, UserNotification, Theme, UserActivityLog); Updated existing entities with missing fields (User.AvatarUrl, User.IsBot, Guild.IconUrl, CommandLog.CorrelationId)*
