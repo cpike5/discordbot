@@ -12,6 +12,10 @@
   items:
     - name: Database Schema
       href: database-schema.md
+    - name: Service Architecture
+      href: service-architecture.md
+    - name: Background Services
+      href: background-services.md
     - name: Repository Pattern
       href: repository-pattern.md
     - name: Design System
