@@ -214,7 +214,7 @@ When settings requiring restart are changed, a banner appears at the top of the 
     <div>
       <h3>Restart Required</h3>
       <p>Some settings changes require a bot restart to take effect.</p>
-      <a href="/Admin/BotControl">Go to Bot Control →</a>
+      <a href="/Admin/Settings" onclick="window.settingsManager?.switchTab('BotControl'); return true;">Go to Bot Control →</a>
     </div>
   </div>
 </div>
