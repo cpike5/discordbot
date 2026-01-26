@@ -79,104 +79,11 @@ public class IndexModel : PageModel
 
     public MessageLogListViewModel ViewModel { get; set; } = new();
 
-    public async Task<IActionResult> OnGetAsync()
-    {
-        // Apply default date range (last 7 days) if no date filters specified
-        if (!StartDate.HasValue && !EndDate.HasValue)
-        {
-            StartDate = DateTime.UtcNow.Date.AddDays(-7);
-            EndDate = DateTime.UtcNow.Date.AddDays(1); // Include today's messages
-        }
-
-        _logger.LogDebug("Loading message logs with filters: AuthorId={AuthorId}, GuildId={GuildId}, ChannelId={ChannelId}, Source={Source}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}, Page={Page}, PageSize={PageSize}",
-            AuthorId, GuildId, ChannelId, Source, StartDate, EndDate, SearchTerm, CurrentPage, PageSize);
-
-        // Parse source filter
-        MessageSource? sourceFilter = null;
-        if (!string.IsNullOrEmpty(Source))
-        {
-            if (Enum.TryParse<MessageSource>(Source, true, out var parsedSource))
-            {
-                sourceFilter = parsedSource;
-            }
-            else
-            {
-                _logger.LogWarning("Invalid source filter value: {Source}", Source);
-            }
-        }
-
-        // Build query
-        var query = new MessageLogQueryDto
-        {
-            AuthorId = AuthorId,
-            GuildId = GuildId,
-            ChannelId = ChannelId,
-            Source = sourceFilter,
-            StartDate = StartDate,
-            EndDate = EndDate,
-            SearchTerm = SearchTerm,
-            Page = CurrentPage,
-            PageSize = PageSize
-        };
-
-        // Get messages
-        var result = await _messageLogService.GetLogsAsync(query);
-
-        _logger.LogInformation("Retrieved {Count} message logs (page {Page} of {TotalPages})",
-            result.Items.Count, result.Page, result.TotalPages);
-
-        // Populate display names for autocomplete fields
-        await PopulateDisplayNamesAsync();
-
-        // Build view model
-        ViewModel = new MessageLogListViewModel
-        {
-            Messages = result.Items,
-            Page = result.Page,
-            PageSize = result.PageSize,
-            TotalCount = result.TotalCount,
-            AuthorId = AuthorId,
-            GuildId = GuildId,
-            ChannelId = ChannelId,
-            Source = Source,
-            StartDate = StartDate,
-            EndDate = EndDate,
-            SearchTerm = SearchTerm
-        };
-
-        return Page();
-    }
-
     /// <summary>
-    /// Populates the display names for filter fields from their IDs.
+    /// Handles GET requests - redirects to unified Logs page.
     /// </summary>
-    private async Task PopulateDisplayNamesAsync()
+    public IActionResult OnGetAsync()
     {
-        // Get author username from message logs if AuthorId is specified
-        if (AuthorId.HasValue)
-        {
-            // Get the most recent message from this author to get their username
-            var messages = await _messageLogRepository.GetUserMessagesAsync(
-                AuthorId.Value,
-                limit: 1);
-
-            var message = messages.FirstOrDefault();
-            AuthorUsername = message?.User?.Username;
-        }
-
-        // Get guild name if GuildId is specified
-        if (GuildId.HasValue)
-        {
-            var guild = await _guildService.GetGuildByIdAsync(GuildId.Value);
-            GuildName = guild?.Name;
-        }
-
-        // Get channel name if ChannelId is specified
-        if (ChannelId.HasValue && GuildId.HasValue)
-        {
-            var socketGuild = _discordClient.GetGuild(GuildId.Value);
-            var channel = socketGuild?.GetChannel(ChannelId.Value);
-            ChannelName = channel?.Name;
-        }
+        return RedirectToPage("/Admin/Logs", new { tab = "messages" });
     }
 }

@@ -1,0 +1,703 @@
+@model DiscordBot.Bot.Pages.Admin.Logs.IndexModel
+@using DiscordBot.Core.Enums
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    // Autocomplete view model for Actor ID filter
+    var actorAutocomplete = new AutocompleteInputViewModel
+    {
+        Id = "ActorId",
+        Name = "ActorId",
+        Label = "Actor",
+        Placeholder = "Search by username...",
+        Endpoint = "/api/autocomplete/users",
+        InitialValue = Model.ActorId,
+        InitialDisplayText = Model.ActorDisplayName,
+        NoResultsMessage = "No users found"
+    };
+}
+
+<style>
+    /* Expandable row animation */
+    .expand-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    .expand-content.expanded {
+        max-height: 500px;
+    }
+
+    /* Chevron rotation */
+    .chevron-icon {
+        transition: transform 0.2s ease;
+    }
+    .chevron-icon.rotated {
+        transform: rotate(90deg);
+    }
+
+    /* JSON details viewer */
+    .json-viewer {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .json-viewer.expanded {
+        max-height: none;
+    }
+    .json-collapsed-overlay {
+        position: relative;
+    }
+    .json-collapsed-overlay::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background: linear-gradient(transparent, #1e2224);
+        pointer-events: none;
+    }
+    .json-collapsed-overlay.expanded::after {
+        display: none;
+    }
+</style>
+
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h2 class="text-xl font-semibold text-text-primary">Audit Logs</h2>
+            <p class="mt-1 text-sm text-text-secondary">Track administrative actions and changes across your bot</p>
+        </div>
+        <a asp-page-handler="Export"
+           asp-route-Category="@Model.Category"
+           asp-route-Action="@Model.Action"
+           asp-route-ActorId="@Model.ActorId"
+           asp-route-TargetType="@Model.TargetType"
+           asp-route-GuildId="@Model.AuditGuildId"
+           asp-route-StartDate="@Model.AuditStartDate?.ToString("yyyy-MM-dd")"
+           asp-route-EndDate="@Model.AuditEndDate?.ToString("yyyy-MM-dd")"
+           asp-route-SearchTerm="@Model.AuditSearchTerm"
+           asp-route-UserTimezone="@Model.UserTimezone"
+           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors"
+           aria-label="Export audit logs to CSV">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+        </a>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                Filters
+            </h3>
+            <button id="toggleFilters" type="button" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1" aria-expanded="@Model.AuditLogsViewModel.Filters.ShowFilters.ToString().ToLower()" aria-controls="filtersForm">
+                <span id="toggleFiltersText">@(Model.AuditLogsViewModel.Filters.ShowFilters ? "Hide Filters" : "Show Filters")</span>
+                <svg id="toggleFiltersIcon" class="w-4 h-4 transition-transform @(Model.AuditLogsViewModel.Filters.ShowFilters ? "" : "rotate-180")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                </svg>
+            </button>
+        </div>
+
+        <form id="filtersForm" method="get" class="space-y-4 @(Model.AuditLogsViewModel.Filters.ShowFilters ? "" : "hidden")">
+            <input type="hidden" name="UserTimezone" id="UserTimezone" value="" />
+            <input type="hidden" name="tab" value="audit" />
+            <!-- Row 1: Date Range -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- From Date -->
+                <div>
+                    <label for="auditStartDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                    <input
+                        type="date"
+                        id="auditStartDate"
+                        name="AuditStartDate"
+                        value="@Model.AuditStartDate?.ToString("yyyy-MM-dd")"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
+                    />
+                </div>
+
+                <!-- To Date -->
+                <div>
+                    <label for="auditEndDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                    <input
+                        type="date"
+                        id="auditEndDate"
+                        name="AuditEndDate"
+                        value="@Model.AuditEndDate?.ToString("yyyy-MM-dd")"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            <!-- Row 2: Category and Action -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Category Filter -->
+                <div>
+                    <label for="category" class="block text-sm font-medium text-text-primary mb-1">Category</label>
+                    <select
+                        id="category"
+                        name="Category"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
+                    >
+                        <option value="">All Categories</option>
+                        @foreach (var category in Enum.GetValues<AuditLogCategory>())
+                        {
+                            <option value="@((int)category)" selected="@(Model.Category == category)">@category</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Action Filter -->
+                <div>
+                    <label for="action" class="block text-sm font-medium text-text-primary mb-1">Action</label>
+                    <select
+                        id="action"
+                        name="Action"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
+                    >
+                        <option value="">All Actions</option>
+                        @foreach (var action in Enum.GetValues<AuditLogAction>())
+                        {
+                            <option value="@((int)action)" selected="@(Model.Action == action)">@action</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 3: Actor and Target Type -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Actor Filter -->
+                <partial name="Shared/Components/_AutocompleteInput" model="actorAutocomplete" />
+
+                <!-- Target Type Dropdown -->
+                <div>
+                    <label for="targetType" class="block text-sm font-medium text-text-primary mb-1">Target Type</label>
+                    <select
+                        id="targetType"
+                        name="TargetType"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
+                    >
+                        <option value="">All Types</option>
+                        <option value="User" selected="@(Model.TargetType == "User")">User</option>
+                        <option value="Guild" selected="@(Model.TargetType == "Guild")">Guild</option>
+                        <option value="Settings" selected="@(Model.TargetType == "Settings")">Settings</option>
+                        <option value="Message" selected="@(Model.TargetType == "Message")">Message</option>
+                        <option value="ScheduledMessage" selected="@(Model.TargetType == "ScheduledMessage")">Scheduled Message</option>
+                        <option value="Verification" selected="@(Model.TargetType == "Verification")">Verification Rule</option>
+                        <option value="BotConfig" selected="@(Model.TargetType == "BotConfig")">Bot Configuration</option>
+                        <option value="AuditLog" selected="@(Model.TargetType == "AuditLog")">Audit Logs</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 4: Guild and Search -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Guild Filter -->
+                <div>
+                    <label for="auditGuildId" class="block text-sm font-medium text-text-primary mb-1">Guild</label>
+                    <select
+                        id="auditGuildId"
+                        name="AuditGuildId"
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
+                    >
+                        <option value="">All Guilds</option>
+                        @foreach (var guild in Model.AvailableGuilds)
+                        {
+                            <option value="@guild.Id" selected="@(Model.AuditGuildId == guild.Id)">@guild.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- Content Search -->
+                <div>
+                    <label for="auditSearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                    <input
+                        type="text"
+                        id="auditSearchTerm"
+                        name="AuditSearchTerm"
+                        value="@Model.AuditSearchTerm"
+                        placeholder="Search in details..."
+                        class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent"
+                    />
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                <a asp-page="Index" asp-route-tab="audit" class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
+                    Clear Filters
+                </a>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange/80 transition-colors">
+                    <span class="flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        Apply Filters
+                    </span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Filter Status -->
+    @if (Model.AuditLogsViewModel.Filters.HasActiveFilters)
+    {
+        <div role="alert" aria-live="polite" class="mb-4">
+            <div class="flex items-center gap-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md px-3 py-2">
+                <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Active filters applied</span>
+            </div>
+        </div>
+    }
+
+    <!-- Results Summary -->
+    @if (Model.AuditLogsViewModel.Logs.Any())
+    {
+        <div class="flex items-center justify-between mb-4">
+            <p class="text-sm text-text-secondary">
+                Showing <span class="font-medium text-text-primary">@((Model.AuditLogsViewModel.CurrentPage - 1) * Model.AuditLogsViewModel.PageSize + 1)-@Math.Min(Model.AuditLogsViewModel.CurrentPage * Model.AuditLogsViewModel.PageSize, Model.AuditLogsViewModel.TotalCount)</span> of <span class="font-medium text-text-primary">@Model.AuditLogsViewModel.TotalCount</span> entries
+            </p>
+        </div>
+    }
+
+    <!-- Desktop Table (hidden on mobile) -->
+    <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-border-primary">
+            <thead class="bg-bg-tertiary">
+                <tr>
+                    <th scope="col" class="w-12 px-2 py-3"></th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Action</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actor</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Target</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider hidden lg:table-cell">Guild</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-border-primary">
+                @if (Model.AuditLogsViewModel.Logs.Any())
+                {
+                    @foreach (var log in Model.AuditLogsViewModel.Logs)
+                    {
+                        <!-- Main Row -->
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors audit-row" data-row-id="@log.Id">
+                            <td class="px-2 py-4">
+                                <button type="button"
+                                        class="expand-btn w-11 h-11 flex items-center justify-center hover:bg-bg-hover rounded transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus"
+                                        aria-label="Expand audit log details for @log.Action at @log.Timestamp.ToString("g")"
+                                        aria-expanded="false"
+                                        aria-controls="details-@log.Id">
+                                    <svg class="chevron-icon w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </button>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-text-secondary" data-utc="@log.TimestampUtcIso" data-format="datetime-seconds">
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <span id="action-@log.Id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @log.ActionBadgeClass">
+                                    @log.Action
+                                </span>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                @* Actor Display Pattern based on ActorType and available data *@
+                                @if (log.IsSystemActor)
+                                {
+                                    @* Pattern 3: System Actor *@
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                            </svg>
+                                        </div>
+                                        <span class="text-sm text-text-secondary">System</span>
+                                    </div>
+                                }
+                                else if (log.IsBotActor)
+                                {
+                                    @* Pattern 4: Bot Actor *@
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                            </svg>
+                                        </div>
+                                        <span class="text-sm text-text-secondary">Bot</span>
+                                    </div>
+                                }
+                                else if (log.IsUserActor && log.HasActorDisplayName)
+                                {
+                                    @* Pattern 1: User with Display Name *@
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
+                                            <span class="font-medium text-xs">@log.ActorInitials</span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(log.ActorId) && ulong.TryParse(log.ActorId, out var actorUserId))
+                                        {
+                                            <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@actorUserId" @(log.GuildId.HasValue ? $"data-context-guild-id=\"{log.GuildId}\"" : "")>@log.ActorDisplayName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                                        }
+                                    </div>
+                                }
+                                else if (log.IsUserActor && log.HasActorGuid)
+                                {
+                                    @* Pattern 2: User with GUID Only *@
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                        </div>
+                                        <div class="flex flex-col">
+                                            <a href="@log.ActorLinkUrl" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                                User
+                                            </a>
+                                            <span class="text-xs font-mono text-text-tertiary">@log.TruncatedActorId...</span>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    @* Pattern 5: Unknown Actor *@
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-tertiary flex items-center justify-center">
+                                            <span class="font-medium text-xs">?</span>
+                                        </div>
+                                        <span class="text-sm text-text-tertiary">Unknown</span>
+                                    </div>
+                                }
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm text-text-primary">
+                                @log.TargetType
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-sm hidden lg:table-cell">
+                                @if (!string.IsNullOrEmpty(log.GuildName) && log.GuildId.HasValue)
+                                {
+                                    <span class="text-text-primary preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                                }
+                                else if (!string.IsNullOrEmpty(log.GuildName))
+                                {
+                                    <span class="text-text-primary">@log.GuildName</span>
+                                }
+                                else
+                                {
+                                    <span class="text-text-secondary italic">@log.GetGuildDisplay()</span>
+                                }
+                            </td>
+                        </tr>
+                        <!-- Expandable content row -->
+                        <tr class="expand-content-row hidden"
+                            data-parent-id="@log.Id"
+                            id="details-@log.Id"
+                            role="region"
+                            aria-labelledby="action-@log.Id">
+                            <td colspan="6" class="px-4 py-0">
+                                <div class="expand-content bg-bg-primary border-l-2 @log.ActionBorderClass pl-4 py-3 my-2 rounded-r-md">
+                                    <!-- Metadata Grid -->
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+                                        <div>
+                                            <span class="text-text-tertiary">Entry ID:</span>
+                                            <span class="ml-2 font-mono text-text-secondary">@log.Id</span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(log.IpAddress))
+                                        {
+                                            <div>
+                                                <span class="text-text-tertiary">IP Address:</span>
+                                                <span class="ml-2 font-mono text-text-secondary">@log.IpAddress</span>
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(log.CorrelationId))
+                                        {
+                                            <div>
+                                                <span class="text-text-tertiary">Correlation ID:</span>
+                                                <span class="ml-2 font-mono text-text-secondary">@log.CorrelationId</span>
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(log.TargetId))
+                                        {
+                                            <div>
+                                                <span class="text-text-tertiary">Target ID:</span>
+                                                <span class="ml-2 font-mono text-text-secondary">@log.TargetId</span>
+                                            </div>
+                                        }
+                                    </div>
+                                    <!-- JSON Details Section -->
+                                    @if (log.HasDetails)
+                                    {
+                                        <div class="border-t border-border-secondary pt-3">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Details</span>
+                                                <button type="button" class="toggle-json-btn text-xs text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1" data-target="json-@log.Id" aria-expanded="false">
+                                                    <span class="toggle-json-text">Expand</span>
+                                                    <svg class="toggle-json-icon w-3 h-3 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <div id="json-@log.Id" class="json-collapsed-overlay">
+                                                <pre class="json-viewer bg-bg-tertiary rounded-md p-3 text-xs font-mono text-text-secondary overflow-x-auto">@log.FormattedDetails</pre>
+                                            </div>
+                                        </div>
+                                    }
+                                    <!-- View Details Link -->
+                                    <div class="flex justify-end mt-3 pt-3 border-t border-border-secondary">
+                                        <a asp-page="/Admin/AuditLogs/Details" asp-route-id="@log.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1">
+                                            View full details
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="6" class="px-4 py-12 text-center">
+                            @{
+                                var emptyTitleDesktop = Model.AuditLogsViewModel.Filters.HasActiveFilters
+                                    ? "No audit logs found"
+                                    : "No audit logs yet";
+                                var emptyDescDesktop = Model.AuditLogsViewModel.Filters.HasActiveFilters
+                                    ? "Try adjusting your filters or check back later"
+                                    : "Audit logs will appear here as actions are performed";
+                            }
+                            <partial name="Shared/Components/_EmptyState" model="new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
+                                Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
+                                Title = emptyTitleDesktop,
+                                Description = emptyDescDesktop
+                            }" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <!-- Pagination (Desktop) -->
+        @if (Model.AuditLogsViewModel.TotalPages > 1)
+        {
+            <div class="px-4 py-4 border-t border-border-primary">
+                @{
+                    var baseUrl = Url.Page(null, new {
+                        tab = "audit",
+                        Category = Model.Category.HasValue ? (int?)Model.Category.Value : null,
+                        Action = Model.Action.HasValue ? (int?)Model.Action.Value : null,
+                        ActorId = Model.ActorId,
+                        TargetType = Model.TargetType,
+                        AuditGuildId = Model.AuditGuildId,
+                        AuditStartDate = Model.AuditStartDate?.ToString("yyyy-MM-dd"),
+                        AuditEndDate = Model.AuditEndDate?.ToString("yyyy-MM-dd"),
+                        AuditSearchTerm = Model.AuditSearchTerm
+                    }) ?? string.Empty;
+                    var paginationModel = new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
+                        CurrentPage = Model.AuditLogsViewModel.CurrentPage,
+                        TotalPages = Model.AuditLogsViewModel.TotalPages,
+                        TotalItems = Model.AuditLogsViewModel.TotalCount,
+                        PageSize = Model.AuditLogsViewModel.PageSize,
+                        BaseUrl = baseUrl,
+                        ShowPageSizeSelector = true,
+                        ShowItemCount = false,
+                        ShowFirstLast = true,
+                        PageParameterName = "auditPageNumber"
+                    };
+                }
+                <partial name="Shared/Components/_Pagination" model="paginationModel" />
+            </div>
+        }
+    </div>
+
+    <!-- Mobile Card Layout (visible only on mobile) -->
+    <div class="md:hidden space-y-4">
+        @if (Model.AuditLogsViewModel.Logs.Any())
+        {
+            @foreach (var log in Model.AuditLogsViewModel.Logs)
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <!-- Header: Action Badge + Timestamp -->
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @log.ActionBadgeClass">
+                                @log.Action
+                            </span>
+                            <p class="text-xs text-text-tertiary mt-1" data-utc="@log.TimestampUtcIso" data-format="datetime-seconds">
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Actor (prominent) -->
+                    <div class="mb-3">
+                        <span class="text-xs text-text-tertiary">Actor:</span>
+                        <div class="mt-1">
+                            @if (log.IsSystemActor)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-sm text-text-secondary">System</span>
+                                </div>
+                            }
+                            else if (log.IsBotActor)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-sm text-text-secondary">Bot</span>
+                                </div>
+                            }
+                            else if (log.IsUserActor && log.HasActorDisplayName)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
+                                        <span class="font-medium text-xs">@log.ActorInitials</span>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(log.ActorId) && ulong.TryParse(log.ActorId, out var actorUserIdMobile))
+                                    {
+                                        <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@actorUserIdMobile" @(log.GuildId.HasValue ? $"data-context-guild-id=\"{log.GuildId}\"" : "")>@log.ActorDisplayName</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                                    }
+                                </div>
+                            }
+                            else if (log.IsUserActor && log.HasActorGuid)
+                            {
+                                <div class="flex items-center gap-2">
+                                    <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <a href="@log.ActorLinkUrl" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors min-h-[44px] flex items-center">
+                                            User
+                                        </a>
+                                        <span class="text-xs font-mono text-text-tertiary">@log.TruncatedActorId...</span>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="flex items-center gap-2">
+                                    <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-tertiary flex items-center justify-center">
+                                        <span class="font-medium text-xs">?</span>
+                                    </div>
+                                    <span class="text-sm text-text-tertiary">Unknown</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Metadata Grid -->
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span class="text-text-tertiary">Target:</span>
+                            <span class="text-text-primary ml-1">@log.TargetType</span>
+                        </div>
+                        <div>
+                            <span class="text-text-tertiary">Guild:</span>
+                            @if (!string.IsNullOrEmpty(log.GuildName) && log.GuildId.HasValue)
+                            {
+                                <span class="text-text-primary ml-1 preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                            }
+                            else if (!string.IsNullOrEmpty(log.GuildName))
+                            {
+                                <span class="text-text-primary ml-1">@log.GuildName</span>
+                            }
+                            else
+                            {
+                                <span class="text-text-secondary italic ml-1">@log.GetGuildDisplay()</span>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Details Summary (if available) -->
+                    @if (log.HasDetails)
+                    {
+                        <div class="mt-3 pt-3 border-t border-border-secondary">
+                            <p class="text-xs text-text-tertiary mb-1">Details:</p>
+                            <p class="text-xs text-text-secondary line-clamp-2">@log.DetailsSummary</p>
+                        </div>
+                    }
+
+                    <!-- View Details Link -->
+                    <div class="mt-3 pt-3 border-t border-border-secondary">
+                        <a asp-page="/Admin/AuditLogs/Details" asp-route-id="@log.Id"
+                           class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors inline-flex items-center gap-1 min-h-[44px]">
+                            View Details
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            }
+
+            <!-- Pagination (Mobile) -->
+            @if (Model.AuditLogsViewModel.TotalPages > 1)
+            {
+                <div class="mt-4">
+                    @{
+                        var mobileBaseUrl = Url.Page(null, new {
+                            tab = "audit",
+                            Category = Model.Category.HasValue ? (int?)Model.Category.Value : null,
+                            Action = Model.Action.HasValue ? (int?)Model.Action.Value : null,
+                            ActorId = Model.ActorId,
+                            TargetType = Model.TargetType,
+                            AuditGuildId = Model.AuditGuildId,
+                            AuditStartDate = Model.AuditStartDate?.ToString("yyyy-MM-dd"),
+                            AuditEndDate = Model.AuditEndDate?.ToString("yyyy-MM-dd"),
+                            AuditSearchTerm = Model.AuditSearchTerm
+                        }) ?? string.Empty;
+                        var mobilePaginationModel = new DiscordBot.Bot.ViewModels.Components.PaginationViewModel {
+                            CurrentPage = Model.AuditLogsViewModel.CurrentPage,
+                            TotalPages = Model.AuditLogsViewModel.TotalPages,
+                            TotalItems = Model.AuditLogsViewModel.TotalCount,
+                            PageSize = Model.AuditLogsViewModel.PageSize,
+                            BaseUrl = mobileBaseUrl,
+                            ShowPageSizeSelector = false,
+                            ShowItemCount = false,
+                            ShowFirstLast = false,
+                            PageParameterName = "auditPageNumber"
+                        };
+                    }
+                    <partial name="Shared/Components/_Pagination" model="mobilePaginationModel" />
+                </div>
+            }
+        }
+        else
+        {
+            <!-- Empty state for mobile -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                @{
+                    var hasFilters = Model.AuditLogsViewModel.Filters.HasActiveFilters;
+                    var emptyTitleMobile = hasFilters ? "No logs found" : "No audit logs yet";
+                    var emptyDescMobile = hasFilters ? "Try adjusting your filters" : "Audit logs will appear here as actions are performed";
+                }
+                <partial name="Shared/Components/_EmptyState" model="new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel {
+                    Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
+                    Title = emptyTitleMobile,
+                    Description = emptyDescMobile
+                }" />
+            </div>
+        }
+    </div>
+</div>
