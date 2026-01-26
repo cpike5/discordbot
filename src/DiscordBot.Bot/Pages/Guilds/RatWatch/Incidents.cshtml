@@ -8,6 +8,34 @@
     Layout = "_GuildLayout";
 }
 
+<!-- Rat Watch Navigation Tabs -->
+<partial name="Shared/Components/_TabPanel" model='new TabPanelViewModel {
+    Id = "ratWatchTabs",
+    StyleVariant = TabStyleVariant.Underline,
+    NavigationMode = TabNavigationMode.PageNavigation,
+    Tabs = new List<TabItemViewModel>
+    {
+        new() {
+            Id = "settings",
+            Label = "Settings",
+            Href = $"/Guilds/RatWatch/{Model.ViewModel.GuildId}"
+        },
+        new() {
+            Id = "analytics",
+            Label = "Analytics",
+            Href = $"/Guilds/RatWatch/Analytics/{Model.ViewModel.GuildId}"
+        },
+        new() {
+            Id = "incidents",
+            Label = "Incidents",
+            Href = $"/Guilds/RatWatch/Incidents/{Model.ViewModel.GuildId}"
+        }
+    },
+    ActiveTabId = "incidents",
+    AriaLabel = "Rat Watch navigation",
+    ContainerClass = "mb-6"
+}' />
+
 <!-- Filter Panel -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
         <button type="button"
