@@ -55,7 +55,9 @@
      data-tab-panel
      data-navigation-mode="@Model.NavigationMode.ToString().ToLowerInvariant()"
      data-persistence-mode="@Model.PersistenceMode.ToString().ToLowerInvariant()"
-     data-panel-id="@Model.Id">
+     data-panel-id="@Model.Id"
+     @(Model.NavigationMode == TabNavigationMode.Ajax && !string.IsNullOrEmpty(Model.AjaxUrlPattern) ? $"data-ajax-url-pattern=\"{Model.AjaxUrlPattern}\"" : "")
+     @(Model.NavigationMode == TabNavigationMode.Ajax && !string.IsNullOrEmpty(Model.AjaxContentTarget) ? $"data-ajax-content-target=\"{Model.AjaxContentTarget}\"" : "")>
     <nav class="tab-panel-tabs"
          id="@tablistId"
          role="tablist"
@@ -83,6 +85,7 @@
             }
             else
             {
+                @* For InPage and Ajax modes, use button *@
                 <button type="button"
                         class="@GetTabClass(tab)"
                         id="@tabElementId"

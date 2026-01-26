@@ -77,6 +77,19 @@ public record TabPanelViewModel
     /// <para>The style is rendered as CSS class "tab-panel-{variant}" on the container.</para>
     /// </remarks>
     public TabStyleVariant StyleVariant { get; init; } = TabStyleVariant.Underline;
+
+    /// <summary>
+    /// URL pattern for AJAX content loading (used when NavigationMode is Ajax).
+    /// The pattern should include "{tabId}" as a placeholder which will be replaced with the tab ID.
+    /// Example: "/Admin/Performance/Partial/{tabId}"
+    /// </summary>
+    public string? AjaxUrlPattern { get; init; }
+
+    /// <summary>
+    /// CSS selector for the content container where AJAX responses will be inserted (used when NavigationMode is Ajax).
+    /// Example: "#tabContent"
+    /// </summary>
+    public string? AjaxContentTarget { get; init; }
 }
 
 /// <summary>
@@ -159,7 +172,13 @@ public enum TabNavigationMode
     /// Tabs link to separate pages (full page navigation).
     /// Each tab's Href property must be set.
     /// </summary>
-    PageNavigation
+    PageNavigation,
+
+    /// <summary>
+    /// Tabs trigger AJAX requests to load content dynamically.
+    /// Content is fetched on demand from the URL pattern specified in AjaxUrlPattern.
+    /// </summary>
+    Ajax
 }
 
 /// <summary>
