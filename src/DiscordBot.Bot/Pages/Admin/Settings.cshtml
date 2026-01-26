@@ -625,9 +625,9 @@
 
                         <!-- Start Time -->
                         <div class="space-y-1">
-                            <p class="text-sm font-medium text-text-tertiary">Started At</p>
+                            <p class="text-sm font-medium text-text-tertiary">Started At (UTC)</p>
                             <p class="text-sm text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
-                                @Model.BotControlViewModel.Status.StartTime.ToString("yyyy-MM-dd HH:mm:ss") UTC
+                                @Model.BotControlViewModel.Status.StartTime.ToString("yyyy-MM-dd HH:mm:ss")
                             </p>
                         </div>
                     </div>
@@ -651,7 +651,7 @@
                     </p>
                     <div class="mt-4">
                         <button type="button"
-                                onclick="window.botControl?.showTypedModal('shutdownModal')"
+                                onclick="window.settingsManager?.showTypedModal('shutdownModal')"
                                 class="flex items-center gap-2 px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-lg transition-colors">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -853,6 +853,9 @@
 </style>
 
 @section Scripts {
+    <script>
+        // Pass server-side active category to JavaScript
+        window.initialActiveCategory = '@Model.ViewModel.ActiveCategory';
+    </script>
     <script src="~/js/settings.js" asp-append-version="true"></script>
-    <script src="~/js/bot-control.js"></script>
 }
