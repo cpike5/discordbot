@@ -1,0 +1,387 @@
+/* Navigation Tabs Component Styles */
+/* Unified navigation component with three style variants (issue #1250) */
+/* Variants: Underline, Pills, Bordered */
+
+/* ===== Base Container Styles ===== */
+.nav-tabs-container {
+    position: relative;
+}
+
+/* ===== Base Tab List Styles ===== */
+.nav-tabs-list {
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+}
+
+.nav-tabs-list::-webkit-scrollbar {
+    display: none;
+}
+
+/* ===== Base Tab Item Styles ===== */
+.nav-tabs-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.15s ease-out;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+}
+
+.nav-tabs-item:hover:not(.active):not(.disabled) {
+    color: var(--color-text-primary);
+}
+
+.nav-tabs-item.active {
+    color: var(--color-text-primary);
+}
+
+.nav-tabs-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* ===== Icon Styles ===== */
+.nav-tabs-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-shrink: 0;
+}
+
+.nav-tabs-item.active .nav-tabs-icon {
+    color: var(--color-accent-blue);
+}
+
+/* ===== Badge Styles ===== */
+.nav-tabs-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--color-accent-blue);
+    background: var(--color-accent-blue-muted);
+    border-radius: 9999px;
+}
+
+/* ===== Responsive Label Switching ===== */
+@media (max-width: 640px) {
+    .nav-tabs-item .tab-label-long {
+        display: none;
+    }
+
+    .nav-tabs-item .tab-label-short {
+        display: inline;
+    }
+}
+
+@media (min-width: 641px) {
+    .nav-tabs-item .tab-label-long {
+        display: inline;
+    }
+
+    .nav-tabs-item .tab-label-short {
+        display: none;
+    }
+}
+
+/* ===== Scroll Indicators Base ===== */
+.nav-tabs-container::before,
+.nav-tabs-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2rem;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.nav-tabs-container::before {
+    left: 0;
+}
+
+.nav-tabs-container::after {
+    right: 0;
+}
+
+.nav-tabs-container.can-scroll-left::before {
+    opacity: 1;
+}
+
+.nav-tabs-container.can-scroll-right::after {
+    opacity: 1;
+}
+
+/* ===== VARIANT: UNDERLINE ===== */
+/* Light background container with bottom border on active tab */
+/* Matches GuildNavBar/PerformanceTabs pattern */
+
+.nav-tabs-underline .nav-tabs-list {
+    gap: 0.25rem;
+    border-bottom: 2px solid var(--color-border-primary);
+}
+
+.nav-tabs-underline .nav-tabs-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.nav-tabs-underline .nav-tabs-item:hover:not(.active):not(.disabled) {
+    background: var(--color-bg-hover);
+    border-bottom-color: var(--color-border-secondary);
+}
+
+.nav-tabs-underline .nav-tabs-item.active {
+    color: var(--color-accent-blue);
+    border-bottom-color: var(--color-accent-blue);
+}
+
+.nav-tabs-underline .nav-tabs-item:focus-visible {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: -2px;
+    border-radius: 0.25rem 0.25rem 0 0;
+}
+
+/* Scroll indicators for underline variant */
+.nav-tabs-underline::before {
+    bottom: 2px; /* Account for border */
+    background: linear-gradient(to right, var(--color-bg-primary), transparent);
+}
+
+.nav-tabs-underline::after {
+    bottom: 2px; /* Account for border */
+    background: linear-gradient(to left, var(--color-bg-primary), transparent);
+}
+
+/* ===== VARIANT: PILLS ===== */
+/* Rounded container with filled background on active tab */
+/* Matches AudioTabs pattern */
+
+.nav-tabs-pills .nav-tabs-list {
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.75rem;
+}
+
+.nav-tabs-pills .nav-tabs-item {
+    padding: 0.625rem 1rem;
+    border-radius: 0.5rem;
+}
+
+.nav-tabs-pills .nav-tabs-item:hover:not(.active):not(.disabled) {
+    background: var(--color-bg-hover);
+}
+
+.nav-tabs-pills .nav-tabs-item.active {
+    background: var(--color-bg-tertiary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.nav-tabs-pills .nav-tabs-item:focus-visible {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+}
+
+/* Scroll indicators for pills variant */
+.nav-tabs-pills::before {
+    background: linear-gradient(to right, var(--color-bg-secondary) 0%, transparent 100%);
+    border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.nav-tabs-pills::after {
+    background: linear-gradient(to left, var(--color-bg-secondary) 0%, transparent 100%);
+    border-radius: 0 0.75rem 0.75rem 0;
+}
+
+/* ===== VARIANT: BORDERED ===== */
+/* Underline style with Discord branding colors */
+/* Matches Portal Header pattern */
+
+.nav-tabs-bordered .nav-tabs-list {
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--color-border-secondary);
+}
+
+.nav-tabs-bordered .nav-tabs-item {
+    padding: 0.75rem 1.25rem;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.nav-tabs-bordered .nav-tabs-item:hover:not(.active):not(.disabled) {
+    background: var(--color-bg-hover);
+}
+
+.nav-tabs-bordered .nav-tabs-item.active {
+    color: var(--color-discord);
+    border-bottom-color: var(--color-discord);
+}
+
+.nav-tabs-bordered .nav-tabs-item.active .nav-tabs-icon {
+    color: var(--color-discord);
+}
+
+.nav-tabs-bordered .nav-tabs-item:focus-visible {
+    outline: 2px solid var(--color-discord);
+    outline-offset: -2px;
+    border-radius: 0.25rem 0.25rem 0 0;
+}
+
+/* Scroll indicators for bordered variant */
+.nav-tabs-bordered::before {
+    bottom: 2px; /* Account for border */
+    background: linear-gradient(to right, var(--color-bg-primary), transparent);
+}
+
+.nav-tabs-bordered::after {
+    bottom: 2px; /* Account for border */
+    background: linear-gradient(to left, var(--color-bg-primary), transparent);
+}
+
+/* ===== Mobile Optimizations ===== */
+@media (max-width: 640px) {
+    .nav-tabs-item {
+        font-size: 0.8125rem;
+    }
+
+    .nav-tabs-icon {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    /* Pills variant mobile adjustments */
+    .nav-tabs-pills .nav-tabs-item {
+        padding: 0.5rem 0.875rem;
+    }
+
+    /* Underline variant mobile adjustments */
+    .nav-tabs-underline .nav-tabs-item {
+        padding: 0.625rem 0.75rem;
+    }
+
+    /* Bordered variant mobile adjustments */
+    .nav-tabs-bordered .nav-tabs-item {
+        padding: 0.625rem 1rem;
+    }
+}
+
+/* ===== Keyboard Navigation Focus Ring ===== */
+.nav-tabs-item:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ===== Loading State ===== */
+.nav-tabs-container[data-loading="true"] {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Loading state container */
+.nav-tabs-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 3rem;
+    min-height: 200px;
+    color: var(--color-text-secondary);
+}
+
+/* Loading spinner */
+.nav-tabs-loading-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-blue);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Loading text */
+.nav-tabs-loading-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+/* ===== Error State ===== */
+.nav-tabs-error {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 3rem;
+    min-height: 200px;
+    color: var(--color-text-secondary);
+}
+
+/* Error icon */
+.nav-tabs-error-icon {
+    width: 3rem;
+    height: 3rem;
+    color: var(--color-accent-red);
+    flex-shrink: 0;
+}
+
+/* Error text */
+.nav-tabs-error-text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+}
+
+/* Error detail */
+.nav-tabs-error-detail {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    text-align: center;
+    max-width: 30rem;
+    word-break: break-word;
+}
+
+/* ===== Animation for Tab Panel Transitions ===== */
+@keyframes navTabFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+[data-nav-panel-for]:not([hidden]) {
+    animation: navTabFadeIn 0.2s ease;
+}
