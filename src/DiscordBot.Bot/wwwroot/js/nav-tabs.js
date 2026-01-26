@@ -251,10 +251,26 @@
 
                 if (targetTab) {
                     targetTab.focus();
+
+                    // Announce position to screen readers
+                    const position = enabledTabs.indexOf(targetTab) + 1;
+                    const total = enabledTabs.length;
+                    const tabLabel = targetTab.textContent?.trim() || targetTab.dataset.tabId;
+                    self.announce(`${tabLabel}, tab ${position} of ${total}`);
+
                     // In in-page/ajax modes, also activate on arrow key navigation
                     if (instance.navigationMode !== 'pagenavigation') {
                         self.activateTab(instance, targetTab.dataset.tabId);
                     }
+                }
+            });
+
+            // When focus enters tablist via Tab key, focus the active tab (roving tabindex)
+            tablist.addEventListener('focusin', function(e) {
+                const activeTab = tablist.querySelector('[aria-selected="true"]');
+                if (activeTab && e.target !== activeTab &&
+                    (enabledTabs.includes(e.target) || e.target === tablist)) {
+                    activeTab.focus();
                 }
             });
         },
@@ -339,12 +355,19 @@
                 return;
             }
 
+            // Get enabled tabs for position calculation
+            const enabledTabs = Array.from(tabs).filter(tab =>
+                !tab.disabled && !tab.hasAttribute('aria-disabled')
+            );
+
             // Update tab states
             tabs.forEach(tab => {
                 const isActive = tab.dataset.tabId === tabId;
+                const isDisabled = tab.disabled || tab.hasAttribute('aria-disabled');
                 tab.classList.toggle(instance.config.activeClass, isActive);
                 tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-                tab.setAttribute('tabindex', isActive ? '0' : '-1');
+                // Disabled tabs always get tabindex -1
+                tab.setAttribute('tabindex', (isActive && !isDisabled) ? '0' : '-1');
 
                 // Update icon
                 this.updateTabIcon(instance, tab, isActive);
@@ -356,9 +379,11 @@
             // Scroll active tab into view if needed
             this.scrollTabIntoView(instance, tablist, targetTab);
 
-            // Announce to screen readers
+            // Announce to screen readers with position info
             const tabLabel = targetTab.textContent?.trim() || tabId;
-            this.announce(`${tabLabel} tab selected`);
+            const position = enabledTabs.indexOf(targetTab) + 1;
+            const total = enabledTabs.length;
+            this.announce(`${tabLabel} tab selected. Tab ${position} of ${total}`);
 
             // Handle content based on navigation mode
             if (instance.navigationMode === 'inpage') {

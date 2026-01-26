@@ -293,6 +293,27 @@
     outline: none;
 }
 
+/* ===== High Contrast Mode Support ===== */
+@media (prefers-contrast: high) {
+    .nav-tabs-item:focus-visible {
+        outline-width: 3px;
+        outline-color: currentColor;
+    }
+}
+
+/* ===== Screen Reader Only Utility ===== */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 /* ===== Loading State ===== */
 .nav-tabs-container[data-loading="true"] {
     opacity: 0.6;
