@@ -252,6 +252,13 @@ public enum TabBadgeVariant
 /// configuration interfaces, and clearly separated sections.
 /// </description>
 /// </item>
+/// <item>
+/// <term><see cref="Portal"/></term>
+/// <description>
+/// Clean underline style with Discord accent on active tab.
+/// Suitable for member-facing Portal interface pages.
+/// </description>
+/// </item>
 /// </list>
 /// <para>
 /// The variant is rendered as a CSS class on the container: "tab-panel-{variant}" (e.g., "tab-panel-pills").
@@ -288,5 +295,15 @@ public enum TabStyleVariant
     /// background or distinct highlight. Provides the strongest visual separation between
     /// tabs. Suitable for settings and configuration interfaces.
     /// </remarks>
-    Bordered = 2
+    Bordered = 2,
+
+    /// <summary>
+    /// Tabs styled for the Portal with clean underline and Discord accent.
+    /// </summary>
+    /// <remarks>
+    /// Similar to the Underline variant but uses Discord blurple for the active tab indicator
+    /// and text color. Provides a clean, minimal look that works with both light and dark themes.
+    /// Designed specifically for the member-facing Portal interface (Soundboard, TTS).
+    /// </remarks>
+    Portal = 3
 }

@@ -1,8 +1,35 @@
 @model DiscordBot.Bot.ViewModels.Portal.PortalHeaderViewModel
 
+@using DiscordBot.Bot.ViewModels.Components
+
 @{
-    var soundboardUrl = $"/Portal/Soundboard/{Model.GuildId}";
-    var ttsUrl = $"/Portal/TTS/{Model.GuildId}";
+    // Build TabPanel ViewModel inline
+    Model.TabsViewModel = new TabPanelViewModel
+    {
+        Id = "portalTabs",
+        StyleVariant = TabStyleVariant.Portal,
+        NavigationMode = TabNavigationMode.PageNavigation,
+        PersistenceMode = TabPersistenceMode.None,
+        Tabs = new List<TabItemViewModel>
+        {
+            new()
+            {
+                Id = "soundboard",
+                Label = "Soundboard",
+                Href = $"/Portal/Soundboard/{Model.GuildId}",
+                IconPathOutline = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+            },
+            new()
+            {
+                Id = "tts",
+                Label = "Text-to-Speech",
+                Href = $"/Portal/TTS/{Model.GuildId}",
+                IconPathOutline = "M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+            }
+        },
+        ActiveTabId = Model.ActiveTab,
+        AriaLabel = "Portal sections"
+    };
 }
 
 <style>
@@ -98,43 +125,6 @@
         background-color: currentColor;
     }
 
-    /* Navigation Tabs */
-    .portal-nav {
-        display: flex;
-        gap: 0.5rem;
-        border-bottom: 2px solid var(--color-border-secondary);
-    }
-
-    .portal-nav-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1.25rem;
-        color: var(--color-text-secondary);
-        text-decoration: none;
-        font-size: 0.875rem;
-        font-weight: 500;
-        border-bottom: 2px solid transparent;
-        margin-bottom: -2px;
-        transition: all 0.2s;
-        position: relative;
-    }
-
-    .portal-nav-link:hover {
-        color: var(--color-text-primary);
-        background-color: var(--color-bg-hover);
-    }
-
-    .portal-nav-link.active {
-        color: var(--color-discord);
-        border-bottom-color: var(--color-discord);
-    }
-
-    .portal-nav-link svg {
-        width: 16px;
-        height: 16px;
-    }
-
     @@media (max-width: 640px) {
         .portal-header .header-content {
             padding: 1rem 1rem 0;
@@ -144,15 +134,6 @@
             flex-direction: column;
             align-items: flex-start;
             gap: 0.75rem;
-        }
-
-        .portal-nav {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .portal-nav-link {
-            white-space: nowrap;
         }
     }
 </style>
@@ -187,19 +168,9 @@
         </div>
 
         <!-- Navigation Tabs -->
-        <nav class="portal-nav">
-            <a href="@soundboardUrl" class="portal-nav-link @(Model.ActiveTab == "soundboard" ? "active" : "")">
-                <svg fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 3v9.28c-.47-.17-.97-.28-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/>
-                </svg>
-                Soundboard
-            </a>
-            <a href="@ttsUrl" class="portal-nav-link @(Model.ActiveTab == "tts" ? "active" : "")">
-                <svg fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2c-5.33 4.55-8 8.48-8 11.8 0 4.98 3.8 8.2 8 8.2s8-3.22 8-8.2c0-3.32-2.67-7.25-8-11.8zm0 18c-3.35 0-6-2.57-6-6.1 0-2.5 1.72-5.61 6-9.51 4.28 3.9 6 7.01 6 9.51 0 3.53-2.65 6.1-6 6.1z"/>
-                </svg>
-                Text-to-Speech
-            </a>
-        </nav>
+        @if (Model.TabsViewModel != null)
+        {
+            @await Html.PartialAsync("Components/_TabPanel", Model.TabsViewModel)
+        }
     </div>
 </header>

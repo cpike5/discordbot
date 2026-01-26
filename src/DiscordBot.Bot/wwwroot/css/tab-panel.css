@@ -212,6 +212,52 @@
     background: linear-gradient(to left, var(--color-bg-primary), transparent);
 }
 
+/* ===== VARIANT: PORTAL ===== */
+/* Clean underline style with Discord accent on active tab */
+
+.tab-panel-portal .tab-panel-tabs {
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--color-border-secondary);
+}
+
+.tab-panel-portal .tab-panel-tab {
+    color: var(--color-text-secondary);
+    padding: 0.75rem 1.25rem;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.tab-panel-portal .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+}
+
+.tab-panel-portal .tab-panel-tab.active {
+    color: var(--color-discord);
+    border-bottom-color: var(--color-discord);
+}
+
+.tab-panel-portal .tab-panel-tab.active .tab-icon {
+    color: var(--color-discord);
+}
+
+.tab-panel-portal .tab-panel-tab:focus-visible {
+    outline: 2px solid var(--color-discord);
+    outline-offset: -2px;
+    border-radius: 0.25rem 0.25rem 0 0;
+}
+
+/* Scroll indicators for portal variant */
+.tab-panel-portal::before {
+    bottom: 2px;
+    background: linear-gradient(to right, var(--color-bg-secondary), transparent);
+}
+
+.tab-panel-portal::after {
+    bottom: 2px;
+    background: linear-gradient(to left, var(--color-bg-secondary), transparent);
+}
+
 /* ===== Tab Icons ===== */
 .tab-panel-tab .tab-icon {
     width: 1.25rem;
@@ -260,6 +306,11 @@
     /* Bordered variant mobile adjustments */
     .tab-panel-bordered .tab-panel-tab {
         padding: 0.625rem 1rem;
+    }
+
+    /* Portal variant mobile adjustments */
+    .tab-panel-portal .tab-panel-tab {
+        padding: 0.625rem 0.75rem;
     }
 }
 

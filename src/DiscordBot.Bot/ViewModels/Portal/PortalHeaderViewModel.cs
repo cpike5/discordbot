@@ -1,3 +1,5 @@
+using DiscordBot.Bot.ViewModels.Components;
+
 namespace DiscordBot.Bot.ViewModels.Portal;
 
 /// <summary>
@@ -29,4 +31,9 @@ public class PortalHeaderViewModel
     /// Gets or sets the active tab ("soundboard" or "tts").
     /// </summary>
     public string ActiveTab { get; set; } = "soundboard";
+
+    /// <summary>
+    /// Gets or sets the TabPanel view model for navigation tabs.
+    /// </summary>
+    public TabPanelViewModel? TabsViewModel { get; set; }
 }
