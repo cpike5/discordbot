@@ -212,6 +212,59 @@
     background: linear-gradient(to left, var(--color-bg-primary), transparent);
 }
 
+/* ===== VARIANT: PORTAL ===== */
+/* Discord-branded gradient with light active tabs */
+
+.tab-panel-portal .tab-panel-tabs {
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: linear-gradient(135deg, var(--color-discord) 0%, #FF8C69 50%, #F59E42 100%);
+    border-radius: 0.5rem;
+}
+
+.tab-panel-portal .tab-panel-tab {
+    color: rgba(255, 255, 255, 0.85);
+    border-radius: 0.375rem;
+    padding: 0.75rem 1.25rem;
+}
+
+.tab-panel-portal .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
+    color: rgba(255, 255, 255, 1);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tab-panel-portal .tab-panel-tab.active {
+    color: var(--color-discord);
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.tab-panel-portal .tab-panel-tab.active .tab-icon {
+    color: var(--color-discord);
+}
+
+.tab-panel-portal .tab-panel-tab:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.9);
+    outline-offset: 2px;
+}
+
+/* Scroll indicators for portal variant */
+.tab-panel-portal::before {
+    background: linear-gradient(to right,
+        var(--color-discord) 0%,
+        rgba(88, 101, 242, 0.8) 30%,
+        transparent 100%);
+    border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.tab-panel-portal::after {
+    background: linear-gradient(to left,
+        rgb(245, 158, 66) 0%,
+        rgba(245, 158, 66, 0.8) 30%,
+        transparent 100%);
+    border-radius: 0 0.5rem 0.5rem 0;
+}
+
 /* ===== Tab Icons ===== */
 .tab-panel-tab .tab-icon {
     width: 1.25rem;
@@ -260,6 +313,15 @@
     /* Bordered variant mobile adjustments */
     .tab-panel-bordered .tab-panel-tab {
         padding: 0.625rem 1rem;
+    }
+
+    /* Portal variant mobile adjustments */
+    .tab-panel-portal .tab-panel-tab {
+        padding: 0.625rem 1rem;
+    }
+
+    .tab-panel-portal .tab-panel-tabs {
+        padding: 0.375rem;
     }
 }
 

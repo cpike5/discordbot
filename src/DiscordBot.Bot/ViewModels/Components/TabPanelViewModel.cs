@@ -252,6 +252,13 @@ public enum TabBadgeVariant
 /// configuration interfaces, and clearly separated sections.
 /// </description>
 /// </item>
+/// <item>
+/// <term><see cref="Portal"/></term>
+/// <description>
+/// Discord-branded gradient background with white active tab and semi-transparent inactive tabs.
+/// Suitable for member-facing Portal interface pages.
+/// </description>
+/// </item>
 /// </list>
 /// <para>
 /// The variant is rendered as a CSS class on the container: "tab-panel-{variant}" (e.g., "tab-panel-pills").
@@ -288,5 +295,16 @@ public enum TabStyleVariant
     /// background or distinct highlight. Provides the strongest visual separation between
     /// tabs. Suitable for settings and configuration interfaces.
     /// </remarks>
-    Bordered = 2
+    Bordered = 2,
+
+    /// <summary>
+    /// Tabs styled for the Portal with Discord-branded gradient background.
+    /// </summary>
+    /// <remarks>
+    /// Features a Discord-inspired gradient background (blue to coral/orange). Active tabs
+    /// have a white/light background with Discord blue text, while inactive tabs display
+    /// semi-transparent white text on the gradient. Designed specifically for the member-facing
+    /// Portal interface (Soundboard, TTS).
+    /// </remarks>
+    Portal = 3
 }
