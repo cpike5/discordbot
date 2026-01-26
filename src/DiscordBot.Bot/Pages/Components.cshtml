@@ -5,6 +5,14 @@
     ViewData["Title"] = "Component Showcase";
 }
 
+@section Styles {
+    <link rel="stylesheet" href="~/css/nav-tabs.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
+}
+
 <div class="space-y-8">
     <!-- Page Header -->
     <div class="mb-8">
@@ -357,6 +365,111 @@
                 <h4 class="text-sm font-semibold text-text-primary mb-3">Bordered Style</h4>
                 <div>
                     @await Html.PartialAsync("Components/_Pagination", Model.PaginationStyles[3])
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 11. NAVIGATION TABS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Navigation Tabs</h3>
+            <p class="text-sm text-text-secondary mt-1">Tab navigation with multiple styles and features</p>
+        </div>
+        <div class="p-6 space-y-8">
+            <!-- Underline Style -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Underline Style (Default)</h4>
+                <p class="text-xs text-text-tertiary mb-4">Minimal style with underline indicator. Best for content pages.</p>
+                @await Html.PartialAsync("Components/_NavTabs", Model.UnderlineTabs)
+                <div class="mt-4">
+                    <div data-nav-panel-for="underlineTabs" data-tab-id="overview">
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Overview content panel</p>
+                        </div>
+                    </div>
+                    <div data-nav-panel-for="underlineTabs" data-tab-id="details" hidden>
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Details content panel</p>
+                        </div>
+                    </div>
+                    <div data-nav-panel-for="underlineTabs" data-tab-id="settings" hidden>
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Settings content panel</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pills Style -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Pills Style</h4>
+                <p class="text-xs text-text-tertiary mb-4">Rounded background on active tab. Best for modals and compact spaces.</p>
+                @await Html.PartialAsync("Components/_NavTabs", Model.PillsTabs)
+                <div class="mt-4">
+                    <div data-nav-panel-for="pillsTabs" data-tab-id="general">
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">General settings panel</p>
+                        </div>
+                    </div>
+                    <div data-nav-panel-for="pillsTabs" data-tab-id="advanced" hidden>
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Advanced settings panel</p>
+                        </div>
+                    </div>
+                    <div data-nav-panel-for="pillsTabs" data-tab-id="security" hidden>
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Security settings panel</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bordered Style -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Bordered Style</h4>
+                <p class="text-xs text-text-tertiary mb-4">Full borders around tabs. Best for settings pages.</p>
+                @await Html.PartialAsync("Components/_NavTabs", Model.BorderedTabs)
+                <div class="mt-4">
+                    <div data-nav-panel-for="borderedTabs" data-tab-id="profile">
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Profile settings panel</p>
+                        </div>
+                    </div>
+                    <div data-nav-panel-for="borderedTabs" data-tab-id="preferences" hidden>
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Preferences panel</p>
+                        </div>
+                    </div>
+                    <div data-nav-panel-for="borderedTabs" data-tab-id="notifications" hidden>
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Notification settings panel</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- With Icons -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">With Icons and Short Labels</h4>
+                <p class="text-xs text-text-tertiary mb-4">Icons swap from outline to solid when active. Short labels appear on narrow screens.</p>
+                @await Html.PartialAsync("Components/_NavTabs", Model.IconTabs)
+                <div class="mt-4">
+                    <div data-nav-panel-for="iconTabs" data-tab-id="home">
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Home panel - icon changed to solid</p>
+                        </div>
+                    </div>
+                    <div data-nav-panel-for="iconTabs" data-tab-id="users" hidden>
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Members panel - "Members" shows as "Users" on mobile</p>
+                        </div>
+                    </div>
+                    <div data-nav-panel-for="iconTabs" data-tab-id="cog" hidden>
+                        <div class="p-4 bg-bg-tertiary rounded-lg">
+                            <p class="text-text-secondary">Configuration panel - "Configuration" shows as "Config" on mobile</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
