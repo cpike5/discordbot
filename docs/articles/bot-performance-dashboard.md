@@ -1712,7 +1712,7 @@ Scrollable list of up to 5 most recent active performance incidents:
 **Quick Actions**
 
 Four action buttons providing common administrative tasks:
-- **Restart Bot**: Links to `/Admin/BotControl` for bot restart
+- **Restart Bot**: Links to `/Admin/Settings` (Bot Control tab) for bot restart
 - **Clear Cache**: Placeholder for cache clearing functionality
 - **Export Metrics**: Placeholder for metric export functionality
 - **Configure Alerts**: Links to `/Admin/Performance/Alerts` threshold configuration

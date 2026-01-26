@@ -94,8 +94,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | Audit Log Details | `/Admin/AuditLogs/Details/{id:long}` | Single audit entry |
 | Message Logs | `/Admin/MessageLogs` | Discord message history |
 | Message Log Details | `/Admin/MessageLogs/Details/{id:long}` | Single message entry |
-| Bot Control | `/Admin/BotControl` | Start/stop/restart bot |
-| Settings | `/Admin/Settings` | Application settings |
+| Settings | `/Admin/Settings` | Application settings (includes Bot Control tab) |
 | Login | `/Account/Login` | User authentication |
 | Logout | `/Account/Logout` | Sign out |
 | Link Discord | `/Account/LinkDiscord` | OAuth account linking |

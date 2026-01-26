@@ -24,12 +24,18 @@ public class SettingsModel : PageModel
     private readonly IThemeService _themeService;
     private readonly IAuthorizationService _authorizationService;
     private readonly IAuditLogQueue _auditLogQueue;
+    private readonly IBotService _botService;
     private readonly ILogger<SettingsModel> _logger;
 
     /// <summary>
     /// Gets the view model for the page.
     /// </summary>
     public SettingsViewModel ViewModel { get; private set; } = new();
+
+    /// <summary>
+    /// Gets the bot control view model for the Bot Control tab.
+    /// </summary>
+    public BotControlViewModel BotControlViewModel { get; private set; } = new();
 
     /// <summary>
     /// Gets the reset category confirmation modal configuration.
@@ -40,6 +46,16 @@ public class SettingsModel : PageModel
     /// Gets the reset all confirmation modal configuration.
     /// </summary>
     public ConfirmationModalViewModel ResetAllModal { get; private set; } = null!;
+
+    /// <summary>
+    /// Gets the restart confirmation modal configuration.
+    /// </summary>
+    public ConfirmationModalViewModel RestartModal { get; private set; } = null!;
+
+    /// <summary>
+    /// Gets the shutdown typed confirmation modal configuration.
+    /// </summary>
+    public TypedConfirmationModalViewModel ShutdownModal { get; private set; } = null!;
 
     /// <summary>
     /// Form property for settings data from the client.
@@ -89,6 +105,7 @@ public class SettingsModel : PageModel
         IThemeService themeService,
         IAuthorizationService authorizationService,
         IAuditLogQueue auditLogQueue,
+        IBotService botService,
         ILogger<SettingsModel> logger)
     {
         _settingsService = settingsService;
@@ -96,6 +113,7 @@ public class SettingsModel : PageModel
         _themeService = themeService;
         _authorizationService = authorizationService;
         _auditLogQueue = auditLogQueue;
+        _botService = botService;
         _logger = logger;
     }
 
@@ -121,6 +139,7 @@ public class SettingsModel : PageModel
 
         await LoadViewModelAsync();
         await LoadThemeDataAsync();
+        LoadBotControlViewModel();
     }
 
     /// <summary>
@@ -543,6 +562,106 @@ public class SettingsModel : PageModel
         }
     }
 
+    /// <summary>
+    /// Handles POST requests to restart the bot.
+    /// </summary>
+    public async Task<IActionResult> OnPostRestartBotAsync()
+    {
+        _logger.LogWarning("Bot restart requested by user {UserId}", User.Identity?.Name);
+
+        try
+        {
+            var userId = User.Identity?.Name ?? "Unknown";
+
+            await _botService.RestartAsync();
+            _logger.LogInformation("Bot restart completed successfully, initiated by {UserId}", userId);
+
+            // Audit log the bot restart
+            _auditLogQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.Updated,
+                ActorType = AuditLogActorType.User,
+                ActorId = userId,
+                Details = JsonSerializer.Serialize(new
+                {
+                    Operation = "BotRestart",
+                    Description = "Bot restart initiated by administrator",
+                    Timestamp = DateTime.UtcNow
+                })
+            });
+
+            return new JsonResult(new
+            {
+                success = true,
+                message = "Bot is restarting..."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to restart bot, requested by {UserId}", User.Identity?.Name);
+
+            return new JsonResult(new
+            {
+                success = false,
+                message = "Failed to restart bot. Please check logs for details."
+            })
+            {
+                StatusCode = 500
+            };
+        }
+    }
+
+    /// <summary>
+    /// Handles POST requests to shutdown the bot.
+    /// </summary>
+    public async Task<IActionResult> OnPostShutdownBotAsync()
+    {
+        _logger.LogCritical("Bot SHUTDOWN requested by user {UserId}", User.Identity?.Name);
+
+        try
+        {
+            var userId = User.Identity?.Name ?? "Unknown";
+
+            await _botService.ShutdownAsync();
+            _logger.LogCritical("Bot shutdown initiated by {UserId}", userId);
+
+            // Audit log the bot shutdown
+            _auditLogQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.BotStopped,
+                ActorType = AuditLogActorType.User,
+                ActorId = userId,
+                Details = JsonSerializer.Serialize(new
+                {
+                    Operation = "ManualShutdown",
+                    Reason = "Administrator initiated shutdown",
+                    Timestamp = DateTime.UtcNow
+                })
+            });
+
+            return new JsonResult(new
+            {
+                success = true,
+                message = "Bot is shutting down..."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to shutdown bot, requested by {UserId}", User.Identity?.Name);
+
+            return new JsonResult(new
+            {
+                success = false,
+                message = "Failed to shutdown bot. Please check logs for details."
+            })
+            {
+                StatusCode = 500
+            };
+        }
+    }
+
     private async Task LoadViewModelAsync()
     {
         var generalSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.General);
@@ -832,5 +951,49 @@ public class SettingsModel : PageModel
                 StatusCode = 500
             };
         }
+    }
+
+    /// <summary>
+    /// Loads the bot control view model data.
+    /// </summary>
+    private void LoadBotControlViewModel()
+    {
+        var status = _botService.GetStatus();
+        var config = _botService.GetConfiguration();
+
+        BotControlViewModel = new BotControlViewModel
+        {
+            Status = BotStatusViewModel.FromDto(status),
+            Configuration = config,
+            CanRestart = true,
+            CanShutdown = true
+        };
+
+        RestartModal = new ConfirmationModalViewModel
+        {
+            Id = "restartModal",
+            Title = "Restart Bot",
+            Message = "Are you sure you want to restart the bot? This will briefly disconnect the bot from all servers. The bot will automatically reconnect after a few seconds.",
+            ConfirmText = "Restart Bot",
+            CancelText = "Cancel",
+            Variant = ConfirmationVariant.Warning,
+            FormHandler = "RestartBot"
+        };
+
+        ShutdownModal = new TypedConfirmationModalViewModel
+        {
+            Id = "shutdownModal",
+            Title = "Shutdown Bot",
+            Message = "This action will completely shut down the bot. The bot will NOT restart automatically and will need to be manually started from the server. This action is critical and should only be used when necessary.",
+            RequiredText = "SHUTDOWN",
+            InputLabel = "Type SHUTDOWN to confirm",
+            ConfirmText = "Shutdown Bot",
+            CancelText = "Cancel",
+            Variant = ConfirmationVariant.Danger,
+            FormHandler = "ShutdownBot"
+        };
+
+        _logger.LogDebug("Bot Control ViewModel loaded: ConnectionState={ConnectionState}, GuildCount={GuildCount}",
+            BotControlViewModel.Status.ConnectionState, BotControlViewModel.Status.GuildCount);
     }
 }

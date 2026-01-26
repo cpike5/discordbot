@@ -119,6 +119,17 @@
             </svg>
             Advanced
         </button>
+        <button class="settings-tab @(Model.ViewModel.ActiveCategory == "BotControl" ? "active" : "")"
+                role="tab"
+                aria-selected="@(Model.ViewModel.ActiveCategory == "BotControl" ? "true" : "false")"
+                aria-controls="bot-control-settings"
+                data-tab="BotControl"
+                onclick="window.settingsManager?.switchTab('BotControl')">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+            </svg>
+            Bot Control
+        </button>
         @if (Model.IsSuperAdmin)
         {
             <button class="settings-tab @(Model.ViewModel.ActiveCategory == "Appearance" ? "active" : "")"
@@ -470,6 +481,193 @@
         </div>
     </section>
 
+    <!-- Bot Control Settings -->
+    <section id="bot-control-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "BotControl" ? "active" : "")" role="tabpanel" aria-labelledby="bot-control-tab">
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6" data-bot-control-status>
+            <!-- Bot Status Card -->
+            <div class="lg:col-span-2">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h2 class="text-lg font-semibold text-text-primary">Bot Status</h2>
+                        <p class="text-sm text-text-secondary mt-1">Real-time bot connection status</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            <!-- Connection State -->
+                            <div>
+                                <p class="text-sm font-medium text-text-tertiary mb-1">Status</p>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full @(Model.BotControlViewModel.Status.ConnectionState == "Connected" ? "bg-success animate-pulse" : "bg-error")" data-status-indicator aria-label="Connection status: @Model.BotControlViewModel.Status.ConnectionState"></span>
+                                    <span class="text-lg font-semibold text-text-primary" data-connection-state>@Model.BotControlViewModel.Status.ConnectionState</span>
+                                </div>
+                            </div>
+
+                            <!-- Uptime -->
+                            <div>
+                                <p class="text-sm font-medium text-text-tertiary mb-1">Uptime</p>
+                                <span class="text-lg font-semibold text-text-primary" data-uptime>@Model.BotControlViewModel.Status.UptimeFormatted</span>
+                            </div>
+
+                            <!-- Latency -->
+                            <div>
+                                <p class="text-sm font-medium text-text-tertiary mb-1">Latency</p>
+                                <span class="text-lg font-semibold text-text-primary" data-latency>@Model.BotControlViewModel.Status.LatencyMs ms</span>
+                            </div>
+
+                            <!-- Guild Count -->
+                            <div>
+                                <p class="text-sm font-medium text-text-tertiary mb-1">Servers</p>
+                                <span class="text-lg font-semibold text-text-primary" data-guild-count>@Model.BotControlViewModel.Status.GuildCount</span>
+                            </div>
+                        </div>
+
+                        <!-- Last Updated -->
+                        <div class="mt-4 pt-4 border-t border-border-primary">
+                            <p class="text-xs text-text-tertiary">
+                                Status updates every 5 seconds. Last updated: <span data-last-updated>Just now</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Actions Card -->
+            <div>
+                <div class="bg-bg-secondary border border-border-primary rounded-lg">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h2 class="text-lg font-semibold text-text-primary">Actions</h2>
+                        <p class="text-sm text-text-secondary mt-1">Bot lifecycle controls</p>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <!-- Restart Button -->
+                        <button type="button"
+                                onclick="window.quickActions?.showConfirmationModal('restartModal')"
+                                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-lg transition-colors">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Restart Bot
+                        </button>
+
+                        <p class="text-xs text-text-tertiary text-center">
+                            Restarts the Discord connection without stopping the application.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Configuration Card -->
+        <div class="mb-6">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg">
+                <div class="px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-lg font-semibold text-text-primary">Configuration</h2>
+                    <p class="text-sm text-text-secondary mt-1">Current bot configuration (read-only)</p>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Token (Masked) -->
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-text-tertiary">Bot Token</p>
+                            <p class="text-sm font-mono text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
+                                @Model.BotControlViewModel.Configuration.TokenMasked
+                            </p>
+                        </div>
+
+                        <!-- Test Guild ID -->
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-text-tertiary">Test Guild ID</p>
+                            <p class="text-sm font-mono text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
+                                @(Model.BotControlViewModel.Configuration.HasTestGuild ? Model.BotControlViewModel.Configuration.TestGuildId.ToString() : "Not configured")
+                            </p>
+                        </div>
+
+                        <!-- Database Provider -->
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-text-tertiary">Database Provider</p>
+                            <p class="text-sm text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
+                                @Model.BotControlViewModel.Configuration.DatabaseProvider
+                            </p>
+                        </div>
+
+                        <!-- Rate Limits -->
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-text-tertiary">Default Rate Limit</p>
+                            <p class="text-sm text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
+                                @Model.BotControlViewModel.Configuration.DefaultRateLimitInvokes invokes / @Model.BotControlViewModel.Configuration.DefaultRateLimitPeriodSeconds seconds
+                            </p>
+                        </div>
+
+                        <!-- Discord.NET Version -->
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-text-tertiary">Discord.NET Version</p>
+                            <p class="text-sm text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
+                                @Model.BotControlViewModel.Configuration.DiscordNetVersion
+                            </p>
+                        </div>
+
+                        <!-- Application Version -->
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-text-tertiary">Application Version</p>
+                            <p class="text-sm text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
+                                @Model.BotControlViewModel.Configuration.AppVersion
+                            </p>
+                        </div>
+
+                        <!-- .NET Runtime -->
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-text-tertiary">.NET Runtime</p>
+                            <p class="text-sm text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
+                                @Model.BotControlViewModel.Configuration.RuntimeVersion
+                            </p>
+                        </div>
+
+                        <!-- Start Time -->
+                        <div class="space-y-1">
+                            <p class="text-sm font-medium text-text-tertiary">Started At (UTC)</p>
+                            <p class="text-sm text-text-primary bg-bg-primary px-3 py-2 rounded-md border border-border-primary">
+                                @Model.BotControlViewModel.Status.StartTime.ToString("yyyy-MM-dd HH:mm:ss")
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bot Shutdown -->
+        <div class="border-2 border-error rounded-lg p-6 bg-error/5">
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-error">Bot Shutdown</h3>
+                    <p class="text-sm text-text-secondary mt-1">
+                        Shutting down the bot will stop all functionality. The bot will need to be manually restarted from the server.
+                        This action is irreversible and requires typing confirmation.
+                    </p>
+                    <div class="mt-4">
+                        <button type="button"
+                                onclick="window.settingsManager?.showTypedModal('shutdownModal')"
+                                class="flex items-center gap-2 px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-lg transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                            </svg>
+                            Shutdown Bot
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+        <partial name="Components/_ConfirmationModal" model="Model.RestartModal" />
+        <partial name="Components/_TypedConfirmationModal" model="Model.ShutdownModal" />
+    </section>
+
     <!-- Appearance Settings (SuperAdmin only) -->
     @if (Model.IsSuperAdmin)
     {
@@ -655,5 +853,9 @@
 </style>
 
 @section Scripts {
+    <script>
+        // Pass server-side active category to JavaScript
+        window.initialActiveCategory = '@Model.ViewModel.ActiveCategory';
+    </script>
     <script src="~/js/settings.js" asp-append-version="true"></script>
 }

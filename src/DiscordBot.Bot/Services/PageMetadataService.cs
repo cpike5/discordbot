@@ -314,16 +314,6 @@ public class PageMetadataService : IPageMetadataService
             },
             new()
             {
-                Name = "Bot Control",
-                Route = "/Admin/BotControl",
-                Description = "Start, stop, and restart the Discord bot",
-                Section = "Admin",
-                IconName = "play-pause",
-                RequiredPolicy = "RequireAdmin",
-                Keywords = new[] { "start", "stop", "restart", "control", "bot management" }
-            },
-            new()
-            {
                 Name = "Settings",
                 Route = "/Admin/Settings",
                 Description = "Application configuration and settings",
