@@ -33,6 +33,7 @@ bld/
 [Oo]ut/
 [Ll]og/
 [Ll]ogs/
+!src/DiscordBot.Bot/Pages/Admin/Logs/
 
 # Build results on 'Bin' directories
 **/[Bb]in/*

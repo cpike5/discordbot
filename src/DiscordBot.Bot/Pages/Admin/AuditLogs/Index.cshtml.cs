@@ -77,113 +77,11 @@ public class IndexModel : PageModel
     public string? ActorDisplayName { get; set; }
 
     /// <summary>
-    /// Handles GET requests to display the audit log list.
+    /// Handles GET requests - redirects to unified Logs page.
     /// </summary>
-    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
+    public IActionResult OnGetAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            // Set default date range to last 24 hours if no filters specified
-            if (!StartDate.HasValue && !EndDate.HasValue && !Category.HasValue &&
-                !Action.HasValue && string.IsNullOrEmpty(ActorId) &&
-                string.IsNullOrEmpty(TargetType) && !GuildId.HasValue &&
-                string.IsNullOrEmpty(SearchTerm))
-            {
-                StartDate = DateTime.UtcNow.AddDays(-1);
-                EndDate = DateTime.UtcNow;
-            }
-
-            _logger.LogDebug("Loading audit logs with filters: Category={Category}, Action={Action}, ActorId={ActorId}, TargetType={TargetType}, GuildId={GuildId}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}, Page={Page}, PageSize={PageSize}",
-                Category, Action, ActorId, TargetType, GuildId, StartDate, EndDate, SearchTerm, CurrentPage, PageSize);
-
-            // Load available guilds for filter dropdown
-            AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
-
-            // Populate actor display name for autocomplete
-            if (!string.IsNullOrEmpty(ActorId) && ulong.TryParse(ActorId, out var actorUserId))
-            {
-                var userMessages = await _messageLogRepository.GetUserMessagesAsync(actorUserId, limit: 1, cancellationToken: cancellationToken);
-                var message = userMessages.FirstOrDefault();
-                ActorDisplayName = message?.User?.Username;
-            }
-
-            // Convert date filters from user timezone to UTC
-            // The user submits dates in their local timezone, we need to convert to UTC for querying
-            DateTime? queryStartDate = null;
-            DateTime? queryEndDate = null;
-
-            if (StartDate.HasValue)
-            {
-                // Start of day in user's timezone, converted to UTC
-                var startOfDay = StartDate.Value.Date;
-                queryStartDate = TimezoneHelper.ConvertToUtc(startOfDay, UserTimezone);
-                _logger.LogDebug("Converted StartDate from {LocalDate} in {Timezone} to {UtcDate} UTC",
-                    startOfDay, UserTimezone ?? "UTC", queryStartDate);
-            }
-
-            if (EndDate.HasValue)
-            {
-                // End of day (23:59:59.999) in user's timezone, converted to UTC
-                var endOfDay = EndDate.Value.Date.AddDays(1).AddTicks(-1);
-                queryEndDate = TimezoneHelper.ConvertToUtc(endOfDay, UserTimezone);
-                _logger.LogDebug("Converted EndDate from {LocalDate} in {Timezone} to {UtcDate} UTC",
-                    endOfDay, UserTimezone ?? "UTC", queryEndDate);
-            }
-
-            // Build query
-            var query = new AuditLogQueryDto
-            {
-                Category = Category,
-                Action = Action,
-                ActorId = ActorId,
-                TargetType = TargetType,
-                GuildId = GuildId,
-                StartDate = queryStartDate,
-                EndDate = queryEndDate,
-                SearchTerm = SearchTerm,
-                Page = CurrentPage,
-                PageSize = PageSize
-            };
-
-            // Get audit logs
-            var (items, totalCount) = await _auditLogService.GetLogsAsync(query, cancellationToken);
-
-            _logger.LogInformation("Retrieved {Count} audit logs (page {Page} of {TotalPages})",
-                items.Count, CurrentPage, Math.Ceiling((double)totalCount / PageSize));
-
-            // Build paginated response for view model
-            var paginatedResponse = new PaginatedResponseDto<AuditLogDto>
-            {
-                Items = items,
-                Page = CurrentPage,
-                PageSize = PageSize,
-                TotalCount = totalCount
-            };
-
-            // Build filter options
-            var filters = new AuditLogFilterOptions
-            {
-                Category = Category,
-                Action = Action,
-                ActorId = ActorId,
-                TargetType = TargetType,
-                GuildId = GuildId,
-                StartDate = StartDate,
-                EndDate = EndDate,
-                SearchTerm = SearchTerm
-            };
-
-            // Build view model
-            ViewModel = AuditLogListViewModel.FromPaginatedDto(paginatedResponse, filters);
-
-            return Page();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error loading audit logs");
-            TempData["Error"] = "An error occurred while loading audit logs. Please try again.";
-            return Page();
-        }
+        return RedirectToPage("/Admin/Logs", new { tab = "audit" });
     }
 
     /// <summary>

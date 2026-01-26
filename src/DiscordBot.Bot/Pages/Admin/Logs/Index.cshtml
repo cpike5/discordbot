@@ -1,0 +1,193 @@
+@page "/Admin/Logs"
+@model DiscordBot.Bot.Pages.Admin.Logs.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = "Logs";
+    ViewData["Breadcrumbs"] = new List<(string Text, string? Url)>
+    {
+        ("Dashboard", "/"),
+        ("Logs", null)
+    };
+
+    // Tab configuration
+    var tabModel = new TabPanelViewModel
+    {
+        Id = "logs-tabs",
+        AriaLabel = "Log types",
+        NavigationMode = TabNavigationMode.InPage,
+        PersistenceMode = TabPersistenceMode.UrlHash,
+        ActiveTabId = Model.ActiveTab,
+        Tabs = new List<TabItemViewModel>
+        {
+            new TabItemViewModel
+            {
+                Id = "messages",
+                Label = "Messages",
+                IconPathOutline = "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z",
+                IconPathSolid = "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+            },
+            new TabItemViewModel
+            {
+                Id = "audit",
+                Label = "Audit",
+                IconPathOutline = "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+                IconPathSolid = "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            },
+            new TabItemViewModel
+            {
+                Id = "application",
+                Label = "Application",
+                ShortLabel = "App",
+                IconPathOutline = "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+                IconPathSolid = "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+                Disabled = true
+            }
+        }
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
+}
+
+<!-- Page Header -->
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Logs</h1>
+        <p class="text-text-secondary mt-1">View message logs, audit logs, and application logs</p>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="mb-6">
+    @await Html.PartialAsync("Shared/Components/_TabPanel", tabModel)
+</div>
+
+<!-- Tab Panels -->
+<div data-tab-panel-for="logs-tabs" data-tab-id="messages" id="logs-tabs-panel-messages" role="tabpanel" aria-labelledby="logs-tabs-tab-messages">
+    @await Html.PartialAsync("Tabs/_MessagesTab", Model)
+</div>
+
+<div data-tab-panel-for="logs-tabs" data-tab-id="audit" id="logs-tabs-panel-audit" role="tabpanel" aria-labelledby="logs-tabs-tab-audit" hidden>
+    @await Html.PartialAsync("Tabs/_AuditTab", Model)
+</div>
+
+<div data-tab-panel-for="logs-tabs" data-tab-id="application" id="logs-tabs-panel-application" role="tabpanel" aria-labelledby="logs-tabs-tab-application" hidden>
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+        @{
+            var emptyStateModel = new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel
+            {
+                Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoResults,
+                Title = "Application Logs Coming Soon",
+                Description = "Application-level logging and diagnostics will be available in a future update."
+            };
+        }
+        <partial name="Shared/Components/_EmptyState" model="emptyStateModel" />
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/tab-panel.js" asp-append-version="true"></script>
+    <script src="~/js/autocomplete.js" asp-append-version="true"></script>
+    <script src="~/js/message-logs.js" asp-append-version="true"></script>
+    <script>
+        // Sync tab state between URL hash and query parameter
+        (function() {
+            // On page load, if there's a tab query param, update hash to match
+            const urlParams = new URLSearchParams(window.location.search);
+            const tabParam = urlParams.get('tab');
+            if (tabParam && !window.location.hash) {
+                window.location.hash = '#' + tabParam;
+            }
+
+            // When tab changes via hash, ensure forms will submit with correct tab param
+            window.addEventListener('hashchange', function() {
+                const hash = window.location.hash.replace('#', '');
+                document.querySelectorAll('input[name="tab"]').forEach(input => {
+                    input.value = hash || 'messages';
+                });
+            });
+
+            // Set initial tab values
+            const currentHash = window.location.hash.replace('#', '') || 'messages';
+            document.querySelectorAll('input[name="tab"]').forEach(input => {
+                input.value = currentHash;
+            });
+        })();
+    </script>
+    <script>
+        // Toggle filters visibility for audit logs
+        document.getElementById('toggleFilters')?.addEventListener('click', function() {
+            const form = document.getElementById('filtersForm');
+            const text = document.getElementById('toggleFiltersText');
+            const icon = document.getElementById('toggleFiltersIcon');
+            const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+            form?.classList.toggle('hidden');
+            this.setAttribute('aria-expanded', (!isExpanded).toString());
+            if (text) text.textContent = isExpanded ? 'Show Filters' : 'Hide Filters';
+            icon?.classList.toggle('rotate-180');
+        });
+
+        // Expandable rows functionality for audit logs
+        document.querySelectorAll('.expand-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const row = this.closest('.audit-row');
+                const rowId = row?.dataset.rowId;
+                const expandRow = document.querySelector(`.expand-content-row[data-parent-id="${rowId}"]`);
+                const chevron = this.querySelector('.chevron-icon');
+                const expandContent = expandRow?.querySelector('.expand-content');
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+                expandRow?.classList.toggle('hidden');
+                chevron?.classList.toggle('rotated');
+                this.setAttribute('aria-expanded', (!isExpanded).toString());
+
+                if (!isExpanded && expandContent) {
+                    setTimeout(() => {
+                        expandContent.classList.add('expanded');
+                    }, 10);
+                } else if (expandContent) {
+                    expandContent.classList.remove('expanded');
+                }
+            });
+        });
+
+        // Keyboard accessibility for expand buttons
+        document.querySelectorAll('.expand-btn').forEach(btn => {
+            btn.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    this.click();
+                }
+            });
+        });
+
+        // Toggle JSON expand/collapse
+        document.querySelectorAll('.toggle-json-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const targetId = this.dataset.target;
+                const container = document.getElementById(targetId);
+                const jsonViewer = container?.querySelector('.json-viewer');
+                const toggleText = this.querySelector('.toggle-json-text');
+                const toggleIcon = this.querySelector('.toggle-json-icon');
+                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+
+                if (isExpanded) {
+                    container?.classList.remove('expanded');
+                    jsonViewer?.classList.remove('expanded');
+                    if (toggleText) toggleText.textContent = 'Expand';
+                    if (toggleIcon) toggleIcon.style.transform = 'rotate(0deg)';
+                    this.setAttribute('aria-expanded', 'false');
+                } else {
+                    container?.classList.add('expanded');
+                    jsonViewer?.classList.add('expanded');
+                    if (toggleText) toggleText.textContent = 'Collapse';
+                    if (toggleIcon) toggleIcon.style.transform = 'rotate(180deg)';
+                    this.setAttribute('aria-expanded', 'true');
+                }
+            });
+        });
+    </script>
+}
