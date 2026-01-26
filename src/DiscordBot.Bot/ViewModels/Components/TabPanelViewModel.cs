@@ -47,6 +47,36 @@ public record TabPanelViewModel
     /// When true, uses compact styling suitable for smaller containers.
     /// </summary>
     public bool Compact { get; init; }
+
+    /// <summary>
+    /// Gets the visual style variant for the tab panel tabs.
+    /// </summary>
+    /// <remarks>
+    /// <para>Three variants are available:</para>
+    /// <list type="table">
+    /// <item>
+    /// <term><see cref="TabStyleVariant.Underline"/></term>
+    /// <description>
+    /// Minimal style with underline indicator on active tab.
+    /// Best for content pages and documentation. (Default)
+    /// </description>
+    /// </item>
+    /// <item>
+    /// <term><see cref="TabStyleVariant.Pills"/></term>
+    /// <description>
+    /// Rounded background on active tab. Best for modals and compact spaces.
+    /// </description>
+    /// </item>
+    /// <item>
+    /// <term><see cref="TabStyleVariant.Bordered"/></term>
+    /// <description>
+    /// Full borders around tabs. Best for settings and clearly separated sections.
+    /// </description>
+    /// </item>
+    /// </list>
+    /// <para>The style is rendered as CSS class "tab-panel-{variant}" on the container.</para>
+    /// </remarks>
+    public TabStyleVariant StyleVariant { get; init; } = TabStyleVariant.Underline;
 }
 
 /// <summary>
@@ -165,4 +195,72 @@ public enum TabBadgeVariant
     Warning,
     Error,
     Info
+}
+
+/// <summary>
+/// Visual style variant for tab panel tabs.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Controls the visual appearance of the tabs in the tab panel. Different variants suit different contexts:
+/// </para>
+/// <list type="table">
+/// <item>
+/// <term><see cref="Underline"/></term>
+/// <description>
+/// Minimal style with underline indicator on active tab. Suitable for content pages,
+/// documentation, and article-style layouts. Default variant.
+/// </description>
+/// </item>
+/// <item>
+/// <term><see cref="Pills"/></term>
+/// <description>
+/// Rounded background on active tab. Provides higher visual prominence. Suitable for
+/// modals, cards, sidebars, and compact layouts.
+/// </description>
+/// </item>
+/// <item>
+/// <term><see cref="Bordered"/></term>
+/// <description>
+/// Full borders around tabs with clear delineation. Suitable for settings pages,
+/// configuration interfaces, and clearly separated sections.
+/// </description>
+/// </item>
+/// </list>
+/// <para>
+/// The variant is rendered as a CSS class on the container: "tab-panel-{variant}" (e.g., "tab-panel-pills").
+/// Styling is defined in tab-panel.css.
+/// </para>
+/// </remarks>
+public enum TabStyleVariant
+{
+    /// <summary>
+    /// Tabs with an underline indicator on the active tab. (Default)
+    /// </summary>
+    /// <remarks>
+    /// Minimal visual weight, suitable for most content areas. The active tab is indicated
+    /// by a bottom border/underline using the primary accent color. Provides a clean,
+    /// modern appearance without overwhelming the content.
+    /// </remarks>
+    Underline = 0,
+
+    /// <summary>
+    /// Tabs styled as pills with rounded background on the active tab.
+    /// </summary>
+    /// <remarks>
+    /// The active tab has a rounded rectangular background fill. Provides higher visual
+    /// prominence while remaining elegant. Good for modals, cards, and compact spaces where
+    /// clear visual hierarchy is important.
+    /// </remarks>
+    Pills = 1,
+
+    /// <summary>
+    /// Tabs with visible borders around each tab.
+    /// </summary>
+    /// <remarks>
+    /// All tabs have visible borders creating clear separation. The active tab has a filled
+    /// background or distinct highlight. Provides the strongest visual separation between
+    /// tabs. Suitable for settings and configuration interfaces.
+    /// </remarks>
+    Bordered = 2
 }
