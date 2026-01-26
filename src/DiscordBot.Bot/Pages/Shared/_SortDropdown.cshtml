@@ -1,0 +1,169 @@
+@model DiscordBot.Bot.ViewModels.Components.SortDropdownViewModel
+@{
+    var currentSortLabel = Model.SortOptions.FirstOrDefault(o => o.Value == Model.CurrentSort)?.Label ?? "Sort";
+    var toggleId = $"{Model.Id}Toggle";
+    var dropdownId = $"{Model.Id}Menu";
+    var wrapperId = $"{Model.Id}Wrapper";
+}
+
+<div class="relative sort-dropdown-wrapper" id="@wrapperId">
+    <button type="button"
+            id="@toggleId"
+            class="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+            aria-haspopup="listbox"
+            aria-expanded="false">
+        <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+        </svg>
+        <span id="@(Model.Id)SelectedText">@currentSortLabel</span>
+        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+    <div id="@dropdownId"
+         class="hidden absolute left-0 mt-1 w-40 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-20"
+         role="listbox"
+         aria-labelledby="@toggleId">
+        @for (int i = 0; i < Model.SortOptions.Count; i++)
+        {
+            var option = Model.SortOptions[i];
+            var isSelected = option.Value == Model.CurrentSort;
+            var isLast = i == Model.SortOptions.Count - 1;
+            var roundedClass = isLast ? "rounded-b-lg" : "";
+            var selectedClass = isSelected ? "bg-bg-hover font-medium" : "";
+
+            <a href="?@(Model.ParameterName)=@option.Value"
+               class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover @roundedClass @selectedClass"
+               role="option"
+               aria-selected="@isSelected.ToString().ToLower()"
+               data-sort-value="@option.Value">
+                <div class="flex items-center justify-between">
+                    <span>@option.Label</span>
+                    @if (isSelected)
+                    {
+                        <svg class="w-4 h-4 text-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                    }
+                </div>
+            </a>
+        }
+    </div>
+</div>
+
+<script>
+(function() {
+    const toggleId = '@toggleId';
+    const dropdownId = '@dropdownId';
+    const wrapperId = '@wrapperId';
+
+    const toggle = document.getElementById(toggleId);
+    const dropdown = document.getElementById(dropdownId);
+    const wrapper = document.getElementById(wrapperId);
+
+    if (!toggle || !dropdown || !wrapper) return;
+
+    let currentFocusIndex = -1;
+    const options = dropdown.querySelectorAll('[role="option"]');
+
+    // Toggle dropdown
+    toggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+
+        // Close other dropdowns
+        document.querySelectorAll('[aria-haspopup="listbox"]').forEach(btn => {
+            if (btn !== toggle) {
+                btn.setAttribute('aria-expanded', 'false');
+                const otherDropdownId = btn.id.replace('Toggle', 'Menu');
+                document.getElementById(otherDropdownId)?.classList.add('hidden');
+            }
+        });
+
+        // Toggle this dropdown
+        if (isExpanded) {
+            toggle.setAttribute('aria-expanded', 'false');
+            dropdown.classList.add('hidden');
+            currentFocusIndex = -1;
+        } else {
+            toggle.setAttribute('aria-expanded', 'true');
+            dropdown.classList.remove('hidden');
+            // Set focus index to current selection
+            const selectedOption = dropdown.querySelector('[aria-selected="true"]');
+            if (selectedOption) {
+                currentFocusIndex = Array.from(options).indexOf(selectedOption);
+            }
+        }
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!wrapper.contains(e.target)) {
+            toggle.setAttribute('aria-expanded', 'false');
+            dropdown.classList.add('hidden');
+            currentFocusIndex = -1;
+        }
+    });
+
+    // Keyboard navigation
+    toggle.addEventListener('keydown', function(e) {
+        const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle.click();
+        } else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !isExpanded) {
+            e.preventDefault();
+            toggle.click();
+        } else if (e.key === 'Escape' && isExpanded) {
+            e.preventDefault();
+            toggle.setAttribute('aria-expanded', 'false');
+            dropdown.classList.add('hidden');
+            currentFocusIndex = -1;
+            toggle.focus();
+        }
+    });
+
+    dropdown.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            currentFocusIndex = Math.min(currentFocusIndex + 1, options.length - 1);
+            updateFocus();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            currentFocusIndex = Math.max(currentFocusIndex - 1, 0);
+            updateFocus();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (currentFocusIndex >= 0 && currentFocusIndex < options.length) {
+                options[currentFocusIndex].click();
+            }
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            toggle.setAttribute('aria-expanded', 'false');
+            dropdown.classList.add('hidden');
+            currentFocusIndex = -1;
+            toggle.focus();
+        } else if (e.key === 'Home') {
+            e.preventDefault();
+            currentFocusIndex = 0;
+            updateFocus();
+        } else if (e.key === 'End') {
+            e.preventDefault();
+            currentFocusIndex = options.length - 1;
+            updateFocus();
+        }
+    });
+
+    function updateFocus() {
+        options.forEach((opt, index) => {
+            if (index === currentFocusIndex) {
+                opt.classList.add('bg-bg-hover');
+                opt.scrollIntoView({ block: 'nearest' });
+            } else if (opt.getAttribute('aria-selected') !== 'true') {
+                opt.classList.remove('bg-bg-hover');
+            }
+        });
+    }
+})();
+</script>
