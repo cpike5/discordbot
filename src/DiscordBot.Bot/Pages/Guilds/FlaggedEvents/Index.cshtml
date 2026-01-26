@@ -95,22 +95,25 @@
     </div>
 
     <!-- Bulk Actions Toolbar (hidden unless items selected) -->
-    <div id="bulkActionsToolbar" class="hidden bg-accent-blue text-white rounded-lg p-4 mb-6">
-        <div class="flex items-center justify-between">
-            <span class="text-sm font-medium">
-                <span id="selectedCount">0</span> events selected
+    <div id="bulkActionsToolbar" class="hidden bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="text-sm font-medium text-text-primary">
+                <span id="selectedCount">0</span> event(s) selected
             </span>
-            <div class="flex items-center gap-3">
-                <button type="button" onclick="bulkDismiss()" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-md text-sm font-medium transition-colors">
-                    Dismiss Selected
-                </button>
-                <button type="button" onclick="bulkAcknowledge()" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-md text-sm font-medium transition-colors">
-                    Acknowledge Selected
-                </button>
-                <button type="button" onclick="clearSelection()" class="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-md text-sm font-medium transition-colors">
-                    Clear Selection
-                </button>
-            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="clearSelection()">
+                Clear Selection
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="bulkDismiss()">
+                Dismiss Selected
+            </button>
+            <button type="button" class="btn btn-accent btn-sm" onclick="bulkAcknowledge()">
+                Acknowledge Selected
+            </button>
         </div>
     </div>
 
