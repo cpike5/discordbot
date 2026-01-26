@@ -3412,6 +3412,10 @@
 
 /* Mobile responsive */
 @media (max-width: 640px) {
+  .guild-nav-tabs {
+    display: none;
+  }
+
   .guild-nav-tab {
     padding: 0.5rem 0.875rem;
     font-size: 0.8125rem;
