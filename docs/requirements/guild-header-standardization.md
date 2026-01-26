@@ -128,13 +128,14 @@ Home > Servers > [Guild Name] > [Parent Page] > [Sub-Page Name]
    - Inherits from `_Layout.cshtml`
    - Includes breadcrumb partial
    - Includes guild header partial
-   - Includes guild nav bar partial
+   - Desktop: Uses `_TabPanel` component for navigation
+   - Mobile: Inline dropdown using `GuildNavBarViewModel`
    - Defines sections for page content and actions
 
 2. **Create partials**:
    - `Pages/Shared/Components/_GuildHeader.cshtml` - Header with icon, title, description
-   - `Pages/Shared/Components/_GuildNavBar.cshtml` - Navigation tabs
-   - `Pages/Shared/Components/_GuildBreadcrumb.cshtml` - Standardized breadcrumbs (if not handled by layout directly)
+   - `Pages/Shared/Components/_GuildBreadcrumb.cshtml` - Standardized breadcrumbs
+   - Navigation uses unified `_TabPanel.cshtml` component (desktop) and inline dropdown (mobile)
 
 3. **Create ViewModels**:
    - `GuildPageViewModel` or similar base class with common properties (GuildId, GuildName, GuildIconUrl, PageTitle, PageDescription, etc.)
@@ -183,7 +184,7 @@ All criteria have been met:
 
 - Design spec for `_GuildLayout.cshtml`
 - Design spec for `_GuildHeader.cshtml` partial
-- Design spec for `_GuildNavBar.cshtml` partial
+- ~~Design spec for `_GuildNavBar.cshtml` partial~~ (Replaced by inline implementation using `_TabPanel` component)
 - Mobile responsive behavior specification
 - HTML prototype demonstrating the standardized layout
 
