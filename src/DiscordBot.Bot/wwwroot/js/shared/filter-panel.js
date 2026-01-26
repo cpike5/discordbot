@@ -15,13 +15,22 @@ function toggleFilterPanel() {
         return;
     }
 
-    if (content.style.maxHeight === '0px') {
-        content.style.maxHeight = '1000px';
-        chevron.style.transform = 'rotate(0deg)';
+    // Check current state using CSS classes
+    const isCollapsed = content.classList.contains('max-h-0');
+
+    if (isCollapsed) {
+        // Expand
+        content.classList.remove('max-h-0');
+        content.classList.add('max-h-screen');
+        chevron.classList.remove('-rotate-90');
+        chevron.classList.add('rotate-0');
         toggle.setAttribute('aria-expanded', 'true');
     } else {
-        content.style.maxHeight = '0px';
-        chevron.style.transform = 'rotate(-90deg)';
+        // Collapse
+        content.classList.remove('max-h-screen');
+        content.classList.add('max-h-0');
+        chevron.classList.remove('rotate-0');
+        chevron.classList.add('-rotate-90');
         toggle.setAttribute('aria-expanded', 'false');
     }
 }

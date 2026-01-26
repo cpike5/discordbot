@@ -1,0 +1,128 @@
+@model DiscordBot.Bot.ViewModels.Components.FilterPanelViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@*
+    Reusable collapsible filter panel component.
+
+    Usage:
+    <partial name="_FilterPanel" model='new FilterPanelViewModel {
+        Title = "Filters",
+        IsCollapsible = true,
+        ActiveFilterCount = Model.ActiveFilterCount,
+        DefaultExpanded = Model.HasActiveFilters
+    }'>
+        <!-- Filter content here -->
+    </partial>
+
+    JavaScript:
+    - For max-height animation: include ~/js/shared/filter-panel.js in @section Scripts
+    - For hidden class toggle: implement custom toggle in page-specific JS
+    - toggleFilterPanel() requires elements: filterContent, filterChevron, filterToggle
+*@
+
+@{
+    var containerClass = "bg-bg-secondary border border-border-primary rounded-lg mb-6";
+    if (!string.IsNullOrEmpty(Model.ContainerClass))
+    {
+        containerClass += " " + Model.ContainerClass;
+    }
+
+    var isExpanded = Model.DefaultExpanded;
+    var chevronClass = "w-5 h-5 text-text-secondary transition-transform duration-200";
+    string contentClass;
+
+    if (Model.UseHiddenToggle)
+    {
+        // Hidden class toggle mode (used by Members page)
+        contentClass = "border-t border-border-primary p-5";
+        if (!isExpanded)
+        {
+            contentClass += " hidden";
+            chevronClass += " -rotate-90";
+        }
+    }
+    else
+    {
+        // Max-height animation mode (used by Analytics pages)
+        contentClass = "overflow-hidden transition-all duration-200";
+        if (isExpanded)
+        {
+            contentClass += " max-h-screen";
+        }
+        else
+        {
+            contentClass += " max-h-0";
+            chevronClass += " -rotate-90";
+        }
+    }
+}
+
+<div class="@containerClass">
+    @if (Model.IsCollapsible)
+    {
+        <!-- Collapsible Header -->
+        <button type="button"
+                id="@Model.ToggleId"
+                class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-bg-hover transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-border-focus"
+                aria-expanded="@(isExpanded ? "true" : "false")"
+                aria-controls="@Model.ContentId"
+                @if (!Model.UseHiddenToggle)
+                {
+                    @:onclick="toggleFilterPanel()"
+                }>
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span class="text-lg font-semibold text-text-primary">@Model.Title</span>
+                @if (Model.ShowBadge)
+                {
+                    <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
+                        Text = Model.ComputedBadgeText,
+                        Variant = BadgeVariant.Orange,
+                        Size = BadgeSize.Small
+                    })" />
+                }
+            </div>
+            <svg id="@Model.ChevronId" class="@chevronClass" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        @if (Model.UseHiddenToggle)
+        {
+            <div id="@Model.ContentId" class="@contentClass">
+                @RenderBody()
+            </div>
+        }
+        else
+        {
+            <div id="@Model.ContentId" class="@contentClass">
+                <div class="border-t border-border-primary p-5">
+                    @RenderBody()
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <!-- Non-collapsible Header -->
+        <div class="flex items-center gap-3 px-5 py-4">
+            <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span class="text-lg font-semibold text-text-primary">@Model.Title</span>
+            @if (Model.ShowBadge)
+            {
+                <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(new BadgeViewModel {
+                    Text = Model.ComputedBadgeText,
+                    Variant = BadgeVariant.Orange,
+                    Size = BadgeSize.Small
+                })" />
+            }
+        </div>
+
+        <div class="border-t border-border-primary p-5">
+            @RenderBody()
+        </div>
+    }
+</div>
