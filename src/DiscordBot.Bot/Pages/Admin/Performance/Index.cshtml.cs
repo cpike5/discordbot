@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -70,6 +71,44 @@ public class IndexModel : PageModel
     {
         _logger.LogDebug("Performance Overview page accessed by user {UserId}", User.Identity?.Name);
         await LoadViewModelAsync();
+    }
+
+    /// <summary>
+    /// Handles AJAX requests for tab content partial views.
+    /// </summary>
+    /// <param name="tabId">The ID of the tab to load.</param>
+    /// <returns>The partial view for the requested tab.</returns>
+    public async Task<IActionResult> OnGetPartialAsync(string tabId)
+    {
+        _logger.LogDebug("Loading partial content for tab {TabId}", tabId);
+
+        // Map tabId to the appropriate partial view
+        var partialView = tabId?.ToLowerInvariant() switch
+        {
+            "overview" => "Tabs/_OverviewTab",
+            "health" => "Tabs/_HealthTab",
+            "commands" => "Tabs/_CommandsTab",
+            "api" => "Tabs/_ApiTab",
+            "system" => "Tabs/_SystemTab",
+            "alerts" => "Tabs/_AlertsTab",
+            _ => null
+        };
+
+        if (partialView == null)
+        {
+            _logger.LogWarning("Invalid tab ID requested: {TabId}", tabId);
+            return NotFound();
+        }
+
+        // Load the appropriate view model based on the tab
+        // For now, we'll reuse the LoadViewModelAsync which loads the overview data
+        // Each tab's specific data loading logic would go here in a production scenario
+        await LoadViewModelAsync();
+
+        // Return the partial view with the appropriate model
+        // Note: Each partial expects a specific ViewModel type, but for this migration
+        // we're using the existing ViewModel property which contains PerformanceOverviewViewModel
+        return Partial(partialView, ViewModel);
     }
 
     private async Task LoadViewModelAsync()
