@@ -651,29 +651,25 @@ Week 4: Clean up old components, test thoroughly
 
 Once all pages are migrated, remove legacy components:
 
-1. Delete old partial files:
-   - `_PerformanceTabs.cshtml`
-   - `_AudioTabs.cshtml`
-   - `_TabPanel.cshtml`
-   - `_GuildNavBar.cshtml`
+1. **Deleted partial files:**
+   - ~~`_PerformanceTabs.cshtml`~~ ✅ Removed
+   - ~~`_AudioTabs.cshtml`~~ ✅ Removed
+   - ~~`_GuildNavBar.cshtml`~~ ✅ Removed (desktop navigation now uses `_TabPanel`, mobile uses inline dropdown)
 
-2. Delete old ViewModels:
-   - `PerformanceTabsViewModel.cs`
-   - `AudioTabsViewModel.cs`
+2. **Deleted ViewModels:**
+   - ~~`PerformanceTabsViewModel.cs`~~ ✅ Removed
+   - ~~`AudioTabsViewModel.cs`~~ (if it existed)
 
-3. Delete old CSS (if not shared):
+3. **Kept ViewModels:**
+   - `GuildNavBarViewModel.cs` - ✅ **Still in use** for mobile dropdown in `_GuildLayout.cshtml`
+
+4. Delete old CSS (if not shared):
    - `performance-tabs.css`
    - `audio-tabs.css`
 
-4. Delete old JavaScript (if not shared):
+5. Delete old JavaScript (if not shared):
    - `performance-tabs.js`
    - `audio-tabs.js`
-
-5. Remove old using statements:
-   ```csharp
-   // Remove if not used elsewhere
-   using DiscordBot.Bot.ViewModels.Components;
-   ```
 
 6. Update documentation:
    - Update component index

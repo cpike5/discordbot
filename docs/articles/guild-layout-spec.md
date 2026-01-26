@@ -44,7 +44,9 @@ The shared layout wraps all guild pages and provides the common structure.
     @await Html.PartialAsync("Shared/Components/_GuildHeader", Model.Header)
 
     <!-- Guild Navigation Bar -->
-    @await Html.PartialAsync("Shared/Components/_GuildNavBar", Model.Navigation)
+    @* Desktop: Horizontal tabs using _TabPanel *@
+    @* Mobile: Inline dropdown in _GuildLayout.cshtml *@
+    @await Html.PartialAsync("Shared/Components/_TabPanel", Model.Navigation)
 
     <!-- Page Content -->
     <div class="guild-page-content">
@@ -226,11 +228,15 @@ public enum HeaderActionStyle
 
 ---
 
-### 4. Guild Navigation Bar Component (`_GuildNavBar.cshtml`)
+### 4. Guild Navigation Bar Component
 
 Horizontal tab navigation for all guild sections.
 
-**Location:** `Pages/Shared/Components/_GuildNavBar.cshtml`
+**Implementation:**
+- **Desktop**: Uses `_TabPanel.cshtml` component via `GuildNavBarHelper`
+- **Mobile**: Inline dropdown in `_GuildLayout.cshtml` using `GuildNavBarViewModel`
+
+**Location:** `Pages/Shared/_GuildLayout.cshtml` (desktop uses `_TabPanel`, mobile uses inline dropdown)
 
 **ViewModel (`GuildNavBarViewModel`):**
 ```csharp
@@ -252,6 +258,8 @@ public class GuildNavItem
     public int Order { get; set; }           // Display order
 }
 ```
+
+**Note:** `GuildNavBarViewModel` is kept for mobile dropdown functionality. Desktop navigation uses `TabPanelViewModel` via `GuildNavBarHelper`.
 
 **Navigation Configuration (Static Class):**
 ```csharp

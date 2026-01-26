@@ -705,11 +705,13 @@ updateTabState: function(container, tabs, activeTab) {
 
 ### Deprecation Timeline
 
-| Date | Action |
-|------|--------|
-| **v0.13.0** | Add new properties, mark old ViewModels as `[Obsolete("Use TabPanelViewModel with GuildNavBarHelper")]` |
-| **v0.14.0** | Migrate all internal usages, update documentation |
-| **v0.15.0** | Remove old ViewModels and partials (`_GuildNavBar`, `_PerformanceTabs`, `_AudioTabs`) |
+| Date | Action | Status |
+|------|--------|--------|
+| **v0.13.0** | Add new properties, mark old ViewModels as `[Obsolete("Use TabPanelViewModel with GuildNavBarHelper")]` | ✅ Complete |
+| **v0.14.0** | Migrate all internal usages, update documentation | ✅ Complete |
+| **v0.15.0** | Remove old partials (`_GuildNavBar`, `_PerformanceTabs`, `_AudioTabs`) | ✅ Complete |
+
+**Note:** `GuildNavBarViewModel` was kept for mobile dropdown functionality in `_GuildLayout.cshtml`.
 
 ---
 
@@ -1125,7 +1127,7 @@ Create `docs/articles/nav-tabs-migration.md`:
 ## 11. Questions & Answers
 
 **Q: Can I still use the old GuildNavBarViewModel?**
-A: Yes, for now. It will be marked `[Obsolete]` in v0.13.0 and removed in v0.15.0. Use `GuildNavBarHelper.CreateGuildNavBar()` instead.
+A: Yes, `GuildNavBarViewModel` is still in use for the mobile dropdown in `_GuildLayout.cshtml`. For desktop navigation, use `GuildNavBarHelper.CreateGuildNavBar()` which generates a `TabPanelViewModel`.
 
 **Q: What if I need a custom variant not in the three provided?**
 A: Use `ContainerClass` to add custom styling, or propose a new variant for inclusion.

@@ -3,6 +3,8 @@
 **Related Issues:** #722, #759, #760, #761, #762, #763, #764, #765
 **Implementation Date:** January 2026
 
+**DEPRECATION NOTE:** The `_PerformanceTabs.cshtml` component referenced in this document has since been replaced by the unified `_TabPanel.cshtml` component (see issue #1258). The patterns and lessons in this document remain valid for understanding the tab partial architecture, but new implementations should use `_TabPanel.cshtml` instead.
+
 ## Overview
 
 This document captures the patterns and lessons learned from converting the Performance Dashboard pages into partial views that can be loaded both standalone (direct page navigation) and via AJAX (tab switching within the shell).

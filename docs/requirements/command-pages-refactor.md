@@ -106,10 +106,10 @@ In addition to shared date/guild filters:
 - [src\DiscordBot.Bot\Pages\Shared\_GuildLayout.cshtml](../../src/DiscordBot.Bot/Pages/Shared/_GuildLayout.cshtml) - Layout structure
 - [src\DiscordBot.Bot\Pages\Shared\Components\_GuildBreadcrumb.cshtml](../../src/DiscordBot.Bot/Pages/Shared/Components/_GuildBreadcrumb.cshtml)
 - [src\DiscordBot.Bot\Pages\Shared\Components\_GuildHeader.cshtml](../../src/DiscordBot.Bot/Pages/Shared/Components/_GuildHeader.cshtml)
-- [src\DiscordBot.Bot\Pages\Shared\Components\_GuildNavBar.cshtml](../../src/DiscordBot.Bot/Pages/Shared/Components/_GuildNavBar.cshtml)
-- [src\DiscordBot.Bot\Pages\Shared\Components\_TabPanel.cshtml](../../src/DiscordBot.Bot/Pages/Shared/Components/_TabPanel.cshtml) - Tab navigation
+- [src\DiscordBot.Bot\Pages\Shared\Components\_TabPanel.cshtml](../../src/DiscordBot.Bot/Pages/Shared/Components/_TabPanel.cshtml) - Unified tab navigation (used for guild nav desktop)
 - [src\DiscordBot.Bot\Pages\Guilds\Details.cshtml](../../src/DiscordBot.Bot/Pages/Guilds/Details.cshtml) - In-page tabs example
 - [src\DiscordBot.Bot\ViewModels\Components\TabPanelViewModel.cs](../../src/DiscordBot.Bot/ViewModels/Components/TabPanelViewModel.cs)
+- [src\DiscordBot.Bot\ViewModels\Components\GuildNavBarHelper.cs](../../src/DiscordBot.Bot/ViewModels/Components/GuildNavBarHelper.cs) - Helper for guild navigation
 
 ### Components to Create/Adapt
 - **CommandBreadcrumbViewModel** - Adapt from GuildBreadcrumbViewModel
