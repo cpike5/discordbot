@@ -1,6 +1,10 @@
 @using DiscordBot.Bot.ViewModels.Components
 @{
     Layout = "_Layout";
+
+    GuildNavBarViewModel navModel = (GuildNavBarViewModel)Model.Navigation;
+    var orderedTabs = navModel.Tabs.OrderBy(t => t.Order).ToList();
+    var activeTab = orderedTabs.FirstOrDefault(t => t.Id == navModel.ActiveTab);
 }
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -11,7 +15,40 @@
     @await Html.PartialAsync("Components/_GuildHeader", (GuildHeaderViewModel)Model.Header)
 
     <!-- Guild Navigation Bar -->
-    @await Html.PartialAsync("Components/_GuildNavBar", (GuildNavBarViewModel)Model.Navigation)
+    <div class="guild-nav-container mb-6" id="guildNavContainer">
+        <!-- Desktop: Horizontal tabs using TabPanel -->
+        <div class="hidden sm:block">
+            @await Html.PartialAsync("Components/_TabPanel", GuildNavBarHelper.CreateGuildNavBar(navModel.GuildId, navModel.ActiveTab, navModel.Tabs))
+        </div>
+
+        <!-- Mobile: Dropdown -->
+        <div class="guild-nav-dropdown sm:hidden">
+            <button type="button"
+                    id="guildNavDropdownToggle"
+                    class="guild-nav-dropdown-button"
+                    aria-haspopup="true"
+                    aria-expanded="false">
+                <span id="guildNavSelectedText">@(activeTab?.Label ?? "Navigation")</span>
+                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            <div id="guildNavDropdownMenu"
+                 class="hidden guild-nav-dropdown-menu"
+                 role="region"
+                 aria-label="Guild navigation menu">
+                @foreach (var tab in orderedTabs)
+                {
+                    var isActive = navModel.ActiveTab == tab.Id;
+
+                    <a href="@tab.GetUrl(navModel.GuildId)"
+                       class="guild-nav-dropdown-item @(isActive ? "active" : "")">
+                        @tab.Label
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
 
     <!-- Page Content -->
     <div class="guild-page-content">
@@ -20,10 +57,12 @@
 </div>
 
 @section Styles {
+    <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
     @await RenderSectionAsync("Styles", required: false)
 }
 
 @section Scripts {
+    <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script src="~/js/guild-nav.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 }
