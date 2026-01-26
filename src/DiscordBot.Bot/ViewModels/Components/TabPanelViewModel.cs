@@ -255,7 +255,7 @@ public enum TabBadgeVariant
 /// <item>
 /// <term><see cref="Portal"/></term>
 /// <description>
-/// Discord-branded solid background with white active tab and semi-transparent inactive tabs.
+/// Clean underline style with Discord accent on active tab.
 /// Suitable for member-facing Portal interface pages.
 /// </description>
 /// </item>
@@ -298,11 +298,11 @@ public enum TabStyleVariant
     Bordered = 2,
 
     /// <summary>
-    /// Tabs styled for the Portal with Discord-branded solid background.
+    /// Tabs styled for the Portal with clean underline and Discord accent.
     /// </summary>
     /// <remarks>
-    /// Features a solid Discord blurple background. Active tabs have a white/light background
-    /// with Discord blue text, while inactive tabs display semi-transparent white text.
+    /// Similar to the Underline variant but uses Discord blurple for the active tab indicator
+    /// and text color. Provides a clean, minimal look that works with both light and dark themes.
     /// Designed specifically for the member-facing Portal interface (Soundboard, TTS).
     /// </remarks>
     Portal = 3
