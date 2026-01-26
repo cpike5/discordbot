@@ -2797,6 +2797,198 @@ Use the `data-utc` attribute pattern to automatically convert stored UTC timesta
 }
 ```
 
+### Navigation Tabs
+
+Horizontal tab navigation component supporting multiple style variants (Underline, Pills, Bordered) and navigation modes (In-page, Page Navigation, AJAX). Provides a unified navigation pattern across the admin UI with built-in accessibility and responsive behavior.
+
+**Component:** `_NavTabs.cshtml`
+**ViewModel:** `NavTabsViewModel.cs`
+
+#### When to Use
+
+- **Multi-section pages**: Breaking content into logical tabs (e.g., guild settings, performance metrics)
+- **Content organization**: Organizing related information without full page navigation
+- **Tab-based navigation**: Allowing users to switch between different content panels
+- **Mobile-friendly navigation**: Responsive tabs that work on all screen sizes
+
+#### When NOT to Use
+
+- **Primary site navigation**: Use the main navbar for top-level navigation
+- **Stepper/Wizard flows**: Use a dedicated wizard component for step-by-step processes
+- **Few sections**: If only 2-3 items, consider alternative layouts
+- **Deeply nested sections**: Keep tabs at most 1-2 levels deep
+
+#### Style Variants
+
+**Underline (Default)**
+Simple underline indicator on active tab, minimal visual weight, suitable for most content areas.
+
+```html
+<!-- Underline style -->
+<div class="nav-tabs-container nav-tabs-underline">
+  <nav role="tablist" aria-label="Section tabs">
+    <button role="tab" aria-selected="true" class="nav-tabs-item active">Overview</button>
+    <button role="tab" aria-selected="false" class="nav-tabs-item">Settings</button>
+  </nav>
+</div>
+```
+
+**Pills**
+Rounded background on active tab, higher visual prominence, good for card/modal contexts.
+
+```html
+<!-- Pills style -->
+<div class="nav-tabs-container nav-tabs-pills">
+  <nav role="tablist" aria-label="Section tabs">
+    <button role="tab" aria-selected="true" class="nav-tabs-item active">Overview</button>
+    <button role="tab" aria-selected="false" class="nav-tabs-item">Settings</button>
+  </nav>
+</div>
+```
+
+**Bordered**
+Full borders around tabs, clear delineation, suitable for discrete tab sections.
+
+```html
+<!-- Bordered style -->
+<div class="nav-tabs-container nav-tabs-bordered">
+  <nav role="tablist" aria-label="Section tabs">
+    <button role="tab" aria-selected="true" class="nav-tabs-item active">Overview</button>
+    <button role="tab" aria-selected="false" class="nav-tabs-item">Settings</button>
+  </nav>
+</div>
+```
+
+#### Navigation Modes
+
+**In-Page (Default)**
+Content panels switch locally in JavaScript without full page reload. Ideal for related content on same page.
+
+```csharp
+var model = new NavTabsViewModel
+{
+    Tabs = new List<NavTabItem>
+    {
+        new NavTabItem { Id = "overview", Label = "Overview" },
+        new NavTabItem { Id = "settings", Label = "Settings" }
+    },
+    ActiveTabId = "overview",
+    NavigationMode = NavMode.InPage,
+    StyleVariant = NavTabStyle.Underline
+};
+```
+
+**Page Navigation**
+Each tab navigates to a different URL (full page load). Use for independent sections.
+
+```csharp
+var model = new NavTabsViewModel
+{
+    Tabs = new List<NavTabItem>
+    {
+        new NavTabItem { Id = "overview", Label = "Overview", Href = "/guild/123/overview" },
+        new NavTabItem { Id = "settings", Label = "Settings", Href = "/guild/123/settings" }
+    },
+    ActiveTabId = "overview",
+    NavigationMode = NavMode.PageNavigation
+};
+```
+
+**AJAX**
+Content loads dynamically via AJAX without full page navigation. Best for heavy content or API-backed data.
+
+```csharp
+var model = new NavTabsViewModel
+{
+    Tabs = new List<NavTabItem>
+    {
+        new NavTabItem { Id = "overview", Label = "Overview", Href = "/api/guild/123/overview" },
+        new NavTabItem { Id = "metrics", Label = "Metrics", Href = "/api/guild/123/metrics" }
+    },
+    ActiveTabId = "overview",
+    NavigationMode = NavMode.Ajax,
+    PersistenceMode = NavPersistence.Hash
+};
+```
+
+#### Usage Example
+
+```csharp
+// In your page model or controller
+var navModel = new NavTabsViewModel
+{
+    Tabs = new List<NavTabItem>
+    {
+        new NavTabItem
+        {
+            Id = "soundboard",
+            Label = "Soundboard",
+            ShortLabel = "Sounds",
+            IconPathOutline = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3",
+            IconPathSolid = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
+        },
+        new NavTabItem
+        {
+            Id = "tts",
+            Label = "Text-to-Speech",
+            Disabled = false
+        }
+    },
+    ActiveTabId = "soundboard",
+    StyleVariant = NavTabStyle.Pills,
+    NavigationMode = NavMode.InPage,
+    PersistenceMode = NavPersistence.Hash,
+    ContainerId = "audioTabs",
+    AriaLabel = "Audio feature tabs"
+};
+
+return View(navModel);
+```
+
+#### In Razor Pages
+
+```html
+@model NavTabsViewModel
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/nav-tabs.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
+}
+
+<!-- Include the partial -->
+@await Html.PartialAsync("Components/_NavTabs", Model)
+
+<!-- For in-page mode, add content panels -->
+<div data-nav-panel-for="@Model.ContainerId" data-tab-id="soundboard" hidden>
+    <!-- Soundboard content -->
+</div>
+
+<div data-nav-panel-for="@Model.ContainerId" data-tab-id="tts" hidden>
+    <!-- TTS content -->
+</div>
+```
+
+#### Accessibility Features
+
+- **ARIA roles**: `role="tablist"` on nav, `role="tab"` on tab buttons
+- **Active state**: `aria-selected="true"` for active tab
+- **Controls**: `aria-controls` linking tabs to content panels
+- **Keyboard navigation**: Arrow keys move focus between tabs, Enter/Space activates
+- **Focus management**: Proper tabindex states for keyboard navigation
+- **Disabled tabs**: `aria-disabled="true"` when tab cannot be selected
+- **Icons**: SVG icons have `aria-hidden="true"` to prevent screen reader verbosity
+
+#### Responsive Behavior
+
+- **Desktop**: Full tab labels, icons visible
+- **Mobile**: Short labels used if provided, horizontal scroll for overflow
+- **Scroll indicators**: Visual gradient fades when content scrolls
+
+For comprehensive usage examples and advanced features, see [Navigation Tabs Component Guide](nav-tabs-component.md).
+
 ---
 
 ## 5. Loading States
@@ -4145,6 +4337,17 @@ Start with mobile styles, then enhance for larger screens:
 ---
 
 ## Changelog
+
+### Version 1.5 (2026-01-26)
+- Added Navigation Tabs subsection to Component Guidelines (Section 4)
+  - Documented Navigation Tabs component (unified replacement for GuildNavBar, PerformanceTabs, AudioTabs, TabPanel)
+  - Documented three style variants: Underline (default), Pills, Bordered
+  - Documented three navigation modes: In-Page, Page Navigation, AJAX
+  - Documented responsive behavior with short labels for mobile
+  - Documented accessibility features (ARIA roles, keyboard navigation)
+  - Documented usage patterns with code examples
+  - Linked to comprehensive [Navigation Tabs Component Guide](nav-tabs-component.md)
+  - Related to Issue #1253: Feature: Navigation Component Documentation and Usage Guide
 
 ### Version 1.4 (2026-01-02)
 - Added Autocomplete Input subsection to Form Inputs (Section 4)
