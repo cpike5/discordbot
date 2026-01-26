@@ -213,12 +213,12 @@
 }
 
 /* ===== VARIANT: PORTAL ===== */
-/* Discord-branded gradient with light active tabs */
+/* Discord-branded solid background with light active tabs */
 
 .tab-panel-portal .tab-panel-tabs {
     gap: 0.5rem;
     padding: 0.5rem;
-    background: linear-gradient(135deg, var(--color-discord) 0%, #FF8C69 50%, #F59E42 100%);
+    background: var(--color-discord);
     border-radius: 0.5rem;
 }
 
@@ -230,7 +230,7 @@
 
 .tab-panel-portal .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
     color: rgba(255, 255, 255, 1);
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
 }
 
 .tab-panel-portal .tab-panel-tab.active {
@@ -250,18 +250,12 @@
 
 /* Scroll indicators for portal variant */
 .tab-panel-portal::before {
-    background: linear-gradient(to right,
-        var(--color-discord) 0%,
-        rgba(88, 101, 242, 0.8) 30%,
-        transparent 100%);
+    background: linear-gradient(to right, var(--color-discord), transparent);
     border-radius: 0.5rem 0 0 0.5rem;
 }
 
 .tab-panel-portal::after {
-    background: linear-gradient(to left,
-        rgb(245, 158, 66) 0%,
-        rgba(245, 158, 66, 0.8) 30%,
-        transparent 100%);
+    background: linear-gradient(to left, var(--color-discord), transparent);
     border-radius: 0 0.5rem 0.5rem 0;
 }
 

@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Component styles */
+@import 'tab-panel.css';
+
 /* Custom base styles */
 @layer base {
   * {

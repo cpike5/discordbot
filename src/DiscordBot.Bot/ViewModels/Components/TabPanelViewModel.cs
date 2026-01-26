@@ -255,7 +255,7 @@ public enum TabBadgeVariant
 /// <item>
 /// <term><see cref="Portal"/></term>
 /// <description>
-/// Discord-branded gradient background with white active tab and semi-transparent inactive tabs.
+/// Discord-branded solid background with white active tab and semi-transparent inactive tabs.
 /// Suitable for member-facing Portal interface pages.
 /// </description>
 /// </item>
@@ -298,13 +298,12 @@ public enum TabStyleVariant
     Bordered = 2,
 
     /// <summary>
-    /// Tabs styled for the Portal with Discord-branded gradient background.
+    /// Tabs styled for the Portal with Discord-branded solid background.
     /// </summary>
     /// <remarks>
-    /// Features a Discord-inspired gradient background (blue to coral/orange). Active tabs
-    /// have a white/light background with Discord blue text, while inactive tabs display
-    /// semi-transparent white text on the gradient. Designed specifically for the member-facing
-    /// Portal interface (Soundboard, TTS).
+    /// Features a solid Discord blurple background. Active tabs have a white/light background
+    /// with Discord blue text, while inactive tabs display semi-transparent white text.
+    /// Designed specifically for the member-facing Portal interface (Soundboard, TTS).
     /// </remarks>
     Portal = 3
 }
