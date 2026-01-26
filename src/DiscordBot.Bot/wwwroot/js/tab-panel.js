@@ -35,6 +35,10 @@
             const containers = document.querySelectorAll(this.config.containerSelector);
             containers.forEach(container => {
                 const panelId = container.dataset.panelId;
+                // Skip containers with data-no-auto-init (handled by custom page JS)
+                if (container.hasAttribute('data-no-auto-init')) {
+                    return;
+                }
                 if (panelId && !this.initializedPanels.has(panelId)) {
                     this.initPanel(container);
                     this.initializedPanels.add(panelId);

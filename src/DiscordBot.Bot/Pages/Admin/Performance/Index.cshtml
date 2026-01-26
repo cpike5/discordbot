@@ -51,11 +51,12 @@
             Id = "performanceTabs",
             StyleVariant = DiscordBot.Bot.ViewModels.Components.TabStyleVariant.Underline,
             NavigationMode = DiscordBot.Bot.ViewModels.Components.TabNavigationMode.Ajax,
-            AjaxUrlPattern = "/Admin/Performance/Partial/{tabId}",
+            AjaxUrlPattern = "/Admin/Performance?handler=Partial&tabId={tabId}",
             AjaxContentTarget = "#tabContent",
             PersistenceMode = DiscordBot.Bot.ViewModels.Components.TabPersistenceMode.UrlHash,
             AriaLabel = "Performance sections",
             ActiveTabId = "overview",
+            DisableAutoInit = true, // Handled by dashboard.js with time range support
             Tabs = new List<DiscordBot.Bot.ViewModels.Components.TabItemViewModel>
             {
                 new() { Id = "overview", Label = "Overview",
