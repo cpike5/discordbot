@@ -92,6 +92,11 @@ public class IndexModel : PageModel
     public string? CommandName { get; set; }
 
     /// <summary>
+    /// Gets or sets the formatted display text for the selected command.
+    /// </summary>
+    public string CommandDisplayText { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the status filter for command logs (true=success, false=failure, null=all).
     /// </summary>
     [BindProperty(SupportsGet = true)]
@@ -130,6 +135,9 @@ public class IndexModel : PageModel
             "Loaded {ModuleCount} modules with {CommandCount} total commands",
             ViewModel.ModuleCount,
             ViewModel.TotalCommandCount);
+
+        // Populate command display text for autocomplete initial value
+        CommandDisplayText = await GetCommandDisplayTextAsync(CommandName);
 
         // Initialize placeholder ViewModels for other tabs
         // These will be populated by AJAX calls in issue #1221
@@ -196,5 +204,37 @@ public class IndexModel : PageModel
                 StatusCode = 500
             };
         }
+    }
+
+    /// <summary>
+    /// Gets the formatted display text for a command by its full name.
+    /// </summary>
+    /// <param name="commandFullName">The full command name (e.g., "ping", "user info").</param>
+    /// <returns>Formatted display text (e.g., "/ping - Check the bot's latency") or the command name if not found.</returns>
+    public async Task<string> GetCommandDisplayTextAsync(string? commandFullName)
+    {
+        if (string.IsNullOrWhiteSpace(commandFullName))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var modules = await _commandMetadataService.GetAllModulesAsync();
+            var command = modules
+                .SelectMany(m => m.Commands)
+                .FirstOrDefault(c => c.FullName == commandFullName);
+
+            if (command != null)
+            {
+                return $"/{command.FullName} - {command.Description}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get command display text for: {CommandName}", commandFullName);
+        }
+
+        return commandFullName;
     }
 }
