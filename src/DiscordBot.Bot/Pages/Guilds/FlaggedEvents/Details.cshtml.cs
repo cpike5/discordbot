@@ -132,7 +132,7 @@ public class DetailsModel : PageModel
                 new() { Label = "Home", Url = "/" },
                 new() { Label = "Servers", Url = "/Guilds" },
                 new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
-                new() { Label = "Moderation", Url = $"/Guilds/{guildId}/FlaggedEvents" },
+                new() { Label = "Moderation", Url = $"/Guilds/ModerationSettings/{guildId}" },
                 new() { Label = "Flagged Events", Url = $"/Guilds/{guildId}/FlaggedEvents" },
                 new() { Label = "Details", IsCurrent = true }
             }

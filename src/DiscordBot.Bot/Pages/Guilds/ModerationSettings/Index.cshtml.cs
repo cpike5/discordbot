@@ -137,7 +137,7 @@ public class IndexModel : PageModel
                 new()
                 {
                     Label = "View Flagged Events",
-                    Url = $"/Guilds/FlaggedEvents/Index?guildId={GuildId}",
+                    Url = $"/Guilds/FlaggedEvents/{GuildId}",
                     Style = HeaderActionStyle.Secondary,
                     Icon = "M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
                 }

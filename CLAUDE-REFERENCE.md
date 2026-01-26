@@ -64,8 +64,8 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | Scheduled Message Create | `/Guilds/ScheduledMessages/Create/{guildId:long}` | New scheduled message |
 | Scheduled Message Edit | `/Guilds/ScheduledMessages/Edit/{guildId:long}/{id:guid}` | Edit scheduled message |
 | Rat Watch | `/Guilds/RatWatch/{guildId:long}` | Rat Watch management |
-| Rat Watch Analytics | `/Guilds/RatWatch/{guildId:long}/Analytics` | Rat Watch analytics and metrics |
-| Rat Watch Incidents | `/Guilds/RatWatch/{guildId:long}/Incidents` | Incident browser with filtering |
+| Rat Watch Analytics | `/Guilds/RatWatch/Analytics/{guildId:long}` | Rat Watch analytics and metrics |
+| Rat Watch Incidents | `/Guilds/RatWatch/Incidents/{guildId:long}` | Incident browser with filtering |
 | Member Directory | `/Guilds/{guildId:long}/Members` | Guild member list with search/filter |
 | Member Moderation | `/Guilds/{guildId:long}/Members/{userId:long}/Moderation` | Member moderation history |
 | Flagged Events | `/Guilds/{guildId:long}/FlaggedEvents` | Auto-moderation flagged events |
