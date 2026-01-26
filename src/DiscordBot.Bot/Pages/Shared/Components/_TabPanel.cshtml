@@ -4,6 +4,7 @@
     var containerId = $"{Model.Id}-container";
     var tablistId = $"{Model.Id}-tablist";
     var containerClass = "tab-panel-container";
+    containerClass += $" tab-panel-{Model.StyleVariant.ToString().ToLowerInvariant()}";
     if (Model.Compact)
     {
         containerClass += " tab-panel-compact";

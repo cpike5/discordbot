@@ -1,5 +1,6 @@
 /* Tab Panel Component Styles */
 /* Reusable tab panel component for accessible, keyboard-navigable tabs */
+/* Variants: Underline, Pills, Bordered */
 
 /* ===== Container ===== */
 .tab-panel-container {
@@ -39,11 +40,10 @@
     opacity: 1;
 }
 
-/* ===== Tab Navigation ===== */
+/* ===== Base Tab Navigation ===== */
 .tab-panel-tabs {
     display: flex;
     gap: 0.25rem;
-    border-bottom: 2px solid var(--color-border-primary);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -55,7 +55,7 @@
     display: none;
 }
 
-/* ===== Individual Tabs ===== */
+/* ===== Base Individual Tabs ===== */
 .tab-panel-tab {
     display: flex;
     align-items: center;
@@ -69,8 +69,6 @@
     color: var(--color-text-secondary);
     background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
     cursor: pointer;
     transition: all 0.15s ease;
     white-space: nowrap;
@@ -82,28 +80,136 @@
     -webkit-tap-highlight-color: transparent;
 }
 
-.tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
-    color: var(--color-text-primary);
-    border-bottom-color: var(--color-border-secondary);
-}
-
-.tab-panel-tab.active {
-    color: var(--color-accent-blue);
-    border-bottom-color: var(--color-accent-blue);
-}
-
-.tab-panel-tab:focus-visible {
-    outline: 2px solid var(--color-accent-blue);
-    outline-offset: -2px;
-    border-radius: 0.25rem 0.25rem 0 0;
-}
-
-/* Disabled state */
 .tab-panel-tab.disabled,
 .tab-panel-tab[aria-disabled="true"] {
     color: var(--color-text-tertiary);
     cursor: not-allowed;
     opacity: 0.5;
+}
+
+/* ===== VARIANT: UNDERLINE ===== */
+/* Light background with bottom border on active tab (default style) */
+
+.tab-panel-underline .tab-panel-tabs {
+    gap: 0.25rem;
+    border-bottom: 2px solid var(--color-border-primary);
+}
+
+.tab-panel-underline .tab-panel-tab {
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.tab-panel-underline .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
+    color: var(--color-text-primary);
+    border-bottom-color: var(--color-border-secondary);
+}
+
+.tab-panel-underline .tab-panel-tab.active {
+    color: var(--color-accent-blue);
+    border-bottom-color: var(--color-accent-blue);
+}
+
+.tab-panel-underline .tab-panel-tab:focus-visible {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: -2px;
+    border-radius: 0.25rem 0.25rem 0 0;
+}
+
+/* Scroll indicators for underline variant */
+.tab-panel-underline::before {
+    bottom: 2px; /* Account for border */
+    background: linear-gradient(to right, var(--color-bg-primary), transparent);
+}
+
+.tab-panel-underline::after {
+    bottom: 2px; /* Account for border */
+    background: linear-gradient(to left, var(--color-bg-primary), transparent);
+}
+
+/* ===== VARIANT: PILLS ===== */
+/* Rounded container with filled background on active tab */
+
+.tab-panel-pills .tab-panel-tabs {
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.75rem;
+}
+
+.tab-panel-pills .tab-panel-tab {
+    border-radius: 0.5rem;
+}
+
+.tab-panel-pills .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
+    background: var(--color-bg-hover);
+}
+
+.tab-panel-pills .tab-panel-tab.active {
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-panel-pills .tab-panel-tab:focus-visible {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+}
+
+/* Scroll indicators for pills variant */
+.tab-panel-pills::before {
+    background: linear-gradient(to right, var(--color-bg-secondary) 0%, transparent 100%);
+    border-radius: 0.75rem 0 0 0.75rem;
+}
+
+.tab-panel-pills::after {
+    background: linear-gradient(to left, var(--color-bg-secondary) 0%, transparent 100%);
+    border-radius: 0 0.75rem 0.75rem 0;
+}
+
+/* ===== VARIANT: BORDERED ===== */
+/* Full borders around tabs with Discord branding on active state */
+
+.tab-panel-bordered .tab-panel-tabs {
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--color-border-secondary);
+}
+
+.tab-panel-bordered .tab-panel-tab {
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+}
+
+.tab-panel-bordered .tab-panel-tab:hover:not(.active):not(.disabled):not([aria-disabled="true"]) {
+    background: var(--color-bg-hover);
+}
+
+.tab-panel-bordered .tab-panel-tab.active {
+    color: var(--color-discord);
+    border-bottom-color: var(--color-discord);
+}
+
+.tab-panel-bordered .tab-panel-tab.active .tab-icon {
+    color: var(--color-discord);
+}
+
+.tab-panel-bordered .tab-panel-tab:focus-visible {
+    outline: 2px solid var(--color-discord);
+    outline-offset: -2px;
+    border-radius: 0.25rem 0.25rem 0 0;
+}
+
+/* Scroll indicators for bordered variant */
+.tab-panel-bordered::before {
+    bottom: 2px; /* Account for border */
+    background: linear-gradient(to right, var(--color-bg-primary), transparent);
+}
+
+.tab-panel-bordered::after {
+    bottom: 2px; /* Account for border */
+    background: linear-gradient(to left, var(--color-bg-primary), transparent);
 }
 
 /* ===== Tab Icons ===== */
@@ -140,6 +246,21 @@
     .tab-panel-tab .tab-label-short {
         display: inline;
     }
+
+    /* Pills variant mobile adjustments */
+    .tab-panel-pills .tab-panel-tab {
+        padding: 0.5rem 0.875rem;
+    }
+
+    /* Underline variant mobile adjustments */
+    .tab-panel-underline .tab-panel-tab {
+        padding: 0.625rem 0.75rem;
+    }
+
+    /* Bordered variant mobile adjustments */
+    .tab-panel-bordered .tab-panel-tab {
+        padding: 0.625rem 1rem;
+    }
 }
 
 /* Extra small screens (320px+) - icon-only mode if needed */
@@ -150,6 +271,11 @@
 
     .tab-panel-tab {
         padding: 0.75rem 0.75rem;
+    }
+
+    .tab-panel-pills .tab-panel-tabs {
+        gap: 0.125rem;
+        padding: 0.125rem;
     }
 }
 
