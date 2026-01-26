@@ -1,7 +1,7 @@
 # Component API Usage Guide
 
-**Version:** 1.0
-**Last Updated:** 2025-12-22
+**Version:** 1.1
+**Last Updated:** 2026-01-26
 **Target Framework:** .NET 8 Razor Pages with Tailwind CSS
 
 ---
@@ -66,6 +66,7 @@ Then in the view:
 | [LoadingSpinner](#loadingspinner-component) | Loading states | Async operations, page loads |
 | [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results |
 | [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
+| [NavTabs](#navtabs-component) | Tabbed navigation | Page navigation, in-page tabs, AJAX content |
 
 ---
 
@@ -1389,6 +1390,336 @@ var customPagination = new PaginationViewModel
 
 ---
 
+## NavTabs Component
+
+Unified tabbed navigation component with support for page navigation, in-page panels, and AJAX content loading with full accessibility.
+
+### Properties
+
+#### NavTabsViewModel
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ContainerId` | `string` | `""` | Unique identifier for the tab container (required) |
+| `Tabs` | `List<NavTabItem>` | `new()` | Collection of tab items |
+| `ActiveTabId` | `string?` | `null` | ID of the currently active tab |
+| `StyleVariant` | `NavTabStyle` | `Underline` | Visual style variant |
+| `NavigationMode` | `NavMode` | `Page` | How tab navigation works |
+| `PersistenceMode` | `NavPersistence` | `None` | How to persist active tab state |
+
+#### NavTabItem
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Id` | `string` | `""` | Unique tab identifier (required) |
+| `Label` | `string` | `""` | Display text for the tab (required) |
+| `ShortLabel` | `string?` | `null` | Shorter label for mobile displays |
+| `Href` | `string?` | `null` | Navigation URL (required for Page mode) |
+| `IconPathOutline` | `string?` | `null` | SVG path for outline icon |
+| `IconPathSolid` | `string?` | `null` | SVG path for solid icon (active state) |
+| `Disabled` | `bool` | `false` | Whether the tab is disabled |
+
+### Enums
+
+#### NavTabStyle
+
+| Value | Description | Use Case |
+|-------|-------------|----------|
+| `Underline` | Bottom border indicator | Standard page sections |
+| `Pills` | Rounded pill background | Compact/grouped options |
+| `Bordered` | Full border container | Portal-style navigation |
+
+#### NavMode
+
+| Value | Description | Requires |
+|-------|-------------|----------|
+| `Page` | Full page navigation | `Href` on each tab |
+| `InPage` | Show/hide pre-rendered panels | Panels with `data-nav-panel-for` |
+| `Ajax` | Fetch content dynamically | `data-ajax-url` on tabs |
+
+#### NavPersistence
+
+| Value | Description |
+|-------|-------------|
+| `None` | No persistence |
+| `Hash` | URL hash (e.g., `#settings`) |
+| `LocalStorage` | Browser localStorage |
+
+### Basic Usage
+
+**Page Navigation (Default):**
+
+```csharp
+var navTabs = new NavTabsViewModel
+{
+    ContainerId = "guild-nav",
+    Tabs = new List<NavTabItem>
+    {
+        new() { Id = "overview", Label = "Overview", Href = "/guild/123/overview" },
+        new() { Id = "members", Label = "Members", Href = "/guild/123/members" },
+        new() { Id = "settings", Label = "Settings", Href = "/guild/123/settings" }
+    },
+    ActiveTabId = "overview",
+    StyleVariant = NavTabStyle.Underline,
+    NavigationMode = NavMode.Page
+};
+```
+
+```cshtml
+<partial name="Shared/Components/_NavTabs" model="navTabs" />
+```
+
+**With Icons:**
+
+```csharp
+var navTabs = new NavTabsViewModel
+{
+    ContainerId = "audio-nav",
+    Tabs = new List<NavTabItem>
+    {
+        new()
+        {
+            Id = "soundboard",
+            Label = "Soundboard",
+            ShortLabel = "Sounds",
+            Href = "/audio/soundboard",
+            IconPathOutline = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3",
+            IconPathSolid = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
+        },
+        new()
+        {
+            Id = "queue",
+            Label = "Queue",
+            Href = "/audio/queue",
+            IconPathOutline = "M4 6h16M4 10h16M4 14h16M4 18h16",
+            IconPathSolid = "M3 5h18v2H3V5zm0 4h18v2H3V9zm0 4h18v2H3v-2zm0 4h18v2H3v-2z"
+        }
+    },
+    ActiveTabId = "soundboard",
+    StyleVariant = NavTabStyle.Pills
+};
+```
+
+**In-Page Tabs:**
+
+```csharp
+var inPageTabs = new NavTabsViewModel
+{
+    ContainerId = "profile-tabs",
+    Tabs = new List<NavTabItem>
+    {
+        new() { Id = "details", Label = "Details" },
+        new() { Id = "activity", Label = "Activity" },
+        new() { Id = "permissions", Label = "Permissions" }
+    },
+    ActiveTabId = "details",
+    NavigationMode = NavMode.InPage,
+    PersistenceMode = NavPersistence.Hash
+};
+```
+
+```cshtml
+<partial name="Shared/Components/_NavTabs" model="inPageTabs" />
+
+<div data-nav-panel-for="profile-tabs" data-tab-id="details">
+    <!-- Details content -->
+</div>
+<div data-nav-panel-for="profile-tabs" data-tab-id="activity" hidden>
+    <!-- Activity content -->
+</div>
+<div data-nav-panel-for="profile-tabs" data-tab-id="permissions" hidden>
+    <!-- Permissions content -->
+</div>
+```
+
+**AJAX Tabs:**
+
+```csharp
+var ajaxTabs = new NavTabsViewModel
+{
+    ContainerId = "performance-tabs",
+    Tabs = new List<NavTabItem>
+    {
+        new() { Id = "overview", Label = "Overview" },
+        new() { Id = "health", Label = "Health" },
+        new() { Id = "metrics", Label = "Metrics" }
+    },
+    ActiveTabId = "overview",
+    NavigationMode = NavMode.Ajax,
+    PersistenceMode = NavPersistence.Hash
+};
+```
+
+```cshtml
+<!-- Tabs with data-ajax-url handled by partial -->
+<partial name="Shared/Components/_NavTabs" model="ajaxTabs" />
+
+<!-- Content panels created dynamically by JavaScript -->
+```
+
+### JavaScript API
+
+The NavTabs JavaScript module provides programmatic control. It auto-initializes on `DOMContentLoaded`.
+
+**Public Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `NavTabs.init(containerId, options)` | Initialize a specific container |
+| `NavTabs.switchTo(containerId, tabId)` | Programmatically switch tabs |
+| `NavTabs.getActiveTab(containerId)` | Get active tab ID |
+| `NavTabs.retry(containerId, tabId)` | Retry failed AJAX load |
+| `NavTabs.destroy(containerId)` | Clean up instance |
+| `NavTabs.announce(message)` | Announce to screen readers |
+
+**Events:**
+
+```javascript
+// Listen for tab changes
+document.addEventListener('navtabchange', function(e) {
+    console.log('Tab changed:', e.detail.containerId, e.detail.tabId);
+});
+```
+
+**Manual Initialization:**
+
+```javascript
+// For dynamically added tabs
+NavTabs.init('dynamic-tabs', {
+    requestTimeout: 15000,
+    loadingDelay: 200
+});
+```
+
+**Programmatic Tab Switch:**
+
+```javascript
+// Switch to a specific tab
+NavTabs.switchTo('guild-nav', 'settings');
+
+// Get current active tab
+const activeTab = NavTabs.getActiveTab('guild-nav');
+```
+
+### Configuration Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `containerSelector` | `[data-nav-tabs]` | Container element selector |
+| `tabSelector` | `.nav-tabs-item` | Tab element selector |
+| `panelSelector` | `[data-nav-panel-for]` | Panel element selector |
+| `tablistSelector` | `.nav-tabs-list` | Tablist element selector |
+| `activeClass` | `active` | CSS class for active state |
+| `loadingClass` | `loading` | CSS class for loading state |
+| `requestTimeout` | `10000` | AJAX timeout in ms |
+| `loadingDelay` | `150` | Delay before showing spinner |
+| `scrollThreshold` | `5` | Pixels for scroll indicators |
+
+### Keyboard Navigation
+
+| Key | Action |
+|-----|--------|
+| `←` `→` | Navigate between tabs (wraps around) |
+| `Home` | Focus first tab |
+| `End` | Focus last tab |
+| `Enter` / `Space` | Activate focused tab |
+| `Tab` | Move focus to active tab / exit tablist |
+
+### Common Patterns
+
+**Guild Navigation:**
+
+```csharp
+public NavTabsViewModel GetGuildNavTabs(ulong guildId, string activeTab)
+{
+    return new NavTabsViewModel
+    {
+        ContainerId = $"guild-nav-{guildId}",
+        Tabs = new List<NavTabItem>
+        {
+            new() { Id = "overview", Label = "Overview", ShortLabel = "Home",
+                    Href = $"/guild/{guildId}" },
+            new() { Id = "members", Label = "Members",
+                    Href = $"/guild/{guildId}/members" },
+            new() { Id = "commands", Label = "Commands",
+                    Href = $"/guild/{guildId}/commands" },
+            new() { Id = "settings", Label = "Settings",
+                    Href = $"/guild/{guildId}/settings" }
+        },
+        ActiveTabId = activeTab,
+        StyleVariant = NavTabStyle.Underline,
+        NavigationMode = NavMode.Page
+    };
+}
+```
+
+**Dashboard with AJAX Refresh:**
+
+```cshtml
+@{
+    var dashTabs = new NavTabsViewModel
+    {
+        ContainerId = "dashboard-tabs",
+        Tabs = new List<NavTabItem>
+        {
+            new() { Id = "stats", Label = "Statistics" },
+            new() { Id = "activity", Label = "Activity" },
+            new() { Id = "alerts", Label = "Alerts" }
+        },
+        ActiveTabId = "stats",
+        NavigationMode = NavMode.Ajax,
+        PersistenceMode = NavPersistence.LocalStorage
+    };
+}
+
+<partial name="Shared/Components/_NavTabs" model="dashTabs" />
+
+<script>
+    // Refresh content periodically
+    setInterval(() => {
+        const activeTab = NavTabs.getActiveTab('dashboard-tabs');
+        if (activeTab) {
+            NavTabs.retry('dashboard-tabs', activeTab);
+        }
+    }, 60000);
+</script>
+```
+
+**Disabled Tab:**
+
+```csharp
+var tabs = new NavTabsViewModel
+{
+    ContainerId = "feature-tabs",
+    Tabs = new List<NavTabItem>
+    {
+        new() { Id = "basic", Label = "Basic" },
+        new() { Id = "advanced", Label = "Advanced", Disabled = true },
+        new() { Id = "premium", Label = "Premium", Disabled = !user.IsPremium }
+    },
+    ActiveTabId = "basic"
+};
+```
+
+### Accessibility Notes
+
+- Uses proper ARIA roles: `tablist`, `tab`, `tabpanel`
+- `aria-selected` indicates active tab state
+- `aria-controls` links tabs to panels
+- `aria-labelledby` links panels to tabs
+- Roving `tabindex` for keyboard focus management
+- Screen reader announcements for tab changes and loading states
+- Respects `prefers-reduced-motion` for animations
+- Visible focus indicators for keyboard navigation
+
+### Related Documentation
+
+- **[Navigation Tabs Component Guide](nav-tabs-component.md)** - Comprehensive usage guide
+- **[Navigation Tabs Migration Guide](nav-tabs-migration.md)** - Migrating from legacy components
+- **[Design System](design-system.md)** - Style tokens and variants
+
+---
+
 ## Integration Examples
 
 ### Form with Validation
@@ -1871,6 +2202,12 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.1 (2026-01-26)
+- Added NavTabs component documentation
+- Documented JavaScript API for NavTabs
+- Added navigation modes, persistence, and keyboard navigation
+- Cross-referenced with dedicated component and migration guides
 
 ### Version 1.0 (2025-12-22)
 - Initial component API documentation

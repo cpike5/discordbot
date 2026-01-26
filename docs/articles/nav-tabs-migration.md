@@ -696,7 +696,7 @@ If you encounter issues during migration:
 ## Related Documentation
 
 - [Navigation Tabs Component Guide](nav-tabs-component.md)
-- [Navigation Tabs JavaScript API](nav-tabs-api.md)
+- [Component API - NavTabs](component-api.md#navtabs-component)
 - [Design System - Navigation Tabs](design-system.md#navigation-tabs)
 - [Interactive Components](interactive-components.md)
 
