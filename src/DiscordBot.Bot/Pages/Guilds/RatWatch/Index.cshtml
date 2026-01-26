@@ -131,21 +131,33 @@
         </form>
     </div>
 
-    <!-- Navigation Tabs -->
-    <div class="flex items-center gap-1 mb-6 border-b border-border-primary">
-        <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId"
-           class="px-4 py-3 text-sm font-medium border-b-2 border-accent-orange text-text-primary">
-            Settings
-        </a>
-        <a asp-page="Analytics" asp-route-guildId="@Model.ViewModel.GuildId"
-           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
-            Analytics
-        </a>
-        <a asp-page="Incidents" asp-route-guildId="@Model.ViewModel.GuildId"
-           class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-text-secondary hover:text-text-primary transition-colors">
-            Incidents
-        </a>
-    </div>
+    <!-- Rat Watch Navigation Tabs -->
+    <partial name="Shared/Components/_TabPanel" model='new TabPanelViewModel {
+        Id = "ratWatchTabs",
+        StyleVariant = TabStyleVariant.Underline,
+        NavigationMode = TabNavigationMode.PageNavigation,
+        Tabs = new List<TabItemViewModel>
+        {
+            new() {
+                Id = "settings",
+                Label = "Settings",
+                Href = $"/Guilds/RatWatch/{Model.ViewModel.GuildId}"
+            },
+            new() {
+                Id = "analytics",
+                Label = "Analytics",
+                Href = $"/Guilds/RatWatch/Analytics/{Model.ViewModel.GuildId}"
+            },
+            new() {
+                Id = "incidents",
+                Label = "Incidents",
+                Href = $"/Guilds/RatWatch/Incidents/{Model.ViewModel.GuildId}"
+            }
+        },
+        ActiveTabId = "settings",
+        AriaLabel = "Rat Watch navigation",
+        ContainerClass = "mb-6"
+    }' />
 
     <!-- Summary Stats Cards -->
     @if (Model.ViewModel.AnalyticsSummary != null)
