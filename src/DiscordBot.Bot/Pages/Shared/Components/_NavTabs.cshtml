@@ -1,0 +1,149 @@
+@model DiscordBot.Bot.ViewModels.Components.NavTabsViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    var containerId = $"{Model.ContainerId}-container";
+    var navId = $"{Model.ContainerId}-nav";
+
+    string GetTabClass(NavTabItem tab)
+    {
+        var classes = "nav-tabs-item";
+        if (tab.Id == Model.ActiveTabId)
+        {
+            classes += " active";
+        }
+        if (tab.Disabled)
+        {
+            classes += " disabled";
+        }
+        return classes;
+    }
+
+    string GetStyleClass() => Model.StyleVariant switch
+    {
+        NavTabStyle.Pills => "nav-tabs-pills",
+        NavTabStyle.Bordered => "nav-tabs-bordered",
+        _ => "nav-tabs-underline"
+    };
+}
+
+@*
+    NavTabs Component
+    -----------------
+    Usage requires including the following in your page:
+
+    @section Styles {
+        <link rel="stylesheet" href="~/css/nav-tabs.css" asp-append-version="true" />
+    }
+
+    @section Scripts {
+        <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
+    }
+
+    For in-page mode, create content panels like:
+    <div data-nav-panel-for="[containerId]" data-tab-id="[tabId]" hidden>
+        <!-- Tab content -->
+    </div>
+
+    For AJAX mode, add data-ajax-url to each NavTabItem's configuration.
+*@
+
+<div class="nav-tabs-container @GetStyleClass()"
+     id="@containerId"
+     data-nav-tabs
+     data-navigation-mode="@Model.NavigationMode.ToString().ToLowerInvariant()"
+     data-persistence-mode="@Model.PersistenceMode.ToString().ToLowerInvariant()"
+     data-container-id="@Model.ContainerId">
+    <nav class="nav-tabs-list"
+         id="@navId"
+         role="tablist"
+         aria-label="@Model.AriaLabel">
+        @foreach (var tab in Model.Tabs)
+        {
+            var isActive = tab.Id == Model.ActiveTabId;
+            var tabElementId = $"{Model.ContainerId}-tab-{tab.Id}";
+            var panelElementId = $"{Model.ContainerId}-panel-{tab.Id}";
+
+            if (Model.NavigationMode == NavMode.PageNavigation)
+            {
+                <a href="@(tab.Href ?? "#")"
+                   class="@GetTabClass(tab)"
+                   id="@tabElementId"
+                   role="tab"
+                   aria-selected="@(isActive ? "true" : "false")"
+                   aria-disabled="@(tab.Disabled ? "true" : null)"
+                   tabindex="@(isActive ? "0" : "-1")"
+                   data-tab-id="@tab.Id"
+                   data-icon-outline="@tab.IconPathOutline"
+                   data-icon-solid="@tab.IconPathSolid">
+                    @{ RenderTabContent(tab, isActive); }
+                </a>
+            }
+            else if (Model.NavigationMode == NavMode.Ajax)
+            {
+                <button type="button"
+                        class="@GetTabClass(tab)"
+                        id="@tabElementId"
+                        role="tab"
+                        aria-selected="@(isActive ? "true" : "false")"
+                        aria-controls="@panelElementId"
+                        tabindex="@(isActive ? "0" : "-1")"
+                        disabled="@(tab.Disabled ? true : null)"
+                        aria-disabled="@(tab.Disabled ? "true" : null)"
+                        data-tab-id="@tab.Id"
+                        data-ajax-url="@tab.Href"
+                        data-icon-outline="@tab.IconPathOutline"
+                        data-icon-solid="@tab.IconPathSolid">
+                    @{ RenderTabContent(tab, isActive); }
+                </button>
+            }
+            else
+            {
+                <button type="button"
+                        class="@GetTabClass(tab)"
+                        id="@tabElementId"
+                        role="tab"
+                        aria-selected="@(isActive ? "true" : "false")"
+                        aria-controls="@panelElementId"
+                        tabindex="@(isActive ? "0" : "-1")"
+                        disabled="@(tab.Disabled ? true : null)"
+                        aria-disabled="@(tab.Disabled ? "true" : null)"
+                        data-tab-id="@tab.Id"
+                        data-icon-outline="@tab.IconPathOutline"
+                        data-icon-solid="@tab.IconPathSolid">
+                    @{ RenderTabContent(tab, isActive); }
+                </button>
+            }
+        }
+    </nav>
+</div>
+
+@functions {
+    private void RenderTabContent(NavTabItem tab, bool isActive)
+    {
+        if (tab.HasIcon)
+        {
+            if (isActive && !string.IsNullOrEmpty(tab.IconPathSolid))
+            {
+                <svg class="nav-tabs-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="@tab.IconPathSolid" />
+                </svg>
+            }
+            else
+            {
+                <svg class="nav-tabs-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" />
+                </svg>
+            }
+        }
+
+        if (!string.IsNullOrEmpty(tab.ShortLabel))
+        {
+            <span class="tab-label-long">@tab.Label</span>
+            <span class="tab-label-short">@tab.ShortLabel</span>
+        }
+        else
+        {
+            <span>@tab.Label</span>
+        }
+    }
+}
