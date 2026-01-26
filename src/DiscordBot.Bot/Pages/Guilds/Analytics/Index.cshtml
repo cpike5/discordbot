@@ -23,12 +23,10 @@
     }
 
     <!-- Filter Panel -->
-    <partial name="_FilterPanel" model='@(new FilterPanelViewModel {
-        Title = "Filters",
-        IsCollapsible = true,
-        ActiveFilterCount = (Model.StartDate.HasValue || Model.EndDate.HasValue) ? 1 : 0,
-        DefaultExpanded = true
-    })'>
+    <filter-panel title="Filters"
+                  is-collapsible="true"
+                  active-filter-count="@((Model.StartDate.HasValue || Model.EndDate.HasValue) ? 1 : 0)"
+                  default-expanded="true">
         <form method="get" id="filterForm">
                     <!-- Quick Date Presets -->
                     <div class="mb-4">
@@ -101,7 +99,7 @@
                         }
                     </div>
                 </form>
-    </partial>
+    </filter-panel>
 
     <!-- Summary Stats Row -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">

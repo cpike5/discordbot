@@ -10,13 +10,11 @@
 }
 
 <!-- Filter Panel -->
-<partial name="_FilterPanel" model='@(new FilterPanelViewModel {
-    Title = "Filters",
-    IsCollapsible = true,
-    ActiveFilterCount = Model.ActiveFilterCount,
-    DefaultExpanded = Model.HasActiveFilters,
-    UseHiddenToggle = true
-})'>
+<filter-panel title="Filters"
+              is-collapsible="true"
+              active-filter-count="@Model.ActiveFilterCount"
+              default-expanded="@Model.HasActiveFilters"
+              use-hidden-toggle="true">
     <form method="get" id="filterForm">
                 <input type="hidden" name="GuildId" value="@Model.GuildId" />
 
@@ -159,7 +157,7 @@
                     </a>
                 </div>
             </form>
-</partial>
+</filter-panel>
 
     <!-- Bulk Actions Toolbar (hidden by default) -->
     <div id="bulkActionsToolbar" class="hidden bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
