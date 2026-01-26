@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.ViewModels.Pages;
 using System.Diagnostics;
+using IAuthorizationService = Microsoft.AspNetCore.Authorization.IAuthorizationService;
 
 namespace DiscordBot.Bot.Pages.Admin.Performance;
 
@@ -22,6 +24,10 @@ public class IndexModel : PageModel
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
     private readonly IPerformanceAlertService _alertService;
     private readonly ICpuHistoryService _cpuHistoryService;
+    private readonly IMemoryDiagnosticsService _memoryDiagnosticsService;
+    private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
+    private readonly IInstrumentedCache _instrumentedCache;
+    private readonly IAuthorizationService _authorizationService;
     private readonly ILogger<IndexModel> _logger;
 
     /// <summary>
@@ -37,13 +43,6 @@ public class IndexModel : PageModel
     /// <summary>
     /// Initializes a new instance of the <see cref="IndexModel"/> class.
     /// </summary>
-    /// <param name="connectionStateService">The connection state service.</param>
-    /// <param name="latencyHistoryService">The latency history service.</param>
-    /// <param name="commandPerformanceAggregator">The command performance aggregator.</param>
-    /// <param name="apiRequestTracker">The API request tracker.</param>
-    /// <param name="backgroundServiceHealthRegistry">The background service health registry.</param>
-    /// <param name="alertService">The performance alert service.</param>
-    /// <param name="logger">The logger.</param>
     public IndexModel(
         IConnectionStateService connectionStateService,
         ILatencyHistoryService latencyHistoryService,
@@ -52,6 +51,10 @@ public class IndexModel : PageModel
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
         IPerformanceAlertService alertService,
         ICpuHistoryService cpuHistoryService,
+        IMemoryDiagnosticsService memoryDiagnosticsService,
+        IDatabaseMetricsCollector databaseMetricsCollector,
+        IInstrumentedCache instrumentedCache,
+        IAuthorizationService authorizationService,
         ILogger<IndexModel> logger)
     {
         _connectionStateService = connectionStateService;
@@ -61,6 +64,10 @@ public class IndexModel : PageModel
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
         _alertService = alertService;
         _cpuHistoryService = cpuHistoryService;
+        _memoryDiagnosticsService = memoryDiagnosticsService;
+        _databaseMetricsCollector = databaseMetricsCollector;
+        _instrumentedCache = instrumentedCache;
+        _authorizationService = authorizationService;
         _logger = logger;
     }
 
@@ -77,38 +84,70 @@ public class IndexModel : PageModel
     /// Handles AJAX requests for tab content partial views.
     /// </summary>
     /// <param name="tabId">The ID of the tab to load.</param>
+    /// <param name="hours">The time range in hours (24, 168, or 720).</param>
     /// <returns>The partial view for the requested tab.</returns>
-    public async Task<IActionResult> OnGetPartialAsync(string tabId)
+    public async Task<IActionResult> OnGetPartialAsync(string tabId, int hours = 24)
     {
-        _logger.LogDebug("Loading partial content for tab {TabId}", tabId);
+        _logger.LogDebug("Loading partial content for tab {TabId} with hours={Hours}", tabId, hours);
 
-        // Map tabId to the appropriate partial view
-        var partialView = tabId?.ToLowerInvariant() switch
+        // Validate hours parameter
+        if (hours != 24 && hours != 168 && hours != 720)
         {
-            "overview" => "Tabs/_OverviewTab",
-            "health" => "Tabs/_HealthTab",
-            "commands" => "Tabs/_CommandsTab",
-            "api" => "Tabs/_ApiTab",
-            "system" => "Tabs/_SystemTab",
-            "alerts" => "Tabs/_AlertsTab",
-            _ => null
-        };
-
-        if (partialView == null)
-        {
-            _logger.LogWarning("Invalid tab ID requested: {TabId}", tabId);
-            return NotFound();
+            hours = 24;
         }
 
-        // Load the appropriate view model based on the tab
-        // For now, we'll reuse the LoadViewModelAsync which loads the overview data
-        // Each tab's specific data loading logic would go here in a production scenario
-        await LoadViewModelAsync();
+        return tabId?.ToLowerInvariant() switch
+        {
+            "overview" => await LoadOverviewTabAsync(),
+            "health" => await LoadHealthTabAsync(),
+            "commands" => await LoadCommandsTabAsync(hours),
+            "api" => LoadApiTab(hours),
+            "system" => LoadSystemTab(),
+            "alerts" => await LoadAlertsTabAsync(),
+            _ => HandleInvalidTab(tabId)
+        };
+    }
 
-        // Return the partial view with the appropriate model
-        // Note: Each partial expects a specific ViewModel type, but for this migration
-        // we're using the existing ViewModel property which contains PerformanceOverviewViewModel
-        return Partial(partialView, ViewModel);
+    private async Task<IActionResult> LoadOverviewTabAsync()
+    {
+        await LoadViewModelAsync();
+        return Partial("Tabs/_OverviewTab", ViewModel);
+    }
+
+    private async Task<IActionResult> LoadHealthTabAsync()
+    {
+        var viewModel = await BuildHealthMetricsViewModelAsync();
+        return Partial("Tabs/_HealthTab", viewModel);
+    }
+
+    private async Task<IActionResult> LoadCommandsTabAsync(int hours)
+    {
+        var viewModel = await BuildCommandPerformanceViewModelAsync(hours);
+        return Partial("Tabs/_CommandsTab", viewModel);
+    }
+
+    private IActionResult LoadApiTab(int hours)
+    {
+        var viewModel = BuildApiRateLimitsViewModel(hours);
+        return Partial("Tabs/_ApiTab", viewModel);
+    }
+
+    private IActionResult LoadSystemTab()
+    {
+        var viewModel = BuildSystemHealthViewModel();
+        return Partial("Tabs/_SystemTab", viewModel);
+    }
+
+    private async Task<IActionResult> LoadAlertsTabAsync()
+    {
+        var viewModel = await BuildAlertsPageViewModelAsync();
+        return Partial("Tabs/_AlertsTab", viewModel);
+    }
+
+    private IActionResult HandleInvalidTab(string? tabId)
+    {
+        _logger.LogWarning("Invalid tab ID requested: {TabId}", tabId);
+        return NotFound();
     }
 
     private async Task LoadViewModelAsync()
@@ -247,5 +286,329 @@ public class IndexModel : PageModel
         }
 
         return "Healthy";
+    }
+
+    private Task<HealthMetricsViewModel> BuildHealthMetricsViewModelAsync()
+    {
+        try
+        {
+            var connectionState = _connectionStateService.GetCurrentState();
+            var sessionDuration = _connectionStateService.GetCurrentSessionDuration();
+            var currentLatency = _latencyHistoryService.GetCurrentLatency();
+
+            var latencyStats = _latencyHistoryService.GetStatistics(24);
+            var connectionStats7d = _connectionStateService.GetConnectionStats(7);
+            var connectionEvents = _connectionStateService.GetConnectionEvents(7);
+            var recentLatencySamples = _latencyHistoryService.GetSamples(1).TakeLast(10).ToList();
+
+            var uptime24h = _connectionStateService.GetUptimePercentage(TimeSpan.FromHours(24));
+            var uptime7d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(7));
+            var uptime30d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(30));
+
+            long workingSetMB;
+            long privateMemoryMB;
+            int threadCount;
+            using (var process = Process.GetCurrentProcess())
+            {
+                workingSetMB = process.WorkingSet64 / 1024 / 1024;
+                privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+                threadCount = process.Threads.Count;
+            }
+            var maxAllocatedMemoryMB = GC.GetTotalMemory(false) / 1024 / 1024;
+            var memoryUtilizationPercent = maxAllocatedMemoryMB > 0
+                ? (double)workingSetMB / maxAllocatedMemoryMB * 100
+                : 0;
+            var gen2Collections = GC.CollectionCount(2);
+
+            var memoryDiagnostics = _memoryDiagnosticsService.GetDiagnostics();
+
+            var sessionStart = _connectionStateService.GetLastConnectedTime();
+            var sessionStartFormatted = sessionStart?.ToString("MMM dd, yyyy 'at' HH:mm") + " UTC" ?? "Unknown";
+
+            var health = new PerformanceHealthDto
+            {
+                Status = connectionState == GatewayConnectionState.Connected ? "Healthy" : "Unhealthy",
+                Uptime = sessionDuration,
+                LatencyMs = currentLatency,
+                ConnectionState = connectionState.ToString(),
+                Timestamp = DateTime.UtcNow
+            };
+
+            return Task.FromResult(new HealthMetricsViewModel
+            {
+                Health = health,
+                LatencyStats = latencyStats,
+                ConnectionStats = connectionStats7d,
+                RecentConnectionEvents = connectionEvents,
+                RecentLatencySamples = recentLatencySamples,
+                UptimeFormatted = HealthMetricsViewModel.FormatUptime(sessionDuration),
+                Uptime24HFormatted = $"{uptime24h:F1}%",
+                Uptime7DFormatted = $"{uptime7d:F1}%",
+                Uptime30DFormatted = $"{uptime30d:F1}%",
+                ConnectionStateClass = HealthMetricsViewModel.GetConnectionStateClass(connectionState.ToString()),
+                LatencyHealthClass = HealthMetricsViewModel.GetLatencyHealthClass(currentLatency),
+                SessionStartFormatted = sessionStartFormatted,
+                SessionStartUtc = sessionStart,
+                WorkingSetMB = workingSetMB,
+                PrivateMemoryMB = privateMemoryMB,
+                MaxAllocatedMemoryMB = maxAllocatedMemoryMB,
+                MemoryUtilizationPercent = memoryUtilizationPercent,
+                Gen2Collections = gen2Collections,
+                CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
+                ThreadCount = threadCount,
+                MemoryDiagnostics = memoryDiagnostics
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build HealthMetricsViewModel");
+            return Task.FromResult(new HealthMetricsViewModel
+            {
+                UptimeFormatted = "0m",
+                Uptime24HFormatted = "0%",
+                Uptime7DFormatted = "0%",
+                Uptime30DFormatted = "0%",
+                ConnectionStateClass = "health-status-error",
+                LatencyHealthClass = "gauge-fill-error",
+                SessionStartFormatted = "Unknown"
+            });
+        }
+    }
+
+    private async Task<CommandPerformanceViewModel> BuildCommandPerformanceViewModelAsync(int hours = 24)
+    {
+        try
+        {
+            var aggregatesTask = _commandPerformanceAggregator.GetAggregatesAsync(hours);
+            var slowestTask = _commandPerformanceAggregator.GetSlowestCommandsAsync(10, hours);
+
+            var aggregates = await aggregatesTask;
+
+            IReadOnlyList<SlowestCommandDto> slowest = Array.Empty<SlowestCommandDto>();
+            try
+            {
+                slowest = await slowestTask;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch slowest commands for {Hours} hours", hours);
+            }
+
+            var totalCommands = aggregates.Sum(a => a.ExecutionCount);
+            var avgResponseTime = aggregates.Any() ? aggregates.Average(a => a.AvgMs) : 0;
+            var errorRate = totalCommands > 0
+                ? aggregates.Sum(a => a.ExecutionCount * a.ErrorRate / 100.0) / totalCommands * 100
+                : 0;
+            var p99 = aggregates.Any() ? aggregates.Max(a => a.P99Ms) : 0;
+            var p95 = aggregates.Any() ? aggregates.Max(a => a.P95Ms) : 0;
+            var p50 = aggregates.Any() ? aggregates.Average(a => a.P50Ms) : 0;
+
+            var timeouts = slowest
+                .Where(s => s.DurationMs > 3000)
+                .GroupBy(s => s.CommandName)
+                .Select(g => new CommandTimeoutDto
+                {
+                    CommandName = g.Key,
+                    TimeoutCount = g.Count(),
+                    LastTimeout = g.Max(x => x.ExecutedAt),
+                    AvgResponseBeforeTimeout = g.Average(x => x.DurationMs),
+                    Status = g.Max(x => x.ExecutedAt) > DateTime.UtcNow.AddHours(-2)
+                        ? "Investigating"
+                        : "Resolved"
+                })
+                .ToList();
+
+            return new CommandPerformanceViewModel
+            {
+                TotalCommands = totalCommands,
+                AvgResponseTimeMs = avgResponseTime,
+                ErrorRate = errorRate,
+                P99ResponseTimeMs = p99,
+                P50Ms = p50,
+                P95Ms = p95,
+                SlowestCommands = slowest,
+                TimeoutCount = timeouts.Sum(t => t.TimeoutCount),
+                RecentTimeouts = timeouts,
+                AvgResponseTimeTrend = 0,
+                ErrorRateTrend = 0,
+                P99Trend = 0
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build CommandPerformanceViewModel");
+            return new CommandPerformanceViewModel
+            {
+                TotalCommands = 0,
+                AvgResponseTimeMs = 0,
+                ErrorRate = 0,
+                P99ResponseTimeMs = 0,
+                P50Ms = 0,
+                P95Ms = 0,
+                SlowestCommands = Array.Empty<SlowestCommandDto>(),
+                RecentTimeouts = Array.Empty<CommandTimeoutDto>(),
+                TimeoutCount = 0,
+                AvgResponseTimeTrend = 0,
+                ErrorRateTrend = 0,
+                P99Trend = 0
+            };
+        }
+    }
+
+    private ApiRateLimitsViewModel BuildApiRateLimitsViewModel(int hours = 24)
+    {
+        try
+        {
+            var usageByCategory = _apiRequestTracker.GetUsageStatistics(hours);
+            var totalRequests = _apiRequestTracker.GetTotalRequests(hours);
+            var rateLimitEvents = _apiRequestTracker.GetRateLimitEvents(hours);
+            var latencyStats = _apiRequestTracker.GetLatencyStatistics(hours);
+
+            return new ApiRateLimitsViewModel
+            {
+                TotalRequests = totalRequests,
+                RateLimitHits = rateLimitEvents.Count,
+                AvgLatencyMs = latencyStats.AvgLatencyMs,
+                P95LatencyMs = latencyStats.P95LatencyMs,
+                UsageByCategory = usageByCategory,
+                RecentRateLimitEvents = rateLimitEvents.OrderByDescending(e => e.Timestamp).Take(20).ToList(),
+                LatencyStats = latencyStats,
+                Hours = hours
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build ApiRateLimitsViewModel");
+            return new ApiRateLimitsViewModel
+            {
+                TotalRequests = 0,
+                RateLimitHits = 0,
+                AvgLatencyMs = 0,
+                P95LatencyMs = 0,
+                UsageByCategory = Array.Empty<ApiUsageDto>(),
+                RecentRateLimitEvents = Array.Empty<RateLimitEventDto>(),
+                LatencyStats = null
+            };
+        }
+    }
+
+    private SystemHealthViewModel BuildSystemHealthViewModel()
+    {
+        try
+        {
+            var dbMetrics = _databaseMetricsCollector.GetMetrics();
+            var slowQueries = _databaseMetricsCollector.GetSlowQueries(24);
+
+            var backgroundServices = _backgroundServiceHealthRegistry.GetAllHealth();
+
+            var cacheByPrefix = _instrumentedCache.GetStatistics();
+
+            var totalHits = cacheByPrefix.Sum(c => c.Hits);
+            var totalMisses = cacheByPrefix.Sum(c => c.Misses);
+            var totalCount = totalHits + totalMisses;
+
+            var overallCacheStats = new CacheStatisticsDto
+            {
+                KeyPrefix = "Overall",
+                Hits = totalHits,
+                Misses = totalMisses,
+                HitRate = totalCount > 0 ? (double)totalHits / totalCount * 100 : 0,
+                Size = cacheByPrefix.Sum(c => c.Size)
+            };
+
+            long workingSetMB;
+            long privateMemoryMB;
+            using (var process = Process.GetCurrentProcess())
+            {
+                workingSetMB = process.WorkingSet64 / 1024 / 1024;
+                privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
+            }
+            var heapSizeMB = GC.GetTotalMemory(false) / 1024 / 1024;
+            var gen0Collections = GC.CollectionCount(0);
+            var gen1Collections = GC.CollectionCount(1);
+            var gen2Collections = GC.CollectionCount(2);
+
+            var queriesPerSecond = dbMetrics.TotalQueries > 0
+                ? dbMetrics.TotalQueries / 60.0
+                : 0;
+
+            var systemStatus = SystemHealthViewModel.GetSystemStatus(
+                backgroundServices,
+                dbMetrics.AvgQueryTimeMs,
+                0);
+
+            var systemStatusClass = SystemHealthViewModel.GetSystemStatusClass(systemStatus);
+
+            return new SystemHealthViewModel
+            {
+                DatabaseMetrics = dbMetrics,
+                SlowQueries = slowQueries,
+                BackgroundServices = backgroundServices,
+                OverallCacheStats = overallCacheStats,
+                CacheStatsByPrefix = cacheByPrefix,
+                WorkingSetMB = workingSetMB,
+                PrivateMemoryMB = privateMemoryMB,
+                HeapSizeMB = heapSizeMB,
+                Gen0Collections = gen0Collections,
+                Gen1Collections = gen1Collections,
+                Gen2Collections = gen2Collections,
+                SystemStatus = systemStatus,
+                SystemStatusClass = systemStatusClass,
+                QueriesPerSecond = queriesPerSecond,
+                DatabaseErrorCount = 0
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build SystemHealthViewModel");
+            return new SystemHealthViewModel
+            {
+                SystemStatus = "Error Loading Data",
+                SystemStatusClass = "health-status-error",
+                DatabaseMetrics = new DatabaseMetricsDto(),
+                OverallCacheStats = new CacheStatisticsDto()
+            };
+        }
+    }
+
+    private async Task<AlertsPageViewModel> BuildAlertsPageViewModelAsync()
+    {
+        try
+        {
+            var authResult = await _authorizationService.AuthorizeAsync(User, "RequireAdmin");
+            var canEdit = authResult.Succeeded;
+
+            var activeIncidentsTask = _alertService.GetActiveIncidentsAsync();
+            var alertConfigsTask = _alertService.GetAllConfigsAsync();
+            var recentIncidentsTask = _alertService.GetIncidentHistoryAsync(
+                new IncidentQueryDto { PageNumber = 1, PageSize = 10 });
+            var autoRecoveryEventsTask = _alertService.GetAutoRecoveryEventsAsync(10);
+            var alertFrequencyTask = _alertService.GetAlertFrequencyDataAsync(30);
+            var summaryTask = _alertService.GetActiveAlertSummaryAsync();
+
+            await Task.WhenAll(
+                activeIncidentsTask,
+                alertConfigsTask,
+                recentIncidentsTask,
+                autoRecoveryEventsTask,
+                alertFrequencyTask,
+                summaryTask);
+
+            return new AlertsPageViewModel
+            {
+                ActiveIncidents = activeIncidentsTask.Result,
+                AlertConfigs = alertConfigsTask.Result,
+                RecentIncidents = recentIncidentsTask.Result.Items,
+                AutoRecoveryEvents = autoRecoveryEventsTask.Result,
+                AlertFrequencyData = alertFrequencyTask.Result,
+                AlertSummary = summaryTask.Result,
+                CanEdit = canEdit
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build AlertsPageViewModel");
+            return new AlertsPageViewModel();
+        }
     }
 }

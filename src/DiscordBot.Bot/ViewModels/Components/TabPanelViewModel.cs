@@ -90,6 +90,13 @@ public record TabPanelViewModel
     /// Example: "#tabContent"
     /// </summary>
     public string? AjaxContentTarget { get; init; }
+
+    /// <summary>
+    /// When true, disables automatic initialization by tab-panel.js.
+    /// Use this when a page has its own custom JavaScript that handles tab switching
+    /// (e.g., Performance dashboard with time range support).
+    /// </summary>
+    public bool DisableAutoInit { get; init; }
 }
 
 /// <summary>

@@ -10,18 +10,18 @@
         // Configuration
         config: {
             endpoints: {
-                overview: '/api/performance/tabs/overview',
-                health: '/api/performance/tabs/health',
-                commands: '/api/performance/tabs/commands',
-                api: '/api/performance/tabs/api',
-                system: '/api/performance/tabs/system',
-                alerts: '/api/performance/tabs/alerts'
+                overview: '/Admin/Performance?handler=Partial&tabId=overview',
+                health: '/Admin/Performance?handler=Partial&tabId=health',
+                commands: '/Admin/Performance?handler=Partial&tabId=commands',
+                api: '/Admin/Performance?handler=Partial&tabId=api',
+                system: '/Admin/Performance?handler=Partial&tabId=system',
+                alerts: '/Admin/Performance?handler=Partial&tabId=alerts'
             },
             cacheTimeout: 300000, // 5 minutes in ms
             requestTimeout: 10000, // 10 seconds in ms
             defaultTab: 'overview',
             tabPanelSelector: '.tab-panel',
-            tabLinkSelector: '.performance-tab',
+            tabLinkSelector: '.tab-panel-tab',
             loadingDelay: 150, // Delay before showing loading spinner (prevents flash)
             transitionDuration: 200, // Duration for fade transitions in ms (must match CSS)
             timeRangeStorageKey: 'performance-dashboard-time-range' // localStorage key for time range
@@ -497,7 +497,7 @@
             this.state.currentRequest = abortController;
 
             try {
-                const url = `${endpoint}?hours=${hours}`;
+                const url = `${endpoint}&hours=${hours}`;
                 const response = await fetch(url, {
                     signal: abortController.signal,
                     headers: {

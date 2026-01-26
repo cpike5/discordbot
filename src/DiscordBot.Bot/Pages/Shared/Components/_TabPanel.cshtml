@@ -56,8 +56,15 @@
      data-navigation-mode="@Model.NavigationMode.ToString().ToLowerInvariant()"
      data-persistence-mode="@Model.PersistenceMode.ToString().ToLowerInvariant()"
      data-panel-id="@Model.Id"
-     @(Model.NavigationMode == TabNavigationMode.Ajax && !string.IsNullOrEmpty(Model.AjaxUrlPattern) ? $"data-ajax-url-pattern=\"{Model.AjaxUrlPattern}\"" : "")
-     @(Model.NavigationMode == TabNavigationMode.Ajax && !string.IsNullOrEmpty(Model.AjaxContentTarget) ? $"data-ajax-content-target=\"{Model.AjaxContentTarget}\"" : "")>
+     @if (Model.DisableAutoInit) {
+         @:data-no-auto-init="true"
+     }
+     @if (Model.NavigationMode == TabNavigationMode.Ajax && !string.IsNullOrEmpty(Model.AjaxUrlPattern)) {
+         @:data-ajax-url-pattern="@Model.AjaxUrlPattern"
+     }
+     @if (Model.NavigationMode == TabNavigationMode.Ajax && !string.IsNullOrEmpty(Model.AjaxContentTarget)) {
+         @:data-ajax-content-target="@Model.AjaxContentTarget"
+     }>
     <nav class="tab-panel-tabs"
          id="@tablistId"
          role="tablist"
