@@ -51,35 +51,13 @@
     }' />
 
     <!-- Filter Panel -->
-    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
-        <button type="button"
-                id="filterToggle"
-                class="w-full flex items-center justify-between px-5 py-4 text-left"
-                aria-expanded="true"
-                aria-controls="filterContent"
-                onclick="toggleFilterPanel()">
-            <div class="flex items-center gap-3">
-                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                </svg>
-                <span class="text-lg font-semibold text-text-primary">Filters</span>
-                @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
-                {
-                    <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
-                        Text = "Active",
-                        Variant = BadgeVariant.Orange,
-                        Size = BadgeSize.Small
-                    })" />
-                }
-            </div>
-            <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
-        </button>
-
-        <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
-            <div class="border-t border-border-primary p-5">
-                <form method="get" id="filterForm">
+    <partial name="_FilterPanel" model='@(new FilterPanelViewModel {
+        Title = "Filters",
+        IsCollapsible = true,
+        ActiveFilterCount = (Model.StartDate.HasValue || Model.EndDate.HasValue) ? 1 : 0,
+        DefaultExpanded = true
+    })'>
+        <form method="get" id="filterForm">
                     <!-- Quick Date Presets -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
@@ -151,9 +129,7 @@
                         }
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
+    </partial>
 
     <!-- Summary Stats Row -->
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
@@ -665,50 +641,11 @@
 @Html.Raw(chartDataJson)
     </script>
 
-    <!-- Filter Panel Toggle Script -->
+    <!-- Shared Filter Panel Script -->
+    <script src="~/js/shared/filter-panel.js" asp-append-version="true"></script>
+
+    <!-- Page-specific Scripts -->
     <script>
-        function toggleFilterPanel() {
-            const content = document.getElementById('filterContent');
-            const chevron = document.getElementById('filterChevron');
-            const toggle = document.getElementById('filterToggle');
-
-            if (content.style.maxHeight === '0px') {
-                content.style.maxHeight = '1000px';
-                chevron.style.transform = 'rotate(0deg)';
-                toggle.setAttribute('aria-expanded', 'true');
-            } else {
-                content.style.maxHeight = '0px';
-                chevron.style.transform = 'rotate(-90deg)';
-                toggle.setAttribute('aria-expanded', 'false');
-            }
-        }
-
-        function setDatePreset(preset) {
-            const today = new Date();
-            const startDateInput = document.getElementById('StartDate');
-            const endDateInput = document.getElementById('EndDate');
-
-            let startDate = new Date();
-
-            switch(preset) {
-                case 'today':
-                    startDate = today;
-                    break;
-                case '7days':
-                    startDate.setDate(today.getDate() - 7);
-                    break;
-                case '30days':
-                    startDate.setDate(today.getDate() - 30);
-                    break;
-            }
-
-            startDateInput.value = startDate.toISOString().split('T')[0];
-            endDateInput.value = today.toISOString().split('T')[0];
-
-            // Auto-submit the form after setting dates
-            document.getElementById('filterForm').submit();
-        }
-
         function switchTab(tabName) {
             // Update tab buttons
             document.querySelectorAll('.tab-btn').forEach(btn => {
