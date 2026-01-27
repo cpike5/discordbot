@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pause Insertion Modal - SSML Enhancement</title>
+
+  <style>
+    /* ==========================================
+       DESIGN TOKENS
+       ========================================== */
+    :root {
+      /* Backgrounds */
+      --color-bg-primary: #1d2022;
+      --color-bg-secondary: #262a2d;
+      --color-bg-tertiary: #2f3336;
+      --color-bg-hover: #363a3e;
+
+      /* Text */
+      --color-text-primary: #d7d3d0;
+      --color-text-secondary: #a8a5a3;
+      --color-text-tertiary: #7a7876;
+
+      /* Accents */
+      --color-accent-orange: #cb4e1b;
+      --color-accent-orange-hover: #e5591f;
+      --color-accent-blue: #098ecf;
+
+      /* Borders */
+      --color-border-primary: #3f4447;
+      --color-border-secondary: #2f3336;
+
+      /* Transitions */
+      --transition-normal: 200ms ease-out;
+
+      /* Z-index */
+      --z-modal-backdrop: 1000;
+      --z-modal: 1001;
+    }
+
+    /* ==========================================
+       RESET & BASE STYLES
+       ========================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      line-height: 1.6;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+
+    p {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 2rem;
+    }
+
+    /* ==========================================
+       DEMO SECTION
+       ========================================== */
+    .demo-section {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .demo-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.875rem 1.5rem;
+      background: var(--color-accent-orange);
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .demo-btn:hover {
+      background: var(--color-accent-orange-hover);
+      transform: translateY(-2px);
+    }
+
+    /* ==========================================
+       MODAL STYLES
+       ========================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: var(--z-modal-backdrop);
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+      }
+      to {
+        opacity: 1;
+      }
+    }
+
+    .modal {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      width: 90%;
+      max-width: 450px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+      z-index: var(--z-modal);
+      animation: slideUp 0.3s ease-out;
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--color-border-primary);
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .modal-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 0.375rem;
+      background: transparent;
+      border: none;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+
+    .modal-content {
+      padding: 2rem 1.5rem;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1.5rem;
+      border-top: 1px solid var(--color-border-primary);
+      flex-shrink: 0;
+    }
+
+    /* ==========================================
+       FORM ELEMENTS
+       ========================================== */
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .slider-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .slider-display {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .slider-value-large {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--color-accent-blue);
+    }
+
+    .slider-unit {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      margin-left: 0.5rem;
+    }
+
+    .form-slider {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--color-border-primary);
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    .form-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--color-accent-blue);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-slider::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--color-accent-blue);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      border: none;
+    }
+
+    .form-slider::-moz-range-thumb:hover {
+      transform: scale(1.15);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-slider::-moz-range-track {
+      background: transparent;
+      border: none;
+    }
+
+    /* ==========================================
+       QUICK DURATION BUTTONS
+       ========================================== */
+    .quick-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .quick-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border: 2px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      font-weight: 500;
+    }
+
+    .quick-btn:hover {
+      border-color: var(--color-accent-blue);
+      background: var(--color-bg-hover);
+    }
+
+    .quick-btn.active {
+      border-color: var(--color-accent-blue);
+      background: rgba(9, 142, 207, 0.1);
+      color: var(--color-accent-blue);
+    }
+
+    .quick-btn-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    .quick-btn.active .quick-btn-label {
+      color: var(--color-accent-blue);
+    }
+
+    .quick-btn-value {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    /* ==========================================
+       PREVIEW
+       ========================================== */
+    .preview-box {
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    .preview-text {
+      color: var(--color-text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .pause-display {
+      background: var(--color-bg-secondary);
+      border-left: 4px solid var(--color-accent-blue);
+      padding: 0.75rem;
+      border-radius: 0.25rem;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+      color: var(--color-accent-blue);
+      word-break: break-all;
+    }
+
+    /* ==========================================
+       BUTTONS
+       ========================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: 0.5rem;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      flex: 1;
+    }
+
+    .btn-primary {
+      background: var(--color-accent-orange);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--color-accent-orange-hover);
+    }
+
+    .btn-secondary {
+      background: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-border-primary);
+    }
+
+    .btn-secondary:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-accent-blue);
+    }
+
+    /* SVG icon sizing */
+    .demo-btn svg,
+    .btn svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      flex-shrink: 0;
+    }
+
+    /* ==========================================
+       RESPONSIVE
+       ========================================== */
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+
+      .modal {
+        width: 100%;
+        max-width: none;
+      }
+
+      .modal-content {
+        padding: 1.5rem;
+      }
+
+      .quick-buttons {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Pause Insertion Modal</h1>
+    <p>Click the button below to open the pause insertion modal. Adjust the duration slider or click quick duration buttons.</p>
+
+    <div class="demo-section">
+      <button class="demo-btn" onclick="openModal()">
+        <svg fill="currentColor" viewBox="0 0 24 24">
+          <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+        </svg>
+        Open Insert Pause Modal
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal Backdrop -->
+  <div id="modalBackdrop" class="modal-backdrop" onclick="closeModal(event)">
+    <!-- Modal -->
+    <div class="modal" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <h2 class="modal-title">Insert Pause</h2>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="modal-content">
+        <!-- Duration Slider -->
+        <div class="form-group">
+          <label class="form-label">Pause Duration</label>
+          <div class="slider-wrapper">
+            <div class="slider-display">
+              <div class="slider-value-large" id="durationValue">500</div>
+              <div class="slider-unit">milliseconds</div>
+            </div>
+            <input type="range" class="form-slider" id="durationSlider" min="100" max="3000" step="100" value="500" oninput="updateDuration()">
+          </div>
+        </div>
+
+        <!-- Quick Duration Buttons -->
+        <div class="form-group">
+          <label class="form-label">Quick Select</label>
+          <div class="quick-buttons">
+            <button class="quick-btn" onclick="selectQuickDuration(250)">
+              <span class="quick-btn-value">250ms</span>
+              <span class="quick-btn-label">Short</span>
+            </button>
+            <button class="quick-btn active" onclick="selectQuickDuration(500)">
+              <span class="quick-btn-value">500ms</span>
+              <span class="quick-btn-label">Medium</span>
+            </button>
+            <button class="quick-btn" onclick="selectQuickDuration(1000)">
+              <span class="quick-btn-value">1000ms</span>
+              <span class="quick-btn-label">Long</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="form-group">
+          <label class="form-label">Live Preview</label>
+          <div class="preview-box">
+            <div class="preview-text">Example text with pause:</div>
+            <div class="pause-display">
+              Hello <span style="color: var(--color-accent-blue);">[<svg style="display:inline;vertical-align:middle;margin-right:2px;" fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>500ms]</span> World
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="insertPause()">Insert Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const durationSlider = document.getElementById('durationSlider');
+    const durationValue = document.getElementById('durationValue');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    let currentDuration = 500;
+
+    function openModal() {
+      modalBackdrop.classList.add('active');
+      durationSlider.focus();
+    }
+
+    function closeModal(event) {
+      // Only close if clicking the backdrop itself, not content
+      if (event && event.target !== modalBackdrop) {
+        return;
+      }
+      modalBackdrop.classList.remove('active');
+    }
+
+    function updateDuration() {
+      currentDuration = parseInt(durationSlider.value);
+      durationValue.textContent = currentDuration;
+      updatePreview();
+      updateQuickButtons();
+    }
+
+    function selectQuickDuration(duration) {
+      currentDuration = duration;
+      durationSlider.value = duration;
+      durationValue.textContent = duration;
+      updatePreview();
+      updateQuickButtons();
+    }
+
+    function updateQuickButtons() {
+      document.querySelectorAll('.quick-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      document.querySelectorAll('.quick-btn').forEach(btn => {
+        const value = parseInt(btn.getAttribute('onclick').match(/\d+/)[0]);
+        if (value === currentDuration) {
+          btn.classList.add('active');
+        }
+      });
+    }
+
+    function updatePreview() {
+      const preview = document.querySelector('.pause-display');
+      preview.innerHTML = `Hello <span style="color: var(--color-accent-blue);">[<svg style="display:inline;vertical-align:middle;margin-right:2px;" fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>${currentDuration}ms]</span> World`;
+    }
+
+    function insertPause() {
+      console.log(`Inserting pause of ${currentDuration}ms`);
+      alert(`Pause of ${currentDuration}ms inserted!\n\nSSML: <break time="${currentDuration}ms" />`);
+      closeModal();
+    }
+
+    // Allow closing with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modalBackdrop.classList.contains('active')) {
+        closeModal();
+      }
+    });
+  </script>
+
+</body>
+</html>

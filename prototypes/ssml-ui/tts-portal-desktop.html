@@ -1,0 +1,1809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TTS Portal - SSML Enhancement</title>
+
+  <style>
+    /* ==========================================
+       DESIGN TOKENS
+       ========================================== */
+    :root {
+      /* Backgrounds */
+      --color-bg-primary: #1d2022;
+      --color-bg-secondary: #262a2d;
+      --color-bg-tertiary: #2f3336;
+      --color-bg-hover: #363a3e;
+
+      /* Text */
+      --color-text-primary: #d7d3d0;
+      --color-text-secondary: #a8a5a3;
+      --color-text-tertiary: #7a7876;
+      --color-text-inverse: #1d2022;
+
+      /* Accents */
+      --color-accent-orange: #cb4e1b;
+      --color-accent-orange-hover: #e5591f;
+      --color-accent-orange-muted: rgba(203, 78, 27, 0.15);
+      --color-accent-blue: #098ecf;
+      --color-accent-blue-muted: rgba(9, 142, 207, 0.15);
+
+      /* Semantic */
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-error: #ef4444;
+      --color-info: #06b6d4;
+
+      /* Borders */
+      --color-border-primary: #3f4447;
+      --color-border-secondary: #2f3336;
+      --color-border-focus: #098ecf;
+
+      /* Transitions */
+      --transition-fast: 150ms ease-out;
+      --transition-normal: 200ms ease-out;
+
+      /* Z-index */
+      --z-fixed: 300;
+      --z-popover: 1100;
+      --z-toast: 1300;
+    }
+
+    /* ==========================================
+       RESET & BASE STYLES
+       ========================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      line-height: 1.5;
+    }
+
+    /* ==========================================
+       UTILITIES
+       ========================================== */
+    .hidden {
+      display: none !important;
+    }
+
+    /* ==========================================
+       LAYOUT
+       ========================================== */
+    .container {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 300px;
+      background: var(--color-bg-secondary);
+      border-right: 1px solid var(--color-border-primary);
+      overflow-y: auto;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Main content */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--color-border-primary);
+      background: var(--color-bg-secondary);
+    }
+
+    .header h1 {
+      font-size: 1.875rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    .header p {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+    }
+
+    /* Scrollable content area */
+    .content-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+
+    /* ==========================================
+       SECTION STYLES
+       ========================================== */
+    .section {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    /* ==========================================
+       MODE TOGGLE (SEGMENTED CONTROL)
+       ========================================== */
+    .mode-toggle {
+      display: flex;
+      gap: 0.5rem;
+      background: var(--color-bg-tertiary);
+      padding: 0.25rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 0.625rem;
+      background: transparent;
+      border: none;
+      border-radius: 0.375rem;
+      color: var(--color-text-secondary);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .mode-btn.active {
+      background: var(--color-accent-orange);
+      color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .mode-btn:hover:not(.active) {
+      color: var(--color-text-primary);
+    }
+
+    /* ==========================================
+       QUICK PRESETS BAR
+       ========================================== */
+    .presets-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .preset-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      color: var(--color-text-primary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .preset-btn:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-focus);
+      transform: translateY(-2px);
+    }
+
+    .preset-icon {
+      width: 24px;
+      height: 24px;
+      color: var(--color-text-secondary);
+    }
+
+    .preset-btn:hover .preset-icon {
+      color: var(--color-accent-orange);
+    }
+
+    /* ==========================================
+       FORM ELEMENTS
+       ========================================== */
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .textarea-wrapper {
+      position: relative;
+      margin-bottom: 0.5rem;
+    }
+
+    .message-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      color: var(--color-text-primary);
+      font-family: inherit;
+      font-size: 0.875rem;
+      resize: vertical;
+      transition: border-color var(--transition-normal);
+    }
+
+    .message-textarea:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+    }
+
+    .char-counter {
+      position: absolute;
+      bottom: 0.5rem;
+      right: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+      pointer-events: none;
+    }
+
+    .char-counter.warning {
+      color: var(--color-warning);
+    }
+
+    .char-counter.error {
+      color: var(--color-error);
+    }
+
+    .form-select {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      color: var(--color-text-primary);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: border-color var(--transition-normal);
+      appearance: none;
+      padding-right: 2.5rem;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23a8a5a3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.5rem center;
+      background-size: 1.25rem;
+    }
+
+    .form-select:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+    }
+
+    /* ==========================================
+       SLIDER STYLES
+       ========================================== */
+    .slider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .slider-value {
+      color: var(--color-accent-blue);
+      font-weight: 600;
+    }
+
+    .form-slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--color-border-primary);
+      outline: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+
+    .form-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-accent-blue);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .form-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-accent-blue);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      border: none;
+    }
+
+    .form-slider::-moz-range-thumb:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .form-slider::-moz-range-track {
+      background: transparent;
+      border: none;
+    }
+
+    /* ==========================================
+       BUTTONS
+       ========================================== */
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: 0.5rem;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+    }
+
+    .btn-primary {
+      background: var(--color-accent-orange);
+      color: white;
+      width: 100%;
+    }
+
+    .btn-primary:hover {
+      background: var(--color-accent-orange-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
+      border: 1px solid var(--color-border-primary);
+      width: 100%;
+    }
+
+    .btn-secondary:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-focus);
+    }
+
+    .btn-small {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    /* ==========================================
+       SSML PREVIEW PANEL
+       ========================================== */
+    .ssml-preview-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      cursor: pointer;
+      margin-bottom: 1rem;
+      transition: all var(--transition-normal);
+    }
+
+    .ssml-preview-toggle:hover {
+      background: var(--color-bg-hover);
+    }
+
+    .ssml-preview-toggle h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .ssml-toggle-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-secondary);
+      transition: transform var(--transition-normal);
+    }
+
+    .ssml-toggle-icon.expanded {
+      transform: rotate(180deg);
+    }
+
+    .ssml-preview {
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      display: none;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      max-height: 250px;
+      overflow-y: auto;
+      line-height: 1.6;
+    }
+
+    .ssml-preview.visible {
+      display: block;
+    }
+
+    .ssml-tag {
+      color: var(--color-accent-blue);
+    }
+
+    .ssml-attr {
+      color: var(--color-accent-orange);
+    }
+
+    .ssml-text {
+      color: var(--color-text-primary);
+    }
+
+    .copy-ssml-btn {
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ==========================================
+       SIDEBAR SECTIONS
+       ========================================== */
+    .sidebar-section {
+      border-bottom: 1px solid var(--color-border-secondary);
+      padding-bottom: 1.5rem;
+    }
+
+    .sidebar-section:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .sidebar-section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--color-success);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--color-success);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .now-playing {
+      background: var(--color-bg-tertiary);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .now-playing-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: var(--color-accent-blue-muted);
+      border-radius: 0.5rem;
+      color: var(--color-accent-blue);
+      flex-shrink: 0;
+    }
+
+    .now-playing-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .now-playing-name {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-bottom: 0.25rem;
+    }
+
+    .now-playing-status {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+    }
+
+    .stop-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 0.375rem;
+      background: var(--color-error);
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      flex-shrink: 0;
+    }
+
+    .stop-btn:hover {
+      opacity: 0.9;
+    }
+
+    /* SVG icon sizing */
+    .btn svg,
+    .stop-btn svg,
+    .now-playing-icon svg,
+    .toast-icon svg,
+    .ssml-toggle-icon svg {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+
+    .ssml-toggle-icon svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    /* ==========================================
+       TOAST NOTIFICATION
+       ========================================== */
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+      color: var(--color-text-primary);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      animation: slideInUp 0.3s ease-out;
+      z-index: var(--z-toast);
+    }
+
+    .toast-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--color-success);
+      color: white;
+      flex-shrink: 0;
+    }
+
+    @keyframes slideInUp {
+      from {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    /* ==========================================
+       FLOATING TOOLBAR
+       ========================================== */
+    .floating-toolbar {
+      position: fixed;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      display: flex;
+      gap: 0.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      z-index: var(--z-popover);
+      animation: toolbarSlideUp 0.2s ease-out;
+      pointer-events: auto;
+    }
+
+    .floating-toolbar.hidden {
+      display: none;
+      pointer-events: none;
+    }
+
+    @keyframes toolbarSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 0.375rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .toolbar-btn:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-focus);
+    }
+
+    .toolbar-btn.strong {
+      color: var(--color-accent-orange);
+    }
+
+    .toolbar-btn.strong:hover {
+      background: var(--color-accent-orange-muted);
+    }
+
+    .toolbar-btn.moderate {
+      color: var(--color-accent-blue);
+    }
+
+    .toolbar-btn.moderate:hover {
+      background: var(--color-accent-blue-muted);
+    }
+
+    .toolbar-btn svg {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+
+    .toolbar-separator {
+      width: 1px;
+      background: var(--color-border-secondary);
+      margin: 0 0.25rem;
+    }
+
+    /* ==========================================
+       EMPHASIS FORMATTING INDICATORS
+       ========================================== */
+    .emphasis-strong {
+      text-decoration: underline;
+      text-decoration-color: var(--color-accent-orange);
+      text-decoration-thickness: 3px;
+      text-underline-offset: 4px;
+      background-color: var(--color-accent-orange-muted);
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
+    }
+
+    .emphasis-moderate {
+      text-decoration: underline;
+      text-decoration-color: var(--color-accent-blue);
+      text-decoration-thickness: 2px;
+      text-underline-offset: 4px;
+      background-color: var(--color-accent-blue-muted);
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
+    }
+
+    .pause-marker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      background: var(--color-border-secondary);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.7rem;
+      color: var(--color-text-tertiary);
+      margin: 0 0.25rem;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    }
+
+    .formatted-preview {
+      min-height: 60px;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border-radius: 0.5rem;
+      border: 1px solid var(--color-border-secondary);
+      font-size: 0.875rem;
+      line-height: 1.8;
+      word-wrap: break-word;
+      margin-top: 1rem;
+    }
+
+    .formatted-preview-label {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+      margin-top: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    /* ==========================================
+       PAUSE MODAL
+       ========================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      width: 90%;
+      max-width: 450px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
+      z-index: 1001;
+      animation: modalSlideUp 0.3s ease-out;
+      display: flex;
+      flex-direction: column;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    @keyframes modalSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--color-border-primary);
+      flex-shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .modal-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 0.375rem;
+      background: transparent;
+      border: none;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .modal-close:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text-primary);
+    }
+
+    .modal-content {
+      padding: 2rem 1.5rem;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 0.75rem;
+      padding: 1.5rem;
+      border-top: 1px solid var(--color-border-primary);
+      flex-shrink: 0;
+    }
+
+    .modal-footer .btn {
+      flex: 1;
+    }
+
+    /* Pause Modal Slider */
+    .slider-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .slider-display {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .slider-value-large {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--color-accent-blue);
+    }
+
+    .slider-unit {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      margin-left: 0.5rem;
+    }
+
+    /* Quick Duration Buttons */
+    .quick-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .quick-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border: 2px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: all var(--transition-normal);
+      font-weight: 500;
+    }
+
+    .quick-btn:hover {
+      border-color: var(--color-accent-blue);
+      background: var(--color-bg-hover);
+    }
+
+    .quick-btn.active {
+      border-color: var(--color-accent-blue);
+      background: rgba(9, 142, 207, 0.1);
+      color: var(--color-accent-blue);
+    }
+
+    .quick-btn-label {
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    .quick-btn.active .quick-btn-label {
+      color: var(--color-accent-blue);
+    }
+
+    .quick-btn-value {
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    /* Pause Preview Box */
+    .pause-preview-box {
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    .pause-preview-text {
+      color: var(--color-text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .pause-display {
+      background: var(--color-bg-secondary);
+      border-left: 4px solid var(--color-accent-blue);
+      padding: 0.75rem;
+      border-radius: 0.25rem;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+      color: var(--color-accent-blue);
+      word-break: break-all;
+    }
+
+    /* ==========================================
+       RESPONSIVE
+       ========================================== */
+    @media (max-width: 1200px) {
+      .presets-bar {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border-primary);
+        max-height: 200px;
+        overflow-y: auto;
+        flex-direction: row;
+        gap: 1rem;
+        padding: 1rem;
+      }
+
+      .sidebar-section {
+        border-bottom: none;
+        padding-bottom: 0;
+        min-width: 200px;
+      }
+
+      .presets-bar {
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .slider-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .toast {
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+      }
+
+      .floating-toolbar {
+        width: calc(100% - 2rem);
+        flex-wrap: wrap;
+        position: absolute !important;
+      }
+
+      .modal {
+        width: 100%;
+        max-width: none;
+        margin: 1rem;
+      }
+
+      .quick-buttons {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- Voice Channel Section -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Voice Channel</div>
+        <div class="status-badge">
+          <span class="status-dot"></span>
+          Connected to #General
+        </div>
+      </div>
+
+      <!-- Now Playing Section -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Now Playing</div>
+        <div class="now-playing">
+          <div class="now-playing-icon">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <div class="now-playing-info">
+            <div class="now-playing-name">Hello everyone, welcome to the server!</div>
+            <div class="now-playing-status">Playing...</div>
+          </div>
+          <button class="stop-btn" title="Stop playing" onclick="stopPlayback()">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- Header -->
+      <header class="header">
+        <h1>TTS Message Portal</h1>
+        <p>Create and send text-to-speech messages to voice channels</p>
+      </header>
+
+      <!-- Scrollable Content -->
+      <div class="content-scroll">
+        <!-- Mode Toggle -->
+        <div class="mode-toggle">
+          <button class="mode-btn" onclick="switchMode('simple')">Simple</button>
+          <button class="mode-btn active" onclick="switchMode('standard')">Standard</button>
+          <button class="mode-btn" onclick="switchMode('pro')">Pro</button>
+        </div>
+
+        <!-- Message Input Section -->
+        <div class="section">
+          <div class="section-title">Message</div>
+          <div class="form-group">
+            <div class="textarea-wrapper">
+              <textarea class="message-textarea" id="messageInput" placeholder="Type your message here..." maxlength="500" oninput="updateCharCounter()"></textarea>
+              <div class="char-counter" id="charCounter">0/500</div>
+            </div>
+          </div>
+
+          <!-- Quick Presets (Standard/Pro only) -->
+          <div id="presetsSection" class="presets-bar">
+            <button class="preset-btn" onclick="applyPreset('excited')">
+              <svg class="preset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+              </svg>
+              <span>Excited</span>
+            </button>
+            <button class="preset-btn" onclick="applyPreset('announcer')">
+              <svg class="preset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+              </svg>
+              <span>Announcer</span>
+            </button>
+            <button class="preset-btn" onclick="applyPreset('robot')">
+              <svg class="preset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span>Robot</span>
+            </button>
+            <button class="preset-btn" onclick="applyPreset('friendly')">
+              <svg class="preset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Friendly</span>
+            </button>
+            <button class="preset-btn" onclick="applyPreset('angry')">
+              <svg class="preset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+              </svg>
+              <span>Angry</span>
+            </button>
+            <button class="preset-btn" onclick="applyPreset('narrator')">
+              <svg class="preset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+              <span>Narrator</span>
+            </button>
+            <button class="preset-btn" onclick="applyPreset('whisper')">
+              <svg class="preset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+              </svg>
+              <span>Whisper</span>
+            </button>
+            <button class="preset-btn" onclick="applyPreset('shouting')">
+              <svg class="preset-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+              </svg>
+              <span>Shouting</span>
+            </button>
+          </div>
+
+          <!-- Formatted Preview (Standard/Pro only) -->
+          <div id="formattedPreviewSection" style="display: none;">
+            <div class="formatted-preview-label">Formatted Preview (select text to add emphasis)</div>
+            <div class="formatted-preview" id="formattedPreview">
+              Type a message and select text to apply emphasis...
+            </div>
+          </div>
+        </div>
+
+        <!-- Voice Settings Section -->
+        <div class="section">
+          <div class="section-title">Voice Settings</div>
+
+          <!-- Voice Selection -->
+          <div class="form-group">
+            <label class="form-label">Voice</label>
+            <select class="form-select" id="voiceSelect" onchange="updateAvailableStyles()">
+              <optgroup label="English (US)">
+                <option value="jenny">Jenny Neural</option>
+                <option value="nova">Nova Neural</option>
+                <option value="guy">Guy Neural</option>
+              </optgroup>
+              <optgroup label="English (UK)">
+                <option value="sonia">Sonia Neural</option>
+                <option value="ryan">Ryan Neural</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- Speaking Style (Standard/Pro only) -->
+          <div id="styleSection" class="form-group">
+            <label class="form-label">Speaking Style</label>
+            <select class="form-select" id="styleSelect">
+              <option value="standard">Standard</option>
+              <option value="cheerful">Cheerful</option>
+              <option value="excited">Excited</option>
+              <option value="friendly">Friendly</option>
+              <option value="sad">Sad</option>
+            </select>
+          </div>
+
+          <!-- Style Intensity Slider (Standard/Pro only) -->
+          <div id="intensitySection" class="form-group">
+            <div class="slider-container">
+              <div class="slider-label">
+                <span>Style Intensity</span>
+                <span class="slider-value" id="intensityValue">Moderate (1.0)</span>
+              </div>
+              <input type="range" class="form-slider" id="intensitySlider" min="0.5" max="2.0" step="0.5" value="1.0" oninput="updateIntensityLabel()">
+            </div>
+          </div>
+
+          <!-- Sliders Grid -->
+          <div class="slider-grid">
+            <div class="slider-container">
+              <div class="slider-label">
+                <span>Speed</span>
+                <span class="slider-value" id="speedValue">1.0x</span>
+              </div>
+              <input type="range" class="form-slider" id="speedSlider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updateSliderValue('speed')">
+            </div>
+
+            <div class="slider-container">
+              <div class="slider-label">
+                <span>Pitch</span>
+                <span class="slider-value" id="pitchValue">1.0x</span>
+              </div>
+              <input type="range" class="form-slider" id="pitchSlider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updateSliderValue('pitch')">
+            </div>
+          </div>
+
+          <!-- Send Message Buttons -->
+          <div class="button-group">
+            <button class="btn btn-primary" onclick="sendMessage()">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M15.5 1H8.5C7.12 1 6 2.12 6 3.5v17C6 21.88 7.12 23 8.5 23h7c1.38 0 2.5-1.12 2.5-2.5v-17C18 2.12 16.88 1 15.5 1zm0 2v17h-7V3h7z"/>
+              </svg>
+              Send Message
+            </button>
+            <button class="btn btn-secondary" onclick="previewMessage()">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+              Preview
+            </button>
+          </div>
+        </div>
+
+        <!-- SSML Preview Panel (Pro only) -->
+        <div id="ssmlSection" class="section" style="display: none;">
+          <div class="ssml-preview-toggle" onclick="toggleSSMLPreview()">
+            <h3>SSML Preview</h3>
+            <div class="ssml-toggle-icon">
+              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+
+          <div id="ssmlContent" class="ssml-preview">
+            <div><span class="ssml-tag">&lt;speak&gt;</span></div>
+            <div style="margin-left: 1rem;">
+              <span class="ssml-tag">&lt;prosody</span>
+              <span class="ssml-attr"> rate="1.0"</span>
+              <span class="ssml-attr"> pitch="1.0"</span>
+              <span class="ssml-tag">&gt;</span>
+            </div>
+            <div style="margin-left: 2rem;">
+              <span class="ssml-tag">&lt;amazon:emotion</span>
+              <span class="ssml-attr"> name="excited"</span>
+              <span class="ssml-attr"> intensity="moderate"</span>
+              <span class="ssml-tag">&gt;</span>
+            </div>
+            <div style="margin-left: 3rem;">
+              <span class="ssml-text">Your message text here</span>
+            </div>
+            <div style="margin-left: 2rem;">
+              <span class="ssml-tag">&lt;/amazon:emotion&gt;</span>
+            </div>
+            <div style="margin-left: 1rem;">
+              <span class="ssml-tag">&lt;/prosody&gt;</span>
+            </div>
+            <div><span class="ssml-tag">&lt;/speak&gt;</span></div>
+          </div>
+
+          <button class="btn btn-secondary copy-ssml-btn" onclick="copySSML()">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Copy SSML
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast" style="display: none;">
+    <div class="toast-icon">
+      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+      </svg>
+    </div>
+    <span id="toastMessage">Copied to clipboard!</span>
+  </div>
+
+  <!-- Floating Emphasis Toolbar -->
+  <div id="emphasisToolbar" class="floating-toolbar hidden">
+    <button class="toolbar-btn" title="Bold" onclick="applyFormatting('bold')">
+      <strong>B</strong>
+    </button>
+    <button class="toolbar-btn strong" title="Strong Emphasis (for important words)" onclick="applyFormatting('strong')">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    </button>
+    <button class="toolbar-btn moderate" title="Moderate Emphasis" onclick="applyFormatting('moderate')">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    </button>
+    <div class="toolbar-separator"></div>
+    <button class="toolbar-btn" title="Insert Pause" onclick="openPauseModal()">
+      <svg fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+    </button>
+    <div class="toolbar-separator"></div>
+    <button class="toolbar-btn" title="Clear Formatting" onclick="clearFormatting()">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+
+  <!-- Pause Modal Backdrop -->
+  <div id="pauseModalBackdrop" class="modal-backdrop" onclick="closePauseModal(event)">
+    <!-- Pause Modal -->
+    <div class="modal" onclick="event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <h2 class="modal-title">Insert Pause</h2>
+        <button class="modal-close" onclick="closePauseModal()">×</button>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="modal-content">
+        <!-- Duration Slider -->
+        <div class="form-group">
+          <label class="form-label">Pause Duration</label>
+          <div class="slider-wrapper">
+            <div class="slider-display">
+              <div class="slider-value-large" id="pauseDurationValue">500</div>
+              <div class="slider-unit">milliseconds</div>
+            </div>
+            <input type="range" class="form-slider" id="pauseDurationSlider" min="100" max="3000" step="100" value="500" oninput="updatePauseDuration()">
+          </div>
+        </div>
+
+        <!-- Quick Duration Buttons -->
+        <div class="form-group">
+          <label class="form-label">Quick Select</label>
+          <div class="quick-buttons">
+            <button class="quick-btn" onclick="selectQuickPauseDuration(250)">
+              <span class="quick-btn-value">250ms</span>
+              <span class="quick-btn-label">Short</span>
+            </button>
+            <button class="quick-btn active" onclick="selectQuickPauseDuration(500)">
+              <span class="quick-btn-value">500ms</span>
+              <span class="quick-btn-label">Medium</span>
+            </button>
+            <button class="quick-btn" onclick="selectQuickPauseDuration(1000)">
+              <span class="quick-btn-value">1000ms</span>
+              <span class="quick-btn-label">Long</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="form-group">
+          <label class="form-label">Live Preview</label>
+          <div class="pause-preview-box">
+            <div class="pause-preview-text">Example text with pause:</div>
+            <div class="pause-display" id="pausePreviewDisplay">
+              Hello <span style="color: var(--color-accent-blue);">[<svg style="display:inline;vertical-align:middle;margin-right:2px;" fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>500ms]</span> World
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePauseModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="insertPause()">Insert Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentMode = 'standard';
+
+    // ==========================================
+    // TEXT SELECTION & TOOLBAR
+    // ==========================================
+    const textarea = document.getElementById('messageInput');
+    const emphasisToolbar = document.getElementById('emphasisToolbar');
+    let selectedText = '';
+    let selectionStart = 0;
+    let selectionEnd = 0;
+
+    // Show toolbar on text selection
+    textarea.addEventListener('mouseup', showToolbar);
+    textarea.addEventListener('keyup', showToolbar);
+
+    // Hide toolbar when clicking outside
+    document.addEventListener('click', function(e) {
+      if (e.target !== textarea && e.target !== emphasisToolbar && !emphasisToolbar.contains(e.target)) {
+        hideToolbar();
+      }
+    });
+
+    function showToolbar() {
+      // Only show in Standard or Pro mode
+      if (currentMode === 'simple') return;
+
+      const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+
+      if (selected.length > 0) {
+        selectedText = selected;
+        selectionStart = textarea.selectionStart;
+        selectionEnd = textarea.selectionEnd;
+
+        // Position toolbar above selection
+        const rect = textarea.getBoundingClientRect();
+        emphasisToolbar.style.top = (rect.top - 60 + window.scrollY) + 'px';
+        emphasisToolbar.style.left = (rect.left + (textarea.offsetWidth / 2) - (emphasisToolbar.offsetWidth / 2)) + 'px';
+
+        emphasisToolbar.classList.remove('hidden');
+      } else {
+        hideToolbar();
+      }
+    }
+
+    function hideToolbar() {
+      emphasisToolbar.classList.add('hidden');
+    }
+
+    function applyFormatting(type) {
+      if (!selectedText) return;
+
+      const before = textarea.value.substring(0, selectionStart);
+      const after = textarea.value.substring(selectionEnd);
+
+      let formatted = selectedText;
+      switch(type) {
+        case 'bold':
+          formatted = `**${selectedText}**`;
+          break;
+        case 'strong':
+          formatted = `<emphasis level="strong">${selectedText}</emphasis>`;
+          break;
+        case 'moderate':
+          formatted = `<emphasis level="moderate">${selectedText}</emphasis>`;
+          break;
+      }
+
+      textarea.value = before + formatted + after;
+      hideToolbar();
+      updateFormattedPreview();
+      updateCharCounter();
+      showToast(`Applied ${type} formatting`);
+    }
+
+    function clearFormatting() {
+      if (!selectedText) return;
+
+      const before = textarea.value.substring(0, selectionStart);
+      const after = textarea.value.substring(selectionEnd);
+
+      // Remove formatting markers
+      let cleaned = selectedText
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/<emphasis[^>]*>(.*?)<\/emphasis>/g, '$1')
+        .replace(/<break[^>]*\/>/g, '');
+
+      textarea.value = before + cleaned + after;
+      hideToolbar();
+      updateFormattedPreview();
+      updateCharCounter();
+      showToast('Formatting cleared');
+    }
+
+    function updateFormattedPreview() {
+      const preview = document.getElementById('formattedPreview');
+      let html = textarea.value;
+
+      if (!html.trim()) {
+        preview.innerHTML = 'Type a message and select text to apply emphasis...';
+        return;
+      }
+
+      // Convert SSML-like syntax to visual formatting
+      html = html.replace(/<emphasis level="strong">(.*?)<\/emphasis>/g, '<span class="emphasis-strong">$1</span>');
+      html = html.replace(/<emphasis level="moderate">(.*?)<\/emphasis>/g, '<span class="emphasis-moderate">$1</span>');
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/<break time="(\d+)ms"\s*\/>/g, '<span class="pause-marker"><svg fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg> $1ms</span>');
+
+      preview.innerHTML = html;
+    }
+
+    // ==========================================
+    // PAUSE MODAL
+    // ==========================================
+    const pauseModalBackdrop = document.getElementById('pauseModalBackdrop');
+    const pauseDurationSlider = document.getElementById('pauseDurationSlider');
+    const pauseDurationValue = document.getElementById('pauseDurationValue');
+    let currentPauseDuration = 500;
+
+    function openPauseModal() {
+      hideToolbar();
+      pauseModalBackdrop.classList.add('active');
+      pauseDurationSlider.focus();
+    }
+
+    function closePauseModal(event) {
+      // Only close if clicking the backdrop itself, not content
+      if (event && event.target !== pauseModalBackdrop) {
+        return;
+      }
+      pauseModalBackdrop.classList.remove('active');
+    }
+
+    function updatePauseDuration() {
+      currentPauseDuration = parseInt(pauseDurationSlider.value);
+      pauseDurationValue.textContent = currentPauseDuration;
+      updatePausePreview();
+      updateQuickButtons();
+    }
+
+    function selectQuickPauseDuration(duration) {
+      currentPauseDuration = duration;
+      pauseDurationSlider.value = duration;
+      pauseDurationValue.textContent = duration;
+      updatePausePreview();
+      updateQuickButtons();
+    }
+
+    function updateQuickButtons() {
+      document.querySelectorAll('.quick-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      document.querySelectorAll('.quick-btn').forEach(btn => {
+        const match = btn.getAttribute('onclick').match(/\d+/);
+        if (match) {
+          const value = parseInt(match[0]);
+          if (value === currentPauseDuration) {
+            btn.classList.add('active');
+          }
+        }
+      });
+    }
+
+    function updatePausePreview() {
+      const preview = document.getElementById('pausePreviewDisplay');
+      preview.innerHTML = `Hello <span style="color: var(--color-accent-blue);">[<svg style="display:inline;vertical-align:middle;margin-right:2px;" fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>${currentPauseDuration}ms]</span> World`;
+    }
+
+    function insertPause() {
+      const pauseTag = `<break time="${currentPauseDuration}ms" />`;
+
+      // Insert at cursor position or at end of textarea
+      const cursorPos = textarea.selectionStart;
+      const before = textarea.value.substring(0, cursorPos);
+      const after = textarea.value.substring(cursorPos);
+
+      textarea.value = before + pauseTag + after;
+
+      closePauseModal();
+      updateFormattedPreview();
+      updateCharCounter();
+      showToast(`Inserted ${currentPauseDuration}ms pause`);
+    }
+
+    // Allow closing modal with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && pauseModalBackdrop.classList.contains('active')) {
+        closePauseModal();
+      }
+    });
+
+    // ==========================================
+    // MODE SWITCHING
+    // ==========================================
+    function switchMode(mode) {
+      currentMode = mode;
+
+      // Update button states
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // Update visibility based on mode
+      const presetsSection = document.getElementById('presetsSection');
+      const styleSection = document.getElementById('styleSection');
+      const intensitySection = document.getElementById('intensitySection');
+      const ssmlSection = document.getElementById('ssmlSection');
+      const formattedPreviewSection = document.getElementById('formattedPreviewSection');
+
+      if (mode === 'simple') {
+        presetsSection.style.display = 'none';
+        styleSection.style.display = 'none';
+        intensitySection.style.display = 'none';
+        ssmlSection.style.display = 'none';
+        formattedPreviewSection.style.display = 'none';
+        hideToolbar();
+      } else if (mode === 'standard') {
+        presetsSection.style.display = 'grid';
+        styleSection.style.display = 'block';
+        intensitySection.style.display = 'block';
+        ssmlSection.style.display = 'none';
+        formattedPreviewSection.style.display = 'block';
+      } else if (mode === 'pro') {
+        presetsSection.style.display = 'grid';
+        styleSection.style.display = 'block';
+        intensitySection.style.display = 'block';
+        ssmlSection.style.display = 'block';
+        formattedPreviewSection.style.display = 'block';
+      }
+
+      updateFormattedPreview();
+    }
+
+    // Character counter
+    function updateCharCounter() {
+      const textarea = document.getElementById('messageInput');
+      const counter = document.getElementById('charCounter');
+      const count = textarea.value.length;
+      const max = textarea.maxLength;
+
+      counter.textContent = `${count}/${max}`;
+
+      // Update styling
+      counter.classList.remove('warning', 'error');
+      if (count >= max) {
+        counter.classList.add('error');
+      } else if (count >= max * 0.8) {
+        counter.classList.add('warning');
+      }
+    }
+
+    // Update slider values
+    function updateSliderValue(type) {
+      const slider = document.getElementById(`${type}Slider`);
+      const value = parseFloat(slider.value);
+      const display = document.getElementById(`${type}Value`);
+      display.textContent = `${value.toFixed(1)}x`;
+    }
+
+    // Update intensity label
+    function updateIntensityLabel() {
+      const slider = document.getElementById('intensitySlider');
+      const value = parseFloat(slider.value);
+      const display = document.getElementById('intensityValue');
+
+      let label = 'Moderate';
+      if (value < 1) {
+        label = 'Subtle';
+      } else if (value > 1) {
+        label = 'Intense';
+      }
+
+      display.textContent = `${label} (${value.toFixed(1)})`;
+    }
+
+    // Apply preset
+    function applyPreset(preset) {
+      const styleSelect = document.getElementById('styleSelect');
+
+      // Map presets to speaking styles
+      const presetMap = {
+        'excited': 'excited',
+        'announcer': 'standard',
+        'robot': 'standard',
+        'friendly': 'friendly',
+        'angry': 'sad',
+        'narrator': 'standard',
+        'whisper': 'standard',
+        'shouting': 'excited'
+      };
+
+      styleSelect.value = presetMap[preset];
+
+      // Show toast
+      showToast(`Applied "${preset}" preset`);
+    }
+
+    // Update available styles based on voice
+    function updateAvailableStyles() {
+      const voice = document.getElementById('voiceSelect').value;
+      // In a real app, this would filter based on voice compatibility
+      console.log('Voice updated:', voice);
+    }
+
+    // Send message
+    function sendMessage() {
+      const message = document.getElementById('messageInput').value;
+      if (!message.trim()) {
+        alert('Please enter a message');
+        return;
+      }
+      showToast('Message sent to voice channel!');
+      console.log('Sending:', message);
+    }
+
+    // Preview message
+    function previewMessage() {
+      const message = document.getElementById('messageInput').value;
+      if (!message.trim()) {
+        alert('Please enter a message');
+        return;
+      }
+      showToast('Playing preview...');
+      console.log('Previewing:', message);
+    }
+
+    // Stop playback
+    function stopPlayback() {
+      showToast('Playback stopped');
+    }
+
+    // Toggle SSML preview
+    function toggleSSMLPreview() {
+      const ssmlContent = document.getElementById('ssmlContent');
+      const icon = document.querySelector('.ssml-toggle-icon');
+      ssmlContent.classList.toggle('visible');
+      icon.classList.toggle('expanded');
+    }
+
+    // Copy SSML
+    function copySSML() {
+      const ssmlContent = document.getElementById('ssmlContent').textContent;
+      navigator.clipboard.writeText(ssmlContent).then(() => {
+        showToast('SSML copied to clipboard!');
+      });
+    }
+
+    // Show toast notification
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toastMessage');
+      toastMessage.textContent = message;
+      toast.style.display = 'flex';
+
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set up event listeners
+      textarea.addEventListener('input', function() {
+        updateFormattedPreview();
+      });
+
+      // Initialize with standard mode
+      switchMode('standard');
+
+      // Show the formatted preview section for standard mode
+      document.getElementById('formattedPreviewSection').style.display = 'block';
+      updateFormattedPreview();
+    });
+  </script>
+
+</body>
+</html>

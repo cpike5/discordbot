@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Emphasis Toolbar - SSML Enhancement</title>
+
+  <style>
+    /* ==========================================
+       DESIGN TOKENS
+       ========================================== */
+    :root {
+      /* Backgrounds */
+      --color-bg-primary: #1d2022;
+      --color-bg-secondary: #262a2d;
+      --color-bg-tertiary: #2f3336;
+      --color-bg-hover: #363a3e;
+
+      /* Text */
+      --color-text-primary: #d7d3d0;
+      --color-text-secondary: #a8a5a3;
+      --color-text-tertiary: #7a7876;
+
+      /* Accents */
+      --color-accent-orange: #cb4e1b;
+      --color-accent-orange-muted: rgba(203, 78, 27, 0.15);
+      --color-accent-blue: #098ecf;
+      --color-accent-blue-muted: rgba(9, 142, 207, 0.15);
+
+      /* Borders */
+      --color-border-primary: #3f4447;
+      --color-border-secondary: #2f3336;
+
+      /* Transitions */
+      --transition-fast: 150ms ease-out;
+      --transition-normal: 200ms ease-out;
+
+      /* Z-index */
+      --z-popover: 1100;
+    }
+
+    /* ==========================================
+       RESET & BASE STYLES
+       ========================================== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      line-height: 1.6;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+
+    p {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      margin-bottom: 2rem;
+    }
+
+    /* ==========================================
+       DEMO SECTION
+       ========================================== */
+    .demo-section {
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 2rem;
+    }
+
+    .demo-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    /* ==========================================
+       TEXTAREA WITH FORMATTING
+       ========================================== */
+    .textarea-wrapper {
+      position: relative;
+      margin-bottom: 2rem;
+    }
+
+    .message-textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      color: var(--color-text-primary);
+      font-family: inherit;
+      font-size: 0.875rem;
+      resize: vertical;
+      transition: border-color var(--transition-normal);
+      line-height: 1.6;
+    }
+
+    .message-textarea:focus {
+      outline: none;
+      border-color: var(--color-accent-blue);
+    }
+
+    /* ==========================================
+       FLOATING TOOLBAR
+       ========================================== */
+    .floating-toolbar {
+      position: fixed;
+      background: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      display: flex;
+      gap: 0.5rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+      z-index: var(--z-popover);
+      animation: slideUp 0.2s ease-out;
+      pointer-events: auto;
+    }
+
+    .floating-toolbar.hidden {
+      display: none;
+      pointer-events: none;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .toolbar-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 0.375rem;
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .toolbar-btn:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-accent-blue);
+    }
+
+    .toolbar-btn.strong {
+      color: var(--color-accent-orange);
+    }
+
+    .toolbar-btn.strong:hover {
+      background: var(--color-accent-orange-muted);
+    }
+
+    .toolbar-btn.moderate {
+      color: var(--color-accent-blue);
+    }
+
+    .toolbar-btn.moderate:hover {
+      background: var(--color-accent-blue-muted);
+    }
+
+    .toolbar-separator {
+      width: 1px;
+      background: var(--color-border-secondary);
+      margin: 0 0.25rem;
+    }
+
+    /* ==========================================
+       FORMATTING INDICATORS IN TEXT
+       ========================================== */
+    .formatted-text {
+      min-height: 60px;
+      padding: 1rem;
+      background: var(--color-bg-tertiary);
+      border-radius: 0.5rem;
+      border: 1px solid var(--color-border-secondary);
+      font-size: 0.875rem;
+      line-height: 1.8;
+      word-wrap: break-word;
+      position: relative;
+    }
+
+    .emphasis-strong {
+      text-decoration: underline;
+      text-decoration-color: var(--color-accent-orange);
+      text-decoration-thickness: 3px;
+      text-underline-offset: 4px;
+      background-color: var(--color-accent-orange-muted);
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
+    }
+
+    .emphasis-moderate {
+      text-decoration: underline;
+      text-decoration-color: var(--color-accent-blue);
+      text-decoration-thickness: 2px;
+      text-underline-offset: 4px;
+      background-color: var(--color-accent-blue-muted);
+      padding: 0.125rem 0.25rem;
+      border-radius: 0.25rem;
+    }
+
+    .pause-marker {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      background: var(--color-border-secondary);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.7rem;
+      color: var(--color-text-tertiary);
+      margin: 0 0.25rem;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* ==========================================
+       EXAMPLE TEXT
+       ========================================== */
+    .example-note {
+      background: var(--color-accent-blue-muted);
+      border-left: 4px solid var(--color-accent-blue);
+      padding: 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      color: var(--color-text-primary);
+      margin-top: 2rem;
+    }
+
+    .example-note strong {
+      color: var(--color-accent-blue);
+    }
+
+    /* ==========================================
+       INSTRUCTIONS
+       ========================================== */
+    .instructions {
+      background: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-secondary);
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .instructions h2 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--color-text-secondary);
+    }
+
+    .instructions ol {
+      margin-left: 1.5rem;
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      line-height: 1.8;
+    }
+
+    .instructions li {
+      margin-bottom: 0.5rem;
+    }
+
+    /* SVG icon sizing */
+    .toolbar-btn svg {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+
+    /* ==========================================
+       RESPONSIVE
+       ========================================== */
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+
+      .demo-section {
+        padding: 1rem;
+      }
+
+      .floating-toolbar {
+        width: calc(100% - 2rem);
+        flex-wrap: wrap;
+        position: absolute !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Emphasis Toolbar</h1>
+    <p>Select text in the textarea below to see the floating emphasis toolbar. Apply formatting to text for SSML enhancement.</p>
+
+    <div class="instructions">
+      <h2>How it works:</h2>
+      <ol>
+        <li>Select any text in the textarea</li>
+        <li>A floating toolbar appears with formatting options</li>
+        <li>Click a button to apply that formatting</li>
+        <li>Formatted text shows visual indicators below</li>
+        <li>Click "Clear" to remove all formatting from selection</li>
+      </ol>
+    </div>
+
+    <div class="demo-section">
+      <div class="demo-label">Message Input</div>
+
+      <div class="textarea-wrapper">
+        <textarea class="message-textarea" id="messageInput" placeholder="Select text to see the toolbar">This is an urgent announcement for all members. Please pay special attention to this important update and take action immediately.</textarea>
+      </div>
+
+      <div class="demo-label">Formatted Preview</div>
+      <div class="formatted-text" id="formattedPreview">
+        This is an <span class="emphasis-strong">urgent announcement</span> for all members. Please pay <span class="emphasis-moderate">special attention</span> to this <span class="pause-marker"><svg class="pause-icon" fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg> 500ms</span> important update and take action immediately.
+      </div>
+
+      <div class="example-note">
+        <strong>Example shown:</strong> "urgent announcement" with strong emphasis (orange), "special attention" with moderate emphasis (blue), and a 500ms pause marker.
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Toolbar -->
+  <div id="toolbar" class="floating-toolbar hidden">
+    <button class="toolbar-btn" title="Bold" onclick="applyFormatting('bold')">
+      <strong>B</strong>
+    </button>
+    <button class="toolbar-btn strong" title="Strong Emphasis" onclick="applyFormatting('strong')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    </button>
+    <button class="toolbar-btn moderate" title="Moderate Emphasis" onclick="applyFormatting('moderate')">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    </button>
+    <div class="toolbar-separator"></div>
+    <button class="toolbar-btn" title="Insert Pause" onclick="openPauseModal()">
+      <svg fill="currentColor" viewBox="0 0 24 24" width="16" height="16"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+    </button>
+    <div class="toolbar-separator"></div>
+    <button class="toolbar-btn" title="Clear Formatting" onclick="clearFormatting()">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+  </div>
+
+  <script>
+    const textarea = document.getElementById('messageInput');
+    const toolbar = document.getElementById('toolbar');
+    let selectedText = '';
+    let selectionStart = 0;
+    let selectionEnd = 0;
+
+    // Show toolbar on text selection
+    textarea.addEventListener('mouseup', showToolbar);
+    textarea.addEventListener('keyup', showToolbar);
+
+    // Hide toolbar when clicking outside
+    document.addEventListener('click', function(e) {
+      if (e.target !== textarea && e.target !== toolbar && !toolbar.contains(e.target)) {
+        hideToolbar();
+      }
+    });
+
+    function showToolbar() {
+      const selection = window.getSelection();
+      const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+
+      if (selected.length > 0) {
+        selectedText = selected;
+        selectionStart = textarea.selectionStart;
+        selectionEnd = textarea.selectionEnd;
+
+        // Position toolbar above selection
+        const rect = textarea.getBoundingClientRect();
+        toolbar.style.top = (rect.top - 60) + 'px';
+        toolbar.style.left = (rect.left + (textarea.offsetWidth / 2) - (toolbar.offsetWidth / 2)) + 'px';
+
+        toolbar.classList.remove('hidden');
+      } else {
+        hideToolbar();
+      }
+    }
+
+    function hideToolbar() {
+      toolbar.classList.add('hidden');
+    }
+
+    function applyFormatting(type) {
+      if (!selectedText) return;
+
+      const before = textarea.value.substring(0, selectionStart);
+      const after = textarea.value.substring(selectionEnd);
+
+      let formatted = selectedText;
+      switch(type) {
+        case 'bold':
+          formatted = `**${selectedText}**`;
+          break;
+        case 'strong':
+          formatted = `<emphasis level="strong">${selectedText}</emphasis>`;
+          break;
+        case 'moderate':
+          formatted = `<emphasis level="moderate">${selectedText}</emphasis>`;
+          break;
+      }
+
+      textarea.value = before + formatted + after;
+      hideToolbar();
+      updatePreview();
+    }
+
+    function clearFormatting() {
+      if (!selectedText) return;
+
+      const before = textarea.value.substring(0, selectionStart);
+      const after = textarea.value.substring(selectionEnd);
+
+      // Remove formatting markers
+      let cleaned = selectedText
+        .replace(/\*\*(.*?)\*\*/g, '$1')
+        .replace(/<emphasis[^>]*>(.*?)<\/emphasis>/g, '$1');
+
+      textarea.value = before + cleaned + after;
+      hideToolbar();
+      updatePreview();
+    }
+
+    function openPauseModal() {
+      alert('Pause modal would open here\nYou can insert a pause of 100-3000ms');
+      hideToolbar();
+    }
+
+    function updatePreview() {
+      // Parse and display formatted text
+      const preview = document.getElementById('formattedPreview');
+      let html = textarea.value;
+
+      // Convert SSML-like syntax to visual formatting
+      html = html.replace(/<emphasis level="strong">(.*?)<\/emphasis>/g, '<span class="emphasis-strong">$1</span>');
+      html = html.replace(/<emphasis level="moderate">(.*?)<\/emphasis>/g, '<span class="emphasis-moderate">$1</span>');
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      preview.innerHTML = html;
+    }
+
+    // Initialize preview
+    updatePreview();
+  </script>
+
+</body>
+</html>
