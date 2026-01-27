@@ -108,6 +108,9 @@ public static class VoiceServiceExtensions
         // Voice capability provider (singleton for caching)
         services.AddSingleton<IVoiceCapabilityProvider, VoiceCapabilityProvider>();
 
+        // Style preset provider (singleton for static data)
+        services.AddSingleton<IStylePresetProvider, StylePresetProvider>();
+
         // Azure Speech TTS service (singleton for connection pooling)
         services.AddSingleton<ITtsService, AzureTtsService>();
 
