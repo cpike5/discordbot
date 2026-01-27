@@ -25,6 +25,7 @@ public class DetailsModel : PageModel
     private readonly IScheduledMessageService _scheduledMessageService;
     private readonly IRatWatchService _ratWatchService;
     private readonly IReminderRepository _reminderRepository;
+    private readonly IGuildMemberService _guildMemberService;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
@@ -36,6 +37,7 @@ public class DetailsModel : PageModel
         IScheduledMessageService scheduledMessageService,
         IRatWatchService ratWatchService,
         IReminderRepository reminderRepository,
+        IGuildMemberService guildMemberService,
         ILogger<DetailsModel> logger)
     {
         _guildService = guildService;
@@ -44,6 +46,7 @@ public class DetailsModel : PageModel
         _scheduledMessageService = scheduledMessageService;
         _ratWatchService = ratWatchService;
         _reminderRepository = reminderRepository;
+        _guildMemberService = guildMemberService;
         _logger = logger;
     }
 
@@ -165,6 +168,21 @@ public class DetailsModel : PageModel
     /// </summary>
     public int RemindersFailed { get; set; }
 
+    /// <summary>
+    /// Gets the total count of guild members.
+    /// </summary>
+    public int MembersTotalCount { get; set; }
+
+    /// <summary>
+    /// Gets the count of members active today.
+    /// </summary>
+    public int MembersActiveToday { get; set; }
+
+    /// <summary>
+    /// Gets the newest 5 members who joined the guild.
+    /// </summary>
+    public List<GuildMemberDto> NewestMembers { get; set; } = new();
+
     public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", guildId);
@@ -238,8 +256,32 @@ public class DetailsModel : PageModel
         RemindersDeliveredToday = remindersDeliveredToday;
         RemindersFailed = remindersFailed;
 
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}",
-            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal);
+        // Fetch member stats
+        var memberCountQuery = new GuildMemberQueryDto { IsActive = true };
+        MembersTotalCount = await _guildMemberService.GetMemberCountAsync(guildId, memberCountQuery, cancellationToken);
+
+        // Fetch members active today
+        var activeTodayQuery = new GuildMemberQueryDto
+        {
+            IsActive = true,
+            LastActiveAtStart = DateTime.UtcNow.Date
+        };
+        MembersActiveToday = await _guildMemberService.GetMemberCountAsync(guildId, activeTodayQuery, cancellationToken);
+
+        // Fetch newest 5 members
+        var newestMembersQuery = new GuildMemberQueryDto
+        {
+            IsActive = true,
+            SortBy = "JoinedAt",
+            SortDescending = true,
+            Page = 1,
+            PageSize = 5
+        };
+        var newestMembersResponse = await _guildMemberService.GetMembersAsync(guildId, newestMembersQuery, cancellationToken);
+        NewestMembers = newestMembersResponse.Items.ToList();
+
+        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}, Members={MemberCount}",
+            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal, MembersTotalCount);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);
