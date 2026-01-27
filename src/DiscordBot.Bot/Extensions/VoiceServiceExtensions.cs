@@ -102,6 +102,9 @@ public static class VoiceServiceExtensions
         // SSML builder (transient for thread-safety)
         services.AddTransient<ISsmlBuilder, SsmlBuilder>();
 
+        // SSML validator (transient for thread-safety)
+        services.AddTransient<ISsmlValidator, SsmlValidator>();
+
         // Azure Speech TTS service (singleton for connection pooling)
         services.AddSingleton<ITtsService, AzureTtsService>();
 
