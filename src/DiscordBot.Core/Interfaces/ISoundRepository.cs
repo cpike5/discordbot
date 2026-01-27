@@ -69,4 +69,18 @@ public interface ISoundRepository : IRepository<Sound>
     Task IncrementPlayCountAsync(
         Guid soundId,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the top sounds by play count for a guild since a specific time.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="count">Maximum number of sounds to return.</param>
+    /// <param name="since">The start time for counting (UTC).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A read-only list of tuples containing sound name and play count, ordered by play count descending.</returns>
+    Task<IReadOnlyList<(string Name, int PlayCount)>> GetTopSoundsByPlayCountAsync(
+        ulong guildId,
+        int count,
+        DateTime since,
+        CancellationToken cancellationToken = default);
 }

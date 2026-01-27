@@ -26,6 +26,9 @@ public class DetailsModel : PageModel
     private readonly IRatWatchService _ratWatchService;
     private readonly IReminderRepository _reminderRepository;
     private readonly IGuildMemberService _guildMemberService;
+    private readonly IGuildAudioSettingsService _guildAudioSettingsService;
+    private readonly ISoundRepository _soundRepository;
+    private readonly ITtsMessageRepository _ttsMessageRepository;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
@@ -38,6 +41,9 @@ public class DetailsModel : PageModel
         IRatWatchService ratWatchService,
         IReminderRepository reminderRepository,
         IGuildMemberService guildMemberService,
+        IGuildAudioSettingsService guildAudioSettingsService,
+        ISoundRepository soundRepository,
+        ITtsMessageRepository ttsMessageRepository,
         ILogger<DetailsModel> logger)
     {
         _guildService = guildService;
@@ -47,6 +53,9 @@ public class DetailsModel : PageModel
         _ratWatchService = ratWatchService;
         _reminderRepository = reminderRepository;
         _guildMemberService = guildMemberService;
+        _guildAudioSettingsService = guildAudioSettingsService;
+        _soundRepository = soundRepository;
+        _ttsMessageRepository = ttsMessageRepository;
         _logger = logger;
     }
 
@@ -183,6 +192,26 @@ public class DetailsModel : PageModel
     /// </summary>
     public List<GuildMemberDto> NewestMembers { get; set; } = new();
 
+    /// <summary>
+    /// Gets whether audio is enabled for this guild.
+    /// </summary>
+    public bool AudioEnabled { get; set; }
+
+    /// <summary>
+    /// Gets the total count of sounds for this guild.
+    /// </summary>
+    public int TotalSoundCount { get; set; }
+
+    /// <summary>
+    /// Gets the top sounds by play count this week.
+    /// </summary>
+    public List<(string Name, int PlayCount)> TopSounds { get; set; } = new();
+
+    /// <summary>
+    /// Gets the most used TTS voice this week.
+    /// </summary>
+    public string? MostUsedTtsVoice { get; set; }
+
     public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", guildId);
@@ -280,8 +309,22 @@ public class DetailsModel : PageModel
         var newestMembersResponse = await _guildMemberService.GetMembersAsync(guildId, newestMembersQuery, cancellationToken);
         NewestMembers = newestMembersResponse.Items.ToList();
 
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}, Members={MemberCount}",
-            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal, MembersTotalCount);
+        // Fetch audio widget data
+        var audioSettings = await _guildAudioSettingsService.GetSettingsAsync(guildId, cancellationToken);
+        AudioEnabled = audioSettings?.AudioEnabled ?? false;
+
+        // Fetch total sound count
+        TotalSoundCount = await _soundRepository.GetSoundCountAsync(guildId, cancellationToken);
+
+        // Fetch top sounds this week
+        var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
+        TopSounds = (await _soundRepository.GetTopSoundsByPlayCountAsync(guildId, 3, oneWeekAgo, cancellationToken)).ToList();
+
+        // Fetch most used TTS voice this week
+        MostUsedTtsVoice = await _ttsMessageRepository.GetMostUsedVoiceAsync(guildId, oneWeekAgo, cancellationToken);
+
+        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}, Members={MemberCount}, AudioEnabled={AudioEnabled}, Sounds={SoundCount}",
+            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal, MembersTotalCount, AudioEnabled, TotalSoundCount);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);

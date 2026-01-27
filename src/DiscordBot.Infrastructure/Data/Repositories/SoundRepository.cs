@@ -115,4 +115,31 @@ public class SoundRepository : Repository<Sound>, ISoundRepository
 
         _logger.LogDebug("Incremented play count for sound {SoundId} to {PlayCount}", soundId, sound.PlayCount);
     }
+
+    public async Task<IReadOnlyList<(string Name, int PlayCount)>> GetTopSoundsByPlayCountAsync(
+        ulong guildId,
+        int count,
+        DateTime since,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving top {Count} sounds by play count for guild {GuildId} since {Since}",
+            count, guildId, since);
+
+        var topSounds = await Context.SoundPlayLogs
+            .AsNoTracking()
+            .Include(log => log.Sound)
+            .Where(log => log.GuildId == guildId && log.PlayedAt >= since && log.Sound != null)
+            .GroupBy(log => new { log.SoundId, log.Sound.Name })
+            .Select(g => new { g.Key.Name, PlayCount = g.Count() })
+            .OrderByDescending(x => x.PlayCount)
+            .Take(count)
+            .ToListAsync(cancellationToken);
+
+        var result = topSounds.Select(x => (x.Name, x.PlayCount)).ToList();
+
+        _logger.LogDebug("Found {Count} top sounds for guild {GuildId} since {Since}",
+            result.Count, guildId, since);
+
+        return result;
+    }
 }
