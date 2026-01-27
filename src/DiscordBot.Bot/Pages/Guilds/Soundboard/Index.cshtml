@@ -176,7 +176,7 @@
                 <div class="px-6 py-4 border-b border-border-primary flex items-center justify-between">
                     <div class="flex items-center gap-4">
                         <h2 class="text-lg font-semibold text-text-primary">Sounds</h2>
-                        <!-- Sort Dropdown -->
+                        <!-- Sort Dropdown with AJAX -->
                         <partial name="Shared/_SortDropdown" model='new SortDropdownViewModel {
                             Id = "sortDropdown",
                             SortOptions = new List<SortOption>
@@ -187,7 +187,10 @@
                                 new SortOption { Value = "oldest", Label = "Oldest First" }
                             },
                             CurrentSort = Model.ViewModel.CurrentSort,
-                            ParameterName = "sort"
+                            ParameterName = "sort",
+                            UseAjax = true,
+                            TargetSelector = "#soundsList",
+                            PartialUrl = $"/Guilds/Soundboard/{Model.ViewModel.GuildId}?handler=Partial"
                         }' />
                     </div>
                     <span class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-accent-blue bg-accent-blue/20 rounded-full">
@@ -195,117 +198,10 @@
                     </span>
                 </div>
 
-                @if (Model.ViewModel.Sounds.Any())
-                {
-                    <!-- Sounds Table -->
-                    <div class="overflow-x-auto overflow-y-auto max-h-[60vh] scroll-smooth">
-                        <table class="w-full">
-                            <thead class="bg-bg-tertiary sticky top-0 z-10">
-                                <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 50px;"></th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Name</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 80px;">Duration</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 100px;">Size</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 80px;">Plays</th>
-                                    <th class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 100px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-border-primary">
-                                @foreach (var sound in Model.ViewModel.Sounds)
-                                {
-                                    <tr class="hover:bg-bg-hover transition-colors sound-row">
-                                        <td class="px-4 py-3">
-                                            <button type="button"
-                                                    class="play-button inline-flex items-center justify-center w-8 h-8 rounded bg-accent-blue text-white hover:bg-accent-blue-hover transition-colors"
-                                                    data-sound-id="@sound.Id"
-                                                    onclick="togglePlaySound('@sound.Id')"
-                                                    title="Play @sound.Name">
-                                                <svg class="play-icon w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M8 5v14l11-7z"/>
-                                                </svg>
-                                                <svg class="stop-icon w-4 h-4 hidden" fill="currentColor" viewBox="0 0 24 24">
-                                                    <path d="M6 6h12v12H6z"/>
-                                                </svg>
-                                            </button>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <div class="font-medium text-text-primary" title="@sound.FileName">@sound.Name</div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-1 text-text-secondary text-sm">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                @sound.DurationFormatted
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-1 text-text-secondary text-sm">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                                </svg>
-                                                @sound.FileSizeFormatted
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center gap-1 text-text-secondary text-sm">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                                </svg>
-                                                @sound.PlayCount
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-3">
-                                            <div class="flex items-center justify-end gap-1 row-actions">
-                                                <button type="button"
-                                                        onclick="showDeleteModal('@sound.Id', '@sound.Name')"
-                                                        class="inline-flex items-center justify-center w-8 h-8 rounded text-error hover:bg-error/10 transition-colors"
-                                                        title="Delete @sound.Name">
-                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                                <div class="relative">
-                                                    <button type="button"
-                                                            onclick="toggleMenu(event, '@sound.Id')"
-                                                            class="menu-toggle inline-flex items-center justify-center w-8 h-8 rounded text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
-                                                            title="More options">
-                                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                                            <path d="M12 8a2 2 0 110-4 2 2 0 010 4zM12 14a2 2 0 110-4 2 2 0 010 4zM12 20a2 2 0 110-4 2 2 0 010 4z" />
-                                                        </svg>
-                                                    </button>
-                                                    <div id="menu-@sound.Id" class="hidden absolute right-0 w-36 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-20">
-                                                        <button type="button"
-                                                                onclick="downloadSound('@sound.Id', '@sound.FileName')"
-                                                                class="w-full px-4 py-2 text-sm text-text-primary hover:bg-bg-hover text-left rounded-lg flex items-center gap-2">
-                                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                            </svg>
-                                                            Download
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                else
-                {
-                    <!-- Empty State -->
-                    <div class="p-8">
-                        <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
-                            Type = EmptyStateType.FirstTime,
-                            Title = "No Sounds Yet",
-                            Description = "Upload your first sound file or discover existing files from the sounds folder.",
-                            Size = EmptyStateSize.Default,
-                            IconSvgPath = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                        }' />
-                    </div>
-                }
+                <!-- Sounds List Container (AJAX target) -->
+                <div id="soundsList">
+                    <partial name="_SoundsList" model="Model" />
+                </div>
             </div>
         </div>
 
@@ -457,6 +353,9 @@
 @section Scripts {
     <!-- Voice Channel Panel script (SignalR and DashboardHub are loaded in _Layout.cshtml) -->
     <script src="~/js/voice-channel-panel.js"></script>
+
+    <!-- AJAX Sort Module -->
+    <script src="~/js/ajax-sort.js"></script>
 
     <style>
         .sound-row .row-actions {

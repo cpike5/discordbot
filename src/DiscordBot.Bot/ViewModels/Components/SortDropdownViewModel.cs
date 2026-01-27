@@ -28,6 +28,25 @@ public record SortDropdownViewModel
     /// Default is "sort".
     /// </summary>
     public string ParameterName { get; init; } = "sort";
+
+    /// <summary>
+    /// Enable AJAX mode. When true, clicking sort options emits a custom event
+    /// instead of navigating. Default is false (traditional page navigation).
+    /// </summary>
+    public bool UseAjax { get; init; } = false;
+
+    /// <summary>
+    /// The CSS selector for the container element to replace with AJAX content.
+    /// Required when UseAjax is true. Example: "#soundsList"
+    /// </summary>
+    public string? TargetSelector { get; init; }
+
+    /// <summary>
+    /// The URL endpoint that returns partial HTML for the sorted content.
+    /// Query parameter will be appended automatically (e.g., "?sort=name-asc").
+    /// Required when UseAjax is true. Example: "/Guilds/Soundboard/123?handler=Partial"
+    /// </summary>
+    public string? PartialUrl { get; init; }
 }
 
 /// <summary>
