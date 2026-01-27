@@ -105,6 +105,9 @@ public static class VoiceServiceExtensions
         // SSML validator (transient for thread-safety)
         services.AddTransient<ISsmlValidator, SsmlValidator>();
 
+        // Voice capability provider (singleton for caching)
+        services.AddSingleton<IVoiceCapabilityProvider, VoiceCapabilityProvider>();
+
         // Azure Speech TTS service (singleton for connection pooling)
         services.AddSingleton<ITtsService, AzureTtsService>();
 
