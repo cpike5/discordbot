@@ -20,18 +20,30 @@ public class AzureTtsService : ITtsService
     private readonly SpeechConfig? _speechConfig;
     private readonly ConcurrentDictionary<string, List<Core.Models.VoiceInfo>> _voiceCache = new();
     private readonly SemaphoreSlim _voiceCacheLock = new(1, 1);
+    private readonly IVoiceCapabilityProvider _voiceCapabilityProvider;
+    private readonly IStylePresetProvider _stylePresetProvider;
+    private readonly ISsmlValidator _ssmlValidator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AzureTtsService"/> class.
     /// </summary>
     /// <param name="options">Azure Speech configuration options.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="voiceCapabilityProvider">The voice capability provider.</param>
+    /// <param name="stylePresetProvider">The style preset provider.</param>
+    /// <param name="ssmlValidator">The SSML validator.</param>
     public AzureTtsService(
         IOptions<AzureSpeechOptions> options,
-        ILogger<AzureTtsService> logger)
+        ILogger<AzureTtsService> logger,
+        IVoiceCapabilityProvider voiceCapabilityProvider,
+        IStylePresetProvider stylePresetProvider,
+        ISsmlValidator ssmlValidator)
     {
         _options = options.Value;
         _logger = logger;
+        _voiceCapabilityProvider = voiceCapabilityProvider;
+        _stylePresetProvider = stylePresetProvider;
+        _ssmlValidator = ssmlValidator;
 
         // Initialize SpeechConfig if subscription key is provided
         if (!string.IsNullOrWhiteSpace(_options.SubscriptionKey))
@@ -59,6 +71,7 @@ public class AzureTtsService : ITtsService
     /// <inheritdoc/>
     public async Task<Stream> SynthesizeSpeechAsync(string text, Core.Models.TtsOptions? options = null, CancellationToken cancellationToken = default)
     {
+        // Validate parameters here to preserve backward-compatible error messages
         if (string.IsNullOrWhiteSpace(text))
         {
             throw new ArgumentException("Text cannot be null or empty.", nameof(text));
@@ -69,49 +82,104 @@ public class AzureTtsService : ITtsService
             throw new ArgumentException($"Text length ({text.Length}) exceeds maximum allowed length ({_options.MaxTextLength}).", nameof(text));
         }
 
+        return await SynthesizeSpeechAsync(text, options, Core.Enums.SynthesisMode.PlainText, cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public async Task<Stream> SynthesizeSpeechAsync(
+        string input,
+        Core.Models.TtsOptions? options,
+        Core.Enums.SynthesisMode mode,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            throw new ArgumentException("Input cannot be null or empty.", nameof(input));
+        }
+
+        if (input.Length > _options.MaxTextLength)
+        {
+            throw new ArgumentException($"Input length ({input.Length}) exceeds maximum allowed length ({_options.MaxTextLength}).", nameof(input));
+        }
+
         if (!IsConfigured)
         {
             throw new InvalidOperationException("Azure Speech service is not configured. Configure SubscriptionKey in user secrets.");
         }
 
-        // Use provided options or create defaults
-        var ttsOptions = options ?? new Core.Models.TtsOptions
+        // Determine actual mode if Auto
+        var actualMode = mode;
+        if (mode == Core.Enums.SynthesisMode.Auto)
         {
-            Voice = _options.DefaultVoice,
-            Speed = _options.DefaultSpeed,
-            Pitch = _options.DefaultPitch,
-            Volume = _options.DefaultVolume
-        };
+            var trimmedInput = input.TrimStart();
+            actualMode = trimmedInput.StartsWith("<speak", StringComparison.OrdinalIgnoreCase)
+                ? Core.Enums.SynthesisMode.Ssml
+                : Core.Enums.SynthesisMode.PlainText;
 
-        // Defensive validation: ensure voice is never empty
-        if (string.IsNullOrWhiteSpace(ttsOptions.Voice))
-        {
-            _logger.LogWarning("Voice was null or empty, falling back to default: {DefaultVoice}",
-                _options.DefaultVoice);
-            ttsOptions.Voice = string.IsNullOrWhiteSpace(_options.DefaultVoice)
-                ? "en-US-JennyNeural"
-                : _options.DefaultVoice;
+            _logger.LogDebug("Auto-detected synthesis mode as {Mode}", actualMode);
         }
 
-        _logger.LogInformation("Synthesizing speech: {TextLength} characters with voice {Voice} (speed: {Speed}, pitch: {Pitch}, volume: {Volume})",
-            text.Length, ttsOptions.Voice, ttsOptions.Speed, ttsOptions.Pitch, ttsOptions.Volume);
+        string ssml;
+
+        if (actualMode == Core.Enums.SynthesisMode.Ssml)
+        {
+            // Validate SSML
+            var validationResult = _ssmlValidator.Validate(input);
+            if (!validationResult.IsValid)
+            {
+                _logger.LogWarning("SSML validation failed with {ErrorCount} errors", validationResult.Errors.Count);
+                throw new Core.Exceptions.SsmlValidationException(
+                    "SSML validation failed. See Errors property for details.",
+                    validationResult.Errors,
+                    input);
+            }
+
+            ssml = input;
+            _logger.LogInformation("Using provided SSML directly ({Length} characters)", input.Length);
+        }
+        else
+        {
+            // PlainText mode - use existing BuildSsml with options
+            var ttsOptions = options ?? new Core.Models.TtsOptions
+            {
+                Voice = _options.DefaultVoice,
+                Speed = _options.DefaultSpeed,
+                Pitch = _options.DefaultPitch,
+                Volume = _options.DefaultVolume
+            };
+
+            // Defensive validation: ensure voice is never empty
+            if (string.IsNullOrWhiteSpace(ttsOptions.Voice))
+            {
+                _logger.LogWarning("Voice was null or empty, falling back to default: {DefaultVoice}",
+                    _options.DefaultVoice);
+                ttsOptions.Voice = string.IsNullOrWhiteSpace(_options.DefaultVoice)
+                    ? "en-US-JennyNeural"
+                    : _options.DefaultVoice;
+            }
+
+            ssml = BuildSsml(input, ttsOptions);
+            _logger.LogInformation("Built SSML from plain text with voice {Voice} (speed: {Speed}, pitch: {Pitch}, volume: {Volume})",
+                ttsOptions.Voice, ttsOptions.Speed, ttsOptions.Pitch, ttsOptions.Volume);
+        }
+
+        _logger.LogDebug("Final SSML: {Ssml}", ssml);
 
         // Start tracing activity for Azure Speech synthesis
+        // For SSML mode, extract voice from SSML if possible, otherwise use "multiple" or "unknown"
+        var voiceForTracing = actualMode == Core.Enums.SynthesisMode.Ssml
+            ? ExtractVoiceFromSsml(ssml)
+            : options?.Voice ?? _options.DefaultVoice;
+
         using var activity = BotActivitySource.StartAzureSpeechActivity(
-            textLength: text.Length,
-            voice: ttsOptions.Voice,
+            textLength: input.Length,
+            voice: voiceForTracing,
             region: _options.Region);
 
         try
         {
-            // Build SSML for synthesis
-            var ssml = BuildSsml(text, ttsOptions);
-            _logger.LogDebug("SSML: {Ssml}", ssml);
-
-            // Add TTS options to activity
-            activity?.SetTag(TracingConstants.Attributes.TtsSpeed, ttsOptions.Speed);
-            activity?.SetTag(TracingConstants.Attributes.TtsPitch, ttsOptions.Pitch);
-            activity?.SetTag(TracingConstants.Attributes.TtsVolume, ttsOptions.Volume);
+            // Add synthesis mode to activity
+            activity?.SetTag("tts.synthesis_mode", actualMode.ToString());
 
             // Create synthesizer with raw PCM output format (mono - we'll convert to stereo)
             // Azure Speech SDK outputs Raw48Khz16BitMonoPcm
@@ -158,12 +226,35 @@ public class AzureTtsService : ITtsService
                 throw ex;
             }
         }
+        catch (Core.Exceptions.SsmlValidationException)
+        {
+            // Re-throw SSML validation exceptions without wrapping
+            throw;
+        }
         catch (Exception ex) when (ex is not ArgumentException && ex is not InvalidOperationException)
         {
             _logger.LogError(ex, "Unexpected error during speech synthesis");
             BotActivitySource.RecordException(activity, ex);
             throw new InvalidOperationException("Speech synthesis failed. See inner exception for details.", ex);
         }
+    }
+
+    /// <inheritdoc/>
+    public Task<Core.Models.VoiceCapabilities?> GetVoiceCapabilitiesAsync(string voiceName)
+    {
+        return Task.FromResult(_voiceCapabilityProvider.GetCapabilities(voiceName));
+    }
+
+    /// <inheritdoc/>
+    public IEnumerable<Core.Models.StylePreset> GetStylePresets()
+    {
+        return _stylePresetProvider.GetAllPresets();
+    }
+
+    /// <inheritdoc/>
+    public Core.Models.SsmlValidationResult ValidateSsml(string ssml)
+    {
+        return _ssmlValidator.Validate(ssml);
     }
 
     /// <inheritdoc/>
@@ -310,6 +401,37 @@ public class AzureTtsService : ITtsService
         finally
         {
             _voiceCacheLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Extracts the voice name from SSML for tracing purposes.
+    /// </summary>
+    /// <param name="ssml">SSML markup.</param>
+    /// <returns>Voice name if found, "multiple" if multiple voices, or "unknown" if not found.</returns>
+    private static string ExtractVoiceFromSsml(string ssml)
+    {
+        try
+        {
+            // Simple regex to find voice name attribute
+            var matches = System.Text.RegularExpressions.Regex.Matches(ssml, @"<voice\s+name=[""']([^""']+)[""']", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (matches.Count == 0)
+            {
+                return "unknown";
+            }
+            else if (matches.Count == 1)
+            {
+                return matches[0].Groups[1].Value;
+            }
+            else
+            {
+                return "multiple";
+            }
+        }
+        catch
+        {
+            return "unknown";
         }
     }
 

@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -17,11 +18,17 @@ public class AzureTtsServiceTests : IDisposable
 {
     private readonly Mock<ILogger<AzureTtsService>> _mockLogger;
     private readonly Mock<IOptions<AzureSpeechOptions>> _mockOptions;
+    private readonly Mock<IVoiceCapabilityProvider> _mockVoiceCapabilityProvider;
+    private readonly Mock<IStylePresetProvider> _mockStylePresetProvider;
+    private readonly Mock<ISsmlValidator> _mockSsmlValidator;
 
     public AzureTtsServiceTests()
     {
         _mockLogger = new Mock<ILogger<AzureTtsService>>();
         _mockOptions = new Mock<IOptions<AzureSpeechOptions>>();
+        _mockVoiceCapabilityProvider = new Mock<IVoiceCapabilityProvider>();
+        _mockStylePresetProvider = new Mock<IStylePresetProvider>();
+        _mockSsmlValidator = new Mock<ISsmlValidator>();
     }
 
     public void Dispose()
@@ -33,7 +40,12 @@ public class AzureTtsServiceTests : IDisposable
     {
         var opts = options ?? new AzureSpeechOptions();
         _mockOptions.Setup(x => x.Value).Returns(opts);
-        return new AzureTtsService(_mockOptions.Object, _mockLogger.Object);
+        return new AzureTtsService(
+            _mockOptions.Object,
+            _mockLogger.Object,
+            _mockVoiceCapabilityProvider.Object,
+            _mockStylePresetProvider.Object,
+            _mockSsmlValidator.Object);
     }
 
     #region IsConfigured Property Tests
