@@ -194,7 +194,7 @@
             if (Model.RatWatchTotal > 0)
             {
                 ratWatchBody = $@"
-                <div class='grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4'>
+                <div class='grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4'>
                     <!-- Total -->
                     <div class='bg-bg-primary rounded-lg p-3 sm:p-4'>
                         <div class='flex items-center gap-2 mb-1'>
@@ -228,29 +228,45 @@
                         </div>
                         <p class='text-2xl font-bold text-success'>{Model.RatWatchCompleted}</p>
                     </div>
-
-                    <!-- Top Rat -->
-                    <div class='bg-bg-primary rounded-lg p-3 sm:p-4'>
-                        <div class='flex items-center gap-2 mb-1'>
-                            <svg class='w-4 h-4 text-error' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
-                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z' />
-                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z' />
-                            </svg>
-                            <span class='text-xs text-text-tertiary font-medium'>Top Rat</span>
-                        </div>
-                        " + (!string.IsNullOrEmpty(Model.TopRatUsername)
-                            ? $"<p class='text-sm font-bold text-text-primary truncate' title='{System.Net.WebUtility.HtmlEncode(Model.TopRatUsername)}'>{System.Net.WebUtility.HtmlEncode(Model.TopRatUsername)}</p><p class='text-xs text-error'>{Model.TopRatGuiltyCount} guilty</p>"
-                            : "<p class='text-sm text-text-tertiary'>None yet</p>") + @"
-                    </div>
                 </div>";
+
+                if (Model.TopRatLeaderboard.Any())
+                {
+                    ratWatchBody += @"
+                <div class='space-y-2 mt-4'>
+                    <h3 class='text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-3'>Top Rats</h3>";
+
+                    foreach (var entry in Model.TopRatLeaderboard)
+                    {
+                        var medalEmoji = entry.Rank switch
+                        {
+                            1 => "🥇",
+                            2 => "🥈",
+                            3 => "🥉",
+                            _ => $"#{entry.Rank}"
+                        };
+
+                        ratWatchBody += $@"
+                    <div class='flex items-center justify-between p-2 rounded-lg bg-bg-primary hover:bg-bg-tertiary transition-colors'>
+                        <div class='flex items-center gap-2 min-w-0 flex-1'>
+                            <span class='text-sm font-bold text-text-tertiary flex-shrink-0 w-6'>{medalEmoji}</span>
+                            <span class='text-sm font-medium text-text-primary truncate' title='{System.Net.WebUtility.HtmlEncode(entry.Username)}'>{System.Net.WebUtility.HtmlEncode(entry.Username)}</span>
+                        </div>
+                        <span class='text-sm font-bold text-error ml-2 flex-shrink-0'>{entry.GuiltyCount} guilty</span>
+                    </div>";
+                    }
+
+                    ratWatchBody += @"
+                </div>";
+                }
             }
             else
             {
                 ratWatchEmpty = new EmptyStateViewModel
                 {
                     Type = EmptyStateType.NoData,
-                    Title = "No Rat Watches yet",
-                    Description = "Use the \"Rat Watch\" context menu on messages in Discord to start accountability tracking.",
+                    Title = Model.RatWatchEnabled ? "No watches yet" : "Ratwatch is disabled",
+                    Description = Model.RatWatchEnabled ? "Use the \"Rat Watch\" context menu on messages in Discord to start accountability tracking." : "Enable Ratwatch in settings to start tracking.",
                     IconSvgPath = "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
                 };
             }

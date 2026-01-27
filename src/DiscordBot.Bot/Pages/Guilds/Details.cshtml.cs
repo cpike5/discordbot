@@ -148,14 +148,9 @@ public class DetailsModel : PageModel
     public int RatWatchCompleted { get; set; }
 
     /// <summary>
-    /// Gets the top "rat" username for this guild (most guilty verdicts).
+    /// Gets the top leaderboard entries for this guild (up to 5).
     /// </summary>
-    public string? TopRatUsername { get; set; }
-
-    /// <summary>
-    /// Gets the guilty count for the top rat.
-    /// </summary>
-    public int TopRatGuiltyCount { get; set; }
+    public List<RatLeaderboardEntryDto> TopRatLeaderboard { get; set; } = new();
 
     /// <summary>
     /// Gets the total number of reminders for this guild.
@@ -268,14 +263,9 @@ public class DetailsModel : PageModel
         RatWatchPending = ratWatchList.Count(w => w.Status == RatWatchStatus.Pending || w.Status == RatWatchStatus.Voting);
         RatWatchCompleted = ratWatchList.Count(w => w.Status == RatWatchStatus.Guilty || w.Status == RatWatchStatus.NotGuilty);
 
-        // Get leaderboard for top rat
-        var leaderboard = await _ratWatchService.GetLeaderboardAsync(guildId, 1, cancellationToken);
-        var topRat = leaderboard.FirstOrDefault();
-        if (topRat != null)
-        {
-            TopRatUsername = topRat.Username;
-            TopRatGuiltyCount = topRat.GuiltyCount;
-        }
+        // Get leaderboard for top rats
+        var leaderboard = await _ratWatchService.GetLeaderboardAsync(guildId, 5, cancellationToken);
+        TopRatLeaderboard = leaderboard.ToList();
 
         // Fetch reminder stats
         var (remindersTotal, remindersPending, remindersDeliveredToday, remindersFailed) =
