@@ -1,0 +1,71 @@
+@model DiscordBot.Bot.ViewModels.Components.DashboardWidgetViewModel
+@{
+    var colSpanClass = Model.ColSpan == 2 ? "md:col-span-2" : "md:col-span-1";
+}
+
+<div class="@colSpanClass bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+    <!-- Widget Header -->
+    <div class="px-4 sm:px-6 py-4 @(!string.IsNullOrEmpty(Model.BodyContent) || Model.EmptyState != null ? "" : "")">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                @if (!string.IsNullOrEmpty(Model.IconSvgPath))
+                {
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@Model.IconSvgPath" />
+                    </svg>
+                }
+                <h3 class="text-lg font-semibold text-text-primary">@Model.Title</h3>
+                @if (Model.IsEnabled.HasValue)
+                {
+                    @if (Model.IsEnabled.Value)
+                    {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                            <span class="w-1.5 h-1.5 rounded-full bg-success mr-1"></span>
+                            @Model.EnabledLabel
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
+                            <span class="w-1.5 h-1.5 rounded-full bg-error mr-1"></span>
+                            @Model.DisabledLabel
+                        </span>
+                    }
+                }
+            </div>
+            <div class="flex items-center gap-3">
+                @if (Model.HeaderActions?.Any() == true)
+                {
+                    foreach (var action in Model.HeaderActions)
+                    {
+                        <a href="@action.Url" class="text-sm text-text-secondary hover:text-text-primary transition-colors">
+                            @action.Text
+                        </a>
+                    }
+                }
+                @if (!string.IsNullOrEmpty(Model.DetailUrl))
+                {
+                    <a href="@Model.DetailUrl" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                        @Model.DetailLinkText
+                    </a>
+                }
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(Model.Subtitle))
+        {
+            <p class="text-sm text-text-secondary mt-1">@Model.Subtitle</p>
+        }
+    </div>
+
+    <!-- Widget Body -->
+    <div class="px-4 sm:px-6 pb-4 sm:pb-6">
+        @if (Model.EmptyState != null && string.IsNullOrEmpty(Model.BodyContent))
+        {
+            <partial name="Shared/Components/_EmptyState" model="Model.EmptyState" />
+        }
+        else if (!string.IsNullOrEmpty(Model.BodyContent))
+        {
+            @Html.Raw(Model.BodyContent)
+        }
+    </div>
+</div>
