@@ -342,6 +342,30 @@
                         <p class='text-2xl font-bold " + (Model.RemindersFailed > 0 ? "text-error" : "text-text-primary") + @"'>{Model.RemindersFailed}</p>
                     </div>
                 </div>";
+
+                if (Model.UpcomingReminders.Any())
+                {
+                    remindersBody += @"
+                <div class='space-y-2 mt-6'>
+                    <h3 class='text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-4'>Upcoming</h3>";
+
+                    foreach (var reminder in Model.UpcomingReminders)
+                    {
+                        var triggerAtUtcIso = reminder.TriggerAtUtcIso;
+
+                        remindersBody += $@"
+                    <div class='flex items-start gap-3 p-2 rounded-lg hover:bg-bg-tertiary transition-colors'>
+                        <div class='flex-1 min-w-0'>
+                            <p class='text-sm font-medium text-text-primary preview-trigger' data-preview-type='user' data-user-id='{reminder.UserId}' data-context-guild-id='{guild.Id}'>{System.Net.WebUtility.HtmlEncode(reminder.Username)}</p>
+                            <p class='text-xs text-text-secondary truncate mt-0.5'>{System.Net.WebUtility.HtmlEncode(reminder.MessagePreview)}</p>
+                            <p class='text-xs text-text-tertiary mt-1' data-utc='{triggerAtUtcIso}' data-format='datetime-relative'></p>
+                        </div>
+                    </div>";
+                    }
+
+                    remindersBody += @"
+                </div>";
+                }
             }
             else
             {

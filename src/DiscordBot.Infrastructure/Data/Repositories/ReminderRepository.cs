@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -192,5 +193,40 @@ public class ReminderRepository : Repository<Reminder>, IReminderRepository
             guildId, totalCount, pendingCount, deliveredTodayCount, failedCount);
 
         return (totalCount, pendingCount, deliveredTodayCount, failedCount);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<UpcomingReminderDto>> GetUpcomingAsync(
+        ulong guildId,
+        int count,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Retrieving {Count} upcoming reminders for guild {GuildId}", count, guildId);
+
+        var now = DateTime.UtcNow;
+
+        var upcomingReminders = await (
+            from r in DbSet.AsNoTracking()
+            where r.GuildId == guildId && r.Status == ReminderStatus.Pending && r.TriggerAt > now
+            orderby r.TriggerAt
+            join u in Context.Users.AsNoTracking() on r.UserId equals u.Id into uGroup
+            from u in uGroup.DefaultIfEmpty()
+            select new UpcomingReminderDto
+            {
+                Id = r.Id,
+                UserId = r.UserId,
+                Username = u != null && u.Username != null ? u.Username : r.UserId.ToString(),
+                MessagePreview = r.Message.Length > 50
+                    ? r.Message.Substring(0, 50) + "..."
+                    : r.Message,
+                TriggerAt = r.TriggerAt
+            }
+        )
+        .Take(count)
+        .ToListAsync(cancellationToken);
+
+        _logger.LogDebug("Retrieved {Count} upcoming reminders for guild {GuildId}", upcomingReminders.Count, guildId);
+
+        return upcomingReminders;
     }
 }
