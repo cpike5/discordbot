@@ -15,6 +15,7 @@ namespace DiscordBot.Bot.Services.Tts;
 public partial class SsmlValidator : ISsmlValidator
 {
     private readonly ILogger<SsmlValidator> _logger;
+    private readonly IVoiceCapabilityProvider _voiceCapabilityProvider;
     private readonly int _maxNestingDepth;
     private readonly int _maxDocumentLength;
 
@@ -37,35 +38,6 @@ public partial class SsmlValidator : ISsmlValidator
     private const double MinVolume = 0.0;
     private const double MaxVolume = 100.0;
 
-    // Known Azure neural voices with their supported styles
-    private static readonly Dictionary<string, string[]> VoiceStyleCapabilities = new()
-    {
-        ["en-US-JennyNeural"] = new[]
-        {
-            "angry", "assistant", "chat", "cheerful", "customerservice",
-            "empathetic", "excited", "friendly", "hopeful", "newscast",
-            "sad", "shouting", "terrified", "unfriendly", "whispering"
-        },
-        ["en-US-AriaNeural"] = new[]
-        {
-            "angry", "chat", "cheerful", "empathetic", "excited",
-            "friendly", "hopeful", "sad", "shouting", "terrified",
-            "unfriendly", "whispering"
-        },
-        ["en-US-GuyNeural"] = new[]
-        {
-            "angry", "cheerful", "excited", "friendly", "hopeful",
-            "newscast", "sad", "shouting", "terrified", "unfriendly",
-            "whispering"
-        },
-        ["en-US-DavisNeural"] = new[]
-        {
-            "angry", "chat", "cheerful", "excited", "friendly",
-            "hopeful", "sad", "shouting", "terrified", "unfriendly",
-            "whispering"
-        }
-    };
-
     // Regex patterns for validation
     [GeneratedRegex(@"<script[^>]*>", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     private static partial Regex ScriptTagRegex();
@@ -85,9 +57,14 @@ public partial class SsmlValidator : ISsmlValidator
     [GeneratedRegex(@"^[+-]?\d+%?$|^(x-low|low|medium|high|x-high|default)$", RegexOptions.Compiled)]
     private static partial Regex PitchValueRegex();
 
-    public SsmlValidator(ILogger<SsmlValidator> logger, int maxNestingDepth = 3, int maxDocumentLength = 5000)
+    public SsmlValidator(
+        ILogger<SsmlValidator> logger,
+        IVoiceCapabilityProvider voiceCapabilityProvider,
+        int maxNestingDepth = 3,
+        int maxDocumentLength = 5000)
     {
         _logger = logger;
+        _voiceCapabilityProvider = voiceCapabilityProvider;
         _maxNestingDepth = maxNestingDepth;
         _maxDocumentLength = maxDocumentLength;
     }
@@ -255,8 +232,7 @@ public partial class SsmlValidator : ISsmlValidator
             return false;
         }
 
-        var isSupported = VoiceStyleCapabilities.TryGetValue(voiceName, out var supportedStyles)
-            && supportedStyles.Contains(style, StringComparer.OrdinalIgnoreCase);
+        var isSupported = _voiceCapabilityProvider.IsStyleSupported(voiceName, style);
 
         _logger.LogDebug(
             "Style support check: Voice={VoiceName}, Style={Style}, Supported={Supported}",
@@ -382,8 +358,9 @@ public partial class SsmlValidator : ISsmlValidator
         var voiceName = nameAttr.Value;
         detectedVoices.Add(voiceName);
 
-        // Voices not in dictionary are considered valid but without style support
-        if (!VoiceStyleCapabilities.ContainsKey(voiceName))
+        // Voices not in known voices are considered valid but without style support
+        var capabilities = _voiceCapabilityProvider.GetCapabilities(voiceName);
+        if (capabilities == null)
         {
             warnings.Add($"Voice '{voiceName}' is not in the known voices list. It may be valid but style support cannot be verified.");
         }
