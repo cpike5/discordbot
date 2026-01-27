@@ -1,6 +1,6 @@
 # Component API Usage Guide
 
-**Version:** 1.1
+**Version:** 1.2
 **Last Updated:** 2026-01-26
 **Target Framework:** .NET 8 Razor Pages with Tailwind CSS
 
@@ -67,6 +67,8 @@ Then in the view:
 | [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results |
 | [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
 | [NavTabs](#navtabs-component) | Tabbed navigation | Page navigation, in-page tabs, AJAX content |
+| [SortDropdown](#sortdropdown-component) | Sort selection dropdown | Table headers, list sorting |
+| [FilterPanel](#filterpanel-javascript-utility) | Collapsible filter sections | Data filtering, date range selection |
 
 ---
 
@@ -1720,6 +1722,332 @@ var tabs = new NavTabsViewModel
 
 ---
 
+## SortDropdown Component
+
+Dropdown component for selecting sort options with keyboard navigation and accessibility support. Commonly used in table headers and list views.
+
+**Location:** `Pages/Shared/_SortDropdown.cshtml`
+
+### Properties
+
+#### SortDropdownViewModel
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Id` | `string` | `"sortDropdown"` | Unique identifier for element IDs (supports multiple dropdowns) |
+| `SortOptions` | `List<SortOption>` | `new()` | Collection of sort options to display |
+| `CurrentSort` | `string` | `""` | Value of the currently selected sort option |
+| `ParameterName` | `string` | `"sort"` | Query parameter name for URL construction |
+
+#### SortOption
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Value` | `string` | `""` | Query parameter value when selected |
+| `Label` | `string` | `""` | Display text shown to user |
+
+### Basic Usage
+
+**Standard Sort Dropdown:**
+
+```csharp
+var sortDropdown = new SortDropdownViewModel
+{
+    Id = "userSort",
+    SortOptions = new List<SortOption>
+    {
+        new() { Value = "name-asc", Label = "Name (A-Z)" },
+        new() { Value = "name-desc", Label = "Name (Z-A)" },
+        new() { Value = "newest", Label = "Newest First" },
+        new() { Value = "oldest", Label = "Oldest First" }
+    },
+    CurrentSort = Model.CurrentSort,
+    ParameterName = "sort"
+};
+```
+
+```cshtml
+<partial name="Shared/_SortDropdown" model="sortDropdown" />
+```
+
+**Inline with Table Header:**
+
+```cshtml
+<div class="flex items-center gap-4">
+    <h2 class="text-lg font-semibold text-text-primary">Sounds</h2>
+    <partial name="Shared/_SortDropdown" model='new SortDropdownViewModel {
+        Id = "soundSort",
+        SortOptions = new List<SortOption>
+        {
+            new SortOption { Value = "name-asc", Label = "Name (A-Z)" },
+            new SortOption { Value = "name-desc", Label = "Name (Z-A)" },
+            new SortOption { Value = "newest", Label = "Newest First" },
+            new SortOption { Value = "oldest", Label = "Oldest First" }
+        },
+        CurrentSort = Model.ViewModel.CurrentSort,
+        ParameterName = "sort"
+    }' />
+</div>
+```
+
+### Common Patterns
+
+**Multiple Dropdowns on Same Page:**
+
+Use unique `Id` values to prevent element ID conflicts:
+
+```cshtml
+<!-- Primary sort -->
+<partial name="Shared/_SortDropdown" model='new SortDropdownViewModel {
+    Id = "primarySort",
+    SortOptions = primaryOptions,
+    CurrentSort = Model.PrimarySort,
+    ParameterName = "sort"
+}' />
+
+<!-- Secondary sort -->
+<partial name="Shared/_SortDropdown" model='new SortDropdownViewModel {
+    Id = "categorySort",
+    SortOptions = categoryOptions,
+    CurrentSort = Model.CategorySort,
+    ParameterName = "category"
+}' />
+```
+
+**With Custom Parameter Names:**
+
+```csharp
+var sortDropdown = new SortDropdownViewModel
+{
+    Id = "memberSort",
+    SortOptions = new List<SortOption>
+    {
+        new() { Value = "joined", Label = "Join Date" },
+        new() { Value = "activity", Label = "Last Active" },
+        new() { Value = "messages", Label = "Message Count" }
+    },
+    CurrentSort = Model.SortBy,
+    ParameterName = "sortBy"  // Results in ?sortBy=joined
+};
+```
+
+### Keyboard Navigation
+
+The component supports full keyboard navigation:
+
+| Key | Action |
+|-----|--------|
+| `Enter` / `Space` | Toggle dropdown open/closed |
+| `↓` / `↑` | Navigate between options |
+| `Home` / `End` | Jump to first/last option |
+| `Enter` | Select focused option |
+| `Escape` | Close dropdown |
+
+### Accessibility Notes
+
+- Uses `role="listbox"` and `role="option"` ARIA patterns
+- `aria-selected` indicates current selection
+- `aria-expanded` reflects dropdown state
+- `aria-haspopup="listbox"` on trigger button
+- Visible checkmark indicator for selected option
+- Focus management maintains keyboard accessibility
+
+### Styling
+
+The dropdown uses design system tokens:
+- `bg-bg-tertiary` for background
+- `border-border-primary` for borders
+- `text-text-primary` for text
+- `bg-bg-hover` for hover states
+- `accent-green` for selection checkmark
+
+---
+
+## FilterPanel JavaScript Utility
+
+JavaScript utility functions for collapsible filter panels with date presets. Unlike Razor components, FilterPanel uses conventional element IDs and inline JavaScript.
+
+**Location:** `wwwroot/js/shared/filter-panel.js`
+
+### Required HTML Structure
+
+The filter panel expects specific element IDs:
+
+```html
+<!-- Filter Panel Container -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+    <!-- Toggle Button -->
+    <button type="button"
+            id="filterToggle"
+            class="w-full flex items-center justify-between px-5 py-4 text-left"
+            aria-expanded="true"
+            aria-controls="filterContent"
+            onclick="toggleFilterPanel()">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span class="text-lg font-semibold text-text-primary">Filters</span>
+        </div>
+        <svg id="filterChevron"
+             class="w-5 h-5 text-text-secondary transition-transform duration-200"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+
+    <!-- Collapsible Content -->
+    <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
+        <div class="border-t border-border-primary p-5">
+            <form method="get" id="filterForm">
+                <!-- Filter fields go here -->
+            </form>
+        </div>
+    </div>
+</div>
+```
+
+### JavaScript Functions
+
+#### toggleFilterPanel()
+
+Toggles the filter panel visibility with smooth animation.
+
+```javascript
+// Automatically bound via onclick
+onclick="toggleFilterPanel()"
+```
+
+**Required Elements:**
+- `#filterToggle` - The toggle button
+- `#filterContent` - The collapsible content container
+- `#filterChevron` - The chevron icon for rotation
+
+#### setDatePreset(preset)
+
+Sets date range inputs to common presets and auto-submits the form.
+
+```javascript
+// Available presets
+onclick="setDatePreset('today')"   // Today only
+onclick="setDatePreset('7days')"   // Last 7 days
+onclick="setDatePreset('30days')"  // Last 30 days
+```
+
+**Required Elements:**
+- `#StartDate` - Start date input field
+- `#EndDate` - End date input field
+- `#filterForm` - Form to auto-submit
+
+### Complete Example
+
+```cshtml
+@section Scripts {
+    <script src="~/js/shared/filter-panel.js"></script>
+}
+
+<!-- Filter Panel -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+    <button type="button" id="filterToggle"
+            class="w-full flex items-center justify-between px-5 py-4 text-left"
+            aria-expanded="true" aria-controls="filterContent"
+            onclick="toggleFilterPanel()">
+        <div class="flex items-center gap-3">
+            <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            <span class="text-lg font-semibold text-text-primary">Filters</span>
+            @if (Model.HasActiveFilters)
+            {
+                <partial name="Shared/Components/_Badge" model="@(new BadgeViewModel {
+                    Text = "Active",
+                    Variant = BadgeVariant.Orange,
+                    Size = BadgeSize.Small
+                })" />
+            }
+        </div>
+        <svg id="filterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+
+    <div id="filterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
+        <div class="border-t border-border-primary p-5">
+            <form method="get" id="filterForm">
+                <!-- Quick Date Presets -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="setDatePreset('today')"
+                                class="px-3 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-lg
+                                       text-text-primary hover:bg-bg-hover transition-colors">
+                            Today
+                        </button>
+                        <button type="button" onclick="setDatePreset('7days')"
+                                class="px-3 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-lg
+                                       text-text-primary hover:bg-bg-hover transition-colors">
+                            Last 7 Days
+                        </button>
+                        <button type="button" onclick="setDatePreset('30days')"
+                                class="px-3 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-lg
+                                       text-text-primary hover:bg-bg-hover transition-colors">
+                            Last 30 Days
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Date Range Inputs -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <partial name="Shared/Components/_FormInput" model='new FormInputViewModel {
+                        Id = "StartDate",
+                        Name = "StartDate",
+                        Label = "Start Date",
+                        Type = "date",
+                        Value = Model.StartDate?.ToString("yyyy-MM-dd")
+                    }' />
+                    <partial name="Shared/Components/_FormInput" model='new FormInputViewModel {
+                        Id = "EndDate",
+                        Name = "EndDate",
+                        Label = "End Date",
+                        Type = "date",
+                        Value = Model.EndDate?.ToString("yyyy-MM-dd")
+                    }' />
+                </div>
+
+                <!-- Apply Button -->
+                <div class="flex justify-end">
+                    <partial name="Shared/Components/_Button" model='new ButtonViewModel {
+                        Text = "Apply Filters",
+                        Variant = ButtonVariant.Primary,
+                        Type = "submit"
+                    }' />
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+```
+
+### Best Practices
+
+1. **Include the Script**: Add the script reference in your page's Scripts section
+2. **Use Exact IDs**: Element IDs must match exactly (`filterToggle`, `filterContent`, `filterChevron`, etc.)
+3. **Show Active State**: Display a Badge when filters are active to indicate non-default state
+4. **Auto-Submit on Presets**: Date presets automatically submit the form for immediate feedback
+5. **Combine with Other Components**: Use FormInput, FormSelect, and Button components within the filter panel
+
+### Pages Using FilterPanel
+
+- Analytics pages (`Analytics/Index.cshtml`, `Analytics/Engagement.cshtml`, `Analytics/Moderation.cshtml`)
+- RatWatch Analytics (`RatWatch/Analytics.cshtml`, `RatWatch/Incidents.cshtml`)
+- Member Directory (`Members/Index.cshtml`)
+- Notifications (`Admin/Notifications/Index.cshtml`)
+
+---
+
 ## Integration Examples
 
 ### Form with Validation
@@ -2202,6 +2530,12 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.2 (2026-01-26)
+- Added SortDropdown component documentation with ViewModel properties
+- Added FilterPanel JavaScript utility documentation
+- Documented keyboard navigation and accessibility for SortDropdown
+- Included complete examples for filter panel with date presets
 
 ### Version 1.1 (2026-01-26)
 - Added NavTabs component documentation

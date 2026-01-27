@@ -64,6 +64,7 @@ Build and serve locally: `.\build-docs.ps1 -Serve`
 
 | Doc | Purpose |
 |-----|---------|
+| [component-api.md](docs/articles/component-api.md) | Razor UI component library (Button, Badge, Card, FormInput, etc.) |
 | [design-system.md](docs/articles/design-system.md) | UI tokens, color palette, component specs |
 | [interactive-components.md](docs/articles/interactive-components.md) | Discord button/component patterns with `ComponentIdBuilder` |
 | [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup and troubleshooting |
