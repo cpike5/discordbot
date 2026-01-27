@@ -99,6 +99,9 @@ public static class VoiceServiceExtensions
         services.AddScoped<ITtsSettingsService, TtsSettingsService>();
         services.AddScoped<ITtsHistoryService, TtsHistoryService>();
 
+        // SSML builder (transient for thread-safety)
+        services.AddTransient<ISsmlBuilder, SsmlBuilder>();
+
         // Azure Speech TTS service (singleton for connection pooling)
         services.AddSingleton<ITtsService, AzureTtsService>();
 
