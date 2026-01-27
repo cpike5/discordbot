@@ -1,12 +1,14 @@
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 // ReSharper disable MemberCanBePrivate.Global
 
@@ -25,6 +27,12 @@ public class DetailsModel : PageModel
     private readonly IScheduledMessageService _scheduledMessageService;
     private readonly IRatWatchService _ratWatchService;
     private readonly IReminderRepository _reminderRepository;
+    private readonly IGuildMemberService _guildMemberService;
+    private readonly IGuildAudioSettingsService _guildAudioSettingsService;
+    private readonly ISoundRepository _soundRepository;
+    private readonly ITtsMessageRepository _ttsMessageRepository;
+    private readonly IAssistantGuildSettingsService _assistantGuildSettingsService;
+    private readonly AssistantOptions _assistantOptions;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
@@ -36,6 +44,12 @@ public class DetailsModel : PageModel
         IScheduledMessageService scheduledMessageService,
         IRatWatchService ratWatchService,
         IReminderRepository reminderRepository,
+        IGuildMemberService guildMemberService,
+        IGuildAudioSettingsService guildAudioSettingsService,
+        ISoundRepository soundRepository,
+        ITtsMessageRepository ttsMessageRepository,
+        IAssistantGuildSettingsService assistantGuildSettingsService,
+        IOptions<AssistantOptions> assistantOptions,
         ILogger<DetailsModel> logger)
     {
         _guildService = guildService;
@@ -44,6 +58,12 @@ public class DetailsModel : PageModel
         _scheduledMessageService = scheduledMessageService;
         _ratWatchService = ratWatchService;
         _reminderRepository = reminderRepository;
+        _guildMemberService = guildMemberService;
+        _guildAudioSettingsService = guildAudioSettingsService;
+        _soundRepository = soundRepository;
+        _ttsMessageRepository = ttsMessageRepository;
+        _assistantGuildSettingsService = assistantGuildSettingsService;
+        _assistantOptions = assistantOptions.Value;
         _logger = logger;
     }
 
@@ -136,14 +156,9 @@ public class DetailsModel : PageModel
     public int RatWatchCompleted { get; set; }
 
     /// <summary>
-    /// Gets the top "rat" username for this guild (most guilty verdicts).
+    /// Gets the top leaderboard entries for this guild (up to 5).
     /// </summary>
-    public string? TopRatUsername { get; set; }
-
-    /// <summary>
-    /// Gets the guilty count for the top rat.
-    /// </summary>
-    public int TopRatGuiltyCount { get; set; }
+    public List<RatLeaderboardEntryDto> TopRatLeaderboard { get; set; } = new();
 
     /// <summary>
     /// Gets the total number of reminders for this guild.
@@ -164,6 +179,76 @@ public class DetailsModel : PageModel
     /// Gets the count of failed reminders.
     /// </summary>
     public int RemindersFailed { get; set; }
+
+    /// <summary>
+    /// Gets the upcoming reminders for this guild (up to 5).
+    /// </summary>
+    public List<UpcomingReminderDto> UpcomingReminders { get; set; } = new();
+
+    /// <summary>
+    /// Gets the total count of guild members.
+    /// </summary>
+    public int MembersTotalCount { get; set; }
+
+    /// <summary>
+    /// Gets the count of members active today.
+    /// </summary>
+    public int MembersActiveToday { get; set; }
+
+    /// <summary>
+    /// Gets the newest 5 members who joined the guild.
+    /// </summary>
+    public List<GuildMemberDto> NewestMembers { get; set; } = new();
+
+    /// <summary>
+    /// Gets whether audio is enabled for this guild.
+    /// </summary>
+    public bool AudioEnabled { get; set; }
+
+    /// <summary>
+    /// Gets the total count of sounds for this guild.
+    /// </summary>
+    public int TotalSoundCount { get; set; }
+
+    /// <summary>
+    /// Gets the top sounds by play count this week.
+    /// </summary>
+    public List<(string Name, int PlayCount)> TopSounds { get; set; } = new();
+
+    /// <summary>
+    /// Gets the most used TTS voice this week.
+    /// </summary>
+    public string? MostUsedTtsVoice { get; set; }
+
+    /// <summary>
+    /// Gets whether the assistant is globally enabled.
+    /// </summary>
+    public bool AssistantGloballyEnabled { get; set; }
+
+    /// <summary>
+    /// Gets whether the assistant is enabled for this guild.
+    /// </summary>
+    public bool AssistantLocallyEnabled { get; set; }
+
+    /// <summary>
+    /// Gets the count of allowed channels (0 means all channels).
+    /// </summary>
+    public int AssistantChannelCount { get; set; }
+
+    /// <summary>
+    /// Gets the rate limit for this guild.
+    /// </summary>
+    public int AssistantRateLimit { get; set; }
+
+    /// <summary>
+    /// Gets whether the rate limit is a guild override (true) or global default (false).
+    /// </summary>
+    public bool AssistantIsRateLimitOverride { get; set; }
+
+    /// <summary>
+    /// Gets the rate limit window in minutes.
+    /// </summary>
+    public int AssistantRateLimitWindowMinutes { get; set; }
 
     public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
@@ -221,14 +306,9 @@ public class DetailsModel : PageModel
         RatWatchPending = ratWatchList.Count(w => w.Status == RatWatchStatus.Pending || w.Status == RatWatchStatus.Voting);
         RatWatchCompleted = ratWatchList.Count(w => w.Status == RatWatchStatus.Guilty || w.Status == RatWatchStatus.NotGuilty);
 
-        // Get leaderboard for top rat
-        var leaderboard = await _ratWatchService.GetLeaderboardAsync(guildId, 1, cancellationToken);
-        var topRat = leaderboard.FirstOrDefault();
-        if (topRat != null)
-        {
-            TopRatUsername = topRat.Username;
-            TopRatGuiltyCount = topRat.GuiltyCount;
-        }
+        // Get leaderboard for top rats
+        var leaderboard = await _ratWatchService.GetLeaderboardAsync(guildId, 5, cancellationToken);
+        TopRatLeaderboard = leaderboard.ToList();
 
         // Fetch reminder stats
         var (remindersTotal, remindersPending, remindersDeliveredToday, remindersFailed) =
@@ -238,8 +318,58 @@ public class DetailsModel : PageModel
         RemindersDeliveredToday = remindersDeliveredToday;
         RemindersFailed = remindersFailed;
 
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}",
-            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal);
+        // Fetch upcoming reminders
+        UpcomingReminders = (await _reminderRepository.GetUpcomingAsync(guildId, 5, cancellationToken)).ToList();
+
+        // Fetch member stats
+        var memberCountQuery = new GuildMemberQueryDto { IsActive = true };
+        MembersTotalCount = await _guildMemberService.GetMemberCountAsync(guildId, memberCountQuery, cancellationToken);
+
+        // Fetch members active today
+        var activeTodayQuery = new GuildMemberQueryDto
+        {
+            IsActive = true,
+            LastActiveAtStart = DateTime.UtcNow.Date
+        };
+        MembersActiveToday = await _guildMemberService.GetMemberCountAsync(guildId, activeTodayQuery, cancellationToken);
+
+        // Fetch newest 5 members
+        var newestMembersQuery = new GuildMemberQueryDto
+        {
+            IsActive = true,
+            SortBy = "JoinedAt",
+            SortDescending = true,
+            Page = 1,
+            PageSize = 5
+        };
+        var newestMembersResponse = await _guildMemberService.GetMembersAsync(guildId, newestMembersQuery, cancellationToken);
+        NewestMembers = newestMembersResponse.Items.ToList();
+
+        // Fetch audio widget data
+        var audioSettings = await _guildAudioSettingsService.GetSettingsAsync(guildId, cancellationToken);
+        AudioEnabled = audioSettings?.AudioEnabled ?? false;
+
+        // Fetch total sound count
+        TotalSoundCount = await _soundRepository.GetSoundCountAsync(guildId, cancellationToken);
+
+        // Fetch top sounds this week
+        var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
+        TopSounds = (await _soundRepository.GetTopSoundsByPlayCountAsync(guildId, 3, oneWeekAgo, cancellationToken)).ToList();
+
+        // Fetch most used TTS voice this week
+        MostUsedTtsVoice = await _ttsMessageRepository.GetMostUsedVoiceAsync(guildId, oneWeekAgo, cancellationToken);
+
+        // Fetch assistant widget data
+        AssistantGloballyEnabled = _assistantOptions.GloballyEnabled;
+        var assistantSettings = await _assistantGuildSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
+        AssistantLocallyEnabled = assistantSettings.IsEnabled;
+        AssistantChannelCount = assistantSettings.GetAllowedChannelIdsList().Count;
+        AssistantIsRateLimitOverride = assistantSettings.RateLimitOverride.HasValue;
+        AssistantRateLimit = assistantSettings.RateLimitOverride ?? _assistantOptions.DefaultRateLimit;
+        AssistantRateLimitWindowMinutes = _assistantOptions.RateLimitWindowMinutes;
+
+        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}, Members={MemberCount}, AudioEnabled={AudioEnabled}, Sounds={SoundCount}, AssistantEnabled={AssistantEnabled}",
+            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal, MembersTotalCount, AudioEnabled, TotalSoundCount, AssistantLocallyEnabled);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);
