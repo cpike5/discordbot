@@ -1,12 +1,14 @@
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 // ReSharper disable MemberCanBePrivate.Global
 
@@ -29,6 +31,8 @@ public class DetailsModel : PageModel
     private readonly IGuildAudioSettingsService _guildAudioSettingsService;
     private readonly ISoundRepository _soundRepository;
     private readonly ITtsMessageRepository _ttsMessageRepository;
+    private readonly IAssistantGuildSettingsService _assistantGuildSettingsService;
+    private readonly AssistantOptions _assistantOptions;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
@@ -44,6 +48,8 @@ public class DetailsModel : PageModel
         IGuildAudioSettingsService guildAudioSettingsService,
         ISoundRepository soundRepository,
         ITtsMessageRepository ttsMessageRepository,
+        IAssistantGuildSettingsService assistantGuildSettingsService,
+        IOptions<AssistantOptions> assistantOptions,
         ILogger<DetailsModel> logger)
     {
         _guildService = guildService;
@@ -56,6 +62,8 @@ public class DetailsModel : PageModel
         _guildAudioSettingsService = guildAudioSettingsService;
         _soundRepository = soundRepository;
         _ttsMessageRepository = ttsMessageRepository;
+        _assistantGuildSettingsService = assistantGuildSettingsService;
+        _assistantOptions = assistantOptions.Value;
         _logger = logger;
     }
 
@@ -212,6 +220,36 @@ public class DetailsModel : PageModel
     /// </summary>
     public string? MostUsedTtsVoice { get; set; }
 
+    /// <summary>
+    /// Gets whether the assistant is globally enabled.
+    /// </summary>
+    public bool AssistantGloballyEnabled { get; set; }
+
+    /// <summary>
+    /// Gets whether the assistant is enabled for this guild.
+    /// </summary>
+    public bool AssistantLocallyEnabled { get; set; }
+
+    /// <summary>
+    /// Gets the count of allowed channels (0 means all channels).
+    /// </summary>
+    public int AssistantChannelCount { get; set; }
+
+    /// <summary>
+    /// Gets the rate limit for this guild.
+    /// </summary>
+    public int AssistantRateLimit { get; set; }
+
+    /// <summary>
+    /// Gets whether the rate limit is a guild override (true) or global default (false).
+    /// </summary>
+    public bool AssistantIsRateLimitOverride { get; set; }
+
+    /// <summary>
+    /// Gets the rate limit window in minutes.
+    /// </summary>
+    public int AssistantRateLimitWindowMinutes { get; set; }
+
     public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", guildId);
@@ -321,8 +359,17 @@ public class DetailsModel : PageModel
         // Fetch most used TTS voice this week
         MostUsedTtsVoice = await _ttsMessageRepository.GetMostUsedVoiceAsync(guildId, oneWeekAgo, cancellationToken);
 
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}, Members={MemberCount}, AudioEnabled={AudioEnabled}, Sounds={SoundCount}",
-            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal, MembersTotalCount, AudioEnabled, TotalSoundCount);
+        // Fetch assistant widget data
+        AssistantGloballyEnabled = _assistantOptions.GloballyEnabled;
+        var assistantSettings = await _assistantGuildSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
+        AssistantLocallyEnabled = assistantSettings.IsEnabled;
+        AssistantChannelCount = assistantSettings.GetAllowedChannelIdsList().Count;
+        AssistantIsRateLimitOverride = assistantSettings.RateLimitOverride.HasValue;
+        AssistantRateLimit = assistantSettings.RateLimitOverride ?? _assistantOptions.DefaultRateLimit;
+        AssistantRateLimitWindowMinutes = _assistantOptions.RateLimitWindowMinutes;
+
+        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}, Members={MemberCount}, AudioEnabled={AudioEnabled}, Sounds={SoundCount}, AssistantEnabled={AssistantEnabled}",
+            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal, MembersTotalCount, AudioEnabled, TotalSoundCount, AssistantLocallyEnabled);
 
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);
