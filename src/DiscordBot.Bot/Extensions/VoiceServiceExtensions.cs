@@ -94,6 +94,8 @@ public static class VoiceServiceExtensions
         // Bind options
         services.Configure<AzureSpeechOptions>(
             configuration.GetSection(AzureSpeechOptions.SectionName));
+        services.Configure<AzureSpeechSsmlOptions>(
+            configuration.GetSection(AzureSpeechSsmlOptions.SectionName));
 
         // TTS data services (scoped for per-request)
         services.AddScoped<ITtsSettingsService, TtsSettingsService>();
