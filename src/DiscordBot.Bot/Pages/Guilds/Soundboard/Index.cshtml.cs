@@ -230,6 +230,67 @@ public class IndexModel : PageModel
     }
 
     /// <summary>
+    /// Handles AJAX requests for sorted sound list partial.
+    /// </summary>
+    /// <param name="guildId">The guild ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Partial view with sorted sounds list.</returns>
+    public async Task<IActionResult> OnGetPartialAsync(
+        ulong guildId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("AJAX request for Soundboard partial view, guild {GuildId}, sort {Sort}", guildId, Sort);
+
+        try
+        {
+            // Get guild info
+            var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+            if (guild == null)
+            {
+                return new ContentResult
+                {
+                    Content = "<div class=\"p-8 text-center text-text-secondary\">Guild not found</div>",
+                    ContentType = "text/html"
+                };
+            }
+
+            // Get all sounds for this guild
+            var sounds = await _soundService.GetAllByGuildAsync(guildId, cancellationToken);
+
+            // Apply sorting
+            var sortedSounds = ApplySorting(sounds);
+
+            // Build view model with minimal data needed for the partial
+            ViewModel = new SoundboardIndexViewModel
+            {
+                GuildId = guildId,
+                GuildName = guild.Name,
+                Sounds = sortedSounds.Select(s => new SoundViewModel
+                {
+                    Id = s.Id,
+                    Name = s.Name,
+                    FileName = s.FileName,
+                    DurationSeconds = s.DurationSeconds,
+                    FileSizeBytes = s.FileSizeBytes,
+                    PlayCount = s.PlayCount
+                }).ToList(),
+                CurrentSort = Sort
+            };
+
+            return Partial("_SoundsList", this);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load Soundboard partial for guild {GuildId}", guildId);
+            return new ContentResult
+            {
+                Content = "<div class=\"p-8 text-center text-text-secondary\">Failed to load sounds</div>",
+                ContentType = "text/html"
+            };
+        }
+    }
+
+    /// <summary>
     /// Handles POST requests to delete a sound.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>

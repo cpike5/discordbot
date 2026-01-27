@@ -32,21 +32,43 @@
             var roundedClass = isLast ? "rounded-b-lg" : "";
             var selectedClass = isSelected ? "bg-bg-hover font-medium" : "";
 
-            <a href="?@(Model.ParameterName)=@option.Value"
-               class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover @roundedClass @selectedClass"
-               role="option"
-               aria-selected="@isSelected.ToString().ToLower()"
-               data-sort-value="@option.Value">
-                <div class="flex items-center justify-between">
-                    <span>@option.Label</span>
-                    @if (isSelected)
-                    {
-                        <svg class="w-4 h-4 text-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                        </svg>
-                    }
-                </div>
-            </a>
+            @if (Model.UseAjax)
+            {
+                <button type="button"
+                        class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover @roundedClass @selectedClass"
+                        role="option"
+                        aria-selected="@isSelected.ToString().ToLower()"
+                        data-sort-value="@option.Value"
+                        data-ajax-sort>
+                    <div class="flex items-center justify-between">
+                        <span>@option.Label</span>
+                        @if (isSelected)
+                        {
+                            <svg class="w-4 h-4 text-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        }
+                    </div>
+                </button>
+            }
+            else
+            {
+                <a href="?@(Model.ParameterName)=@option.Value"
+                   class="block px-4 py-2 text-sm text-text-primary hover:bg-bg-hover @roundedClass @selectedClass"
+                   role="option"
+                   aria-selected="@isSelected.ToString().ToLower()"
+                   data-sort-value="@option.Value">
+                    <div class="flex items-center justify-between">
+                        <span>@option.Label</span>
+                        @if (isSelected)
+                        {
+                            <svg class="w-4 h-4 text-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        }
+                    </div>
+                </a>
+            }
         }
     </div>
 </div>
@@ -56,6 +78,12 @@
     const toggleId = '@toggleId';
     const dropdownId = '@dropdownId';
     const wrapperId = '@wrapperId';
+
+    // AJAX configuration
+    const useAjax = @(Model.UseAjax ? "true" : "false");
+    const targetSelector = '@(Model.TargetSelector ?? "")';
+    const partialUrl = '@(Model.PartialUrl ?? "")';
+    const paramName = '@Model.ParameterName';
 
     const toggle = document.getElementById(toggleId);
     const dropdown = document.getElementById(dropdownId);
@@ -104,6 +132,39 @@
             currentFocusIndex = -1;
         }
     });
+
+    // AJAX mode: Handle sort option clicks
+    if (useAjax) {
+        const ajaxButtons = dropdown.querySelectorAll('[data-ajax-sort]');
+
+        ajaxButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const sortValue = this.dataset.sortValue;
+
+                // Close dropdown
+                toggle.setAttribute('aria-expanded', 'false');
+                dropdown.classList.add('hidden');
+                currentFocusIndex = -1;
+
+                // Dispatch custom event for page to handle
+                const event = new CustomEvent('sortchange', {
+                    bubbles: true,
+                    detail: {
+                        dropdownId: wrapperId,
+                        sortValue: sortValue,
+                        paramName: paramName,
+                        targetSelector: targetSelector,
+                        partialUrl: partialUrl
+                    }
+                });
+
+                wrapper.dispatchEvent(event);
+            });
+        });
+    }
 
     // Keyboard navigation
     toggle.addEventListener('keydown', function(e) {
